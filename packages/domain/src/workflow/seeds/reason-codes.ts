@@ -31,13 +31,15 @@ const CODES: Record<string, [code: string, label: string][]> = {
     ['strategic_misfit', 'Strategic misfit'],
     ['other', 'Other'],
   ],
+  // Lost taxonomy from the B-03 brief (still provisional under D-15). "Other" needs a note.
   lost: [
     ['price', 'Price'],
     ['lead_time', 'Lead time'],
-    ['technical_capability', 'Technical capability'],
-    ['incumbent_supplier', 'Incumbent supplier retained'],
+    ['capability', 'Capability'],
+    ['capacity', 'Capacity'],
     ['customer_cancelled', 'Customer cancelled'],
-    ['other', 'Other'],
+    ['competitor_relationship', 'Competitor relationship'],
+    ['other', 'Other (note required)'],
   ],
   expired: [
     ['no_response', 'No customer response'],
@@ -61,7 +63,17 @@ const CODES: Record<string, [code: string, label: string][]> = {
   ],
 };
 
+/** Codes that need a note when chosen, as `context:code`. */
+const NOTE_REQUIRED = new Set(['lost:other']);
+
 export const SEED_REASON_CODES: ReasonCodeDefinition[] = Object.entries(CODES).flatMap(
   ([context, codes]) =>
-    codes.map(([code, label]) => ({ context, code, label, active: true, provisional: true })),
+    codes.map(([code, label]) => ({
+      context,
+      code,
+      label,
+      active: true,
+      requiresNote: NOTE_REQUIRED.has(`${context}:${code}`),
+      provisional: true,
+    })),
 );

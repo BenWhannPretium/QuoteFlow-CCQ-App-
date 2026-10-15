@@ -1,5 +1,6 @@
 import { dropAll, runMigrations } from '../migrate';
 import { redactUrl, requireDatabaseUrl } from './env';
+import { runSeed } from './seed';
 
 const url = requireDatabaseUrl();
 if (process.env.NODE_ENV === 'production') {
@@ -9,4 +10,5 @@ if (process.env.NODE_ENV === 'production') {
 await dropAll(url);
 await runMigrations(url);
 console.warn(`database reset and migrated: ${redactUrl(url)}`);
-console.warn('run `pnpm db:seed` to load seed data');
+await runSeed(url, { synthetic: !process.argv.includes('--no-synthetic') });
+console.warn('seeded config + synthetic data');

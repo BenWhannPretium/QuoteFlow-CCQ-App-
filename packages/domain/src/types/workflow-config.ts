@@ -126,6 +126,8 @@ export const reasonCodeSchema = z
     code: key,
     label: z.string().min(1),
     active: z.boolean().default(true),
+    /** Choosing this code requires a note (e.g. Lost / Other). */
+    requiresNote: z.boolean().default(false),
     provisional: z.boolean().default(true),
   })
   .strict();

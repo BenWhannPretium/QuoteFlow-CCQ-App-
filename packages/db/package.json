@@ -6,7 +6,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./migrate": "./src/migrate.ts"
+    "./migrate": "./src/migrate.ts",
+    "./repos": "./src/repos/index.ts",
+    "./seeds": "./seeds/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -16,18 +18,22 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/cli/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=../../.env src/cli/seed.ts",
-    "db:reset": "tsx --env-file-if-exists=../../.env src/cli/reset.ts"
+    "db:reset": "tsx --env-file-if-exists=../../.env src/cli/reset.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:dictionary": "tsx src/cli/dictionary.ts"
   },
   "dependencies": {
+    "@ccq/domain": "workspace:*",
     "drizzle-orm": "0.45.4",
     "postgres": "3.4.9"
   },
   "devDependencies": {
     "@ccq/config": "workspace:*",
+    "@faker-js/faker": "10.6.0",
     "@types/node": "22.20.5",
-    "typescript": "5.9.3",
-    "vitest": "4.1.12",
     "drizzle-kit": "0.31.11",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
   }
 }

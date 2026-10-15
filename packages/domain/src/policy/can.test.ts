@@ -140,6 +140,15 @@ describe('data scope', () => {
     expect(can(scoped(['acct-1']), 'quote.read', makeQuote('QUOTING'))).toBe(false);
   });
 
+  it('owner scope: an Engineer sees quotes assigned to them, a KAM does not via assignment', () => {
+    const resource = { kamUserId: KAM_ID, assignedEngineerId: OTHER_ID };
+    const engineer = makeActor('Engineer', { userId: OTHER_ID, scope: { type: 'owner' } });
+    expect(inScope(engineer, resource)).toBe(true);
+    expect(inScope(engineer, { kamUserId: KAM_ID, assignedEngineerId: null })).toBe(false);
+    const kam = makeActor('KAM', { userId: OTHER_ID, scope: { type: 'owner' } });
+    expect(inScope(kam, resource)).toBe(false);
+  });
+
   it('owner scope with no kamUserId on the resource denies', () => {
     expect(inScope(makeActor('KAM', { scope: { type: 'owner' } }), {})).toBe(false);
   });

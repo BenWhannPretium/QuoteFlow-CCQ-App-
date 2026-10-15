@@ -223,6 +223,11 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `attachment`: quote_id, kind (bottle_drawing | spec | sample_photo | other), file_name, size, mime, sp_drive_id, sp_item_id, sp_web_url, uploaded_by
 - `comment`: quote_id, author_id, body, mentions[]
 - `handoff_record`: quote_id, acceptance_evidence (verbal | po | loi | contract), receiving_role, accepted_by_name, cer_id, bpr_id, notes. Minimal, for Stage 6.
+- `quote_hold`: quote_id, stage_key, started_at, ended_at, reason_code. Hold intervals, so cycle time can exclude holds (CR-57).
+- `segregation_rule`: rule_key, gate_keys[], outcome_keys[], deny (actor_is_kam | actor_is_assigned_engineer), message. Config.
+- `quote_number_counter`: year, last_value. Used only by `next_quote_number()`.
+
+The full column list, with each column's meaning and owner, is generated into [`docs/data-dictionary.md`](../data-dictionary.md) (`pnpm db:dictionary`).
 
 **Events and audit**
 - `activity_event`: quote_id, type, actor_id, at, payload jsonb. Powers the user-facing timeline.

@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 import * as schema from './schema/index';
@@ -37,3 +38,9 @@ export function createDb(databaseUrl: string, options: DbClientOptions = {}) {
 }
 
 export type DbClient = ReturnType<typeof createDb>;
+
+export type Database = PostgresJsDatabase<typeof schema>;
+/** A transaction handle, as passed to `db.transaction(fn)`. */
+export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+/** Repositories accept either the pool or a transaction. */
+export type DbOrTx = Database | Tx;
