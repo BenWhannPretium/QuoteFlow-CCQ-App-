@@ -44,12 +44,19 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** a working skeleton with CI keeps quality up while building fast.
 - **People:** none (local). Docker Desktop and terminal access are needed (ticket 4).
 - **Done when:**
-  - [ ] `pnpm dev` runs web + api
-  - [ ] `docker compose up db` works
-  - [ ] `pnpm verify` is green
-  - [ ] GitHub Actions CI is green on a PR
-  - [ ] `/api/v1/health` returns version + DB status
+  - [x] `pnpm dev` runs web + api
+  - [x] `docker compose up db` works
+  - [x] `pnpm verify` is green
+  - [x] GitHub Actions CI is green on a PR ([#2](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/2))
+  - [x] `/api/v1/health` returns version + DB status
 - **Prompt:** `prompts/B-01-monorepo-scaffold.md`
+- **Done 2026-10-15. Notes and deviations:**
+  - Versions: TypeScript 5.9 (typescript-eslint doesn't support TS 7 yet), ESLint 9, Vite 7, Vitest 4, Tailwind v4, React 18.3, Fastify 5.12, zod 4, Playwright 1.56.
+  - The B-01 build sandbox couldn't pull Docker images (Docker Hub rate limit), so local checks ran on a native Postgres 16 with the same `ccq/ccq` credentials. CI uses the `postgres:16` service container. Run `docker compose up -d db` on a laptop to confirm the compose path.
+  - Workspace packages export TypeScript source (`exports: ./src/index.ts`). The API build (tsup) bundles them, and each package's `build` runs `tsc` only to prove it compiles.
+  - Health returns **503** with `status: degraded, db: down` when Postgres is unreachable, so App Service health checks fail over correctly.
+  - gitleaks runs as the CLI rather than `gitleaks-action`, so no license key is needed after the move to the Pretium GitHub org.
+  - Swagger UI is at `/docs` outside production only.
 
 ### B-02: Domain core: stage/gate engine, policy, quote numbers · **Fri Oct 16 – Mon Oct 19** · Ben
 - **Why:** this is where the business rules live. Building it pure and tested first makes every later route a thin wrapper.
