@@ -1,0 +1,38 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": ["tsconfig.json", "packages/config/**"],
+  "globalPassThroughEnv": ["CI"],
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": ["GIT_SHA"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "typecheck": {
+      "outputs": []
+    },
+    "test": {
+      "outputs": []
+    },
+    "test:integration": {
+      "cache": false,
+      "passThroughEnv": ["DATABASE_URL", "TEST_DATABASE_URL"]
+    },
+    "e2e": {
+      "dependsOn": ["build", "@ccq/api#build"],
+      "cache": false,
+      "passThroughEnv": ["DATABASE_URL", "PLAYWRIGHT_BROWSERS_PATH"]
+    },
+    "db:migrate": { "cache": false, "passThroughEnv": ["DATABASE_URL"] },
+    "db:seed": { "cache": false, "passThroughEnv": ["DATABASE_URL"] },
+    "db:reset": { "cache": false, "passThroughEnv": ["DATABASE_URL"] }
+  }
+}
