@@ -32,23 +32,27 @@ const buttonVariants = cva(
   },
 );
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  type,
-  ...props
-}: React.ComponentProps<'button'> & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
+type ButtonProps = React.ComponentProps<'button'> &
+  VariantProps<typeof buttonVariants> & { asChild?: boolean };
+
+/**
+ * forwardRef matters: Radix triggers (`<PopoverTrigger asChild><Button/>`) need the DOM node to
+ * position popovers and return focus. React 18 does not pass `ref` to plain function components.
+ */
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant, size, asChild = false, type, ...props },
+  ref,
+) {
   const Comp = asChild ? Slot.Root : 'button';
   return (
     <Comp
+      ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...(asChild ? {} : { type: type ?? 'button' })}
       {...props}
     />
   );
-}
+});
 
 export { Button, buttonVariants };

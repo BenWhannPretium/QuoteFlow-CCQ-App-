@@ -139,6 +139,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **Mobile snapshot:** a structural ARIA snapshot (`toMatchAriaSnapshot`) is asserted, and the full-page 390 × 844 PNG is attached to the Playwright report. A pixel `toHaveScreenshot` baseline was not used, because font rendering differs between dev machines and the CI runner and would make it flaky.
   - Playwright now runs three projects: `smoke` (production API, Entra), and `shell` / `mobile` (`vite preview` of the same build, proxied to an `AUTH_MODE=dev` API on :3101). CI seeds config before e2e.
   - Added `/admin/ui-kit` (Admin only): every shared component with synthetic data and live config labels. axe scans it in both themes.
+  - Found while testing in the browser and fixed: `Button` must `forwardRef` (React 18), or Radix `asChild` triggers can't position popovers (the Filters popover rendered off-screen). Dialogs opened from state now return focus to the element that opened them; Radix only does this for its own `Trigger`. Both have Playwright regression tests.
   - New deps: `radix-ui`, `@tanstack/react-table` 8.21.3 (v9 changed the API), `lucide-react`, `@axe-core/playwright`. Vendor code is split into cacheable chunks (msal, radix, tanstack, zod, vendor).
 
 ### B-20: Azure infrastructure as code and continuous delivery · **Wed Oct 21 (code) → Fri Oct 23 (first deploy)** · Ben + IT

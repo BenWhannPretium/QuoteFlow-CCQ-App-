@@ -70,3 +70,33 @@ test('table sorts from the header (numbers start highest first)', async ({ page 
   await expect(header).toHaveAttribute('aria-sort', 'ascending');
   await expect(table.getByRole('row').nth(1)).toContainText('CCQ-2026-01004');
 });
+
+test('filters popover opens beside its button and filters the table', async ({ page }) => {
+  await signInAs(page, 'admin');
+  await page.goto('/admin/ui-kit');
+  const table = page.getByRole('table', { name: 'Sample quotes' });
+  await table.scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  const critical = page.getByRole('checkbox', { name: 'Critical' });
+  await expect(critical).toBeInViewport();
+  await critical.check();
+  await expect(page.getByRole('button', { name: 'Filters, 1 active' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(table.getByRole('row')).toHaveCount(2); // header + the Critical row
+});
+
+test('dialogs return focus to the button that opened them', async ({ page }) => {
+  await signInAs(page, 'admin');
+  await page.goto('/admin/ui-kit');
+  const trigger = page.getByRole('button', { name: 'Confirm dialog' });
+  await trigger.click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+
+  const gate = page.getByRole('button', { name: 'Gate decision' });
+  await gate.click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(gate).toBeFocused();
+});
