@@ -1,6 +1,7 @@
 import { STATUS_CODES } from 'node:http';
 
 import { PROBLEM_CONTENT_TYPE, type ProblemDetails } from '@ccq/contracts';
+import { ForbiddenError } from '@ccq/domain';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
@@ -43,6 +44,17 @@ export const problemJsonPlugin = fp(
               path: v.instancePath || '/',
               message: v.message ?? 'invalid',
             })),
+          }),
+        );
+      }
+
+      if (error instanceof ForbiddenError) {
+        return sendProblem(
+          reply,
+          problem(403, request, {
+            detail: `You do not have permission to do this (${error.permission})`,
+            code: 'forbidden',
+            permission: error.permission,
           }),
         );
       }

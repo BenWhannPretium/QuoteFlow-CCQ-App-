@@ -15,7 +15,14 @@ const EnvSchema = z
 
     AUTH_MODE: z.enum(['entra', 'dev']),
     ENTRA_TENANT_ID: nonEmpty.optional(),
+    /** SPA app registration (public client, redirect flow). Sent to the browser by GET /auth/config. */
+    ENTRA_SPA_CLIENT_ID: nonEmpty.optional(),
+    /** API app registration client id. v2 access tokens carry it as `aud`, so it is also accepted. */
+    ENTRA_API_CLIENT_ID: nonEmpty.optional(),
+    /** App ID URI of the API registration, e.g. api://<api-client-id>. */
     ENTRA_API_AUDIENCE: nonEmpty.optional(),
+    /** Delegated scope the SPA requests and the API requires in `scp`. */
+    ENTRA_API_SCOPE: nonEmpty.default('access_as_user'),
 
     APP_BASE_URL: z.url(),
     GIT_SHA: nonEmpty.default('dev'),
@@ -35,7 +42,7 @@ const EnvSchema = z
       });
     }
     if (env.AUTH_MODE === 'entra') {
-      for (const key of ['ENTRA_TENANT_ID', 'ENTRA_API_AUDIENCE'] as const) {
+      for (const key of ['ENTRA_TENANT_ID', 'ENTRA_API_AUDIENCE', 'ENTRA_SPA_CLIENT_ID'] as const) {
         if (!env[key]) {
           ctx.addIssue({
             code: 'custom',

@@ -95,12 +95,25 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** everything after this assumes a known user, roles and scope.
 - **People:** **M2 (Mon Oct 19)**, Vincent Brown / IT identity. They provide the app registrations, app roles and groups. Until then, `AUTH_MODE=dev`.
 - **Done when:**
-  - [ ] MSAL sign-in works against Entra (test tenant config)
-  - [ ] the API validates JWTs, maps `roles` to permissions, and upserts `app_user` on first call
-  - [ ] the request context sets the Postgres `app.user_id` / `app.roles` per transaction
-  - [ ] the permission-matrix test harness exists
-  - [ ] dev mode can't start in production
+  - [ ] MSAL sign-in works against Entra (test tenant config). **Blocked on M2:** the MSAL code path is built and the signed-out page is covered by the Playwright smoke; flip `AUTH_MODE=entra` and fill the `ENTRA_*` values when IT delivers the app registrations.
+  - [x] the API validates JWTs, maps `roles` to permissions, and upserts `app_user` on first call
+  - [x] the request context sets the Postgres `app.user_id` / `app.roles` per transaction
+  - [x] the permission-matrix test harness exists
+  - [x] dev mode can't start in production
 - **Prompt:** `prompts/B-04-auth-rbac.md`
+- **Done 2026-10-15 (Entra sign-in pending M2). Notes and deviations:**
+  - Prompt acceptance: dev mode and the persona switcher work (checked in Chromium at 390 px against a seeded database). Expired, wrong-audience, wrong-issuer, wrong-key, missing-scope and no-role tokens are rejected, unit-tested with locally signed JWTs and a local JWKS (`apps/api/src/auth/entra.test.ts`). Boot fails when an `/api` route has no `permission` / `public` (`server.ts` calls `app.ready()` before `listen`). The permission matrix runs in CI as an integration test (`apps/api/test/permissions/`).
+  - **Ask IT at M2:** set `accessTokenAcceptedVersion: 2` on the API registration (the API only accepts the v2 issuer `https://login.microsoftonline.com/{tenant}/v2.0`); expose the `access_as_user` delegated scope and pre-authorise the SPA client; register the SPA redirect URIs as each app origin (`http://localhost:5173`, the test URL, prod URL) on the **SPA** platform; define the eight `CCQ.*` app roles on the API registration and assign the SG-CCQ groups to them.
+  - v2 tokens carry the API **client id** as `aud`, so `ENTRA_API_CLIENT_ID` is accepted as an audience alongside `ENTRA_API_AUDIENCE`. New config: `ENTRA_SPA_CLIENT_ID` (required for entra), `ENTRA_API_CLIENT_ID`, `ENTRA_API_SCOPE` (default `access_as_user`).
+  - New public route `GET /api/v1/auth/config` gives the SPA its MSAL settings at runtime (or the dev personas), so one web build works in every environment.
+  - The route-level check runs in the `onRequest` hook, not a `preHandler`: an unauthorised caller gets 403 before body parsing and validation, so a 400 never leaks the schema. It uses a new domain helper `holdsPermission` (any grant, qualified ones included), because `assertCan` without a resource denies qualified grants (a KAM's `outcome.record (own)`). Services still call `assertCan(actor, permission, resource)`.
+  - `/me` uses the pseudo-permission `authenticated` (any signed-in user with a CCQ role). The startup check covers `/api/*` routes; swagger UI and the SPA are plugin routes with no data.
+  - Route checks read the code matrix (`packages/domain/src/policy/matrix.ts`), not the `role_permission` table. Moving to the table is B-19 (admin config) work.
+  - `featureFlags` in `/me` are the boolean `app_setting` rows, camelCased (`g1Enabled`, `kamCanSeePeerScores`).
+  - Default scope: a user with no `user_scope` row gets `default_scope_type` (`all`; `owner` also allowed; anything else falls back to `all`). Dev personas get their persona scope written on first use.
+  - Sign-in audit: one `sign_in` row per user per 8 hours, checked against `audit_event` so it holds across App Service instances. Deactivated users (`app_user.active = false`) get 403.
+  - `packages/db`: new `withAppRole()` (provisioning runs as `ccq_app` before the user id is known), `hasAuditSince()`, and a `./personas` export. The synthetic seed now adopts a persona row that dev mode already provisioned (same oid, different id) instead of failing on the FK.
+  - The Playwright smoke now checks the signed-out experience (sign-in page, `/me` 401, dev header refused in production) instead of the health card, which now sits behind sign-in.
 
 ### B-05: App shell, Pretium design system, role landing (F-02 shell, F-14) · **Wed Oct 21** · Ben
 - **Why:** a consistent shell and components make every feature screen fast to build.

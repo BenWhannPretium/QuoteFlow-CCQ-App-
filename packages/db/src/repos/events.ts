@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { activityEvent, auditEvent, notification } from '../schema/index';
@@ -9,6 +9,27 @@ export type NewAuditEvent = typeof auditEvent.$inferInsert;
 export async function insertAuditEvent(db: DbOrTx, values: NewAuditEvent) {
   const [row] = await db.insert(auditEvent).values(values).returning();
   return row!;
+}
+
+/** Whether `actorId` has an `action` audit row at or after `since` (e.g. the sign-in window). */
+export async function hasAuditSince(
+  db: DbOrTx,
+  actorId: string,
+  action: NewAuditEvent['action'],
+  since: Date,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: auditEvent.id })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.actorId, actorId),
+        eq(auditEvent.action, action),
+        gte(auditEvent.at, since),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 export const listAuditForQuote = (db: DbOrTx, quoteId: string, limit = 200) =>

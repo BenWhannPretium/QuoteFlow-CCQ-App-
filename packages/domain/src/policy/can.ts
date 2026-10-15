@@ -3,8 +3,10 @@ import { PERMISSION_MATRIX } from './matrix';
 import type { Grant } from './matrix';
 import type { Actor } from '../types/actor';
 import type { UserId } from '../types/ids';
+import { PERMISSIONS } from '../types/permissions';
 import type { Permission } from '../types/permissions';
 import type { QuoteState } from '../types/quote';
+import type { Role } from '../types/roles';
 
 /** What a permission check needs to know about the thing being touched. A `QuoteState` fits. */
 export interface PolicyResource {
@@ -91,4 +93,23 @@ export function canSeeOverrideLog(actor: Actor): boolean {
 
 export function canSeeCommercialFields(actor: Actor): boolean {
   return hasPermission(actor, 'quote.read.commercialFields');
+}
+
+/**
+ * Route-level check: does any of the actor's roles hold the permission at all, qualified grants
+ * included? A KAM holds `outcome.record` (own quotes only), so the route lets them in and the
+ * service runs `assertCan` with the resource. Never use this as the final check on a resource.
+ */
+export function holdsPermission(actor: Pick<Actor, 'roles'>, permission: Permission): boolean {
+  const grants = PERMISSION_MATRIX[permission];
+  return actor.roles.some((role) => grants[role] !== undefined);
+}
+
+export function assertHoldsPermission(actor: Pick<Actor, 'roles'>, permission: Permission): void {
+  if (!holdsPermission(actor, permission)) throw new ForbiddenError(permission);
+}
+
+/** Every permission the roles hold in any form (what `GET /me` reports to the UI). */
+export function permissionsForRoles(roles: readonly Role[]): Permission[] {
+  return PERMISSIONS.filter((p) => holdsPermission({ roles }, p));
 }

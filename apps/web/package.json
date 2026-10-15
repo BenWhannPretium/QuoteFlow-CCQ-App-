@@ -14,6 +14,8 @@
     "e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
+    "@azure/msal-browser": "5.23.0",
+    "@azure/msal-react": "5.7.1",
     "@ccq/contracts": "workspace:*",
     "@tanstack/react-query": "5.104.3",
     "@tanstack/react-router": "1.170.44",

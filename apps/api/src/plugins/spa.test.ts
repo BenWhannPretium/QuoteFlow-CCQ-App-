@@ -19,6 +19,7 @@ describe('production SPA serving', () => {
         AUTH_MODE: 'entra',
         ENTRA_TENANT_ID: 'tenant',
         ENTRA_API_AUDIENCE: 'api://ccq',
+        ENTRA_SPA_CLIENT_ID: 'spa-client',
         WEB_DIST_DIR: dist,
       }),
       { db: fakeDb() },

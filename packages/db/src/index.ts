@@ -6,6 +6,7 @@ export * from './schema/enums';
 export {
   contextFromActor,
   contextSettings,
+  withAppRole,
   withRequestContext,
   DB_ROLES,
 } from './withRequestContext';
