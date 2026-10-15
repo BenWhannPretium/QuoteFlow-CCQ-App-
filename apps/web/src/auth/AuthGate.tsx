@@ -22,6 +22,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     queryKey: ['auth-config'],
     queryFn: api.authConfig,
     staleTime: Infinity,
+    meta: { silentErrors: true },
   });
   if (config.isPending) return <LoadingPage message="Loading…" />;
   if (config.isError) return <AuthErrorPage message={config.error.message} />;
@@ -41,6 +42,7 @@ function EntraAuth({ config, children }: { config: EntraConfig; children: ReactN
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
+    meta: { silentErrors: true },
   });
   if (msal.isPending) return <LoadingPage />;
   if (msal.isError) return <AuthErrorPage message={msal.error.message} />;
@@ -142,6 +144,8 @@ function MeLoader({ children }: { children: ReactNode }) {
     queryKey: meQueryKey,
     queryFn: api.me,
     staleTime: 5 * 60_000,
+    // The gate renders its own full-page error; no toast on top of it.
+    meta: { silentErrors: true },
     retry: (count, err) => !isApiError(err) && !(err instanceof RedirectingError) && count < 2,
   });
   if (me.isPending) return <LoadingPage />;

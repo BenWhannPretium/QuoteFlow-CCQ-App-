@@ -1,0 +1,148 @@
+/*
+ * Pretium design tokens for QuoteFlow (CCQ Workflow Blueprint + the Pretium design system).
+ *
+ * Layer 1 (--pf-*): raw brand values. Change colours here only.
+ * Layer 2 (--background, --primary, …): shadcn/ui semantic variables, mapped from layer 1.
+ * index.css maps layer 2 into the Tailwind theme (bg-primary, text-muted-foreground, …).
+ *
+ * Contrast (WCAG AA, 4.5:1 for text) was checked for every text/background pair below.
+ * Two blueprint values were darkened to pass (noted in docs/build-guide/03-build-steps.md, B-05):
+ *   - High tier chip text #B04A2C → #A64427 (4.45 → 4.95 on #F6E5E0)
+ *   - copper used as *text* on light surfaces → #A64427 (copper #C05131 is 4.37 on #F5F7F6)
+ *
+ * Fonts: "Value Serif Pro" (display) and "Basis Grotesque Pro" (body) are licensed. No font files
+ * are in the repo yet, so the stacks fall back to Georgia and Arial. When Pretium provides the
+ * files, put them in apps/web/public/fonts and add @font-face rules (font-display: swap) here.
+ */
+
+:root {
+  /* Brand */
+  --pf-green: #225651;
+  --pf-green-2: #416f6b;
+  --pf-copper: #c05131;
+  --pf-copper-hover: #a64427;
+  /* Copper as text: AA on every light surface. */
+  --pf-copper-text: #a64427;
+  /* Copper on the green header band (focus ring, accents). */
+  --pf-copper-on-green: #f2b8a2;
+
+  /* Surfaces */
+  --pf-bg: #f5f7f6;
+  --pf-surface: #ffffff;
+  --pf-surface-2: #f5f7f6;
+  --pf-surface-3: #dfe6e5;
+  --pf-line: #dfe6e5;
+  --pf-line-2: #c7d5d3;
+  /* Form-control borders need 3:1 against the surface (WCAG 1.4.11). */
+  --pf-control-line: #6f8f8b;
+
+  /* Text */
+  --pf-fg: #14211f;
+  --pf-fg-2: #2f4a47;
+  --pf-muted: #416f6b;
+
+  /* Header band */
+  --pf-header-bg: var(--pf-green);
+  --pf-header-fg: #ffffff;
+  --pf-header-muted: #c9dcd9;
+  --pf-header-control: rgb(255 255 255 / 0.12);
+
+  /* Status */
+  --pf-danger: #b3261e;
+  --pf-success: #1f6b45;
+  --pf-warning-bg: #f7d774;
+  --pf-warning-fg: #3b2a00;
+
+  /* Priority tier chips */
+  --pf-tier-critical-bg: var(--pf-copper);
+  --pf-tier-critical-fg: #ffffff;
+  --pf-tier-high-bg: #f6e5e0;
+  --pf-tier-high-fg: #a64427;
+  --pf-tier-standard-bg: #dfe6e5;
+  --pf-tier-standard-fg: #225651;
+  --pf-tier-low-bg: #eeedea;
+  --pf-tier-low-fg: #4f4932;
+
+  /* Shape and depth */
+  --pf-radius-card: 16px;
+  --pf-radius-pill: 999px;
+  --pf-shadow: 0 1px 2px rgba(20, 33, 31, 0.06), 0 6px 18px rgba(34, 86, 81, 0.07);
+
+  /* Type */
+  --pf-font-display: 'Value Serif Pro', Georgia, 'Times New Roman', serif;
+  --pf-font-body: 'Basis Grotesque Pro', Arial, 'Helvetica Neue', Helvetica, sans-serif;
+
+  /* shadcn/ui semantic variables */
+  --radius: 0.75rem;
+  --background: var(--pf-bg);
+  --foreground: var(--pf-fg);
+  --card: var(--pf-surface);
+  --card-foreground: var(--pf-fg);
+  --popover: var(--pf-surface);
+  --popover-foreground: var(--pf-fg);
+  --primary: var(--pf-green);
+  --primary-foreground: #ffffff;
+  --secondary: var(--pf-surface-3);
+  --secondary-foreground: var(--pf-green);
+  --muted: var(--pf-surface-2);
+  --muted-foreground: var(--pf-muted);
+  --accent: var(--pf-surface-3);
+  --accent-foreground: var(--pf-fg);
+  --destructive: var(--pf-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--pf-line);
+  --input: var(--pf-control-line);
+  --ring: var(--pf-copper);
+
+  /* QuoteFlow additions */
+  --action: var(--pf-copper);
+  --action-hover: var(--pf-copper-hover);
+  --action-foreground: #ffffff;
+  --emphasis: var(--pf-copper-text);
+  --foreground-2: var(--pf-fg-2);
+  --surface-3: var(--pf-surface-3);
+  --line-strong: var(--pf-line-2);
+
+  color-scheme: light;
+}
+
+/* Dark palette: applied for the "dark" class (system preference or the manual toggle). */
+:root.dark {
+  --pf-bg: #0d1a18;
+  --pf-surface: #132623;
+  --pf-surface-2: #18302c;
+  --pf-surface-3: #22403b;
+  --pf-line: #22403b;
+  --pf-line-2: #2e5550;
+  --pf-control-line: #6f8f8b;
+
+  --pf-fg: #e7efee;
+  --pf-fg-2: #c9d8d6;
+  --pf-muted: #9cb3b1;
+  --pf-copper-text: #ec8a66;
+
+  --pf-header-bg: #173e3a;
+  --pf-header-muted: #b9d3cf;
+
+  --pf-danger: #f2a093;
+  --pf-success: #8fd1ab;
+  --pf-warning-bg: #5a4500;
+  --pf-warning-fg: #ffe9a8;
+
+  --pf-tier-high-bg: #3a2219;
+  --pf-tier-high-fg: #ec8a66;
+  --pf-tier-standard-bg: #22403b;
+  --pf-tier-standard-fg: #b9d3cf;
+  --pf-tier-low-bg: #2e2b20;
+  --pf-tier-low-fg: #dcd5be;
+
+  --pf-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.25);
+
+  --primary: #7fb8b1;
+  --primary-foreground: #0d1a18;
+  --secondary-foreground: var(--pf-fg);
+  --destructive-foreground: #0d1a18;
+  --ring: var(--pf-copper-text);
+
+  color-scheme: dark;
+}

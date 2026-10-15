@@ -17,4 +17,5 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   { method: 'GET', route: '/api/v1/health', permission: 'public' },
   { method: 'GET', route: '/api/v1/auth/config', permission: 'public' },
   { method: 'GET', route: '/api/v1/me', permission: 'authenticated' },
+  { method: 'GET', route: '/api/v1/config/public', permission: 'quote.read' },
 ];

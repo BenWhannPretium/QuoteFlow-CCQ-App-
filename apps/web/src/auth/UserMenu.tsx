@@ -1,26 +1,94 @@
+import { LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { isThemePreference } from '@/theme/theme';
+import { useTheme } from '@/theme/ThemeProvider';
+
 import { useAuth } from './context';
-import { DevPersonaSwitcher } from './DevPersonaSwitcher';
 import { useCurrentUser } from './hooks';
 
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+
+/** Name, roles, theme and sign-out. Sits on the green header band. */
 export function UserMenu() {
   const me = useCurrentUser();
   const { session } = useAuth();
+  const { preference, setPreference } = useTheme();
   return (
-    <div className="flex flex-wrap items-center gap-3 text-sm">
-      {me.authMode === 'dev' && <DevPersonaSwitcher />}
-      <span data-testid="current-user">
-        {me.user.displayName}
-        <span className="text-muted-foreground ml-1 text-xs">({me.roles.join(', ')})</span>
-      </span>
-      {me.authMode === 'entra' && (
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground underline"
-          onClick={() => void session.signOut()}
+    // Non-modal: the page behind stays in the accessibility tree (no aria-hidden over focusables).
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        data-testid="user-menu"
+        className="hover:bg-header-control flex min-h-11 items-center gap-2 rounded-pill py-1 pr-1 pl-1 sm:pr-3"
+      >
+        <span
+          aria-hidden="true"
+          className="bg-action text-action-foreground flex size-9 items-center justify-center rounded-full text-sm font-semibold"
         >
-          Sign out
-        </button>
-      )}
-    </div>
+          {initials(me.user.displayName) || '?'}
+        </span>
+        <span className="hidden max-w-40 truncate text-sm md:inline" data-testid="current-user">
+          {me.user.displayName}
+        </span>
+        <span className="sr-only">Account menu for {me.user.displayName}</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-72">
+        <div className="grid gap-1 px-3 py-2">
+          <p className="truncate font-semibold">{me.user.displayName}</p>
+          <p className="text-muted-foreground truncate text-xs">{me.user.upn}</p>
+          {/* Spans, not a list: role="menu" may only own menu items, groups and separators. */}
+          <p className="mt-1 flex flex-wrap gap-1" data-testid="user-roles">
+            <span className="sr-only">Roles:</span>
+            {me.roles.map((role) => (
+              <span
+                key={role}
+                className="bg-secondary text-secondary-foreground rounded-pill px-2 py-0.5 text-xs font-medium"
+              >
+                {role}
+              </span>
+            ))}
+          </p>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={preference}
+          onValueChange={(v) => isThemePreference(v) && setPreference(v)}
+        >
+          <DropdownMenuRadioItem value="system">
+            <MonitorIcon aria-hidden="true" /> System
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">
+            <SunIcon aria-hidden="true" /> Light
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">
+            <MoonIcon aria-hidden="true" /> Dark
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        {me.authMode === 'entra' && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => void session.signOut()}>
+              <LogOutIcon aria-hidden="true" /> Sign out
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

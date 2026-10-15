@@ -1,5 +1,8 @@
+import { Link } from '@tanstack/react-router';
+import { CompassIcon, LockIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 /** Centered branded panel used by the sign-in, loading and error states. */
@@ -13,23 +16,27 @@ export function AuthPanel({
   children?: ReactNode;
 }) {
   return (
-    <div className="bg-muted/40 flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <p className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
-            Pretium Packaging
-          </p>
-          <CardTitle className="text-2xl">{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
-        </CardHeader>
-        {children && <CardContent className="grid gap-3">{children}</CardContent>}
-      </Card>
-    </div>
+    <main className="bg-background flex min-h-dvh flex-col">
+      <div className="bg-header h-2" aria-hidden="true" />
+      <div className="flex flex-1 items-center justify-center p-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <p className="text-emphasis text-xs font-semibold tracking-widest uppercase">
+              Pretium Packaging
+            </p>
+            <CardTitle>
+              <h1 className="font-display text-3xl font-normal">{title}</h1>
+            </CardTitle>
+            {description && <CardDescription>{description}</CardDescription>}
+          </CardHeader>
+          {children && <CardContent className="grid gap-3">{children}</CardContent>}
+        </Card>
+      </div>
+    </main>
   );
 }
 
-const buttonClass =
-  'bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium disabled:opacity-50';
+const buttonClass = buttonVariants({ variant: 'action' });
 
 export function SignInPage({ onSignIn, busy }: { onSignIn: () => void; busy?: boolean }) {
   return (
@@ -48,16 +55,54 @@ export function LoadingPage({ message = 'Signing you in…' }: { message?: strin
   return <AuthPanel title="QuoteFlow" description={message} />;
 }
 
-/** 403 from the API: the signed-in user lacks the role or permission. */
+function ShellMessage({
+  icon: Icon,
+  title,
+  children,
+  testId,
+}: {
+  icon: typeof LockIcon;
+  title: string;
+  children: ReactNode;
+  testId: string;
+}) {
+  return (
+    <div
+      data-testid={testId}
+      className="mx-auto grid max-w-md justify-items-center gap-3 py-12 text-center"
+    >
+      <span className="bg-secondary text-secondary-foreground flex size-14 items-center justify-center rounded-full">
+        <Icon className="size-7" aria-hidden="true" />
+      </span>
+      <h1 className="font-display text-2xl">{title}</h1>
+      {children}
+      <Link to="/" className={buttonVariants({ variant: 'outline' })}>
+        Back to home
+      </Link>
+    </div>
+  );
+}
+
+/** 403: the signed-in user lacks the role or permission (from the API or a route guard). */
 export function ForbiddenPage({ detail }: { detail?: string | undefined }) {
   return (
-    <div role="alert" className="mx-auto grid max-w-md gap-2 py-12 text-center">
-      <h1 className="text-xl font-semibold">You don’t have access to this</h1>
-      <p className="text-muted-foreground text-sm">
-        {detail ?? 'Your QuoteFlow role doesn’t allow this action.'} If you think you should, ask an
+    <ShellMessage icon={LockIcon} title="You don’t have access to this" testId="forbidden">
+      <p className="text-muted-foreground text-sm" role="alert">
+        {detail ?? 'Your QuoteFlow role doesn’t allow this page.'} If you think you should, ask an
         admin or IT to check your SG-CCQ group membership.
       </p>
-    </div>
+    </ShellMessage>
+  );
+}
+
+/** 404 for unknown client routes. */
+export function NotFoundPage() {
+  return (
+    <ShellMessage icon={CompassIcon} title="Page not found" testId="not-found">
+      <p className="text-muted-foreground text-sm">
+        That address doesn’t match a QuoteFlow page. Check the link, or start again from home.
+      </p>
+    </ShellMessage>
   );
 }
 

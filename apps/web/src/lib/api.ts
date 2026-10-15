@@ -1,4 +1,10 @@
-import { AuthConfigResponse, HealthResponse, MeResponse, ProblemDetails } from '@ccq/contracts';
+import {
+  AuthConfigResponse,
+  HealthResponse,
+  MeResponse,
+  ProblemDetails,
+  PublicConfigResponse,
+} from '@ccq/contracts';
 import type { z } from 'zod';
 
 import { getAuthSession } from '@/auth/session';
@@ -56,4 +62,5 @@ export const api = {
   health: () => getJson('/api/v1/health', HealthResponse, { okStatuses: [503], auth: false }),
   authConfig: () => getJson('/api/v1/auth/config', AuthConfigResponse, { auth: false }),
   me: () => getJson('/api/v1/me', MeResponse),
+  publicConfig: () => getJson('/api/v1/config/public', PublicConfigResponse),
 };

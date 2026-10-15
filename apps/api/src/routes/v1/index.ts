@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 
 import { authConfigRoutes } from './auth-config';
+import { configRoutes } from './config';
 import { healthRoutes } from './health';
 import { meRoutes } from './me';
 import type { AppDeps } from '../../app';
@@ -26,5 +27,6 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(healthRoutes, { deps, version });
   await app.register(authConfigRoutes, { config });
   await app.register(meRoutes, { config, identity });
+  await app.register(configRoutes, deps.now ? { now: deps.now } : {});
   // TODO(B-06+): quotes, intake, queue, gates, overrides, attachments, lookups, dashboards, admin.
 };

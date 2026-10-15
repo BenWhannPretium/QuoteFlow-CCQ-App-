@@ -22,10 +22,27 @@ export default defineConfig({
     strictPort: true,
     proxy: { '/api': { target: apiTarget, changeOrigin: true } },
   },
+  // `vite preview` serves the production build against a dev-mode API (Playwright shell tests).
+  preview: {
+    port: 4173,
+    strictPort: true,
+    proxy: { '/api': { target: apiTarget, changeOrigin: true } },
+  },
   build: {
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
+      output: {
+        // Vendor chunks change less often than app code, so browsers keep them cached across deploys.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('@azure/msal')) return 'msal';
+          if (/[\\/](radix-ui|@radix-ui|@floating-ui)[\\/]/.test(id)) return 'radix';
+          if (id.includes('@tanstack')) return 'tanstack';
+          if (/[\\/]zod[\\/]/.test(id)) return 'zod';
+          return 'vendor';
+        },
+      },
       onwarn(warning, warn) {
         // zod 4 ships /*#__PURE__*/ comments Rollup can't place; harmless noise.
         if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('/zod/')) return;
