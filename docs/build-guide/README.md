@@ -1,0 +1,32 @@
+# QuoteFlow (CCQ App): Build Guide
+
+**Commercial Capital Quoting web app · Embedded Intelligence build · MVP due Fri 2026-11-13**
+Builder: Ben Whann · Requirements and product owner (interim): Bailey Schmitt · Workflow coordination: Tre Curry · Sponsor: Darren Miller · Asana: REQ-8815
+
+## What we're building (one paragraph)
+QuoteFlow replaces the legacy ERF application for new-business quotes that need engineering and/or capital. It gives every quote one governed record, linked to its Salesforce opportunity. A KAM completes a short guided intake (Sales-knowable fields only). A sales leader qualifies it, and the upfront engineering lead works it from a prioritized, aged queue. Engineering records the solution and capacity evidence. Pricing records the price approval, an approver releases the proposition, and the KAM records the customer outcome with a reason. Everything is role-scoped, enforced on the server, and audited, and everything still under business decision is configuration rather than code.
+
+## Read in this order
+| File | What's in it |
+|---|---|
+| [`../../CLAUDE.md`](../../CLAUDE.md) | Standing context and non-negotiable rules for every Claude Code session |
+| [`01-architecture.md`](01-architecture.md) | Azure architecture, repo layout, roles and permission matrix, workflow engine, data model, integrations, security, environments |
+| [`02-schedule-and-meetings.md`](02-schedule-and-meetings.md) | **Who to involve and when**: people directory, dated meetings with agendas and decisions, day-by-day calendar, cut lines, IT tickets to file today |
+| [`03-build-steps.md`](03-build-steps.md) | 25 ordered build steps (B-00…B-24) with people, dates and acceptance checklists |
+| [`prompts/`](prompts/) | One detailed Claude Code starter prompt per build step |
+| [`04-decisions-and-risks.md`](04-decisions-and-risks.md) | Locked decisions, open decisions (owner, needed-by date, fallback), PRD v1.1 corrections, risks, sources |
+
+## The plan on one page
+
+| Week | Dates | Build | Key meetings (book now) |
+|---|---|---|---|
+| 0 | Oct 15–16 | B-00 repo + guide, B-01 scaffold, B-02 domain | **M1 hosting/Gate 2** (Darren, Oliver Kade, Brennan Paul) |
+| 1 | Oct 19–23 | B-02 domain, B-03 DB, B-04 auth, B-05 shell, B-06 Salesforce, B-07 intake, B-20 Azure | **M2** Entra/Azure (IT) · **M3** Salesforce (Rachel Dew, Zac, Graham) · **M4** intake validation (Jim Zweifel, Danielle Leu, sales leader, KAM) · **M5** pricing data (Cory McGahan, Gemma Cebolla, Brennan Paul) · ⚑ **Azure go/no-go Oct 21** · M6 data dictionary (D&A) · **R1** intake review |
+| 2 | Oct 26–30 | B-08 scoring + G1, B-09 overrides/audit, B-10 engineering queue, B-11 quoting, B-12 Final Review | M7 SharePoint/mail · ⚑ approver + taxonomy decisions Oct 28 · **R2** engineering review (Jim, Faron, Jeff Pitrak) · **M8** security → Gate 3 |
+| 3 | Nov 2–6 | B-13 outcomes, B-14 board, B-15 pricing reader, B-16 attachments, B-17 dashboards, B-18 notifications, B-19 admin, B-21 hardening, B-22 prod load | **M9** support model + prod data (Oliver) · **R3** quoting/final review (Gemma, approver) · ⚑ feature freeze Nov 6 |
+| 4 | Nov 9–13 | B-23 UAT + fixes, B-24 gate package | U0–U5 UAT sessions · **U6 sign-off Fri Nov 13** |
+
+## Three things that decide whether Nov 13 holds
+1. **Azure provisioned by Oct 21.** Oliver Kade / IT at M1–M2. Escalate through Darren the same day if not.
+2. **Production-data approval by Nov 2.** Oliver Kade and Brennan Paul. This includes resolving the 205 live SF records in the prototype.
+3. **Business decisions by Oct 28.** Intake fields (Jim), Final Review approver and outcome taxonomy (via Bailey's package to Sarah). If late, they ship as provisional config, so the build doesn't wait.
