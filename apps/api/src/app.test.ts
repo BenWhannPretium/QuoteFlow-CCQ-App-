@@ -37,7 +37,7 @@ describe('app', () => {
 
   it('500s are problem+json without leaking internals', async () => {
     app = await buildApp(testConfig(), { db: fakeDb() });
-    app.get('/boom', () => {
+    app.get('/boom', { config: { public: true } }, () => {
       throw new Error('secret internal detail');
     });
     const res = await app.inject({ method: 'GET', url: '/boom' });

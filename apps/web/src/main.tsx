@@ -3,6 +3,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { AuthGate } from './auth';
 import { routeTree } from './routeTree.gen';
 import './index.css';
 
@@ -23,9 +24,11 @@ if (!rootEl) throw new Error('#root element missing from index.html');
 
 createRoot(rootEl).render(
   <StrictMode>
-    {/* TODO(B-04): wrap in MsalProvider. */}
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      {/* Sign-in (MSAL redirect or dev persona) and GET /me before any route renders. */}
+      <AuthGate>
+        <RouterProvider router={router} />
+      </AuthGate>
     </QueryClientProvider>
   </StrictMode>,
 );

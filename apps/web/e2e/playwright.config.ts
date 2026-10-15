@@ -22,10 +22,12 @@ export default defineConfig({
       NODE_ENV: 'production',
       PORT: String(port),
       DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://ccq:ccq@localhost:5432/ccq',
-      // Entra values are placeholders: B-01 has no authenticated routes yet.
+      // Placeholder Entra values: the smoke covers the signed-out experience only. MSAL never
+      // contacts Entra until the user clicks "Sign in".
       AUTH_MODE: 'entra',
       ENTRA_TENANT_ID: '00000000-0000-0000-0000-000000000000',
       ENTRA_API_AUDIENCE: 'api://quoteflow-e2e',
+      ENTRA_SPA_CLIENT_ID: '00000000-0000-0000-0000-0000000000e2',
       APP_BASE_URL: baseURL,
       GIT_SHA: process.env.GIT_SHA ?? 'e2e',
       LOG_LEVEL: 'warn',

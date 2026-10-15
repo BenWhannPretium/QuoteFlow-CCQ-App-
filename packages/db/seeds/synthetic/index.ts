@@ -1,5 +1,5 @@
 import { parseWorkflowConfig } from '@ccq/domain';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import { buildCustomers, buildOpportunities } from './opportunities';
 import { buildPersonas } from './personas';
@@ -64,6 +64,28 @@ export async function seedSynthetic(
       })),
     )
     .onConflictDoNothing();
+  // A persona may already exist under another id: AUTH_MODE=dev provisions it by oid on first use.
+  // Adopt that row so roles, scope and quotes attach to it, and give it the seeded profile.
+  const personaRows = await db
+    .select({ id: appUser.id, entraOid: appUser.entraOid })
+    .from(appUser)
+    .where(
+      inArray(
+        appUser.entraOid,
+        personas.map((p) => p.entraOid),
+      ),
+    );
+  const idByOid = new Map(personaRows.map((u) => [u.entraOid, u.id]));
+  for (const p of personas) {
+    const id = idByOid.get(p.entraOid);
+    if (id && id !== p.id) {
+      p.id = id;
+      await db
+        .update(appUser)
+        .set({ upn: p.upn, displayName: p.displayName, email: p.email, region: p.region })
+        .where(eq(appUser.id, id));
+    }
+  }
   for (const p of personas) {
     await syncUserRoles(db, p.id, p.roles);
     await setUserScope(db, p.id, p.scope);

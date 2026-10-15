@@ -18,6 +18,12 @@ try {
 
 const db = createDb(config.DATABASE_URL);
 const app = await buildApp(config, { db });
+// Fail fast: config errors and undeclared route permissions stop the boot here.
+try {
+  await app.ready();
+} catch (err) {
+  fail(err instanceof Error ? err.message : String(err));
+}
 
 const shutdown = (signal: string) => {
   app.log.info({ signal }, 'shutting down');

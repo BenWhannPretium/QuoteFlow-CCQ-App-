@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { ForbiddenError } from '../errors';
 import { KAM_ID, OTHER_ID, makeActor, makeQuote } from '../test-utils';
-import { assertCan, can, canSeeCommercialFields, canSeeOverrideLog, inScope } from './can';
+import {
+  assertCan,
+  assertHoldsPermission,
+  can,
+  canSeeCommercialFields,
+  canSeeOverrideLog,
+  holdsPermission,
+  inScope,
+  permissionsForRoles,
+} from './can';
 import { PERMISSION_MATRIX, rolesWithPermission } from './matrix';
 import { PERMISSIONS } from '../types/permissions';
 import { ROLES } from '../types/roles';
@@ -187,5 +196,40 @@ describe('visibility helpers', () => {
   it('commercial fields', () => {
     expect(canSeeCommercialFields(makeActor('Pricing'))).toBe(true);
     expect(canSeeCommercialFields(makeActor('KAM'))).toBe(false);
+  });
+});
+
+describe('holdsPermission (route-level check)', () => {
+  it('counts qualified grants, which can() without a resource does not', () => {
+    const kam = makeActor('KAM');
+    expect(can(kam, 'outcome.record')).toBe(false);
+    expect(holdsPermission(kam, 'outcome.record')).toBe(true);
+    expect(holdsPermission(makeActor('Engineer'), 'engReview.edit')).toBe(true);
+  });
+
+  it('denies roles with no grant at all', () => {
+    expect(holdsPermission(makeActor('Leadership'), 'quote.create')).toBe(false);
+    expect(() => assertHoldsPermission(makeActor('Leadership'), 'quote.create')).toThrow(
+      ForbiddenError,
+    );
+    expect(() => assertHoldsPermission(makeActor('KAM'), 'quote.create')).not.toThrow();
+  });
+
+  it('matches the matrix for every role and permission', () => {
+    for (const role of ROLES) {
+      for (const permission of PERMISSIONS) {
+        expect(holdsPermission({ roles: [role] }, permission)).toBe(
+          PERMISSION_MATRIX[permission][role] !== undefined,
+        );
+      }
+    }
+  });
+
+  it('permissionsForRoles is the union across roles, in matrix order', () => {
+    expect(permissionsForRoles([])).toEqual([]);
+    expect(permissionsForRoles(['Approver'])).toContain('gate.G4.decide');
+    const multi = permissionsForRoles(['SalesLeader', 'Approver']);
+    expect(multi).toEqual(PERMISSIONS.filter((p) => multi.includes(p)));
+    expect(multi).toEqual(expect.arrayContaining(['gate.G1.decide', 'gate.G4.decide']));
   });
 });

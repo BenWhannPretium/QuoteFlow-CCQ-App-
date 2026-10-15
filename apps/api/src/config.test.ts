@@ -35,6 +35,7 @@ describe('loadConfig', () => {
       expect(err).toBeInstanceOf(ConfigError);
       expect((err as ConfigError).issues.join('\n')).toMatch(/ENTRA_TENANT_ID/);
       expect((err as ConfigError).issues.join('\n')).toMatch(/ENTRA_API_AUDIENCE/);
+      expect((err as ConfigError).issues.join('\n')).toMatch(/ENTRA_SPA_CLIENT_ID/);
     }
   });
 
@@ -45,8 +46,10 @@ describe('loadConfig', () => {
       AUTH_MODE: 'entra',
       ENTRA_TENANT_ID: '00000000-0000-0000-0000-000000000000',
       ENTRA_API_AUDIENCE: 'api://quoteflow',
+      ENTRA_SPA_CLIENT_ID: '11111111-1111-1111-1111-111111111111',
     });
     expect(c.AUTH_MODE).toBe('entra');
+    expect(c.ENTRA_API_SCOPE).toBe('access_as_user');
   });
 
   it('rejects a non-postgres DATABASE_URL and a missing AUTH_MODE', () => {

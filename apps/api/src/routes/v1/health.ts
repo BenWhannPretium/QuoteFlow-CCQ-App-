@@ -11,8 +11,7 @@ export const healthRoutes: FastifyPluginAsyncZod<{ deps: AppDeps; version: strin
     '/health',
     {
       // Liveness/readiness probe: public, and exempt from rate limiting so probes never 429.
-      // TODO(B-04): every other route declares a permission; health stays anonymous.
-      config: { rateLimit: false },
+      config: { public: true, rateLimit: false },
       schema: {
         tags: ['system'],
         summary: 'Service health with database status',

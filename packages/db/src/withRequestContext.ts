@@ -79,3 +79,15 @@ export async function withRequestContext<T>(
     return fn(tx);
   });
 }
+
+/**
+ * Run `fn` in a transaction as `ccq_app` with **no** user context. Only for sign-in provisioning,
+ * which runs before the user id is known and touches identity tables only (no RLS on them).
+ * Any RLS-protected table reads as empty here.
+ */
+export async function withAppRole<T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql.raw('set local role ccq_app'));
+    return fn(tx);
+  });
+}
