@@ -1,0 +1,31 @@
+# Local development services. Usage: `docker compose up -d db` (add `mailpit` when needed).
+name: quoteflow
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ccq
+      POSTGRES_PASSWORD: ccq # local only; never reuse outside docker
+      POSTGRES_DB: ccq
+    ports:
+      - '5432:5432'
+    volumes:
+      - ccq-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ccq -d ccq']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Local SMTP sink for notification emails (used from B-18). UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+volumes:
+  ccq-pgdata:
