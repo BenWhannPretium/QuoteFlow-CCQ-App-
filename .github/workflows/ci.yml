@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: postgres://ccq:ccq@localhost:5432/ccq
+  TEST_DATABASE_URL: postgres://ccq:ccq@localhost:5432/ccq_test
+  GIT_SHA: ${{ github.sha }}
+  TURBO_TELEMETRY_DISABLED: '1'
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build, e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ccq
+          POSTGRES_PASSWORD: ccq
+          POSTGRES_DB: ccq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ccq -d ccq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Integration tests (Postgres 16 service)
+        run: pnpm test:integration
+
+      - name: Build
+        run: pnpm build
+
+      - name: Migrate e2e database
+        run: pnpm db:migrate
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @ccq/web exec playwright install --with-deps chromium
+
+      - name: Playwright smoke (API serving the built web)
+        run: pnpm --filter @ccq/web e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/e2e/playwright-report
+          retention-days: 7
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: pnpm audit (high and critical)
+        run: pnpm audit --audit-level=high
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.28.0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The CLI (not gitleaks-action) so no license key is needed once the repo moves to the Pretium org.
+      - name: Install gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+      - name: Scan history
+        run: gitleaks git --redact --verbose --exit-code 1 .

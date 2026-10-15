@@ -1,0 +1,6 @@
+{
+  "extends": "@ccq/config/tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist", "noEmit": false },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

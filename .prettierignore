@@ -1,0 +1,11 @@
+pnpm-lock.yaml
+**/dist
+**/coverage
+**/.turbo
+**/test-results
+**/playwright-report
+apps/web/src/routeTree.gen.ts
+packages/db/migrations/meta
+docs/
+LICENSE
+CLAUDE.md

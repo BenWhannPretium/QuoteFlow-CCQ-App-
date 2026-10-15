@@ -1,0 +1,10 @@
+{
+  "extends": "@ccq/config/tsconfig.react.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["vite/client", "node"],
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src", "e2e", "*.ts"]
+}
