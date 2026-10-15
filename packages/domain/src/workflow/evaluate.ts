@@ -164,10 +164,15 @@ function validateConstraints(
       );
     }
   } else {
-    const valid = config.reasonCodes.some(
+    const match = config.reasonCodes.find(
       (r) => r.code === reasonCode && r.active && r.context === outcome.reasonContext,
     );
-    if (!valid) {
+    if (match?.requiresNote && !outcome.requiresNote && !request.note?.trim()) {
+      errors.push(
+        new DomainError('NOTE_REQUIRED', `A note is required for reason "${match.label}"`, 'note'),
+      );
+    }
+    if (!match) {
       const context = outcome.reasonContext ?? 'none';
       errors.push(
         new DomainError(

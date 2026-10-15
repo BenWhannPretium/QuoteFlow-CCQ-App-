@@ -8,6 +8,34 @@
       "when": 1792090989000,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792095193777,
+      "tag": "0001_extensions",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792095194890,
+      "tag": "0002_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792095232032,
+      "tag": "0003_quote_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792095233279,
+      "tag": "0004_roles_rls",
+      "breakpoints": true
     }
   ]
 }

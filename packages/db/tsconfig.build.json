@@ -1,6 +1,6 @@
 {
   "extends": "@ccq/config/tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist", "noEmit": false },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "compilerOptions": { "rootDir": ".", "outDir": "dist", "noEmit": false },
+  "include": ["src", "seeds"],
+  "exclude": ["src/**/*.test.ts", "seeds/**/*.test.ts"]
 }

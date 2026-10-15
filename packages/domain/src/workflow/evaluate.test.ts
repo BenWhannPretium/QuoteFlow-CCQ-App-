@@ -420,6 +420,20 @@ describe('validation: all errors, in order', () => {
     expect(!run('nonsense').ok).toBe(true);
   });
 
+  it('a reason code flagged requiresNote needs a note (Lost / Other)', () => {
+    const run = (note?: string) =>
+      evaluateTransition(
+        hybridConfig,
+        makeQuote('CUSTOMER_DECISION'),
+        makeActor('SalesLeader'),
+        { gateKey: 'G5', outcomeKey: 'lost', reasonCode: 'other', ...(note ? { note } : {}) },
+        NOW,
+      );
+    const missing = run();
+    expect(!missing.ok && missing.errors.map((e) => e.code)).toEqual(['NOTE_REQUIRED']);
+    expect(run('Customer moved the program in-house').ok).toBe(true);
+  });
+
   it('inactive reason codes are invalid', () => {
     const config = structuredClone(hybridConfig);
     config.reasonCodes.find((r) => r.context === 'lost' && r.code === 'price')!.active = false;

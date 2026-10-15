@@ -74,11 +74,22 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** persists the domain. Config seeds make open business decisions editable data instead of code.
 - **People:** none to start. Value lists are refined after M4 (Jim, Danielle).
 - **Done when:**
-  - [ ] all tables in `01-architecture.md` §5 exist as migrations
-  - [ ] RLS policies are in place, with `audit_event` insert-only for the app role
-  - [ ] seeds exist for the hybrid workflow, reason codes, value lists (from the ERF template: 8 processes, 11 resins, 8 markets, ~29 plants) and scoring model v1, all `provisional`
-  - [ ] the synthetic generator creates 150 quotes across all stages from 102 masked fake opportunities
+  - [x] all tables in `01-architecture.md` §5 exist as migrations
+  - [x] RLS policies are in place, with `audit_event` insert-only for the app role
+  - [x] seeds exist for the hybrid workflow, reason codes, value lists (from the ERF template: 8 processes, 11 resins, 8 markets, ~29 plants) and scoring model v1, all `provisional`
+  - [x] the synthetic generator creates 150 quotes across all stages from 102 masked fake opportunities
 - **Prompt:** `prompts/B-03-database-and-seeds.md`
+- **Done 2026-10-15. Notes and deviations:**
+  - Acceptance from the prompt: `pnpm db:reset` works from scratch and a seed re-run is a no-op; RLS tests pass, including a raw-SQL read by an owner-scoped KAM and a login that is only a `ccq_app` member; `audit_event` UPDATE/DELETE/TRUNCATE fail for `ccq_app` (and a trigger blocks them for the owner too); the 50-parallel-call quote-number test passes; `docs/data-dictionary.md` is generated (`pnpm db:dictionary`), and a unit test fails when it is stale. See `packages/db/README.md`.
+  - **Tables added beyond §5:** `quote_hold` (hold intervals for CR-57; the engine's `hold` effect needs somewhere to live), `segregation_rule` (the domain config's `segregation[]`, so the DB carries the whole workflow) and `quote_number_counter` (behind `next_quote_number()`).
+  - **Columns added beyond §5:** `quote.region` (RLS region scope), `quote.review_date` (G5 On hold needs it), `quote.queue_position` (the queue override field), `quote.packaging_type` (value list), `stage_history.quote_version`, `gate_decision.target_stage_key/quote_version/payload` (from the domain's decision record), `override.reason_code/decision_note`, `value_list.meta` (e.g. `{freeText: true}` on neck finish Other), `reason_code.requires_note`, `role_permission.qualifier` (own / assigned / fields / stages grants), `sf_opportunity_snapshot.account_name`, `app_user.region`.
+  - `scoring_model` uses `model_version` for the model's own version, because `version` is the shared config-row version column.
+  - `created_by` on every table is a nullable FK to `app_user` (`on delete set null`), null for seeds and jobs.
+  - **Domain changes:** reason codes gain `requiresNote` (default false), enforced by `evaluateTransition`, so "Lost / Other (note required)" works. The Lost list is now the B-03 list (Price, Lead time, Capability, Capacity, Customer cancelled, Competitor relationship, Other). The `owner` scope now also matches an Engineer's assigned quotes, the same as RLS.
+  - `next_quote_number()` uses the **US Central** calendar year, so a quote at 11 pm on Dec 31 Central gets the old year. It is gap-free because a rolled-back caller's number is reused.
+  - Extra `app_setting`: `default_scope_type = 'all'` (B-04 needs a setting-backed default scope). Extra provisional value list: `machine_type` (7 placeholders, TODO M4). Plants are 3 placeholders and resins/markets carry TODO(M4) comments.
+  - The DB package's integration tests use their own database (`<TEST_DATABASE_URL>_db`), so they never race the API's on `ccq_test` when turbo runs both.
+  - Azure (B-20): allow-list `pg_trgm`; grant `ccq_app` / `ccq_migrator` membership to the managed identities; the runtime login must not be a superuser (superusers bypass RLS).
 
 ### B-04: Authentication and server-side RBAC (F-01, F-09) · **Tue Oct 20** · Ben
 - **Why:** everything after this assumes a known user, roles and scope.

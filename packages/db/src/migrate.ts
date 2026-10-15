@@ -4,13 +4,22 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
+import { commentStatements } from './dictionary/model';
+
 export const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations', import.meta.url));
 
-/** Apply all pending drizzle migrations to the given database. */
+/**
+ * Apply all pending drizzle migrations, then (re)apply the schema's table and column comments.
+ * Comments are derived from the Drizzle schema, so they are refreshed on every run rather than
+ * frozen into a migration.
+ */
 export async function runMigrations(databaseUrl: string): Promise<void> {
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
   try {
     await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS_DIR });
+    await sql.begin(async (tx) => {
+      for (const statement of commentStatements()) await tx.unsafe(statement);
+    });
   } finally {
     await sql.end({ timeout: 5 });
   }

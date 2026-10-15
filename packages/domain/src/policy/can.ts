@@ -38,14 +38,20 @@ function grantApplies(grant: Grant, actor: Actor, resource: PolicyResource | und
   }
 }
 
-/** Data scope: all | owner (KAM of the quote) | region | account_list. */
+/** Data scope: all | owner (KAM of the quote, or assigned engineer for an Engineer) | region | account_list. */
 export function inScope(actor: Actor, resource: PolicyResource): boolean {
   const scope = actor.scope;
   switch (scope.type) {
     case 'all':
       return true;
     case 'owner':
-      return resource.kamUserId !== undefined && resource.kamUserId === actor.userId;
+      // Owner means "mine": the KAM of the quote, or for an Engineer the assigned engineer (matches RLS).
+      return (
+        (resource.kamUserId !== undefined && resource.kamUserId === actor.userId) ||
+        (actor.roles.includes('Engineer') &&
+          resource.assignedEngineerId != null &&
+          resource.assignedEngineerId === actor.userId)
+      );
     case 'region':
       return resource.region !== undefined && scope.values.includes(resource.region);
     case 'account_list':
