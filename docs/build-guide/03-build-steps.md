@@ -62,11 +62,12 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** this is where the business rules live. Building it pure and tested first makes every later route a thin wrapper.
 - **People:** none. The hybrid seed comes from `01-architecture.md` §4.
 - **Done when:**
-  - [ ] `packages/domain` has the workflow engine (transition validation, gate outcomes, required-field rules, return/requote paths, hold accounting)
-  - [ ] the permission policy and redaction are in place
-  - [ ] the scoring engine interface exists (implemented in B-08)
-  - [ ] ≥ 95% line coverage
-  - [ ] no I/O imports
+  - [x] `packages/domain` has the workflow engine (transition validation, gate outcomes, required-field rules, return/requote paths, hold accounting)
+  - [x] the permission policy and redaction are in place
+  - [x] the scoring engine interface exists (implemented in B-08)
+  - [x] ≥ 95% line coverage (100% lines)
+  - [x] no I/O imports (ESLint `no-restricted-imports`, plus a ban on reading the clock)
+  - **Deviations / notes:** added the dev dependency `@vitest/coverage-v8` (needed for `--coverage`) alongside `zod`. `WorkflowConfig` also carries `reasonCodes[]` and `segregation[]`, and requests take an optional `targetStageKey` for return/re-quote. The hybrid seed adds a `SUBMIT` gate for the `g1_enabled=false` path. See `packages/domain/README.md` for the seed assumptions (Stop → CLOSED_LOST, G2 capital-required routing, how a hold resumes), all provisional.
 - **Prompt:** `prompts/B-02-domain-core.md`
 
 ### B-03: Database schema, RLS, config seeds, synthetic data · **Mon Oct 19** · Ben
