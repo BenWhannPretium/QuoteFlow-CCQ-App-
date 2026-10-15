@@ -21,6 +21,8 @@ export function ccqConfig({ tsconfigRootDir }) {
         '**/test-results/**',
         '**/playwright-report/**',
         '**/routeTree.gen.ts',
+        // Static files Vite copies verbatim (e.g. the pre-paint theme script).
+        'apps/web/public/**',
         'docs/**',
       ],
     },

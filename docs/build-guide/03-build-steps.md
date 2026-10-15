@@ -119,13 +119,28 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** a consistent shell and components make every feature screen fast to build.
 - **People:** none. Pretium tokens come from the blueprint and the `pretium-design` skill. Bailey's prototype screenshots are a follow-up she owes from 10/14.
 - **Done when:**
-  - [ ] responsive layout (390 px → desktop)
-  - [ ] role-aware navigation
-  - [ ] landing route per role (placeholders filled in by B-17)
-  - [ ] theme tokens, dark mode, toast/error boundary
-  - [ ] `<RequirePermission>` component
-  - [ ] Playwright smoke test passes
+  - [x] responsive layout (390 px → desktop)
+  - [x] role-aware navigation
+  - [x] landing route per role (placeholders filled in by B-17)
+  - [x] theme tokens, dark mode, toast/error boundary
+  - [x] `<RequirePermission>` component
+  - [x] Playwright smoke test passes
 - **Prompt:** `prompts/B-05-shell-design-system.md`
+- **Done 2026-10-15. Notes and deviations:**
+  - Prompt acceptance: all 12 dev personas land on the right dashboard with the right nav (`apps/web/e2e/shell.spec.ts`). axe (WCAG 2.1 A/AA) reports no serious or critical violations on the landing, the user menu, 404/403 and the `/admin/ui-kit` reference page, in light and dark, desktop and 390 × 844 (`a11y.spec.ts`, `mobile.spec.ts`). At 390 px there is no horizontal scroll, the gutters are 16 px and every header, nav and main tap target is ≥ 44 px.
+  - **Contrast deviations from the blueprint:** the High tier chip text `#B04A2C` on `#F6E5E0` is 4.45:1, so it uses copper-hover `#A64427` (4.95:1). Copper `#C05131` as *text* on the page background is 4.37:1, so copper text is `#A64427` in light mode (`#EC8A66` in dark). `#C05131` stays for fills with white text (4.71:1) and the focus ring. On the green header the focus ring is light copper `#F2B8A2` (copper on green is under 3:1). Dark-mode tier chips have their own contrast-checked colours. All values are in `apps/web/src/styles/tokens.css`.
+  - **Fonts:** no licensed Value Serif Pro / Basis Grotesque Pro files yet, so the Georgia / Arial fallbacks render. Drop the files in `apps/web/public/fonts` and add `@font-face` in `tokens.css` once Pretium provides them.
+  - **Nav is permission-driven** (from `/me`, the same check as `useCan`), so it follows the matrix rather than role names. Admin sees *New intake* because the matrix grants Admin `quote.create`. *My queue* is one item labelled per role: *Engineering queue* (`queue.assign`, EngLead), *My assignments* (`engReview.edit` only, Engineer) and *Pricing queue*. For the Approver, the queue *is* Approvals, so it isn't listed twice. Admin's `queue.assign` doesn't add a queue tab; the tab needs `engReview.edit`.
+  - **Primary role for multi-role users:** Approver → EngLead → Pricing → Engineer → SalesLeader → KAM → Leadership → Admin (most time-critical work first). Multi-role users get role tabs on the landing (`/?as=SalesLeader`). This is UI ordering, not a business rule.
+  - Mobile is ≤ 640 px (`sm` moved to 641 px). The bottom bar shows up to five tabs; beyond that the fifth becomes *More*.
+  - `GET /api/v1/config/public` (`quote.read`) returns stages, gates, outcomes, active reason codes, active value lists, tier thresholds and an allow-list of UI settings (`PUBLIC_SETTING_KEYS` in `packages/contracts`; `default_scope_type` stays server-side). Cached 5 min in TanStack Query (`usePublicConfig`). Added to the permission registry, with integration tests.
+  - Global error routing (`lib/query-client.ts`): 5xx and network failures raise a de-duplicated toast; 4xx stay inline (`<ErrorState>`) and are not retried. Toasts use a small in-house store instead of a library: sonner injects `<style>` tags, which the `style-src 'self'` CSP blocks.
+  - The theme is applied before first paint by `public/theme-init.js` (a file, because the CSP forbids inline scripts). The preference is in `localStorage['ccq.theme']`, wrapped in try/catch; `system` clears it.
+  - **Mobile snapshot:** a structural ARIA snapshot (`toMatchAriaSnapshot`) is asserted, and the full-page 390 × 844 PNG is attached to the Playwright report. A pixel `toHaveScreenshot` baseline was not used, because font rendering differs between dev machines and the CI runner and would make it flaky.
+  - Playwright now runs three projects: `smoke` (production API, Entra), and `shell` / `mobile` (`vite preview` of the same build, proxied to an `AUTH_MODE=dev` API on :3101). CI seeds config before e2e.
+  - Added `/admin/ui-kit` (Admin only): every shared component with synthetic data and live config labels. axe scans it in both themes.
+  - Found while testing in the browser and fixed: `Button` must `forwardRef` (React 18), or Radix `asChild` triggers can't position popovers (the Filters popover rendered off-screen). Dialogs opened from state now return focus to the element that opened them; Radix only does this for its own `Trigger`. Both have Playwright regression tests.
+  - New deps: `radix-ui`, `@tanstack/react-table` 8.21.3 (v9 changed the API), `lucide-react`, `@axe-core/playwright`. Vendor code is split into cacheable chunks (msal, radix, tanstack, zod, vendor).
 
 ### B-20: Azure infrastructure as code and continuous delivery · **Wed Oct 21 (code) → Fri Oct 23 (first deploy)** · Ben + IT
 - **Why:** an early deploy surfaces network, identity and policy problems while there's still time to fix them.

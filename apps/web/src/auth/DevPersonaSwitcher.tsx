@@ -1,27 +1,39 @@
+import { useId } from 'react';
+
 import { useAuth } from './context';
 
-/** AUTH_MODE=dev only: pick which synthetic persona the API sees. */
+/**
+ * AUTH_MODE=dev only: a strip above the header to pick which synthetic persona the API sees.
+ * Renders nothing against an Entra-mode API.
+ */
 export function DevPersonaSwitcher() {
   const { dev } = useAuth();
+  const id = useId();
   if (!dev) return null;
   return (
-    <label className="flex items-center gap-2 text-xs">
-      <span className="rounded bg-amber-200 px-1.5 py-0.5 font-semibold text-amber-950">DEV</span>
-      <span className="sr-only">Persona</span>
+    <div
+      data-testid="dev-bar"
+      className="bg-warning text-warning-foreground flex items-center gap-2 px-4 py-1 text-xs"
+    >
+      <span className="font-bold tracking-wider">DEV</span>
+      <span className="hidden sm:inline">Fake sign-in. Local development only.</span>
+      <label htmlFor={id} className="ml-auto">
+        Persona
+      </label>
       <select
-        aria-label="Dev persona"
+        id={id}
         data-testid="dev-persona"
-        className="rounded border px-1 py-0.5"
+        className="border-warning-foreground/40 min-h-8 max-w-[60vw] rounded border bg-transparent px-1 text-xs"
         value={dev.persona}
         onChange={(e) => dev.setPersona(e.target.value)}
       >
         {dev.personas.map((p) => (
-          <option key={p.key} value={p.key}>
+          <option key={p.key} value={p.key} className="bg-card text-foreground">
             {p.key} ({p.roles.join(', ')}
             {p.scope.type === 'all' ? '' : `; ${p.scope.type}`})
           </option>
         ))}
       </select>
-    </label>
+    </div>
   );
 }

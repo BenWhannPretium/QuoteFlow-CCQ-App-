@@ -1,51 +1,109 @@
-/* Tailwind v4 + shadcn/ui baseline (neutral). Pretium theme tokens arrive in B-05. */
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './styles/tokens.css';
 
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-}
+/* `dark:` utilities follow the class that src/theme sets on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
+  /* ≤ 640 px is the mobile layout (bottom tab bar); `sm:` starts the desktop rail at 641 px. */
+  --breakpoint-sm: 40.0625rem;
+
+  --font-sans: var(--pf-font-body);
+  --font-display: var(--pf-font-display);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-card: var(--pf-radius-card);
+  --radius-pill: var(--pf-radius-pill);
+  --shadow-card: var(--pf-shadow);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-2: var(--foreground-2);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-line-strong: var(--line-strong);
+  --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-surface-3: var(--surface-3);
+
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-action-foreground: var(--action-foreground);
+  --color-emphasis: var(--emphasis);
+  --color-success: var(--pf-success);
+  --color-warning: var(--pf-warning-bg);
+  --color-warning-foreground: var(--pf-warning-fg);
+
+  --color-header: var(--pf-header-bg);
+  --color-header-foreground: var(--pf-header-fg);
+  --color-header-muted: var(--pf-header-muted);
+  --color-header-control: var(--pf-header-control);
+
+  --color-tier-critical: var(--pf-tier-critical-bg);
+  --color-tier-critical-foreground: var(--pf-tier-critical-fg);
+  --color-tier-high: var(--pf-tier-high-bg);
+  --color-tier-high-foreground: var(--pf-tier-high-fg);
+  --color-tier-standard: var(--pf-tier-standard-bg);
+  --color-tier-standard-foreground: var(--pf-tier-standard-fg);
+  --color-tier-low: var(--pf-tier-low-bg);
+  --color-tier-low-foreground: var(--pf-tier-low-fg);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1,
+  h2,
+  .font-display {
+    font-family: var(--pf-font-display);
+  }
+
+  /* Visible copper focus ring on everything keyboard-focusable. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* On the green header band, plain copper is under 3:1; use the light copper there. */
+  [data-surface='header'] :focus-visible {
+    outline-color: var(--pf-copper-on-green);
+  }
+  /* <main> takes focus from the skip link; no ring around the whole page. */
+  main:focus {
+    outline: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

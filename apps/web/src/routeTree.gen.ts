@@ -10,33 +10,188 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as BoardRouteImport } from './routes/board'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminSplatRouteImport } from './routes/admin/$'
+import { Route as AdminUiKitRouteImport } from './routes/admin/ui-kit'
+import { Route as IntakeNewRouteImport } from './routes/intake/new'
+import { Route as QueueEngineeringRouteImport } from './routes/queue/engineering'
+import { Route as QueuePricingRouteImport } from './routes/queue/pricing'
+import { Route as QuotesIndexRouteImport } from './routes/quotes/index'
+import { Route as QuotesQuoteNumberRouteImport } from './routes/quotes/$quoteNumber'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BoardRoute = BoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSplatRoute = AdminSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminUiKitRoute = AdminUiKitRouteImport.update({
+  id: '/ui-kit',
+  path: '/ui-kit',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const IntakeNewRoute = IntakeNewRouteImport.update({
+  id: '/intake/new',
+  path: '/intake/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QueueEngineeringRoute = QueueEngineeringRouteImport.update({
+  id: '/queue/engineering',
+  path: '/queue/engineering',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QueuePricingRoute = QueuePricingRouteImport.update({
+  id: '/queue/pricing',
+  path: '/queue/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuotesIndexRoute = QuotesIndexRouteImport.update({
+  id: '/quotes/',
+  path: '/quotes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuotesQuoteNumberRoute = QuotesQuoteNumberRouteImport.update({
+  id: '/quotes/$quoteNumber',
+  path: '/quotes/$quoteNumber',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/board': typeof BoardRoute
+  '/admin/$': typeof AdminSplatRoute
+  '/admin/ui-kit': typeof AdminUiKitRoute
+  '/intake/new': typeof IntakeNewRoute
+  '/queue/engineering': typeof QueueEngineeringRoute
+  '/queue/pricing': typeof QueuePricingRoute
+  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
+  '/admin/': typeof AdminIndexRoute
+  '/quotes/': typeof QuotesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/board': typeof BoardRoute
+  '/admin/$': typeof AdminSplatRoute
+  '/admin/ui-kit': typeof AdminUiKitRoute
+  '/intake/new': typeof IntakeNewRoute
+  '/queue/engineering': typeof QueueEngineeringRoute
+  '/queue/pricing': typeof QueuePricingRoute
+  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
+  '/admin': typeof AdminIndexRoute
+  '/quotes': typeof QuotesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/board': typeof BoardRoute
+  '/admin/$': typeof AdminSplatRoute
+  '/admin/ui-kit': typeof AdminUiKitRoute
+  '/intake/new': typeof IntakeNewRoute
+  '/queue/engineering': typeof QueueEngineeringRoute
+  '/queue/pricing': typeof QueuePricingRoute
+  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
+  '/admin/': typeof AdminIndexRoute
+  '/quotes/': typeof QuotesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/analytics'
+    | '/approvals'
+    | '/board'
+    | '/admin/$'
+    | '/admin/ui-kit'
+    | '/intake/new'
+    | '/queue/engineering'
+    | '/queue/pricing'
+    | '/quotes/$quoteNumber'
+    | '/admin/'
+    | '/quotes/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/analytics'
+    | '/approvals'
+    | '/board'
+    | '/admin/$'
+    | '/admin/ui-kit'
+    | '/intake/new'
+    | '/queue/engineering'
+    | '/queue/pricing'
+    | '/quotes/$quoteNumber'
+    | '/admin'
+    | '/quotes'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/analytics'
+    | '/approvals'
+    | '/board'
+    | '/admin/$'
+    | '/admin/ui-kit'
+    | '/intake/new'
+    | '/queue/engineering'
+    | '/queue/pricing'
+    | '/quotes/$quoteNumber'
+    | '/admin/'
+    | '/quotes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
+  AnalyticsRoute: typeof AnalyticsRoute
+  ApprovalsRoute: typeof ApprovalsRoute
+  BoardRoute: typeof BoardRoute
+  IntakeNewRoute: typeof IntakeNewRoute
+  QueueEngineeringRoute: typeof QueueEngineeringRoute
+  QueuePricingRoute: typeof QueuePricingRoute
+  QuotesQuoteNumberRoute: typeof QuotesQuoteNumberRoute
+  QuotesIndexRoute: typeof QuotesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +203,120 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvals': {
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/board': {
+      id: '/board'
+      path: '/board'
+      fullPath: '/board'
+      preLoaderRoute: typeof BoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/$': {
+      id: '/admin/$'
+      path: '/$'
+      fullPath: '/admin/$'
+      preLoaderRoute: typeof AdminSplatRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/ui-kit': {
+      id: '/admin/ui-kit'
+      path: '/ui-kit'
+      fullPath: '/admin/ui-kit'
+      preLoaderRoute: typeof AdminUiKitRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/intake/new': {
+      id: '/intake/new'
+      path: '/intake/new'
+      fullPath: '/intake/new'
+      preLoaderRoute: typeof IntakeNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/queue/engineering': {
+      id: '/queue/engineering'
+      path: '/queue/engineering'
+      fullPath: '/queue/engineering'
+      preLoaderRoute: typeof QueueEngineeringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/queue/pricing': {
+      id: '/queue/pricing'
+      path: '/queue/pricing'
+      fullPath: '/queue/pricing'
+      preLoaderRoute: typeof QueuePricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quotes/': {
+      id: '/quotes/'
+      path: '/quotes'
+      fullPath: '/quotes/'
+      preLoaderRoute: typeof QuotesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quotes/$quoteNumber': {
+      id: '/quotes/$quoteNumber'
+      path: '/quotes/$quoteNumber'
+      fullPath: '/quotes/$quoteNumber'
+      preLoaderRoute: typeof QuotesQuoteNumberRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AdminRouteRouteChildren {
+  AdminSplatRoute: typeof AdminSplatRoute
+  AdminUiKitRoute: typeof AdminUiKitRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminSplatRoute: AdminSplatRoute,
+  AdminUiKitRoute: AdminUiKitRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
+  AnalyticsRoute: AnalyticsRoute,
+  ApprovalsRoute: ApprovalsRoute,
+  BoardRoute: BoardRoute,
+  IntakeNewRoute: IntakeNewRoute,
+  QueueEngineeringRoute: QueueEngineeringRoute,
+  QueuePricingRoute: QueuePricingRoute,
+  QuotesQuoteNumberRoute: QuotesQuoteNumberRoute,
+  QuotesIndexRoute: QuotesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

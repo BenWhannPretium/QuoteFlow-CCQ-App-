@@ -99,6 +99,14 @@ export const listValueList = (db: DbOrTx, listKey: ValueListKey, { activeOnly = 
     )
     .orderBy(asc(valueList.sort));
 
+/** Every active value-list entry, grouped order (list key, then sort). For the UI config bootstrap. */
+export const listActiveValueLists = (db: DbOrTx) =>
+  db
+    .select()
+    .from(valueList)
+    .where(eq(valueList.active, true))
+    .orderBy(asc(valueList.listKey), asc(valueList.sort), asc(valueList.code));
+
 export const listReasonCodes = (db: DbOrTx, context?: string) =>
   db
     .select()
