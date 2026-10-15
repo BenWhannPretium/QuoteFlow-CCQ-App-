@@ -37,6 +37,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description: "KAMs see peers' priority scores (D-K1, PRD lean).",
   },
   {
+    key: 'sf_amount_suspect_below_usd',
+    value: 100,
+    description:
+      'Salesforce opportunity amounts below this (USD) are flagged as suspect placeholders (B-06 discovery: e.g. $0.31).',
+  },
+  {
     key: 'default_scope_type',
     value: 'all',
     description: 'Data scope for users with no user_scope row (PRD lean: full pipeline).',

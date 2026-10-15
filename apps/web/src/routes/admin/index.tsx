@@ -18,9 +18,20 @@ export const Route = createFileRoute('/admin/')({
         title="Coming soon"
         description="Configuration screens are built in B-19."
         action={
-          <Link to="/admin/ui-kit" className={buttonVariants({ variant: 'outline' })}>
-            Open the UI kit
-          </Link>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Link to="/admin/integrations" className={buttonVariants({ variant: 'outline' })}>
+              Integrations
+            </Link>
+            <Link
+              to="/admin/reports/erf-linkage"
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              ERF linkage report
+            </Link>
+            <Link to="/admin/ui-kit" className={buttonVariants({ variant: 'outline' })}>
+              Open the UI kit
+            </Link>
+          </div>
         }
       />
     </StubPage>

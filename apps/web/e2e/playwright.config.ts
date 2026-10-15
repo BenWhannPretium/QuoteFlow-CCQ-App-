@@ -30,7 +30,7 @@ export default defineConfig({
     },
     {
       name: 'shell',
-      testMatch: ['shell.spec.ts', 'a11y.spec.ts'],
+      testMatch: ['shell.spec.ts', 'a11y.spec.ts', 'admin-integrations.spec.ts'],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },
     {

@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
 import type { Database } from '@ccq/db';
+import { createSalesforceReader, type SalesforceReader, type SfLogger } from '@ccq/integrations';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import sensible from '@fastify/sensible';
@@ -14,6 +15,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import type { JWTVerifyGetKey } from 'jose';
+import type { Sql } from 'postgres';
 
 import {
   createIdentityService,
@@ -23,12 +25,14 @@ import {
 } from './auth/directory';
 import { createEntraVerifier } from './auth/entra';
 import type { AppConfig } from './config';
+import { createSfSyncScheduler, type SfSyncScheduler } from './jobs/sfSync';
 import { loggerOptions } from './logger';
 import { authPlugin } from './plugins/auth';
 import { problemJsonPlugin } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
+import { SalesforceService } from './services/salesforce';
 
 export interface AppDeps {
   db: {
@@ -36,7 +40,11 @@ export interface AppDeps {
     close(): Promise<void>;
     /** Drizzle handle for provisioning and `withTx`. Absent only in unit tests with a fake directory. */
     db?: Database;
+    /** postgres.js client: background jobs take advisory locks on a reserved session. */
+    sql?: Sql;
   };
+  /** Test seam: the Salesforce reader (defaults to SF_MODE: the synthetic fake or jsforce). */
+  salesforce?: SalesforceReader;
   /** Test seam: replaces the Postgres-backed user directory. */
   directory?: UserDirectory;
   /** Test seam: Entra signing keys (defaults to the tenant JWKS). */
@@ -46,6 +54,28 @@ export interface AppDeps {
 }
 
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** The Salesforce delta sync (B-06); null without a database. server.ts starts its schedule. */
+    sfSync: SfSyncScheduler | null;
+  }
+}
+
+function salesforceReaderFor(config: AppConfig, logger: SfLogger): SalesforceReader {
+  if (config.SF_MODE === 'fake') return createSalesforceReader({ mode: 'fake' }, { logger });
+  return createSalesforceReader(
+    {
+      mode: 'live',
+      loginUrl: config.SF_LOGIN_URL,
+      clientId: config.SF_CLIENT_ID!,
+      username: config.SF_USERNAME!,
+      privateKey: config.SF_PRIVATE_KEY!,
+      apiVersion: config.SF_API_VERSION,
+    },
+    { logger },
+  );
+}
 
 export async function buildApp(config: AppConfig, deps: AppDeps): Promise<FastifyInstance> {
   const isProd = config.NODE_ENV === 'production';
@@ -126,6 +156,33 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   });
   await app.register(requestContextPlugin, deps.db.db ? { database: deps.db.db } : {});
 
+  // Salesforce (B-06): read-only. Logs carry ids and counts only, never record contents.
+  const sfLog = app.log.child({ component: 'salesforce' });
+  const sfLogger: SfLogger = {
+    info: (obj, msg) => sfLog.info(obj, msg),
+    warn: (obj, msg) => sfLog.warn(obj, msg),
+    error: (obj, msg) => sfLog.error(obj, msg),
+  };
+  if (config.SF_MODE === 'fake' && isProd) {
+    app.log.warn('SF_MODE=fake in production: Salesforce data is the synthetic fixture');
+  }
+  const salesforce = deps.salesforce ?? salesforceReaderFor(config, sfLogger);
+  const sfService = new SalesforceService(salesforce, sfLogger, deps.now);
+  const sfSync =
+    deps.db.db && deps.db.sql
+      ? createSfSyncScheduler(
+          {
+            database: deps.db.db,
+            sql: deps.db.sql,
+            reader: salesforce,
+            logger: sfLogger,
+            ...(deps.now ? { now: deps.now } : {}),
+          },
+          config.SF_SYNC_INTERVAL_MINUTES,
+        )
+      : null;
+  app.decorate('sfSync', sfSync);
+
   // TODO(B-09): audit plugin.
   await app.register(v1Routes, {
     prefix: '/api/v1',
@@ -133,6 +190,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     version: config.GIT_SHA,
     config,
     identity,
+    sfService,
+    sfSync,
   });
 
   if (isProd) {
@@ -140,6 +199,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   }
 
   app.addHook('onClose', async () => {
+    await sfSync?.stop();
     await deps.db.close();
   });
 

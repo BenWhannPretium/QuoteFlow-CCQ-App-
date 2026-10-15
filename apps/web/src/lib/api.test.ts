@@ -106,7 +106,26 @@ describe('api client auth', () => {
     const fetchMock = vi.fn().mockResolvedValue(json(200, { authMode: 'dev', personas: [] }));
     vi.stubGlobal('fetch', fetchMock);
     await expect(api.authConfig()).resolves.toMatchObject({ authMode: 'dev' });
-    expect(fetchMock.mock.calls[0]?.[1]).toEqual({ headers: { accept: 'application/json' } });
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual({
+      method: 'GET',
+      headers: { accept: 'application/json' },
+    });
+  });
+
+  it('the Salesforce sync is a POST, and its 202 (still running) is data', async () => {
+    setAuthSession(session());
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(json(202, { outcome: 'running', runId: null, counts: {} }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(api.syncSalesforce()).resolves.toEqual({
+      outcome: 'running',
+      runId: null,
+      counts: {},
+    });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/v1/admin/salesforce/sync');
+    expect(init.method).toBe('POST');
   });
 
   it('authenticated calls fail fast with no session', async () => {

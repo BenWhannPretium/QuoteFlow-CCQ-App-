@@ -21,7 +21,7 @@ export interface SyntheticCustomer {
   name: string;
   status: 'existing' | 'not_yet_established';
   region: (typeof REGIONS)[number];
-  shipTo: { line1: string; city: string; region: string; postal: string; country: 'US' };
+  shipTo: { line1: string; city: string; state: string; postal: string; country: 'US' };
 }
 
 export interface SyntheticOpportunity {
@@ -87,7 +87,7 @@ export function buildCustomers(rng: Rng, anchor: Date, count = 70): SyntheticCus
       shipTo: {
         line1: rng.faker.location.streetAddress(),
         city: rng.faker.location.city(),
-        region: rng.pick(STATES),
+        state: rng.pick(STATES),
         postal: rng.faker.location.zipCode('#####'),
         country: 'US',
       },

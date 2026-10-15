@@ -44,3 +44,6 @@ try {
   app.log.fatal({ err }, 'failed to listen');
   process.exit(1);
 }
+
+// Background jobs start only once the server is listening (never in tests that build the app).
+app.sfSync?.start();

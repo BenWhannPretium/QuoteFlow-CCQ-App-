@@ -22,6 +22,7 @@ import {
   CUSTOMER_STATUSES,
   OVERRIDE_STATUSES,
   QUOTE_STATUSES,
+  SF_STATUS_FLAGS,
 } from './enums';
 import { appUser, baseColumns, timestamptz } from './identity';
 
@@ -57,7 +58,7 @@ export const customer = documented(
       ),
       defaultShipTo: c(
         jsonb('default_ship_to'),
-        'Default ship-to address {line1, city, region, postal, country}.',
+        'Default ship-to address {line1, city, state, postal, country}.',
         SF,
       ),
       source: c(
@@ -102,13 +103,40 @@ export const sfOpportunitySnapshot = documented(
       sfStage: c(text('sf_stage'), 'Salesforce StageName (see sf_stage_map).'),
       erfNumberSf: c(text('erf_number_sf'), 'ERF number recorded on the opportunity, if any.'),
       quoteSourceSf: c(text('quote_source_sf'), 'Quote source field from SF.'),
+      ownerName: c(text('owner_name'), 'Opportunity owner display name.'),
+      isClosed: c(
+        boolean('is_closed').notNull().default(false),
+        'SF IsClosed (Closed Won or Closed Lost).',
+      ),
+      isWon: c(boolean('is_won').notNull().default(false), 'SF IsWon.'),
+      systemModstamp: c(
+        timestamptz('system_modstamp'),
+        'SF SystemModstamp of the copy; the delta sync reads records changed after the last run.',
+      ),
+      deletedInSfAt: c(
+        timestamptz('deleted_in_sf_at'),
+        'When SF reported the opportunity deleted. The snapshot is kept, never deleted.',
+        SYSTEM,
+      ),
+      dataQuality: c(
+        text('data_quality').array().notNull().default([]),
+        'Mapper flags: amount_missing | amount_suspect | account_missing | owner_missing | close_date_missing.',
+        SYSTEM,
+      ),
       raw: c(
         jsonb('raw').notNull().default({}),
         'Full SF payload as received, for troubleshooting.',
       ),
       syncedAt: c(timestamptz('synced_at').notNull(), 'When the snapshot was taken.', SYSTEM),
     },
-    (t) => [index('sf_opportunity_snapshot_name_trgm_idx').using('gin', t.name.op('gin_trgm_ops'))],
+    (t) => [
+      index('sf_opportunity_snapshot_name_trgm_idx').using('gin', t.name.op('gin_trgm_ops')),
+      index('sf_opportunity_snapshot_account_name_trgm_idx').using(
+        'gin',
+        t.accountName.op('gin_trgm_ops'),
+      ),
+      index('sf_opportunity_snapshot_owner_email_idx').on(t.ownerEmail),
+    ],
   ),
   {
     area: 'workflow',
@@ -270,6 +298,17 @@ export const quote = documented(
       outcomeReasonCode: c(text('outcome_reason_code'), 'reason_code.code for the closure.', KAM),
       closureOwnerId: c(userRef('closure_owner_id'), 'Who closed the quote (CR-39).', KAM),
       closedAt: c(timestamptz('closed_at'), 'When the quote closed.', SYSTEM),
+      // Salesforce status (set by the SF sync; nothing is deleted)
+      sfStatusFlag: c(
+        text('sf_status_flag'),
+        'closed_won | closed_lost | deleted when the linked SF opportunity was closed or deleted in SF; null while open.',
+        SYSTEM,
+      ),
+      sfStatusFlaggedAt: c(
+        timestamptz('sf_status_flagged_at'),
+        'When the SF sync set sf_status_flag.',
+        SYSTEM,
+      ),
     },
     (t) => [
       check('quote_status_check', inList(t.status, QUOTE_STATUSES)),
@@ -279,6 +318,10 @@ export const quote = documented(
       check(
         'quote_closed_consistency_check',
         sql`(${t.status} = 'closed') = (${t.closedAt} is not null)`,
+      ),
+      check(
+        'quote_sf_status_flag_check',
+        sql`${t.sfStatusFlag} is null or ${inList(t.sfStatusFlag, SF_STATUS_FLAGS)}`,
       ),
       index('quote_stage_priority_idx').on(t.stageKey, t.priorityScore.desc()),
       index('quote_kam_user_id_idx').on(t.kamUserId),

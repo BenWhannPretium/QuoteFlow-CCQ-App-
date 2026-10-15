@@ -1,9 +1,12 @@
 import {
   AuthConfigResponse,
+  ErfLinkageResponse,
   HealthResponse,
+  IntegrationRunsResponse,
   MeResponse,
   ProblemDetails,
   PublicConfigResponse,
+  SfSyncTriggerResponse,
 } from '@ccq/contracts';
 import type { z } from 'zod';
 
@@ -27,18 +30,19 @@ interface RequestOptions {
   okStatuses?: number[];
   /** Attach the signed-in user's credentials (every route except public ones). */
   auth?: boolean;
+  method?: 'GET' | 'POST';
 }
 
 async function getJson<S extends z.ZodType>(
   path: string,
   schema: S,
-  { okStatuses = [], auth = true }: RequestOptions = {},
+  { okStatuses = [], auth = true, method = 'GET' }: RequestOptions = {},
 ): Promise<z.infer<S>> {
   const send = async (forceRefresh: boolean) => {
     const session = auth ? getAuthSession() : null;
     if (auth && !session) throw new Error('Not signed in');
     const authHeaders = session ? await session.headers({ forceRefresh }) : {};
-    return fetch(path, { headers: { accept: 'application/json', ...authHeaders } });
+    return fetch(path, { method, headers: { accept: 'application/json', ...authHeaders } });
   };
 
   let res = await send(false);
@@ -63,4 +67,16 @@ export const api = {
   authConfig: () => getJson('/api/v1/auth/config', AuthConfigResponse, { auth: false }),
   me: () => getJson('/api/v1/me', MeResponse),
   publicConfig: () => getJson('/api/v1/config/public', PublicConfigResponse),
+  integrationRuns: (source?: string) =>
+    getJson(
+      `/api/v1/admin/integrations${source ? `?source=${encodeURIComponent(source)}` : ''}`,
+      IntegrationRunsResponse,
+    ),
+  // 202 = still running after 25 s; the body is still a valid result.
+  syncSalesforce: () =>
+    getJson('/api/v1/admin/salesforce/sync', SfSyncTriggerResponse, {
+      method: 'POST',
+      okStatuses: [202],
+    }),
+  erfLinkage: () => getJson('/api/v1/admin/reports/erf-linkage', ErfLinkageResponse),
 };

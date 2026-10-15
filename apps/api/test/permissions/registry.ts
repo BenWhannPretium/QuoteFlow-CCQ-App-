@@ -18,4 +18,22 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   { method: 'GET', route: '/api/v1/auth/config', permission: 'public' },
   { method: 'GET', route: '/api/v1/me', permission: 'authenticated' },
   { method: 'GET', route: '/api/v1/config/public', permission: 'quote.read' },
+  // B-06 Salesforce (SF_MODE=fake in tests). The detail id is a syntactically valid id that
+  // neither the snapshot nor the fake knows, so allowed roles get 404 (not 403).
+  {
+    method: 'GET',
+    route: '/api/v1/salesforce/opportunities',
+    url: '/api/v1/salesforce/opportunities?q=packaging&openOnly=true',
+    permission: 'quote.create',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/salesforce/opportunities/:id',
+    url: '/api/v1/salesforce/opportunities/006000000000000AAA',
+    permission: 'quote.read',
+  },
+  // The matrix app has a database, so the allowed POST runs a real sync against the fake reader.
+  { method: 'POST', route: '/api/v1/admin/salesforce/sync', permission: 'config.manage' },
+  { method: 'GET', route: '/api/v1/admin/integrations', permission: 'config.manage' },
+  { method: 'GET', route: '/api/v1/admin/reports/erf-linkage', permission: 'config.manage' },
 ];

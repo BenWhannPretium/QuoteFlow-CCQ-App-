@@ -9,3 +9,4 @@ packages/db/migrations/meta
 docs/
 LICENSE
 CLAUDE.md
+packages/integrations/src/salesforce/fixtures/*.json
