@@ -213,7 +213,7 @@ describe('hybrid: routing', () => {
     const c = validCase(config, 'G5', 'awarded');
     const result = evaluateTransition(
       config,
-      makeQuote('CUSTOMER_DECISION'),
+      makeQuote('CUSTOMER_DECISION', { fields: c.fields }),
       makeActor('SalesLeader'),
       c.request,
       NOW,
@@ -412,7 +412,7 @@ describe('validation: all errors, in order', () => {
       hybridConfig,
       quote,
       makeActor('SalesLeader'),
-      { gateKey: 'G5', outcomeKey: 'on_hold' },
+      { gateKey: 'G5', outcomeKey: 'on_hold', reasonCode: 'awaiting_customer_info' },
       NOW,
     );
     expect(!missing.ok && missing.errors).toMatchObject([
@@ -535,7 +535,7 @@ describe('validation: all errors, in order', () => {
     const c = validCase(hybridConfig, 'G5', 'awarded');
     const result = evaluateTransition(
       hybridConfig,
-      makeQuote('CUSTOMER_DECISION', { status: 'closed' }),
+      makeQuote('CUSTOMER_DECISION', { status: 'closed', fields: c.fields }),
       makeActor('SalesLeader'),
       c.request,
       NOW,
@@ -643,11 +643,17 @@ describe('segregation of duties', () => {
     const c = validCase(hybridConfig, 'G5', 'awarded');
     const kam = makeActor('KAM', { userId: KAM_ID });
     expect(
-      evaluateTransition(hybridConfig, makeQuote('CUSTOMER_DECISION'), kam, c.request, NOW).ok,
+      evaluateTransition(
+        hybridConfig,
+        makeQuote('CUSTOMER_DECISION', { fields: c.fields }),
+        kam,
+        c.request,
+        NOW,
+      ).ok,
     ).toBe(true);
     const stranger = evaluateTransition(
       hybridConfig,
-      makeQuote('CUSTOMER_DECISION', { kamUserId: OTHER_ID }),
+      makeQuote('CUSTOMER_DECISION', { kamUserId: OTHER_ID, fields: c.fields }),
       kam,
       c.request,
       NOW,

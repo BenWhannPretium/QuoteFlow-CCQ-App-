@@ -2,7 +2,8 @@ import type { ReasonCodeDefinition } from '../../types/workflow-config';
 
 /**
  * Placeholder taxonomy so the engine has valid codes to test against. The real list is open decision D-15
- * (outcome taxonomy, reason codes, closure owner), so every entry is provisional.
+ * (outcome taxonomy, reason codes, closure owner), so every entry is provisional. When D-15 is approved,
+ * change the rows (Admin config) and set provisional = false with approved_by; no code change.
  */
 const CODES: Record<string, [code: string, label: string][]> = {
   rework: [
@@ -51,11 +52,23 @@ const CODES: Record<string, [code: string, label: string][]> = {
     ['awaiting_internal_input', 'Awaiting internal input'],
     ['customer_requested_delay', 'Customer requested delay'],
   ],
+  // B-13 change reasons for a Re-quote. "Other" needs a note.
   requote: [
     ['scope_change', 'Scope change'],
-    ['price_change', 'Price change'],
     ['volume_change', 'Volume change'],
+    ['resin_change', 'Resin change'],
+    ['terms_change', 'Terms change'],
+    ['other', 'Other (note required)'],
+    // Retired in B-13 (kept, inactive, so earlier decisions keep their label).
+    ['price_change', 'Price change'],
     ['validity_lapsed', 'Proposal validity lapsed'],
+  ],
+  // B-13: G5 Awarded's acceptance evidence (also handoff_record.acceptance_evidence).
+  awarded: [
+    ['verbal', 'Verbal award'],
+    ['po', 'Purchase order (PO)'],
+    ['loi', 'Letter of intent (LOI)'],
+    ['contract', 'Contract'],
   ],
   override: [
     ['priority_correction', 'Priority correction'],
@@ -64,7 +77,9 @@ const CODES: Record<string, [code: string, label: string][]> = {
 };
 
 /** Codes that need a note when chosen, as `context:code`. */
-const NOTE_REQUIRED = new Set(['lost:other']);
+const NOTE_REQUIRED = new Set(['lost:other', 'requote:other']);
+/** Codes no longer offered, as `context:code` (inactive rows keep old decisions' labels). */
+const RETIRED = new Set(['requote:price_change', 'requote:validity_lapsed']);
 
 export const SEED_REASON_CODES: ReasonCodeDefinition[] = Object.entries(CODES).flatMap(
   ([context, codes]) =>
@@ -72,7 +87,7 @@ export const SEED_REASON_CODES: ReasonCodeDefinition[] = Object.entries(CODES).f
       context,
       code,
       label,
-      active: true,
+      active: !RETIRED.has(`${context}:${code}`),
       requiresNote: NOTE_REQUIRED.has(`${context}:${code}`),
       provisional: true,
     })),

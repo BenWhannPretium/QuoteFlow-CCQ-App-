@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { EngineeringDetail } from './eng-review';
 import { IntakeAddress } from './intake';
+import { CustomerDecisionDetail } from './outcome';
 import { QuoteOverridableField } from './overrides';
 import { QuotingDetail } from './pricing';
 
@@ -80,6 +81,17 @@ export const AvailableGateAction = z.object({
   releasesProposal: z.boolean(),
   /** B-12: `validity_days_default`, so the dialog can show "valid until"; null unless `releasesProposal`. */
   validityDays: z.number().int().nullable(),
+  /**
+   * B-13: the outcome closes the quote as the customer's outcome (G5 Awarded / Lost / Expired), so the
+   * dialog shows the closure owner (and for an award, the acceptance date and document link).
+   */
+  closesAs: z.string().nullable(),
+  /** B-13: whom the closure owner defaults to (the KAM, or the decider); null unless it closes. */
+  closureOwnerDefault: z.enum(['kam', 'decider']).nullable(),
+  /** B-13: the outcome needs an acceptance date (`acceptedAt`; G5 Awarded). */
+  requiresAcceptanceDate: z.boolean(),
+  /** B-13: a note is required only because the proposal's validity has not passed yet (Expired). */
+  requiresNoteBeforeValidity: z.boolean(),
 });
 export type AvailableGateAction = z.infer<typeof AvailableGateAction>;
 
@@ -122,6 +134,11 @@ export const GateDecisionSummary = z.object({
   note: z.string().nullable(),
   reasonCode: z.string().nullable(),
   quoteVersion: z.number().int(),
+  /**
+   * B-13 (CR-38): taken against an earlier version than the quote's current one (a re-quote or return
+   * bumped it). Kept exactly as recorded, never edited; shown as superseded.
+   */
+  superseded: z.boolean(),
 });
 export type GateDecisionSummary = z.infer<typeof GateDecisionSummary>;
 
@@ -162,6 +179,8 @@ export const QuoteDetail = QuoteSummary.extend({
   engineering: EngineeringDetail,
   /** B-11: the Quoting tab. Commercial parts are stripped for roles without commercial access. */
   quoting: QuotingDetail,
+  /** B-13: the Customer Decision header (validity countdown, SF stage), the closure and the hand-off. */
+  customerDecision: CustomerDecisionDetail,
 });
 export type QuoteDetail = z.infer<typeof QuoteDetail>;
 
@@ -189,6 +208,17 @@ export const GateDecisionBody = z.object({
    * never in the future. `validity_until` is set from it (B-12).
    */
   proposalIssuedAt: z.iso.datetime({ offset: true }).optional(),
+  /** B-13, G5 Awarded: the date the customer accepted (`YYYY-MM-DD`, not in the future). */
+  acceptedAt: z.iso.date().optional(),
+  /** B-13, G5 Awarded: optional link to the PO / LOI / contract (http(s)). */
+  acceptanceDocumentUrl: z.string().max(2000).optional(),
+  /** B-13, G5 Lost: optional competitor who won. Kept on the decision. */
+  competitor: z.string().max(200).optional(),
+  /**
+   * B-13 (CR-39): the closure owner when the decision closes the quote. Default: the KAM for a customer
+   * outcome, the decider for an internal no-go. Naming anyone else needs `outcome.assignOwner`.
+   */
+  closureOwnerId: z.uuid().optional(),
 });
 export type GateDecisionBody = z.infer<typeof GateDecisionBody>;
 

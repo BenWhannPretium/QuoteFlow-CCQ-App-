@@ -2,6 +2,7 @@ import {
   BarChart3Icon,
   CheckSquareIcon,
   ClipboardListIcon,
+  FileClockIcon,
   FilePlus2Icon,
   HomeIcon,
   KanbanSquareIcon,
@@ -17,6 +18,7 @@ import type { NavKey } from './nav';
 export const NAV_ICONS: Record<NavKey, LucideIcon> = {
   home: HomeIcon,
   intake: FilePlus2Icon,
+  proposals: FileClockIcon,
   'queue-engineering': WrenchIcon,
   'queue-pricing': ClipboardListIcon,
   pipeline: KanbanSquareIcon,

@@ -22,6 +22,11 @@ import {
 } from '@/components';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
+import {
+  ClosureCard,
+  CustomerDecisionHeader,
+  HandoffCard,
+} from '@/components/outcome/CustomerDecision';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,6 +65,8 @@ function QuotePage() {
     queryFn: () => api.quote(quoteNumber),
   });
   const [deciding, setDeciding] = useState<{ gate: string; outcome?: string } | null>(null);
+  /** B-13: right after recording Awarded, the hand-off form opens with focus. */
+  const [handoffFocus, setHandoffFocus] = useState(false);
   const canReadFinalReview = useCan('finalReview.read');
 
   if (quote.isPending) {
@@ -123,6 +130,7 @@ function QuotePage() {
         </span>
       </div>
 
+      <CustomerDecisionHeader quote={q} />
       <ReworkBanner quote={q} />
       <QualificationWarnings warnings={q.warnings} />
       <StageTimeBar quoteNumber={q.quoteNumber} />
@@ -149,6 +157,8 @@ function QuotePage() {
           ))}
         </Tabs.List>
         <Tabs.Content value="overview" className="grid gap-6">
+          <HandoffCard quote={q} autoFocus={handoffFocus} />
+          <ClosureCard closure={q.customerDecision.closure} />
           <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
             <IntakeCard quote={q} />
             <div className="grid content-start gap-6">
@@ -195,6 +205,12 @@ function QuotePage() {
           gateKey={deciding.gate}
           quoteNumber={q.quoteNumber}
           {...(deciding.outcome ? { initialOutcomeKey: deciding.outcome } : {})}
+          onDecided={(result) => {
+            if (result.quote.stageKey === 'AWARDED') {
+              setHandoffFocus(true);
+              void navigate({ search: {}, replace: true });
+            }
+          }}
         />
       )}
     </div>
@@ -319,17 +335,7 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
                 : 'Not submitted',
             },
             { label: 'Stage', value: stageLabel(config, quote.stageKey) },
-            // B-12: set by the Final Review approval; B-13 adds the validity countdown.
-            ...(quote.proposalIssuedAt
-              ? [
-                  {
-                    id: 'proposal-issued',
-                    label: 'Proposal issued',
-                    value: new Date(quote.proposalIssuedAt).toLocaleString(),
-                  },
-                  { id: 'valid-until', label: 'Valid until', value: quote.validityUntil },
-                ]
-              : []),
+            // The proposal dates and validity countdown are in the Customer decision header (B-13).
           ]}
         />
       </CardContent>
@@ -354,10 +360,22 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
         ) : (
           <ol className="grid gap-3" data-testid="decisions">
             {quote.decisions.map((d) => (
-              <li key={d.id} className="grid gap-0.5 text-sm">
+              <li
+                key={d.id}
+                className="grid gap-0.5 text-sm"
+                data-superseded={d.superseded || undefined}
+              >
                 <span className="font-medium">
                   {d.gateKey} · {outcomeLabel(d.gateKey, d.outcomeKey)}
                   {d.reasonCode ? ` (${d.reasonCode})` : ''}
+                  {d.superseded && (
+                    <span
+                      className="bg-muted text-muted-foreground rounded-pill ml-2 px-2 py-0.5 text-xs font-normal"
+                      title="Taken on an earlier version (re-quote or return). Kept as recorded."
+                    >
+                      Superseded
+                    </span>
+                  )}
                 </span>
                 {d.note && <span className="text-foreground-2">{d.note}</span>}
                 <span className="text-muted-foreground text-xs">

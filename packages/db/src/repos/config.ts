@@ -67,6 +67,7 @@ export async function loadWorkflowConfigInput(db: DbOrTx): Promise<WorkflowConfi
       nextStatus: t.nextStatus as 'active' | 'on_hold' | 'closed',
       ...(t.closeAs ? { closeAs: t.closeAs } : {}),
       versionBump: t.versionBump,
+      closureOwner: t.closureOwner as 'kam' | 'decider',
       provisional: t.provisional,
     })),
     reasonCodes: reasons.map((r) => ({

@@ -218,17 +218,25 @@ describe('synthetic data', () => {
       select count(*)::int as n from quote q
       where (q.status = 'on_hold') <> exists (select 1 from quote_hold h where h.quote_id = q.id and h.ended_at is null)`);
     expect(holds!.n).toBe(0);
-    // Closed quotes carry outcome, closure owner and date (CR-39); reason codes on all but awarded.
+    // Closed quotes carry outcome, reason, closure owner and date (CR-39; B-13: an award's reason is
+    // its acceptance evidence). Customer outcomes are owned by the KAM, internal no-gos by the decider.
     expect(
       await count(
         'quote',
-        sql`status = 'closed' and (outcome is null or closure_owner_id is null or closed_at is null)`,
+        sql`status = 'closed' and (outcome is null or outcome_reason_code is null or closure_owner_id is null or closed_at is null)`,
       ),
     ).toBe(0);
     expect(
       await count(
         'quote',
-        sql`status = 'closed' and outcome <> 'awarded' and outcome_reason_code is null`,
+        sql`outcome in ('awarded', 'lost', 'expired') and closure_owner_id <> kam_user_id`,
+      ),
+    ).toBe(0);
+    // Every award has its hand-off record, with the decision's evidence.
+    expect(
+      await count(
+        'quote',
+        sql`stage_key = 'AWARDED' and not exists (select 1 from handoff_record h where h.quote_id = quote.id and h.acceptance_evidence = quote.outcome_reason_code)`,
       ),
     ).toBe(0);
     // Version bumps are explained by return/rework/requote decisions.

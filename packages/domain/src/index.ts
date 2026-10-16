@@ -10,6 +10,7 @@ export * from './engineering';
 export * from './errors';
 export * from './final-review';
 export * from './intake';
+export * from './outcome';
 export * from './overrides';
 export * from './policy';
 export * from './pricing';

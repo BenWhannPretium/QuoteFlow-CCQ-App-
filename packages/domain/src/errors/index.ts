@@ -28,6 +28,10 @@ export const DOMAIN_ERROR_CODES = [
   // B-12 Final Review
   'TIER_APPROVER_REQUIRED',
   'INVALID_PROPOSAL_DATE',
+  // B-13 customer decision and closure
+  'CLOSURE_INCOMPLETE',
+  'INVALID_CLOSURE_OWNER',
+  'NOT_AWARDED',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

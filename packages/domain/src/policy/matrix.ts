@@ -67,6 +67,11 @@ export const PERMISSION_MATRIX: Readonly<
   'finalReview.read': { Approver: true, Leadership: true, Admin: true },
   'gate.G4.decide': { Approver: true },
   'outcome.record': { KAM: own, SalesLeader: true },
+  // B-13 (CR-39, D-15): the closure owner defaults to the quote's KAM; a sales leader, who is
+  // accountable for closure, may name someone else (themselves, or another KAM).
+  'outcome.assignOwner': { SalesLeader: true },
+  // B-13: the minimal Awarded hand-off record (Stage 6). KAM on their own quotes, SalesLeader, Admin.
+  'handoff.edit': { KAM: own, SalesLeader: true, Admin: true },
   'override.request': { KAM: true, SalesLeader: true, EngLead: true, Pricing: true },
   'override.approve': {
     SalesLeader: true,

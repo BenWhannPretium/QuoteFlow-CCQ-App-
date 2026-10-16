@@ -196,7 +196,8 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         steps: [
           ...toCustomer,
           ...(i % 5 === 0 ? [hold('G5')] : []),
-          g5('awarded'),
+          // B-13: the acceptance evidence is the Awarded reason code (no random draw: same data set).
+          g5('awarded', { reason: (['po', 'verbal', 'po', 'loi', 'contract'] as const)[i % 5] }),
           { kind: 'handoff' },
         ],
         complete: true,
@@ -279,7 +280,11 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
       return {
         steps: [
           ...toCustomer,
-          g5('expired', { reason: rng.pick(['no_response', 'validity_lapsed']) }),
+          // B-13: before the validity date an expiry needs a note ("silence is not a loss").
+          g5('expired', {
+            reason: rng.pick(['no_response', 'validity_lapsed']),
+            note: 'No reply after three follow-ups; the customer has gone quiet.',
+          }),
         ],
         complete: true,
       };
@@ -601,14 +606,23 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
         }
         case 'handoff': {
           const cer = rng.chance(0.6) ? `CER-${rng.int(1_000, 9_999)}` : null;
+          // The evidence is the Awarded decision's reason code (B-13); the draw is kept so the rows
+          // generated after it stay the same.
+          discard(rng.pick(['verbal', 'po', 'po', 'loi', 'contract']));
+          const awardedRow = await getQuoteById(db, quoteId);
+          const contact = rng.faker.person.fullName();
           await insertHandoffRecord(db, {
             quoteId,
-            acceptanceEvidence: rng.pick(['verbal', 'po', 'po', 'loi', 'contract']),
-            receivingRole: 'PostAward',
-            acceptedByName: rng.faker.person.fullName(),
+            acceptanceEvidence: awardedRow!.outcomeReasonCode!,
+            acceptanceDate: at.toISOString().slice(0, 10),
+            receivingRole: cer ? 'commercial_activation' : 'npi_post_award_pm',
+            receivingContactName: contact,
+            acceptedOn: at.toISOString().slice(0, 10),
             cerId: cer,
             bprId: rng.chance(0.5) ? `BPR-${rng.int(1_000, 9_999)}` : null,
             notes: 'Synthetic hand-off.',
+            completedAt: cer ? at : null,
+            completedBy: cer ? kam.id : null,
             createdAt: at,
             createdBy: kam.id,
           });
@@ -634,7 +648,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             step.payload ??
             (step.hold
               ? { review_date: new Date(at.getTime() + 21 * DAY_MS).toISOString().slice(0, 10) }
-              : undefined);
+              : step.gate === 'G5' && step.outcome === 'awarded'
+                ? { accepted_at: at.toISOString().slice(0, 10) }
+                : undefined);
           if (payload?.review_date)
             await updateQuote(db, quoteId, { reviewDate: payload.review_date as string });
           const request: TransitionRequest = {

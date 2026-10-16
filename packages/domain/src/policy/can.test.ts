@@ -42,6 +42,8 @@ const EXPECTED: Record<string, Role[]> = {
   'finalReview.read': ['Approver', 'Leadership', 'Admin'],
   'gate.G4.decide': ['Approver'],
   'outcome.record': ['SalesLeader'],
+  'outcome.assignOwner': ['SalesLeader'],
+  'handoff.edit': ['SalesLeader', 'Admin'],
   'override.request': ['KAM', 'SalesLeader', 'EngLead', 'Pricing'],
   'override.approve': ['SalesLeader', 'Admin'],
   'override.revert': ['SalesLeader', 'EngLead', 'Admin'],

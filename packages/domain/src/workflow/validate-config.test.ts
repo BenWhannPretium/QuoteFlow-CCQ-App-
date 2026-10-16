@@ -62,6 +62,7 @@ describe('validateWorkflowConfig', () => {
       targetStageKeys: [],
       nextStatus: 'active',
       versionBump: false,
+      closureOwner: 'decider',
       provisional: true,
     });
     expect(messages(c)).toEqual(
@@ -158,7 +159,7 @@ describe('parseWorkflowConfig', () => {
     const parsed = parseWorkflowConfig({
       stages: [
         { key: 'A', label: 'A' },
-        { key: 'Z', label: 'Z', terminal: true },
+        { key: 'Z', label: 'Z' },
       ],
       gates: [{ key: 'G', stageKey: 'A', label: 'G', deciderPermission: 'quote.create' }],
       outcomes: [{ gateKey: 'G', key: 'go', label: 'Go' }],
@@ -167,8 +168,7 @@ describe('parseWorkflowConfig', () => {
           gateKey: 'G',
           outcomeKey: 'go',
           targetStageKeys: ['Z'],
-          nextStatus: 'closed',
-          closeAs: 'done',
+          nextStatus: 'active',
         },
       ],
     });
@@ -178,7 +178,7 @@ describe('parseWorkflowConfig', () => {
       requiresReasonCode: false,
       notify: [],
     });
-    expect(parsed.transitions[0]).toMatchObject({ versionBump: false });
+    expect(parsed.transitions[0]).toMatchObject({ versionBump: false, closureOwner: 'decider' });
     expect(parsed.reasonCodes).toEqual([]);
     expect(parsed.segregation).toEqual([]);
   });

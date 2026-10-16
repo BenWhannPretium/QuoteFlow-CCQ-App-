@@ -20,7 +20,7 @@ export const INTEGRATION_SOURCES = ['salesforce', 'pricing', 'sharepoint'] as co
 export const INTEGRATION_STATUSES = ['running', 'succeeded', 'failed', 'partial'] as const;
 /** Why a CCQ-linked opportunity needs attention: it was closed or deleted in Salesforce. */
 export const SF_STATUS_FLAGS = ['closed_won', 'closed_lost', 'deleted'] as const;
-export { SEGREGATION_DENY } from '@ccq/domain';
+export { CLOSURE_OWNER_DEFAULTS, SEGREGATION_DENY } from '@ccq/domain';
 
 export const AUDIT_ACTIONS = [
   'view',
@@ -64,6 +64,8 @@ export const REASON_CONTEXTS = [
   'hold',
   'requote',
   'override',
+  // B-13: G5 Awarded's acceptance evidence.
+  'awarded',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

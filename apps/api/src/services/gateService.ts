@@ -12,6 +12,7 @@ import {
   getSetting,
   insertActivityEvent,
   listGateQueue,
+  listUsersByIds,
   loadQuoteState,
   loadWorkflowConfigInput,
   persistTransition,
@@ -19,8 +20,13 @@ import {
   upsertPricingRecord,
 } from '@ccq/db/repos';
 import {
+  CUSTOMER_DECISION_STAGE_KEY,
   DomainError as DomainErrorClass,
   ENG_QUEUE_STAGE_KEY,
+  asUserId,
+  awardDetailErrors,
+  isValidityLapsed,
+  validityStatus,
   PRICING_QUEUE_STAGE_KEY,
   RELEASE_GATE_KEY,
   can,
@@ -45,6 +51,7 @@ import {
 import { onEngQueueArrival } from './engineering-arrival';
 import { onFinalReviewDecided } from './final-review';
 import type { AuditMeta } from './intake';
+import { onCustomerOutcome } from './outcome';
 import {
   onFinalReviewArrival,
   onPricingArrival,
@@ -146,6 +153,9 @@ export class GateService {
         ...(body.reasonCode !== undefined ? { reasonCode: body.reasonCode } : {}),
         ...(body.targetStageKey !== undefined ? { targetStageKey: body.targetStageKey } : {}),
         ...(body.holdUntil !== undefined ? { payload: { review_date: body.holdUntil } } : {}),
+        ...(body.closureOwnerId !== undefined
+          ? { closureOwnerId: asUserId(body.closureOwnerId) }
+          : {}),
       };
 
       // B-12: Approve releases the proposition: it sets proposal_issued_at (default now, editable to
@@ -174,6 +184,60 @@ export class GateService {
             'proposalIssuedAt',
           ),
         );
+      }
+      // B-13: the Customer Decision (G5) fields. The server works out whether the validity has passed
+      // ("No response / Expired" needs that, or a note); an award brings its acceptance date and link,
+      // a loss may name the competitor. They are kept on the decision (payload) as evidence.
+      const atCustomer = gate.stageKey === CUSTOMER_DECISION_STAGE_KEY;
+      const customerFields = {
+        accepted_at: body.acceptedAt,
+        acceptance_document_url: body.acceptanceDocumentUrl?.trim() || undefined,
+        competitor: body.competitor?.trim() || undefined,
+      };
+      if (atCustomer) {
+        request.payload = {
+          ...request.payload,
+          validity_lapsed: isValidityLapsed(row.quote.validityUntil, now),
+          ...Object.fromEntries(Object.entries(customerFields).filter(([, v]) => v !== undefined)),
+        };
+        extraErrors.push(
+          ...awardDetailErrors(
+            {
+              acceptedAt: body.acceptedAt ?? null,
+              acceptanceDocumentUrl: customerFields.acceptance_document_url ?? null,
+            },
+            now,
+          ),
+        );
+      } else {
+        for (const [key, value] of Object.entries({
+          acceptedAt: body.acceptedAt,
+          acceptanceDocumentUrl: body.acceptanceDocumentUrl,
+          competitor: body.competitor,
+        })) {
+          if (value !== undefined) {
+            extraErrors.push(
+              new DomainErrorClass(
+                'INVALID_VALUE',
+                `${key} applies only to the customer's outcome (Customer Decision)`,
+                key,
+              ),
+            );
+          }
+        }
+      }
+      // B-13 (CR-39): a named closure owner must be an active user.
+      if (body.closureOwnerId !== undefined) {
+        const [owner] = await listUsersByIds(tx, [body.closureOwnerId]);
+        if (!owner?.active) {
+          extraErrors.push(
+            new DomainErrorClass(
+              'INVALID_CLOSURE_OWNER',
+              'The closure owner must be an active CCQ user',
+              'closureOwnerId',
+            ),
+          );
+        }
       }
       // A malformed approver-tier setting must not silently switch the control off: refuse G4.
       if (gateKey === RELEASE_GATE_KEY && ctx.release.tiersError) {
@@ -244,6 +308,16 @@ export class GateService {
           ...(gateKey === RELEASE_GATE_KEY
             ? { review: { warnings: finalReviewWarnings(state, before.warnings) } }
             : {}),
+          // B-13: what the KAM saw at the customer's decision (validity countdown, proposal date).
+          ...(atCustomer
+            ? {
+                customer: {
+                  proposalIssuedAt: row.quote.proposalIssuedAt?.toISOString() ?? null,
+                  validity: validityStatus(row.quote.validityUntil, now, ctx.outcome.warningDays),
+                  sfStage: row.sfStage ?? null,
+                },
+              }
+            : {}),
           // B-10: G2 keeps the engineering solution and capacity rows exactly as the decider saw them.
           ...(gate.stageKey === ENG_QUEUE_STAGE_KEY
             ? { engineering: engineeringEvidence(state) }
@@ -281,6 +355,8 @@ export class GateService {
         await updateQuote(tx, row.quote.id, {
           proposalIssuedAt: proposal.proposalIssuedAt,
           validityUntil: proposal.validityUntil,
+          // B-13: a new validity date is a fresh countdown for the expiry job.
+          validityExpiredFlaggedAt: null,
         });
         await insertActivityEvent(tx, {
           quoteId: row.quote.id,
@@ -304,6 +380,17 @@ export class GateService {
           effects,
           workflow,
           proposal,
+        });
+      }
+      // B-13: an award opens the hand-off record (evidence, acceptance date, document link).
+      if (atCustomer) {
+        await onCustomerOutcome(tx, {
+          quoteId: row.quote.id,
+          actorId: actor.userId,
+          effects,
+          acceptedAt: body.acceptedAt ?? null,
+          acceptanceDocumentUrl: customerFields.acceptance_document_url ?? null,
+          now,
         });
       }
       // B-10: the EngLead's arrival alert (in-app; email is B-18) whenever a quote enters the queue.
@@ -394,9 +481,12 @@ export class GateService {
   }
 }
 
-/** A G4 decision that re-enters Engineering or Quoting is a Return: the arrival alert says so. */
-const returnedFrom = (gateKey: string): 'final_review' | undefined =>
-  gateKey === RELEASE_GATE_KEY ? 'final_review' : undefined;
+/**
+ * A G4 decision that re-enters Engineering or Quoting is a Return, a G5 one a customer Re-quote: the
+ * arrival alert says so.
+ */
+const returnedFrom = (gateKey: string): 'final_review' | 'customer_requote' | undefined =>
+  gateKey === RELEASE_GATE_KEY ? 'final_review' : gateKey === 'G5' ? 'customer_requote' : undefined;
 
 /** What the approver was told to weigh, as it stood at the G4 decision. */
 function finalReviewWarnings(

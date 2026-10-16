@@ -2,6 +2,7 @@ import { DomainError } from '../errors';
 import { evaluateRules, fieldsReferenced, getPath } from './rules';
 import type { FieldValues } from './rules';
 import { approverTierErrors, type ApproverTierRules } from '../final-review/tiers';
+import { closureErrors, type ClosureRecord } from '../outcome/closure';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { UserId, QuoteId } from '../types/ids';
@@ -25,6 +26,12 @@ export interface TransitionRequest {
   targetStageKey?: string;
   /** Values supplied with the decision itself (e.g. `review_date`). They overlay the quote's fields for rule checks. */
   payload?: Readonly<Record<string, unknown>>;
+  /**
+   * B-13 (CR-39): the closure owner, for a transition that closes the quote. Omitted = the transition's
+   * default (`closureOwner`: the KAM for a customer outcome, else the decider). Naming anyone else needs
+   * `outcome.assignOwner` (SalesLeader).
+   */
+  closureOwnerId?: UserId;
 }
 
 export type NotificationRecipient = { kind: 'role'; role: Role } | { kind: 'user'; userId: UserId };
@@ -80,6 +87,8 @@ export interface TransitionEffects {
   gateDecisionRecord: GateDecisionRecord;
   activityEvents: PlannedActivityEvent[];
   notifications: PlannedNotification[];
+  /** B-13 (CR-39): set exactly when `nextStatus` is closed, with every closure field filled. */
+  closure?: ClosureRecord;
 }
 
 /** Config that lives outside the workflow tables (app_setting) but changes who may decide. */
@@ -167,7 +176,8 @@ function validateConstraints(
 
   const reasonCode = request.reasonCode?.trim();
   if (!reasonCode) {
-    if (outcome.requiresReasonCode) {
+    // B-13 (CR-39): closing a quote always needs a reason code, whatever the outcome's own flag says.
+    if (outcome.requiresReasonCode || transition.nextStatus === 'closed') {
       errors.push(
         new DomainError(
           'REASON_REQUIRED',
@@ -306,10 +316,41 @@ export function evaluateTransition(
     ),
   );
 
-  // 4 + 5. Required fields, note, reason code, target
-  const values: FieldValues = { ...quote.fields, ...request.payload };
+  // 4 + 5. Required fields, note, reason code, target. The decision's own note is readable by rules as
+  // `decision_note` (B-13: "No response / Expired" needs the validity to have passed, or a note).
+  const decisionNote = request.note?.trim();
+  const values: FieldValues = {
+    ...quote.fields,
+    ...request.payload,
+    ...(decisionNote ? { decision_note: decisionNote } : {}),
+  };
   const rules = [...gate.requiredFields, ...outcome.requiredFields];
   errors.push(...validateConstraints(config, outcome, transition, request, rules, values));
+
+  // 6. Closure owner (B-13, CR-39): only on a closing transition; naming someone other than the default
+  // needs outcome.assignOwner.
+  const closes = transition.nextStatus === 'closed';
+  const defaultOwner = transition.closureOwner === 'kam' ? quote.kamUserId : actor.userId;
+  const owner = request.closureOwnerId ?? defaultOwner;
+  if (request.closureOwnerId !== undefined) {
+    if (!closes) {
+      errors.push(
+        new DomainError(
+          'INVALID_CLOSURE_OWNER',
+          `"${outcome.label}" does not close the quote, so it takes no closure owner`,
+          'closureOwnerId',
+        ),
+      );
+    } else if (owner !== defaultOwner && !can(actor, 'outcome.assignOwner', quote)) {
+      errors.push(
+        new DomainError(
+          'NOT_PERMITTED',
+          'Only a sales leader can name a different closure owner (outcome.assignOwner)',
+          'closureOwnerId',
+        ),
+      );
+    }
+  }
 
   if (errors.length > 0) return { ok: false, errors };
 
@@ -330,6 +371,21 @@ export function evaluateTransition(
 
   const note = request.note?.trim() || null;
   const reasonCode = request.reasonCode?.trim() || null;
+
+  // The closure rule, enforced here for every terminal path (CR-39/40).
+  let closure: ClosureRecord | undefined;
+  if (closes) {
+    closure = {
+      outcome: transition.closeAs ?? null,
+      outcomeReasonCode: reasonCode,
+      closureOwnerId: owner,
+      closedAt: now,
+      decidedBy: actor.userId,
+      decidedByRoles: [...actor.roles],
+    };
+    const incomplete = closureErrors(closure);
+    if (incomplete.length > 0) return { ok: false, errors: incomplete };
+  }
 
   const gateDecisionRecord: GateDecisionRecord = {
     quoteId: quote.id,
@@ -364,8 +420,15 @@ export function evaluateTransition(
   if (hold.action === 'end') activityEvents.push(event('hold_ended', { stageKey: quote.stageKey }));
   if (transition.versionBump)
     activityEvents.push(event('version_bumped', { from: quote.version, to: nextVersion }));
-  if (transition.nextStatus === 'closed') {
-    activityEvents.push(event('quote_closed', { closeAs: transition.closeAs ?? null, reasonCode }));
+  if (closure) {
+    activityEvents.push(
+      event('quote_closed', {
+        closeAs: closure.outcome,
+        reasonCode,
+        closureOwnerId: closure.closureOwnerId,
+        decidedByRoles: closure.decidedByRoles,
+      }),
+    );
   }
 
   const effects: TransitionEffects = {
@@ -385,6 +448,7 @@ export function evaluateTransition(
     activityEvents,
     notifications: resolveNotifications(config, outcome, quote, nextStageKey),
     ...(transition.closeAs ? { closeAs: transition.closeAs } : {}),
+    ...(closure ? { closure } : {}),
   };
   return { ok: true, effects };
 }

@@ -7,6 +7,8 @@ import type { Sql } from 'postgres';
 export const ADVISORY_LOCKS = {
   /** B-06: Salesforce delta sync. */
   sfSync: 606_001n,
+  /** B-13: daily proposal validity expiry flags. */
+  validityExpiry: 1_301_001n,
 } as const;
 
 /**

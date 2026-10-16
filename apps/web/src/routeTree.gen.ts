@@ -14,6 +14,7 @@ import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as BoardRouteImport } from './routes/board'
+import { Route as ProposalsRouteImport } from './routes/proposals'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminSplatRouteImport } from './routes/admin/$'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
@@ -26,6 +27,7 @@ import { Route as QueuePricingRouteImport } from './routes/queue/pricing'
 import { Route as QuotesIndexRouteImport } from './routes/quotes/index'
 import { Route as QuotesQuoteNumberRouteImport } from './routes/quotes/$quoteNumber'
 import { Route as AdminReportsErfLinkageRouteImport } from './routes/admin/reports/erf-linkage'
+import { Route as AdminReportsOutcomesRouteImport } from './routes/admin/reports/outcomes'
 import { Route as AdminReportsUsageRouteImport } from './routes/admin/reports/usage'
 import { Route as QuotesQuoteNumberReviewRouteImport } from './routes/quotes/$quoteNumber_.review'
 
@@ -52,6 +54,11 @@ const ApprovalsRoute = ApprovalsRouteImport.update({
 const BoardRoute = BoardRouteImport.update({
   id: '/board',
   path: '/board',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProposalsRoute = ProposalsRouteImport.update({
+  id: '/proposals',
+  path: '/proposals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -114,6 +121,11 @@ const AdminReportsErfLinkageRoute = AdminReportsErfLinkageRouteImport.update({
   path: '/reports/erf-linkage',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminReportsOutcomesRoute = AdminReportsOutcomesRouteImport.update({
+  id: '/reports/outcomes',
+  path: '/reports/outcomes',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminReportsUsageRoute = AdminReportsUsageRouteImport.update({
   id: '/reports/usage',
   path: '/reports/usage',
@@ -131,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
+  '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
@@ -143,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/quotes/': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute
   '/admin/reports/usage': typeof AdminReportsUsageRoute
   '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute
 }
@@ -151,6 +165,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
+  '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
@@ -163,6 +178,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/quotes': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute
   '/admin/reports/usage': typeof AdminReportsUsageRoute
   '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute
 }
@@ -173,6 +189,7 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
+  '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
@@ -185,6 +202,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/quotes/': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute
   '/admin/reports/usage': typeof AdminReportsUsageRoute
   '/quotes/$quoteNumber_/review': typeof QuotesQuoteNumberReviewRoute
 }
@@ -196,6 +214,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/approvals'
     | '/board'
+    | '/proposals'
     | '/admin/$'
     | '/admin/audit'
     | '/admin/integrations'
@@ -208,6 +227,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/quotes/'
     | '/admin/reports/erf-linkage'
+    | '/admin/reports/outcomes'
     | '/admin/reports/usage'
     | '/quotes/$quoteNumber/review'
   fileRoutesByTo: FileRoutesByTo
@@ -216,6 +236,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/approvals'
     | '/board'
+    | '/proposals'
     | '/admin/$'
     | '/admin/audit'
     | '/admin/integrations'
@@ -228,6 +249,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/quotes'
     | '/admin/reports/erf-linkage'
+    | '/admin/reports/outcomes'
     | '/admin/reports/usage'
     | '/quotes/$quoteNumber/review'
   id:
@@ -237,6 +259,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/approvals'
     | '/board'
+    | '/proposals'
     | '/admin/$'
     | '/admin/audit'
     | '/admin/integrations'
@@ -249,6 +272,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/quotes/'
     | '/admin/reports/erf-linkage'
+    | '/admin/reports/outcomes'
     | '/admin/reports/usage'
     | '/quotes/$quoteNumber_/review'
   fileRoutesById: FileRoutesById
@@ -259,6 +283,7 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   ApprovalsRoute: typeof ApprovalsRoute
   BoardRoute: typeof BoardRoute
+  ProposalsRoute: typeof ProposalsRoute
   IntakeNewRoute: typeof IntakeNewRoute
   QueueEngineeringRoute: typeof QueueEngineeringRoute
   QueuePricingRoute: typeof QueuePricingRoute
@@ -302,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/board'
       fullPath: '/board'
       preLoaderRoute: typeof BoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proposals': {
+      id: '/proposals'
+      path: '/proposals'
+      fullPath: '/proposals'
+      preLoaderRoute: typeof ProposalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -388,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsErfLinkageRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/reports/outcomes': {
+      id: '/admin/reports/outcomes'
+      path: '/reports/outcomes'
+      fullPath: '/admin/reports/outcomes'
+      preLoaderRoute: typeof AdminReportsOutcomesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/reports/usage': {
       id: '/admin/reports/usage'
       path: '/reports/usage'
@@ -413,6 +452,7 @@ interface AdminRouteRouteChildren {
   AdminUiKitRoute: typeof AdminUiKitRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminReportsErfLinkageRoute: typeof AdminReportsErfLinkageRoute
+  AdminReportsOutcomesRoute: typeof AdminReportsOutcomesRoute
   AdminReportsUsageRoute: typeof AdminReportsUsageRoute
 }
 
@@ -424,6 +464,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminUiKitRoute: AdminUiKitRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminReportsErfLinkageRoute: AdminReportsErfLinkageRoute,
+  AdminReportsOutcomesRoute: AdminReportsOutcomesRoute,
   AdminReportsUsageRoute: AdminReportsUsageRoute,
 }
 
@@ -437,6 +478,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   ApprovalsRoute: ApprovalsRoute,
   BoardRoute: BoardRoute,
+  ProposalsRoute: ProposalsRoute,
   IntakeNewRoute: IntakeNewRoute,
   QueueEngineeringRoute: QueueEngineeringRoute,
   QueuePricingRoute: QueuePricingRoute,

@@ -10,6 +10,7 @@ describe('adminPagePermission', () => {
     ['/admin/audit', 'audit.read'],
     ['/admin/reports/usage', 'audit.read'],
     ['/admin/override-log', 'overrideLog.read'],
+    ['/admin/reports/outcomes', 'analytics.read'],
   ])('%s needs %s', (path, permission) => {
     expect(adminPagePermission(path)).toBe(permission);
   });

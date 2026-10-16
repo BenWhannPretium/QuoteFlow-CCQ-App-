@@ -48,6 +48,11 @@ const EnvSchema = z
       .default('62.0'),
     /** Delta sync interval in minutes; 0 disables the in-process schedule (manual trigger still works). */
     SF_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(1440).default(15),
+    /**
+     * B-13: hours between proposal-validity expiry runs (daily); 0 disables the schedule. The job only
+     * flags and notifies; nothing auto-closes (D-12).
+     */
+    VALIDITY_EXPIRY_INTERVAL_HOURS: z.coerce.number().int().min(0).max(168).default(24),
   })
   .superRefine((env, ctx) => {
     if (env.AUTH_MODE === 'dev' && env.NODE_ENV === 'production') {

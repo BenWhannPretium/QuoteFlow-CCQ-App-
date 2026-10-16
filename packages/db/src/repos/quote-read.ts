@@ -23,6 +23,8 @@ const summaryColumns = {
   customerStatus: customer.status,
   kamName: appUser.displayName,
   processType: engReview.processType,
+  /** B-13: the SF stage, shown side by side with the CCQ stage. */
+  sfStage: sfOpportunitySnapshot.sfStage,
 };
 
 function summaryQuery(db: DbOrTx) {
@@ -38,7 +40,11 @@ function summaryQuery(db: DbOrTx) {
     .leftJoin(engReview, eq(engReview.quoteId, quote.id));
 }
 
-export type QuoteSummaryRow = Awaited<ReturnType<typeof getQuoteSummaryByNumber>> & object;
+/** A summary row. `sfStage` is optional so queue rows built by other repos still fit (B-13 reads it). */
+export type QuoteSummaryRow = Omit<
+  Awaited<ReturnType<typeof getQuoteSummaryByNumber>> & object,
+  'sfStage'
+> & { sfStage?: string | null };
 
 export async function getQuoteSummaryByNumber(db: DbOrTx, quoteNumber: string) {
   const [row] = await summaryQuery(db).where(eq(quote.quoteNumber, quoteNumber)).limit(1);
@@ -64,6 +70,16 @@ export function listGateQueue(db: DbOrTx, filter: GateQueueFilter) {
       asc(quote.quoteNumber),
     )
     .limit(filter.limit ?? 200);
+}
+
+/** B-13 "My open proposals": a KAM's open quotes waiting for the customer (on hold included). */
+export function listOpenProposals(db: DbOrTx, kamUserId: string, stageKey: string) {
+  return summaryQuery(db)
+    .where(
+      and(eq(quote.kamUserId, kamUserId), eq(quote.stageKey, stageKey), ne(quote.status, 'closed')),
+    )
+    .orderBy(sql`${quote.validityUntil} asc nulls last`, asc(quote.quoteNumber))
+    .limit(500);
 }
 
 /** A KAM's quotes that are back with them for rework (INTAKE, not resubmitted). */

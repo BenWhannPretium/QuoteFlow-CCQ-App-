@@ -9,13 +9,13 @@ const THEME_KEY = 'ccq.theme';
  * seeded permission matrix. A matrix change that moves a nav item fails here on purpose.
  */
 export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: string[] }[] = [
-  { persona: 'kam', landing: 'KAM', nav: ['home', 'intake', 'pipeline'] },
-  { persona: 'kam-owner', landing: 'KAM', nav: ['home', 'intake', 'pipeline'] },
-  { persona: 'kam-region', landing: 'KAM', nav: ['home', 'intake', 'pipeline'] },
+  { persona: 'kam', landing: 'KAM', nav: ['home', 'intake', 'proposals', 'pipeline'] },
+  { persona: 'kam-owner', landing: 'KAM', nav: ['home', 'intake', 'proposals', 'pipeline'] },
+  { persona: 'kam-region', landing: 'KAM', nav: ['home', 'intake', 'proposals', 'pipeline'] },
   {
     persona: 'sales-leader',
     landing: 'SalesLeader',
-    nav: ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
+    nav: ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
   },
   {
     persona: 'eng-lead',
@@ -64,7 +64,7 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'multi-role',
     landing: 'Approver',
-    nav: ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
+    nav: ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
   },
 ];
 

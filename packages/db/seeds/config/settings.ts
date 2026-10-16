@@ -1,5 +1,7 @@
 import {
   ENG_QUEUE_SETTINGS_SEED,
+  HANDOFF_RECEIVING_ROLES_SEED,
+  VALIDITY_WARNING_DAYS_SEED,
   OVERRIDE_SETTINGS_SEED,
   PRICING_REF_FORMATS_SEED,
   SCORING_MODEL_V1_INPUT,
@@ -58,6 +60,19 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'validity_days_default',
     value: 30,
     description: 'Default proposal validity in days. PTF says 30; D-12 open.',
+  },
+  // ── B-13 customer decision (D-12, D-15, R3). All provisional.
+  {
+    key: 'validity_warning_days',
+    value: VALIDITY_WARNING_DAYS_SEED,
+    description:
+      'The proposal validity countdown turns amber at this many days left or fewer (red once expired). The daily expiry job flags lapsed quotes and tells the KAM; nothing auto-closes (D-12 open).',
+  },
+  {
+    key: 'handoff_receiving_roles',
+    value: HANDOFF_RECEIVING_ROLES_SEED,
+    description:
+      'Who an awarded quote is handed to (the minimal hand-off record, B-13): [{code, label}]. "other" asks for the team. Provisional: confirm with Amanda Cronkhite (Commercial Activation) at R3.',
   },
   {
     key: 'g4_tier_rules',

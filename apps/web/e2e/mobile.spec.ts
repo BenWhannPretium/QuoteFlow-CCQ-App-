@@ -10,7 +10,9 @@ test.describe('390 × 844', () => {
     await expect(page.getByTestId('landing')).toHaveAttribute('data-role', 'KAM');
 
     // Bottom tabs replace the rail.
-    await expect.poll(() => visibleNavKeys(page)).toEqual(['home', 'intake', 'pipeline']);
+    await expect
+      .poll(() => visibleNavKeys(page))
+      .toEqual(['home', 'intake', 'proposals', 'pipeline']);
     const tabs = page.getByRole('navigation', { name: 'Primary' });
     await expect(tabs).toHaveCSS('position', 'fixed');
 

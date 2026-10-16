@@ -61,6 +61,9 @@ export const SEGREGATION_DENY = [
   'actor_is_price_approver',
 ] as const;
 
+/** B-13: whom a closing transition names as the closure owner by default (`transition_rule.closure_owner`). */
+export const CLOSURE_OWNER_DEFAULTS = ['kam', 'decider'] as const;
+
 // ── Workflow config ─────────────────────────────────────────────────────────────────────────────
 
 const key = z.string().min(1);
@@ -129,6 +132,12 @@ export const transitionRuleSchema = z
     closeAs: key.optional(),
     /** Return / rework / requote paths bump the quote version; prior decisions are never mutated. */
     versionBump: z.boolean().default(false),
+    /**
+     * B-13 (CR-39): who owns a closure this transition makes, unless a user holding
+     * `outcome.assignOwner` names someone else. `kam`: the quote's KAM (the customer outcome, G5);
+     * `decider`: whoever decided (an internal no-go: G1–G3 Stop, G4 Decline, G1 Redirect, CR-40).
+     */
+    closureOwner: z.enum(CLOSURE_OWNER_DEFAULTS).default('decider'),
     provisional: z.boolean().default(true),
   })
   .strict();
