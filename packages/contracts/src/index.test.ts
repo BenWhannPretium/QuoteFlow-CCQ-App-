@@ -71,3 +71,32 @@ describe('auth contracts', () => {
     expect(me.roles).toEqual(['KAM']);
   });
 });
+
+describe('intake contracts', () => {
+  it('maps a draft to the domain values, resolving a free-text neck finish', async () => {
+    const { intakeValues, IntakeDraftData } = await import('./intake');
+    const data = IntakeDraftData.parse({
+      sfOpportunityId: '006SYN000000000001',
+      customer: { status: 'not_yet_established', name: 'New Co', location: 'Austin, TX' },
+      neckFinish: 'OTHER',
+      neckFinishOther: '  53mm lug ',
+      components: ['CONTAINER'],
+    });
+    const values = intakeValues(data, ['OTHER']);
+    expect(values).toMatchObject({
+      sf_opportunity_id: '006SYN000000000001',
+      customer: { status: 'not_yet_established', name: 'New Co', sf_account_id: null },
+      neck_finish: '53mm lug',
+      components: ['CONTAINER'],
+      ship_to: null,
+      est_annual_volume_confirmed: false,
+    });
+    expect(intakeValues({ neckFinish: '28-410' }, ['OTHER']).neck_finish).toBe('28-410');
+  });
+
+  it('rejects a malformed opportunity id or date in a draft', async () => {
+    const { IntakeDraftData } = await import('./intake');
+    expect(IntakeDraftData.safeParse({ sfOpportunityId: 'nope' }).success).toBe(false);
+    expect(IntakeDraftData.safeParse({ expectedCloseDate: '10/23/2026' }).success).toBe(false);
+  });
+});

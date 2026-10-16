@@ -17,6 +17,7 @@
     "@azure/msal-browser": "5.23.0",
     "@azure/msal-react": "5.7.1",
     "@ccq/contracts": "workspace:*",
+    "@ccq/domain": "workspace:^",
     "@tanstack/react-query": "5.104.3",
     "@tanstack/react-router": "1.170.44",
     "@tanstack/react-table": "8.21.3",
@@ -32,7 +33,6 @@
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
     "@ccq/config": "workspace:*",
-    "@ccq/domain": "workspace:^",
     "@playwright/test": "1.56.1",
     "@tailwindcss/vite": "4.3.3",
     "@tanstack/router-plugin": "1.168.46",

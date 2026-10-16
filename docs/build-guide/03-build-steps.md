@@ -219,15 +219,33 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **M4 (Tue Oct 20)**: Jim Zweifel, Danielle Leu, a sales leader and Jordan Albin validate the field set
   - **R1 (Fri Oct 23)**: KAM review
 - **Done when:**
-  - [ ] 4-step wizard: Opportunity → Customer & ship-to → Product & volume → Drawing & notes / review
-  - [ ] only Sales-knowable fields; no plant, process, machine, capital, engineer or priority
-  - [ ] existing vs not-yet-established customer
-  - [ ] ship-to auto-fills and can be overridden with a reason
-  - [ ] the drawing prompt never blocks
-  - [ ] drafts autosave
-  - [ ] submit creates `CCQ-2026-NNNNN` in Intake with an audit trail
-  - [ ] mobile usable
+  - [x] 4-step wizard: Opportunity → Customer & ship-to → Product & volume → Drawing & notes / review
+  - [x] only Sales-knowable fields; no plant, process, machine, capital, engineer or priority
+  - [x] existing vs not-yet-established customer
+  - [x] ship-to auto-fills and can be overridden with a reason
+  - [x] the drawing prompt never blocks
+  - [x] drafts autosave
+  - [x] submit creates `CCQ-2026-NNNNN` in Intake with an audit trail
+  - [x] mobile usable
+  - [ ] R1 KAM review (Fri Oct 23)
 - **Prompt:** `prompts/B-07-intake-wizard.md`
+- **Built 2026-10-16. Notes and deviations:**
+  - **Field set (provisional, pending the M4 sign-off by Danielle Leu and Jim Zweifel, D-05 / CR-08).** M4 has not confirmed a final list yet, so this is the seed set, all config:
+    - Step 1: SF opportunity (picker over `GET /salesforce/opportunities`, Mine/All).
+    - Step 2: customer (existing from the SF Account, or not yet established: name, location, contact name/email/phone), ship-to / fill location (default from the account; changing it needs a reason).
+    - Step 3: request class (default `CCQ`), product family, container size, resin, market, components (multi), neck finish/type (+ free text for *Other*), packaging type, packaging requirements, estimated annual volume, estimated annual revenue (pre-filled from the SF amount, original kept), expected close date (from SF), standard description (suggested from the template) and free-text description.
+    - Step 4: drawing status, a disabled upload placeholder (B-16), comments for engineering, full review with *Edit* per section.
+    - **Blocking** (`intake_required_fields`, required-field DSL): SF opportunity, customer name, ship-to (street or city), product family, resin, estimated annual volume. Everything else that is blank is an amber *"Engineering may ask about this"*, never an error.
+  - **New settings** (all provisional, in `PUBLIC_SETTING_KEYS`): `intake_required_fields`, `intake_volume_placeholder` (`{values: [1000000], roundMultiple: 1000000}`: soft confirm), `intake_default_request_class`, `intake_description_template` (`{container_size} {product_family}[, {resin}][ with {components}]`), `intake_field_help` (one-line "why we ask" per field, feeds P1 F-19) and `salesforce_new_opportunity_url`. `drawing_status` `HAVE_DRAWING` carries `meta.hasDrawing` (the drawing nudge is silent for it).
+  - **Domain** (`packages/domain/src/intake`): `evaluateIntake` returns blocking vs warnings (`MISSING_FIELD`, `INVALID_VALUE`, `SHIP_TO_REASON_REQUIRED` / `VOLUME_PLACEHOLDER`, `DRAWING_MISSING`, `REQUEST_CLASS_REDIRECT`, `ENRICH`) and `renderDescriptionTemplate`. The draft → snake_case mapping is `intakeValues` in `packages/contracts/src/intake.ts`, shared by the API and the wizard: the wizard evaluates locally for instant feedback, and the API evaluates again inside the submit transaction (the authority).
+  - **Drafts are their own table, `quote_draft`** (migration 0006), because `quote.quote_number` is NOT NULL and the number is issued at submit. RLS: the creator, plus Admin (read). Admin can list and open others' drafts but not change, submit or delete them. A submitted draft is kept, linked to its quote, and is read-only. Autosave PATCHes are **not** audited (every 5 s); draft create and delete are, and submit writes the quote's `create` audit row.
+  - **One active quote per SF opportunity:** unique partial index `quote_one_active_per_opportunity_uidx` on `quote(sf_opportunity_id) where status <> 'closed'`. The service returns 409 `active_quote_exists` (with the quote number when the caller can see it), and a race that reaches the index is mapped to the same 409. The SF search response gained `activeQuote` per item, so the picker offers *Open existing*.
+  - **Submit** (`POST /quotes/drafts/:id/submit`): makes sure the opportunity is in the snapshot (live read under the caller's context), links or records the customer, inserts the quote in `INTAKE` with `submitted_at`, writes `stage_history`, `activity_event` (`quote_created`, plus `ship_to_overridden`) and `audit_event`, calls the scoring hook (`scoring: null` until B-08, so the score stays null) and routes through the domain: when G1 is disabled the KAM's `SUBMIT` gate is applied (`evaluateTransition` + `persistTransition`, so it lands in `ENG_REVIEW` with a gate decision); otherwise it waits in `INTAKE` for G1. The EngLead arrival alert is still TODO(B-10/B-18). Routing reads the gate rows, not the `g1_enabled` setting; keeping the two in step is B-19's job.
+  - **Ship-to override until B-09:** stored on the quote (`ship_to_original`, `ship_to_override_reason`, `ship_to_overridden`) plus a `ship_to_overridden` activity event. B-09 should migrate these into `override` rows.
+  - **New columns:** `quote.ship_to_original`, `ship_to_override_reason`, `est_annual_revenue_sf`, `est_annual_volume_confirmed`, `submitted_at`; `customer.location`, `customer.contact`. The data dictionary is regenerated.
+  - **Synthetic seed rebalanced** so the unique index holds: still 150 quotes, but 80 active (INTAKE 12, ENG_REVIEW 22, QUOTING 18, FINAL_REVIEW 10, CUSTOMER_DECISION 18) on 80 distinct opportunities, and 70 closed (AWARDED 22, CLOSED_LOST 18, DECLINED 8, EXPIRED 12, REDIRECTED 10). Closed quotes reuse only the spare open opportunities, which leaves ~22 open opportunities free for new intakes in the demo. Existing local databases need `pnpm db:reset` (migration 0006 fails on a database seeded with the old generator). Two sfSync integration tests now pick single-quote opportunities.
+  - **Web:** `/intake/new` (start screen with *Continue a draft* and the picker) and `/intake/new?draft=<id>` (resume). Autosave every 5 s, on every step change, and on leaving the page. react-hook-form was **not** used: the wizard is one draft object saved as a whole, so plain controlled state was simpler; no new dependency. `@ccq/domain` moved from the web app's dev dependencies to its dependencies (it now runs in the browser).
+  - **Tests:** domain unit tests (100% lines); DB RLS tests for `quote_draft` and the unique index; API integration tests for create, autosave, resume, submit, 409, 422, required-field config, placeholder volume, drawing warning, ship-to reason, not-yet-established customer, draft visibility and G1-disabled routing; the six routes are in the permission-matrix registry; Playwright `intake.spec.ts` (desktop flow with a reload/resume and a submit without a drawing, ship-to reason, and the full flow at 390 × 844 with no horizontal scroll; axe on the review step). The desktop flow takes a few seconds, well inside the 3-minute target.
 
 ### B-08: Prioritization engine + G1 qualification (F-05, CR-10/11) · **Mon Oct 26** · Ben
 - **Why:** engineering needs a ranked queue, and leadership wants a qualify decision before engineering spends effort.

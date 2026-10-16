@@ -129,7 +129,14 @@ describe('sfSync against the fake reader', () => {
     const linked = await db.db
       .select({ id: quote.id, sfOpportunityId: quote.sfOpportunityId })
       .from(quote)
-      .where(sql`${quote.sfStatusFlag} is null`)
+      // Opportunities with exactly one quote, so each SF change flags exactly one quote (the B-07
+      // seed lets closed quotes share an opportunity).
+      .where(
+        and(
+          sql`${quote.sfStatusFlag} is null`,
+          sql`(select count(*) from quote q2 where q2.sf_opportunity_id = ${quote.sfOpportunityId}) = 1`,
+        ),
+      )
       .limit(2);
     const [toClose, toDelete] = linked as [(typeof linked)[0], (typeof linked)[0]];
 
@@ -196,7 +203,12 @@ describe('sfSync against the fake reader', () => {
     const [flagged] = await db.db
       .select({ id: quote.id, sfOpportunityId: quote.sfOpportunityId })
       .from(quote)
-      .where(eq(quote.sfStatusFlag, 'closed_lost'))
+      .where(
+        and(
+          eq(quote.sfStatusFlag, 'closed_lost'),
+          sql`(select count(*) from quote q2 where q2.sf_opportunity_id = ${quote.sfOpportunityId}) = 1`,
+        ),
+      )
       .limit(1);
     clock = hours(4);
     reader.put({

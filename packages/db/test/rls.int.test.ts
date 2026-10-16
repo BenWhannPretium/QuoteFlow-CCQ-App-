@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { as, asPersona, persona, pgError, raw, testDb } from './helpers';
+import { QUOTE_STAGE_TARGETS } from '../seeds/synthetic/index';
 import { createDb } from '../src/client';
 import { uuidv7 } from '../src/ids';
 import { listQuotes } from '../src/repos/index';
@@ -198,7 +199,8 @@ describe('RLS on quote: other scopes and roles', () => {
   it('PostAward sees Awarded quotes only', async () => {
     await as(db, { userId: uuidv7(), roles: ['PostAward'], scope: { type: 'all' } }, async (tx) => {
       const rows = await raw<{ stage_key: string }>(tx, sql`select stage_key from quote`);
-      expect(rows.length).toBe(20);
+      const awarded = QUOTE_STAGE_TARGETS.find(([stage]) => stage === 'AWARDED')![1];
+      expect(rows.length).toBe(awarded);
       expect(new Set(rows.map((r) => r.stage_key))).toEqual(new Set(['AWARDED']));
     });
   });
@@ -226,6 +228,81 @@ describe('RLS on quote: other scopes and roles', () => {
         async () => 1,
       ),
     ).rejects.toThrow(/commas/);
+  });
+});
+
+describe('RLS on quote_draft: creator plus Admin only (B-07)', () => {
+  const insertDraft = (ownerId: string) =>
+    sql`insert into quote_draft (id, owner_user_id, data) values (${uuidv7()}, ${ownerId}, '{}') returning id`;
+
+  it('a KAM sees, edits and deletes only their own drafts; Admin sees all', async () => {
+    const kam = persona('kam');
+    const other = persona('kam-region');
+    const [mine] = await asPersona(db, 'kam', (tx) => raw<{ id: string }>(tx, insertDraft(kam.id)));
+    const [theirs] = await asPersona(db, 'kam-region', (tx) =>
+      raw<{ id: string }>(tx, insertDraft(other.id)),
+    );
+
+    await asPersona(db, 'kam', async (tx) => {
+      expect(await raw(tx, sql`select 1 from quote_draft where id = ${theirs!.id}`)).toHaveLength(
+        0,
+      );
+      expect(await raw(tx, sql`select 1 from quote_draft where id = ${mine!.id}`)).toHaveLength(1);
+      const updated = await raw(
+        tx,
+        sql`update quote_draft set step = 2 where id = ${theirs!.id} returning id`,
+      );
+      expect(updated).toHaveLength(0);
+      const deleted = await raw(
+        tx,
+        sql`delete from quote_draft where id = ${theirs!.id} returning id`,
+      );
+      expect(deleted).toHaveLength(0);
+    });
+    // A KAM with an `all` data scope still can't read someone else's draft: drafts aren't pipeline.
+    await asPersona(db, 'sales-leader', async (tx) => {
+      expect(await raw(tx, sql`select 1 from quote_draft where id = ${mine!.id}`)).toHaveLength(0);
+    });
+    await asPersona(db, 'admin', async (tx) => {
+      const rows = await raw(
+        tx,
+        sql`select 1 from quote_draft where id in (${mine!.id}, ${theirs!.id})`,
+      );
+      expect(rows).toHaveLength(2);
+    });
+  });
+
+  it('cannot create a draft owned by someone else (WITH CHECK)', async () => {
+    const code = await pgError(
+      asPersona(db, 'kam', (tx) => raw(tx, insertDraft(persona('kam-region').id))),
+    );
+    expect(code).toBe('42501');
+  });
+});
+
+describe('one active quote per SF opportunity (B-07)', () => {
+  it('a second active quote on the same opportunity violates the unique partial index', async () => {
+    const [active] = await raw<{ sf_opportunity_id: string; kam_user_id: string }>(
+      db as never,
+      sql`select sf_opportunity_id, kam_user_id from quote where status <> 'closed' limit 1`,
+    );
+    const insert = (status: string) =>
+      raw(
+        db as never,
+        sql`insert into quote (id, quote_number, sf_opportunity_id, kam_user_id, stage_key, status, closed_at)
+            values (${uuidv7()}, 'CCQ-2098-00001', ${active!.sf_opportunity_id}, ${active!.kam_user_id}, 'INTAKE', ${status},
+                    ${status === 'closed' ? sql`now()` : sql`null`})`,
+      );
+    expect(await pgError(insert('active'))).toBe('23505');
+    expect(await pgError(insert('on_hold'))).toBe('23505');
+  });
+
+  it('closed quotes do not count, so an opportunity can carry its history', async () => {
+    const rows = await raw<{ n: number }>(
+      db as never,
+      sql`select count(*)::int as n from (select sf_opportunity_id from quote group by 1 having count(*) > 1) x`,
+    );
+    expect(rows[0]!.n).toBeGreaterThan(0);
   });
 });
 

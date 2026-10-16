@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { ActiveQuoteRef } from './intake';
+
 /**
  * Salesforce DTOs (read-only, DEC-12). Every CCQ quote starts from an SF Opportunity.
  * The connector maps raw SOQL records into these shapes in `@ccq/integrations` (salesforce/mapper.ts);
@@ -112,6 +114,8 @@ export const SfOpportunitySummary = z.object({
   dataQuality: z.array(SfDataQualityFlag),
   /** Where this row came from: the local snapshot or a live SF search. */
   source: z.enum(['snapshot', 'live']),
+  /** The opportunity's active CCQ quote, if the caller can see one (B-07: offer "Open existing"). */
+  activeQuote: ActiveQuoteRef.nullable(),
 });
 export type SfOpportunitySummary = z.infer<typeof SfOpportunitySummary>;
 
