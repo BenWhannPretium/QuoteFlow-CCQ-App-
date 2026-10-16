@@ -8,6 +8,9 @@ export {
   contextSettings,
   withAppRole,
   withRequestContext,
+  withSystemContext,
   DB_ROLES,
+  SYSTEM_JOB_CONTEXT,
 } from './withRequestContext';
+export { ADVISORY_LOCKS, withAdvisoryLock } from './advisoryLock';
 export type { DbRole, RequestContext, WithRequestContextOptions } from './withRequestContext';

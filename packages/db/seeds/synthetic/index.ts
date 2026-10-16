@@ -6,6 +6,7 @@ import { buildPersonas } from './personas';
 import { KAM_BY_REGION, generateQuotes } from './quotes';
 import type { QuoteGenResult } from './quotes';
 import { DEFAULT_ANCHOR, DEFAULT_SEED, createRng } from './rng';
+import { ownerAliasFor } from './sfFixture';
 import type { DbOrTx } from '../../src/client';
 import {
   getSetting,
@@ -18,6 +19,7 @@ import { appUser, customer, quote, sfOpportunitySnapshot } from '../../src/schem
 export { PERSONA_DEFS, buildPersonas, personaOid } from './personas';
 export type { Persona, PersonaKey } from './personas';
 export { SF_STAGE_COUNTS } from './opportunities';
+export { buildSfFixture, ownerAliasFor, renderSfFixture, SF_FIXTURE_PATH } from './sfFixture';
 export { QUOTE_STAGE_TARGETS } from './quotes';
 export { DEFAULT_ANCHOR, DEFAULT_SEED } from './rng';
 
@@ -122,14 +124,7 @@ export async function seedSynthetic(
           Amount: o.amount,
           CloseDate: o.closeDate,
           StageName: o.sfStage,
-          Owner: {
-            Alias: owner.displayName
-              .split(' ')
-              .map((w) => w.slice(0, 4))
-              .join('')
-              .toLowerCase()
-              .slice(0, 8),
-          },
+          Owner: { Alias: ownerAliasFor(owner.displayName) },
         };
         return {
           id: o.id,

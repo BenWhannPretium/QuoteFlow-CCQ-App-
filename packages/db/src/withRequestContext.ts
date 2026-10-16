@@ -91,3 +91,18 @@ export async function withAppRole<T>(db: Database, fn: (tx: Tx) => Promise<T>): 
     return fn(tx);
   });
 }
+
+/**
+ * Context for background jobs (SF sync, SLA timers). Not a real user: `app.user_id` is a fixed id
+ * no app_user row has, with the Admin role and `all` scope, so RLS lets the job see every quote.
+ * Jobs record what they did in `integration_run` and `activity_event` (actor null), not as a user.
+ */
+export const SYSTEM_JOB_CONTEXT: RequestContext = {
+  userId: '00000000-0000-7000-8000-000000000000',
+  roles: ['Admin'],
+  scope: { type: 'all' },
+};
+
+/** `withRequestContext` as the background-job system context. */
+export const withSystemContext = <T>(db: Database, fn: (tx: Tx) => Promise<T>): Promise<T> =>
+  withRequestContext(db, SYSTEM_JOB_CONTEXT, fn);

@@ -16,12 +16,14 @@ import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminSplatRouteImport } from './routes/admin/$'
+import { Route as AdminIntegrationsRouteImport } from './routes/admin/integrations'
 import { Route as AdminUiKitRouteImport } from './routes/admin/ui-kit'
 import { Route as IntakeNewRouteImport } from './routes/intake/new'
 import { Route as QueueEngineeringRouteImport } from './routes/queue/engineering'
 import { Route as QueuePricingRouteImport } from './routes/queue/pricing'
 import { Route as QuotesIndexRouteImport } from './routes/quotes/index'
 import { Route as QuotesQuoteNumberRouteImport } from './routes/quotes/$quoteNumber'
+import { Route as AdminReportsErfLinkageRouteImport } from './routes/admin/reports/erf-linkage'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +60,11 @@ const AdminSplatRoute = AdminSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminUiKitRoute = AdminUiKitRouteImport.update({
   id: '/ui-kit',
   path: '/ui-kit',
@@ -88,6 +95,11 @@ const QuotesQuoteNumberRoute = QuotesQuoteNumberRouteImport.update({
   path: '/quotes/$quoteNumber',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminReportsErfLinkageRoute = AdminReportsErfLinkageRouteImport.update({
+  id: '/reports/erf-linkage',
+  path: '/reports/erf-linkage',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/admin/$': typeof AdminSplatRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -103,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
   '/admin/': typeof AdminIndexRoute
   '/quotes/': typeof QuotesIndexRoute
+  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +124,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/admin/$': typeof AdminSplatRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -117,6 +132,7 @@ export interface FileRoutesByTo {
   '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
   '/admin': typeof AdminIndexRoute
   '/quotes': typeof QuotesIndexRoute
+  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -126,6 +142,7 @@ export interface FileRoutesById {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/admin/$': typeof AdminSplatRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -133,6 +150,7 @@ export interface FileRoutesById {
   '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
   '/admin/': typeof AdminIndexRoute
   '/quotes/': typeof QuotesIndexRoute
+  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -143,6 +161,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/admin/$'
+    | '/admin/integrations'
     | '/admin/ui-kit'
     | '/intake/new'
     | '/queue/engineering'
@@ -150,6 +169,7 @@ export interface FileRouteTypes {
     | '/quotes/$quoteNumber'
     | '/admin/'
     | '/quotes/'
+    | '/admin/reports/erf-linkage'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -157,6 +177,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/admin/$'
+    | '/admin/integrations'
     | '/admin/ui-kit'
     | '/intake/new'
     | '/queue/engineering'
@@ -164,6 +185,7 @@ export interface FileRouteTypes {
     | '/quotes/$quoteNumber'
     | '/admin'
     | '/quotes'
+    | '/admin/reports/erf-linkage'
   id:
     | '__root__'
     | '/'
@@ -172,6 +194,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/admin/$'
+    | '/admin/integrations'
     | '/admin/ui-kit'
     | '/intake/new'
     | '/queue/engineering'
@@ -179,6 +202,7 @@ export interface FileRouteTypes {
     | '/quotes/$quoteNumber'
     | '/admin/'
     | '/quotes/'
+    | '/admin/reports/erf-linkage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -245,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSplatRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/integrations': {
+      id: '/admin/integrations'
+      path: '/integrations'
+      fullPath: '/admin/integrations'
+      preLoaderRoute: typeof AdminIntegrationsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/ui-kit': {
       id: '/admin/ui-kit'
       path: '/ui-kit'
@@ -287,19 +318,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuotesQuoteNumberRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/reports/erf-linkage': {
+      id: '/admin/reports/erf-linkage'
+      path: '/reports/erf-linkage'
+      fullPath: '/admin/reports/erf-linkage'
+      preLoaderRoute: typeof AdminReportsErfLinkageRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
   }
 }
 
 interface AdminRouteRouteChildren {
   AdminSplatRoute: typeof AdminSplatRoute
+  AdminIntegrationsRoute: typeof AdminIntegrationsRoute
   AdminUiKitRoute: typeof AdminUiKitRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminReportsErfLinkageRoute: typeof AdminReportsErfLinkageRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSplatRoute: AdminSplatRoute,
+  AdminIntegrationsRoute: AdminIntegrationsRoute,
   AdminUiKitRoute: AdminUiKitRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminReportsErfLinkageRoute: AdminReportsErfLinkageRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(

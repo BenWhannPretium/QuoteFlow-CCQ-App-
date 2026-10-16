@@ -31,6 +31,23 @@ const EnvSchema = z
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
     /** Built SPA to serve in production. Defaults to apps/web/dist relative to this bundle. */
     WEB_DIST_DIR: nonEmpty.optional(),
+
+    /** Salesforce (B-06, read-only). fake = synthetic fixture (local, CI); live = jsforce + JWT bearer. */
+    SF_MODE: z.enum(['fake', 'live']).default('fake'),
+    /** https://test.salesforce.com for the UAT org (sandbox), https://login.salesforce.com for prod. */
+    SF_LOGIN_URL: z.url({ protocol: /^https$/ }).default('https://test.salesforce.com'),
+    /** Connected app consumer key (Rachel Dew). Not a secret. */
+    SF_CLIENT_ID: nonEmpty.optional(),
+    /** Read-only integration user, e.g. integration@pretiumpkg.com.uat. */
+    SF_USERNAME: nonEmpty.optional(),
+    /** PEM private key for the JWT bearer flow. In Azure: a Key Vault reference. Never logged. */
+    SF_PRIVATE_KEY: nonEmpty.optional(),
+    SF_API_VERSION: z
+      .string()
+      .regex(/^\d{2,3}\.0$/)
+      .default('62.0'),
+    /** Delta sync interval in minutes; 0 disables the in-process schedule (manual trigger still works). */
+    SF_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(1440).default(15),
   })
   .superRefine((env, ctx) => {
     if (env.AUTH_MODE === 'dev' && env.NODE_ENV === 'production') {
@@ -40,6 +57,17 @@ const EnvSchema = z
         message:
           'AUTH_MODE=dev is forbidden when NODE_ENV=production. Dev auth uses fake users and must never run in production.',
       });
+    }
+    if (env.SF_MODE === 'live') {
+      for (const key of ['SF_CLIENT_ID', 'SF_USERNAME', 'SF_PRIVATE_KEY'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is required when SF_MODE=live`,
+          });
+        }
+      }
     }
     if (env.AUTH_MODE === 'entra') {
       for (const key of ['ENTRA_TENANT_ID', 'ENTRA_API_AUDIENCE', 'ENTRA_SPA_CLIENT_ID'] as const) {

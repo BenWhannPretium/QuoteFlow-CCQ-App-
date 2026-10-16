@@ -56,3 +56,40 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, DATABASE_URL: 'mysql://x@y/z' })).toThrow(ConfigError);
   });
 });
+
+describe('Salesforce config', () => {
+  const base = {
+    NODE_ENV: 'development',
+    DATABASE_URL: 'postgres://ccq:ccq@localhost:5432/ccq',
+    AUTH_MODE: 'dev',
+    APP_BASE_URL: 'http://localhost:5173',
+  };
+
+  it('defaults to the fake reader, the UAT login URL and a 15-minute sync', () => {
+    const config = loadConfig(base);
+    expect(config.SF_MODE).toBe('fake');
+    expect(config.SF_LOGIN_URL).toBe('https://test.salesforce.com');
+    expect(config.SF_SYNC_INTERVAL_MINUTES).toBe(15);
+  });
+
+  it('SF_MODE=live requires the connected app, user and key', () => {
+    expect(() => loadConfig({ ...base, SF_MODE: 'live' })).toThrow(
+      /SF_CLIENT_ID is required when SF_MODE=live[\s\S]*SF_USERNAME[\s\S]*SF_PRIVATE_KEY/,
+    );
+    expect(
+      loadConfig({
+        ...base,
+        SF_MODE: 'live',
+        SF_CLIENT_ID: 'key',
+        SF_USERNAME: 'integration@pretiumpkg.com.uat',
+        SF_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\n...',
+      }).SF_MODE,
+    ).toBe('live');
+  });
+
+  it('the login URL must be https', () => {
+    expect(() => loadConfig({ ...base, SF_LOGIN_URL: 'http://test.salesforce.com' })).toThrow(
+      /SF_LOGIN_URL/,
+    );
+  });
+});

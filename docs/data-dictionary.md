@@ -426,7 +426,7 @@ Customer an opportunity is for. Existing (SF account) or not yet established.
 | `sf_account_id` | text | yes |  |  | Salesforce Account id; null for a not-yet-established customer. | Salesforce (read-only) |
 | `name` | text | no |  |  | Customer name. | Salesforce (read-only) |
 | `status` | text | no |  |  | existing \| not_yet_established (DEC-27: no account creation at intake). | KAM |
-| `default_ship_to` | jsonb | yes |  |  | Default ship-to address {line1, city, region, postal, country}. | Salesforce (read-only) |
+| `default_ship_to` | jsonb | yes |  |  | Default ship-to address {line1, city, state, postal, country}. | Salesforce (read-only) |
 | `source` | text | no | "salesforce" |  | Where the row came from: salesforce \| intake \| synthetic. | CCQ (system) |
 | `last_synced_at` | timestamp with time zone | yes |  |  | Last refresh from Salesforce. | CCQ (system) |
 
@@ -614,8 +614,10 @@ The CCQ quote: the workflow record CCQ owns.
 | `outcome_reason_code` | text | yes |  |  | reason_code.code for the closure. | KAM |
 | `closure_owner_id` | uuid | yes |  | app_user.id | Who closed the quote (CR-39). | KAM |
 | `closed_at` | timestamp with time zone | yes |  |  | When the quote closed. | CCQ (system) |
+| `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
+| `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_sf_status_flag_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`
 
@@ -681,10 +683,16 @@ Read-only copy of a Salesforce opportunity. Every quote links to one (DEC-12).
 | `sf_stage` | text | yes |  |  | Salesforce StageName (see sf_stage_map). | Salesforce (read-only) |
 | `erf_number_sf` | text | yes |  |  | ERF number recorded on the opportunity, if any. | Salesforce (read-only) |
 | `quote_source_sf` | text | yes |  |  | Quote source field from SF. | Salesforce (read-only) |
+| `owner_name` | text | yes |  |  | Opportunity owner display name. | Salesforce (read-only) |
+| `is_closed` | boolean | no | false |  | SF IsClosed (Closed Won or Closed Lost). | Salesforce (read-only) |
+| `is_won` | boolean | no | false |  | SF IsWon. | Salesforce (read-only) |
+| `system_modstamp` | timestamp with time zone | yes |  |  | SF SystemModstamp of the copy; the delta sync reads records changed after the last run. | Salesforce (read-only) |
+| `deleted_in_sf_at` | timestamp with time zone | yes |  |  | When SF reported the opportunity deleted. The snapshot is kept, never deleted. | CCQ (system) |
+| `data_quality` | text[] | no | [] |  | Mapper flags: amount_missing \| amount_suspect \| account_missing \| owner_missing \| close_date_missing. | CCQ (system) |
 | `raw` | jsonb | no | {} |  | Full SF payload as received, for troubleshooting. | Salesforce (read-only) |
 | `synced_at` | timestamp with time zone | no |  |  | When the snapshot was taken. | CCQ (system) |
 
-**Indexes:** `sf_opportunity_snapshot_name_trgm_idx`
+**Indexes:** `sf_opportunity_snapshot_name_trgm_idx`, `sf_opportunity_snapshot_account_name_trgm_idx`, `sf_opportunity_snapshot_owner_email_idx`
 
 ### stage_history
 

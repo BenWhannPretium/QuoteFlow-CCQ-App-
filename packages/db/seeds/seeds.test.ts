@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { PERMISSION_MATRIX, SEED_REASON_CODES, hybridConfig } from '@ccq/domain';
 import { describe, expect, it } from 'vitest';
 
@@ -5,6 +7,7 @@ import { rolePermissionRows, valueListRows, workflowRows } from './config/index'
 import { buildCustomers, buildOpportunities, SF_STAGE_COUNTS } from './synthetic/opportunities';
 import { PERSONA_DEFS, buildPersonas } from './synthetic/personas';
 import { DEFAULT_ANCHOR, createRng } from './synthetic/rng';
+import { SF_FIXTURE_PATH, buildSfFixture, renderSfFixture } from './synthetic/sfFixture';
 
 describe('config seeds derive from the domain', () => {
   it('workflow rows mirror the hybrid config one-to-one', () => {
@@ -83,5 +86,27 @@ describe('synthetic generator', () => {
       expect(monthsOut).toBeGreaterThanOrEqual(1.95);
       expect(monthsOut).toBeLessThanOrEqual(9.05);
     }
+  });
+});
+
+describe('Salesforce fake fixture', () => {
+  it('matches the generator (run `pnpm db:sf-fixture` after changing the seeds or fieldMap.ts)', () => {
+    const committed = readFileSync(SF_FIXTURE_PATH, 'utf8');
+    expect(committed).toBe(renderSfFixture(buildSfFixture()));
+  });
+
+  it('keeps the seeded opportunity ids and names, and includes the messy cases', () => {
+    const fixture = buildSfFixture();
+    const rng = createRng();
+    buildPersonas(rng, DEFAULT_ANCHOR);
+    const seeded = buildOpportunities(rng, DEFAULT_ANCHOR, buildCustomers(rng, DEFAULT_ANCHOR));
+    expect(fixture.opportunities.map((o) => [o.Id, o.Name])).toEqual(
+      seeded.map((o) => [o.sfOpportunityId, o.name]),
+    );
+    const amounts = fixture.opportunities.map((o) => o.Amount);
+    expect(amounts).toContain(0.31);
+    expect(amounts).toContain(null);
+    expect(fixture.opportunities.some((o) => o.AccountId === null)).toBe(true);
+    expect(fixture.deleted).toHaveLength(1);
   });
 });

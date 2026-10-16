@@ -21,7 +21,8 @@
     "db:migrate": "pnpm --filter @ccq/db db:migrate",
     "db:seed": "pnpm --filter @ccq/db db:seed",
     "db:reset": "pnpm --filter @ccq/db db:reset",
-    "db:dictionary": "pnpm --filter @ccq/db db:dictionary"
+    "db:dictionary": "pnpm --filter @ccq/db db:dictionary",
+    "db:sf-fixture": "pnpm --filter @ccq/db db:sf-fixture"
   },
   "prettier": "@ccq/config/prettier",
   "devDependencies": {

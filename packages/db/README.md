@@ -5,14 +5,15 @@ Source of truth for the model: `docs/build-guide/01-architecture.md` §5. Genera
 
 ## Commands (from the repo root)
 
-| Command                             | What it does                                                                                     |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `pnpm db:migrate`                   | Apply pending migrations, then refresh `COMMENT ON` for every table and column                   |
-| `pnpm db:seed`                      | Config seeds only (idempotent, all `provisional=true`)                                           |
-| `pnpm db:seed --synthetic`          | Config + synthetic data (12 users, 70 customers, 102 SF opportunities, 150 quotes)               |
-| `pnpm db:reset`                     | Drop, migrate, seed config + synthetic. Refuses to run with `NODE_ENV=production`                |
-| `pnpm db:dictionary`                | Regenerate `docs/data-dictionary.md` from the schema comments (a unit test fails if it is stale) |
-| `pnpm --filter @ccq/db db:generate` | `drizzle-kit generate` after a schema change                                                     |
+| Command                             | What it does                                                                                          |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `pnpm db:migrate`                   | Apply pending migrations, then refresh `COMMENT ON` for every table and column                        |
+| `pnpm db:seed`                      | Config seeds only (idempotent, all `provisional=true`)                                                |
+| `pnpm db:seed --synthetic`          | Config + synthetic data (12 users, 70 customers, 102 SF opportunities, 150 quotes)                    |
+| `pnpm db:reset`                     | Drop, migrate, seed config + synthetic. Refuses to run with `NODE_ENV=production`                     |
+| `pnpm db:dictionary`                | Regenerate `docs/data-dictionary.md` from the schema comments (a unit test fails if it is stale)      |
+| `pnpm db:sf-fixture`                | Regenerate the `SF_MODE=fake` Salesforce fixture from the synthetic data (a unit test fails if stale) |
+| `pnpm --filter @ccq/db db:generate` | `drizzle-kit generate` after a schema change                                                          |
 
 ## Layout
 
@@ -30,13 +31,14 @@ test/             integration tests against a real Postgres (`<TEST_DATABASE_URL
 
 ## Migration order
 
-| #    | File           | Kind                                                                             |
-| ---- | -------------- | -------------------------------------------------------------------------------- |
-| 0000 | `baseline`     | B-01: pgcrypto                                                                   |
-| 0001 | `extensions`   | hand-written: `pg_trgm` (allow-list it in `azure.extensions` on Flexible Server) |
-| 0002 | `schema`       | **Drizzle-generated**: every table, FK, CHECK and index                          |
-| 0003 | `quote_number` | hand-written: `next_quote_number(timestamptz)`                                   |
-| 0004 | `roles_rls`    | hand-written: roles, grants, append-only trigger, RLS helpers and policies       |
+| #    | File           | Kind                                                                                                  |
+| ---- | -------------- | ----------------------------------------------------------------------------------------------------- |
+| 0000 | `baseline`     | B-01: pgcrypto                                                                                        |
+| 0001 | `extensions`   | hand-written: `pg_trgm` (allow-list it in `azure.extensions` on Flexible Server)                      |
+| 0002 | `schema`       | **Drizzle-generated**: every table, FK, CHECK and index                                               |
+| 0003 | `quote_number` | hand-written: `next_quote_number(timestamptz)`                                                        |
+| 0004 | `roles_rls`    | hand-written: roles, grants, append-only trigger, RLS helpers and policies                            |
+| 0005 | `sf_reader`    | **Drizzle-generated** (B-06): SF snapshot columns, account-name trigram index, `quote.sf_status_flag` |
 
 Column comments are not a migration: they are derived from the schema (`c(column, meaning, owner)`) and
 re-applied after every `db:migrate`, so the database and the dictionary never drift.
@@ -73,6 +75,10 @@ The roles are `NOLOGIN`. In Azure, grant membership to the real principals (B-20
 - `audit_event`: anyone in a request context may insert; reads are Leadership/Admin or your own rows. A trigger blocks
   UPDATE, DELETE and TRUNCATE for every role, including the owner.
 - `notification`: the recipient (or Admin) reads and updates; any request context may create.
+
+Background jobs (the Salesforce sync) run with `withSystemContext`: `ccq_app` with the Admin role and `all` scope
+under a fixed system user id, and take a `pg_try_advisory_lock` (`withAdvisoryLock`, keys in `ADVISORY_LOCKS`) so
+only one App Service instance runs each job.
 
 ```ts
 import { contextFromActor, withRequestContext } from '@ccq/db';

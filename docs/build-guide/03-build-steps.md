@@ -165,13 +165,53 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - Rachel Dew: connected app and integration user on the UAT org
   - Zac Cairns + Graham Parle: field crosswalk and ERF-number field
 - **Done when:**
-  - [ ] the `SalesforceReader` interface has fake and jsforce implementations
-  - [ ] delta sync job (15 min, advisory lock) fills `sf_opportunity_snapshot` and `customer`
-  - [ ] live search endpoint for the intake picker
-  - [ ] ERF number + quote source captured
-  - [ ] `integration_run` logged
-  - [ ] works against the UAT org
+  - [x] the `SalesforceReader` interface has fake and jsforce implementations
+  - [x] delta sync job (15 min, advisory lock) fills `sf_opportunity_snapshot` and `customer`
+  - [x] live search endpoint for the intake picker
+  - [x] ERF number + quote source captured
+  - [x] `integration_run` logged
+  - [ ] works against the UAT org: **not yet verified.** Waiting on the connected app, integration user and key from Rachel Dew. Then run `SF_LIVE_TEST=1 pnpm --filter @ccq/integrations test` and set `SF_MODE=live`.
 - **Prompt:** `prompts/B-06-salesforce-reader.md`
+- **Built 2026-10-15. Notes and deviations:**
+  - **Custom-field API names confirmed at M3: none yet.** Every custom name in `packages/integrations/src/salesforce/fieldMap.ts` is a placeholder marked `TODO(M3)`, for Zac Cairns / Graham Parle to confirm:
+    - Opportunity: `ERF_Number__c`, `Quote_Source__c`
+    - the product spec object `Opportunity_Product_Specification__c`, with the fields `Opportunity__c`, `Product_Type__c`, `Resin__c`, `Capacity__c`, `Neck_Finish__c`, `Color__c` and `Annual_Volume__c`
+    - ship-to: the standard Account `Shipping*` address for now
+  - The live reader describes each object once per session. If a mapped custom field is missing from the org, it drops the field from the SOQL and logs its name (never data), so a wrong placeholder maps to `null` instead of breaking every query. The live contract test (`contract.live.test.ts`, skipped unless `SF_LIVE_TEST=1`) fails until every mapped field resolves. Run it after the crosswalk lands.
+  - **Read-only is enforced three ways:**
+    - the reader interface has no write methods
+    - an ESLint `no-restricted-syntax` rule in `packages/integrations/eslint.config.js` bans the jsforce write calls (`create`, `insert`, `update`, `upsert`, `destroy`, `del`, `delete`, `bulk`, `apex`, `requestPost`, …) and any `POST`/`PUT`/`PATCH`/`DELETE` outside the JWT token exchange
+    - `readonly.test.ts` greps the connector for the same calls
+  - **JWT bearer flow:** an RS256 assertion is signed with `node:crypto` (PKCS#1 or PKCS#8 PEM) and exchanged at `{SF_LOGIN_URL}/services/oauth2/token`; jsforce v3 (3.10.28) then queries with that session. In Azure, `SF_PRIVATE_KEY` is an App Service Key Vault reference, so there's no Key Vault SDK in the app. The API refuses to boot with `SF_MODE=live` and no client id, username or key. On an expired session the reader logs in again once.
+  - **Calls:** SOQL with explicit field lists, `queryMore` paging, a 20 s timeout per call, and up to 3 retries with exponential backoff and jitter on `REQUEST_LIMIT_EXCEEDED`, 5xx, timeouts and network resets. Deleted records come from `getDeleted`, clamped to SF's ~30-day window.
+  - **Fake:** `FakeSalesforceReader` serves `fixtures/synthetic.json`, generated from the B-03 generator (`pnpm db:sf-fixture`). It has the same 102 opportunity ids, names, accounts and owners as `db:seed --synthetic`, so a sync over a seeded database updates the seeded snapshots and quotes stay linked. A unit test fails if the fixture is stale. The fixture adds the discovery messiness: ERF numbers in 4 formats on ~40 %, inconsistent quote-source labels, a $0.31 placeholder, blank and $1 amounts, opportunities with no account, ship-to countries spelt 3 ways, product specs, and 1 deleted opportunity.
+  - **Suspect amounts:** the < $100 threshold is a config setting, `sf_amount_suspect_below_usd` (seed 100, provisional), not code. The mapper raises `dataQuality` flags (`amount_missing`, `amount_suspect`, `account_missing`, `owner_missing`, `close_date_missing`). They are stored on the snapshot and returned by the API; nothing is blocked on them.
+  - **Sync job** (`apps/api/src/jobs/sfSync.ts`):
+    - Started by `server.ts` after `listen` (never in tests). The first run is 10 s after boot, then every `SF_SYNC_INTERVAL_MINUTES` (default 15).
+    - `pg_try_advisory_lock` runs on a reserved connection (`withAdvisoryLock`), and triggers within one process are coalesced.
+    - The watermark is the start of the last **succeeded** run minus a 5-minute overlap. Upserts skip rows whose `SystemModstamp` hasn't changed, so the overlap and re-runs are idempotent. A `partial` or `failed` run doesn't move the watermark.
+    - Customers are upserted by SF account id. Status and source are kept on existing rows, so a synthetic row stays synthetic.
+    - The job runs as a system context (`withSystemContext`: `ccq_app`, Admin role, `all` scope, a fixed non-user id) so RLS still applies.
+    - On failure it marks the run `failed` with a data-free error code, sends an in-app `integration.failed` notification to each active Admin, and logs the code. It never throws.
+  - **Closed or deleted in SF:**
+    - The new column `quote.sf_status_flag` (`closed_won` | `closed_lost` | `deleted`, plus `sf_status_flagged_at`) is recomputed from the snapshot on every run, so a reopened opportunity clears it.
+    - Each change writes an `activity_event` (`sf_status_changed`, actor null).
+    - Snapshots are never deleted; `deleted_in_sf_at` is set instead.
+  - **Migration 0005** (`sf_reader`, Drizzle-generated):
+    - `sf_opportunity_snapshot` gains `owner_name`, `is_closed`, `is_won`, `system_modstamp`, `deleted_in_sf_at` and `data_quality`, plus a trigram index on `account_name` and an index on `owner_email`
+    - `quote` gains `sf_status_flag` (with a CHECK) and `sf_status_flagged_at`
+  - **Ship-to shape** is `{ line1, city, state, postal, country }`. The synthetic seed and the `customer.default_ship_to` comment used `region` for the state, and were renamed to match.
+  - **Routes**, all in the permission-matrix registry:
+    - `GET /salesforce/opportunities` (`quote.create`): pg_trgm snapshot search, where every term must match the name or account by substring or `<%` word similarity, so "pakaging" still matches. It falls back to SF live under 5 hits. If the live search fails, it still returns the snapshot hits with `liveError`. `mine=true` matches the caller's email, UPN, or UPN local part (as an alias) to the SF owner.
+    - `GET /salesforce/opportunities/:id` (`quote.read`): snapshot plus a live read with product specs, cached 60 s per id. A fresh live read refreshes the snapshot. If SF is down it falls back to the snapshot with `liveError`, and reports `deletedInSf`. It includes the `sf_stage_map` CCQ stage hint.
+    - `POST /admin/salesforce/sync`, `GET /admin/integrations` and `GET /admin/reports/erf-linkage`: all `config.manage`, matching the Admin-only `/admin` UI. The sync answers `202 running` if it takes longer than 25 s.
+  - **ERF linkage report:** ERF numbers are compared ignoring case, punctuation and an "ERF" prefix (`ERF-2026-00042` = `erf#202600042`). Each quote is classified `match` | `mismatch` | `sf_only` | `ccq_only` | `both_missing`, with summary counts and `sfLinkedPct`. On the synthetic data, 37 % of quotes' SF opportunities carry an ERF number.
+  - **Web:**
+    - `/admin/integrations`: the runs table and a *Sync Salesforce now* button
+    - `/admin/reports/erf-linkage`: summary tiles and the table
+    - Both reuse `DataTable`, so rows become cards at ≤ 640 px. A Playwright spec covers the sync and Admin-only access, and runs axe in both themes.
+    - The intake picker UI itself is B-07.
+  - **Logging:** ids, counts, field names and error codes only. `sfErrorCode` never uses error messages (SF and Postgres messages can echo record data), and maps DB errors to `DB_<SQLSTATE>`.
 
 ### B-07: Guided intake wizard (F-03) · **Fri Oct 23** · Ben
 - **Why:** intake quality is the #1 engineering constraint (DF-11, DF-18). This is the KAM's first impression.

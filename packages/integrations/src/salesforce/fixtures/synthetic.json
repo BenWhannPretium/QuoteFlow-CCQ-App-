@@ -1,0 +1,4316 @@
+{
+  "generatedFrom": {
+    "generator": "packages/db/seeds/synthetic/sfFixture.ts",
+    "seed": 20261015,
+    "anchor": "2026-10-15T15:00:00.000Z",
+    "note": "Synthetic data only. Regenerate with `pnpm db:sf-fixture`."
+  },
+  "opportunities": [
+    {
+      "Id": "006SYNZh11RVinfpfX",
+      "Name": "Blanda Packaging Supply / Rotten Ostrich / 8oz PCR-PET Preform 28-410",
+      "AccountId": "001SYNv3omdRGzIMVY",
+      "Account": {
+        "Name": "Beier-Gibson - Mayer (synthetic)",
+        "ShippingStreet": "99048 Tillman Pike",
+        "ShippingCity": "St. Cloud",
+        "ShippingState": "IL",
+        "ShippingPostalCode": "13469",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 37200,
+      "CloseDate": "2027-07-12",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-29T21:31:00.000+0000"
+    },
+    {
+      "Id": "006SYNvkEtyzHZfiyK",
+      "Name": "Yost Packaging Supply / Utter Ferret / 8oz HDPE Oval 110-400",
+      "AccountId": "001SYNH8u4JONMfUvv",
+      "Account": {
+        "Name": "Heidenreich, Rowe and McGlynn (synthetic)",
+        "ShippingStreet": "35253 Noelia Avenue",
+        "ShippingCity": "Lexiecester",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "54656",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 110700,
+      "CloseDate": "2027-01-28",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-14T19:53:00.000+0000"
+    },
+    {
+      "Id": "006SYNB5eRFqj8Jb3c",
+      "Name": "Blanda Packaging Supply / Portly Mentor / 16oz PCR-PET Cylinder 89-400",
+      "AccountId": "001SYN29oYAbLaoory",
+      "Account": {
+        "Name": "Rodriguez-Dickinson, Connelly and Ortiz (synthetic)",
+        "ShippingStreet": "5591 Hill Road",
+        "ShippingCity": "Gleasoncester",
+        "ShippingState": "MO",
+        "ShippingPostalCode": "09277",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 486500,
+      "CloseDate": "2027-01-23",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-08T15:14:00.000+0000"
+    },
+    {
+      "Id": "006SYNu39EMckLrBPJ",
+      "Name": "Yost Packaging Supply / Blushing Summary / 64oz LDPE Boston Round 38-400",
+      "AccountId": "001SYNw72W2mo6j7Q4",
+      "Account": {
+        "Name": "Schuppe Inc (synthetic)",
+        "ShippingStreet": "5952 Dickinson Springs",
+        "ShippingCity": "Runolfssonborough",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "87520",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 0.31,
+      "CloseDate": "2027-04-01",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "78071",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-03T08:07:00.000+0000"
+    },
+    {
+      "Id": "006SYNDWYT7HChUyky",
+      "Name": "Yost Packaging Supply / Tasty Dwell / 32oz HDPE Tub 28-410",
+      "AccountId": "001SYNL1foN3JLmBQU",
+      "Account": {
+        "Name": "Koelpin, Hodkiewicz and Sipes (synthetic)",
+        "ShippingStreet": "97553 Sedrick Bypass",
+        "ShippingCity": "Kleinside",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "68865",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 324400,
+      "CloseDate": "2027-04-15",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-04T23:58:00.000+0000"
+    },
+    {
+      "Id": "006SYNHMKOQl3cXfjK",
+      "Name": "Yost Packaging Supply / Natural Mortise / 16oz PCR-HDPE Cylinder 89-400",
+      "AccountId": "001SYNKdPxDEjalhHx",
+      "Account": {
+        "Name": "Luettgen Inc (synthetic)",
+        "ShippingStreet": "98619 Bashirian Pines",
+        "ShippingCity": "Pleasanton",
+        "ShippingState": "NJ",
+        "ShippingPostalCode": "37015",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": null,
+      "CloseDate": "2027-05-13",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-30T03:45:00.000+0000"
+    },
+    {
+      "Id": "006SYN40NEXlfHx2ha",
+      "Name": "Yost Packaging Supply / Alert Flame / 32oz PCR-HDPE Handleware Jug 38-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 103900,
+      "CloseDate": "2026-12-19",
+      "StageName": "PO(s) in hand",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-12T22:34:00.000+0000"
+    },
+    {
+      "Id": "006SYNtnNIhgvn5dLX",
+      "Name": "Price Packaging Supply / Beloved Deer / 8oz PETG Oval 28-410",
+      "AccountId": "001SYNHe8Ul19EaLbe",
+      "Account": {
+        "Name": "Miller, Nitzsche and Dickens (synthetic)",
+        "ShippingStreet": "331 Brooke Mountain",
+        "ShippingCity": "South Regancester",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "68691",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 1,
+      "CloseDate": "2027-02-08",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-01T01:20:00.000+0000"
+    },
+    {
+      "Id": "006SYNnJb1zuo1xJ4l",
+      "Name": "Lemke Packaging Supply / Hungry Slipper / 24oz HDPE Tub 89-400",
+      "AccountId": "001SYNNcM5TQqTZwTH",
+      "Account": {
+        "Name": "Pouros, Grant and Windler (synthetic)",
+        "ShippingStreet": "7033 Berta Coves",
+        "ShippingCity": "Cobyberg",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "67689",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 31800,
+      "CloseDate": "2027-05-08",
+      "StageName": "PO(s) in hand",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-14T22:11:00.000+0000"
+    },
+    {
+      "Id": "006SYNuqRCFKOYyo6r",
+      "Name": "Rodriguez Packaging Supply / Ripe Sanity / 64oz PCR-PET Handleware Jug 110-400",
+      "AccountId": "001SYNyGiSxX6Z13Zb",
+      "Account": {
+        "Name": "Hyatt Inc (synthetic)",
+        "ShippingStreet": "7126 Aglae Pines",
+        "ShippingCity": "North Highlands",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "79364",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 252500,
+      "CloseDate": "2027-03-29",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-32710",
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-10-09T07:10:00.000+0000"
+    },
+    {
+      "Id": "006SYNnleX1oiJEhIy",
+      "Name": "Blanda Packaging Supply / Married Jazz / 64oz HDPE Canister 28-410",
+      "AccountId": "001SYNHHirTD1x3cMS",
+      "Account": {
+        "Name": "Stiedemann LLC (synthetic)",
+        "ShippingStreet": "44906 Elias Dale",
+        "ShippingCity": "New Mervin",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "77499",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 49100,
+      "CloseDate": "2026-12-21",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-79607",
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-01T09:59:00.000+0000"
+    },
+    {
+      "Id": "006SYNsrHSxoUaQRmn",
+      "Name": "Anderson Packaging Supply / Fruitful Airmail / 8oz PETG Oval 28-410",
+      "AccountId": "001SYNC7ZB59NhOVYD",
+      "Account": {
+        "Name": "Jenkins-Zboncak, Maggio and McDermott (synthetic)",
+        "ShippingStreet": "9655 Common Lane",
+        "ShippingCity": "Kuphalland",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "30825",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 261700,
+      "CloseDate": null,
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "35370",
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-09-26T12:44:00.000+0000"
+    },
+    {
+      "Id": "006SYN5GuVL9NkFxZ0",
+      "Name": "Anderson Packaging Supply / Live Coin / 4oz LDPE Boston Round 120 DC",
+      "AccountId": "001SYNGSmhfzOuBKXe",
+      "Account": {
+        "Name": "Lebsack - Hirthe (synthetic)",
+        "ShippingStreet": "58885 Hamill Falls",
+        "ShippingCity": "New Merritt",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "33209",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 4000,
+      "CloseDate": "2027-04-22",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-25T05:49:00.000+0000"
+    },
+    {
+      "Id": "006SYNJuiYLvHuv16O",
+      "Name": "Littel Packaging Supply / Unfit Plain / 2oz PET Boston Round 28-410",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 174500,
+      "CloseDate": "2027-04-29",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF 78851",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-15T01:27:00.000+0000"
+    },
+    {
+      "Id": "006SYNEB6wN5zgSXLb",
+      "Name": "Schneider Packaging Supply / Spirited Video / 12oz PP Preform 28-410",
+      "AccountId": "001SYN3JEDUYXkThdS",
+      "Account": {
+        "Name": "Bergstrom - Corwin (synthetic)",
+        "ShippingStreet": "3191 Mohr Wells",
+        "ShippingCity": "Lake Jill",
+        "ShippingState": "OH",
+        "ShippingPostalCode": "74201",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 34500,
+      "CloseDate": "2027-06-08",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "90464",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-10T23:51:00.000+0000"
+    },
+    {
+      "Id": "006SYNKVHHBYf1phLm",
+      "Name": "Franey Packaging Supply / Staid Haircut / 64oz LDPE Straight-Sided Jar 120 DC",
+      "AccountId": "001SYNclPZxgCbsKIR",
+      "Account": {
+        "Name": "Greenholt Group (synthetic)",
+        "ShippingStreet": "1804 Mohr Cape",
+        "ShippingCity": "McGlynncester",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "01588",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 517500,
+      "CloseDate": "2027-02-03",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-09-28T07:08:00.000+0000"
+    },
+    {
+      "Id": "006SYN6irPM7YVMkro",
+      "Name": "Blanda Packaging Supply / Rare Pillbox / 16oz PCR-HDPE Square 28-410",
+      "AccountId": "001SYN2HBc5ifwKemi",
+      "Account": {
+        "Name": "Beahan and Sons (synthetic)",
+        "ShippingStreet": "94637 Corkery Extension",
+        "ShippingCity": "North Emanuelton",
+        "ShippingState": "IL",
+        "ShippingPostalCode": "49236",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 10500,
+      "CloseDate": "2027-06-26",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#22863",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-05T05:31:00.000+0000"
+    },
+    {
+      "Id": "006SYNCAEf9jE2ol1D",
+      "Name": "Anderson Packaging Supply / Troubled Ceramic / 32oz PET Preform 28-410",
+      "AccountId": "001SYNQHOKWNjP0WXZ",
+      "Account": {
+        "Name": "Quigley LLC (synthetic)",
+        "ShippingStreet": "62343 Tremblay Row",
+        "ShippingCity": "New Bobboro",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "53383",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 103800,
+      "CloseDate": "2026-12-20",
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "erf",
+      "SystemModstamp": "2026-09-25T10:17:00.000+0000"
+    },
+    {
+      "Id": "006SYNHgE17daL1pgU",
+      "Name": "Rodriguez Packaging Supply / Sore Spear / 32oz HDPE Wide Mouth Jar 28-410",
+      "AccountId": "001SYN9mQwf1tEYc5G",
+      "Account": {
+        "Name": "Volkman - Ernser (synthetic)",
+        "ShippingStreet": "69612 Veum-Howell Crossroad",
+        "ShippingCity": "Cormierbury",
+        "ShippingState": "CA",
+        "ShippingPostalCode": "95301",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 100600,
+      "CloseDate": "2027-05-30",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-10-05T02:59:00.000+0000"
+    },
+    {
+      "Id": "006SYNzKMAPl5n315Z",
+      "Name": "Kozey Packaging Supply / Bony Couch / 12oz HDPE Handleware Jug 89-400",
+      "AccountId": "001SYNrP5V8riT8zc4",
+      "Account": {
+        "Name": "Wunsch-Gleason, Jones and Bode (synthetic)",
+        "ShippingStreet": "10655 Alex Camp",
+        "ShippingCity": "East Magnoliastad",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "65544",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 42900,
+      "CloseDate": "2027-05-29",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "57141",
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-14T14:45:00.000+0000"
+    },
+    {
+      "Id": "006SYNFyHZEgOdaFDR",
+      "Name": "Kozey Packaging Supply / Hairy Jury / 12oz LDPE Preform 38-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 338500,
+      "CloseDate": "2027-04-02",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-28372",
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-09-28T17:54:00.000+0000"
+    },
+    {
+      "Id": "006SYNs0rQTNP0ja3L",
+      "Name": "Greenholt Packaging Supply / Unkempt Eyeliner / 2oz LDPE Canister 110-400",
+      "AccountId": "001SYNls0k76hvWCRI",
+      "Account": {
+        "Name": "Bogisich, Green and Schneider (synthetic)",
+        "ShippingStreet": "40440 Macejkovic Divide",
+        "ShippingCity": "Fort Silasstead",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "53402",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 48100,
+      "CloseDate": "2027-02-18",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-04T19:15:00.000+0000"
+    },
+    {
+      "Id": "006SYNqyHpFzcGQJDb",
+      "Name": "Blanda Packaging Supply / Flawless Loyalty / 128oz PETG Cylinder 89-400",
+      "AccountId": "001SYNsT8W3EbgaeDT",
+      "Account": {
+        "Name": "Mills - Cruickshank (synthetic)",
+        "ShippingStreet": "3836 Cleve Fall",
+        "ShippingCity": "Boyleport",
+        "ShippingState": "NJ",
+        "ShippingPostalCode": "78529",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": null,
+      "CloseDate": "2027-01-11",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-10-10T23:33:00.000+0000"
+    },
+    {
+      "Id": "006SYNzHbTmR4RJwSW",
+      "Name": "Price Packaging Supply / Lone Gray / 24oz LDPE Cylinder 38-400",
+      "AccountId": "001SYNMlbDRXROb3gc",
+      "Account": {
+        "Name": "O'Conner, Hagenes and Donnelly (synthetic)",
+        "ShippingStreet": "8590 Victoria Road",
+        "ShippingCity": "East Dorianland",
+        "ShippingState": "CA",
+        "ShippingPostalCode": "50202",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 154200,
+      "CloseDate": "2027-04-09",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-10-14T02:30:00.000+0000"
+    },
+    {
+      "Id": "006SYN2aRsBHYjqFt0",
+      "Name": "Lemke Packaging Supply / Thick Fowl / 4oz PET Square 38-400",
+      "AccountId": "001SYNf9CRJW1pQrNa",
+      "Account": {
+        "Name": "Rogahn, Wiegand and Kuhic (synthetic)",
+        "ShippingStreet": "676 Corkery Burgs",
+        "ShippingCity": "Fort Brendon",
+        "ShippingState": "PA",
+        "ShippingPostalCode": "58409",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 52500,
+      "CloseDate": "2027-04-11",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-39844",
+      "Quote_Source__c": "erf",
+      "SystemModstamp": "2026-10-08T09:27:00.000+0000"
+    },
+    {
+      "Id": "006SYNGZnpbUJY3vn5",
+      "Name": "Kozey Packaging Supply / Weekly Bidet / 24oz LDPE Cylinder 110-400",
+      "AccountId": "001SYNtxv5cJzjnbuB",
+      "Account": {
+        "Name": "Olson - Wiegand (synthetic)",
+        "ShippingStreet": "964 Woodlands Road",
+        "ShippingCity": "Fort Clementshire",
+        "ShippingState": "MO",
+        "ShippingPostalCode": "31213",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 40800,
+      "CloseDate": "2027-01-10",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-25T01:37:00.000+0000"
+    },
+    {
+      "Id": "006SYN7OgQS205F1Ix",
+      "Name": "Anderson Packaging Supply / Profuse Chapel / 64oz PCR-PET Wide Mouth Jar 28-410",
+      "AccountId": "001SYNaSkoYYnmdsDt",
+      "Account": {
+        "Name": "Hartmann Inc (synthetic)",
+        "ShippingStreet": "285 Retta Pass",
+        "ShippingCity": "Mount Vernon",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "68194",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 112300,
+      "CloseDate": "2027-01-03",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-10T06:11:00.000+0000"
+    },
+    {
+      "Id": "006SYNCcTDbskROAst",
+      "Name": "Connelly Packaging Supply / Merry Sock / 24oz PET Wide Mouth Jar 28-410",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 229300,
+      "CloseDate": "2027-01-21",
+      "StageName": "Closed Won – Product Shipping",
+      "IsClosed": true,
+      "IsWon": true,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-01T07:28:00.000+0000"
+    },
+    {
+      "Id": "006SYNbrWbShx3C6dd",
+      "Name": "Mayer Packaging Supply / Weekly Import / 24oz HDPE Oval 28-410",
+      "AccountId": "001SYNZ1onYPz24Tqo",
+      "Account": {
+        "Name": "O'Connell, Greenholt and Jenkins (synthetic)",
+        "ShippingStreet": "253 Grand Avenue",
+        "ShippingCity": "West Darrellfort",
+        "ShippingState": "OH",
+        "ShippingPostalCode": "22347",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 7900,
+      "CloseDate": "2027-06-05",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "erf",
+      "SystemModstamp": "2026-10-09T01:04:00.000+0000"
+    },
+    {
+      "Id": "006SYNc7X3VHUih1h9",
+      "Name": "Franey Packaging Supply / Jumbo Ruin / 32oz LDPE Straight-Sided Jar 110-400",
+      "AccountId": "001SYNWZcYS95jbxyu",
+      "Account": {
+        "Name": "Harber - Metz (synthetic)",
+        "ShippingStreet": "1833 Hammes Village",
+        "ShippingCity": "Bradenton",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "01476",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 23300,
+      "CloseDate": "2027-05-07",
+      "StageName": "Final Review",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-28T10:06:00.000+0000"
+    },
+    {
+      "Id": "006SYN8q6hm71m96QK",
+      "Name": "Franey Packaging Supply / Formal Graffiti / 4oz HDPE Preform 28-410",
+      "AccountId": "001SYNlTCrWu4fA0A0",
+      "Account": {
+        "Name": "McLaughlin, Hettinger and Wisozk (synthetic)",
+        "ShippingStreet": "531 Hickory Street",
+        "ShippingCity": "Greenport",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "35612",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 48200,
+      "CloseDate": "2027-03-01",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-03T16:23:00.000+0000"
+    },
+    {
+      "Id": "006SYNTjizn4gMaus9",
+      "Name": "Lemke Packaging Supply / Impolite Pliers / 24oz LDPE Straight-Sided Jar 120 DC",
+      "AccountId": "001SYN52qpPVGYArXS",
+      "Account": {
+        "Name": "Morar Group (synthetic)",
+        "ShippingStreet": "290 E 3rd Street",
+        "ShippingCity": "East Vivaland",
+        "ShippingState": "AZ",
+        "ShippingPostalCode": "83035",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 11200,
+      "CloseDate": "2027-04-21",
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "31061",
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-10T22:45:00.000+0000"
+    },
+    {
+      "Id": "006SYNzkRrwSFB4rzp",
+      "Name": "Price Packaging Supply / Thin Zebra / 24oz PCR-PET Canister 28-410",
+      "AccountId": "001SYNcENLT1V7zMHV",
+      "Account": {
+        "Name": "Feest, Emard and Rolfson (synthetic)",
+        "ShippingStreet": "8470 Prohaska Green",
+        "ShippingCity": "North Shana",
+        "ShippingState": "IL",
+        "ShippingPostalCode": "26084",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 17100,
+      "CloseDate": "2027-05-03",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-04T00:56:00.000+0000"
+    },
+    {
+      "Id": "006SYNGVanGLXipNAX",
+      "Name": "Kozey Packaging Supply / Stiff Airmail / 2oz PP Boston Round 89-400",
+      "AccountId": "001SYN8X3mS0RXadNM",
+      "Account": {
+        "Name": "Schamberger - Johns (synthetic)",
+        "ShippingStreet": "307 Fay Rapids",
+        "ShippingCity": "South Troy",
+        "ShippingState": "IL",
+        "ShippingPostalCode": "65302",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 192000,
+      "CloseDate": "2027-02-28",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-09-29T13:51:00.000+0000"
+    },
+    {
+      "Id": "006SYNAd48aaEVfyAz",
+      "Name": "Greenholt Packaging Supply / Ornate Eggplant / 8oz PCR-PET Square 120 DC",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 94600,
+      "CloseDate": "2027-01-02",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-04T10:06:00.000+0000"
+    },
+    {
+      "Id": "006SYNAINVEp54xMDq",
+      "Name": "Blanda Packaging Supply / Arid Pear / 64oz PCR-PET Square 38-400",
+      "AccountId": "001SYNdvHYvnc1IDw2",
+      "Account": {
+        "Name": "Buckridge and Sons (synthetic)",
+        "ShippingStreet": "8878 Cassin Summit",
+        "ShippingCity": "Lake Kaci",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "77545",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 16900,
+      "CloseDate": "2027-03-04",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-08T20:47:00.000+0000"
+    },
+    {
+      "Id": "006SYNJUCsEXejcY5y",
+      "Name": "Greenholt Packaging Supply / Flimsy Horst / 4oz PETG Tub 110-400",
+      "AccountId": "001SYNZY0KHfMBhQkN",
+      "Account": {
+        "Name": "Hilpert - Brekke (synthetic)",
+        "ShippingStreet": "8445 Letitia Spur",
+        "ShippingCity": "Port Karson",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "14350",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 1,
+      "CloseDate": "2027-02-09",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-09-29T12:44:00.000+0000"
+    },
+    {
+      "Id": "006SYNpbCICHmzTnvM",
+      "Name": "Anderson Packaging Supply / Trusting Swath / 8oz PETG Tub 28-410",
+      "AccountId": "001SYNXM2mN7dOcWfD",
+      "Account": {
+        "Name": "Doyle - Franey-Roberts (synthetic)",
+        "ShippingStreet": "9411 Lime Grove",
+        "ShippingCity": "Parisianberg",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "67350",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 106500,
+      "CloseDate": "2027-01-04",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF 82750",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-12T21:44:00.000+0000"
+    },
+    {
+      "Id": "006SYNk7tFC80KEIfg",
+      "Name": "Franey Packaging Supply / Gifted Hygienic / 24oz HDPE Straight-Sided Jar 120 DC",
+      "AccountId": "001SYNd9MozjlGk1lc",
+      "Account": {
+        "Name": "Schuster and Sons (synthetic)",
+        "ShippingStreet": "55565 Osborne Spur",
+        "ShippingCity": "West Trishabury",
+        "ShippingState": "MO",
+        "ShippingPostalCode": "53381",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 219200,
+      "CloseDate": "2027-04-17",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-56999",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-10T23:23:00.000+0000"
+    },
+    {
+      "Id": "006SYNZJ7OHKyWchhH",
+      "Name": "Schneider Packaging Supply / Elegant Cheese / 12oz PCR-HDPE Cylinder 38-400",
+      "AccountId": "001SYNZbvWnKP4pSaF",
+      "Account": {
+        "Name": "Jerde, Kassulke and Watsica (synthetic)",
+        "ShippingStreet": "6259 Latoya Crescent",
+        "ShippingCity": "Terrytown",
+        "ShippingState": "MO",
+        "ShippingPostalCode": "14651",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": null,
+      "CloseDate": "2027-01-28",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-06T00:49:00.000+0000"
+    },
+    {
+      "Id": "006SYNCC1exfUI91T9",
+      "Name": "Franey Packaging Supply / Scared Plain / 8oz PETG Tub 120 DC",
+      "AccountId": "001SYNjdVLuO3Cdagh",
+      "Account": {
+        "Name": "Wisozk - Feest (synthetic)",
+        "ShippingStreet": "61195 Kuphal-Mayer Walks",
+        "ShippingCity": "South Americo",
+        "ShippingState": "OH",
+        "ShippingPostalCode": "12190",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 158400,
+      "CloseDate": "2027-05-13",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-02T16:55:00.000+0000"
+    },
+    {
+      "Id": "006SYNzxo2AseJQY78",
+      "Name": "Blanda Packaging Supply / Stylish Draw / 128oz PCR-PET Oval 120 DC",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 137600,
+      "CloseDate": "2027-04-01",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#71635",
+      "Quote_Source__c": "erf",
+      "SystemModstamp": "2026-09-26T01:46:00.000+0000"
+    },
+    {
+      "Id": "006SYNegRj6oEFPaKR",
+      "Name": "Price Packaging Supply / Handy Pressure / 4oz PETG Canister 120 DC",
+      "AccountId": "001SYNXkvlkhQia9v1",
+      "Account": {
+        "Name": "Cremin - Kohler (synthetic)",
+        "ShippingStreet": "398 Waterloo Road",
+        "ShippingCity": "Fort Pierce",
+        "ShippingState": "CA",
+        "ShippingPostalCode": "01542",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 126300,
+      "CloseDate": "2027-04-30",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-22150",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-29T04:20:00.000+0000"
+    },
+    {
+      "Id": "006SYN4hICHTSLQMS2",
+      "Name": "Schneider Packaging Supply / Useless Bonfire / 2oz PCR-PET Preform 28-410",
+      "AccountId": "001SYNoq6bgXbmryZe",
+      "Account": {
+        "Name": "Thompson, Lebsack and Frami (synthetic)",
+        "ShippingStreet": "87877 Zboncak Summit",
+        "ShippingCity": "East Lulamouth",
+        "ShippingState": "IL",
+        "ShippingPostalCode": "05759",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 30400,
+      "CloseDate": "2027-05-21",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#32433",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-10T13:17:00.000+0000"
+    },
+    {
+      "Id": "006SYNBc1E0RWskUxZ",
+      "Name": "Blanda Packaging Supply / Dismal Cheese / 128oz PCR-HDPE Cylinder 110-400",
+      "AccountId": "001SYN5WQqKQhLtAWL",
+      "Account": {
+        "Name": "Murray - Schmidt (synthetic)",
+        "ShippingStreet": "7445 Manchester Road",
+        "ShippingCity": "McKinney",
+        "ShippingState": "NJ",
+        "ShippingPostalCode": "90548",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 86800,
+      "CloseDate": "2027-04-14",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-10T03:57:00.000+0000"
+    },
+    {
+      "Id": "006SYN6XKw9iG3OM36",
+      "Name": "Yost Packaging Supply / Personal Cheetah / 4oz HDPE Wide Mouth Jar 110-400",
+      "AccountId": "001SYNn9hJuE9bNUtX",
+      "Account": {
+        "Name": "Moore, Pacocha and Skiles (synthetic)",
+        "ShippingStreet": "432 Rhianna Landing",
+        "ShippingCity": "South Tremaine",
+        "ShippingState": "OH",
+        "ShippingPostalCode": "67947",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 12200,
+      "CloseDate": "2027-04-25",
+      "StageName": "PO(s) in hand",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#63508",
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-11T08:24:00.000+0000"
+    },
+    {
+      "Id": "006SYNNrk9769CIr5x",
+      "Name": "Kozey Packaging Supply / Silky Overcoat / 64oz LDPE Oval 89-400",
+      "AccountId": "001SYNK2ngNToR7L5U",
+      "Account": {
+        "Name": "Braun - Littel (synthetic)",
+        "ShippingStreet": "52259 Schmeler Grove",
+        "ShippingCity": "Lake Damionhaven",
+        "ShippingState": "CA",
+        "ShippingPostalCode": "33539",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 401200,
+      "CloseDate": "2027-04-05",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-09-27T05:28:00.000+0000"
+    },
+    {
+      "Id": "006SYNDxUiPb7Qh56p",
+      "Name": "Kozey Packaging Supply / Secret Birth / 24oz HDPE Wide Mouth Jar 89-400",
+      "AccountId": "001SYNzhwlSp0FAJGT",
+      "Account": {
+        "Name": "Beer and Sons (synthetic)",
+        "ShippingStreet": "511 14th Street",
+        "ShippingCity": "Rueckerville",
+        "ShippingState": "PA",
+        "ShippingPostalCode": "48630",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 70500,
+      "CloseDate": "2027-03-09",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-09-25T16:47:00.000+0000"
+    },
+    {
+      "Id": "006SYN2XlHgaP6LTua",
+      "Name": "Littel Packaging Supply / Every Bungalow / 8oz PCR-PET Canister 110-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 48400,
+      "CloseDate": "2026-12-22",
+      "StageName": "Closed Lost",
+      "IsClosed": true,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-03T08:41:00.000+0000"
+    },
+    {
+      "Id": "006SYNk3v9MeHF16ao",
+      "Name": "Connelly Packaging Supply / Reckless Octave / 64oz PCR-PET Straight-Sided Jar 89-400",
+      "AccountId": "001SYNU5asXbl5Xnl2",
+      "Account": {
+        "Name": "Cassin-Schamberger LLC (synthetic)",
+        "ShippingStreet": "8644 W Central Avenue",
+        "ShippingCity": "Port Marjolaineberg",
+        "ShippingState": "PA",
+        "ShippingPostalCode": "41654",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 845500,
+      "CloseDate": "2027-01-13",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-04T06:56:00.000+0000"
+    },
+    {
+      "Id": "006SYNuDYepICbCOgW",
+      "Name": "Franey Packaging Supply / Sleepy Widow / 4oz PP Preform 38-400",
+      "AccountId": "001SYN4zolEZYfdhir",
+      "Account": {
+        "Name": "Borer - Botsford (synthetic)",
+        "ShippingStreet": "7729 Orchard Street",
+        "ShippingCity": "Avondale",
+        "ShippingState": "NJ",
+        "ShippingPostalCode": "61163",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 9400,
+      "CloseDate": "2027-01-14",
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-10T16:28:00.000+0000"
+    },
+    {
+      "Id": "006SYNd0RHiB842u8L",
+      "Name": "Connelly Packaging Supply / Ripe Daughter / 8oz LDPE Handleware Jug 38-400",
+      "AccountId": "001SYNX9tOfVzAz2cp",
+      "Account": {
+        "Name": "Pacocha, Casper and Brekke (synthetic)",
+        "ShippingStreet": "27018 Judah Gardens",
+        "ShippingCity": "Paolofield",
+        "ShippingState": "AZ",
+        "ShippingPostalCode": "54473",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 47400,
+      "CloseDate": "2027-07-10",
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "49312",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-14T00:24:00.000+0000"
+    },
+    {
+      "Id": "006SYNVNjQkZ0SaHaV",
+      "Name": "Mayer Packaging Supply / Gloomy Molasses / 128oz LDPE Preform 28-410",
+      "AccountId": "001SYNWmR2UwUvzRUF",
+      "Account": {
+        "Name": "Cronin and Sons (synthetic)",
+        "ShippingStreet": "189 S Jackson Street",
+        "ShippingCity": "West Luellashire",
+        "ShippingState": "AZ",
+        "ShippingPostalCode": "28067",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 232700,
+      "CloseDate": null,
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#88478",
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-09-27T20:51:00.000+0000"
+    },
+    {
+      "Id": "006SYN3KA4FZGw5eXJ",
+      "Name": "Mayer Packaging Supply / Good Widow / 128oz HDPE Boston Round 110-400",
+      "AccountId": "001SYNQVZ9IsqAljvt",
+      "Account": {
+        "Name": "Predovic Group (synthetic)",
+        "ShippingStreet": "45886 Nelle Hollow",
+        "ShippingCity": "Lake Waylonburgh",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "48464",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 69800,
+      "CloseDate": "2027-06-27",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-10-05T23:13:00.000+0000"
+    },
+    {
+      "Id": "006SYNm1TgZz1hd3We",
+      "Name": "Greenholt Packaging Supply / Super Colon / 2oz PETG Handleware Jug 38-400",
+      "AccountId": "001SYNtk87L1tgi1Sd",
+      "Account": {
+        "Name": "Mertz Group (synthetic)",
+        "ShippingStreet": "5657 Kingfisher Close",
+        "ShippingCity": "Las Cruces",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "15457",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 26800,
+      "CloseDate": "2027-03-19",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "59961",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-03T20:25:00.000+0000"
+    },
+    {
+      "Id": "006SYNBwzry916qykJ",
+      "Name": "Kozey Packaging Supply / Buzzing Handful / 12oz LDPE Straight-Sided Jar 28-410",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 33100,
+      "CloseDate": "2027-02-08",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-07T06:26:00.000+0000"
+    },
+    {
+      "Id": "006SYNZd3GPYoOOchI",
+      "Name": "Lemke Packaging Supply / Granular Tuxedo / 2oz PETG Canister 28-410",
+      "AccountId": "001SYNAVRe4LMSWBji",
+      "Account": {
+        "Name": "Konopelski, Fay and Koss (synthetic)",
+        "ShippingStreet": "368 Nolan Villages",
+        "ShippingCity": "Ornchester",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "57091",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": null,
+      "CloseDate": "2027-01-06",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-30T06:04:00.000+0000"
+    },
+    {
+      "Id": "006SYNQSQRyK1bN2CN",
+      "Name": "Blanda Packaging Supply / Honored Freight / 64oz PCR-PET Oval 28-410",
+      "AccountId": "001SYNaCwNMyPKvNMj",
+      "Account": {
+        "Name": "Stiedemann LLC (synthetic)",
+        "ShippingStreet": "564 Eladio Islands",
+        "ShippingCity": "Woodbury",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "36362",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 36500,
+      "CloseDate": "2027-05-30",
+      "StageName": "Final Review",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-12T15:25:00.000+0000"
+    },
+    {
+      "Id": "006SYNzi9QNUnRTBDP",
+      "Name": "Rodriguez Packaging Supply / Bossy Bend / 24oz PCR-HDPE Square 89-400",
+      "AccountId": "001SYNY9AARmkidPu0",
+      "Account": {
+        "Name": "Osinski - Cormier (synthetic)",
+        "ShippingStreet": "1825 Benedict Plain",
+        "ShippingCity": "Towneport",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "07758",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 58800,
+      "CloseDate": "2027-07-12",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-11T06:51:00.000+0000"
+    },
+    {
+      "Id": "006SYNUMVXhnrcauZC",
+      "Name": "Franey Packaging Supply / Moral Slipper / 16oz LDPE Boston Round 28-410",
+      "AccountId": "001SYNzuWiVJstdlLP",
+      "Account": {
+        "Name": "Marks, Dietrich and Bruen (synthetic)",
+        "ShippingStreet": "5903 Kertzmann Viaduct",
+        "ShippingCity": "Fort Lauderdale",
+        "ShippingState": "CA",
+        "ShippingPostalCode": "12758",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 57100,
+      "CloseDate": "2027-01-28",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-80878",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-07T21:35:00.000+0000"
+    },
+    {
+      "Id": "006SYNdXZRccRjhdur",
+      "Name": "Littel Packaging Supply / Trusty Soybean / 8oz LDPE Preform 38-400",
+      "AccountId": "001SYNmJt3t1i78htX",
+      "Account": {
+        "Name": "Dibbert, Frami and Pacocha (synthetic)",
+        "ShippingStreet": "105 Stokes Pines",
+        "ShippingCity": "Gorczanychester",
+        "ShippingState": "OH",
+        "ShippingPostalCode": "62374",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 95400,
+      "CloseDate": "2027-01-15",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-23424",
+      "Quote_Source__c": "erf",
+      "SystemModstamp": "2026-09-26T21:28:00.000+0000"
+    },
+    {
+      "Id": "006SYNnfttZu3bKAKX",
+      "Name": "Connelly Packaging Supply / Steel Tray / 32oz PET Wide Mouth Jar 110-400",
+      "AccountId": "001SYNi3NJhu7iu94G",
+      "Account": {
+        "Name": "Hilll, Beer-Brown and Lynch (synthetic)",
+        "ShippingStreet": "56615 Hunter Lane",
+        "ShippingCity": "Brakusberg",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "69709",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 25000,
+      "CloseDate": "2027-05-18",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-10T14:59:00.000+0000"
+    },
+    {
+      "Id": "006SYNSRQaKUJlPjSg",
+      "Name": "Littel Packaging Supply / Meaty Bookcase / 128oz PET Oval 89-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 168600,
+      "CloseDate": "2027-05-06",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#43365",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-12T10:05:00.000+0000"
+    },
+    {
+      "Id": "006SYNMS0MjI2EoYgj",
+      "Name": "Price Packaging Supply / Flawed Opera / 64oz PCR-HDPE Handleware Jug 110-400",
+      "AccountId": "001SYN2pczTmP3MLDW",
+      "Account": {
+        "Name": "Becker - Ruecker (synthetic)",
+        "ShippingStreet": "412 St Andrews Close",
+        "ShippingCity": "Ann Arbor",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "30360",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 53800,
+      "CloseDate": "2026-12-24",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-27T23:48:00.000+0000"
+    },
+    {
+      "Id": "006SYNq58moorCzknG",
+      "Name": "Lemke Packaging Supply / Afraid Knight / 2oz PET Oval 110-400",
+      "AccountId": "001SYN9tylEr4PVmxm",
+      "Account": {
+        "Name": "Blick - Berge (synthetic)",
+        "ShippingStreet": "7300 Doug Crescent",
+        "ShippingCity": "Schmittstead",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "17368",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 215300,
+      "CloseDate": "2027-02-27",
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-93400",
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-05T22:16:00.000+0000"
+    },
+    {
+      "Id": "006SYNX5nczy6RdO4Y",
+      "Name": "Franey Packaging Supply / Snarling Bump / 12oz LDPE Tub 28-410",
+      "AccountId": "001SYNIhsFQguuXlcL",
+      "Account": {
+        "Name": "Willms, Feeney-Greenholt and Ankunding (synthetic)",
+        "ShippingStreet": "345 Estel Mount",
+        "ShippingCity": "Lake Jaylinboro",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "32162",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 1,
+      "CloseDate": "2027-07-04",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-02T10:10:00.000+0000"
+    },
+    {
+      "Id": "006SYN5JeYSsa2ijUP",
+      "Name": "Schneider Packaging Supply / Bouncy Pomelo / 32oz LDPE Oval 89-400",
+      "AccountId": "001SYNBBcMADgFCWXy",
+      "Account": {
+        "Name": "Johns Inc (synthetic)",
+        "ShippingStreet": "30131 Christina Junction",
+        "ShippingCity": "Lake Unique",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "46105",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 40900,
+      "CloseDate": "2027-03-16",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF 18249",
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-10T12:44:00.000+0000"
+    },
+    {
+      "Id": "006SYNtTIXDdUAqKqz",
+      "Name": "Anderson Packaging Supply / Ample Jazz / 4oz PP Wide Mouth Jar 110-400",
+      "AccountId": "001SYNkq7A1veWkxVd",
+      "Account": {
+        "Name": "Walter Inc (synthetic)",
+        "ShippingStreet": "375 Drew Turnpike",
+        "ShippingCity": "Novi",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "23927",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 36500,
+      "CloseDate": "2026-12-20",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "26367",
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-05T12:18:00.000+0000"
+    },
+    {
+      "Id": "006SYNhweI1yA11mIB",
+      "Name": "Franey Packaging Supply / Exotic Airline / 128oz PCR-HDPE Handleware Jug 28-410",
+      "AccountId": "001SYN1M5BzBWX15W1",
+      "Account": {
+        "Name": "Blick Group (synthetic)",
+        "ShippingStreet": "9021 Adell Cliff",
+        "ShippingCity": "New Brook",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "32285",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 41800,
+      "CloseDate": "2027-05-01",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-06T18:05:00.000+0000"
+    },
+    {
+      "Id": "006SYNXgaiTiZ3M2H7",
+      "Name": "Yost Packaging Supply / Soggy Mentor / 32oz PETG Cylinder 89-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 17900,
+      "CloseDate": "2027-02-16",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-04T15:45:00.000+0000"
+    },
+    {
+      "Id": "006SYN1Sf94lPtZmPN",
+      "Name": "Anderson Packaging Supply / Granular Blossom / 8oz PETG Straight-Sided Jar 120 DC",
+      "AccountId": "001SYNv3omdRGzIMVY",
+      "Account": {
+        "Name": "Beier-Gibson - Mayer (synthetic)",
+        "ShippingStreet": "99048 Tillman Pike",
+        "ShippingCity": "St. Cloud",
+        "ShippingState": "IL",
+        "ShippingPostalCode": "13469",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 68200,
+      "CloseDate": "2027-07-06",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#44765",
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-09T18:59:00.000+0000"
+    },
+    {
+      "Id": "006SYNTRIOzKrkAADi",
+      "Name": "Connelly Packaging Supply / Aware Handover / 128oz HDPE Preform 38-400",
+      "AccountId": "001SYNH8u4JONMfUvv",
+      "Account": {
+        "Name": "Heidenreich, Rowe and McGlynn (synthetic)",
+        "ShippingStreet": "35253 Noelia Avenue",
+        "ShippingCity": "Lexiecester",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "54656",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 10400,
+      "CloseDate": "2027-04-18",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF 89747",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-06T04:02:00.000+0000"
+    },
+    {
+      "Id": "006SYNzKnX8CCsOsjY",
+      "Name": "Carter Packaging Supply / Hopeful Ceramics / 8oz PP Cylinder 89-400",
+      "AccountId": "001SYN29oYAbLaoory",
+      "Account": {
+        "Name": "Rodriguez-Dickinson, Connelly and Ortiz (synthetic)",
+        "ShippingStreet": "5591 Hill Road",
+        "ShippingCity": "Gleasoncester",
+        "ShippingState": "MO",
+        "ShippingPostalCode": "09277",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 45500,
+      "CloseDate": "2027-05-20",
+      "StageName": "Closed Lost",
+      "IsClosed": true,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "erf",
+      "SystemModstamp": "2026-09-25T06:37:00.000+0000"
+    },
+    {
+      "Id": "006SYNwhkOQ5vWAH77",
+      "Name": "Kozey Packaging Supply / Accurate Siege / 32oz PET Oval 89-400",
+      "AccountId": "001SYNw72W2mo6j7Q4",
+      "Account": {
+        "Name": "Schuppe Inc (synthetic)",
+        "ShippingStreet": "5952 Dickinson Springs",
+        "ShippingCity": "Runolfssonborough",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "87520",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": null,
+      "CloseDate": "2027-04-10",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-09-29T06:23:00.000+0000"
+    },
+    {
+      "Id": "006SYNBmw7HNIc5Tvh",
+      "Name": "Mayer Packaging Supply / Stunning Arcade / 12oz HDPE Canister 89-400",
+      "AccountId": "001SYNL1foN3JLmBQU",
+      "Account": {
+        "Name": "Koelpin, Hodkiewicz and Sipes (synthetic)",
+        "ShippingStreet": "97553 Sedrick Bypass",
+        "ShippingCity": "Kleinside",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "68865",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 62200,
+      "CloseDate": "2027-01-08",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-09-25T02:17:00.000+0000"
+    },
+    {
+      "Id": "006SYN5GPOO0F16ceb",
+      "Name": "Lemke Packaging Supply / Limited Basket / 8oz PET Canister 120 DC",
+      "AccountId": "001SYNKdPxDEjalhHx",
+      "Account": {
+        "Name": "Luettgen Inc (synthetic)",
+        "ShippingStreet": "98619 Bashirian Pines",
+        "ShippingCity": "Pleasanton",
+        "ShippingState": "NJ",
+        "ShippingPostalCode": "37015",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 106400,
+      "CloseDate": "2027-01-20",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-04T12:30:00.000+0000"
+    },
+    {
+      "Id": "006SYNl4yZnugQrZFK",
+      "Name": "Kozey Packaging Supply / Urban Pension / 12oz PCR-HDPE Straight-Sided Jar 110-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 760900,
+      "CloseDate": "2026-12-19",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#22718",
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-10-09T18:07:00.000+0000"
+    },
+    {
+      "Id": "006SYNgSN6PT7xveVe",
+      "Name": "Littel Packaging Supply / Vivid Noon / 16oz PP Canister 28-410",
+      "AccountId": "001SYNHe8Ul19EaLbe",
+      "Account": {
+        "Name": "Miller, Nitzsche and Dickens (synthetic)",
+        "ShippingStreet": "331 Brooke Mountain",
+        "ShippingCity": "South Regancester",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "68691",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 71800,
+      "CloseDate": "2027-01-19",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-05T15:45:00.000+0000"
+    },
+    {
+      "Id": "006SYNxIxqy8eq1F8b",
+      "Name": "Lemke Packaging Supply / Tangible Castanet / 16oz PCR-PET Straight-Sided Jar 28-410",
+      "AccountId": "001SYNNcM5TQqTZwTH",
+      "Account": {
+        "Name": "Pouros, Grant and Windler (synthetic)",
+        "ShippingStreet": "7033 Berta Coves",
+        "ShippingCity": "Cobyberg",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "67689",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 98600,
+      "CloseDate": "2027-03-03",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-12T02:22:00.000+0000"
+    },
+    {
+      "Id": "006SYNwjxYDN8pPgKK",
+      "Name": "Franey Packaging Supply / Immense Relative / 128oz HDPE Oval 38-400",
+      "AccountId": "001SYNyGiSxX6Z13Zb",
+      "Account": {
+        "Name": "Hyatt Inc (synthetic)",
+        "ShippingStreet": "7126 Aglae Pines",
+        "ShippingCity": "North Highlands",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "79364",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 23400,
+      "CloseDate": "2027-03-21",
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-09-28T05:02:00.000+0000"
+    },
+    {
+      "Id": "006SYN1DufrWVJeF7O",
+      "Name": "Blanda Packaging Supply / Gripping Essence / 24oz PCR-HDPE Cylinder 38-400",
+      "AccountId": "001SYNHHirTD1x3cMS",
+      "Account": {
+        "Name": "Stiedemann LLC (synthetic)",
+        "ShippingStreet": "44906 Elias Dale",
+        "ShippingCity": "New Mervin",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "77499",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 73400,
+      "CloseDate": "2027-01-21",
+      "StageName": "PO(s) in hand",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#39766",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-01T15:41:00.000+0000"
+    },
+    {
+      "Id": "006SYNAVRijH51Mimv",
+      "Name": "Franey Packaging Supply / Rare Goat / 128oz PETG Oval 110-400",
+      "AccountId": "001SYNC7ZB59NhOVYD",
+      "Account": {
+        "Name": "Jenkins-Zboncak, Maggio and McDermott (synthetic)",
+        "ShippingStreet": "9655 Common Lane",
+        "ShippingCity": "Kuphalland",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "30825",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 495300,
+      "CloseDate": "2027-06-19",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-12T01:41:00.000+0000"
+    },
+    {
+      "Id": "006SYNLGTr4levezNA",
+      "Name": "Schneider Packaging Supply / Brown Fund / 32oz PP Preform 38-400",
+      "AccountId": "001SYNGSmhfzOuBKXe",
+      "Account": {
+        "Name": "Lebsack - Hirthe (synthetic)",
+        "ShippingStreet": "58885 Hamill Falls",
+        "ShippingCity": "New Merritt",
+        "ShippingState": "IN",
+        "ShippingPostalCode": "33209",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 274100,
+      "CloseDate": "2026-12-29",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-09T00:08:00.000+0000"
+    },
+    {
+      "Id": "006SYN763jpO6pBYmF",
+      "Name": "Kozey Packaging Supply / Prudent Soup / 16oz PET Straight-Sided Jar 38-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 29300,
+      "CloseDate": "2027-01-03",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-09-27T07:12:00.000+0000"
+    },
+    {
+      "Id": "006SYNg5zH9zY4Guvk",
+      "Name": "Rodriguez Packaging Supply / Zany Airport / 4oz PCR-PET Tub 38-400",
+      "AccountId": "001SYN3JEDUYXkThdS",
+      "Account": {
+        "Name": "Bergstrom - Corwin (synthetic)",
+        "ShippingStreet": "3191 Mohr Wells",
+        "ShippingCity": "Lake Jill",
+        "ShippingState": "OH",
+        "ShippingPostalCode": "74201",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 433800,
+      "CloseDate": "2027-02-13",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-02T07:25:00.000+0000"
+    },
+    {
+      "Id": "006SYNaDJFulUs6rO3",
+      "Name": "Anderson Packaging Supply / Antique Crest / 16oz PETG Handleware Jug 28-410",
+      "AccountId": "001SYNclPZxgCbsKIR",
+      "Account": {
+        "Name": "Greenholt Group (synthetic)",
+        "ShippingStreet": "1804 Mohr Cape",
+        "ShippingCity": "McGlynncester",
+        "ShippingState": "WA",
+        "ShippingPostalCode": "01588",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 55200,
+      "CloseDate": "2027-01-17",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-06T13:12:00.000+0000"
+    },
+    {
+      "Id": "006SYN0LjOJW15wE4z",
+      "Name": "Carter Packaging Supply / Subtle Opera / 8oz PET Boston Round 120 DC",
+      "AccountId": "001SYN2HBc5ifwKemi",
+      "Account": {
+        "Name": "Beahan and Sons (synthetic)",
+        "ShippingStreet": "94637 Corkery Extension",
+        "ShippingCity": "North Emanuelton",
+        "ShippingState": "IL",
+        "ShippingPostalCode": "49236",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 100100,
+      "CloseDate": "2027-03-17",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF 37556",
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-09-25T19:17:00.000+0000"
+    },
+    {
+      "Id": "006SYNzOBeos2KiPVh",
+      "Name": "Kozey Packaging Supply / Joyous Guide / 8oz PETG Straight-Sided Jar 89-400",
+      "AccountId": "001SYNQHOKWNjP0WXZ",
+      "Account": {
+        "Name": "Quigley LLC (synthetic)",
+        "ShippingStreet": "62343 Tremblay Row",
+        "ShippingCity": "New Bobboro",
+        "ShippingState": "GA",
+        "ShippingPostalCode": "53383",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 70400,
+      "CloseDate": "2027-03-29",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-02T17:25:00.000+0000"
+    },
+    {
+      "Id": "006SYNesF9d7eqJPAa",
+      "Name": "Lemke Packaging Supply / Staid Cemetery / 32oz PETG Boston Round 89-400",
+      "AccountId": "001SYN9mQwf1tEYc5G",
+      "Account": {
+        "Name": "Volkman - Ernser (synthetic)",
+        "ShippingStreet": "69612 Veum-Howell Crossroad",
+        "ShippingCity": "Cormierbury",
+        "ShippingState": "CA",
+        "ShippingPostalCode": "95301",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 71700,
+      "CloseDate": "2027-04-22",
+      "StageName": "PO(s) in hand",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-10-02T16:12:00.000+0000"
+    },
+    {
+      "Id": "006SYNZi2zhGPdfAhI",
+      "Name": "Franey Packaging Supply / Whopping Tray / 24oz HDPE Wide Mouth Jar 89-400",
+      "AccountId": "001SYNrP5V8riT8zc4",
+      "Account": {
+        "Name": "Wunsch-Gleason, Jones and Bode (synthetic)",
+        "ShippingStreet": "10655 Alex Camp",
+        "ShippingCity": "East Magnoliastad",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "65544",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 50800,
+      "CloseDate": "2026-12-30",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-10T04:08:00.000+0000"
+    },
+    {
+      "Id": "006SYN3A6n5Sx40Bpd",
+      "Name": "Rodriguez Packaging Supply / Sweet Tomb / 24oz PET Square 28-410",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": null,
+      "CloseDate": "2027-05-16",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "erf",
+      "SystemModstamp": "2026-09-27T09:31:00.000+0000"
+    },
+    {
+      "Id": "006SYNgGxL69hnz3Ph",
+      "Name": "Price Packaging Supply / Orderly Asset / 12oz PCR-HDPE Wide Mouth Jar 89-400",
+      "AccountId": "001SYNls0k76hvWCRI",
+      "Account": {
+        "Name": "Bogisich, Green and Schneider (synthetic)",
+        "ShippingStreet": "40440 Macejkovic Divide",
+        "ShippingCity": "Fort Silasstead",
+        "ShippingState": "NC",
+        "ShippingPostalCode": "53402",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 17600,
+      "CloseDate": "2027-06-08",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Customer RFQ",
+      "SystemModstamp": "2026-10-10T02:48:00.000+0000"
+    },
+    {
+      "Id": "006SYNzkA5nj3VAcnX",
+      "Name": "Carter Packaging Supply / Lean Warming / 16oz PCR-HDPE Cylinder 120 DC",
+      "AccountId": "001SYNsT8W3EbgaeDT",
+      "Account": {
+        "Name": "Mills - Cruickshank (synthetic)",
+        "ShippingStreet": "3836 Cleve Fall",
+        "ShippingCity": "Boyleport",
+        "ShippingState": "NJ",
+        "ShippingPostalCode": "78529",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 28700,
+      "CloseDate": "2027-05-10",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-28646",
+      "Quote_Source__c": "ERF App",
+      "SystemModstamp": "2026-09-25T16:29:00.000+0000"
+    },
+    {
+      "Id": "006SYNcGWJNRtFcYGf",
+      "Name": "Greenholt Packaging Supply / Every Ferret / 32oz LDPE Handleware Jug 38-400",
+      "AccountId": "001SYNMlbDRXROb3gc",
+      "Account": {
+        "Name": "O'Conner, Hagenes and Donnelly (synthetic)",
+        "ShippingStreet": "8590 Victoria Road",
+        "ShippingCity": "East Dorianland",
+        "ShippingState": "CA",
+        "ShippingPostalCode": "50202",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 48700,
+      "CloseDate": null,
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "erf#38839",
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-06T19:57:00.000+0000"
+    },
+    {
+      "Id": "006SYNUmMgPZJl7aZu",
+      "Name": "Rodriguez Packaging Supply / Definite Secrecy / 32oz HDPE Canister 89-400",
+      "AccountId": "001SYNf9CRJW1pQrNa",
+      "Account": {
+        "Name": "Rogahn, Wiegand and Kuhic (synthetic)",
+        "ShippingStreet": "676 Corkery Burgs",
+        "ShippingCity": "Fort Brendon",
+        "ShippingState": "PA",
+        "ShippingPostalCode": "58409",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 1,
+      "CloseDate": "2027-02-14",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF 57762",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-02T22:30:00.000+0000"
+    },
+    {
+      "Id": "006SYNfMonLTM55hMl",
+      "Name": "Yost Packaging Supply / Grumpy Brief / 8oz PCR-HDPE Square 28-410",
+      "AccountId": "001SYNtxv5cJzjnbuB",
+      "Account": {
+        "Name": "Olson - Wiegand (synthetic)",
+        "ShippingStreet": "964 Woodlands Road",
+        "ShippingCity": "Fort Clementshire",
+        "ShippingState": "MO",
+        "ShippingPostalCode": "31213",
+        "ShippingCountry": "US"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 37000,
+      "CloseDate": "2026-12-24",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": "Email",
+      "SystemModstamp": "2026-09-26T21:07:00.000+0000"
+    },
+    {
+      "Id": "006SYNAk9Jd0yf9OdK",
+      "Name": "Blanda Packaging Supply / Soggy Drive / 32oz PET Handleware Jug 28-410",
+      "AccountId": "001SYNaSkoYYnmdsDt",
+      "Account": {
+        "Name": "Hartmann Inc (synthetic)",
+        "ShippingStreet": "285 Retta Pass",
+        "ShippingCity": "Mount Vernon",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "68194",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 85400,
+      "CloseDate": "2027-05-16",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": " ",
+      "SystemModstamp": "2026-10-05T08:38:00.000+0000"
+    },
+    {
+      "Id": "006SYNtbiUHFPsY5ba",
+      "Name": "Mayer Packaging Supply / Urban Window / 64oz LDPE Boston Round 89-400",
+      "AccountId": null,
+      "Account": null,
+      "OwnerId": "005SYNnz4JBXx5iB8L",
+      "Owner": {
+        "Name": "Patience Runolfsdottir",
+        "Alias": "patiruno",
+        "Email": "patience.runolfsdottir@example.com"
+      },
+      "Amount": 12700,
+      "CloseDate": "2027-03-27",
+      "StageName": "Negotiating",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "67900",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-10T22:59:00.000+0000"
+    },
+    {
+      "Id": "006SYNPuYufB9zWoHM",
+      "Name": "Lemke Packaging Supply / Severe Swanling / 2oz PETG Canister 89-400",
+      "AccountId": "001SYNZ1onYPz24Tqo",
+      "Account": {
+        "Name": "O'Connell, Greenholt and Jenkins (synthetic)",
+        "ShippingStreet": "253 Grand Avenue",
+        "ShippingCity": "West Darrellfort",
+        "ShippingState": "OH",
+        "ShippingPostalCode": "22347",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 85200,
+      "CloseDate": "2027-05-09",
+      "StageName": "Verbal Award",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-06T10:33:00.000+0000"
+    },
+    {
+      "Id": "006SYNGmle9IbO5yUO",
+      "Name": "Kozey Packaging Supply / Messy Valuable / 8oz PETG Handleware Jug 38-400",
+      "AccountId": "001SYNWZcYS95jbxyu",
+      "Account": {
+        "Name": "Harber - Metz (synthetic)",
+        "ShippingStreet": "1833 Hammes Village",
+        "ShippingCity": "Bradenton",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "01476",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 582100,
+      "CloseDate": "2027-03-22",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "ERF-2026-89802",
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-09-29T13:51:00.000+0000"
+    },
+    {
+      "Id": "006SYN5q8tlEBdezvL",
+      "Name": "Lemke Packaging Supply / Dense Doing / 64oz PET Tub 89-400",
+      "AccountId": "001SYNlTCrWu4fA0A0",
+      "Account": {
+        "Name": "McLaughlin, Hettinger and Wisozk (synthetic)",
+        "ShippingStreet": "531 Hickory Street",
+        "ShippingCity": "Greenport",
+        "ShippingState": "TX",
+        "ShippingPostalCode": "35612",
+        "ShippingCountry": "United States"
+      },
+      "OwnerId": "005SYNWprXJAwA7Ymk",
+      "Owner": {
+        "Name": "Russ Kuphal",
+        "Alias": "russkuph",
+        "Email": "russ.kuphal@example.com"
+      },
+      "Amount": 84600,
+      "CloseDate": "2027-01-01",
+      "StageName": "Quoting",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": "38364",
+      "Quote_Source__c": "CCQ",
+      "SystemModstamp": "2026-10-03T06:07:00.000+0000"
+    },
+    {
+      "Id": "006SYNDYLtJ2QYGpe2",
+      "Name": "Anderson Packaging Supply / Tight Abacus / 12oz HDPE Wide Mouth Jar 120 DC",
+      "AccountId": "001SYN52qpPVGYArXS",
+      "Account": {
+        "Name": "Morar Group (synthetic)",
+        "ShippingStreet": "290 E 3rd Street",
+        "ShippingCity": "East Vivaland",
+        "ShippingState": "AZ",
+        "ShippingPostalCode": "83035",
+        "ShippingCountry": "USA"
+      },
+      "OwnerId": "005SYNYemevRSufzds",
+      "Owner": {
+        "Name": "Kaya Hackett",
+        "Alias": "kayahack",
+        "Email": "kaya.hackett@example.com"
+      },
+      "Amount": 106300,
+      "CloseDate": "2026-12-29",
+      "StageName": "Qualifying",
+      "IsClosed": false,
+      "IsWon": false,
+      "ERF_Number__c": null,
+      "Quote_Source__c": null,
+      "SystemModstamp": "2026-10-04T19:49:00.000+0000"
+    }
+  ],
+  "accounts": [
+    {
+      "Id": "001SYNv3omdRGzIMVY",
+      "Name": "Beier-Gibson - Mayer (synthetic)",
+      "ShippingStreet": "99048 Tillman Pike",
+      "ShippingCity": "St. Cloud",
+      "ShippingState": "IL",
+      "ShippingPostalCode": "13469",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNH8u4JONMfUvv",
+      "Name": "Heidenreich, Rowe and McGlynn (synthetic)",
+      "ShippingStreet": "35253 Noelia Avenue",
+      "ShippingCity": "Lexiecester",
+      "ShippingState": "NC",
+      "ShippingPostalCode": "54656",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYN29oYAbLaoory",
+      "Name": "Rodriguez-Dickinson, Connelly and Ortiz (synthetic)",
+      "ShippingStreet": "5591 Hill Road",
+      "ShippingCity": "Gleasoncester",
+      "ShippingState": "MO",
+      "ShippingPostalCode": "09277",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNw72W2mo6j7Q4",
+      "Name": "Schuppe Inc (synthetic)",
+      "ShippingStreet": "5952 Dickinson Springs",
+      "ShippingCity": "Runolfssonborough",
+      "ShippingState": "WA",
+      "ShippingPostalCode": "87520",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNL1foN3JLmBQU",
+      "Name": "Koelpin, Hodkiewicz and Sipes (synthetic)",
+      "ShippingStreet": "97553 Sedrick Bypass",
+      "ShippingCity": "Kleinside",
+      "ShippingState": "WA",
+      "ShippingPostalCode": "68865",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNKdPxDEjalhHx",
+      "Name": "Luettgen Inc (synthetic)",
+      "ShippingStreet": "98619 Bashirian Pines",
+      "ShippingCity": "Pleasanton",
+      "ShippingState": "NJ",
+      "ShippingPostalCode": "37015",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNHe8Ul19EaLbe",
+      "Name": "Miller, Nitzsche and Dickens (synthetic)",
+      "ShippingStreet": "331 Brooke Mountain",
+      "ShippingCity": "South Regancester",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "68691",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNNcM5TQqTZwTH",
+      "Name": "Pouros, Grant and Windler (synthetic)",
+      "ShippingStreet": "7033 Berta Coves",
+      "ShippingCity": "Cobyberg",
+      "ShippingState": "GA",
+      "ShippingPostalCode": "67689",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNyGiSxX6Z13Zb",
+      "Name": "Hyatt Inc (synthetic)",
+      "ShippingStreet": "7126 Aglae Pines",
+      "ShippingCity": "North Highlands",
+      "ShippingState": "WA",
+      "ShippingPostalCode": "79364",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNHHirTD1x3cMS",
+      "Name": "Stiedemann LLC (synthetic)",
+      "ShippingStreet": "44906 Elias Dale",
+      "ShippingCity": "New Mervin",
+      "ShippingState": "IN",
+      "ShippingPostalCode": "77499",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNC7ZB59NhOVYD",
+      "Name": "Jenkins-Zboncak, Maggio and McDermott (synthetic)",
+      "ShippingStreet": "9655 Common Lane",
+      "ShippingCity": "Kuphalland",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "30825",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNGSmhfzOuBKXe",
+      "Name": "Lebsack - Hirthe (synthetic)",
+      "ShippingStreet": "58885 Hamill Falls",
+      "ShippingCity": "New Merritt",
+      "ShippingState": "IN",
+      "ShippingPostalCode": "33209",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYN3JEDUYXkThdS",
+      "Name": "Bergstrom - Corwin (synthetic)",
+      "ShippingStreet": "3191 Mohr Wells",
+      "ShippingCity": "Lake Jill",
+      "ShippingState": "OH",
+      "ShippingPostalCode": "74201",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNclPZxgCbsKIR",
+      "Name": "Greenholt Group (synthetic)",
+      "ShippingStreet": "1804 Mohr Cape",
+      "ShippingCity": "McGlynncester",
+      "ShippingState": "WA",
+      "ShippingPostalCode": "01588",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYN2HBc5ifwKemi",
+      "Name": "Beahan and Sons (synthetic)",
+      "ShippingStreet": "94637 Corkery Extension",
+      "ShippingCity": "North Emanuelton",
+      "ShippingState": "IL",
+      "ShippingPostalCode": "49236",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNQHOKWNjP0WXZ",
+      "Name": "Quigley LLC (synthetic)",
+      "ShippingStreet": "62343 Tremblay Row",
+      "ShippingCity": "New Bobboro",
+      "ShippingState": "GA",
+      "ShippingPostalCode": "53383",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYN9mQwf1tEYc5G",
+      "Name": "Volkman - Ernser (synthetic)",
+      "ShippingStreet": "69612 Veum-Howell Crossroad",
+      "ShippingCity": "Cormierbury",
+      "ShippingState": "CA",
+      "ShippingPostalCode": "95301",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNrP5V8riT8zc4",
+      "Name": "Wunsch-Gleason, Jones and Bode (synthetic)",
+      "ShippingStreet": "10655 Alex Camp",
+      "ShippingCity": "East Magnoliastad",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "65544",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNls0k76hvWCRI",
+      "Name": "Bogisich, Green and Schneider (synthetic)",
+      "ShippingStreet": "40440 Macejkovic Divide",
+      "ShippingCity": "Fort Silasstead",
+      "ShippingState": "NC",
+      "ShippingPostalCode": "53402",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNsT8W3EbgaeDT",
+      "Name": "Mills - Cruickshank (synthetic)",
+      "ShippingStreet": "3836 Cleve Fall",
+      "ShippingCity": "Boyleport",
+      "ShippingState": "NJ",
+      "ShippingPostalCode": "78529",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNMlbDRXROb3gc",
+      "Name": "O'Conner, Hagenes and Donnelly (synthetic)",
+      "ShippingStreet": "8590 Victoria Road",
+      "ShippingCity": "East Dorianland",
+      "ShippingState": "CA",
+      "ShippingPostalCode": "50202",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNf9CRJW1pQrNa",
+      "Name": "Rogahn, Wiegand and Kuhic (synthetic)",
+      "ShippingStreet": "676 Corkery Burgs",
+      "ShippingCity": "Fort Brendon",
+      "ShippingState": "PA",
+      "ShippingPostalCode": "58409",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNtxv5cJzjnbuB",
+      "Name": "Olson - Wiegand (synthetic)",
+      "ShippingStreet": "964 Woodlands Road",
+      "ShippingCity": "Fort Clementshire",
+      "ShippingState": "MO",
+      "ShippingPostalCode": "31213",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNaSkoYYnmdsDt",
+      "Name": "Hartmann Inc (synthetic)",
+      "ShippingStreet": "285 Retta Pass",
+      "ShippingCity": "Mount Vernon",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "68194",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNZ1onYPz24Tqo",
+      "Name": "O'Connell, Greenholt and Jenkins (synthetic)",
+      "ShippingStreet": "253 Grand Avenue",
+      "ShippingCity": "West Darrellfort",
+      "ShippingState": "OH",
+      "ShippingPostalCode": "22347",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNWZcYS95jbxyu",
+      "Name": "Harber - Metz (synthetic)",
+      "ShippingStreet": "1833 Hammes Village",
+      "ShippingCity": "Bradenton",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "01476",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNlTCrWu4fA0A0",
+      "Name": "McLaughlin, Hettinger and Wisozk (synthetic)",
+      "ShippingStreet": "531 Hickory Street",
+      "ShippingCity": "Greenport",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "35612",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYN52qpPVGYArXS",
+      "Name": "Morar Group (synthetic)",
+      "ShippingStreet": "290 E 3rd Street",
+      "ShippingCity": "East Vivaland",
+      "ShippingState": "AZ",
+      "ShippingPostalCode": "83035",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNcENLT1V7zMHV",
+      "Name": "Feest, Emard and Rolfson (synthetic)",
+      "ShippingStreet": "8470 Prohaska Green",
+      "ShippingCity": "North Shana",
+      "ShippingState": "IL",
+      "ShippingPostalCode": "26084",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYN8X3mS0RXadNM",
+      "Name": "Schamberger - Johns (synthetic)",
+      "ShippingStreet": "307 Fay Rapids",
+      "ShippingCity": "South Troy",
+      "ShippingState": "IL",
+      "ShippingPostalCode": "65302",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNdvHYvnc1IDw2",
+      "Name": "Buckridge and Sons (synthetic)",
+      "ShippingStreet": "8878 Cassin Summit",
+      "ShippingCity": "Lake Kaci",
+      "ShippingState": "IN",
+      "ShippingPostalCode": "77545",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNZY0KHfMBhQkN",
+      "Name": "Hilpert - Brekke (synthetic)",
+      "ShippingStreet": "8445 Letitia Spur",
+      "ShippingCity": "Port Karson",
+      "ShippingState": "NC",
+      "ShippingPostalCode": "14350",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNXM2mN7dOcWfD",
+      "Name": "Doyle - Franey-Roberts (synthetic)",
+      "ShippingStreet": "9411 Lime Grove",
+      "ShippingCity": "Parisianberg",
+      "ShippingState": "NC",
+      "ShippingPostalCode": "67350",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNd9MozjlGk1lc",
+      "Name": "Schuster and Sons (synthetic)",
+      "ShippingStreet": "55565 Osborne Spur",
+      "ShippingCity": "West Trishabury",
+      "ShippingState": "MO",
+      "ShippingPostalCode": "53381",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNZbvWnKP4pSaF",
+      "Name": "Jerde, Kassulke and Watsica (synthetic)",
+      "ShippingStreet": "6259 Latoya Crescent",
+      "ShippingCity": "Terrytown",
+      "ShippingState": "MO",
+      "ShippingPostalCode": "14651",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNjdVLuO3Cdagh",
+      "Name": "Wisozk - Feest (synthetic)",
+      "ShippingStreet": "61195 Kuphal-Mayer Walks",
+      "ShippingCity": "South Americo",
+      "ShippingState": "OH",
+      "ShippingPostalCode": "12190",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNXkvlkhQia9v1",
+      "Name": "Cremin - Kohler (synthetic)",
+      "ShippingStreet": "398 Waterloo Road",
+      "ShippingCity": "Fort Pierce",
+      "ShippingState": "CA",
+      "ShippingPostalCode": "01542",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNoq6bgXbmryZe",
+      "Name": "Thompson, Lebsack and Frami (synthetic)",
+      "ShippingStreet": "87877 Zboncak Summit",
+      "ShippingCity": "East Lulamouth",
+      "ShippingState": "IL",
+      "ShippingPostalCode": "05759",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYN5WQqKQhLtAWL",
+      "Name": "Murray - Schmidt (synthetic)",
+      "ShippingStreet": "7445 Manchester Road",
+      "ShippingCity": "McKinney",
+      "ShippingState": "NJ",
+      "ShippingPostalCode": "90548",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNn9hJuE9bNUtX",
+      "Name": "Moore, Pacocha and Skiles (synthetic)",
+      "ShippingStreet": "432 Rhianna Landing",
+      "ShippingCity": "South Tremaine",
+      "ShippingState": "OH",
+      "ShippingPostalCode": "67947",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNK2ngNToR7L5U",
+      "Name": "Braun - Littel (synthetic)",
+      "ShippingStreet": "52259 Schmeler Grove",
+      "ShippingCity": "Lake Damionhaven",
+      "ShippingState": "CA",
+      "ShippingPostalCode": "33539",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNzhwlSp0FAJGT",
+      "Name": "Beer and Sons (synthetic)",
+      "ShippingStreet": "511 14th Street",
+      "ShippingCity": "Rueckerville",
+      "ShippingState": "PA",
+      "ShippingPostalCode": "48630",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNU5asXbl5Xnl2",
+      "Name": "Cassin-Schamberger LLC (synthetic)",
+      "ShippingStreet": "8644 W Central Avenue",
+      "ShippingCity": "Port Marjolaineberg",
+      "ShippingState": "PA",
+      "ShippingPostalCode": "41654",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYN4zolEZYfdhir",
+      "Name": "Borer - Botsford (synthetic)",
+      "ShippingStreet": "7729 Orchard Street",
+      "ShippingCity": "Avondale",
+      "ShippingState": "NJ",
+      "ShippingPostalCode": "61163",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNX9tOfVzAz2cp",
+      "Name": "Pacocha, Casper and Brekke (synthetic)",
+      "ShippingStreet": "27018 Judah Gardens",
+      "ShippingCity": "Paolofield",
+      "ShippingState": "AZ",
+      "ShippingPostalCode": "54473",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNWmR2UwUvzRUF",
+      "Name": "Cronin and Sons (synthetic)",
+      "ShippingStreet": "189 S Jackson Street",
+      "ShippingCity": "West Luellashire",
+      "ShippingState": "AZ",
+      "ShippingPostalCode": "28067",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNQVZ9IsqAljvt",
+      "Name": "Predovic Group (synthetic)",
+      "ShippingStreet": "45886 Nelle Hollow",
+      "ShippingCity": "Lake Waylonburgh",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "48464",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNtk87L1tgi1Sd",
+      "Name": "Mertz Group (synthetic)",
+      "ShippingStreet": "5657 Kingfisher Close",
+      "ShippingCity": "Las Cruces",
+      "ShippingState": "TX",
+      "ShippingPostalCode": "15457",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNAVRe4LMSWBji",
+      "Name": "Konopelski, Fay and Koss (synthetic)",
+      "ShippingStreet": "368 Nolan Villages",
+      "ShippingCity": "Ornchester",
+      "ShippingState": "IN",
+      "ShippingPostalCode": "57091",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNaCwNMyPKvNMj",
+      "Name": "Stiedemann LLC (synthetic)",
+      "ShippingStreet": "564 Eladio Islands",
+      "ShippingCity": "Woodbury",
+      "ShippingState": "NC",
+      "ShippingPostalCode": "36362",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNY9AARmkidPu0",
+      "Name": "Osinski - Cormier (synthetic)",
+      "ShippingStreet": "1825 Benedict Plain",
+      "ShippingCity": "Towneport",
+      "ShippingState": "IN",
+      "ShippingPostalCode": "07758",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNzuWiVJstdlLP",
+      "Name": "Marks, Dietrich and Bruen (synthetic)",
+      "ShippingStreet": "5903 Kertzmann Viaduct",
+      "ShippingCity": "Fort Lauderdale",
+      "ShippingState": "CA",
+      "ShippingPostalCode": "12758",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNmJt3t1i78htX",
+      "Name": "Dibbert, Frami and Pacocha (synthetic)",
+      "ShippingStreet": "105 Stokes Pines",
+      "ShippingCity": "Gorczanychester",
+      "ShippingState": "OH",
+      "ShippingPostalCode": "62374",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNi3NJhu7iu94G",
+      "Name": "Hilll, Beer-Brown and Lynch (synthetic)",
+      "ShippingStreet": "56615 Hunter Lane",
+      "ShippingCity": "Brakusberg",
+      "ShippingState": "NC",
+      "ShippingPostalCode": "69709",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYN2pczTmP3MLDW",
+      "Name": "Becker - Ruecker (synthetic)",
+      "ShippingStreet": "412 St Andrews Close",
+      "ShippingCity": "Ann Arbor",
+      "ShippingState": "GA",
+      "ShippingPostalCode": "30360",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYN9tylEr4PVmxm",
+      "Name": "Blick - Berge (synthetic)",
+      "ShippingStreet": "7300 Doug Crescent",
+      "ShippingCity": "Schmittstead",
+      "ShippingState": "IN",
+      "ShippingPostalCode": "17368",
+      "ShippingCountry": "US"
+    },
+    {
+      "Id": "001SYNIhsFQguuXlcL",
+      "Name": "Willms, Feeney-Greenholt and Ankunding (synthetic)",
+      "ShippingStreet": "345 Estel Mount",
+      "ShippingCity": "Lake Jaylinboro",
+      "ShippingState": "GA",
+      "ShippingPostalCode": "32162",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYNBBcMADgFCWXy",
+      "Name": "Johns Inc (synthetic)",
+      "ShippingStreet": "30131 Christina Junction",
+      "ShippingCity": "Lake Unique",
+      "ShippingState": "IN",
+      "ShippingPostalCode": "46105",
+      "ShippingCountry": "USA"
+    },
+    {
+      "Id": "001SYNkq7A1veWkxVd",
+      "Name": "Walter Inc (synthetic)",
+      "ShippingStreet": "375 Drew Turnpike",
+      "ShippingCity": "Novi",
+      "ShippingState": "GA",
+      "ShippingPostalCode": "23927",
+      "ShippingCountry": "United States"
+    },
+    {
+      "Id": "001SYN1M5BzBWX15W1",
+      "Name": "Blick Group (synthetic)",
+      "ShippingStreet": "9021 Adell Cliff",
+      "ShippingCity": "New Brook",
+      "ShippingState": "GA",
+      "ShippingPostalCode": "32285",
+      "ShippingCountry": "United States"
+    }
+  ],
+  "productSpecs": [
+    {
+      "Id": "a0PSYNSQaSxvNZvxBH",
+      "Name": "PS-000001",
+      "Opportunity__c": "006SYNZh11RVinfpfX",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "White",
+      "Annual_Volume__c": 917000
+    },
+    {
+      "Id": "a0PSYN12dnDLgkCDIL",
+      "Name": "PS-000002",
+      "Opportunity__c": "006SYNB5eRFqj8Jb3c",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 1235000
+    },
+    {
+      "Id": "a0PSYNtiREoBOqZH4Q",
+      "Name": "PS-000003",
+      "Opportunity__c": "006SYNB5eRFqj8Jb3c",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 1691000
+    },
+    {
+      "Id": "a0PSYNH2xfMF1XxBT6",
+      "Name": "PS-000004",
+      "Opportunity__c": "006SYNu39EMckLrBPJ",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "LDPE",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNK7dlYc96y73t",
+      "Name": "PS-000005",
+      "Opportunity__c": "006SYNu39EMckLrBPJ",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PP",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 3886000
+    },
+    {
+      "Id": "a0PSYNZIMzY6vc98gm",
+      "Name": "PS-000006",
+      "Opportunity__c": "006SYNDWYT7HChUyky",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "HDPE",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNLS1UKP0En5o2",
+      "Name": "PS-000007",
+      "Opportunity__c": "006SYNDWYT7HChUyky",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PP",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNWcRN7lve8riw",
+      "Name": "PS-000008",
+      "Opportunity__c": "006SYNHMKOQl3cXfjK",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": null,
+      "Annual_Volume__c": 3782000
+    },
+    {
+      "Id": "a0PSYNZUfnX1rOUypX",
+      "Name": "PS-000009",
+      "Opportunity__c": "006SYNtnNIhgvn5dLX",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PETG",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": null,
+      "Annual_Volume__c": 2340000
+    },
+    {
+      "Id": "a0PSYNSRErT2oxP3pJ",
+      "Name": "PS-000010",
+      "Opportunity__c": "006SYNtnNIhgvn5dLX",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Natural",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYN4xD5JhgRol5t",
+      "Name": "PS-000011",
+      "Opportunity__c": "006SYNuqRCFKOYyo6r",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 1224000
+    },
+    {
+      "Id": "a0PSYNKCbA8AF4nDvf",
+      "Name": "PS-000012",
+      "Opportunity__c": "006SYNsrHSxoUaQRmn",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PETG",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 4000000
+    },
+    {
+      "Id": "a0PSYN0BR56J2rrBXe",
+      "Name": "PS-000013",
+      "Opportunity__c": "006SYNJuiYLvHuv16O",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 2983000
+    },
+    {
+      "Id": "a0PSYNXqPDzecSHMHh",
+      "Name": "PS-000014",
+      "Opportunity__c": "006SYNEB6wN5zgSXLb",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "PP",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "White",
+      "Annual_Volume__c": 1284000
+    },
+    {
+      "Id": "a0PSYNwLzPB71SXzgb",
+      "Name": "PS-000015",
+      "Opportunity__c": "006SYNEB6wN5zgSXLb",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "PET",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 2477000
+    },
+    {
+      "Id": "a0PSYNDjY5emmDbCUF",
+      "Name": "PS-000016",
+      "Opportunity__c": "006SYNKVHHBYf1phLm",
+      "Product_Type__c": "JAR",
+      "Resin__c": "LDPE",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNGQpOf1t1VTtK",
+      "Name": "PS-000017",
+      "Opportunity__c": "006SYNKVHHBYf1phLm",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 3043000
+    },
+    {
+      "Id": "a0PSYNViqKf2N197xJ",
+      "Name": "PS-000018",
+      "Opportunity__c": "006SYN6irPM7YVMkro",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 1576000
+    },
+    {
+      "Id": "a0PSYNqbkgvxQiF0vt",
+      "Name": "PS-000019",
+      "Opportunity__c": "006SYNHgE17daL1pgU",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 3014000
+    },
+    {
+      "Id": "a0PSYNBvcQqVJBVueb",
+      "Name": "PS-000020",
+      "Opportunity__c": "006SYNzKMAPl5n315Z",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 3716000
+    },
+    {
+      "Id": "a0PSYNojbUTtNbpIYf",
+      "Name": "PS-000021",
+      "Opportunity__c": "006SYNzKMAPl5n315Z",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PP",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNqKfUgsNUZghM",
+      "Name": "PS-000022",
+      "Opportunity__c": "006SYNFyHZEgOdaFDR",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "LDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 3270000
+    },
+    {
+      "Id": "a0PSYNuGF3iv24FudG",
+      "Name": "PS-000023",
+      "Opportunity__c": "006SYNqyHpFzcGQJDb",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PETG",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 1712000
+    },
+    {
+      "Id": "a0PSYNIxfXhTRZJAzZ",
+      "Name": "PS-000024",
+      "Opportunity__c": "006SYNqyHpFzcGQJDb",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PP",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": null,
+      "Annual_Volume__c": 439000
+    },
+    {
+      "Id": "a0PSYN5biCtkjP72l0",
+      "Name": "PS-000025",
+      "Opportunity__c": "006SYNGZnpbUJY3vn5",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "LDPE",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": null,
+      "Annual_Volume__c": 3836000
+    },
+    {
+      "Id": "a0PSYN0eaPFBWWe7Ur",
+      "Name": "PS-000026",
+      "Opportunity__c": "006SYN7OgQS205F1Ix",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": null,
+      "Annual_Volume__c": 1883000
+    },
+    {
+      "Id": "a0PSYN9aOgg9LvzGTF",
+      "Name": "PS-000027",
+      "Opportunity__c": "006SYN7OgQS205F1Ix",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PP",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 2875000
+    },
+    {
+      "Id": "a0PSYNM5b5YHi5hLAg",
+      "Name": "PS-000028",
+      "Opportunity__c": "006SYNc7X3VHUih1h9",
+      "Product_Type__c": "JAR",
+      "Resin__c": "LDPE",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 2168000
+    },
+    {
+      "Id": "a0PSYN3B9QJxosAsrI",
+      "Name": "PS-000029",
+      "Opportunity__c": "006SYNc7X3VHUih1h9",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 3122000
+    },
+    {
+      "Id": "a0PSYNvppcFOGX6UNI",
+      "Name": "PS-000030",
+      "Opportunity__c": "006SYN8q6hm71m96QK",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "HDPE",
+      "Capacity__c": "4 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 1477000
+    },
+    {
+      "Id": "a0PSYN9ciqCdH757bC",
+      "Name": "PS-000031",
+      "Opportunity__c": "006SYNzkRrwSFB4rzp",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 1525000
+    },
+    {
+      "Id": "a0PSYNgbwqyKvv0V4T",
+      "Name": "PS-000032",
+      "Opportunity__c": "006SYNGVanGLXipNAX",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PP",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 658000
+    },
+    {
+      "Id": "a0PSYN2zFq3DcmdR6t",
+      "Name": "PS-000033",
+      "Opportunity__c": "006SYNJUCsEXejcY5y",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PETG",
+      "Capacity__c": "4 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNnwig9g8GqE3B",
+      "Name": "PS-000034",
+      "Opportunity__c": "006SYNJUCsEXejcY5y",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "HDPE",
+      "Capacity__c": "4 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNf6HCdWE2jn5S",
+      "Name": "PS-000035",
+      "Opportunity__c": "006SYNk7tFC80KEIfg",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 3625000
+    },
+    {
+      "Id": "a0PSYNGrDoW8TpvsZc",
+      "Name": "PS-000036",
+      "Opportunity__c": "006SYNZJ7OHKyWchhH",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 2283000
+    },
+    {
+      "Id": "a0PSYNoGGtSTMg9dNT",
+      "Name": "PS-000037",
+      "Opportunity__c": "006SYNZJ7OHKyWchhH",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": null,
+      "Annual_Volume__c": 1109000
+    },
+    {
+      "Id": "a0PSYNiOtqSYl8QUVK",
+      "Name": "PS-000038",
+      "Opportunity__c": "006SYNCC1exfUI91T9",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PETG",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNsx5kch6MahIO",
+      "Name": "PS-000039",
+      "Opportunity__c": "006SYNCC1exfUI91T9",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PP",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "White",
+      "Annual_Volume__c": 519000
+    },
+    {
+      "Id": "a0PSYNXFBEsvW3rwgI",
+      "Name": "PS-000040",
+      "Opportunity__c": "006SYNzxo2AseJQY78",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "White",
+      "Annual_Volume__c": 396000
+    },
+    {
+      "Id": "a0PSYNToyjQpdcgvuK",
+      "Name": "PS-000041",
+      "Opportunity__c": "006SYNzxo2AseJQY78",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": null,
+      "Annual_Volume__c": 1183000
+    },
+    {
+      "Id": "a0PSYNqwnX8LPCcGj1",
+      "Name": "PS-000042",
+      "Opportunity__c": "006SYN4hICHTSLQMS2",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 347000
+    },
+    {
+      "Id": "a0PSYNdEiItRwZyOBz",
+      "Name": "PS-000043",
+      "Opportunity__c": "006SYN4hICHTSLQMS2",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "HDPE",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Amber",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYN1VpORd6aSmAg",
+      "Name": "PS-000044",
+      "Opportunity__c": "006SYNNrk9769CIr5x",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "LDPE",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNHun8srBQ53Cd",
+      "Name": "PS-000045",
+      "Opportunity__c": "006SYN2XlHgaP6LTua",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PCR-PET",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNDi643Wsw0OVG",
+      "Name": "PS-000046",
+      "Opportunity__c": "006SYNuDYepICbCOgW",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "PP",
+      "Capacity__c": "4 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 1259000
+    },
+    {
+      "Id": "a0PSYNKqzigyQEIwYS",
+      "Name": "PS-000047",
+      "Opportunity__c": "006SYNuDYepICbCOgW",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "PP",
+      "Capacity__c": "4 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 1682000
+    },
+    {
+      "Id": "a0PSYNxI6QSyi9Sf63",
+      "Name": "PS-000048",
+      "Opportunity__c": "006SYN3KA4FZGw5eXJ",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": null,
+      "Annual_Volume__c": 1744000
+    },
+    {
+      "Id": "a0PSYNhBLAjWl1TzNo",
+      "Name": "PS-000049",
+      "Opportunity__c": "006SYNm1TgZz1hd3We",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PETG",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": null,
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNX0MNuKKCOgQi",
+      "Name": "PS-000050",
+      "Opportunity__c": "006SYNm1TgZz1hd3We",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 1355000
+    },
+    {
+      "Id": "a0PSYNDcLwd500Kgok",
+      "Name": "PS-000051",
+      "Opportunity__c": "006SYNzi9QNUnRTBDP",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNCtotrpil8srb",
+      "Name": "PS-000052",
+      "Opportunity__c": "006SYNUMVXhnrcauZC",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "LDPE",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 3654000
+    },
+    {
+      "Id": "a0PSYN0ZKaRXOytCzx",
+      "Name": "PS-000053",
+      "Opportunity__c": "006SYNUMVXhnrcauZC",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 2877000
+    },
+    {
+      "Id": "a0PSYNpf1SBUC9hyno",
+      "Name": "PS-000054",
+      "Opportunity__c": "006SYNdXZRccRjhdur",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "LDPE",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNioZPPOZyo9Gt",
+      "Name": "PS-000055",
+      "Opportunity__c": "006SYNnfttZu3bKAKX",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PET",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": null,
+      "Annual_Volume__c": 2454000
+    },
+    {
+      "Id": "a0PSYNrHcMi9cucAAw",
+      "Name": "PS-000056",
+      "Opportunity__c": "006SYNnfttZu3bKAKX",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PP",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNNEDcvUFF0ivM",
+      "Name": "PS-000057",
+      "Opportunity__c": "006SYNSRQaKUJlPjSg",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 699000
+    },
+    {
+      "Id": "a0PSYNRoAKaxaNYOtG",
+      "Name": "PS-000058",
+      "Opportunity__c": "006SYNMS0MjI2EoYgj",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": null,
+      "Annual_Volume__c": 2271000
+    },
+    {
+      "Id": "a0PSYNbkFinsePQgSB",
+      "Name": "PS-000059",
+      "Opportunity__c": "006SYNMS0MjI2EoYgj",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PET",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNcAT353MLjGOk",
+      "Name": "PS-000060",
+      "Opportunity__c": "006SYNtTIXDdUAqKqz",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PP",
+      "Capacity__c": "4 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYN4Hh1wBpFywKx",
+      "Name": "PS-000061",
+      "Opportunity__c": "006SYNtTIXDdUAqKqz",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PP",
+      "Capacity__c": "4 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 2720000
+    },
+    {
+      "Id": "a0PSYNgh76r1S6HSPb",
+      "Name": "PS-000062",
+      "Opportunity__c": "006SYNhweI1yA11mIB",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNabQXGPENQbN2",
+      "Name": "PS-000063",
+      "Opportunity__c": "006SYNXgaiTiZ3M2H7",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PETG",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 651000
+    },
+    {
+      "Id": "a0PSYNlHZdPdyaalcy",
+      "Name": "PS-000064",
+      "Opportunity__c": "006SYNXgaiTiZ3M2H7",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": null,
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNjaLAQKyY7ENi",
+      "Name": "PS-000065",
+      "Opportunity__c": "006SYNzKnX8CCsOsjY",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PP",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 3906000
+    },
+    {
+      "Id": "a0PSYNBggzL7TKZgEb",
+      "Name": "PS-000066",
+      "Opportunity__c": "006SYNBmw7HNIc5Tvh",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "HDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 2750000
+    },
+    {
+      "Id": "a0PSYNEPsIkcNAvrpS",
+      "Name": "PS-000067",
+      "Opportunity__c": "006SYN5GPOO0F16ceb",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PET",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNF7hOPRs3XbNP",
+      "Name": "PS-000068",
+      "Opportunity__c": "006SYN5GPOO0F16ceb",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PET",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 1045000
+    },
+    {
+      "Id": "a0PSYN4hVIoy3zkJew",
+      "Name": "PS-000069",
+      "Opportunity__c": "006SYNl4yZnugQrZFK",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": null,
+      "Annual_Volume__c": 1851000
+    },
+    {
+      "Id": "a0PSYNYO28F0p231Lf",
+      "Name": "PS-000070",
+      "Opportunity__c": "006SYNl4yZnugQrZFK",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNiPE5dpob9gUs",
+      "Name": "PS-000071",
+      "Opportunity__c": "006SYNgSN6PT7xveVe",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PP",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 3923000
+    },
+    {
+      "Id": "a0PSYNCEIA05epCffF",
+      "Name": "PS-000072",
+      "Opportunity__c": "006SYNgSN6PT7xveVe",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "HDPE",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 3786000
+    },
+    {
+      "Id": "a0PSYNpBF0p806iqZQ",
+      "Name": "PS-000073",
+      "Opportunity__c": "006SYN1DufrWVJeF7O",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 2682000
+    },
+    {
+      "Id": "a0PSYNz8Oq97g9OOqx",
+      "Name": "PS-000074",
+      "Opportunity__c": "006SYN1DufrWVJeF7O",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNJKxYR0FkapI3",
+      "Name": "PS-000075",
+      "Opportunity__c": "006SYNAVRijH51Mimv",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PETG",
+      "Capacity__c": "128 oz",
+      "Neck_Finish__c": "110-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 1123000
+    },
+    {
+      "Id": "a0PSYN6jhepcozBdKP",
+      "Name": "PS-000076",
+      "Opportunity__c": "006SYNLGTr4levezNA",
+      "Product_Type__c": "PREFORM",
+      "Resin__c": "PP",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 2073000
+    },
+    {
+      "Id": "a0PSYNI0cG6IveQNsM",
+      "Name": "PS-000077",
+      "Opportunity__c": "006SYN763jpO6pBYmF",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PET",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Natural",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNDnpfdaHOiYox",
+      "Name": "PS-000078",
+      "Opportunity__c": "006SYNaDJFulUs6rO3",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PETG",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 3375000
+    },
+    {
+      "Id": "a0PSYNB1r8dmNmnRfB",
+      "Name": "PS-000079",
+      "Opportunity__c": "006SYNaDJFulUs6rO3",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PP",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 1124000
+    },
+    {
+      "Id": "a0PSYN3IeQHrpu8C6O",
+      "Name": "PS-000080",
+      "Opportunity__c": "006SYN0LjOJW15wE4z",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": null,
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNmd02g744logy",
+      "Name": "PS-000081",
+      "Opportunity__c": "006SYNesF9d7eqJPAa",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PETG",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 368000
+    },
+    {
+      "Id": "a0PSYN2cCHCuEQNZc7",
+      "Name": "PS-000082",
+      "Opportunity__c": "006SYNesF9d7eqJPAa",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": null,
+      "Annual_Volume__c": 1647000
+    },
+    {
+      "Id": "a0PSYNgESfFjBxOltP",
+      "Name": "PS-000083",
+      "Opportunity__c": "006SYNZi2zhGPdfAhI",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 2194000
+    },
+    {
+      "Id": "a0PSYNFTUlKokffcQl",
+      "Name": "PS-000084",
+      "Opportunity__c": "006SYNZi2zhGPdfAhI",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYN54DfWI9W2X2Z",
+      "Name": "PS-000085",
+      "Opportunity__c": "006SYN3A6n5Sx40Bpd",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "24 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "White",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNhzYzFcNwAJij",
+      "Name": "PS-000086",
+      "Opportunity__c": "006SYNgGxL69hnz3Ph",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 536000
+    },
+    {
+      "Id": "a0PSYN9LUpiRAKeFZz",
+      "Name": "PS-000087",
+      "Opportunity__c": "006SYNzkA5nj3VAcnX",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 1368000
+    },
+    {
+      "Id": "a0PSYN2eY8WmHHUNFt",
+      "Name": "PS-000088",
+      "Opportunity__c": "006SYNzkA5nj3VAcnX",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PP",
+      "Capacity__c": "16 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Natural",
+      "Annual_Volume__c": 368000
+    },
+    {
+      "Id": "a0PSYNioojFht4sIMa",
+      "Name": "PS-000089",
+      "Opportunity__c": "006SYNUmMgPZJl7aZu",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "HDPE",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 1853000
+    },
+    {
+      "Id": "a0PSYNbfstUiOB80VB",
+      "Name": "PS-000090",
+      "Opportunity__c": "006SYNUmMgPZJl7aZu",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PP",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": null,
+      "Annual_Volume__c": 799000
+    },
+    {
+      "Id": "a0PSYNTeb7XVJgHA3z",
+      "Name": "PS-000091",
+      "Opportunity__c": "006SYNfMonLTM55hMl",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PCR-HDPE",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNkTNaj7JYKT3M",
+      "Name": "PS-000092",
+      "Opportunity__c": "006SYNfMonLTM55hMl",
+      "Product_Type__c": "BOTTLE",
+      "Resin__c": "PET",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": null,
+      "Annual_Volume__c": 1018000
+    },
+    {
+      "Id": "a0PSYNes8Xo0eCxRka",
+      "Name": "PS-000093",
+      "Opportunity__c": "006SYNAk9Jd0yf9OdK",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PET",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 1188000
+    },
+    {
+      "Id": "a0PSYNFrAWO95OdKW0",
+      "Name": "PS-000094",
+      "Opportunity__c": "006SYNAk9Jd0yf9OdK",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "HDPE",
+      "Capacity__c": "32 oz",
+      "Neck_Finish__c": "28-410",
+      "Color__c": "Clear",
+      "Annual_Volume__c": 2400000
+    },
+    {
+      "Id": "a0PSYNpM6x1znBFfNM",
+      "Name": "PS-000095",
+      "Opportunity__c": "006SYNPuYufB9zWoHM",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PETG",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNvbjBIYrbI0Qz",
+      "Name": "PS-000096",
+      "Opportunity__c": "006SYNPuYufB9zWoHM",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PET",
+      "Capacity__c": "2 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": null,
+      "Annual_Volume__c": 2461000
+    },
+    {
+      "Id": "a0PSYNoFzZDX7hV0Kd",
+      "Name": "PS-000097",
+      "Opportunity__c": "006SYNGmle9IbO5yUO",
+      "Product_Type__c": "HANDLEWARE",
+      "Resin__c": "PETG",
+      "Capacity__c": "8 oz",
+      "Neck_Finish__c": "38-400",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 826000
+    },
+    {
+      "Id": "a0PSYNePOjXtYugsOH",
+      "Name": "PS-000098",
+      "Opportunity__c": "006SYN5q8tlEBdezvL",
+      "Product_Type__c": "CANISTER_TUB",
+      "Resin__c": "PET",
+      "Capacity__c": "64 oz",
+      "Neck_Finish__c": "89-400",
+      "Color__c": "White",
+      "Annual_Volume__c": 1298000
+    },
+    {
+      "Id": "a0PSYNNoqqUR0Jk2kh",
+      "Name": "PS-000099",
+      "Opportunity__c": "006SYNDYLtJ2QYGpe2",
+      "Product_Type__c": "JAR",
+      "Resin__c": "HDPE",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Clear",
+      "Annual_Volume__c": null
+    },
+    {
+      "Id": "a0PSYNI3Ni2AWosRhi",
+      "Name": "PS-000100",
+      "Opportunity__c": "006SYNDYLtJ2QYGpe2",
+      "Product_Type__c": "JAR",
+      "Resin__c": "PP",
+      "Capacity__c": "12 oz",
+      "Neck_Finish__c": "120 DC",
+      "Color__c": "Amber",
+      "Annual_Volume__c": 3427000
+    }
+  ],
+  "deleted": [
+    {
+      "id": "006SYNYSDvngC5cQtL",
+      "deletedDate": "2026-10-13T15:00:00.000Z"
+    }
+  ]
+}
