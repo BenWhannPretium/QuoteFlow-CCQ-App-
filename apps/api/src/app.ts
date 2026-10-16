@@ -34,6 +34,7 @@ import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
 import { AuditAdminService } from './services/auditAdmin';
+import { EngineeringService } from './services/engineering';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
 import { OverrideService } from './services/overrideService';
@@ -236,6 +237,13 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...now,
   });
   const auditService = new AuditAdminService(now);
+  // B-10 engineering queue and Engineering Review.
+  const engineeringService = new EngineeringService({
+    quotes: quoteReads,
+    scoring,
+    log: app.log.child({ component: 'engineering' }),
+    ...now,
+  });
 
   await app.register(v1Routes, {
     prefix: '/api/v1',
@@ -250,6 +258,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     overrideService,
     timelineService,
     auditService,
+    engineeringService,
   });
 
   if (isProd) {

@@ -142,6 +142,54 @@ export function describeEvent(
       return { title: `File uploaded: ${str(p.fileName) ?? 'file'}`, kind: 'file' };
     case 'attachment_removed':
       return { title: `File removed: ${str(p.fileName) ?? 'file'}`, kind: 'file' };
+    // B-10 engineering queue and review. Payloads carry field names only (never commercial values).
+    case 'engineer_assigned':
+      return {
+        title: str(p.from)
+          ? `Reassigned from ${str(p.fromName) ?? 'an engineer'} to ${str(p.toName) ?? 'an engineer'}`
+          : `Assigned to ${str(p.toName) ?? 'an engineer'}`,
+        kind: 'system',
+      };
+    case 'eng_review_accepted':
+      return { title: 'Engineering review accepted', kind: 'system' };
+    case 'eng_review_updated': {
+      const fields = Array.isArray(p.fields)
+        ? (p.fields as unknown[]).filter((f) => typeof f === 'string')
+        : [];
+      return {
+        title: 'Engineering review updated',
+        detail: fields.length ? (
+          <p>
+            {fields
+              .map((f) =>
+                humanize(
+                  String(f)
+                    .replace(/([a-z])([A-Z])/g, '$1_$2')
+                    .toLowerCase(),
+                ),
+              )
+              .join(', ')}
+          </p>
+        ) : undefined,
+        kind: 'system',
+      };
+    }
+    case 'capacity_evidence_updated':
+      return {
+        title: 'Capacity evidence updated',
+        detail: (
+          <p>
+            {[
+              Number(p.added) > 0 && `${Number(p.added)} added`,
+              Number(p.updated) > 0 && `${Number(p.updated)} updated`,
+              Number(p.removed) > 0 && `${Number(p.removed)} removed`,
+            ]
+              .filter(Boolean)
+              .join(', ') || 'No rows'}
+          </p>
+        ),
+        kind: 'system',
+      };
     case 'sf_status_changed':
       return {
         title: str(p.sfStatusFlag)

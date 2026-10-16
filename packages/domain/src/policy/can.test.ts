@@ -32,6 +32,7 @@ const EXPECTED: Record<string, Role[]> = {
   ],
   'quote.read.commercialFields': ['EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
   'gate.G1.decide': ['SalesLeader'],
+  'engQueue.read': ['EngLead', 'Engineer', 'Leadership', 'Admin'],
   'queue.assign': ['EngLead', 'Admin'],
   'engReview.edit': ['EngLead'],
   'gate.G2.decide': ['EngLead'],

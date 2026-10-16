@@ -22,7 +22,8 @@ export const listStageHistory = (db: DbOrTx, quoteId: string) =>
     .select()
     .from(stageHistory)
     .where(eq(stageHistory.quoteId, quoteId))
-    .orderBy(asc(stageHistory.enteredAt));
+    // UUID v7 ids break ties between stays entered in the same instant (submit + advance).
+    .orderBy(asc(stageHistory.enteredAt), asc(stageHistory.id));
 
 export const listHolds = (db: DbOrTx, quoteId: string) =>
   db
@@ -43,6 +44,7 @@ export const getEngReview = async (db: DbOrTx, quoteId: string) =>
 
 const ENG_REVIEW_FIELDS = [
   'acceptedAt',
+  'acceptedBy',
   'returnedReason',
   'processType',
   'machineType',
@@ -52,6 +54,7 @@ const ENG_REVIEW_FIELDS = [
   'toolingNotes',
   'prelimCapitalUsd',
   'downstreamEquipmentNotes',
+  'technicalConceptNotes',
 ] as const;
 
 export async function upsertEngReview(db: DbOrTx, values: typeof engReview.$inferInsert) {

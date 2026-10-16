@@ -70,7 +70,7 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     roleLabel: 'Engineer',
     title: 'My assignments',
     description: 'The engineering reviews assigned to you.',
-    action: { label: 'Open my work', to: '/queue/engineering', permission: 'engReview.edit' },
+    action: { label: 'Open my work', to: '/queue/engineering', permission: 'engQueue.read' },
     cards: [
       { title: 'Assigned to me', description: 'Your open reviews, by priority.' },
       { title: 'Due soon', description: 'Reviews closest to their target date.' },

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { EngineeringDetail } from './eng-review';
 import { IntakeAddress } from './intake';
 import { QuoteOverridableField } from './overrides';
 
@@ -149,6 +150,8 @@ export const QuoteDetail = QuoteSummary.extend({
   rework: ReworkRequest.nullable(),
   /** B-09: the overridable fields (tier, ship-to, …) with pending / applied overrides and whether the caller may request one. */
   overridableFields: z.array(QuoteOverridableField),
+  /** B-10: the Engineering tab (assignment, review, capacity evidence), commercial numbers redacted per role. */
+  engineering: EngineeringDetail,
 });
 export type QuoteDetail = z.infer<typeof QuoteDetail>;
 

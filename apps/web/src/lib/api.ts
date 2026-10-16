@@ -1,4 +1,12 @@
 import {
+  AssignmentResponse,
+  EngineeringDetail,
+  EngQueueResponse,
+  MarkNotificationsReadResponse,
+  NotificationListResponse,
+  StageTimesResponse,
+  type CapacityEvidenceBody,
+  type EngReviewBody,
   AuditListResponse,
   CommentResponse,
   OverrideListResponse,
@@ -47,6 +55,16 @@ export class ApiError extends Error {
   }
 }
 
+/** GET /queue/engineering filters (contracts `EngQueueQuery`), as sent on the URL. */
+export interface EngQueueParams {
+  tier?: string;
+  engineer?: string;
+  agedOver?: number;
+  bucket?: string;
+  productFamily?: string;
+  q?: string;
+}
+
 export const isApiError = (err: unknown, status?: number): err is ApiError =>
   err instanceof ApiError && (status === undefined || err.status === status);
 
@@ -55,7 +73,7 @@ interface RequestOptions {
   okStatuses?: number[];
   /** Attach the signed-in user's credentials (every route except public ones). */
   auth?: boolean;
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** JSON request body. */
   body?: unknown;
 }
@@ -191,6 +209,30 @@ export const api = {
   addComment: (quoteNumber: string, body: CreateCommentBody) =>
     getJson(`${quotePath(quoteNumber)}/comments`, CommentResponse, { method: 'POST', body }),
   searchUsers: (q: string) => getJson(`/api/v1/users${queryString({ q })}`, UserSearchResponse),
+
+  // B-10 engineering queue and Engineering Review
+  /** List filters are comma-separated (`tier: 'CRITICAL,HIGH'`). */
+  engQueue: (q: EngQueueParams = {}) =>
+    getJson(`/api/v1/queue/engineering${queryString({ ...q })}`, EngQueueResponse),
+  assignEngineer: (quoteNumber: string, engineerId: string) =>
+    getJson(`${quotePath(quoteNumber)}/assignment`, AssignmentResponse, {
+      method: 'POST',
+      body: { engineerId },
+    }),
+  acceptEngReview: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/eng-review/accept`, EngineeringDetail, { method: 'POST' }),
+  updateEngReview: (quoteNumber: string, body: EngReviewBody) =>
+    getJson(`${quotePath(quoteNumber)}/eng-review`, EngineeringDetail, { method: 'PUT', body }),
+  updateCapacityEvidence: (quoteNumber: string, body: CapacityEvidenceBody) =>
+    getJson(`${quotePath(quoteNumber)}/capacity-evidence`, EngineeringDetail, {
+      method: 'PUT',
+      body,
+    }),
+  stageTimes: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/stage-times`, StageTimesResponse),
+  notifications: () => getJson('/api/v1/notifications', NotificationListResponse),
+  markNotificationsRead: () =>
+    getJson('/api/v1/notifications/read', MarkNotificationsReadResponse, { method: 'POST' }),
 
   // B-09 usage audit (Leadership + Admin)
   auditEvents: (q: Partial<AuditQuery>) =>

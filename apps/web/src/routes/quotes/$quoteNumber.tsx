@@ -2,6 +2,7 @@ import type { QuoteDetail } from '@ccq/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { RotateCcwIcon } from 'lucide-react';
+import { Tabs } from 'radix-ui';
 import { useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
@@ -19,6 +20,8 @@ import {
   SkeletonCard,
   StageBadge,
 } from '@/components';
+import { EngineeringTab } from '@/components/engineering/EngineeringTab';
+import { StageTimeBar } from '@/components/engineering/StageTimeBar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
@@ -26,18 +29,30 @@ import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
+const TABS = ['overview', 'engineering'] as const;
+type QuoteTab = (typeof TABS)[number];
+
+interface QuoteSearch {
+  /** `?tab=engineering` opens the Engineering tab (B-10). */
+  tab?: QuoteTab;
+}
+
 export const Route = createFileRoute('/quotes/$quoteNumber')({
+  validateSearch: (search: Record<string, unknown>): QuoteSearch =>
+    search.tab === 'engineering' ? { tab: 'engineering' } : {},
   component: QuotePage,
 });
 
 function QuotePage() {
   const { quoteNumber } = Route.useParams();
+  const { tab = 'overview' } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   useDocumentTitle(quoteNumber);
   const quote = useQuery({
     queryKey: quoteQueryKey(quoteNumber),
     queryFn: () => api.quote(quoteNumber),
   });
-  const [deciding, setDeciding] = useState<string | null>(null);
+  const [deciding, setDeciding] = useState<{ gate: string; outcome?: string } | null>(null);
 
   if (quote.isPending) {
     return (
@@ -66,7 +81,7 @@ function QuotePage() {
         eyebrow="Quote"
         description={[q.customerName, q.opportunityName].filter(Boolean).join(' · ') || undefined}
         actions={gates.map((g) => (
-          <Button key={g} onClick={() => setDeciding(g)}>
+          <Button key={g} onClick={() => setDeciding({ gate: g })}>
             {q.availableActions.find((a) => a.gateKey === g)?.gateLabel ?? g}
           </Button>
         ))}
@@ -88,29 +103,60 @@ function QuotePage() {
 
       <ReworkBanner quote={q} />
       <QualificationWarnings warnings={q.warnings} />
+      <StageTimeBar quoteNumber={q.quoteNumber} />
 
-      <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-        <IntakeCard quote={q} />
-        <div className="grid content-start gap-6">
+      <Tabs.Root
+        value={tab}
+        onValueChange={(next) =>
+          void navigate({
+            search: next === 'engineering' ? { tab: 'engineering' } : {},
+            replace: true,
+          })
+        }
+        className="grid gap-6"
+      >
+        <Tabs.List aria-label="Quote sections" className="flex gap-1 border-b">
+          {TABS.map((t) => (
+            <Tabs.Trigger
+              key={t}
+              value={t}
+              className="text-foreground-2 data-[state=active]:border-primary data-[state=active]:text-foreground -mb-px min-h-11 border-b-2 border-transparent px-4 text-sm font-medium"
+            >
+              {t === 'overview' ? 'Overview' : 'Engineering'}
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+        <Tabs.Content value="overview" className="grid gap-6">
+          <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+            <IntakeCard quote={q} />
+            <div className="grid content-start gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    <h2 className="text-base font-semibold">Why this priority?</h2>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScoreBreakdownTable priority={q.priority} />
+                </CardContent>
+              </Card>
+              <DecisionsCard quote={q} />
+            </div>
+          </div>
+
           <Card>
-            <CardHeader>
-              <CardTitle>
-                <h2 className="text-base font-semibold">Why this priority?</h2>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScoreBreakdownTable priority={q.priority} />
+            <CardContent className="pt-6">
+              <QuoteTimeline quoteNumber={q.quoteNumber} />
             </CardContent>
           </Card>
-          <DecisionsCard quote={q} />
-        </div>
-      </div>
-
-      <Card>
-        <CardContent className="pt-6">
-          <QuoteTimeline quoteNumber={q.quoteNumber} />
-        </CardContent>
-      </Card>
+        </Tabs.Content>
+        <Tabs.Content value="engineering">
+          <EngineeringTab
+            quote={q}
+            onDecide={(outcome) => setDeciding({ gate: 'G2', ...(outcome ? { outcome } : {}) })}
+          />
+        </Tabs.Content>
+      </Tabs.Root>
 
       {deciding && (
         <GateDecisionDialog
@@ -118,8 +164,9 @@ function QuotePage() {
           onOpenChange={(open) => {
             if (!open) setDeciding(null);
           }}
-          gateKey={deciding}
+          gateKey={deciding.gate}
           quoteNumber={q.quoteNumber}
+          {...(deciding.outcome ? { initialOutcomeKey: deciding.outcome } : {})}
         />
       )}
     </div>

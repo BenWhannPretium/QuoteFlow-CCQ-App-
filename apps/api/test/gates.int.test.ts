@@ -10,7 +10,7 @@ import {
 } from '@ccq/contracts';
 import { schema, type DbClient } from '@ccq/db';
 import type { PlannedNotification, Role } from '@ccq/domain';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { asRole } from './permissions/asRole';
@@ -261,7 +261,9 @@ describe('G1 decisions through the generic route', () => {
     const history = await db.db
       .select()
       .from(schema.stageHistory)
-      .where(eq(schema.stageHistory.quoteId, q.quoteId));
+      .where(eq(schema.stageHistory.quoteId, q.quoteId))
+      // Submit and advance share the frozen clock: UUID v7 ids order stays entered in the same instant.
+      .orderBy(asc(schema.stageHistory.enteredAt), asc(schema.stageHistory.id));
     expect(history.map((h) => [h.stageKey, h.exitedAt !== null])).toEqual([
       ['INTAKE', true],
       ['ENG_REVIEW', false],

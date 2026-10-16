@@ -70,10 +70,10 @@ test.describe('390 × 844', () => {
   test('admin gets four tabs and More; every tab fits', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');
-    // Six items (B-09 added Approvals for override.approve): the fifth slot becomes "More".
+    // Seven items (B-09 added Approvals, B-10 the engineering queue): the fifth slot becomes "More".
     await expect
       .poll(() => visibleNavKeys(page))
-      .toEqual(['home', 'intake', 'pipeline', 'approvals']);
+      .toEqual(['home', 'intake', 'queue-engineering', 'pipeline']);
     await expect(
       page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'More' }),
     ).toBeVisible();

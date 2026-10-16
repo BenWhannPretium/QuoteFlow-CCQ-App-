@@ -51,6 +51,9 @@ export const PERMISSION_MATRIX: Readonly<
     Admin: true,
   },
   'gate.G1.decide': { SalesLeader: true },
+  // B-10: the engineering queue page. EngLead owns it, an Engineer sees it read-only next to their
+  // assignments, Leadership reads it, Admin holds queue.assign.
+  'engQueue.read': { EngLead: true, Engineer: true, Leadership: true, Admin: true },
   'queue.assign': { EngLead: true, Admin: true },
   'engReview.edit': { EngLead: true, Engineer: assigned },
   'gate.G2.decide': { EngLead: true },

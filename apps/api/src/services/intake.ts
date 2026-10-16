@@ -42,6 +42,7 @@ import {
 import {
   availableActions,
   evaluateIntake,
+  ENG_QUEUE_STAGE_KEY,
   evaluateTransition,
   parseIntakeConfig,
   parseWorkflowConfig,
@@ -52,6 +53,7 @@ import {
 } from '@ccq/domain';
 import { eq } from 'drizzle-orm';
 
+import { onEngQueueArrival } from './engineering-arrival';
 import { recordIntakeShipToOverride } from './overrideService';
 import type { ScoringService } from './scoring';
 import type { AuditMeta } from '../plugins/audit';
@@ -684,7 +686,10 @@ export class IntakeService {
       stageKey = moved.stageKey;
       status = moved.status;
       routedTo = moved.stageKey;
-      // TODO(B-10/B-18): deliver result.effects.notifications (EngLead alert on queue arrival).
+      // B-10: the EngLead's arrival alert (in-app; email is B-18).
+      if (result.effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
+        await onEngQueueArrival(tx, quote, actor.userId);
+      }
     }
 
     const warnings: IntakeIssue[] = evaluation.warnings;

@@ -38,12 +38,15 @@ export function GateDecisionDialog({
   gateKey,
   quoteNumber,
   onDecided,
+  initialOutcomeKey = '',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   gateKey: string;
   quoteNumber: string;
   onDecided?: (result: GateDecisionResponse) => void;
+  /** Preselect an outcome (the engineering queue's "Return to KAM" opens G2 on Rework). */
+  initialOutcomeKey?: string;
 }) {
   const queryClient = useQueryClient();
   const { data: config } = usePublicConfig();
@@ -57,7 +60,7 @@ export function GateDecisionDialog({
   );
   const gateLabel = actions[0]?.gateLabel ?? config?.gates.find((g) => g.key === gateKey)?.label;
 
-  const [outcomeKey, setOutcomeKey] = useState('');
+  const [outcomeKey, setOutcomeKey] = useState(initialOutcomeKey);
   const [reasonCode, setReasonCode] = useState('');
   const [note, setNote] = useState('');
   const [holdUntil, setHoldUntil] = useState('');
@@ -109,7 +112,11 @@ export function GateDecisionDialog({
     mutationFn: (body: GateDecisionBody) => api.decideGate(quoteNumber, gateKey, body),
     onSuccess: async (result) => {
       queryClient.setQueryData(quoteQueryKey(quoteNumber), result.quote);
-      await queryClient.invalidateQueries({ queryKey: ['gate-queue'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['gate-queue'] }),
+        queryClient.invalidateQueries({ queryKey: ['eng-queue'] }),
+        queryClient.invalidateQueries({ queryKey: ['stage-times', quoteNumber] }),
+      ]);
       toast.success({
         title: `${action?.outcomeLabel ?? 'Decision'} recorded`,
         description: `${quoteNumber} is now in ${stageLabel(config, result.quote.stageKey)}.`,
@@ -167,7 +174,9 @@ export function GateDecisionDialog({
               {completeness.length === 0 ? (
                 <p className="flex items-center gap-2">
                   <CheckCircle2Icon className="text-emphasis size-4" aria-hidden="true" />
-                  Intake complete for this decision.
+                  {quote.data.stageKey === 'INTAKE'
+                    ? 'Intake complete for this decision.'
+                    : 'Nothing missing for this decision.'}
                 </p>
               ) : (
                 <>

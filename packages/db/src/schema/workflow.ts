@@ -322,6 +322,11 @@ export const quote = documented(
         'Engineer assigned in Engineering Review.',
         ENG,
       ),
+      assignedAt: c(
+        timestamptz('assigned_at'),
+        'When the current engineer was assigned (B-10 "time since assignment"); reset on reassign.',
+        ENG,
+      ),
       // Links and dates
       erfNumber: c(text('erf_number'), 'ERF number in the pricing app.', PRICING),
       cerId: c(text('cer_id'), 'Capital expenditure request id (Apex).', PRICING),
@@ -576,23 +581,31 @@ export const engReview = documented(
         'Quote (one review per quote).',
       ),
       acceptedAt: c(timestamptz('accepted_at'), 'When Engineering accepted the request.'),
+      acceptedBy: c(userRef('accepted_by'), 'Who accepted it (EngLead or the assigned engineer).'),
       returnedReason: c(text('returned_reason'), 'Why Engineering returned the request.'),
       processType: c(text('process_type'), 'value_list process_type code.'),
       machineType: c(text('machine_type'), 'value_list machine_type code.'),
-      plantCode: c(text('plant_code'), 'value_list plant code.'),
+      plantCode: c(
+        text('plant_code'),
+        'value_list plant code. Decided by Engineering + Ops + Supply Chain, never the KAM (DF-10).',
+      ),
       cavitation: c(integer('cavitation'), 'Mould cavitation.'),
       cycleTimeS: c(
         numeric('cycle_time_s', { precision: 8, scale: 2, mode: 'number' }),
         'Cycle time (seconds).',
       ),
-      toolingNotes: c(text('tooling_notes'), 'Tooling notes.'),
+      toolingNotes: c(text('tooling_notes'), 'Tooling notes (mold, hot runner).'),
       prelimCapitalUsd: c(
         money('prelim_capital_usd'),
         'Preliminary capital estimate (USD).' + COMMERCIAL,
       ),
       downstreamEquipmentNotes: c(
         text('downstream_equipment_notes'),
-        'Downstream equipment notes.',
+        'Downstream equipment: air, water, electric, inspection / leak detection (DF-37).',
+      ),
+      technicalConceptNotes: c(
+        text('technical_concept_notes'),
+        'Technical concept: how Engineering proposes to make it.',
       ),
     },
     (t) => [check('eng_review_cavitation_check', sql`${t.cavitation} > 0`)],

@@ -41,7 +41,8 @@ const item = (
  * enforces every permission.
  *
  * "My queue" is labelled per role: the EngLead owns the engineering queue (queue.assign), an
- * Engineer works their assignments (engReview.edit, assigned), Pricing works the pricing queue.
+ * Engineer works their assignments (engReview.edit, assigned), Leadership reads the queue
+ * (engQueue.read), Pricing works the pricing queue.
  * The Approver's queue is Approvals; it also holds the override requests an approver decides (B-09).
  * Leadership reads the usage audit log (audit.read) without the rest of Admin.
  */
@@ -61,11 +62,13 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
       search: { gate: 'G1' },
     });
   }
-  if (can('engReview.edit')) {
+  // B-10: the queue page needs engQueue.read. An Engineer (no queue.assign) sees it as "My assignments"
+  // with the read-only queue below; Leadership reads it; the EngLead and Admin own it.
+  if (can('engQueue.read')) {
     items.push(
-      can('queue.assign')
-        ? item('queue-engineering', 'Engineering queue', 'Queue', '/queue/engineering')
-        : item('queue-engineering', 'My assignments', 'Assignments', '/queue/engineering'),
+      can('engReview.edit') && !can('queue.assign')
+        ? item('queue-engineering', 'My assignments', 'Assignments', '/queue/engineering')
+        : item('queue-engineering', 'Engineering queue', 'Queue', '/queue/engineering'),
     );
   }
   if (can('quoting.edit')) {

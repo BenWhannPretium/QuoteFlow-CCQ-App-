@@ -7,14 +7,18 @@ import type {
 import { GATE_PROBLEM_CODES } from '@ccq/contracts';
 import type { Tx } from '@ccq/db';
 import {
+  getPricingRecord,
   getQuoteSummaryByNumber,
+  getSetting,
   listGateQueue,
   loadQuoteState,
   loadWorkflowConfigInput,
   persistTransition,
   updateQuote,
+  upsertPricingRecord,
 } from '@ccq/db/repos';
 import {
+  ENG_QUEUE_STAGE_KEY,
   can,
   evaluateTransition,
   exceptionNoteErrors,
@@ -22,11 +26,13 @@ import {
   type Actor,
   type DomainError,
   type PlannedNotification,
+  type QuoteState,
   type TransitionEffects,
   type TransitionRequest,
   type WorkflowConfig,
 } from '@ccq/domain';
 
+import { onEngQueueArrival } from './engineering-arrival';
 import type { AuditMeta } from './intake';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
 import type { ScoringService } from './scoring';
@@ -162,6 +168,10 @@ export class GateService {
               }
             : null,
           warnings: before.warnings,
+          // B-10: G2 keeps the engineering solution and capacity rows exactly as the decider saw them.
+          ...(gate.stageKey === ENG_QUEUE_STAGE_KEY
+            ? { engineering: engineeringEvidence(state) }
+            : {}),
           intake: {
             quoteNumber: before.quoteNumber,
             customerName: before.customerName,
@@ -186,6 +196,28 @@ export class GateService {
       });
       if (body.holdUntil && effects.nextStatus === 'on_hold') {
         await updateQuote(tx, row.quote.id, { reviewDate: body.holdUntil });
+      }
+      // B-10: the EngLead's arrival alert (in-app; email is B-18) whenever a quote enters the queue.
+      if (effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
+        await onEngQueueArrival(tx, row.quote, actor.userId);
+      }
+      // B-10: e.g. G2 "Capital required" starts Pricing's capital readiness on pending (config).
+      const readiness = ((await getSetting<Record<string, string>>(
+        tx,
+        'capital_readiness_on_outcome',
+      )) ?? {})[`${gateKey}:${body.outcomeKey}`];
+      if (readiness) {
+        const pricing = await getPricingRecord(tx, row.quote.id);
+        await upsertPricingRecord(tx, {
+          quoteId: row.quote.id,
+          priceApprovedBy: pricing?.priceApprovedBy ?? null,
+          priceApprovedAt: pricing?.priceApprovedAt ?? null,
+          pricingRefs: pricing?.pricingRefs ?? {},
+          approvedRangeNote: pricing?.approvedRangeNote ?? null,
+          capitalReadiness: readiness,
+          capitalNotes: pricing?.capitalNotes ?? null,
+          createdBy: pricing?.createdBy ?? actor.userId,
+        });
       }
       if (effects.nextStatus !== 'closed') {
         await this.opts.scoring.recalculate(tx, row.quote.id, actor.userId, now, `gate:${gateKey}`);
@@ -238,4 +270,25 @@ export class GateService {
       return dto;
     });
   }
+}
+
+/** The Engineering Review as it stood at a G2 decision: solution fields and every capacity row. */
+function engineeringEvidence(state: QuoteState) {
+  const f = state.fields;
+  return {
+    solution: {
+      processType: f.process_type ?? null,
+      machineType: f.machine_type ?? null,
+      plantCode: f.plant_code ?? null,
+      cavitation: f.cavitation ?? null,
+      cycleTimeS: f.cycle_time_s ?? null,
+      toolingNotes: f.tooling_notes ?? null,
+      downstreamEquipmentNotes: f.downstream_equipment_notes ?? null,
+      prelimCapitalUsd: f.prelim_capital_usd ?? null,
+      technicalConceptNotes: f.technical_concept_notes ?? null,
+      acceptedAt: f.accepted_at ?? null,
+    },
+    capacityEvidence: f.capacity_evidence ?? [],
+    assignedEngineerId: state.assignedEngineerId ?? null,
+  };
 }
