@@ -9,7 +9,6 @@ import {
   EmptyState,
   ErrorState,
   FiltersPopover,
-  GateDecisionDialog,
   KeyValueGrid,
   PageHeader,
   ScorePill,
@@ -57,14 +56,12 @@ function UiKitPage() {
   const { data: config } = usePublicConfig();
   const [filters, setFilters] = useState<FilterValue>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [gateOpen, setGateOpen] = useState(false);
 
   const stages = useMemo(() => config?.stages ?? [], [config]);
   const tiers = useMemo(
-    () => config?.tiers.map((t) => t.tier) ?? ['Critical', 'High', 'Standard', 'Low'],
+    () => config?.tiers.map((t) => t.label) ?? ['Critical', 'High', 'Standard', 'Low'],
     [config],
   );
-  const firstGate = config?.gates.find((g) => g.enabled)?.key ?? 'G1';
 
   const rows = useMemo<SampleRow[]>(
     () =>
@@ -124,7 +121,6 @@ function UiKitPage() {
             <Button variant="outline" onClick={() => setConfirmOpen(true)}>
               Confirm dialog
             </Button>
-            <Button onClick={() => setGateOpen(true)}>Gate decision</Button>
           </>
         }
       />
@@ -271,16 +267,6 @@ function UiKitPage() {
         confirmLabel="Withdraw"
         destructive
         onConfirm={() => setConfirmOpen(false)}
-      />
-      <GateDecisionDialog
-        open={gateOpen}
-        onOpenChange={setGateOpen}
-        gateKey={firstGate}
-        quoteNumber="CCQ-2026-01001"
-        onSubmit={() => {
-          setGateOpen(false);
-          toast.info({ title: 'Sample decision recorded', description: 'Nothing was saved.' });
-        }}
       />
     </div>
   );

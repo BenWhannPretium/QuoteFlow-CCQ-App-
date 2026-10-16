@@ -3,4 +3,5 @@ export * from './config';
 export * from './health';
 export * from './intake';
 export * from './problem';
+export * from './quotes';
 export * from './salesforce';

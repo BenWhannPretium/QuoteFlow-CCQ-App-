@@ -1,4 +1,4 @@
-import type { Permission, Role, WorkflowConfigInput } from '@ccq/domain';
+import type { Permission, Role, ScoringModelInput, WorkflowConfigInput } from '@ccq/domain';
 import { and, asc, desc, eq, lte } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
@@ -139,4 +139,32 @@ export async function getScoringModel(db: DbOrTx, at: Date) {
       .orderBy(desc(scoringModel.modelVersion))
       .limit(1),
   );
+}
+
+export type ScoringModelRow = typeof scoringModel.$inferSelect;
+
+/** Domain scoring model → `scoring_model` row values (attributes and tiers as jsonb). */
+export function scoringModelRow(
+  model: ScoringModelInput,
+  meta: { effectiveFrom: Date; changeReason: string },
+) {
+  return {
+    modelVersion: model.version,
+    attributes: model.attributes,
+    tierThresholds: { tiers: model.tiers, unknownScore: model.unknownScore ?? 50 },
+    effectiveFrom: meta.effectiveFrom,
+    changeReason: meta.changeReason,
+  };
+}
+
+/** `scoring_model` row → the domain DSL. Pass the result to `parseScoringModel` (it validates). */
+export function scoringModelInputFromRow(row: ScoringModelRow): ScoringModelInput {
+  const tiers = row.tierThresholds as { tiers?: unknown; unknownScore?: unknown };
+  return {
+    version: row.modelVersion,
+    attributes: row.attributes as ScoringModelInput['attributes'],
+    tiers: (tiers.tiers ?? []) as ScoringModelInput['tiers'],
+    ...(typeof tiers.unknownScore === 'number' ? { unknownScore: tiers.unknownScore } : {}),
+    provisional: row.provisional,
+  };
 }

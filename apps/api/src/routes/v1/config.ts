@@ -6,7 +6,9 @@ import {
   listReasonCodes,
   listSettings,
   loadWorkflowConfigInput,
+  scoringModelInputFromRow,
 } from '@ccq/db/repos';
+import { parseScoringModel } from '@ccq/domain';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 const publicSettingKeys = new Set<string>(PUBLIC_SETTING_KEYS);
@@ -31,9 +33,9 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
     });
   }
 
-  const tiers = Array.isArray(model?.tierThresholds)
-    ? (model.tierThresholds as { tier: string; min: number }[])
-        .map((t) => ({ tier: t.tier, min: t.min }))
+  const tiers = model
+    ? parseScoringModel(scoringModelInputFromRow(model))
+        .tiers.map((t) => ({ tier: t.key, label: t.label ?? t.key, min: t.min }))
         .sort((a, b) => b.min - a.min)
     : [];
 

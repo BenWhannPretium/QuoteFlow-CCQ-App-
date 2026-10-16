@@ -2,8 +2,9 @@ import type {
   ActiveQuoteRef,
   IntakeDraft,
   IntakeDraftData,
-  IntakeDraftSummary,
+  IntakeDraftListResponse,
   IntakeIssue,
+  ReturnedQuoteSummary,
   SubmitIntakeResponse,
 } from '@ccq/contracts';
 import { INTAKE_PROBLEM_CODES, intakeAddress as address, intakeValues } from '@ccq/contracts';
@@ -14,6 +15,10 @@ import {
   findUserById,
   getActiveQuoteForOpportunity,
   getCustomerBySfAccountId,
+  getLatestSubmittedDraft,
+  getOpenReworkDraft,
+  getQuoteById,
+  getQuoteByNumber,
   getQuoteDraft,
   getQuoteDraftForUpdate,
   getSetting,
@@ -22,13 +27,16 @@ import {
   insertCustomer,
   insertQuote,
   insertQuoteDraft,
+  listGateDecisionsWithNames,
   listOpenQuoteDrafts,
+  listReturnedQuotes,
   listValueList,
   loadQuoteState,
   loadWorkflowConfigInput,
   persistTransition,
   updateQuote,
   updateQuoteDraft,
+  type Quote,
   type QuoteDraftRow,
 } from '@ccq/db/repos';
 import {
@@ -40,8 +48,11 @@ import {
   type Actor,
   type IntakeConfig,
   type IntakeEvaluation,
-  type ScoringEngine,
+  type WorkflowConfig,
 } from '@ccq/domain';
+import { eq } from 'drizzle-orm';
+
+import type { ScoringService } from './scoring';
 
 /**
  * Intake drafts and submit (B-07). The domain decides blocking vs warning (`evaluateIntake`) and the
@@ -122,8 +133,8 @@ function pgCode(err: unknown): string | undefined {
 
 export interface IntakeServiceOptions {
   now?: () => Date;
-  /** B-08 hook: the scoring engine. Until it lands, the score stays null. */
-  scoring?: ScoringEngine | null;
+  /** B-08: scores the quote on submit / resubmit (advisory). Null leaves the score empty. */
+  scoring?: ScoringService | null;
   /**
    * Makes sure the opportunity is in the local snapshot (the quote's FK) before submit, e.g. after
    * a live SF search. Returns false when neither the snapshot nor SF knows the id.
@@ -152,7 +163,8 @@ export class IntakeService {
       step: row.step,
       data,
       evaluation,
-      activeQuote: activeRef(active),
+      activeQuote: row.reworkOfQuoteId ? null : activeRef(active),
+      rework: row.reworkOfQuoteId ? await this.reworkInfo(tx, row.reworkOfQuoteId) : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -218,12 +230,12 @@ export class IntakeService {
     });
   }
 
-  async list(withTx: WithTx, actor: Actor, mine: boolean): Promise<IntakeDraftSummary[]> {
+  async list(withTx: WithTx, actor: Actor, mine: boolean): Promise<IntakeDraftListResponse> {
     // Only Admin may list other people's drafts (RLS enforces it too).
     const own = mine || !actor.roles.includes('Admin');
     return withTx(async (tx) => {
       const rows = await listOpenQuoteDrafts(tx, own ? actor.userId : undefined);
-      return rows.map((r) => {
+      const items = rows.map((r) => {
         const data = r.data as IntakeDraftData;
         return {
           id: r.id,
@@ -235,6 +247,91 @@ export class IntakeService {
           updatedAt: r.updatedAt.toISOString(),
         };
       });
+      const returned: ReturnedQuoteSummary[] = [];
+      for (const r of await listReturnedQuotes(tx, actor.userId)) {
+        const info = await this.reworkInfo(tx, r.quote.id);
+        if (!info) continue;
+        const draft = await getOpenReworkDraft(tx, r.quote.id);
+        returned.push({
+          quoteNumber: r.quote.quoteNumber,
+          opportunityName: r.opportunityName ?? null,
+          customerName: r.customerName ?? null,
+          gateKey: info.gateKey,
+          reasonLabel: info.reasonLabel,
+          note: info.note,
+          returnedAt: info.decidedAt,
+          draftId: draft?.id ?? null,
+        });
+      }
+      return { items, returned };
+    });
+  }
+
+  /** The gate decision that returned a quote to its KAM (the latest one that targeted INTAKE). */
+  private async reworkInfo(tx: DbOrTx, quoteId: string): Promise<IntakeDraft['rework']> {
+    const [q, decisions, workflow] = await Promise.all([
+      getQuoteById(tx, quoteId),
+      listGateDecisionsWithNames(tx, quoteId),
+      loadWorkflowConfigInput(tx).then(parseWorkflowConfig),
+    ]);
+    const d = decisions.find((x) => x.decision.targetStageKey === 'INTAKE');
+    if (!q || !d) return null;
+    return {
+      quoteNumber: q.quoteNumber,
+      gateKey: d.decision.gateKey,
+      reasonLabel: reasonLabel(workflow, d.decision) ?? null,
+      note: d.decision.note,
+      decidedAt: d.decision.decidedAt.toISOString(),
+      decidedByName: d.decidedByName ?? null,
+    };
+  }
+
+  /**
+   * A KAM starts fixing a quote returned at a gate (Rework): opens (or reopens) a rework draft pre-filled
+   * from the last submitted intake and the quote. Submitting it updates the same quote and number.
+   */
+  async startRework(
+    withTx: WithTx,
+    actor: Actor,
+    quoteNumber: string,
+    meta: AuditMeta,
+  ): Promise<IntakeDraft> {
+    return withTx(async (tx) => {
+      const q = await getQuoteByNumber(tx, quoteNumber);
+      if (!q) throw new IntakeError(404, INTAKE_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
+      assertReturnedTo(q, actor);
+      const open = await getOpenReworkDraft(tx, q.id);
+      if (open) return this.toDto(tx, open);
+
+      const last = await getLatestSubmittedDraft(tx, q.id);
+      // The last submitted intake is the most complete copy (it has the customer and SF display fields);
+      // a quote with no draft (e.g. synthetic data) is rebuilt from its columns and customer row.
+      const data: IntakeDraftData = last
+        ? (last.data as IntakeDraftData)
+        : { ...dataFromQuote(q), customer: await customerForDraft(tx, q.customerId) };
+      const row = await insertQuoteDraft(tx, {
+        ownerUserId: actor.userId,
+        sfOpportunityId: q.sfOpportunityId,
+        step: 2,
+        data,
+        reworkOfQuoteId: q.id,
+        createdBy: actor.userId,
+      });
+      await insertAuditEvent(tx, {
+        at: this.now(),
+        actorId: actor.userId,
+        actorRoles: [...actor.roles],
+        action: 'create',
+        entity: 'quote_draft',
+        entityId: row.id,
+        quoteId: q.id,
+        after: { reworkOfQuoteId: q.id, quoteNumber },
+        ip: meta.ip ?? null,
+        userAgent: meta.userAgent ?? null,
+        requestId: meta.requestId ?? null,
+        createdBy: actor.userId,
+      });
+      return this.toDto(tx, row);
     });
   }
 
@@ -319,6 +416,48 @@ export class IntakeService {
     }
   }
 
+  /** Links the SF Account's customer row, or records a not-yet-established one (DEC-27). */
+  private async resolveCustomer(
+    tx: Tx,
+    actor: Actor,
+    data: IntakeDraftData,
+    now: Date,
+  ): Promise<string> {
+    // Mirrored, not created in SF. No account request, no credit check (DEC-27).
+    const c = data.customer!;
+    if (c.status === 'existing' && c.sfAccountId) {
+      const known = await getCustomerBySfAccountId(tx, c.sfAccountId);
+      if (known) return known.id;
+      return (
+        await insertCustomer(tx, {
+          sfAccountId: c.sfAccountId,
+          name: c.name!,
+          status: 'existing',
+          defaultShipTo: address(data.shipToDefault),
+          source: 'salesforce',
+          lastSyncedAt: now,
+          createdBy: actor.userId,
+        })
+      ).id;
+    }
+    return (
+      await insertCustomer(tx, {
+        sfAccountId: null,
+        name: c.name!,
+        status: 'not_yet_established',
+        location: blankToNull(c.location),
+        contact: {
+          name: blankToNull(c.contactName),
+          email: blankToNull(c.contactEmail),
+          phone: blankToNull(c.contactPhone),
+        },
+        defaultShipTo: address(data.shipTo),
+        source: 'intake',
+        createdBy: actor.userId,
+      })
+    ).id;
+  }
+
   private async submitInTx(
     tx: Tx,
     actor: Actor,
@@ -343,66 +482,42 @@ export class IntakeService {
       );
     }
     const sfOpportunityId = data.sfOpportunityId!;
+    const audit = {
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      requestId: meta.requestId ?? null,
+    };
 
-    const existing = await getActiveQuoteForOpportunity(tx, sfOpportunityId);
-    if (existing) {
-      throw new IntakeError(
-        409,
-        INTAKE_PROBLEM_CODES.activeQuoteExists,
-        `This Salesforce opportunity already has an active CCQ quote (${existing.quoteNumber})`,
-        { quoteNumber: existing.quoteNumber },
-      );
-    }
-
-    // Customer: link the SF Account's row (mirrored, not created in SF) or record a not-yet-established
-    // customer with name, location and contact only. No account request, no credit check (DEC-27).
-    const c = data.customer!;
-    let customerId: string;
-    if (c.status === 'existing' && c.sfAccountId) {
-      const known = await getCustomerBySfAccountId(tx, c.sfAccountId);
-      customerId =
-        known?.id ??
-        (
-          await insertCustomer(tx, {
-            sfAccountId: c.sfAccountId,
-            name: c.name!,
-            status: 'existing',
-            defaultShipTo: address(data.shipToDefault),
-            source: 'salesforce',
-            lastSyncedAt: now,
-            createdBy: actor.userId,
-          })
-        ).id;
+    // A rework draft goes back into its own quote (same number); anything else creates a quote.
+    const reworkOf = draft.reworkOfQuoteId ? await getQuoteById(tx, draft.reworkOfQuoteId) : null;
+    if (reworkOf) {
+      assertReturnedTo(reworkOf, actor);
+      if (reworkOf.sfOpportunityId !== sfOpportunityId) {
+        throw new IntakeError(
+          422,
+          INTAKE_PROBLEM_CODES.incomplete,
+          'A reworked quote stays on its Salesforce opportunity',
+          { errors: [{ path: '/data/sfOpportunityId', message: 'Keep the original opportunity' }] },
+        );
+      }
     } else {
-      customerId = (
-        await insertCustomer(tx, {
-          sfAccountId: null,
-          name: c.name!,
-          status: 'not_yet_established',
-          location: blankToNull(c.location),
-          contact: {
-            name: blankToNull(c.contactName),
-            email: blankToNull(c.contactEmail),
-            phone: blankToNull(c.contactPhone),
-          },
-          defaultShipTo: address(data.shipTo),
-          source: 'intake',
-          createdBy: actor.userId,
-        })
-      ).id;
+      const existing = await getActiveQuoteForOpportunity(tx, sfOpportunityId);
+      if (existing) {
+        throw new IntakeError(
+          409,
+          INTAKE_PROBLEM_CODES.activeQuoteExists,
+          `This Salesforce opportunity already has an active CCQ quote (${existing.quoteNumber})`,
+          { quoteNumber: existing.quoteNumber },
+        );
+      }
     }
 
+    const customerId = await this.resolveCustomer(tx, actor, data, now);
     const kam = await findUserById(tx, actor.userId);
     const shipToOverridden =
       Boolean(blankToNull(data.shipToOverrideReason)) && values.ship_to !== null;
-    const quote = await insertQuote(tx, {
-      sfOpportunityId,
+    const fields = {
       customerId,
-      kamUserId: actor.userId,
-      region: kam?.region ?? null,
-      stageKey: 'INTAKE',
-      status: 'active',
-      version: 1,
       description: blankToNull(data.description),
       structuredDescription: {
         standard: blankToNull(data.standardDescription),
@@ -431,27 +546,80 @@ export class IntakeService {
       shipToOverridden,
       shipToOverrideReason: shipToOverridden ? blankToNull(data.shipToOverrideReason) : null,
       submittedAt: now,
-      createdAt: now,
-      createdBy: actor.userId,
-    });
+    };
 
-    await tx.insert(schema.stageHistory).values({
-      quoteId: quote.id,
-      stageKey: 'INTAKE',
-      enteredAt: now,
-      enteredBy: actor.userId,
-      quoteVersion: 1,
-      createdBy: actor.userId,
-    });
     const warningCodes = evaluation.warnings.map((w) => `${w.code}:${w.field}`);
-    await insertActivityEvent(tx, {
-      quoteId: quote.id,
-      type: 'quote_created',
-      actorId: actor.userId,
-      at: now,
-      payload: { sfOpportunityId, draftId: draft.id, warnings: warningCodes },
-      createdBy: actor.userId,
-    });
+    let quote: Quote;
+    if (reworkOf) {
+      quote = (await updateQuote(tx, reworkOf.id, fields))!;
+      await insertActivityEvent(tx, {
+        quoteId: quote.id,
+        type: 'quote_resubmitted',
+        actorId: actor.userId,
+        at: now,
+        payload: { draftId: draft.id, version: quote.version, warnings: warningCodes },
+        createdBy: actor.userId,
+      });
+      await insertAuditEvent(tx, {
+        at: now,
+        actorId: actor.userId,
+        actorRoles: [...actor.roles],
+        action: 'update',
+        entity: 'quote',
+        entityId: quote.id,
+        quoteId: quote.id,
+        before: { submittedAt: null, version: reworkOf.version },
+        after: { resubmitted: true, draftId: draft.id, shipToOverridden },
+        ...audit,
+        createdBy: actor.userId,
+      });
+    } else {
+      quote = await insertQuote(tx, {
+        sfOpportunityId,
+        kamUserId: actor.userId,
+        region: kam?.region ?? null,
+        stageKey: 'INTAKE',
+        status: 'active',
+        version: 1,
+        ...fields,
+        createdAt: now,
+        createdBy: actor.userId,
+      });
+      await tx.insert(schema.stageHistory).values({
+        quoteId: quote.id,
+        stageKey: 'INTAKE',
+        enteredAt: now,
+        enteredBy: actor.userId,
+        quoteVersion: 1,
+        createdBy: actor.userId,
+      });
+      await insertActivityEvent(tx, {
+        quoteId: quote.id,
+        type: 'quote_created',
+        actorId: actor.userId,
+        at: now,
+        payload: { sfOpportunityId, draftId: draft.id, warnings: warningCodes },
+        createdBy: actor.userId,
+      });
+      await insertAuditEvent(tx, {
+        at: now,
+        actorId: actor.userId,
+        actorRoles: [...actor.roles],
+        action: 'create',
+        entity: 'quote',
+        entityId: quote.id,
+        quoteId: quote.id,
+        after: {
+          quoteNumber: quote.quoteNumber,
+          sfOpportunityId,
+          stageKey: 'INTAKE',
+          draftId: draft.id,
+          shipToOverridden,
+        },
+        ...audit,
+        createdBy: actor.userId,
+      });
+    }
     if (shipToOverridden) {
       // Kept on the quote until B-09's override service takes ship-to changes over.
       await insertActivityEvent(tx, {
@@ -467,38 +635,17 @@ export class IntakeService {
         createdBy: actor.userId,
       });
     }
-    await insertAuditEvent(tx, {
-      at: now,
-      actorId: actor.userId,
-      actorRoles: [...actor.roles],
-      action: 'create',
-      entity: 'quote',
-      entityId: quote.id,
-      quoteId: quote.id,
-      after: {
-        quoteNumber: quote.quoteNumber,
-        sfOpportunityId,
-        stageKey: 'INTAKE',
-        draftId: draft.id,
-        shipToOverridden,
-      },
-      ip: meta.ip ?? null,
-      userAgent: meta.userAgent ?? null,
-      requestId: meta.requestId ?? null,
-      createdBy: actor.userId,
-    });
 
-    // Priority score (B-08). Advisory only; null until the engine lands.
-    let priorityScore: number | null = null;
-    if (this.opts.scoring) {
-      const result = this.opts.scoring.score({ attributes: values });
-      priorityScore = result.score;
-      await updateQuote(tx, quote.id, {
-        priorityScore: result.score,
-        priorityTier: result.tier,
-        scoringModelVersion: result.modelVersion,
-      });
-    }
+    // Priority score (B-08): advisory; orders the G1 and engineering queues.
+    const scored = this.opts.scoring
+      ? await this.opts.scoring.recalculate(
+          tx,
+          quote.id,
+          actor.userId,
+          now,
+          reworkOf ? 'intake_resubmit' : 'intake_submit',
+        )
+      : null;
 
     await updateQuoteDraft(tx, draft.id, { submittedQuoteId: quote.id, submittedAt: now });
 
@@ -512,7 +659,7 @@ export class IntakeService {
     );
 
     let stageKey = 'INTAKE';
-    let status: string = 'active';
+    let status: string = quote.status;
     let routedTo =
       workflow.gates.find((g) => g.enabled && g.stageKey === 'INTAKE' && !submitGate(g.key))?.key ??
       'INTAKE';
@@ -536,9 +683,7 @@ export class IntakeService {
       }
       const moved = await persistTransition(tx, result.effects, {
         actorRoles: actor.roles,
-        ip: meta.ip ?? null,
-        userAgent: meta.userAgent ?? null,
-        requestId: meta.requestId ?? null,
+        ...audit,
       });
       stageKey = moved.stageKey;
       status = moved.status;
@@ -553,8 +698,90 @@ export class IntakeService {
       stageKey,
       status,
       routedTo,
-      priorityScore,
+      priorityScore: scored?.total ?? null,
+      priorityTier: scored?.tier ?? null,
+      resubmitted: Boolean(reworkOf),
       warnings,
     };
   }
+}
+
+/** The quote must be back with this KAM for rework (INTAKE, not submitted, not closed). */
+function assertReturnedTo(q: Quote, actor: Actor): void {
+  if (q.kamUserId !== actor.userId) {
+    throw new IntakeError(403, INTAKE_PROBLEM_CODES.notOwner, "Only the quote's KAM can rework it");
+  }
+  if (q.stageKey !== 'INTAKE' || q.submittedAt !== null || q.status === 'closed') {
+    throw new IntakeError(
+      409,
+      INTAKE_PROBLEM_CODES.notReturned,
+      `${q.quoteNumber} is not waiting for rework`,
+    );
+  }
+}
+
+function reasonLabel(
+  workflow: WorkflowConfig,
+  d: { gateKey: string; outcomeKey: string; reasonCode: string | null },
+): string | null {
+  if (!d.reasonCode) return null;
+  const context = workflow.outcomes.find(
+    (o) => o.gateKey === d.gateKey && o.key === d.outcomeKey,
+  )?.reasonContext;
+  return (
+    workflow.reasonCodes.find((r) => r.code === d.reasonCode && r.context === context)?.label ??
+    d.reasonCode
+  );
+}
+
+/** Intake fields as stored on the quote, for a rework draft of a quote with no draft of its own. */
+function dataFromQuote(q: Quote): IntakeDraftData {
+  const structured = (q.structuredDescription ?? {}) as { standard?: string; size?: string };
+  return {
+    sfOpportunityId: q.sfOpportunityId,
+    productFamily: q.productFamily,
+    market: q.market,
+    resin: q.resin,
+    components: q.components,
+    neckFinish: q.neckFinish,
+    packagingType: q.packagingType,
+    packagingNotes: q.packagingNotes,
+    requestClass: q.requestClass,
+    estAnnualVolume: q.estAnnualVolume,
+    estAnnualVolumeConfirmed: q.estAnnualVolumeConfirmed,
+    estAnnualRevenue: q.estAnnualRevenue,
+    estAnnualRevenueSf: q.estAnnualRevenueSf,
+    expectedCloseDate: q.expectedCloseDate,
+    drawingStatus: q.drawingStatus,
+    description: q.description,
+    standardDescription: structured.standard ?? null,
+    containerSize: structured.size ?? null,
+    commentsForEngineering: q.commentsForEngineering,
+    shipTo: (q.shipTo as IntakeDraftData['shipTo']) ?? null,
+    shipToDefault: (q.shipToOriginal as IntakeDraftData['shipToDefault']) ?? null,
+    shipToOverrideReason: q.shipToOverrideReason,
+  };
+}
+
+async function customerForDraft(
+  tx: DbOrTx,
+  customerId: string | null,
+): Promise<IntakeDraftData['customer']> {
+  if (!customerId) return null;
+  const [c] = await tx
+    .select()
+    .from(schema.customer)
+    .where(eq(schema.customer.id, customerId))
+    .limit(1);
+  if (!c) return null;
+  const contact = (c.contact ?? {}) as { name?: string; email?: string; phone?: string };
+  return {
+    status: c.status as 'existing' | 'not_yet_established',
+    sfAccountId: c.sfAccountId,
+    name: c.name,
+    location: c.location,
+    contactName: contact.name ?? null,
+    contactEmail: contact.email ?? null,
+    contactPhone: contact.phone ?? null,
+  };
 }

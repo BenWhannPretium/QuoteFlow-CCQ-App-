@@ -272,11 +272,11 @@ export const scoringModel = documented(
     ),
     attributes: c(
       jsonb('attributes').notNull(),
-      'Attributes: [{key, label, weight, scale, mapping}]. Mapping bands are filled in at B-08.',
+      'Attributes (domain scoring DSL): [{key, label, weight, input, bands | map, inverse, unknownScore, unknownExplanation}]. Weights sum to 1.',
     ),
     tierThresholds: c(
       jsonb('tier_thresholds').notNull(),
-      'Tiers: [{tier, min, max}] on the 0–100 score.',
+      '{tiers: [{key, label, min}], unknownScore}: tiers on the 0–100 score and the neutral score for unknown inputs.',
     ),
     effectiveFrom: c(
       timestamptz('effective_from').notNull(),
@@ -287,7 +287,8 @@ export const scoringModel = documented(
   {
     area: 'config',
     owner: 'Jim Zweifel + sales leadership (D-19)',
-    description: 'Versioned priority-scoring model. Advisory only; implemented in B-08.',
+    description:
+      'Versioned priority-scoring model (F-05, B-08). Advisory only: it orders queues and informs G1.',
   },
 );
 

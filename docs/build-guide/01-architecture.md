@@ -169,6 +169,22 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
 - Re-quote and return paths go **back to the affected stage only** and bump `quote.version`. Prior approvals are kept, never edited (CR-38).
 - On-hold time is tracked separately so cycle time can exclude customer holds (CR-57).
 
+**Gate decision API (built in B-08; reuse it for G2–G5)**
+
+One route and one service record every gate decision. Later stages add no decision route of their own.
+
+| | |
+|---|---|
+| Route | `POST /api/v1/quotes/:quoteNumber/gates/:gateKey/decisions` with `{ outcomeKey, note?, reasonCode?, holdUntil?, targetStageKey? }` (`apps/api/src/routes/v1/gates.ts`) |
+| Service | `GateService.decide` (`apps/api/src/services/gateService.ts`) |
+| Who | The route floor is `quote.read`. The domain then checks the gate's own `deciderPermission` from `gate_definition`, the data scope and the segregation rules, so who decides a gate is config. A caller who may not decide gets **403**. |
+| Rules | `evaluateTransition` plus the qualification exception note (`exceptionNoteErrors`). Every unmet rule comes back in one **422** problem, `errors[]` with `{ path, message, code }`. `holdUntil` is passed to the domain as `payload.review_date`. |
+| One transaction | `gate_decision` (evidence = the domain's rule fields **plus** the priority breakdown, warnings and key intake fields the decider saw), `quote_hold`, `stage_history`, the quote row (`review_date` for holds; `submitted_at` cleared when a Rework re-enters INTAKE), `activity_event`, `audit_event`, then a rescore |
+| After commit | `NotificationHook(effects.notifications)`. B-18 replaces the default, which only logs. |
+| Read side | `GET /api/v1/quotes/:quoteNumber` returns `availableActions` (each with `requiresReviewDate`, `requiresExceptionNote` and the `missing` fields). `GET /api/v1/gates/:gateKey/queue` lists the quotes waiting for a gate. The web's `GateDecisionDialog` renders from these, so G2–G5 need no new dialog. |
+
+To add a stage's decisions (B-10 to B-13): seed or adjust the gate, outcome and transition rows. Open the dialog with `gateKey="G2"` (or whichever gate), and add any stage-specific evidence to `GateService` only if the decider needs to see it. If a stage edits a scoring input (e.g. `eng_review.prelim_capital_usd`), call `ScoringService.recalculate`.
+
 ### 4.2 Salesforce stage mapping (read-only, for reporting)
 
 CCQ owns operational stages. Salesforce stages are read and shown side by side:

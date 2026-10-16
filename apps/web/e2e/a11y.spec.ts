@@ -41,22 +41,9 @@ for (const theme of ['light', 'dark'] as const) {
     // Wait for config-driven labels (stages) so the scan covers them.
     await expect(page.locator('[data-stage]').first()).toBeVisible();
     expect(await seriousViolations(page)).toEqual([]);
-
-    await page.getByRole('button', { name: 'Gate decision' }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    expect(await seriousViolations(page)).toEqual([]);
   });
 }
-
-test('gate decision dialog asks for what config requires', async ({ page }) => {
-  await signInAs(page, 'admin');
-  await page.goto('/admin/ui-kit');
-  await page.getByRole('button', { name: 'Gate decision' }).click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByRole('button', { name: 'Record decision' }).click();
-  await expect(dialog.getByRole('alert')).toContainText('Choose a decision.');
-  await expect(dialog.getByRole('radio').first()).toBeVisible();
-});
+// The gate decision dialog works on real quotes since B-08: g1.spec.ts covers it (axe, validation, focus).
 
 test('table sorts from the header (numbers start highest first)', async ({ page }) => {
   await signInAs(page, 'admin');
@@ -93,10 +80,4 @@ test('dialogs return focus to the button that opened them', async ({ page }) => 
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await expect(trigger).toBeFocused();
-
-  const gate = page.getByRole('button', { name: 'Gate decision' });
-  await gate.click();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(gate).toBeFocused();
 });

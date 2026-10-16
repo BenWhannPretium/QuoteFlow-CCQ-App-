@@ -1,5 +1,8 @@
+import { SCORING_MODEL_V1_INPUT } from '@ccq/domain';
+
 import { upsertConfig } from './_upsert';
 import type { DbOrTx } from '../../src/client';
+import { scoringModelRow } from '../../src/repos/config';
 import { appSetting, scoringModel, sfStageMap } from '../../src/schema/index';
 
 const present = (field: string) => ({ field, op: 'present' });
@@ -69,6 +72,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
       'Warn (never block) below these annual volumes, keyed by process_type code. D-06 open.',
   },
   {
+    key: 'qualification_exception_note_outcomes',
+    value: ['G1:advance'],
+    description:
+      'gate:outcome pairs that need a strategic exception note when a qualification warning is raised (D-06). Warnings never block otherwise.',
+  },
+  {
     key: 'sla_hours_by_stage',
     value: null,
     description: 'SLA hours per stage key. Null until D-20; aging buckets only.',
@@ -136,33 +145,12 @@ export const seedAppSettings = (db: DbOrTx) =>
     ['key'],
   );
 
-/** Scoring model v1: the 7 PRD attributes, equal weights, stub band mappings (B-08 fills them). */
-export const SCORING_MODEL_V1 = {
-  modelVersion: 1,
-  attributes: [
-    ['revenue', 'Revenue'],
-    ['volume', 'Volume'],
-    ['strategic_fit', 'Strategic fit'],
-    ['capital_exposure', 'Capital exposure'],
-    ['customer_risk', 'Customer risk'],
-    ['product_fit', 'Product fit'],
-    ['timing', 'Timing'],
-  ].map(([key, label]) => ({
-    key,
-    label,
-    weight: 1,
-    scale: { min: 0, max: 100 },
-    mapping: { type: 'bands', bands: [], todo: 'B-08' },
-  })),
-  tierThresholds: [
-    { tier: 'Critical', min: 80 },
-    { tier: 'High', min: 60 },
-    { tier: 'Standard', min: 40 },
-    { tier: 'Low', min: 0 },
-  ],
+/** Scoring model v1 as a row, derived from the domain seed (`packages/domain/src/scoring/seeds.ts`), the single source. */
+export const SCORING_MODEL_V1 = scoringModelRow(SCORING_MODEL_V1_INPUT, {
   effectiveFrom: new Date('2026-10-01T00:00:00Z'),
-  changeReason: 'Seed v1: PRD attribute set with equal (relative) weights, pending D-19.',
-};
+  changeReason:
+    'Seed v1: the PRD F-05 attribute set with provisional weights and bands, pending D-19 (M4).',
+});
 
 export const seedScoringModel = (db: DbOrTx) =>
   upsertConfig(db, scoringModel, [{ ...SCORING_MODEL_V1, provisional: true }], ['modelVersion']);

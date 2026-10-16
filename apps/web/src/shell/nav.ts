@@ -8,6 +8,7 @@ export type NavKey =
   | 'queue-engineering'
   | 'queue-pricing'
   | 'pipeline'
+  | 'qualify'
   | 'approvals'
   | 'analytics'
   | 'admin';
@@ -19,6 +20,8 @@ export interface NavItem {
   /** Bottom tab bar label (short). */
   shortLabel: string;
   to: string;
+  /** Search params for `to` (the G1 queue is `/approvals?gate=G1`). */
+  search?: Record<string, string>;
   /** Extra path prefixes that mark the item active (Pipeline covers /quotes and /board). */
   activePrefixes: string[];
 }
@@ -40,11 +43,22 @@ const item = (
  * Engineer works their assignments (engReview.edit, assigned), Pricing works the pricing queue.
  * The Approver's queue is Approvals.
  */
-export function navItemsFor(me: MeResponse): NavItem[] {
+export interface NavOptions {
+  /** `g1_enabled` (from the G1 gate row in public config). When false the "To qualify" queue is hidden. */
+  g1Enabled?: boolean;
+}
+
+export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {}): NavItem[] {
   const can = (permission: string) => canFromMe(me, permission);
   const items: NavItem[] = [item('home', 'Home', 'Home', '/')];
 
   if (can('quote.create')) items.push(item('intake', 'New intake', 'Intake', '/intake/new'));
+  if (can('gate.G1.decide') && g1Enabled) {
+    items.push({
+      ...item('qualify', 'To qualify', 'Qualify', '/approvals'),
+      search: { gate: 'G1' },
+    });
+  }
   if (can('engReview.edit')) {
     items.push(
       can('queue.assign')
@@ -64,8 +78,15 @@ export function navItemsFor(me: MeResponse): NavItem[] {
   return items;
 }
 
-export function isNavItemActive(navItem: NavItem, pathname: string): boolean {
+export function isNavItemActive(
+  navItem: NavItem,
+  pathname: string,
+  search: Record<string, unknown> = {},
+): boolean {
   if (navItem.to === '/') return pathname === '/';
+  // Items that share a path (Approvals vs the G1 queue) are told apart by their search params.
+  const wantsGate = navItem.search?.gate;
+  if (navItem.to === '/approvals' && (search.gate ?? undefined) !== wantsGate) return false;
   return navItem.activePrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

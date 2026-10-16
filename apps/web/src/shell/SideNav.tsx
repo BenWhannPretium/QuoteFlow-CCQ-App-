@@ -6,19 +6,28 @@ import { isNavItemActive, type NavItem } from './nav';
 import { NAV_ICONS } from './NavIcon';
 
 /** Desktop left rail (≥ 641 px). */
-export function SideNav({ items, pathname }: { items: NavItem[]; pathname: string }) {
+export function SideNav({
+  items,
+  pathname,
+  search = {},
+}: {
+  items: NavItem[];
+  pathname: string;
+  search?: Record<string, unknown>;
+}) {
   return (
     // The panel stretches with the page; the list inside stays in view while scrolling.
     <nav aria-label="Primary" className="bg-card hidden w-60 shrink-0 border-r sm:block">
       <div className="sticky top-0 max-h-dvh overflow-y-auto px-3 py-5">
         <ul className="grid gap-1">
           {items.map((item) => {
-            const active = isNavItemActive(item, pathname);
+            const active = isNavItemActive(item, pathname, search);
             const Icon = NAV_ICONS[item.key];
             return (
               <li key={item.key}>
                 <Link
                   to={item.to}
+                  {...(item.search ? { search: item.search } : {})}
                   data-nav={item.key}
                   aria-current={active ? 'page' : undefined}
                   className={cn(

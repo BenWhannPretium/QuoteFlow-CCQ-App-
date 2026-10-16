@@ -199,7 +199,7 @@ Reason codes per decision context.
 
 ### scoring_model
 
-Versioned priority-scoring model. Advisory only; implemented in B-08.
+Versioned priority-scoring model (F-05, B-08). Advisory only: it orders queues and informs G1.
 
 **Owner:** Jim Zweifel + sales leadership (D-19)
 
@@ -214,8 +214,8 @@ Versioned priority-scoring model. Advisory only; implemented in B-08.
 | `approved_by` | uuid | yes |  | app_user.id | User who approved the value; null while provisional. | Admin / Knowledge Steward |
 | `approved_at` | timestamp with time zone | yes |  |  | When the value was approved. | Admin / Knowledge Steward |
 | `model_version` | integer | no |  |  | Scoring model version stamped on quotes. | Jim Zweifel + sales leadership (D-19) |
-| `attributes` | jsonb | no |  |  | Attributes: [{key, label, weight, scale, mapping}]. Mapping bands are filled in at B-08. | Jim Zweifel + sales leadership (D-19) |
-| `tier_thresholds` | jsonb | no |  |  | Tiers: [{tier, min, max}] on the 0–100 score. | Jim Zweifel + sales leadership (D-19) |
+| `attributes` | jsonb | no |  |  | Attributes (domain scoring DSL): [{key, label, weight, input, bands \| map, inverse, unknownScore, unknownExplanation}]. Weights sum to 1. | Jim Zweifel + sales leadership (D-19) |
+| `tier_thresholds` | jsonb | no |  |  | {tiers: [{key, label, min}], unknownScore}: tiers on the 0–100 score and the neutral score for unknown inputs. | Jim Zweifel + sales leadership (D-19) |
 | `effective_from` | timestamp with time zone | no |  |  | When the model starts applying to new scores. | Jim Zweifel + sales leadership (D-19) |
 | `change_reason` | text | no |  |  | Why this version exists. | Jim Zweifel + sales leadership (D-19) |
 
@@ -609,6 +609,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `priority_tier` | text | yes |  |  | Critical \| High \| Standard \| Low (scoring_model tiers). | CCQ (system) |
 | `priority_tier_overridden` | boolean | no | false |  | True when an approved override set the tier. | CCQ (system) |
 | `scoring_model_version` | integer | yes |  |  | scoring_model.model_version used for the score. | CCQ (system) |
+| `priority_breakdown` | jsonb | yes |  |  | The score explanation as computed: {breakdown: [{key, label, weight, raw, points, contribution, explanation, unknown, sensitive}], unknowns, computedTier}. Raw commercial inputs are stripped on read for roles without commercial access. | CCQ (system) |
+| `priority_scored_at` | timestamp with time zone | yes |  |  | When the score was last computed (submit, an input change, or a gate decision such as the G2 capital estimate). | CCQ (system) |
 | `queue_position` | integer | yes |  |  | Manual position in the engineering queue (DEC-26). | Engineering (EngLead / Engineer) |
 | `assigned_engineer_id` | uuid | yes |  | app_user.id | Engineer assigned in Engineering Review. | Engineering (EngLead / Engineer) |
 | `erf_number` | text | yes |  |  | ERF number in the pricing app. | Pricing |
@@ -646,10 +648,11 @@ Intake drafts (B-07). Visible to the creator and Admin only; becomes a quote on 
 | `data` | jsonb | no | {} |  | Intake fields as entered (contracts IntakeDraftData). Autosaved every 5 s. | KAM |
 | `submitted_quote_id` | uuid | yes |  | quote.id | Quote created from this draft; set on submit, after which the draft is read-only. | CCQ (system) |
 | `submitted_at` | timestamp with time zone | yes |  |  | When the draft was submitted. | CCQ (system) |
+| `rework_of_quote_id` | uuid | yes |  | quote.id | Set when the draft reworks a quote returned to the KAM (G1/G2 Rework, B-08): submit updates that quote instead of creating one. | CCQ (system) |
 
 **Checks:** `quote_draft_step_check`, `quote_draft_submitted_consistency_check`
 
-**Indexes:** `quote_draft_owner_idx`
+**Indexes:** `quote_draft_owner_idx`, `quote_draft_one_open_rework_uidx`
 
 ### quote_hold
 

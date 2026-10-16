@@ -87,7 +87,7 @@ describe('hybrid: routing', () => {
   it.each([
     ['G1', 'advance', 'SalesLeader', 'ENG_REVIEW'],
     ['G1', 'redirect', 'SalesLeader', 'REDIRECTED'],
-    ['G1', 'stop', 'SalesLeader', 'CLOSED_LOST'],
+    ['G1', 'stop', 'SalesLeader', 'DECLINED'],
     ['G2', 'proceed', 'EngLead', 'QUOTING'],
     ['G2', 'proceed_with_risk', 'EngLead', 'QUOTING'],
     ['G2', 'capital_required', 'EngLead', 'QUOTING'],

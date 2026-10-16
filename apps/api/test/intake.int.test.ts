@@ -143,7 +143,10 @@ describe('create → autosave → submit (happy path)', () => {
     quoteNumber = body.quoteNumber;
     expect(body.quoteNumber).toMatch(/^CCQ-2026-\d{5}$/);
     expect(body).toMatchObject({ stageKey: 'INTAKE', status: 'active', routedTo: 'G1' });
-    expect(body.priorityScore).toBeNull(); // B-08 hook
+    // B-08: scored at submit (advisory) with the model version recorded.
+    expect(body.priorityScore).toEqual(expect.any(Number));
+    expect(body.priorityTier).toMatch(/^(CRITICAL|HIGH|STANDARD|LOW)$/);
+    expect(body.resubmitted).toBe(false);
     expect(body.warnings).toEqual([]);
 
     const [quote] = await db.db
@@ -159,7 +162,9 @@ describe('create → autosave → submit (happy path)', () => {
       estAnnualVolume: 750_000,
       requestClass: 'CCQ',
       shipToOverridden: false,
-      priorityScore: null,
+      priorityScore: body.priorityScore,
+      priorityTier: body.priorityTier,
+      scoringModelVersion: 1,
     });
     expect(quote!.submittedAt).toEqual(clock);
     expect(quote!.customerId).not.toBeNull();

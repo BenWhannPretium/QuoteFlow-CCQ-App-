@@ -26,7 +26,7 @@ export async function updateQuoteDraft(
   patch: Partial<
     Pick<
       typeof quoteDraft.$inferInsert,
-      'data' | 'step' | 'sfOpportunityId' | 'submittedQuoteId' | 'submittedAt'
+      'data' | 'step' | 'sfOpportunityId' | 'submittedQuoteId' | 'submittedAt' | 'reworkOfQuoteId'
     >
   >,
 ) {
@@ -41,6 +41,8 @@ export const listOpenQuoteDrafts = (db: DbOrTx, ownerUserId?: string) =>
     .where(
       and(
         isNull(quoteDraft.submittedQuoteId),
+        // Rework drafts are listed with their returned quote (`listReturnedQuotes`).
+        isNull(quoteDraft.reworkOfQuoteId),
         ownerUserId ? eq(quoteDraft.ownerUserId, ownerUserId) : undefined,
       ),
     )

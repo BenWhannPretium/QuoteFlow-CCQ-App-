@@ -1,4 +1,4 @@
-import { parseWorkflowConfig } from '@ccq/domain';
+import { parseScoringModel, parseWorkflowConfig } from '@ccq/domain';
 import { eq, inArray } from 'drizzle-orm';
 
 import { buildCustomers, buildOpportunities } from './opportunities';
@@ -9,7 +9,9 @@ import { DEFAULT_ANCHOR, DEFAULT_SEED, createRng } from './rng';
 import { ownerAliasFor } from './sfFixture';
 import type { DbOrTx } from '../../src/client';
 import {
+  getScoringModel,
   getSetting,
+  scoringModelInputFromRow,
   loadWorkflowConfigInput,
   setUserScope,
   syncUserRoles,
@@ -162,11 +164,15 @@ export async function seedSynthetic(
   if (existing.length === 0) {
     const config = parseWorkflowConfig(await loadWorkflowConfigInput(db));
     const validityDays = (await getSetting<number>(db, 'validity_days_default')) ?? 30;
+    const scoringRow = await getScoringModel(db, anchor);
+    if (!scoringRow) throw new Error('synthetic seed: no scoring model (seed config first)');
+    const scoring = parseScoringModel(scoringModelInputFromRow(scoringRow));
     quotes = await generateQuotes({
       db,
       rng,
       anchor,
       config,
+      scoring,
       personas: new Map(personas.map((p) => [p.key, p])),
       opportunities,
       validityDays,

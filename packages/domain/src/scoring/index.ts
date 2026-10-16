@@ -1,20 +1,10 @@
 /**
- * Scoring engine interface only. The implementation (weights, tiers, advisory score) lands in B-08.
- * Keeping the contract here lets B-07/B-08 code against it now.
+ * Priority scoring (F-05, B-08). Advisory only: the score orders queues and informs G1; a human decides.
+ * Everything business-specific (attributes, weights, bands, tiers) is config: see `model.ts`.
  */
-export interface ScoringInput {
-  /** Intake attribute values keyed by attribute key (snake_case). */
-  attributes: Readonly<Record<string, unknown>>;
-}
-
-export interface ScoringResult {
-  score: number;
-  tier: string;
-  modelVersion: number;
-  /** Per-attribute contribution, for the "why this score" explanation. */
-  breakdown: readonly { key: string; points: number }[];
-}
-
-export interface ScoringEngine {
-  score(input: ScoringInput): ScoringResult;
-}
+export * from './inputs';
+export * from './model';
+export * from './qualification';
+export * from './score';
+export * from './seeds';
+export * from './visibility';

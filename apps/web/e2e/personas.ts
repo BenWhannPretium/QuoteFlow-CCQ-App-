@@ -15,7 +15,7 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'sales-leader',
     landing: 'SalesLeader',
-    nav: ['home', 'intake', 'pipeline', 'analytics'],
+    nav: ['home', 'intake', 'qualify', 'pipeline', 'analytics'],
   },
   {
     persona: 'eng-lead',
@@ -39,7 +39,7 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'multi-role',
     landing: 'Approver',
-    nav: ['home', 'intake', 'pipeline', 'approvals', 'analytics'],
+    nav: ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
   },
 ];
 

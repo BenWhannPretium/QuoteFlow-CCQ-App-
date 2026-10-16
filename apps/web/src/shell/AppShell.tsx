@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { useCurrentUser } from '@/auth';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { usePublicConfig } from '@/config/public-config';
 
 import { BottomNav } from './BottomNav';
 import { Header } from './Header';
@@ -16,7 +17,10 @@ import { SideNav } from './SideNav';
 export function AppShell({ children }: { children: ReactNode }) {
   const me = useCurrentUser();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const items = navItemsFor(me);
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
+  const { data: config } = usePublicConfig();
+  const g1Enabled = config?.gates.find((g) => g.key === 'G1')?.enabled ?? true;
+  const items = navItemsFor(me, { g1Enabled });
   return (
     <TooltipProvider delayDuration={300}>
       <div className="bg-background min-h-dvh">
@@ -28,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </a>
         <Header />
         <div className="flex">
-          <SideNav items={items} pathname={pathname} />
+          <SideNav items={items} pathname={pathname} search={search} />
           <main
             id="main"
             tabIndex={-1}
@@ -37,7 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="mx-auto max-w-6xl">{children}</div>
           </main>
         </div>
-        <BottomNav items={items} pathname={pathname} />
+        <BottomNav items={items} pathname={pathname} search={search} />
       </div>
     </TooltipProvider>
   );

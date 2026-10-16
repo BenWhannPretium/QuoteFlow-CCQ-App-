@@ -37,7 +37,12 @@ describe('GET /api/v1/config/public', () => {
 
     expect(body.reasonCodes.length).toBeGreaterThan(0);
     expect(Object.keys(body.valueLists)).toEqual(expect.arrayContaining(['resin', 'plant']));
-    expect(body.tiers.map((t) => t.tier)).toEqual(['Critical', 'High', 'Standard', 'Low']);
+    expect(body.tiers.map((t) => [t.tier, t.label])).toEqual([
+      ['CRITICAL', 'Critical'],
+      ['HIGH', 'High'],
+      ['STANDARD', 'Standard'],
+      ['LOW', 'Low'],
+    ]);
   });
 
   it('exposes only the allow-listed settings', async () => {

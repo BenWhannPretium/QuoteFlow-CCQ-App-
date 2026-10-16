@@ -1,5 +1,5 @@
-import { asUserId, evaluateTransition } from '@ccq/domain';
-import type { Actor, TransitionRequest, WorkflowConfig } from '@ccq/domain';
+import { asUserId, evaluateTransition, score } from '@ccq/domain';
+import type { Actor, ScoringModel, TransitionRequest, WorkflowConfig } from '@ccq/domain';
 
 import type { SyntheticOpportunity } from './opportunities';
 import type { Persona, PersonaKey } from './personas';
@@ -15,8 +15,10 @@ import {
   insertOverride,
   insertQuote,
   loadQuoteState,
+  loadScoringFacts,
   nextQuoteNumber,
   persistTransition,
+  setQuotePriority,
   updateQuote,
   upsertEngReview,
   upsertPricingRecord,
@@ -197,15 +199,6 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'CLOSED_LOST':
-      if (i < 2)
-        return {
-          steps: [
-            g1('stop', {
-              reason: rng.pick(['below_minimum_threshold', 'not_strategic', 'duplicate']),
-            }),
-          ],
-          complete: true,
-        };
       if (i < 4)
         return {
           steps: [...toEng, ...engWork, g2('stop', { reason: 'customer_withdrew' })],
@@ -240,6 +233,17 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'DECLINED':
+      // A G1 Stop closes as DECLINED (B-08); the rest are Final Review declines.
+      if (i < 2)
+        return {
+          steps: [
+            g1('stop', {
+              reason: rng.pick(['below_minimum_threshold', 'not_strategic', 'duplicate']),
+              note: 'Not a fit for a new mold set at this volume.',
+            }),
+          ],
+          complete: true,
+        };
       return {
         steps: [
           ...toFinal,
@@ -277,14 +281,6 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
   }
 }
 
-const TIERS: [tier: string, min: number][] = [
-  ['Critical', 80],
-  ['High', 60],
-  ['Standard', 40],
-  ['Low', 0],
-];
-const tierFor = (score: number) => TIERS.find(([, min]) => score >= min)![0];
-
 const RESIN_CODE: Record<string, string> = { 'PCR-HDPE': 'PCR_HDPE', 'PCR-PET': 'PCR_PET' };
 const NECK_CODE: Record<string, string> = { '120 DC': '120-DC' };
 const PROCESS_FOR: Record<string, string[]> = {
@@ -307,6 +303,7 @@ export interface QuoteGenContext {
   rng: Rng;
   anchor: Date;
   config: WorkflowConfig;
+  scoring: ScoringModel;
   personas: Map<PersonaKey, Persona>;
   opportunities: SyntheticOpportunity[];
   validityDays: number;
@@ -395,7 +392,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
     const kam = persona(KAM_BY_REGION[opp.customer.region]);
     let at = createdAt;
 
-    const score = rng.int(18, 96);
+    rng.int(18, 96); // was the random score before B-08; kept so the rest of the data stays the same
     const productFamily = opp.spec.productFamily;
     const quoteRow = await insertQuote(db, {
       id: rng.uuid(createdAt),
@@ -431,9 +428,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
         : null,
       shipTo: opp.customer.shipTo,
       shipToOverridden: rng.chance(0.1),
-      priorityScore: steps.length > 0 ? score : null,
-      priorityTier: steps.length > 0 ? tierFor(score) : null,
-      scoringModelVersion: steps.length > 0 ? 1 : null,
+      submittedAt: createdAt,
       createdAt,
       updatedAt: createdAt,
       createdBy: kam.id,
@@ -594,9 +589,14 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
                   ? persona(rng.chance(0.8) ? 'approver' : 'multi-role')
                   : persona(step.who);
           const state = await loadQuoteState(db, quoteId);
+          if (step.gate === 'G1' && state?.fields.submitted_at == null) {
+            // The KAM resubmitted the reworked intake before this decision.
+            await updateQuote(db, quoteId, { submittedAt: at });
+            state!.fields = { ...state!.fields, submitted_at: at };
+          }
           const payload =
             step.payload ??
-            (step.outcome === 'on_hold'
+            (step.hold
               ? { review_date: new Date(at.getTime() + 21 * DAY_MS).toISOString().slice(0, 10) }
               : undefined);
           if (payload?.review_date)
@@ -623,6 +623,10 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
         }
       }
     }
+
+    // Advisory priority score from the real engine, as of the quote's last event (B-08).
+    const scored = score(ctx.scoring, (await loadScoringFacts(db, quoteId))!, at);
+    await setQuotePriority(db, quoteId, scored, at, { tierOverridden: false });
 
     await addExtras(ctx, quoteId, kam, createdAt, at, ordinal);
     byStage[stage] = (byStage[stage] ?? 0) + 1;
@@ -656,8 +660,8 @@ async function addExtras(
     await insertOverride(db, {
       quoteId,
       field: 'priority_tier',
-      originalValue: 'Standard',
-      requestedValue: 'High',
+      originalValue: 'STANDARD',
+      requestedValue: 'HIGH',
       justification: 'Strategic account renewal tied to this launch.',
       reasonCode: 'strategic_account',
       requestedBy: kam.id,
@@ -674,7 +678,7 @@ async function addExtras(
       createdBy: kam.id,
     });
     if (status === 'applied' || status === 'approved') {
-      await updateQuote(db, quoteId, { priorityTier: 'High', priorityTierOverridden: true });
+      await updateQuote(db, quoteId, { priorityTier: 'HIGH', priorityTierOverridden: true });
     }
   } else if (ordinal % 23 === 0) {
     await insertOverride(db, {
