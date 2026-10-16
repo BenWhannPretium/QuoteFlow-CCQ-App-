@@ -195,3 +195,69 @@ export const INTAKE_PROBLEM_CODES = {
   notFound: 'not_found',
   notOwner: 'not_draft_owner',
 } as const;
+
+// ── Draft → domain values ────────────────────────────────────────────────────────────────────────
+// One mapping, used by the API (the authority at submit) and the wizard (instant feedback), so both
+// feed the domain's `evaluateIntake` the same snake_case values.
+
+const blank = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
+
+/** The neck finish as stored: the code, or the typed finish when the code is a free-text one. */
+export function resolvedNeckFinish(
+  data: IntakeDraftData,
+  freeTextCodes: readonly string[],
+): string | null {
+  const code = blank(data.neckFinish);
+  if (code && freeTextCodes.includes(code)) return blank(data.neckFinishOther);
+  return code;
+}
+
+export const intakeAddress = (a: IntakeDraftData['shipTo']) =>
+  a
+    ? {
+        line1: a.line1 ?? null,
+        city: a.city ?? null,
+        state: a.state ?? null,
+        postal: a.postal ?? null,
+        country: a.country ?? null,
+      }
+    : null;
+
+/** The draft's fields in the domain's snake_case shape (`evaluateIntake` input). */
+export function intakeValues(data: IntakeDraftData, freeTextNeckFinishes: readonly string[]) {
+  const c = data.customer;
+  return {
+    sf_opportunity_id: data.sfOpportunityId ?? null,
+    customer: c
+      ? {
+          status: c.status,
+          sf_account_id: c.sfAccountId ?? null,
+          name: c.name ?? null,
+          location: c.location ?? null,
+          contact_name: c.contactName ?? null,
+          contact_email: c.contactEmail ?? null,
+          contact_phone: c.contactPhone ?? null,
+        }
+      : null,
+    ship_to: intakeAddress(data.shipTo),
+    ship_to_default: intakeAddress(data.shipToDefault),
+    ship_to_override_reason: data.shipToOverrideReason ?? null,
+    request_class: data.requestClass ?? null,
+    product_family: data.productFamily ?? null,
+    components: data.components ?? [],
+    market: data.market ?? null,
+    resin: data.resin ?? null,
+    neck_finish: resolvedNeckFinish(data, freeTextNeckFinishes),
+    packaging_type: data.packagingType ?? null,
+    packaging_notes: data.packagingNotes ?? null,
+    est_annual_volume: data.estAnnualVolume ?? null,
+    est_annual_volume_confirmed: data.estAnnualVolumeConfirmed ?? false,
+    est_annual_revenue: data.estAnnualRevenue ?? null,
+    expected_close_date: data.expectedCloseDate ?? null,
+    container_size: data.containerSize ?? null,
+    standard_description: data.standardDescription ?? null,
+    description: data.description ?? null,
+    drawing_status: data.drawingStatus ?? null,
+    comments_for_engineering: data.commentsForEngineering ?? null,
+  };
+}

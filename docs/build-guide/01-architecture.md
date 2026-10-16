@@ -204,16 +204,17 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `sf_stage_map`: sf_stage, ccq_stage_hint
 
 **Core workflow**
-- `customer`: sf_account_id (nullable), name, status (`existing` | `not_yet_established`), default_ship_to jsonb, source, last_synced_at. A not-yet-established customer has no SF account; DEC-27.
+- `customer`: sf_account_id (nullable), name, status (`existing` | `not_yet_established`), default_ship_to jsonb, source, last_synced_at, location, contact jsonb. A not-yet-established customer has no SF account and carries only name, location and contact; DEC-27.
 - `sf_opportunity_snapshot`: sf_opportunity_id (unique), name, account_id, owner_alias/owner_email, amount, close_date, sf_stage, erf_number_sf, quote_source_sf, raw jsonb, synced_at
 - `quote`: the CCQ record.
   - **Identity and status:** quote_number (unique, `CCQ-2026-00001`), sf_opportunity_id (fk snapshot, required), customer_id, kam_user_id, stage_key, status (active | on_hold | closed), version
-  - **Intake fields:** description, structured_description jsonb, product_family, market, resin, components[], est_annual_volume, est_annual_revenue, expected_close_date, drawing_status, neck_finish, packaging_notes, request_class, comments_for_engineering
-  - **Ship-to:** ship_to jsonb plus ship_to_overridden bool
+  - **Intake fields:** description, structured_description jsonb, product_family, market, resin, components[], est_annual_volume, est_annual_revenue (+ est_annual_revenue_sf, the SF amount it came from), est_annual_volume_confirmed, expected_close_date, drawing_status, neck_finish, packaging_type, packaging_notes, request_class, comments_for_engineering, submitted_at
+  - **Ship-to:** ship_to jsonb plus ship_to_overridden bool, ship_to_original jsonb, ship_to_override_reason (interim until B-09 overrides)
   - **Priority:** priority_score, priority_tier, priority_tier_overridden bool, scoring_model_version
   - **Engineering:** assigned_engineer_id
   - **Links and dates:** erf_number (link), cer_id, bpr_id, proposal_issued_at, validity_until
   - **Close-out:** outcome, outcome_reason_code, closure_owner_id, closed_at
+- `quote_draft` (B-07): owner_user_id, sf_opportunity_id, step, data jsonb, submitted_quote_id, submitted_at. Intake work in progress; visible only to its creator, plus Admin. It becomes a quote on submit.
 - `stage_history`: quote_id, stage_key, entered_at, exited_at, entered_by, on_hold_ms
 - `gate_decision`: quote_id, gate_key, outcome_key, decided_by, decided_at, note, reason_code, evidence jsonb (snapshot), conditions
 - `eng_review`: quote_id, accepted_at, returned_reason, process_type, machine_type, plant_code, cavitation, cycle_time_s, tooling_notes, prelim_capital_usd *(commercial)*, downstream_equipment_notes
@@ -238,7 +239,7 @@ The full column list, with each column's meaning and owner, is generated into [`
 **Indexes (minimum)**
 - quote(stage_key, priority_score desc)
 - quote(kam_user_id)
-- quote(sf_opportunity_id)
+- quote(sf_opportunity_id), plus the unique partial index `quote(sf_opportunity_id) where status <> 'closed'` (one active CCQ quote per SF opportunity, B-07)
 - stage_history(quote_id, entered_at)
 - audit_event(quote_id, at)
 - audit_event(actor_id, at)
