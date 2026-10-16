@@ -7,6 +7,7 @@ import {
   CheckCircle2Icon,
   FileClockIcon,
   Trash2Icon,
+  RotateCcwIcon,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -103,8 +104,48 @@ function StartScreen({ cfg }: { cfg: WizardConfig }) {
     }
   };
 
+  const reopen = async (quoteNumber: string) => {
+    try {
+      const draft = await api.startRework(quoteNumber);
+      qc.setQueryData(['intake', 'draft', draft.id], draft);
+      await navigate({ to: '/intake/new', search: { draft: draft.id } });
+    } catch (err) {
+      toast.error({
+        title: 'Could not open the rework draft',
+        description: isApiError(err) ? err.message : 'Please try again.',
+      });
+    }
+  };
+
   return (
     <div className="grid gap-6">
+      {(drafts.data?.returned.length ?? 0) > 0 && (
+        <Section title="Returned for rework">
+          <ul className="grid gap-3" aria-label="Quotes returned for rework" data-testid="returned">
+            {drafts.data!.returned.map((r) => (
+              <li key={r.quoteNumber} className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex min-w-0 items-start gap-2 text-sm">
+                  <RotateCcwIcon
+                    aria-hidden
+                    className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                  />
+                  <span className="min-w-0 break-words">
+                    <strong>{r.quoteNumber}</strong> · {r.customerName ?? r.opportunityName ?? ''}
+                    <span className="text-muted-foreground block text-xs">
+                      {r.gateKey}
+                      {r.reasonLabel ? `: ${r.reasonLabel}` : ''}
+                      {r.note ? ` · ${r.note}` : ''}
+                    </span>
+                  </span>
+                </span>
+                <Button variant="outline" size="sm" onClick={() => void reopen(r.quoteNumber)}>
+                  {r.draftId ? 'Continue fixing' : 'Fix and resubmit'}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
       {(drafts.data?.items.length ?? 0) > 0 && (
         <Section title="Continue a draft">
           <ul className="grid gap-2" aria-label="Your drafts">
@@ -256,7 +297,8 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
           <p className="flex items-center gap-2 text-lg">
             <CheckCircle2Icon aria-hidden className="text-primary size-6" />
             <span>
-              Quote <strong data-testid="quote-number">{submitted.quoteNumber}</strong> created
+              Quote <strong data-testid="quote-number">{submitted.quoteNumber}</strong>{' '}
+              {submitted.resubmitted ? 'resubmitted' : 'created'}
             </span>
           </p>
           <p className="text-sm">
@@ -297,6 +339,17 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
         canSelect={(n) => n !== step && Boolean(data.sfOpportunityId)}
       />
 
+      {initial.rework && (
+        <Notice tone="warning" testId="rework-notice">
+          <strong>
+            Rework of {initial.rework.quoteNumber}
+            {initial.rework.reasonLabel ? ` (${initial.rework.reasonLabel})` : ''}.
+          </strong>{' '}
+          {initial.rework.note ? `What to fix: ${initial.rework.note}. ` : ''}
+          Submitting updates the same quote and sends it back for qualification.
+        </Notice>
+      )}
+
       {draft.activeQuote && (
         <Notice tone="blocking" testId="active-quote">
           This opportunity already has an active CCQ quote ({draft.activeQuote.quoteNumber}). There
@@ -323,9 +376,12 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
           <Section
             title="Opportunity"
             action={
-              <Button variant="outline" size="sm" onClick={() => setChangingOpp(true)}>
-                Change
-              </Button>
+              // A reworked quote stays on its opportunity.
+              initial.rework ? undefined : (
+                <Button variant="outline" size="sm" onClick={() => setChangingOpp(true)}>
+                  Change
+                </Button>
+              )
             }
           >
             <p className="font-semibold">{data.sfOpportunityName}</p>

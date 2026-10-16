@@ -1,4 +1,8 @@
 import {
+  GateDecisionResponse,
+  GateQueueResponse,
+  QuoteDetail,
+  type GateDecisionBody,
   AuthConfigResponse,
   IntakeDraft,
   IntakeDraftListResponse,
@@ -117,4 +121,20 @@ export const api = {
     getJson(`/api/v1/quotes/drafts/${id}`, z.null(), { method: 'DELETE' }),
   submitDraft: (id: string) =>
     getJson(`/api/v1/quotes/drafts/${id}/submit`, SubmitIntakeResponse, { method: 'POST' }),
+
+  // B-08 quotes, gates and rework
+  quote: (quoteNumber: string) =>
+    getJson(`/api/v1/quotes/${encodeURIComponent(quoteNumber)}`, QuoteDetail),
+  gateQueue: (gateKey: string) =>
+    getJson(`/api/v1/gates/${encodeURIComponent(gateKey)}/queue`, GateQueueResponse),
+  decideGate: (quoteNumber: string, gateKey: string, body: GateDecisionBody) =>
+    getJson(
+      `/api/v1/quotes/${encodeURIComponent(quoteNumber)}/gates/${encodeURIComponent(gateKey)}/decisions`,
+      GateDecisionResponse,
+      { method: 'POST', body },
+    ),
+  startRework: (quoteNumber: string) =>
+    getJson(`/api/v1/quotes/${encodeURIComponent(quoteNumber)}/rework`, IntakeDraft, {
+      method: 'POST',
+    }),
 };

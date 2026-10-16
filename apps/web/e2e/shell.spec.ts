@@ -64,10 +64,11 @@ test('unknown routes show the 404 page inside the shell', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 });
 
-test('the quote route and admin splat render their stubs', async ({ page }) => {
+test('an unknown quote shows not found; the admin splat renders its stub', async ({ page }) => {
   await signInAs(page, 'admin');
-  await page.goto('/quotes/CCQ-2026-00042');
-  await expect(page.getByRole('heading', { level: 1, name: 'CCQ-2026-00042' })).toBeVisible();
+  await page.goto('/quotes/CCQ-2099-00042');
+  await expect(page.getByRole('heading', { level: 1, name: 'CCQ-2099-00042' })).toBeVisible();
+  await expect(page.getByText('Not found')).toBeVisible();
   await page.goto('/admin/reason-codes');
   await expect(page.getByText('Configuration · reason-codes')).toBeVisible();
 });

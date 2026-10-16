@@ -11,7 +11,20 @@ const TIER_CLASS: Record<string, string> = {
   low: 'bg-tier-low text-tier-low-foreground',
 };
 
-export function TierChip({ tier, className }: { tier: string; className?: string }) {
+export function TierChip({
+  tier,
+  label,
+  overridden = false,
+  className,
+}: {
+  /** Tier key (`HIGH`) or label; the colour follows it. */
+  tier: string;
+  /** What to show (`High`); defaults to `tier`. */
+  label?: string | null;
+  /** The tier comes from an approved override (B-09), not the score. */
+  overridden?: boolean;
+  className?: string;
+}) {
   const style = TIER_CLASS[tier.toLowerCase()] ?? TIER_CLASS.standard;
   return (
     <span
@@ -22,7 +35,8 @@ export function TierChip({ tier, className }: { tier: string; className?: string
         className,
       )}
     >
-      {tier}
+      {label ?? tier}
+      {overridden && <span className="ml-1 font-normal opacity-90">(override)</span>}
     </span>
   );
 }

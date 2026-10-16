@@ -8,9 +8,10 @@ export {
   type FilterGroup,
   type FilterValue,
 } from './FiltersPopover';
-export { GateDecisionDialog, type GateDecision } from './GateDecisionDialog';
+export { GateDecisionDialog, quoteQueryKey } from './GateDecisionDialog';
 export { KeyValueGrid, type KeyValueItem } from './KeyValueGrid';
 export { PageHeader } from './PageHeader';
+export { PriorityBadge, QualificationWarnings, ScoreBreakdownTable } from './Priority';
 export { ScorePill } from './ScorePill';
 export { LoadingRegion, Skeleton, SkeletonCard, SkeletonRows } from './Skeletons';
 export { StageBadge } from './StageBadge';

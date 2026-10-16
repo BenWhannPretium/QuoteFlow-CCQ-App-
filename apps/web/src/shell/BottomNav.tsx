@@ -16,10 +16,18 @@ const tabClass =
   'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[0.6875rem] font-medium';
 
 /** Mobile bottom tab bar (≤ 640 px). More than five items: the last tab becomes "More". */
-export function BottomNav({ items, pathname }: { items: NavItem[]; pathname: string }) {
+export function BottomNav({
+  items,
+  pathname,
+  search = {},
+}: {
+  items: NavItem[];
+  pathname: string;
+  search?: Record<string, unknown>;
+}) {
   const navigate = useNavigate();
   const { tabs, overflow } = splitTabs(items);
-  const overflowActive = overflow.some((i) => isNavItemActive(i, pathname));
+  const overflowActive = overflow.some((i) => isNavItemActive(i, pathname, search));
   return (
     <nav
       aria-label="Primary"
@@ -27,12 +35,13 @@ export function BottomNav({ items, pathname }: { items: NavItem[]; pathname: str
     >
       <ul className="flex">
         {tabs.map((item) => {
-          const active = isNavItemActive(item, pathname);
+          const active = isNavItemActive(item, pathname, search);
           const Icon = NAV_ICONS[item.key];
           return (
             <li key={item.key} className="flex min-w-0 flex-1">
               <Link
                 to={item.to}
+                {...(item.search ? { search: item.search } : {})}
                 data-nav={item.key}
                 aria-current={active ? 'page' : undefined}
                 aria-label={item.label}
@@ -62,7 +71,12 @@ export function BottomNav({ items, pathname }: { items: NavItem[]; pathname: str
                     <DropdownMenuItem
                       key={item.key}
                       data-nav={item.key}
-                      onSelect={() => void navigate({ to: item.to })}
+                      onSelect={() =>
+                        void navigate({
+                          to: item.to,
+                          ...(item.search ? { search: item.search } : {}),
+                        })
+                      }
                     >
                       <Icon aria-hidden="true" /> {item.label}
                     </DropdownMenuItem>

@@ -20,7 +20,7 @@ const keys = (...roles: Role[]) => navItemsFor(meFor(...roles)).map((i) => i.key
 describe('navItemsFor (from the seeded permission matrix)', () => {
   it.each<[Role[], string[]]>([
     [['KAM'], ['home', 'intake', 'pipeline']],
-    [['SalesLeader'], ['home', 'intake', 'pipeline', 'analytics']],
+    [['SalesLeader'], ['home', 'intake', 'qualify', 'pipeline', 'analytics']],
     [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'analytics']],
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
@@ -29,7 +29,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['Admin'], ['home', 'intake', 'pipeline', 'analytics', 'admin']],
     [
       ['SalesLeader', 'Approver'],
-      ['home', 'intake', 'pipeline', 'approvals', 'analytics'],
+      ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
     ],
   ])('%j → %j', (roles, expected) => {
     expect(keys(...roles)).toEqual(expected);
@@ -40,6 +40,30 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
       navItemsFor(meFor(role)).find((i) => i.key === 'queue-engineering')?.label;
     expect(label('EngLead')).toBe('Engineering queue');
     expect(label('Engineer')).toBe('My assignments');
+  });
+
+  it('hides "To qualify" when G1 is switched off (g1_enabled=false)', () => {
+    expect(navItemsFor(meFor('SalesLeader'), { g1Enabled: false }).map((i) => i.key)).toEqual([
+      'home',
+      'intake',
+      'pipeline',
+      'analytics',
+    ]);
+    const qualify = navItemsFor(meFor('SalesLeader')).find((i) => i.key === 'qualify')!;
+    expect(qualify).toMatchObject({
+      label: 'To qualify',
+      to: '/approvals',
+      search: { gate: 'G1' },
+    });
+  });
+
+  it('tells Approvals and the G1 queue apart by the gate search param', () => {
+    const items = navItemsFor(meFor('SalesLeader', 'Approver'));
+    const qualify = items.find((i) => i.key === 'qualify')!;
+    const approvals = items.find((i) => i.key === 'approvals')!;
+    expect(isNavItemActive(qualify, '/approvals', { gate: 'G1' })).toBe(true);
+    expect(isNavItemActive(approvals, '/approvals', { gate: 'G1' })).toBe(false);
+    expect(isNavItemActive(approvals, '/approvals', {})).toBe(true);
   });
 
   it('follows the permissions, not role names', () => {
