@@ -125,7 +125,10 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
 
   await lead.goto('/queue/engineering');
   await lead.getByLabel('Search the queue').fill(quoteNumber);
-  await expect(lead.getByText('No quotes match these filters')).toBeVisible();
+  // Gone from the queue (the empty state's wording depends on what else is queued).
+  await expect(lead.getByRole('heading', { name: /^Queue/ })).toBeVisible();
+  await expect(lead.getByRole('link', { name: quoteNumber })).toHaveCount(0);
+  await expect(lead.getByText(/The queue is empty|No quotes match these filters/)).toBeVisible();
 });
 
 test('the KAM sees the Engineering tab read-only, with capital hidden', async ({
