@@ -295,6 +295,16 @@ export const quote = documented(
         'scoring_model.model_version used for the score.',
         SYSTEM,
       ),
+      priorityBreakdown: c(
+        jsonb('priority_breakdown'),
+        'The score explanation as computed: {breakdown: [{key, label, weight, raw, points, contribution, explanation, unknown, sensitive}], unknowns, computedTier}. Raw commercial inputs are stripped on read for roles without commercial access.',
+        SYSTEM,
+      ),
+      priorityScoredAt: c(
+        timestamptz('priority_scored_at'),
+        'When the score was last computed (submit, an input change, or a gate decision such as the G2 capital estimate).',
+        SYSTEM,
+      ),
       queuePosition: c(
         integer('queue_position'),
         'Manual position in the engineering queue (DEC-26).',
@@ -403,9 +413,17 @@ export const quoteDraft = documented(
         SYSTEM,
       ),
       submittedAt: c(timestamptz('submitted_at'), 'When the draft was submitted.', SYSTEM),
+      reworkOfQuoteId: c(
+        uuid('rework_of_quote_id').references(() => quote.id, { onDelete: 'restrict' }),
+        'Set when the draft reworks a quote returned to the KAM (G1/G2 Rework, B-08): submit updates that quote instead of creating one.',
+        SYSTEM,
+      ),
     },
     (t) => [
       index('quote_draft_owner_idx').on(t.ownerUserId, t.updatedAt),
+      uniqueIndex('quote_draft_one_open_rework_uidx')
+        .on(t.reworkOfQuoteId)
+        .where(sql`${t.reworkOfQuoteId} is not null and ${t.submittedQuoteId} is null`),
       check('quote_draft_step_check', sql`${t.step} between 1 and 4`),
       check(
         'quote_draft_submitted_consistency_check',

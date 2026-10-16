@@ -60,7 +60,8 @@ function transition(
  * The seeded hybrid model (architecture §4.1): PRD v1 stages + G1 qualify, capacity evidence,
  * Final Review separate from the customer outcome, reason-coded closures. Every item is provisional.
  *
- * Assumptions to confirm (see 04-decisions-and-risks.md): Stop closes as CLOSED_LOST (closeAs `stopped`);
+ * Assumptions to confirm (see 04-decisions-and-risks.md): G1 Stop closes as DECLINED (closeAs `declined`),
+ * a later Stop (G2/G3) closes as CLOSED_LOST (closeAs `stopped`);
  * "Capital required" at G2 proceeds to QUOTING with a preliminary capital figure; a quote on hold is
  * resumed by the next gate decision (Hold keeps it in its stage).
  */
@@ -113,6 +114,8 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         label: 'Qualify & prioritize',
         deciderPermission: 'gate.G1.decide',
         enabled: g1Enabled,
+        // A quote returned for rework is back with the KAM (submitted_at cleared) until they resubmit.
+        requiredFields: [present('submitted_at')],
         provisional: true,
       },
       {
@@ -159,9 +162,15 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         requiredFields: INTAKE_COMPLETE,
         notify: [{ type: 'quote.ready_for_eng_review', to: { role: 'EngLead' } }],
       }),
-      outcome('G1', 'hold', 'Hold', { reasonContext: 'hold' }),
+      // B-08: Hold needs a reason and a review date; Rework a reason code and a note (the KAM's "what to fix").
+      outcome('G1', 'hold', 'Hold', {
+        requiresReasonCode: true,
+        reasonContext: 'hold',
+        requiredFields: [present('review_date')],
+      }),
       outcome('G1', 'rework', 'Rework (back to draft)', {
         requiresNote: true,
+        requiresReasonCode: true,
         reasonContext: 'rework',
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
@@ -171,6 +180,7 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
       }),
       outcome('G1', 'stop', 'Stop', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'stop',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
@@ -261,7 +271,8 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         targetStageKeys: ['REDIRECTED'],
         closeAs: 'redirected',
       }),
-      transition('G1', 'stop', { ...closed, targetStageKeys: ['CLOSED_LOST'], closeAs: 'stopped' }),
+      // A G1 Stop is an internal "we won't pursue": it closes as DECLINED (B-08), not as a customer loss.
+      transition('G1', 'stop', { ...closed, targetStageKeys: ['DECLINED'], closeAs: 'declined' }),
       transition('SUBMIT', 'submit', { ...active, targetStageKeys: ['ENG_REVIEW'] }),
       transition('G2', 'proceed', { ...active, targetStageKeys: ['QUOTING'] }),
       transition('G2', 'proceed_with_risk', { ...active, targetStageKeys: ['QUOTING'] }),

@@ -17,6 +17,9 @@ import {
   stageHistory,
 } from '../schema/index';
 
+/** The stage a KAM's intake lives in (B-07 creates quotes there). */
+export const INTAKE_STAGE_KEY = 'INTAKE';
+
 const snake = (row: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(Object.entries(row).map(([key, value]) => [toSnakeCase(key), value]));
 
@@ -146,12 +149,16 @@ export async function persistTransition(
   }
 
   const closing = effects.nextStatus === 'closed';
+  // Re-entering INTAKE (a G1/G2 Rework) hands the quote back to the KAM: it is no longer submitted
+  // until they resubmit it from a rework draft (B-08). The original submit stays in stage_history.
+  const backToKam = effects.stageHistory.enter?.stageKey === INTAKE_STAGE_KEY;
   const [updated] = await db
     .update(quote)
     .set({
       stageKey: effects.nextStageKey,
       status: effects.nextStatus,
       version: effects.nextVersion,
+      ...(backToKam ? { submittedAt: null } : {}),
       ...(closing
         ? {
             outcome: effects.closeAs ?? null,

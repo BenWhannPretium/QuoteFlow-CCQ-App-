@@ -1,0 +1,283 @@
+import type {
+  AvailableGateAction,
+  GateDecisionSummary,
+  QualificationWarning,
+  QuoteDetail,
+  QuotePriority,
+  QuoteSummary,
+  ReworkRequest,
+} from '@ccq/contracts';
+import type { DbOrTx } from '@ccq/db';
+import {
+  getQuoteSummaryByNumber,
+  insertAuditEvent,
+  listGateDecisionsWithNames,
+  loadQuoteState,
+  type QuoteSummaryRow,
+  type StoredPriority,
+} from '@ccq/db/repos';
+import {
+  availableActions,
+  canSeePriorityScore,
+  evaluateRules,
+  fieldsReferenced,
+  qualificationWarnings,
+  redactScore,
+  type Actor,
+  type QualificationSettings,
+  type QuoteState,
+  type ScoreResult,
+  type ScoringModel,
+  type WorkflowConfig,
+} from '@ccq/domain';
+
+import type { AuditMeta } from './intake';
+import type { ScoringService } from './scoring';
+
+/** Request-scoped inputs for building quote DTOs (loaded once per request). */
+export interface QuoteViewContext {
+  actor: Actor;
+  model: ScoringModel | null;
+  qualification: QualificationSettings;
+  kamCanSeePeerScores: boolean;
+}
+
+/** Fields a decision supplies itself (the dialog asks for them), so they never count as "missing". */
+const DECISION_FIELDS = new Set(['review_date']);
+
+const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
+
+function tierLabel(model: ScoringModel | null, key: string | null): string | null {
+  if (!key) return null;
+  return model?.tiers.find((t) => t.key === key)?.label ?? key;
+}
+
+const HIDDEN_PRIORITY: QuotePriority = {
+  visible: false,
+  score: null,
+  tier: null,
+  tierLabel: null,
+  computedTier: null,
+  computedTierLabel: null,
+  tierOverridden: false,
+  modelVersion: null,
+  breakdown: [],
+  unknowns: [],
+};
+
+/** The stored priority, with `kam_can_see_peer_scores` and commercial-input redaction applied. */
+export function priorityDto(q: QuoteSummaryRow['quote'], ctx: QuoteViewContext): QuotePriority {
+  if (!canSeePriorityScore(ctx.actor, q.kamUserId, ctx.kamCanSeePeerScores)) return HIDDEN_PRIORITY;
+  const stored = q.priorityBreakdown as StoredPriority | null;
+  const computedTier = stored?.computedTier ?? (q.priorityTierOverridden ? null : q.priorityTier);
+  const asResult: ScoreResult = {
+    total: q.priorityScore ?? 0,
+    tier: computedTier ?? '',
+    tierLabel: '',
+    modelVersion: q.scoringModelVersion ?? 0,
+    breakdown: stored?.breakdown ?? [],
+    unknowns: stored?.unknowns ?? [],
+  };
+  const safe = redactScore(asResult, ctx.actor);
+  return {
+    visible: true,
+    score: q.priorityScore,
+    tier: q.priorityTier,
+    tierLabel: tierLabel(ctx.model, q.priorityTier),
+    computedTier,
+    computedTierLabel: stored?.computedTierLabel ?? tierLabel(ctx.model, computedTier),
+    tierOverridden: q.priorityTierOverridden,
+    modelVersion: q.scoringModelVersion,
+    breakdown: safe.breakdown,
+    unknowns: safe.unknowns,
+  };
+}
+
+export function warningsFor(row: QuoteSummaryRow, ctx: QuoteViewContext): QualificationWarning[] {
+  return qualificationWarnings(ctx.qualification, {
+    quote: {
+      est_annual_revenue: row.quote.estAnnualRevenue,
+      est_annual_volume: row.quote.estAnnualVolume,
+    },
+    eng_review: { process_type: row.processType },
+  });
+}
+
+export function summaryDto(row: QuoteSummaryRow, ctx: QuoteViewContext): QuoteSummary {
+  const q = row.quote;
+  return {
+    id: q.id,
+    quoteNumber: q.quoteNumber,
+    stageKey: q.stageKey,
+    status: q.status,
+    version: q.version,
+    sfOpportunityId: q.sfOpportunityId,
+    opportunityName: row.opportunityName ?? null,
+    customerName: row.customerName ?? null,
+    customerStatus: row.customerStatus ?? null,
+    kamUserId: q.kamUserId,
+    kamName: row.kamName ?? null,
+    requestClass: q.requestClass,
+    productFamily: q.productFamily,
+    market: q.market,
+    resin: q.resin,
+    estAnnualVolume: q.estAnnualVolume,
+    estAnnualRevenue: q.estAnnualRevenue,
+    expectedCloseDate: q.expectedCloseDate,
+    submittedAt: iso(q.submittedAt),
+    reviewDate: q.reviewDate,
+    priority: priorityDto(q, ctx),
+    warnings: warningsFor(row, ctx),
+  };
+}
+
+/** The domain's available actions, plus what the decision dialog needs to guide the user. */
+export function gateActionsFor(
+  workflow: WorkflowConfig,
+  state: QuoteState,
+  ctx: QuoteViewContext,
+  warnings: readonly QualificationWarning[],
+): AvailableGateAction[] {
+  return availableActions(workflow, state, ctx.actor).map((a) => {
+    const referenced = a.requiredFields.flatMap(fieldsReferenced);
+    const missing = evaluateRules(
+      a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
+      state.fields,
+    ).map((e) => ({ field: e.field ?? '', message: e.message }));
+    return {
+      gateKey: a.gateKey,
+      gateLabel: a.gateLabel,
+      outcomeKey: a.outcomeKey,
+      outcomeLabel: a.outcomeLabel,
+      requiresNote: a.requiresNote,
+      requiresReasonCode: a.requiresReasonCode,
+      reasonCodes: a.reasonCodes.map((r) => ({
+        ...r,
+        requiresNote:
+          workflow.reasonCodes.find(
+            (c) =>
+              c.code === r.code &&
+              c.context ===
+                workflow.outcomes.find((o) => o.gateKey === a.gateKey && o.key === a.outcomeKey)
+                  ?.reasonContext,
+          )?.requiresNote ?? false,
+      })),
+      targetStageKeys: a.targetStageKeys,
+      nextStatus: a.nextStatus,
+      requiresReviewDate: referenced.includes('review_date'),
+      requiresExceptionNote:
+        warnings.length > 0 &&
+        ctx.qualification.exceptionNoteOutcomes.includes(`${a.gateKey}:${a.outcomeKey}`),
+      missing,
+    };
+  });
+}
+
+function decisionDto(
+  d: Awaited<ReturnType<typeof listGateDecisionsWithNames>>[number],
+): GateDecisionSummary {
+  return {
+    id: d.decision.id,
+    gateKey: d.decision.gateKey,
+    outcomeKey: d.decision.outcomeKey,
+    decidedBy: d.decision.decidedBy,
+    decidedByName: d.decidedByName ?? null,
+    decidedAt: d.decision.decidedAt.toISOString(),
+    note: d.decision.note,
+    reasonCode: d.decision.reasonCode,
+    quoteVersion: d.decision.quoteVersion,
+  };
+}
+
+/** The decision that sent a quote back to the KAM, while it waits for a resubmit. */
+export function reworkRequestFor(
+  workflow: WorkflowConfig,
+  q: QuoteSummaryRow['quote'],
+  decisions: readonly GateDecisionSummary[],
+  rawDecisions: Awaited<ReturnType<typeof listGateDecisionsWithNames>>,
+): ReworkRequest | null {
+  if (q.stageKey !== 'INTAKE' || q.submittedAt || q.status === 'closed') return null;
+  const idx = rawDecisions.findIndex((d) => d.decision.targetStageKey === 'INTAKE');
+  const d = decisions[idx];
+  if (!d) return null;
+  const context = workflow.outcomes.find(
+    (o) => o.gateKey === d.gateKey && o.key === d.outcomeKey,
+  )?.reasonContext;
+  const reason = workflow.reasonCodes.find((r) => r.code === d.reasonCode && r.context === context);
+  return {
+    gateKey: d.gateKey,
+    reasonCode: d.reasonCode,
+    reasonLabel: reason?.label ?? d.reasonCode,
+    note: d.note,
+    decidedAt: d.decidedAt,
+    decidedByName: d.decidedByName,
+  };
+}
+
+export class QuoteReadService {
+  constructor(private readonly scoring: ScoringService) {}
+
+  async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
+    const [model, qualification, kamCanSeePeerScores] = await Promise.all([
+      this.scoring.model(db, now),
+      this.scoring.qualificationSettings(db),
+      this.scoring.kamCanSeePeerScores(db),
+    ]);
+    return { actor, model, qualification, kamCanSeePeerScores };
+  }
+
+  /** The quote's detail DTO, or undefined when it does not exist or is out of the caller's scope (RLS). */
+  async detail(
+    db: DbOrTx,
+    workflow: WorkflowConfig,
+    ctx: QuoteViewContext,
+    quoteNumber: string,
+  ): Promise<QuoteDetail | undefined> {
+    const row = await getQuoteSummaryByNumber(db, quoteNumber);
+    if (!row) return undefined;
+    const q = row.quote;
+    const [state, raw] = await Promise.all([
+      loadQuoteState(db, q.id),
+      listGateDecisionsWithNames(db, q.id),
+    ]);
+    const summary = summaryDto(row, ctx);
+    const decisions = raw.map(decisionDto);
+    const structured = (q.structuredDescription ?? {}) as { standard?: string | null };
+    const shipTo = q.shipTo as QuoteDetail['shipTo'];
+    return {
+      ...summary,
+      description: q.description,
+      standardDescription: structured.standard ?? null,
+      components: q.components,
+      drawingStatus: q.drawingStatus,
+      neckFinish: q.neckFinish,
+      packagingType: q.packagingType,
+      packagingNotes: q.packagingNotes,
+      commentsForEngineering: q.commentsForEngineering,
+      shipTo: shipTo ?? null,
+      outcome: q.outcome,
+      outcomeReasonCode: q.outcomeReasonCode,
+      closedAt: iso(q.closedAt),
+      decisions,
+      availableActions: gateActionsFor(workflow, state!, ctx, summary.warnings),
+      rework: reworkRequestFor(workflow, q, decisions, raw),
+    };
+  }
+
+  /** Every quote view is audited (CLAUDE.md rule 3). */
+  async auditView(db: DbOrTx, actor: Actor, dto: QuoteDetail, at: Date, meta: AuditMeta) {
+    await insertAuditEvent(db, {
+      at,
+      actorId: actor.userId,
+      actorRoles: [...actor.roles],
+      action: 'view',
+      entity: 'quote',
+      entityId: dto.id,
+      quoteId: dto.id,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      requestId: meta.requestId ?? null,
+      createdBy: actor.userId,
+    });
+  }
+}

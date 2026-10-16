@@ -32,8 +32,11 @@ import { problemJsonPlugin } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
+import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
+import { QuoteReadService } from './services/quotes';
 import { SalesforceService } from './services/salesforce';
+import { ScoringService } from './services/scoring';
 
 export interface AppDeps {
   db: {
@@ -50,8 +53,10 @@ export interface AppDeps {
   directory?: UserDirectory;
   /** Test seam: Entra signing keys (defaults to the tenant JWKS). */
   entraKeySet?: JWTVerifyGetKey;
-  /** Test seam: the clock for provisioning cache and sign-in audit windows. */
+  /** Test seam: the clock for provisioning cache, sign-in audit windows, scoring and decisions. */
   now?: () => Date;
+  /** Test seam: where gate decisions' planned notifications go (B-18 delivers them). */
+  notify?: NotificationHook;
 }
 
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -184,11 +189,31 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       : null;
   app.decorate('sfSync', sfSync);
 
+  // B-08 advisory scoring, quote reads and the generic gate-decision service.
+  const scoring = new ScoringService();
+  const quoteReads = new QuoteReadService(scoring);
+  const gateLog = app.log.child({ component: 'gates' });
+  // TODO(B-18): deliver in-app + email notifications. Until then planned notifications are logged.
+  const notify: NotificationHook = (notifications, ctx) => {
+    if (notifications.length > 0) {
+      gateLog.info(
+        { ...ctx, notifications: notifications.map((n) => n.type) },
+        'notifications planned',
+      );
+    }
+  };
+  const gateService = new GateService({
+    scoring,
+    quotes: quoteReads,
+    notify: deps.notify ?? notify,
+    ...(deps.now ? { now: deps.now } : {}),
+  });
+
   // B-07 intake. A picked opportunity must be in the local snapshot (the quote's FK); a live read
-  // refreshes it. The scoring engine (B-08) plugs in here.
+  // refreshes it.
   const intakeService = new IntakeService({
     ...(deps.now ? { now: deps.now } : {}),
-    scoring: null,
+    scoring,
     ensureOpportunity: async (withTx, id) => (await sfService.detail(withTx, id)) !== null,
   });
 
@@ -202,6 +227,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     sfService,
     sfSync,
     intakeService,
+    gateService,
   });
 
   if (isProd) {

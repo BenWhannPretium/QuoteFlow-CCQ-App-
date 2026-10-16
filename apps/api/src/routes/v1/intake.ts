@@ -5,6 +5,7 @@ import {
   IntakeDraftListResponse,
   IntakeDraftParams,
   PatchIntakeDraftBody,
+  QuoteNumberParams,
   SubmitIntakeResponse,
 } from '@ccq/contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -87,7 +88,7 @@ export const intakeRoutes: FastifyPluginAsyncZod<{ service: IntakeService }> = a
         response: { 200: IntakeDraftListResponse },
       },
     },
-    async (req) => ({ items: await service.list(withTx(req), requireActor(req), req.query.mine) }),
+    async (req) => service.list(withTx(req), requireActor(req), req.query.mine),
   );
 
   app.get(
@@ -167,5 +168,24 @@ export const intakeRoutes: FastifyPluginAsyncZod<{ service: IntakeService }> = a
         );
         return reply.status(201).send(result);
       }),
+  );
+
+  app.post(
+    '/quotes/:quoteNumber/rework',
+    {
+      config: { permission: 'quote.create' },
+      schema: {
+        tags,
+        summary:
+          'Fix a quote returned for rework (G1/G2 Rework): opens or reopens its rework draft. Its KAM only; 409 if it is not waiting for rework',
+        security,
+        params: QuoteNumberParams,
+        response: { 200: IntakeDraft },
+      },
+    },
+    async (req, reply) =>
+      handle(req, reply, () =>
+        service.startRework(withTx(req), requireActor(req), req.params.quoteNumber, meta(req)),
+      ),
   );
 };

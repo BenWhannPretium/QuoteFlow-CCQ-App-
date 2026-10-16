@@ -55,7 +55,8 @@ export const PublicValueListEntry = z.object({
 });
 export type PublicValueListEntry = z.infer<typeof PublicValueListEntry>;
 
-export const PublicTier = z.object({ tier: z.string(), min: z.number() });
+/** `tier` is the tier key stored on quotes (e.g. `HIGH`); `label` is what to show. */
+export const PublicTier = z.object({ tier: z.string(), label: z.string(), min: z.number() });
 export type PublicTier = z.infer<typeof PublicTier>;
 
 export const PublicConfigResponse = z.object({
@@ -81,6 +82,7 @@ export const PUBLIC_SETTING_KEYS = [
   'min_volume_warning_by_process',
   'sla_hours_by_stage',
   'kam_can_see_peer_scores',
+  'qualification_exception_note_outcomes',
   // B-07 intake (all provisional; Danielle Leu and Jim Zweifel finalise the field set at M4)
   'intake_required_fields',
   'intake_volume_placeholder',

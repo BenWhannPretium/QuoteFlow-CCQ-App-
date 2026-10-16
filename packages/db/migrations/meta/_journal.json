@@ -50,6 +50,13 @@
       "when": 1792114236663,
       "tag": "0006_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792117282511,
+      "tag": "0007_scoring_rework",
+      "breakpoints": true
     }
   ]
 }

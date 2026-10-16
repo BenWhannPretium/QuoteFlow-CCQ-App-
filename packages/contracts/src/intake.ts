@@ -128,6 +128,17 @@ export const IntakeDraft = z.object({
   evaluation: IntakeEvaluation,
   /** Set when the draft's opportunity already has an active quote: offer "Open existing". */
   activeQuote: ActiveQuoteRef.nullable(),
+  /** Set when the draft reworks a quote returned at a gate (B-08): submit updates that quote. */
+  rework: z
+    .object({
+      quoteNumber: z.string(),
+      gateKey: z.string(),
+      reasonLabel: z.string().nullable(),
+      note: z.string().nullable(),
+      decidedAt: z.string(),
+      decidedByName: z.string().nullable(),
+    })
+    .nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -170,7 +181,25 @@ export const IntakeDraftSummary = z.object({
 });
 export type IntakeDraftSummary = z.infer<typeof IntakeDraftSummary>;
 
-export const IntakeDraftListResponse = z.object({ items: z.array(IntakeDraftSummary) });
+/** A quote returned to its KAM for rework and not resubmitted yet. */
+export const ReturnedQuoteSummary = z.object({
+  quoteNumber: z.string(),
+  opportunityName: z.string().nullable(),
+  customerName: z.string().nullable(),
+  gateKey: z.string(),
+  reasonLabel: z.string().nullable(),
+  note: z.string().nullable(),
+  returnedAt: z.string(),
+  /** The open rework draft, once the KAM has started fixing it. */
+  draftId: z.string().nullable(),
+});
+export type ReturnedQuoteSummary = z.infer<typeof ReturnedQuoteSummary>;
+
+export const IntakeDraftListResponse = z.object({
+  items: z.array(IntakeDraftSummary),
+  /** The caller's quotes back from a gate for rework (B-08). */
+  returned: z.array(ReturnedQuoteSummary).default([]),
+});
 export type IntakeDraftListResponse = z.infer<typeof IntakeDraftListResponse>;
 
 /** POST /api/v1/quotes/drafts/:id/submit */
@@ -181,8 +210,11 @@ export const SubmitIntakeResponse = z.object({
   status: z.string(),
   /** `G1`: waiting for the qualify decision. `ENG_REVIEW`: straight into the engineering queue. */
   routedTo: z.string(),
-  /** Advisory priority score (B-08); null until the scoring engine lands. */
+  /** Advisory priority score and tier (B-08); null when no scoring model is in effect. */
   priorityScore: z.number().nullable(),
+  priorityTier: z.string().nullable(),
+  /** True when the submit resubmitted a quote returned for rework. */
+  resubmitted: z.boolean(),
   warnings: z.array(IntakeIssue),
 });
 export type SubmitIntakeResponse = z.infer<typeof SubmitIntakeResponse>;
@@ -194,6 +226,8 @@ export const INTAKE_PROBLEM_CODES = {
   alreadySubmitted: 'draft_already_submitted',
   notFound: 'not_found',
   notOwner: 'not_draft_owner',
+  /** The quote is not back with its KAM for rework (or the caller is not its KAM). */
+  notReturned: 'quote_not_returned',
 } as const;
 
 // ── Draft → domain values ────────────────────────────────────────────────────────────────────────

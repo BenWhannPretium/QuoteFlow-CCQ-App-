@@ -6,6 +6,8 @@ import type { RoutePermission } from '../../src/plugins/auth';
  * `url` is the concrete URL to call (fill path params with sample ids); `route` is the Fastify pattern.
  */
 const SAMPLE_DRAFT_ID = '019a0000-0000-7000-8000-00000000d7a1';
+/** A well-formed quote number no seed uses, so allowed roles get 404 (not 403). */
+const SAMPLE_QUOTE = 'CCQ-2099-99999';
 
 export interface RegisteredRoute {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -71,5 +73,33 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/quotes/drafts/:id/submit',
     url: `/api/v1/quotes/drafts/${SAMPLE_DRAFT_ID}/submit`,
     permission: 'quote.create',
+  },
+  // B-08 quote reads, rework and the generic gate-decision route. The route floor is quote.read;
+  // the gate's decider permission is checked by the domain (see gates.int.test.ts for "only
+  // SalesLeader decides G1").
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/rework',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/rework`,
+    permission: 'quote.create',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}`,
+    permission: 'quote.read',
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/gates/:gateKey/decisions',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/gates/G1/decisions`,
+    permission: 'quote.read',
+    sampleBody: { outcomeKey: 'advance' },
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/gates/:gateKey/queue',
+    url: '/api/v1/gates/G1/queue',
+    permission: 'quote.read',
   },
 ];

@@ -93,7 +93,9 @@ describe('config seeds', () => {
       'product_fit',
       'timing',
     ]);
-    expect(new Set(model!.attributes.map((a) => a.weight)).size).toBe(1);
+    // Provisional PRD weights (D-19) that sum to 1; the row parses back into the domain model.
+    expect(model!.attributes.reduce((n, a) => n + a.weight, 0)).toBeCloseTo(1, 6);
+    expect(await getSetting(db, 'qualification_exception_note_outcomes')).toEqual(['G1:advance']);
     expect(await count('sf_stage_map')).toBe(8);
     const [lostOther] = await q<{ requires_note: boolean }>(
       sql`select requires_note from reason_code where context = 'lost' and code = 'other'`,
@@ -186,6 +188,22 @@ describe('synthetic data', () => {
     expect(new Set(rows.map((r) => r.stage_key))).toEqual(
       new Set(hybridConfig.stages.map((s) => s.key)),
     );
+  });
+
+  it('every quote carries an engine score; G1 rework quotes are back with the KAM', async () => {
+    const tiers = await q<{ priority_tier: string; n: number }>(
+      sql`select priority_tier, count(*)::int as n from quote
+          where priority_score is null or scoring_model_version is distinct from 1 group by 1`,
+    );
+    expect(tiers).toEqual([]);
+    const keys = await q<{ priority_tier: string }>(sql`select distinct priority_tier from quote`);
+    for (const k of keys)
+      expect(['CRITICAL', 'HIGH', 'STANDARD', 'LOW']).toContain(k.priority_tier);
+    // 3 INTAKE quotes were reworked at G1 and not resubmitted: submitted_at is cleared.
+    expect(
+      await count('quote', sql`stage_key = 'INTAKE' and submitted_at is null and version = 2`),
+    ).toBe(3);
+    expect(await count('quote', sql`submitted_at is null and stage_key <> 'INTAKE'`)).toBe(0);
   });
 
   it('history is consistent with each quote’s current state', async () => {
