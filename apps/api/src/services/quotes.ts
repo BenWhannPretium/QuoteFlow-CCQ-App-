@@ -33,6 +33,7 @@ import {
 } from '@ccq/domain';
 
 import { engineeringView, loadEngQueueSettings } from './engineering-view';
+import { loadReleaseSettings, type ReleaseSettings } from './final-review-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
 import type { ScoringService } from './scoring';
@@ -47,6 +48,8 @@ export interface QuoteViewContext {
   overrides: OverrideSettings;
   /** B-10 engineering queue settings (aging buckets, backup assigners). */
   engQueue: EngQueueSettings;
+  /** B-12 Final Review settings: validity days and the (disabled by default) approver tiers. */
+  release: ReleaseSettings;
 }
 
 /** Fields a decision supplies itself (the dialog asks for them), so they never count as "missing". */
@@ -145,7 +148,9 @@ export function gateActionsFor(
   ctx: QuoteViewContext,
   warnings: readonly QualificationWarning[],
 ): AvailableGateAction[] {
-  return availableActions(workflow, state, ctx.actor).map((a) => {
+  return availableActions(workflow, state, ctx.actor, {
+    approverTiers: ctx.release.approverTiers,
+  }).map((a) => {
     const referenced = a.requiredFields.flatMap(fieldsReferenced);
     const missing = evaluateRules(
       a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
@@ -176,11 +181,13 @@ export function gateActionsFor(
         warnings.length > 0 &&
         ctx.qualification.exceptionNoteOutcomes.includes(`${a.gateKey}:${a.outcomeKey}`),
       missing,
+      releasesProposal: a.releasesProposal,
+      validityDays: a.releasesProposal ? ctx.release.validityDays : null,
     };
   });
 }
 
-function decisionDto(
+export function decisionDto(
   d: Awaited<ReturnType<typeof listGateDecisionsWithNames>>[number],
 ): GateDecisionSummary {
   return {
@@ -225,14 +232,16 @@ export class QuoteReadService {
   constructor(private readonly scoring: ScoringService) {}
 
   async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
-    const [model, qualification, kamCanSeePeerScores, overrides, engQueue] = await Promise.all([
-      this.scoring.model(db, now),
-      this.scoring.qualificationSettings(db),
-      this.scoring.kamCanSeePeerScores(db),
-      loadOverrideSettings(db),
-      loadEngQueueSettings(db),
-    ]);
-    return { actor, model, qualification, kamCanSeePeerScores, overrides, engQueue };
+    const [model, qualification, kamCanSeePeerScores, overrides, engQueue, release] =
+      await Promise.all([
+        this.scoring.model(db, now),
+        this.scoring.qualificationSettings(db),
+        this.scoring.kamCanSeePeerScores(db),
+        loadOverrideSettings(db),
+        loadEngQueueSettings(db),
+        loadReleaseSettings(db),
+      ]);
+    return { actor, model, qualification, kamCanSeePeerScores, overrides, engQueue, release };
   }
 
   /** The quote's detail DTO, or undefined when it does not exist or is out of the caller's scope (RLS). */
@@ -267,6 +276,8 @@ export class QuoteReadService {
       outcome: q.outcome,
       outcomeReasonCode: q.outcomeReasonCode,
       closedAt: iso(q.closedAt),
+      proposalIssuedAt: iso(q.proposalIssuedAt),
+      validityUntil: q.validityUntil,
       decisions,
       availableActions: gateActionsFor(workflow, state!, ctx, summary.warnings),
       rework: reworkRequestFor(workflow, q, decisions, raw),

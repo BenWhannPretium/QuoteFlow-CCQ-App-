@@ -60,6 +60,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description: 'Default proposal validity in days. PTF says 30; D-12 open.',
   },
   {
+    key: 'g4_tier_rules',
+    value: null,
+    description:
+      'Final Review approver tiers (B-12, D-10). Null = disabled: any Approver may decide. When set: { outcomeKeys: ["approve"], tiers: [{ key, label, minCapitalUsd?, minAnnualRevenueUsd?, approverRoles[], approverUserIds[] }] }, lowest to highest tier; the highest tier a quote falls in decides who may approve it.',
+  },
+  {
     key: 'g1_enabled',
     value: true,
     description:

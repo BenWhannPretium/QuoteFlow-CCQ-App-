@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
 import { describeError } from '@/lib/errors';
+import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -86,6 +87,22 @@ export function describeEvent(
       return { title: 'Hold ended', kind: 'stage' };
     case 'version_bumped':
       return { title: `New version: v${String(p.from)} → v${String(p.to)}`, kind: 'system' };
+    case 'proposal_released':
+      return {
+        title: 'Proposition released: the proposal can go to the customer',
+        detail: (
+          <p>
+            {[
+              str(p.issuedAt) && `Issued ${absoluteTime(str(p.issuedAt)!)}`,
+              str(p.validityUntil) &&
+                `valid until ${str(p.validityUntil)}${typeof p.validityDays === 'number' ? ` (${p.validityDays} days)` : ''}`,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+          </p>
+        ),
+        kind: 'gate',
+      };
     case 'quote_closed':
       return {
         title: `Closed${str(p.closeAs) ? ` (${humanize(str(p.closeAs)!)})` : ''}`,

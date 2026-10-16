@@ -27,7 +27,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
     [
       ['Leadership'],
-      ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'analytics', 'audit'],
+      ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'analytics', 'audit'],
     ],
     [
       ['Admin'],
@@ -83,6 +83,49 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     expect(isNavItemActive(qualify, '/approvals', { gate: 'G1' })).toBe(true);
     expect(isNavItemActive(approvals, '/approvals', { gate: 'G1' })).toBe(false);
     expect(isNavItemActive(approvals, '/approvals', {})).toBe(true);
+  });
+
+  it('B-12: the Approvals tabs keep the right rail item active', () => {
+    const items = navItemsFor(meFor('SalesLeader', 'Approver'));
+    const qualify = items.find((i) => i.key === 'qualify')!;
+    const approvals = items.find((i) => i.key === 'approvals')!;
+    // Final Review and Overrides are Approvals; the To qualify tab is the qualify item.
+    for (const search of [{ tab: 'final-review' }, { tab: 'overrides' }, { gate: 'G4' }]) {
+      expect(isNavItemActive(approvals, '/approvals', search), JSON.stringify(search)).toBe(true);
+      expect(isNavItemActive(qualify, '/approvals', search), JSON.stringify(search)).toBe(false);
+    }
+    expect(isNavItemActive(qualify, '/approvals', { tab: 'to-qualify' })).toBe(true);
+    expect(isNavItemActive(approvals, '/approvals', { tab: 'to-qualify' })).toBe(false);
+  });
+
+  it('B-12: the review screen highlights Approvals, not Pipeline', () => {
+    const items = navItemsFor(meFor('Approver'));
+    const path = '/quotes/CCQ-2026-00007/review';
+    expect(
+      isNavItemActive(
+        items.find((i) => i.key === 'approvals')!,
+        path,
+      ),
+    ).toBe(true);
+    expect(
+      isNavItemActive(
+        items.find((i) => i.key === 'pipeline')!,
+        path,
+      ),
+    ).toBe(false);
+    expect(
+      isNavItemActive(
+        items.find((i) => i.key === 'pipeline')!,
+        '/quotes/CCQ-2026-00007',
+      ),
+    ).toBe(true);
+  });
+
+  it('B-12: Leadership gets Approvals to read the Final Review queue, with no decision permission', () => {
+    const me = meFor('Leadership');
+    expect(navItemsFor(me).some((i) => i.key === 'approvals')).toBe(true);
+    expect(me.permissions).toContain('finalReview.read');
+    expect(me.permissions).not.toContain('gate.G4.decide');
   });
 
   it('follows the permissions, not role names', () => {

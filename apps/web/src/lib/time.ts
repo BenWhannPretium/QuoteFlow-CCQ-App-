@@ -29,3 +29,10 @@ export function absoluteTime(iso: string, opts: { locale?: string; timeZone?: st
     ...(opts.timeZone ? { timeZone: opts.timeZone } : {}),
   }).format(new Date(iso));
 }
+
+/** `2026-10-30T15:00:00.000Z` (or now) → the `datetime-local` input value in the browser's zone. */
+export function toLocalInput(iso?: string | null): string {
+  const d = iso ? new Date(iso) : new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

@@ -224,4 +224,14 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'quoting.edit',
     sampleBody: { capitalReadiness: 'pending' },
   },
+  // B-12 Final Review. The queue is finalReview.read (Approver, Leadership, Admin); the summary is the
+  // quote.read floor (commercial parts are redacted per role: final-review.int.test.ts). G4 decisions
+  // are the generic gate route above, whose own decider checks are gates.int.test.ts / final-review.int.test.ts.
+  { method: 'GET', route: '/api/v1/approvals', permission: 'finalReview.read' },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/review-summary',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/review-summary`,
+    permission: 'quote.read',
+  },
 ];

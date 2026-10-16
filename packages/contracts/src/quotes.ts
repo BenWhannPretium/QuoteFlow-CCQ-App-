@@ -76,6 +76,10 @@ export const AvailableGateAction = z.object({
   requiresExceptionNote: z.boolean(),
   /** Quote fields this outcome needs that are still missing (the completeness summary). */
   missing: z.array(MissingField),
+  /** B-12: the outcome releases the proposition (Final Review → Customer Decision): it sets the proposal dates. */
+  releasesProposal: z.boolean(),
+  /** B-12: `validity_days_default`, so the dialog can show "valid until"; null unless `releasesProposal`. */
+  validityDays: z.number().int().nullable(),
 });
 export type AvailableGateAction = z.infer<typeof AvailableGateAction>;
 
@@ -145,6 +149,9 @@ export const QuoteDetail = QuoteSummary.extend({
   outcome: z.string().nullable(),
   outcomeReasonCode: z.string().nullable(),
   closedAt: z.string().nullable(),
+  /** B-12: set by the Final Review approval (the actual send date) and its validity date. */
+  proposalIssuedAt: z.string().nullable(),
+  validityUntil: z.string().nullable(),
   decisions: z.array(GateDecisionSummary),
   /** What the caller may decide now (rendered as the decision dialog's options). */
   availableActions: z.array(AvailableGateAction),
@@ -177,6 +184,11 @@ export const GateDecisionBody = z.object({
   holdUntil: z.iso.date().optional(),
   /** Only for outcomes with several target stages (returns / re-quotes). */
   targetStageKey: z.string().optional(),
+  /**
+   * Only for an outcome that releases the proposition (G4 Approve): the actual send date. Default now;
+   * never in the future. `validity_until` is set from it (B-12).
+   */
+  proposalIssuedAt: z.iso.datetime({ offset: true }).optional(),
 });
 export type GateDecisionBody = z.infer<typeof GateDecisionBody>;
 

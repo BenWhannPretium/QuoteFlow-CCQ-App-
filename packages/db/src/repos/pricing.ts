@@ -30,8 +30,11 @@ export function listPricingQueueRows(db: DbOrTx, stageKey: string) {
       opportunityName: sfOpportunitySnapshot.name,
       customerName: customer.name,
       customerStatus: customer.status,
+      accountId: customer.sfAccountId,
       kamName: appUser.displayName,
       processType: engReview.processType,
+      /** Commercial: the approver-tier hook (B-12) reads it; never put it in a DTO unredacted. */
+      prelimCapitalUsd: engReview.prelimCapitalUsd,
       assignedEngineerName: engineer.displayName,
       pricing: pricingRecord,
       enteredStageAt: sql<Date | null>`(
@@ -72,4 +75,20 @@ export async function listActiveUsersWithRoles(db: DbOrTx, roles: readonly strin
     .innerJoin(userRole, eq(userRole.userId, appUser.id))
     .where(and(eq(appUser.active, true), inArray(userRole.role, [...roles])))
     .orderBy(asc(appUser.displayName));
+}
+
+/**
+ * Who decided `gateKey` on each quote, with the quote version they decided it on (the Final Review
+ * queue's segregation check: whoever decided G3 on the current version cannot decide G4).
+ */
+export function listGateDecidersForQuotes(db: DbOrTx, quoteIds: string[], gateKey: string) {
+  if (quoteIds.length === 0) return Promise.resolve([]);
+  return db
+    .select({
+      quoteId: gateDecision.quoteId,
+      decidedBy: gateDecision.decidedBy,
+      quoteVersion: gateDecision.quoteVersion,
+    })
+    .from(gateDecision)
+    .where(and(inArray(gateDecision.quoteId, quoteIds), eq(gateDecision.gateKey, gateKey)));
 }

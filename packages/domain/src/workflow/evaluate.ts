@@ -1,6 +1,7 @@
 import { DomainError } from '../errors';
 import { evaluateRules, fieldsReferenced, getPath } from './rules';
 import type { FieldValues } from './rules';
+import { approverTierErrors, type ApproverTierRules } from '../final-review/tiers';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { UserId, QuoteId } from '../types/ids';
@@ -79,6 +80,12 @@ export interface TransitionEffects {
   gateDecisionRecord: GateDecisionRecord;
   activityEvents: PlannedActivityEvent[];
   notifications: PlannedNotification[];
+}
+
+/** Config that lives outside the workflow tables (app_setting) but changes who may decide. */
+export interface EvaluateOptions {
+  /** B-12 `g4_tier_rules`: null / omitted = disabled. */
+  approverTiers?: ApproverTierRules | null;
 }
 
 export type EvaluationResult =
@@ -225,7 +232,8 @@ function validateConstraints(
 /**
  * Decides whether `actor` may take `request` on `quote` at time `now`, and what must be persisted if so.
  * Returns every failure, not just the first. Checks, in order:
- *   1 stage  2 decider permission  3 segregation  4 required fields  5 note / reason code / target.
+ *   1 stage  2 decider permission  3 segregation (+ approver tier, B-12)  4 required fields
+ *   5 note / reason code / target.
  * Pure: the caller persists `effects` atomically and supplies the clock.
  */
 export function evaluateTransition(
@@ -234,6 +242,7 @@ export function evaluateTransition(
   actor: Actor,
   request: TransitionRequest,
   now: Date,
+  options: EvaluateOptions = {},
 ): EvaluationResult {
   const gate: GateDefinition | undefined = config.gates.find((g) => g.key === request.gateKey);
   if (!gate)
@@ -285,6 +294,17 @@ export function evaluateTransition(
   for (const rule of violatedSegregationRules(config, quote, actor, gate.key, outcome.key)) {
     errors.push(new DomainError('SEGREGATION', rule.message));
   }
+
+  // 3b. Approver tier (B-12, D-10): off unless `g4_tier_rules` is set
+  errors.push(
+    ...approverTierErrors(
+      options.approverTiers ?? null,
+      quote.fields,
+      actor,
+      gate.key,
+      outcome.key,
+    ),
+  );
 
   // 4 + 5. Required fields, note, reason code, target
   const values: FieldValues = { ...quote.fields, ...request.payload };

@@ -1,4 +1,5 @@
 import type { AvailableGateAction, GateDecisionBody, GateDecisionResponse } from '@ccq/contracts';
+import { validityUntil } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -15,9 +16,11 @@ import {
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
+import { toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
+import { finalReviewQueueKey, reviewSummaryKey } from './final-review/keys';
 import { QualificationWarnings, ScoreBreakdownTable } from './Priority';
 
 /** Plain words for the G3 (Quoting) rules' field paths (B-11); other gates show the rule's message. */
@@ -76,9 +79,19 @@ export function GateDecisionDialog({
   const [note, setNote] = useState('');
   const [holdUntil, setHoldUntil] = useState('');
   const [target, setTarget] = useState('');
+  /** B-12: the actual send date of the proposal (`datetime-local`); untouched = now, set by the server. */
+  const [issued, setIssued] = useState('');
+  const [openedAt] = useState(() => Date.now());
   const [submitted, setSubmitted] = useState(false);
   const [serverErrors, setServerErrors] = useState<ServerError[]>([]);
-  const ids = { reason: useId(), note: useId(), date: useId(), target: useId(), errors: useId() };
+  const ids = {
+    reason: useId(),
+    note: useId(),
+    date: useId(),
+    target: useId(),
+    issued: useId(),
+    errors: useId(),
+  };
 
   const action = actions.find((a) => a.outcomeKey === outcomeKey);
   const reason = action?.reasonCodes.find((r) => r.code === reasonCode);
@@ -88,6 +101,11 @@ export function GateDecisionDialog({
     !!action && (action.requiresNote || !!reason?.requiresNote || action.requiresExceptionNote);
   const needsDate = !!action?.requiresReviewDate;
   const needsTarget = !!action && action.targetStageKeys.length > 1;
+  // B-12: an outcome that releases the proposition asks for the actual send date and shows the validity.
+  const releases = !!action?.releasesProposal;
+  const issuedAt = issued ? new Date(issued) : null;
+  const issuedInFuture = !!issuedAt && issuedAt.getTime() > openedAt + 5 * 60_000;
+  const validityDays = action?.validityDays ?? null;
   // The forward outcome (e.g. Advance): its missing fields are the completeness summary until one is picked.
   const forward = actions.find(
     (a) =>
@@ -102,6 +120,9 @@ export function GateDecisionDialog({
     needsReason && !reason && 'Choose a reason.',
     needsDate && !holdUntil && 'Choose a review date.',
     needsTarget && !target && 'Choose where it goes back to.',
+    releases &&
+      issuedInFuture &&
+      'The proposal issue date can’t be in the future: enter the date it was actually sent.',
     needsNote &&
       note.trim() === '' &&
       (action?.requiresExceptionNote && !action.requiresNote
@@ -115,6 +136,7 @@ export function GateDecisionDialog({
     setNote('');
     setHoldUntil('');
     setTarget('');
+    setIssued('');
     setSubmitted(false);
     setServerErrors([]);
   };
@@ -127,6 +149,8 @@ export function GateDecisionDialog({
         queryClient.invalidateQueries({ queryKey: ['gate-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['eng-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['pricing-queue'] }),
+        queryClient.invalidateQueries({ queryKey: finalReviewQueueKey }),
+        queryClient.invalidateQueries({ queryKey: reviewSummaryKey(quoteNumber) }),
         queryClient.invalidateQueries({ queryKey: ['stage-times', quoteNumber] }),
       ]);
       toast.success({
@@ -173,7 +197,10 @@ export function GateDecisionDialog({
           <div className="grid gap-4">
             <QualificationWarnings warnings={quote.data.warnings} />
 
-            <details className="rounded-md border px-3 py-2" open>
+            <details
+              className="rounded-md border px-3 py-2"
+              open={quote.data.stageKey === 'INTAKE'}
+            >
               <summary className="cursor-pointer text-sm font-medium">
                 Priority {quote.data.priority.score ?? '–'}
                 {quote.data.priority.tierLabel ? ` · ${quote.data.priority.tierLabel}` : ''}{' '}
@@ -225,6 +252,7 @@ export function GateDecisionDialog({
                     ...(note.trim() ? { note: note.trim() } : {}),
                     ...(needsDate && holdUntil ? { holdUntil } : {}),
                     ...(needsTarget && target ? { targetStageKey: target } : {}),
+                    ...(releases && issuedAt ? { proposalIssuedAt: issuedAt.toISOString() } : {}),
                   });
                 }}
               >
@@ -247,15 +275,14 @@ export function GateDecisionDialog({
                           setOutcomeKey(a.outcomeKey);
                           setReasonCode('');
                           setTarget('');
+                          setIssued('');
                           setServerErrors([]);
                         }}
                         className="size-4 accent-[var(--primary)]"
                       />
                       <span className="text-sm">{a.outcomeLabel}</span>
                       {a.nextStatus === 'closed' && (
-                        <span className="text-muted-foreground ml-auto text-xs">
-                          Closes the quote
-                        </span>
+                        <span className="text-foreground-2 ml-auto text-xs">Closes the quote</span>
                       )}
                     </label>
                   ))}
@@ -314,6 +341,31 @@ export function GateDecisionDialog({
                         </option>
                       ))}
                     </NativeSelect>
+                  </div>
+                )}
+
+                {releases && (
+                  <div className="grid gap-1.5" data-testid="release-dates">
+                    <p className="text-muted-foreground text-sm">
+                      Approving is an internal decision: it releases the proposition to Customer
+                      Decision and tells the KAM to issue the proposal. It does not award the quote.
+                    </p>
+                    <label htmlFor={ids.issued} className="text-sm font-medium">
+                      Proposal issued (defaults to now)
+                    </label>
+                    <Input
+                      id={ids.issued}
+                      type="datetime-local"
+                      value={issued || toLocalInput()}
+                      onChange={(e) => setIssued(e.target.value)}
+                      aria-invalid={submitted && issuedInFuture}
+                    />
+                    {validityDays !== null && (
+                      <p className="text-muted-foreground text-xs" data-testid="validity-preview">
+                        Valid until {validityUntil(issuedAt ?? new Date(), validityDays)} (
+                        {validityDays} days from the issue date, provisional).
+                      </p>
+                    )}
                   </div>
                 )}
 

@@ -27,6 +27,7 @@ import { Route as QuotesIndexRouteImport } from './routes/quotes/index'
 import { Route as QuotesQuoteNumberRouteImport } from './routes/quotes/$quoteNumber'
 import { Route as AdminReportsErfLinkageRouteImport } from './routes/admin/reports/erf-linkage'
 import { Route as AdminReportsUsageRouteImport } from './routes/admin/reports/usage'
+import { Route as QuotesQuoteNumberReviewRouteImport } from './routes/quotes/$quoteNumber_.review'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -118,6 +119,11 @@ const AdminReportsUsageRoute = AdminReportsUsageRouteImport.update({
   path: '/reports/usage',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const QuotesQuoteNumberReviewRoute = QuotesQuoteNumberReviewRouteImport.update({
+  id: '/quotes/$quoteNumber_/review',
+  path: '/quotes/$quoteNumber/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/quotes/': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
   '/admin/reports/usage': typeof AdminReportsUsageRoute
+  '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/quotes': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
   '/admin/reports/usage': typeof AdminReportsUsageRoute
+  '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/quotes/': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
   '/admin/reports/usage': typeof AdminReportsUsageRoute
+  '/quotes/$quoteNumber_/review': typeof QuotesQuoteNumberReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/quotes/'
     | '/admin/reports/erf-linkage'
     | '/admin/reports/usage'
+    | '/quotes/$quoteNumber/review'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/quotes'
     | '/admin/reports/erf-linkage'
     | '/admin/reports/usage'
+    | '/quotes/$quoteNumber/review'
   id:
     | '__root__'
     | '/'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/quotes/'
     | '/admin/reports/erf-linkage'
     | '/admin/reports/usage'
+    | '/quotes/$quoteNumber_/review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -252,6 +264,7 @@ export interface RootRouteChildren {
   QueuePricingRoute: typeof QueuePricingRoute
   QuotesQuoteNumberRoute: typeof QuotesQuoteNumberRoute
   QuotesIndexRoute: typeof QuotesIndexRoute
+  QuotesQuoteNumberReviewRoute: typeof QuotesQuoteNumberReviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -382,6 +395,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsUsageRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/quotes/$quoteNumber_/review': {
+      id: '/quotes/$quoteNumber_/review'
+      path: '/quotes/$quoteNumber/review'
+      fullPath: '/quotes/$quoteNumber/review'
+      preLoaderRoute: typeof QuotesQuoteNumberReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -422,6 +442,7 @@ const rootRouteChildren: RootRouteChildren = {
   QueuePricingRoute: QueuePricingRoute,
   QuotesQuoteNumberRoute: QuotesQuoteNumberRoute,
   QuotesIndexRoute: QuotesIndexRoute,
+  QuotesQuoteNumberReviewRoute: QuotesQuoteNumberReviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

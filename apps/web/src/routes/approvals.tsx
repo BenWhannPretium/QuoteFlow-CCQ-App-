@@ -1,7 +1,8 @@
 import type { QuoteSummary } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { ConstructionIcon, InboxIcon } from 'lucide-react';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { InboxIcon } from 'lucide-react';
+import { Tabs } from 'radix-ui';
 import { useState } from 'react';
 
 import { ForbiddenPage, useCan } from '@/auth';
@@ -15,90 +16,173 @@ import {
   QualificationWarnings,
   SkeletonRows,
 } from '@/components';
+import { FinalReviewQueue } from '@/components/final-review/FinalReviewQueue';
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
+const TABS = ['final-review', 'to-qualify', 'overrides'] as const;
+type ApprovalsTab = (typeof TABS)[number];
+
 interface ApprovalsSearch {
-  /** A gate key: `?gate=G1` is the "To qualify" queue (B-08). Without it: Final Review approvals (B-12). */
+  /** The open tab (B-12). Without it: the first tab the caller can use. */
+  tab?: ApprovalsTab;
+  /**
+   * A gate key. `?gate=G1` is the "To qualify" tab and `?gate=G4` the "Final Review" tab (the links
+   * B-08 and the nav use); any other gate shows its generic queue (B-08).
+   */
   gate?: string;
 }
 
 export const Route = createFileRoute('/approvals')({
-  validateSearch: (search: Record<string, unknown>): ApprovalsSearch =>
-    typeof search.gate === 'string' && search.gate.trim() ? { gate: search.gate.trim() } : {},
+  validateSearch: (search: Record<string, unknown>): ApprovalsSearch => ({
+    ...(TABS.includes(search.tab as ApprovalsTab) ? { tab: search.tab as ApprovalsTab } : {}),
+    ...(typeof search.gate === 'string' && search.gate.trim() ? { gate: search.gate.trim() } : {}),
+  }),
   component: ApprovalsPage,
 });
 
 function ApprovalsPage() {
-  const { gate } = Route.useSearch();
-  if (gate) return <GateQueuePage gateKey={gate} />;
-  return <ApprovalsHome />;
+  const { gate, tab } = Route.useSearch();
+  if (gate && gate !== 'G1' && gate !== 'G4') return <GateQueuePage gateKey={gate} />;
+  return (
+    <ApprovalsHome
+      tab={tab ?? (gate === 'G1' ? 'to-qualify' : gate === 'G4' ? 'final-review' : undefined)}
+    />
+  );
 }
 
+const TAB_INFO: Record<ApprovalsTab, { label: string; title: string; description: string }> = {
+  'final-review': {
+    label: 'Final Review',
+    title: 'Final Review',
+    description:
+      'Quotes Pricing has submitted, highest tier first. Approving releases the proposition to Customer Decision; declining closes it as Declined. Only the customer’s answer awards or loses a quote.',
+  },
+  'to-qualify': {
+    label: 'To qualify',
+    title: 'To qualify',
+    description:
+      'Submitted intakes, highest priority first. The score is advisory: it orders the list; you decide.',
+  },
+  overrides: {
+    label: 'Overrides',
+    title: 'Override requests',
+    description: 'Requests to change a priority tier that you may approve or reject.',
+  },
+};
+
 /**
- * Approvals: override requests for approvers (B-09) and the Final Review queue (B-12). Each section
- * shows only for the permission it needs; the API checks every call again.
+ * Approvals (B-09, B-12): the Final Review queue (G4) for approvers, the "To qualify" queue (G1) for
+ * the qualifying role and the override requests an approver decides. Each tab shows only for the
+ * permission it needs; the API checks every call again.
  */
-function ApprovalsHome() {
-  useDocumentTitle('Approvals');
+function ApprovalsHome({ tab }: { tab: ApprovalsTab | undefined }) {
+  const { data: config } = usePublicConfig();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const canReadFinal = useCan('finalReview.read');
+  const canDecideFinal = useCan('gate.G4.decide');
+  const canDecideG1 = useCan('gate.G1.decide');
   const canOverride = useCan('override.approve');
-  const canFinal = useCan('gate.G4.decide');
-  if (!canOverride && !canFinal) return <ForbiddenPage />;
+  const canFinal = canReadFinal || canDecideFinal;
+  const canQualify = canDecideG1 && (config?.gates.find((g) => g.key === 'G1')?.enabled ?? true);
+  const visible = TABS.filter((t) =>
+    t === 'final-review' ? canFinal : t === 'to-qualify' ? canQualify : canOverride,
+  );
+  // Default to the work an approver is here for: Final Review, then overrides, then qualifying.
+  const fallback = (['final-review', 'overrides', 'to-qualify'] as const).find((t) =>
+    visible.includes(t),
+  );
+  const active = tab && visible.includes(tab) ? tab : fallback;
+  const info = active ? TAB_INFO[active] : undefined;
+  useDocumentTitle(info?.title ?? 'Approvals');
+  if (!active || !info) return <ForbiddenPage />;
+
   return (
-    <div className="grid gap-8" data-testid="page" data-page-title="Approvals">
+    <div className="grid gap-6" data-testid="page" data-page-title="Approvals">
       <PageHeader
         className="mb-0"
-        title="Approvals"
-        eyebrow="Decisions waiting on you"
-        description="Override requests and, for Final Review approvers, submitted quotes."
+        title={info.title}
+        eyebrow="Approvals"
+        description={info.description}
       />
-      {canOverride && <OverrideInbox />}
-      {canFinal && (
-        <section className="grid gap-3" aria-labelledby="final-review-heading">
-          <h2 id="final-review-heading" className="text-base font-semibold">
-            Final review
-          </h2>
-          <EmptyState
-            icon={ConstructionIcon}
-            title="Coming soon"
-            description="Submitted quotes waiting for a Final Review decision arrive in B-12."
-          />
-        </section>
-      )}
+      <Tabs.Root
+        value={active}
+        onValueChange={(next) =>
+          void navigate({ search: { tab: next as ApprovalsTab }, replace: true })
+        }
+        className="grid gap-6"
+      >
+        <Tabs.List aria-label="Approvals" className="flex gap-1 overflow-x-auto border-b">
+          {visible.map((t) => (
+            <Tabs.Trigger
+              key={t}
+              value={t}
+              data-testid={`approvals-tab-${t}`}
+              className="text-foreground-2 data-[state=active]:border-primary data-[state=active]:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-4 text-sm font-medium"
+            >
+              {TAB_INFO[t].label}
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+        <Tabs.Content value="final-review">
+          <FinalReviewQueue />
+        </Tabs.Content>
+        <Tabs.Content value="to-qualify">
+          <GateQueue gateKey="G1" />
+        </Tabs.Content>
+        <Tabs.Content value="overrides">
+          <OverrideInbox />
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   );
 }
 
 export const gateQueueQueryKey = (gateKey: string) => ['gate-queue', gateKey] as const;
 
-/** Queue titles; any other gate uses its configured label. */
-const QUEUE_TITLES: Record<string, { title: string; eyebrow: string; description: string }> = {
-  G1: {
-    title: 'To qualify',
-    eyebrow: 'G1 · Qualify & prioritize',
-    description:
-      'Submitted intakes, highest priority first. The score is advisory: it orders the list; you decide.',
-  },
-};
-
+/** The standalone queue for any gate other than G1 / G4 (B-08's generic `?gate=` page). */
 function GateQueuePage({ gateKey }: { gateKey: string }) {
-  const queue = useQuery({
-    queryKey: gateQueueQueryKey(gateKey),
-    queryFn: () => api.gateQueue(gateKey),
-  });
-  const [deciding, setDeciding] = useState<string | null>(null);
-  const titles = QUEUE_TITLES[gateKey] ?? {
-    title: queue.data?.gate.label ?? gateKey,
-    eyebrow: gateKey,
-    description: 'Quotes waiting for this gate, highest priority first.',
-  };
-  useDocumentTitle(titles.title);
-
+  const queue = useGateQueue(gateKey);
+  const title = queue.data?.gate.label ?? gateKey;
+  useDocumentTitle(title);
   return (
     <div data-testid="gate-queue" data-gate={gateKey}>
-      <PageHeader title={titles.title} eyebrow={titles.eyebrow} description={titles.description} />
+      <PageHeader
+        title={title}
+        eyebrow={gateKey}
+        description="Quotes waiting for this gate, highest priority first."
+      />
+      <GateQueueBody gateKey={gateKey} queue={queue} />
+    </div>
+  );
+}
+
+function useGateQueue(gateKey: string) {
+  return useQuery({ queryKey: gateQueueQueryKey(gateKey), queryFn: () => api.gateQueue(gateKey) });
+}
+
+/** The "To qualify" (G1) tab body. */
+function GateQueue({ gateKey }: { gateKey: string }) {
+  const queue = useGateQueue(gateKey);
+  return (
+    <div data-testid="gate-queue" data-gate={gateKey}>
+      <GateQueueBody gateKey={gateKey} queue={queue} />
+    </div>
+  );
+}
+
+function GateQueueBody({
+  gateKey,
+  queue,
+}: {
+  gateKey: string;
+  queue: ReturnType<typeof useGateQueue>;
+}) {
+  const [deciding, setDeciding] = useState<string | null>(null);
+  return (
+    <>
       {queue.isPending && <SkeletonRows rows={4} />}
       {queue.error && <ErrorState error={queue.error} onRetry={() => void queue.refetch()} />}
       {queue.data && !queue.data.gate.enabled && (
@@ -116,7 +200,7 @@ function GateQueuePage({ gateKey }: { gateKey: string }) {
         />
       )}
       {queue.data?.gate.enabled && queue.data.items.length > 0 && (
-        <ol className="grid gap-3" aria-label={titles.title}>
+        <ol className="grid gap-3" aria-label={queue.data.gate.label}>
           {queue.data.items.map((q, i) => (
             <QueueCard
               key={q.id}
@@ -138,7 +222,7 @@ function GateQueuePage({ gateKey }: { gateKey: string }) {
           quoteNumber={deciding}
         />
       )}
-    </div>
+    </>
   );
 }
 

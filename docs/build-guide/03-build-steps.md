@@ -357,12 +357,25 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** the internal "do we stand behind this offer" decision. It has to stay **separate** from the customer outcome (fixes X-88).
 - **People:** the Final Review approver(s) from the **D-pack (needed by Oct 28)**. Without a decision, seed a provisional `SG-CCQ-Approver` membership confirmed by Darren.
 - **Done when:**
-  - [ ] Approvals queue
-  - [ ] Approve → CUSTOMER_DECISION, setting proposal issued date and validity date
-  - [ ] Decline needs a note + reason code and closes as DECLINED, or Return sends it to the affected stage
-  - [ ] the approver can't be the quote's KAM (segregation check)
+  - [x] Approvals queue (`/approvals`: Final Review, To qualify, Overrides tabs; mobile cards)
+  - [x] Approve → CUSTOMER_DECISION, setting proposal issued date and validity date
+  - [x] Decline needs a note + reason code and closes as DECLINED, or Return sends it to the affected stage
+  - [x] the approver can't be the quote's KAM, nor the Pricing approver on the quote (segregation check, domain-tested)
+  - [x] Approve and decline never set Awarded/Lost; the customer outcome stays separate (G5, B-13)
+  - [x] mobile approval works (Playwright at 390 × 844: approve one quote, decline another)
+  - [ ] **D-10: who is confirmed as Approver: NOT YET DECIDED.** No names are recorded here or in code. Approver = whoever IT puts in `SG-CCQ-Approver` (Entra group → `CCQ.Approver` app role). Candidates named in the prompt: Sarah Brennan, Darren Miller, Paul Slomkowski, a sales leader within delegation, or a delegate. Record the confirmed members here once Darren / the D-pack (Oct 28) decides.
 - **Prompt:** `prompts/B-12-final-review.md`
-
+- **Built 2026-10-16, ahead of the D-10 decision. Notes and deviations:**
+  - **Already seeded before B-12 (B-08/B-11), kept:** the G4 outcomes (approve, decline with note + `decline` reason, return with note + target QUOTING | ENG_REVIEW + version bump) and both segregation rules (`actor_is_kam`, `actor_is_price_approver`). B-12 adds the dates, notifications, tier hook, queue, review summary and UI.
+  - **Domain** (`packages/domain/src/final-review/`): `planProposalRelease` (issued = now or the actual send date, never in the future; `validity_until` = issued + `validity_days_default`, counted on the US Central calendar), `releasesProposal` (decided by the transition: G4 → active → CUSTOMER_DECISION, not by outcome name), approver-tier hook (`tiers.ts`), `finalReviewAvailability` (can decide / why not), queue order + filters, review warnings. `evaluateTransition` and `availableActions` take an optional `{ approverTiers }`. New error codes `TIER_APPROVER_REQUIRED`, `INVALID_PROPOSAL_DATE`.
+  - **Tier hook, disabled:** `app_setting.g4_tier_rules` = `null`. When set (shape in `tiers.ts`; tiers by capital or revenue → approver roles / user ids) Approve needs the highest matching tier's group; Decline and Return stay open (`outcomeKeys`, default `["approve"]`). Tested with a sample rule enabled in the test only. A malformed setting **fails closed** (G4 refused with INVALID_CONFIG), as does a malformed `validity_days_default`.
+  - **Gate service:** `GateDecisionBody.proposalIssuedAt` (only for the releasing outcome). On Approve it writes `quote.proposal_issued_at` / `validity_until`, a `proposal_released` timeline event and `evidence.release`. Every decision's evidence now carries `decidedByRoles` ("records the deciding role"); G4 also keeps the warnings the approver saw. `QuoteDetail` gained `proposalIssuedAt` / `validityUntil`; `AvailableGateAction` gained `releasesProposal` / `validityDays`.
+  - **Notifications (in-app; email is B-18):** Approve → KAM "Approved; issue the proposal." (with the validity date); Decline → KAM + the Pricing role (reason label only, the note stays on the decision); Return → the existing arrival alerts of the stage it returns to, now worded "returned from Final Review".
+  - **New permission `finalReview.read`** (Approver, Leadership, Admin; migration 0011 CHECK constraints). Leadership and Admin read the queue; only the Approver holds `gate.G4.decide`. Leadership's nav gains Approvals.
+  - **API:** `GET /approvals?gate=G4` (filters `tier`, `g2`, `capital`, `kam`, `q`; per row `canDecide` + `blockedBy`), `GET /quotes/:qn/review-summary` (quote.read floor, commercial parts redacted per role, audited as a view). Decisions: the generic gate route. Both routes are in the permission-matrix registry.
+  - **UI:** `/approvals` is now tabs (`?tab=final-review|to-qualify|overrides`; `?gate=G1` still opens To qualify). Final Review = cards (works on a phone), `/quotes/:qn/review` = the one-page snapshot with a **sticky decision bar** above the mobile tab bar. The decision dialog gained the "Proposal issued" field with a "valid until" preview; the score table in it is collapsed outside intake. Two a11y fixes found by axe (link name vs label, a low-contrast label).
+  - **Attachments:** listed from the `attachment` table; uploads arrive with B-16, so the list is empty for now.
+  - **Tests:** domain `final-review.test.ts` (48); API `final-review.int.test.ts` (30: queue, summary + redaction, approve / decline / return, config-driven validity, segregation 403s, tier hook on/off/malformed, never Awarded/Lost); Playwright `final-review.spec.ts` (390 px: approve one quote, decline another, axe, tap targets, sticky bar in view).
 ### B-13: Customer decision, outcome closure, validity, minimal hand-off (CR-37/39/41) · **Mon Nov 2** · Ben
 - **Why:** 71% of FY26 outcomes are unrecorded today. Making outcome and reason mandatory is how win rate becomes measurable.
 - **People:** the D-15 taxonomy (Sarah/Darren via Bailey); R3 for the hand-off fields (Amanda Cronkhite optional).

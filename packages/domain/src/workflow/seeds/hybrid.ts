@@ -277,7 +277,9 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         reasonContext: 'stop',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
       }),
-      // G4
+      // G4 (B-12): the INTERNAL release decision, decider Approver (gate.G4.decide). Approve sets the
+      // proposal issue and validity dates (the gate service, from `validity_days_default`); Decline
+      // needs a note AND a decline reason (the 10/14 demo rule) and tells the KAM and Pricing.
       outcome('G4', 'approve', 'Approve', {
         notify: [{ type: 'quote.approved_for_customer', to: { relation: 'kam' } }],
       }),
@@ -285,7 +287,10 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'decline',
-        notify: [{ type: 'quote.declined', to: { relation: 'kam' } }],
+        notify: [
+          { type: 'quote.declined', to: { relation: 'kam' } },
+          { type: 'quote.declined', to: { role: 'Pricing' } },
+        ],
       }),
       outcome('G4', 'return', 'Return', {
         requiresNote: true,

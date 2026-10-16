@@ -125,6 +125,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 | pricingQueue.read (B-11: the pricing queue page) | | | | | ✔ | | ✔ | ✔ |
 | quoting.edit | | | | | ✔ | | | |
 | gate.G3.submit | | | | | ✔ | | | |
+| finalReview.read (B-12: the Final Review queue, Approvals tab) | | | | | | ✔ | ✔ | ✔ |
 | gate.G4.decide | | | | | | ✔ | | |
 | outcome.record | ✔ (own) | ✔ | | | | | | |
 | override.request | ✔ | ✔ | ✔ | | ✔ | | | |
@@ -152,7 +153,7 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
 | 1 | `INTAKE` | Intake | KAM | **G1 Qualify & prioritize** (decider: SalesLeader; config flag `g1_enabled`, default **true**) | Advance · Hold · Rework (to KAM) · Redirect (stock / inquiry / other capital) · Stop | Draft → Submitted. The priority score is computed at submit (advisory). Min value/volume screens raise **warnings**, not blocks, until D-06 is decided. |
 | 2 | `ENG_REVIEW` | Engineering Review | EngLead | **G2 Feasible solution?** | Proceed · Proceed with risk · Capital required · Hold · Rework (to KAM) · Stop | Manual prioritized queue (DEC-26). The EngLead is alerted on arrival, assigns, accepts or returns. Captures process, machine, plant/site, cavitation, cycle time, preliminary capital, **capacity evidence** (CR-19). B-10 rules: Proceed / Proceed with risk need the solution fields + ≥ 1 capacity row (risk: + note); Capital required needs the capital figure and sets capital readiness to pending; Hold: reason + review date; Rework: reason + note; Stop: reason + note, closes as **DECLINED**. |
 | 3 | `QUOTING` | Quoting | Pricing | **G3 Price approved & capital ready** (submit to Final Review) | Submit · Hold · Rework (to Eng) · Stop | Records price approval (approver, date, basis, range note, pricing-app refs, costing attestation) and capital-readiness status, one record per quote version. No editable price figures. B-11 rules: Submit needs approver + date, an ERF/BPR reference or a "no pricing-app record yet" note, and capital readiness ≠ pending unless a pending-capital justification is given (a warning, D-11); notifies the Approver group. Hold: reason + review date; Rework: reason, bumps the version; Stop: reason + note, closes as **DECLINED**. Segregation: whoever approved the price or decided G3 on the version cannot decide G4. |
-| 4 | `FINAL_REVIEW` | Final Review | Approver | **G4 Release proposition** | Approve · Decline (note required) · Return (to affected stage) | **Internal** approval only. It does *not* set Awarded or Lost (fixes PRD F-16, X-88). |
+| 4 | `FINAL_REVIEW` | Final Review | Approver | **G4 Release proposition** | Approve · Decline (note required) · Return (to affected stage) | **Internal** approval only. It does *not* set Awarded or Lost (fixes PRD F-16, X-88). B-12 rules: Approve sets `proposal_issued_at` (default now, editable, not future) and `validity_until` (+ `validity_days_default`) and tells the KAM; Decline needs note + `decline` reason, closes as **DECLINED**, tells KAM + Pricing; Return needs a note + target, bumps the version. Segregation: not the KAM, not the Pricing approver. Optional approver tiers: `g4_tier_rules` (disabled). |
 | 5 | `CUSTOMER_DECISION` | Customer Decision | KAM | **G5 Outcome recorded** | Awarded · Lost · No response/Expired · On hold · Re-quote | Proposal issue date and validity date (seed 30 days, provisional, D-12). |
 | T | `AWARDED` | Awarded | — | (minimal hand-off record) | — | Captures acceptance evidence, CER ID, BPR ID and receiving role (CR-41/42, minimal). |
 | T | `CLOSED_LOST` · `DECLINED` · `EXPIRED` · `REDIRECTED` | Closed | — | — | — | Reason code + closure owner + date are mandatory (CR-39). |
@@ -220,7 +221,7 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `stage_definition`, `gate_definition`, `gate_outcome_definition`, `transition_rule`
 - `reason_code`: context (rework | redirect | stop | decline | lost | expired | hold | requote | override), code, label, active
 - `scoring_model`: version, attributes jsonb (key, label, weight, scale, mapping), tier_thresholds jsonb, effective_from, approved_by, change_reason
-- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome, pricing_ref_formats (B-11, ERF/BPR format checks).
+- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome, pricing_ref_formats (B-11, ERF/BPR format checks), g4_tier_rules (B-12, null = disabled).
 - `sf_stage_map`: sf_stage, ccq_stage_hint
 
 **Core workflow**

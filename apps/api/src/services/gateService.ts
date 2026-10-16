@@ -10,6 +10,7 @@ import {
   getPricingRecord,
   getQuoteSummaryByNumber,
   getSetting,
+  insertActivityEvent,
   listGateQueue,
   loadQuoteState,
   loadWorkflowConfigInput,
@@ -18,15 +19,21 @@ import {
   upsertPricingRecord,
 } from '@ccq/db/repos';
 import {
+  DomainError as DomainErrorClass,
   ENG_QUEUE_STAGE_KEY,
   PRICING_QUEUE_STAGE_KEY,
+  RELEASE_GATE_KEY,
   can,
   evaluateTransition,
   exceptionNoteErrors,
   parseWorkflowConfig,
+  planProposalRelease,
   quotingWarnings,
+  releasesProposal,
+  reviewWarnings,
   type Actor,
   type DomainError,
+  type ProposalReleasePlan,
   type PlannedNotification,
   type PricingRecordValues,
   type QuoteState,
@@ -36,6 +43,7 @@ import {
 } from '@ccq/domain';
 
 import { onEngQueueArrival } from './engineering-arrival';
+import { onFinalReviewDecided } from './final-review';
 import type { AuditMeta } from './intake';
 import {
   onFinalReviewArrival,
@@ -78,7 +86,7 @@ export interface GateServiceOptions {
 }
 
 /** Codes that mean "you may not", reported as 403 rather than 422. */
-const FORBIDDEN_CODES = new Set(['NOT_PERMITTED', 'SEGREGATION']);
+const FORBIDDEN_CODES = new Set(['NOT_PERMITTED', 'SEGREGATION', 'TIER_APPROVER_REQUIRED']);
 
 const problemErrors = (errors: readonly DomainError[]) =>
   errors.map((e) => ({
@@ -139,10 +147,54 @@ export class GateService {
         ...(body.targetStageKey !== undefined ? { targetStageKey: body.targetStageKey } : {}),
         ...(body.holdUntil !== undefined ? { payload: { review_date: body.holdUntil } } : {}),
       };
-      const result = evaluateTransition(workflow, state, actor, request, now);
+
+      // B-12: Approve releases the proposition: it sets proposal_issued_at (default now, editable to
+      // the actual send date) and validity_until (issued + validity_days_default, config, D-12).
+      const extraErrors: DomainError[] = [];
+      let proposal: Extract<ProposalReleasePlan, { ok: true }> | null = null;
+      if (releasesProposal(workflow, gateKey, body.outcomeKey)) {
+        if (ctx.release.validityDays === null) {
+          extraErrors.push(
+            new DomainErrorClass('INVALID_CONFIG', ctx.release.validityError ?? 'Invalid validity'),
+          );
+        } else {
+          const plan = planProposalRelease({
+            now,
+            issuedAt: body.proposalIssuedAt ? new Date(body.proposalIssuedAt) : null,
+            validityDays: ctx.release.validityDays,
+          });
+          if (plan.ok) proposal = plan;
+          else extraErrors.push(...plan.errors);
+        }
+      } else if (body.proposalIssuedAt !== undefined) {
+        extraErrors.push(
+          new DomainErrorClass(
+            'INVALID_PROPOSAL_DATE',
+            'A proposal date applies only to the decision that releases the proposition',
+            'proposalIssuedAt',
+          ),
+        );
+      }
+      // A malformed approver-tier setting must not silently switch the control off: refuse G4.
+      if (gateKey === RELEASE_GATE_KEY && ctx.release.tiersError) {
+        extraErrors.push(new DomainErrorClass('INVALID_CONFIG', ctx.release.tiersError));
+      }
+      if (proposal) {
+        request.payload = {
+          ...request.payload,
+          proposal_issued_at: proposal.proposalIssuedAt.toISOString(),
+          validity_until: proposal.validityUntil,
+          validity_days: proposal.validityDays,
+        };
+      }
+
+      const result = evaluateTransition(workflow, state, actor, request, now, {
+        approverTiers: ctx.release.approverTiers,
+      });
       const errors = [
         ...(result.ok ? [] : result.errors),
         ...exceptionNoteErrors(ctx.qualification, before.warnings, request),
+        ...extraErrors,
       ];
       if (errors.length > 0) {
         if (errors.some((e) => FORBIDDEN_CODES.has(e.code))) {
@@ -177,6 +229,21 @@ export class GateService {
               }
             : null,
           warnings: before.warnings,
+          // Who decided, in which role (the audit row keeps the roles too; this keeps them with the decision).
+          decidedByRoles: [...actor.roles],
+          // B-12: what an approval set, and what the approver was told to weigh.
+          ...(proposal
+            ? {
+                release: {
+                  proposalIssuedAt: proposal.proposalIssuedAt.toISOString(),
+                  validityUntil: proposal.validityUntil,
+                  validityDays: proposal.validityDays,
+                },
+              }
+            : {}),
+          ...(gateKey === RELEASE_GATE_KEY
+            ? { review: { warnings: finalReviewWarnings(state, before.warnings) } }
+            : {}),
           // B-10: G2 keeps the engineering solution and capacity rows exactly as the decider saw them.
           ...(gate.stageKey === ENG_QUEUE_STAGE_KEY
             ? { engineering: engineeringEvidence(state) }
@@ -210,9 +277,38 @@ export class GateService {
       if (body.holdUntil && effects.nextStatus === 'on_hold') {
         await updateQuote(tx, row.quote.id, { reviewDate: body.holdUntil });
       }
+      if (proposal) {
+        await updateQuote(tx, row.quote.id, {
+          proposalIssuedAt: proposal.proposalIssuedAt,
+          validityUntil: proposal.validityUntil,
+        });
+        await insertActivityEvent(tx, {
+          quoteId: row.quote.id,
+          type: 'proposal_released',
+          actorId: actor.userId,
+          at: now,
+          payload: {
+            issuedAt: proposal.proposalIssuedAt.toISOString(),
+            validityUntil: proposal.validityUntil,
+            validityDays: proposal.validityDays,
+          },
+          createdBy: actor.userId,
+        });
+      }
+      // B-12: in-app notices for the Final Review decisions (email is B-18). A Return is announced
+      // by the arrival alert of the stage it goes back to.
+      if (gateKey === RELEASE_GATE_KEY) {
+        await onFinalReviewDecided(tx, {
+          quote: { id: row.quote.id, quoteNumber },
+          actorId: actor.userId,
+          effects,
+          workflow,
+          proposal,
+        });
+      }
       // B-10: the EngLead's arrival alert (in-app; email is B-18) whenever a quote enters the queue.
       if (effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
-        await onEngQueueArrival(tx, row.quote, actor.userId);
+        await onEngQueueArrival(tx, row.quote, actor.userId, undefined, returnedFrom(gateKey));
       }
       // B-11: entering Quoting starts this version's pricing record (references carried forward) and
       // tells Pricing; G3 Submit tells the Approver group (in-app; email is B-18).
@@ -222,6 +318,8 @@ export class GateService {
           tx,
           { id: row.quote.id, quoteNumber, version: effects.nextVersion },
           actor.userId,
+          undefined,
+          returnedFrom(gateKey),
         );
       }
       if (entered === 'FINAL_REVIEW' && gateKey === 'G3') {
@@ -294,6 +392,28 @@ export class GateService {
       return dto;
     });
   }
+}
+
+/** A G4 decision that re-enters Engineering or Quoting is a Return: the arrival alert says so. */
+const returnedFrom = (gateKey: string): 'final_review' | undefined =>
+  gateKey === RELEASE_GATE_KEY ? 'final_review' : undefined;
+
+/** What the approver was told to weigh, as it stood at the G4 decision. */
+function finalReviewWarnings(
+  state: QuoteState,
+  qualification: readonly { code: string; message: string }[],
+) {
+  const pricing = pricingEvidence(state);
+  const capacity = state.fields.capacity_evidence;
+  return reviewWarnings({
+    qualification,
+    quoting: quotingWarnings(pricing),
+    g2Outcome: (state.fields.g2_outcome as string | null | undefined) ?? null,
+    g2Note: null,
+    priceApproved: !!pricing?.priceApprovedBy && !!pricing.priceApprovedAt,
+    capacityEvidenceRows: Array.isArray(capacity) ? capacity.length : 0,
+    requirement: null,
+  });
 }
 
 /** The current version's pricing record as the G3 rules saw it (snake_case fields → domain values). */

@@ -1,6 +1,8 @@
 import {
+  FinalReviewQueueResponse,
   PricingQueueResponse,
   QuotingDetail,
+  ReviewSummary,
   type CapitalReadinessBody,
   type PricingRecordBody,
   AssignmentResponse,
@@ -76,6 +78,15 @@ export interface PricingQueueParams {
   capital?: string;
   approved?: 'yes' | 'no';
   productFamily?: string;
+  kam?: string;
+  q?: string;
+}
+
+/** GET /approvals?gate=G4 filters (contracts `FinalReviewQueueQuery`), as sent on the URL. */
+export interface FinalReviewQueueParams {
+  tier?: string;
+  g2?: string;
+  capital?: string;
   kam?: string;
   q?: string;
 }
@@ -256,6 +267,12 @@ export const api = {
     getJson(`${quotePath(quoteNumber)}/pricing-record`, QuotingDetail, { method: 'PUT', body }),
   updateCapitalReadiness: (quoteNumber: string, body: CapitalReadinessBody) =>
     getJson(`${quotePath(quoteNumber)}/capital-readiness`, QuotingDetail, { method: 'PUT', body }),
+
+  // B-12 Final Review: the approvals queue and the one-page review summary (decisions: decideGate, G4)
+  finalReviewQueue: (q: FinalReviewQueueParams = {}) =>
+    getJson(`/api/v1/approvals${queryString({ gate: 'G4', ...q })}`, FinalReviewQueueResponse),
+  reviewSummary: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/review-summary`, ReviewSummary),
 
   // B-09 usage audit (Leadership + Admin)
   auditEvents: (q: Partial<AuditQuery>) =>

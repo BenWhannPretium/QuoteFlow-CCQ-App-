@@ -35,6 +35,7 @@ import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
 import { AuditAdminService } from './services/auditAdmin';
 import { EngineeringService } from './services/engineering';
+import { FinalReviewService } from './services/final-review';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
 import { OverrideService } from './services/overrideService';
@@ -253,6 +254,9 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...now,
   });
 
+  // B-12 Final Review: the approvals queue and the one-page review summary (decisions are G4 via the gate route).
+  const finalReviewService = new FinalReviewService({ quotes: quoteReads, ...now });
+
   await app.register(v1Routes, {
     prefix: '/api/v1',
     deps,
@@ -268,6 +272,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     auditService,
     engineeringService,
     pricingService,
+    finalReviewService,
   });
 
   if (isProd) {

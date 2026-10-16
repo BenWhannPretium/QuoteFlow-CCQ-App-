@@ -62,6 +62,9 @@ export const PERMISSION_MATRIX: Readonly<
   'pricingQueue.read': { Pricing: true, Leadership: true, Admin: true },
   'quoting.edit': { Pricing: true },
   'gate.G3.submit': { Pricing: true },
+  // B-12: the Final Review queue (Approvals → Final Review). The Approver works it, Leadership reads
+  // it, Admin reads it like the other queues. Everyone on it holds quote.read.commercialFields.
+  'finalReview.read': { Approver: true, Leadership: true, Admin: true },
   'gate.G4.decide': { Approver: true },
   'outcome.record': { KAM: own, SalesLeader: true },
   'override.request': { KAM: true, SalesLeader: true, EngLead: true, Pricing: true },

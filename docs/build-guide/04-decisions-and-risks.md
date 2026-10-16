@@ -82,6 +82,14 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 - **Capital readiness is commercial**: it joins the redaction registry, so KAMs, Engineers and SalesLeaders no longer see it anywhere.
 - **D-11** is cited by the B-11 prompt as open but has no row in the table above yet. *Ask Bailey* to add it (what "capital ready" means before Final Review).
 
+**Provisional choices B-12 shipped for the D-pack (Oct 28) to confirm (D-10, D-12).** Config rows, not code:
+
+- **Who approves (D-10): still open.** Approver = members of `SG-CCQ-Approver` (IT). No names are in code or seeds. *Ask Darren / Sarah via Bailey:* confirm the members, and whether a sales leader within delegation holds the Approver role.
+- **`g4_tier_rules`** = `null` (disabled): any Approver may release any quote. The hook exists for tiers by preliminary capital or annual revenue naming approver roles or user ids (aligned to the CER matrix later).
+- **`validity_days_default`** = 30 (D-12, provisional). Approve sets `validity_until` = issue date + 30 days (US Central calendar); the approver may change the issue date to the actual send date (not in the future).
+- **Decline** is an internal no-go: closes as DECLINED with a `decline` reason + note; the Approve / Decline / Return outcomes never set Awarded or Lost (X-88).
+- **Segregation (config):** the approver is not the quote's KAM and not the Pricing approver / G3 submitter on that version, on every G4 outcome.
+
 ---
 
 ## 3. PRD v1 → v1.1 corrections the build already applies (send to Bailey for A-03)
