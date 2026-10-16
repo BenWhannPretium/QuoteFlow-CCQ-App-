@@ -7,8 +7,12 @@ export const COMMERCIAL_FIELDS = {
   keys: ['prelim_capital_usd'],
   /** Any key starting with one of these (price_approved_by, priceRange, margin_pct, …). */
   keyPrefixes: ['price', 'margin'],
-  /** Keys whose whole value is dropped (price approval details, pricing-app figures). */
-  subtrees: ['pricing_record'],
+  /**
+   * Keys whose whole value is dropped (price approval details, pricing-app figures). B-11: everything
+   * on the Quoting tab is commercial, so the record's version history (`pricing_records`) and the
+   * capital readiness status go too; other roles see only the approval status (who and when).
+   */
+  subtrees: ['pricing_record', 'pricing_records', 'capital_readiness'],
   /** Keys that are commercial only beneath an ancestor: the capacity-evidence numbers. */
   scopedKeys: {
     capacity_evidence: [

@@ -36,6 +36,7 @@ const EXPECTED: Record<string, Role[]> = {
   'queue.assign': ['EngLead', 'Admin'],
   'engReview.edit': ['EngLead'],
   'gate.G2.decide': ['EngLead'],
+  'pricingQueue.read': ['Pricing', 'Leadership', 'Admin'],
   'quoting.edit': ['Pricing'],
   'gate.G3.submit': ['Pricing'],
   'gate.G4.decide': ['Approver'],

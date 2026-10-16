@@ -20,7 +20,7 @@ export const INTEGRATION_SOURCES = ['salesforce', 'pricing', 'sharepoint'] as co
 export const INTEGRATION_STATUSES = ['running', 'succeeded', 'failed', 'partial'] as const;
 /** Why a CCQ-linked opportunity needs attention: it was closed or deleted in Salesforce. */
 export const SF_STATUS_FLAGS = ['closed_won', 'closed_lost', 'deleted'] as const;
-export const SEGREGATION_DENY = ['actor_is_kam', 'actor_is_assigned_engineer'] as const;
+export { SEGREGATION_DENY } from '@ccq/domain';
 
 export const AUDIT_ACTIONS = [
   'view',

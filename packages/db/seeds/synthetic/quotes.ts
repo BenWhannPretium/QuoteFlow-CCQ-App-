@@ -171,6 +171,8 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
             target: 'QUOTING',
             reason: 'missing_information',
           }),
+          // B-11: a Return bumps the version, so Pricing records the approval again before G3.
+          { kind: 'pricing' },
           g3(),
         ],
         complete: true,
@@ -555,16 +557,33 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
         }
         case 'pricing': {
           const pricing = persona('pricing');
+          // Same draws in the same order as before B-11, so the rest of the data set is unchanged.
+          const pricingRefs = {
+            erf: [String(rng.int(10_000, 99_999))],
+            bpr: rng.chance(0.3) ? [`BPR-${rng.int(1_000, 9_999)}`] : [],
+          };
+          const capitalReadiness = rng.pick([
+            'not_required',
+            'pending',
+            'pre_approved',
+            'pre_approved',
+          ]);
+          // B-11: one record per quote version (a re-quote prices again; the prior record stays).
+          const { version } = (await getQuoteById(db, quoteId))!;
           await upsertPricingRecord(db, {
             quoteId,
+            quoteVersion: version,
             priceApprovedBy: pricing.id,
             priceApprovedAt: at,
-            pricingRefs: {
-              erf: `ERF-${rng.int(10_000, 99_999)}`,
-              bpr: rng.chance(0.3) ? `BPR-${rng.int(1_000, 9_999)}` : null,
-            },
+            pricingBasisNote: 'Resin index of the approval month, FOB plant (synthetic).',
+            pricingRefs,
             approvedRangeNote: 'Approved within the pricing-app range (synthetic).',
-            capitalReadiness: rng.pick(['not_required', 'pending', 'pre_approved', 'pre_approved']),
+            costingCompleted: true,
+            costingAttestedBy: pricing.id,
+            costingAttestedAt: at,
+            capitalReadiness,
+            capitalPendingJustification:
+              capitalReadiness === 'pending' ? 'CER in review; board date set (synthetic).' : null,
             capitalNotes: rng.chance(0.3) ? 'CER to be raised on award.' : null,
             createdAt: at,
             createdBy: pricing.id,

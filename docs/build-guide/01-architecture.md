@@ -106,6 +106,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 - capital estimates
 - capacity and capital evidence numbers
 - margin
+- B-11: the whole Quoting tab (pricing record and its version history, references, notes, capital readiness). Other roles get only the approval status: "Price approved ✓ on <date> by <name>".
 
 `packages/domain/policy/redact.ts` does the stripping, and every quote-read route has a test for it.
 
@@ -121,6 +122,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 | queue.assign / reassign | | | ✔ | | | | | ✔ |
 | engReview.edit (assigned) | | | ✔ | ✔ | | | | |
 | gate.G2.decide | | | ✔ | | | | | |
+| pricingQueue.read (B-11: the pricing queue page) | | | | | ✔ | | ✔ | ✔ |
 | quoting.edit | | | | | ✔ | | | |
 | gate.G3.submit | | | | | ✔ | | | |
 | gate.G4.decide | | | | | | ✔ | | |
@@ -149,7 +151,7 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
 |---|---|---|---|---|---|---|
 | 1 | `INTAKE` | Intake | KAM | **G1 Qualify & prioritize** (decider: SalesLeader; config flag `g1_enabled`, default **true**) | Advance · Hold · Rework (to KAM) · Redirect (stock / inquiry / other capital) · Stop | Draft → Submitted. The priority score is computed at submit (advisory). Min value/volume screens raise **warnings**, not blocks, until D-06 is decided. |
 | 2 | `ENG_REVIEW` | Engineering Review | EngLead | **G2 Feasible solution?** | Proceed · Proceed with risk · Capital required · Hold · Rework (to KAM) · Stop | Manual prioritized queue (DEC-26). The EngLead is alerted on arrival, assigns, accepts or returns. Captures process, machine, plant/site, cavitation, cycle time, preliminary capital, **capacity evidence** (CR-19). B-10 rules: Proceed / Proceed with risk need the solution fields + ≥ 1 capacity row (risk: + note); Capital required needs the capital figure and sets capital readiness to pending; Hold: reason + review date; Rework: reason + note; Stop: reason + note, closes as **DECLINED**. |
-| 3 | `QUOTING` | Quoting | Pricing | **G3 Price approved & capital ready** (submit to Final Review) | Submit · Hold · Rework (to Eng) · Stop | Records price approval (approver, date, pricing-app refs) and capital-readiness status. No editable price figures. |
+| 3 | `QUOTING` | Quoting | Pricing | **G3 Price approved & capital ready** (submit to Final Review) | Submit · Hold · Rework (to Eng) · Stop | Records price approval (approver, date, basis, range note, pricing-app refs, costing attestation) and capital-readiness status, one record per quote version. No editable price figures. B-11 rules: Submit needs approver + date, an ERF/BPR reference or a "no pricing-app record yet" note, and capital readiness ≠ pending unless a pending-capital justification is given (a warning, D-11); notifies the Approver group. Hold: reason + review date; Rework: reason, bumps the version; Stop: reason + note, closes as **DECLINED**. Segregation: whoever approved the price or decided G3 on the version cannot decide G4. |
 | 4 | `FINAL_REVIEW` | Final Review | Approver | **G4 Release proposition** | Approve · Decline (note required) · Return (to affected stage) | **Internal** approval only. It does *not* set Awarded or Lost (fixes PRD F-16, X-88). |
 | 5 | `CUSTOMER_DECISION` | Customer Decision | KAM | **G5 Outcome recorded** | Awarded · Lost · No response/Expired · On hold · Re-quote | Proposal issue date and validity date (seed 30 days, provisional, D-12). |
 | T | `AWARDED` | Awarded | — | (minimal hand-off record) | — | Captures acceptance evidence, CER ID, BPR ID and receiving role (CR-41/42, minimal). |
@@ -218,7 +220,7 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `stage_definition`, `gate_definition`, `gate_outcome_definition`, `transition_rule`
 - `reason_code`: context (rework | redirect | stop | decline | lost | expired | hold | requote | override), code, label, active
 - `scoring_model`: version, attributes jsonb (key, label, weight, scale, mapping), tier_thresholds jsonb, effective_from, approved_by, change_reason
-- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome.
+- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome, pricing_ref_formats (B-11, ERF/BPR format checks).
 - `sf_stage_map`: sf_stage, ccq_stage_hint
 
 **Core workflow**
@@ -237,13 +239,13 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `gate_decision`: quote_id, gate_key, outcome_key, decided_by, decided_at, note, reason_code, evidence jsonb (snapshot), conditions
 - `eng_review`: quote_id, accepted_at, accepted_by, returned_reason, process_type, machine_type, plant_code, cavitation, cycle_time_s, tooling_notes, prelim_capital_usd *(commercial)*, downstream_equipment_notes, technical_concept_notes. Acceptance is cleared each time the quote (re-)enters ENG_REVIEW and on reassignment; the fields are kept.
 - `capacity_evidence`: quote_id, site, line_asset, assumed_effectiveness_pct, cycle_time_s, utilization_pct, buffer_pct, analysis_date, analyst_id, notes. **All fields are entered** with no OEE default; D-08.
-- `pricing_record` *(commercial)*: quote_id, price_approved_by, price_approved_at, pricing_refs jsonb (ERF/BPR ids from the pricing app), approved_range_note, capital_readiness (not_required | pending | pre_approved | not_approved), capital_notes
+- `pricing_record` *(commercial)*: quote_id, **quote_version** (unique together: one record per version; a Rework / Return starts a new one and the prior stays as history, CR-38), price_approved_by, price_approved_at, pricing_basis_note, pricing_refs jsonb `{erf: [], bpr: []}` (format-checked against `app_setting.pricing_ref_formats`), no_pricing_app_record_note, approved_range_note, costing_completed + costing_attested_by/at (CR-25 attestation only), capital_readiness (not_required | pending | pre_approved | not_approved), cer_reference, capital_notes, capital_pending_justification. B-11. Never a price figure.
 - `override`: quote_id, field (priority_tier | ship_to | queue_position | …), original_value jsonb, requested_value jsonb, justification (required), requested_by, status (requested | approved | rejected | applied | reverted), approval_mode (approver | self), decided_by, decided_at, decision_note, applied_at, reverted_by, reverted_at. At most one open (requested) override per quote and field (partial unique index). Which fields, and who requests / approves / reverts each, is `app_setting.overridable_fields` (B-09). The quote carries `*_overridden` flags (`priority_tier_overridden`, `ship_to_overridden`, `queue_position_overridden`).
 - `attachment`: quote_id, kind (bottle_drawing | spec | sample_photo | other), file_name, size, mime, sp_drive_id, sp_item_id, sp_web_url, uploaded_by
 - `comment`: quote_id, author_id, body, mentions[]
 - `handoff_record`: quote_id, acceptance_evidence (verbal | po | loi | contract), receiving_role, accepted_by_name, cer_id, bpr_id, notes. Minimal, for Stage 6.
 - `quote_hold`: quote_id, stage_key, started_at, ended_at, reason_code. Hold intervals, so cycle time can exclude holds (CR-57).
-- `segregation_rule`: rule_key, gate_keys[], outcome_keys[], deny (actor_is_kam | actor_is_assigned_engineer), message. Config.
+- `segregation_rule`: rule_key, gate_keys[], outcome_keys[], deny (actor_is_kam | actor_is_assigned_engineer | actor_is_price_approver), message. Config.
 - `quote_number_counter`: year, last_value. Used only by `next_quote_number()`.
 
 The full column list, with each column's meaning and owner, is generated into [`docs/data-dictionary.md`](../data-dictionary.md) (`pnpm db:dictionary`).

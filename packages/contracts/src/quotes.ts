@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { EngineeringDetail } from './eng-review';
 import { IntakeAddress } from './intake';
 import { QuoteOverridableField } from './overrides';
+import { QuotingDetail } from './pricing';
 
 // ── Priority (B-08, advisory) ────────────────────────────────────────────────────────────────────
 
@@ -152,6 +153,8 @@ export const QuoteDetail = QuoteSummary.extend({
   overridableFields: z.array(QuoteOverridableField),
   /** B-10: the Engineering tab (assignment, review, capacity evidence), commercial numbers redacted per role. */
   engineering: EngineeringDetail,
+  /** B-11: the Quoting tab. Commercial parts are stripped for roles without commercial access. */
+  quoting: QuotingDetail,
 });
 export type QuoteDetail = z.infer<typeof QuoteDetail>;
 

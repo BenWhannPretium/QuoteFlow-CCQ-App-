@@ -20,6 +20,17 @@ import { cn } from '@/lib/utils';
 
 import { QualificationWarnings, ScoreBreakdownTable } from './Priority';
 
+/** Plain words for the G3 (Quoting) rules' field paths (B-11); other gates show the rule's message. */
+const MISSING_LABELS: Record<string, string> = {
+  'pricing_record.price_approved_by': 'Price approver',
+  'pricing_record.price_approved_at': 'Price approval date',
+  'pricing_record.pricing_refs.erf,pricing_record.pricing_refs.bpr,pricing_record.no_pricing_app_record_note':
+    'An ERF or BPR reference, or a "no pricing-app record yet" note',
+  'pricing_record.capital_readiness': 'Capital readiness',
+  'pricing_record.capital_readiness,pricing_record.capital_pending_justification':
+    'Capital readiness other than pending, or a pending-capital justification (D-11)',
+};
+
 export const quoteQueryKey = (quoteNumber: string) => ['quote', quoteNumber] as const;
 
 interface ServerError {
@@ -115,6 +126,7 @@ export function GateDecisionDialog({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['gate-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['eng-queue'] }),
+        queryClient.invalidateQueries({ queryKey: ['pricing-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['stage-times', quoteNumber] }),
       ]);
       toast.success({
@@ -186,7 +198,7 @@ export function GateDecisionDialog({
                   </p>
                   <ul className="text-muted-foreground mt-1 list-disc pl-6">
                     {completeness.map((m) => (
-                      <li key={m.field + m.message}>{m.message}</li>
+                      <li key={m.field + m.message}>{MISSING_LABELS[m.field] ?? m.message}</li>
                     ))}
                   </ul>
                 </>

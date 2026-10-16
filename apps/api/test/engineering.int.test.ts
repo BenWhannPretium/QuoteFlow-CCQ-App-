@@ -835,7 +835,8 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     const back = await decide(
       qn,
       'G3',
-      { outcomeKey: 'rework', note: 'Capital excludes trimmer' },
+      // B-11: a G3 Rework needs a reason code.
+      { outcomeKey: 'rework', reasonCode: 'missing_information', note: 'Capital excludes trimmer' },
       'Pricing',
     );
     expect(back.statusCode, back.body).toBe(201);

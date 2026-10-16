@@ -48,6 +48,19 @@ export const requiredRuleSchema: z.ZodType<RequiredRule> = z.lazy(() =>
   ]),
 );
 
+/**
+ * The relations a segregation rule can deny on:
+ * - actor_is_kam: the quote's KAM
+ * - actor_is_assigned_engineer: the engineer assigned to the quote
+ * - actor_is_price_approver (B-11): whoever recorded the price approval or submitted G3 at the quote's
+ *   current version (`QuoteState.priceApproverIds`), so Pricing never also releases its own price at G4
+ */
+export const SEGREGATION_DENY = [
+  'actor_is_kam',
+  'actor_is_assigned_engineer',
+  'actor_is_price_approver',
+] as const;
+
 // ── Workflow config ─────────────────────────────────────────────────────────────────────────────
 
 const key = z.string().min(1);
@@ -149,7 +162,7 @@ export const workflowConfigSchema = z
             /** Omit to apply to every outcome of the listed gates. */
             outcomeKeys: z.array(key).optional(),
             /** The relation that makes the actor ineligible. */
-            deny: z.enum(['actor_is_kam', 'actor_is_assigned_engineer']),
+            deny: z.enum(SEGREGATION_DENY),
             message: z.string().min(1),
             provisional: z.boolean().default(true),
           })

@@ -1,4 +1,8 @@
 import {
+  PricingQueueResponse,
+  QuotingDetail,
+  type CapitalReadinessBody,
+  type PricingRecordBody,
   AssignmentResponse,
   EngineeringDetail,
   EngQueueResponse,
@@ -62,6 +66,17 @@ export interface EngQueueParams {
   agedOver?: number;
   bucket?: string;
   productFamily?: string;
+  q?: string;
+}
+
+/** GET /queue/pricing filters (contracts `PricingQueueQuery`), as sent on the URL. */
+export interface PricingQueueParams {
+  tier?: string;
+  g2?: string;
+  capital?: string;
+  approved?: 'yes' | 'no';
+  productFamily?: string;
+  kam?: string;
   q?: string;
 }
 
@@ -233,6 +248,14 @@ export const api = {
   notifications: () => getJson('/api/v1/notifications', NotificationListResponse),
   markNotificationsRead: () =>
     getJson('/api/v1/notifications/read', MarkNotificationsReadResponse, { method: 'POST' }),
+
+  // B-11 pricing queue and the Quoting tab
+  pricingQueue: (q: PricingQueueParams = {}) =>
+    getJson(`/api/v1/queue/pricing${queryString({ ...q })}`, PricingQueueResponse),
+  updatePricingRecord: (quoteNumber: string, body: PricingRecordBody) =>
+    getJson(`${quotePath(quoteNumber)}/pricing-record`, QuotingDetail, { method: 'PUT', body }),
+  updateCapitalReadiness: (quoteNumber: string, body: CapitalReadinessBody) =>
+    getJson(`${quotePath(quoteNumber)}/capital-readiness`, QuotingDetail, { method: 'PUT', body }),
 
   // B-09 usage audit (Leadership + Admin)
   auditEvents: (q: Partial<AuditQuery>) =>

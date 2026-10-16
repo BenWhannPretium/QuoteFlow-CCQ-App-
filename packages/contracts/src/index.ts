@@ -5,6 +5,8 @@ export * from './engineering';
 export * from './health';
 export * from './intake';
 export * from './overrides';
+export * from './pricing';
+export * from './pricing-queue';
 export * from './problem';
 export * from './quotes';
 export * from './salesforce';

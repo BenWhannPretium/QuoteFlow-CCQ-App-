@@ -40,10 +40,34 @@ const ENG_FEASIBLE: RequiredRule[] = [
   { field: 'capacity_evidence', op: 'minItems', value: 1 },
 ];
 
+/**
+ * G3 Submit to Final Review (B-11, DEC-19/20, CR-26). Pricing records the approval as a decision, not
+ * the pricing math (DEC-23): who approved and when, at least one pricing-app reference (ERF / BPR) or
+ * an explicit "no pricing-app record yet" note, and a capital readiness status. Pending capital is
+ * allowed with a justification (D-11 open, so it is a warning on the decision, not a block).
+ * Provisional; confirm at R3 with Gemma Cebolla.
+ */
 const PRICE_APPROVED: RequiredRule[] = [
   present('pricing_record.price_approved_by'),
   present('pricing_record.price_approved_at'),
+  {
+    anyOf: [
+      { field: 'pricing_record.pricing_refs.erf', op: 'minItems', value: 1 },
+      { field: 'pricing_record.pricing_refs.bpr', op: 'minItems', value: 1 },
+      present('pricing_record.no_pricing_app_record_note'),
+    ],
+  },
   present('pricing_record.capital_readiness'),
+  {
+    anyOf: [
+      {
+        field: 'pricing_record.capital_readiness',
+        op: 'oneOf',
+        value: ['not_required', 'pre_approved', 'not_approved'],
+      },
+      present('pricing_record.capital_pending_justification'),
+    ],
+  },
 ];
 
 /** Both defaults and `provisional` are explicit: nothing here is approved by the business yet. */
@@ -69,7 +93,7 @@ function transition(
  * Final Review separate from the customer outcome, reason-coded closures. Every item is provisional.
  *
  * Assumptions to confirm (see 04-decisions-and-risks.md): G1 and G2 Stops close as DECLINED (closeAs
- * `declined`), a G3 Stop closes as CLOSED_LOST (closeAs `stopped`);
+ * `declined`), and so does a G3 Stop (B-11);
  * "Capital required" at G2 proceeds to QUOTING with a preliminary capital figure; a quote on hold is
  * resumed by the next gate decision (Hold keeps it in its stage).
  */
@@ -232,18 +256,23 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         reasonContext: 'stop',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
       }),
-      // G3
+      // G3 (B-11): decider Pricing (gate.G3.submit).
       outcome('G3', 'submit', 'Submit to Final Review', {
         requiredFields: PRICE_APPROVED,
         notify: [{ type: 'quote.ready_for_final_review', to: { role: 'Approver' } }],
       }),
-      outcome('G3', 'hold', 'Hold', { reasonContext: 'hold' }),
+      outcome('G3', 'hold', 'Hold', {
+        requiresReasonCode: true,
+        reasonContext: 'hold',
+        requiredFields: [present('review_date')],
+      }),
       outcome('G3', 'rework', 'Rework (back to Engineering)', {
-        requiresNote: true,
+        requiresReasonCode: true,
         reasonContext: 'rework',
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
       outcome('G3', 'stop', 'Stop', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'stop',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
@@ -301,7 +330,8 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       transition('G3', 'submit', { ...active, targetStageKeys: ['FINAL_REVIEW'] }),
       transition('G3', 'hold', hold),
       transition('G3', 'rework', { ...active, targetStageKeys: ['ENG_REVIEW'], versionBump: true }),
-      transition('G3', 'stop', { ...closed, targetStageKeys: ['CLOSED_LOST'], closeAs: 'stopped' }),
+      // B-11: a Pricing Stop is an internal "won't pursue", like G1/G2: DECLINED, not a customer loss.
+      transition('G3', 'stop', { ...closed, targetStageKeys: ['DECLINED'], closeAs: 'declined' }),
       transition('G4', 'approve', { ...active, targetStageKeys: ['CUSTOMER_DECISION'] }),
       transition('G4', 'decline', {
         ...closed,
@@ -337,6 +367,14 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         gateKeys: ['G4'],
         deny: 'actor_is_kam',
         message: 'You cannot decide Final Review on a quote where you are the KAM',
+        provisional: true,
+      },
+      {
+        // B-11: Pricing approves the price; it never also releases the proposition (G4).
+        id: 'g4-price-approver-cannot-release',
+        gateKeys: ['G4'],
+        deny: 'actor_is_price_approver',
+        message: 'You cannot decide Final Review on a quote whose price you approved or submitted',
         provisional: true,
       },
     ],

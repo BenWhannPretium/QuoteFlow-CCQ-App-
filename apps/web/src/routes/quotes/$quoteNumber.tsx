@@ -22,6 +22,7 @@ import {
 } from '@/components';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
+import { QuotingTab } from '@/components/pricing/QuotingTab';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
@@ -29,17 +30,22 @@ import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
-const TABS = ['overview', 'engineering'] as const;
+const TABS = ['overview', 'engineering', 'quoting'] as const;
+const TAB_LABELS: Record<QuoteTab, string> = {
+  overview: 'Overview',
+  engineering: 'Engineering',
+  quoting: 'Quoting',
+};
 type QuoteTab = (typeof TABS)[number];
 
 interface QuoteSearch {
-  /** `?tab=engineering` opens the Engineering tab (B-10). */
+  /** `?tab=engineering` opens the Engineering tab (B-10), `?tab=quoting` the Quoting tab (B-11). */
   tab?: QuoteTab;
 }
 
 export const Route = createFileRoute('/quotes/$quoteNumber')({
   validateSearch: (search: Record<string, unknown>): QuoteSearch =>
-    search.tab === 'engineering' ? { tab: 'engineering' } : {},
+    search.tab === 'engineering' || search.tab === 'quoting' ? { tab: search.tab } : {},
   component: QuotePage,
 });
 
@@ -109,7 +115,7 @@ function QuotePage() {
         value={tab}
         onValueChange={(next) =>
           void navigate({
-            search: next === 'engineering' ? { tab: 'engineering' } : {},
+            search: next === 'overview' ? {} : { tab: next as QuoteTab },
             replace: true,
           })
         }
@@ -122,7 +128,7 @@ function QuotePage() {
               value={t}
               className="text-foreground-2 data-[state=active]:border-primary data-[state=active]:text-foreground -mb-px min-h-11 border-b-2 border-transparent px-4 text-sm font-medium"
             >
-              {t === 'overview' ? 'Overview' : 'Engineering'}
+              {TAB_LABELS[t]}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
@@ -154,6 +160,12 @@ function QuotePage() {
           <EngineeringTab
             quote={q}
             onDecide={(outcome) => setDeciding({ gate: 'G2', ...(outcome ? { outcome } : {}) })}
+          />
+        </Tabs.Content>
+        <Tabs.Content value="quoting">
+          <QuotingTab
+            quote={q}
+            onDecide={(outcome) => setDeciding({ gate: 'G3', ...(outcome ? { outcome } : {}) })}
           />
         </Tabs.Content>
       </Tabs.Root>

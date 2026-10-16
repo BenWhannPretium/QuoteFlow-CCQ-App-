@@ -71,6 +71,17 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 - **Engineers do not read commercial numbers** (architecture §3.3): prelim capital and the capacity figures are write-only for an assigned Engineer. *Ask R2:* should an Engineer see the numbers on quotes assigned to them? That would be a matrix change (an `assigned` qualifier on `quote.read.commercialFields`) agreed with the data owners.
 - **Accept** is open to the EngLead and the assigned engineer. *Ask R2:* lead-only?
 
+**Provisional choices B-11 shipped for R3 (Thu Nov 5, Gemma Cebolla + pricing analyst) and M5 (Cory McGahan) to confirm (DEC-19/20/23, D-10, D-11, D-PR).** Config rows, not code, except where noted:
+
+- **G3 outcome rules** (workflow config): Submit needs the price approver and approval time, at least one ERF / BPR reference **or** a "no pricing-app record yet" note, and a capital readiness status; **pending capital needs a justification** and then shows as a warning on the decision (D-11 is open: warn, don't block). Hold: reason + review date. Rework (back to Engineering): reason code only, bumps the version. **Stop: reason + note, closes as DECLINED** (was CLOSED_LOST): Pricing's "won't pursue" is internal, like G1/G2. *Ask R3:* should "Costing completed" (CR-25) be required to submit rather than a warning? Should "capital not approved" block?
+- **`pricing_ref_formats`** = ERF `^\d{4,7}$` (e.g. 26367, the shape in the SF fixture), BPR `^(BPR-?)?\d{3,10}$`: **guesses**. *Ask Cory at M5* for the real formats; change the setting.
+- **Price approver** = any active user holding a role with `quoting.edit` (today: Pricing). Defaults to the caller in the UI.
+- **Versioned pricing records** (code): one `pricing_record` per quote version. Entering Quoting on a new version (G2 after a G3 Rework, G4 Return, G5 Re-quote) starts a new record carrying forward only the ERF / BPR and CER references; the approval is recorded afresh and the prior version's record is never edited (CR-38).
+- **Segregation** (config): new deny `actor_is_price_approver`, rule `g4-price-approver-cannot-release`: whoever recorded the price approval or decided G3 on the current version cannot decide G4, even if they also hold the Approver role.
+- **New permission `pricingQueue.read`** (Pricing, Leadership, Admin): the queue page ("role Pricing; Leadership read"). Admin added for parity with the engineering queue. **The nav changed:** Leadership and Admin now get "Pricing queue"; Admin's mobile tabs are home, intake, engineering queue, pricing queue + More (Pipeline moves under More).
+- **Capital readiness is commercial**: it joins the redaction registry, so KAMs, Engineers and SalesLeaders no longer see it anywhere.
+- **D-11** is cited by the B-11 prompt as open but has no row in the table above yet. *Ask Bailey* to add it (what "capital ready" means before Final Review).
+
 ---
 
 ## 3. PRD v1 → v1.1 corrections the build already applies (send to Bailey for A-03)

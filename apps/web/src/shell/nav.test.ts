@@ -25,10 +25,22 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
-    [['Leadership'], ['home', 'queue-engineering', 'pipeline', 'analytics', 'audit']],
+    [
+      ['Leadership'],
+      ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'analytics', 'audit'],
+    ],
     [
       ['Admin'],
-      ['home', 'intake', 'queue-engineering', 'pipeline', 'approvals', 'analytics', 'admin'],
+      [
+        'home',
+        'intake',
+        'queue-engineering',
+        'queue-pricing',
+        'pipeline',
+        'approvals',
+        'analytics',
+        'admin',
+      ],
     ],
     [
       ['SalesLeader', 'Approver'],

@@ -71,6 +71,13 @@
       "when": 1792160712621,
       "tag": "0009_b10_engineering_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792165377462,
+      "tag": "0010_b11_pricing_record",
+      "breakpoints": true
     }
   ]
 }

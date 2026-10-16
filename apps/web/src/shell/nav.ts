@@ -42,7 +42,7 @@ const item = (
  *
  * "My queue" is labelled per role: the EngLead owns the engineering queue (queue.assign), an
  * Engineer works their assignments (engReview.edit, assigned), Leadership reads the queue
- * (engQueue.read), Pricing works the pricing queue.
+ * (engQueue.read), Pricing works the pricing queue (Leadership and Admin read it, pricingQueue.read).
  * The Approver's queue is Approvals; it also holds the override requests an approver decides (B-09).
  * Leadership reads the usage audit log (audit.read) without the rest of Admin.
  */
@@ -71,7 +71,8 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
         : item('queue-engineering', 'Engineering queue', 'Queue', '/queue/engineering'),
     );
   }
-  if (can('quoting.edit')) {
+  // B-11: the pricing queue needs pricingQueue.read: Pricing works it, Leadership and Admin read it.
+  if (can('pricingQueue.read')) {
     items.push(item('queue-pricing', 'Pricing queue', 'Pricing', '/queue/pricing'));
   }
   if (can('quote.read')) {

@@ -19,13 +19,16 @@ import {
 } from '@ccq/db/repos';
 import {
   ENG_QUEUE_STAGE_KEY,
+  PRICING_QUEUE_STAGE_KEY,
   can,
   evaluateTransition,
   exceptionNoteErrors,
   parseWorkflowConfig,
+  quotingWarnings,
   type Actor,
   type DomainError,
   type PlannedNotification,
+  type PricingRecordValues,
   type QuoteState,
   type TransitionEffects,
   type TransitionRequest,
@@ -34,6 +37,12 @@ import {
 
 import { onEngQueueArrival } from './engineering-arrival';
 import type { AuditMeta } from './intake';
+import {
+  onFinalReviewArrival,
+  onPricingArrival,
+  recordColumns,
+  recordValues,
+} from './pricing-view';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
 import type { ScoringService } from './scoring';
 
@@ -172,6 +181,10 @@ export class GateService {
           ...(gate.stageKey === ENG_QUEUE_STAGE_KEY
             ? { engineering: engineeringEvidence(state) }
             : {}),
+          // B-11: G3 keeps what Pricing was warned about (pending capital, costing not attested…).
+          ...(gate.stageKey === PRICING_QUEUE_STAGE_KEY
+            ? { quoting: { warnings: quotingWarnings(pricingEvidence(state)) } }
+            : {}),
           intake: {
             quoteNumber: before.quoteNumber,
             customerName: before.customerName,
@@ -201,6 +214,19 @@ export class GateService {
       if (effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
         await onEngQueueArrival(tx, row.quote, actor.userId);
       }
+      // B-11: entering Quoting starts this version's pricing record (references carried forward) and
+      // tells Pricing; G3 Submit tells the Approver group (in-app; email is B-18).
+      const entered = effects.stageHistory.enter?.stageKey;
+      if (entered === PRICING_QUEUE_STAGE_KEY) {
+        await onPricingArrival(
+          tx,
+          { id: row.quote.id, quoteNumber, version: effects.nextVersion },
+          actor.userId,
+        );
+      }
+      if (entered === 'FINAL_REVIEW' && gateKey === 'G3') {
+        await onFinalReviewArrival(tx, row.quote, actor.userId);
+      }
       // B-10: e.g. G2 "Capital required" starts Pricing's capital readiness on pending (config).
       const readiness = ((await getSetting<Record<string, string>>(
         tx,
@@ -208,14 +234,12 @@ export class GateService {
       )) ?? {})[`${gateKey}:${body.outcomeKey}`];
       if (readiness) {
         const pricing = await getPricingRecord(tx, row.quote.id);
+        const current = recordValues(pricing);
         await upsertPricingRecord(tx, {
+          ...(current ? recordColumns(current) : {}),
           quoteId: row.quote.id,
-          priceApprovedBy: pricing?.priceApprovedBy ?? null,
-          priceApprovedAt: pricing?.priceApprovedAt ?? null,
-          pricingRefs: pricing?.pricingRefs ?? {},
-          approvedRangeNote: pricing?.approvedRangeNote ?? null,
+          quoteVersion: effects.nextVersion,
           capitalReadiness: readiness,
-          capitalNotes: pricing?.capitalNotes ?? null,
           createdBy: pricing?.createdBy ?? actor.userId,
         });
       }
@@ -270,6 +294,32 @@ export class GateService {
       return dto;
     });
   }
+}
+
+/** The current version's pricing record as the G3 rules saw it (snake_case fields → domain values). */
+function pricingEvidence(state: QuoteState): PricingRecordValues | null {
+  const r = state.fields.pricing_record as Record<string, unknown> | null | undefined;
+  if (!r) return null;
+  const text = (key: string) => (typeof r[key] === 'string' ? r[key] : null);
+  const date = (key: string) => (r[key] instanceof Date ? r[key] : null);
+  const refs = (r.pricing_refs ?? {}) as { erf?: unknown; bpr?: unknown };
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+  return {
+    priceApprovedBy: text('price_approved_by'),
+    priceApprovedAt: date('price_approved_at'),
+    pricingBasisNote: text('pricing_basis_note'),
+    approvedRangeNote: text('approved_range_note'),
+    erfRefs: list(refs.erf),
+    bprRefs: list(refs.bpr),
+    noPricingAppRecordNote: text('no_pricing_app_record_note'),
+    costingCompleted: r.costing_completed === true,
+    costingAttestedBy: text('costing_attested_by'),
+    costingAttestedAt: date('costing_attested_at'),
+    capitalReadiness: text('capital_readiness') as PricingRecordValues['capitalReadiness'],
+    cerReference: text('cer_reference'),
+    capitalNotes: text('capital_notes'),
+    capitalPendingJustification: text('capital_pending_justification'),
+  };
 }
 
 /** The Engineering Review as it stood at a G2 decision: solution fields and every capacity row. */
