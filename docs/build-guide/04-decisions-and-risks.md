@@ -106,6 +106,14 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 - **Hand-off (Stage 6, minimal; CR-41/42):** acceptance evidence + date + optional document link (from the Awarded decision), CER ID, BPR ID (references only, no integration), receiving role (`handoff_receiving_roles`: Commercial Activation, NPI post-award technical PM, other + name), receiving contact, accepted-by date, notes, "Hand-off complete" (records who and when; needs role, contact and date). New permission **`handoff.edit`** (KAM own, SalesLeader, Admin). *Confirm the fields with Amanda Cronkhite at R3 (optional);* D-14 (the P2 post-award view for Nicole Donnelly / Anne DeSmet) is untouched.
 - **Outcomes report** (`GET /admin/reports/outcomes`, page `/admin/reports/outcomes`) is read by `analytics.read` (SalesLeader, EngLead, Pricing, Approver, Leadership, Admin), not only Admin, because sales leadership owns the capture rate. Capture rate = recorded customer outcomes ÷ (recorded + "gone dark": open in Customer Decision past validity); proposals still within validity are pending, not missing. Win rate = awarded ÷ (awarded + lost); expired is excluded.
 
+**Provisional choices B-14 shipped (pipeline views), to confirm in R2 / R3:**
+
+- **KAMs see peers' priority** per `kam_can_see_peer_scores` (D-K1, default `true`). When it is `false`, peers' tier and score are withheld on the list, board and export, and can't be filtered or sorted on.
+- **The SF amount is visible to everyone** on the board and list (column totals included), because it mirrors Salesforce visibility; preliminary capital and capital readiness are commercial columns.
+- **"Age" / "aged over N days"** is calendar days in the current stage, holds included. The engineering queue keeps its business-day buckets. *Ask:* one definition everywhere?
+- **The Prioritization view shows open quotes** unless a status is chosen; the list shows everything.
+- **Export cap = 5,000 rows** (code constant `QUOTE_EXPORT_MAX_ROWS`, a technical limit, not a business rule).
+
 ---
 
 ## 3. PRD v1 → v1.1 corrections the build already applies (send to Bailey for A-03)

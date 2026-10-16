@@ -54,6 +54,7 @@ export function GateDecisionDialog({
   quoteNumber,
   onDecided,
   initialOutcomeKey = '',
+  initialTargetStageKey = '',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -62,6 +63,8 @@ export function GateDecisionDialog({
   onDecided?: (result: GateDecisionResponse) => void;
   /** Preselect an outcome (the engineering queue's "Return to KAM" opens G2 on Rework). */
   initialOutcomeKey?: string;
+  /** Preselect the target stage of an outcome with several (B-14: the board column it was dropped on). */
+  initialTargetStageKey?: string;
 }) {
   const queryClient = useQueryClient();
   const { data: config } = usePublicConfig();
@@ -79,7 +82,7 @@ export function GateDecisionDialog({
   const [reasonCode, setReasonCode] = useState('');
   const [note, setNote] = useState('');
   const [holdUntil, setHoldUntil] = useState('');
-  const [target, setTarget] = useState('');
+  const [target, setTarget] = useState(initialTargetStageKey);
   /** B-12: the actual send date of the proposal (`datetime-local`); untouched = now, set by the server. */
   const [issued, setIssued] = useState('');
   /** B-13 (G5): the customer's acceptance date and document link, a competitor on a loss, the closure owner. */
@@ -184,6 +187,7 @@ export function GateDecisionDialog({
         queryClient.invalidateQueries({ queryKey: reviewSummaryKey(quoteNumber) }),
         queryClient.invalidateQueries({ queryKey: ['stage-times', quoteNumber] }),
         queryClient.invalidateQueries({ queryKey: ['my-proposals'] }),
+        queryClient.invalidateQueries({ queryKey: ['pipeline'] }),
       ]);
       toast.success({
         title: `${action?.outcomeLabel ?? 'Decision'} recorded`,

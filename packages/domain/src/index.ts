@@ -13,6 +13,7 @@ export * from './intake';
 export * from './outcome';
 export * from './overrides';
 export * from './policy';
+export * from './pipeline';
 export * from './pricing';
 export * from './quote-number';
 export * from './scoring';

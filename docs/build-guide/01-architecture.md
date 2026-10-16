@@ -268,6 +268,7 @@ The full column list, with each column's meaning and owner, is generated into [`
 - audit_event(quote_id, at)
 - audit_event(actor_id, at)
 - sf_opportunity_snapshot(name gin_trgm)
+- B-14 (pipeline views): quote(quote_number gin_trgm), quote(description gin_trgm), customer(name gin_trgm), quote(updated_at desc), stage_history(quote_id, entered_at) where exited_at is null
 
 **Quote number:** a sequence per calendar year, generated in the DB function `next_quote_number()`.
 

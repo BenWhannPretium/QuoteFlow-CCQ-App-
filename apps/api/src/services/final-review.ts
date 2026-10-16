@@ -66,7 +66,9 @@ export interface FinalReviewServiceOptions {
 }
 
 /** "Product summary" for the queue: the standard description, else the free text, truncated. */
-function productSummary(q: PricingQueueRow['quote']): string | null {
+export function productSummary(
+  q: Pick<PricingQueueRow['quote'], 'structuredDescription' | 'description'>,
+): string | null {
   const structured = (q.structuredDescription ?? {}) as { standard?: string | null };
   const text = structured.standard?.trim() || q.description?.trim() || null;
   return text && text.length > 140 ? `${text.slice(0, 137)}…` : text;

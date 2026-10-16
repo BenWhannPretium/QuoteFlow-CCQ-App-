@@ -247,4 +247,19 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     sampleBody: { notes: 'x' },
   },
   { method: 'GET', route: '/api/v1/admin/reports/outcomes', permission: 'analytics.read' },
+  // B-14 pipeline views. List and board are the quote.read floor (scope + redaction:
+  // pipeline.int.test.ts); the CSV export is export.csv (every role but Engineer).
+  {
+    method: 'GET',
+    route: '/api/v1/quotes',
+    url: '/api/v1/quotes?pageSize=1',
+    permission: 'quote.read',
+  },
+  { method: 'GET', route: '/api/v1/quotes/board', permission: 'quote.read' },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/export.csv',
+    url: '/api/v1/quotes/export.csv?stage=INTAKE',
+    permission: 'export.csv',
+  },
 ];
