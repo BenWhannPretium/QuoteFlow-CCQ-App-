@@ -67,8 +67,9 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['PRICE_INQUIRY', 'Price inquiry / RFP check'],
     ['OTHER_CAPITAL', 'Other capital'],
   ],
+  // meta.hasDrawing: the intake's "quotes without a drawing take longer" nudge is silent for these.
   drawing_status: [
-    ['HAVE_DRAWING', 'Have drawing'],
+    ['HAVE_DRAWING', 'Have drawing', { hasDrawing: true }],
     ['COMING', 'Coming'],
     ['SAMPLE_ONLY', 'Sample only'],
     ['NONE', 'None (quote will take longer)'],

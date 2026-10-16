@@ -13,6 +13,7 @@ import {
   getCustomerBySfAccountId,
   getSetting,
   getSfOpportunity,
+  listActiveQuotesForOpportunities,
   listQuoteErfLinkage,
   listSfStageMap,
   searchSfOpportunitySnapshots,
@@ -113,6 +114,7 @@ const summary = (
   // Recomputed so the current threshold setting applies to live rows too.
   dataQuality: opportunityQualityFlags(o, { suspectAmountBelow: threshold }),
   source,
+  activeQuote: null,
 });
 
 export interface SearchParams {
@@ -120,6 +122,36 @@ export interface SearchParams {
   mine: boolean;
   openOnly: boolean;
   limit: number;
+}
+
+/**
+ * B-07: mark opportunities that already have an active CCQ quote the caller can see, so the intake
+ * picker offers "Open existing" instead (one active quote per opportunity).
+ */
+async function withActiveQuotes(
+  withTx: WithTx,
+  res: SfOpportunitySearchResponse,
+): Promise<SfOpportunitySearchResponse> {
+  if (res.items.length === 0) return res;
+  const active = await withTx((tx) =>
+    listActiveQuotesForOpportunities(
+      tx,
+      res.items.map((i) => i.id),
+    ),
+  );
+  const byOpp = new Map(active.map((q) => [q.sfOpportunityId, q]));
+  return {
+    ...res,
+    items: res.items.map((i) => {
+      const q = byOpp.get(i.id);
+      return q
+        ? {
+            ...i,
+            activeQuote: { quoteNumber: q.quoteNumber, stageKey: q.stageKey, status: q.status },
+          }
+        : i;
+    }),
+  };
 }
 
 export class SalesforceService {
@@ -155,10 +187,12 @@ export class SalesforceService {
       summary(opportunityFromSnapshot(r, threshold), 'snapshot', threshold),
     );
     if (items.length >= LIVE_SEARCH_MIN_HITS || items.length >= p.limit) {
-      return { items, liveSearched: false, liveError: null };
+      return withActiveQuotes(withTx, { items, liveSearched: false, liveError: null });
     }
     // SF filters owners by email only; with no email on the caller, `mine` can't be asked live.
-    if (p.mine && !owner?.emails[0]) return { items, liveSearched: false, liveError: null };
+    if (p.mine && !owner?.emails[0]) {
+      return withActiveQuotes(withTx, { items, liveSearched: false, liveError: null });
+    }
 
     try {
       const live = await this.reader.searchOpportunities({
@@ -172,14 +206,18 @@ export class SalesforceService {
         if (items.length >= p.limit) break;
         if (!seen.has(o.id)) items.push(summary(o, 'live', threshold));
       }
-      return { items, liveSearched: true, liveError: null };
+      return withActiveQuotes(withTx, { items, liveSearched: true, liveError: null });
     } catch (err) {
       const code = sfErrorCode(err);
       this.logger.warn(
         { code, hits: items.length },
         'sf live search failed; snapshot results only',
       );
-      return { items, liveSearched: true, liveError: `Salesforce search unavailable (${code})` };
+      return withActiveQuotes(withTx, {
+        items,
+        liveSearched: true,
+        liveError: `Salesforce search unavailable (${code})`,
+      });
     }
   }
 

@@ -11,7 +11,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
-- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history)
+- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run)
 
@@ -429,6 +429,8 @@ Customer an opportunity is for. Existing (SF account) or not yet established.
 | `default_ship_to` | jsonb | yes |  |  | Default ship-to address {line1, city, state, postal, country}. | Salesforce (read-only) |
 | `source` | text | no | "salesforce" |  | Where the row came from: salesforce \| intake \| synthetic. | CCQ (system) |
 | `last_synced_at` | timestamp with time zone | yes |  |  | Last refresh from Salesforce. | CCQ (system) |
+| `location` | text | yes |  |  | Not-yet-established customers: where they are (city, state / country), as typed at intake. | KAM |
+| `contact` | jsonb | yes |  |  | Not-yet-established customers: business contact {name, email, phone} typed at intake. | KAM |
 
 **Checks:** `customer_status_check`, `customer_sf_account_matches_status_check`
 
@@ -589,6 +591,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `components` | text[] | no | [] |  | value_list component codes. | KAM |
 | `est_annual_volume` | bigint | yes |  |  | Estimated annual volume (units). | KAM |
 | `est_annual_revenue` | numeric(14, 2) | yes |  |  | Estimated annual revenue (USD). | KAM |
+| `est_annual_revenue_sf` | numeric(14, 2) | yes |  |  | The SF opportunity amount the revenue was pre-filled from (kept when the KAM edits it). | Salesforce (read-only) |
+| `est_annual_volume_confirmed` | boolean | no | false |  | The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real. | KAM |
 | `expected_close_date` | date | yes |  |  | Expected close date. | KAM |
 | `drawing_status` | text | yes |  |  | value_list drawing_status code. | KAM |
 | `neck_finish` | text | yes |  |  | value_list neck_finish code, or free text when "Other". | KAM |
@@ -596,8 +600,11 @@ The CCQ quote: the workflow record CCQ owns.
 | `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |
 | `comments_for_engineering` | text | yes |  |  | Notes from the KAM to Engineering. | KAM |
+| `submitted_at` | timestamp with time zone | yes |  |  | When the KAM submitted the intake (the quote was created). | CCQ (system) |
 | `ship_to` | jsonb | yes |  |  | Ship-to address used for the quote. | KAM |
 | `ship_to_overridden` | boolean | no | false |  | True when it differs from the customer default. | KAM |
+| `ship_to_original` | jsonb | yes |  |  | The customer default ship-to the intake was pre-filled with (kept when overridden). | KAM |
+| `ship_to_override_reason` | text | yes |  |  | Why the ship-to differs from the default. Interim home until B-09 moves it to an override row. | KAM |
 | `priority_score` | numeric(5, 2) | yes |  |  | Advisory priority score 0–100. | CCQ (system) |
 | `priority_tier` | text | yes |  |  | Critical \| High \| Standard \| Low (scoring_model tiers). | CCQ (system) |
 | `priority_tier_overridden` | boolean | no | false |  | True when an approved override set the tier. | CCQ (system) |
@@ -619,7 +626,30 @@ The CCQ quote: the workflow record CCQ owns.
 
 **Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_sf_status_flag_check`
 
-**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`
+**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`
+
+### quote_draft
+
+Intake drafts (B-07). Visible to the creator and Admin only; becomes a quote on submit.
+
+**Owner:** KAM
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `owner_user_id` | uuid | no |  | app_user.id | The KAM writing the intake. Only they (and Admin) can see the draft. | KAM |
+| `sf_opportunity_id` | text | yes |  |  | SF opportunity picked in step 1 (no FK: it may come from a live SF search). | KAM |
+| `step` | integer | no | 1 |  | Wizard step to resume at (1–4). | KAM |
+| `data` | jsonb | no | {} |  | Intake fields as entered (contracts IntakeDraftData). Autosaved every 5 s. | KAM |
+| `submitted_quote_id` | uuid | yes |  | quote.id | Quote created from this draft; set on submit, after which the draft is read-only. | CCQ (system) |
+| `submitted_at` | timestamp with time zone | yes |  |  | When the draft was submitted. | CCQ (system) |
+
+**Checks:** `quote_draft_step_check`, `quote_draft_submitted_consistency_check`
+
+**Indexes:** `quote_draft_owner_idx`
 
 ### quote_hold
 

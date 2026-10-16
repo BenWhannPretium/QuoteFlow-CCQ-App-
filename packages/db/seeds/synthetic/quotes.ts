@@ -24,18 +24,26 @@ import {
 import { activityEvent, stageHistory } from '../../src/schema/index';
 
 /** Final stage → how many of the 150 quotes end there. Every stage is covered. */
+/**
+ * B-07: at most one active (not closed) quote per SF opportunity, so the 80 active quotes take 80
+ * distinct opportunities and leave open ones free for new intakes. Closed quotes may share an
+ * opportunity (an earlier Lost / Expired attempt before the current one).
+ */
 export const QUOTE_STAGE_TARGETS: [stage: string, count: number][] = [
-  ['INTAKE', 18],
-  ['ENG_REVIEW', 25],
-  ['QUOTING', 20],
-  ['FINAL_REVIEW', 12],
-  ['CUSTOMER_DECISION', 20],
-  ['AWARDED', 20],
-  ['CLOSED_LOST', 15],
-  ['DECLINED', 6],
-  ['EXPIRED', 8],
-  ['REDIRECTED', 6],
+  ['INTAKE', 12],
+  ['ENG_REVIEW', 22],
+  ['QUOTING', 18],
+  ['FINAL_REVIEW', 10],
+  ['CUSTOMER_DECISION', 18],
+  ['AWARDED', 22],
+  ['CLOSED_LOST', 18],
+  ['DECLINED', 8],
+  ['EXPIRED', 12],
+  ['REDIRECTED', 10],
 ];
+
+/** Stages whose quotes end the seed closed (terminal). */
+const CLOSED_STAGES = new Set(['AWARDED', 'CLOSED_LOST', 'DECLINED', 'EXPIRED', 'REDIRECTED']);
 
 type Who = PersonaKey | 'kam' | 'g1' | 'g4';
 
@@ -109,8 +117,8 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
 
   switch (stage) {
     case 'INTAKE':
-      if (i < 10) return { steps: [], complete: i % 3 !== 0 }; // drafts, some incomplete
-      if (i < 14) return { steps: [hold('G1')], complete: true };
+      if (i < 6) return { steps: [], complete: i % 3 !== 0 }; // awaiting G1, some incomplete
+      if (i < 9) return { steps: [hold('G1')], complete: true };
       return {
         steps: [
           g1('rework', {
@@ -121,9 +129,9 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'ENG_REVIEW':
-      if (i < 8) return { steps: toEng, complete: true }; // waiting in the queue
-      if (i < 18) return { steps: [...toEng, ...engWork], complete: true };
-      if (i < 22) return { steps: [...toEng, ...engWork, hold('G2')], complete: true };
+      if (i < 7) return { steps: toEng, complete: true }; // waiting in the queue
+      if (i < 16) return { steps: [...toEng, ...engWork], complete: true };
+      if (i < 19) return { steps: [...toEng, ...engWork, hold('G2')], complete: true };
       return {
         steps: [
           ...toEng,
@@ -137,8 +145,8 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'QUOTING':
-      if (i < 14) return { steps: toQuoting, complete: true };
-      if (i < 17) return { steps: [...toQuoting, hold('G3')], complete: true };
+      if (i < 12) return { steps: toQuoting, complete: true };
+      if (i < 15) return { steps: [...toQuoting, hold('G3')], complete: true };
       return {
         steps: [
           ...toQuoting,
@@ -151,7 +159,7 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'FINAL_REVIEW':
-      if (i < 10) return { steps: toFinal, complete: true };
+      if (i < 8) return { steps: toFinal, complete: true };
       return {
         steps: [
           ...toFinal,
@@ -165,8 +173,8 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'CUSTOMER_DECISION':
-      if (i < 12) return { steps: toCustomer, complete: true };
-      if (i < 18) return { steps: [...toCustomer, hold('G5')], complete: true };
+      if (i < 10) return { steps: toCustomer, complete: true };
+      if (i < 15) return { steps: [...toCustomer, hold('G5')], complete: true };
       return {
         steps: [
           ...toCustomer,
@@ -325,11 +333,26 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
   const engineers = [persona('engineer'), persona('engineer-owner')];
 
   // Closed-won / lost SF opportunities go to quotes with matching outcomes first.
+  // Active quotes (not closed) each take a distinct open opportunity; closed quotes reuse them.
   const won = ctx.opportunities.filter((o) => /PO\(s\)|Verbal|Closed Won/.test(o.sfStage));
   const lost = ctx.opportunities.filter((o) => o.sfStage === 'Closed Lost');
   const open = ctx.opportunities.filter((o) => !won.includes(o) && !lost.includes(o));
   let openCursor = 0;
-  const nextOpen = () => open[openCursor++ % open.length]!;
+  const nextFreeOpen = () => {
+    const opp = open[openCursor++];
+    if (!opp) throw new Error('synthetic seed: more active quotes than open SF opportunities');
+    return opp;
+  };
+  // Closed quotes pass through active states while they are walked, so they only reuse the open
+  // opportunities no active quote takes (each closes before the next one starts).
+  const activeTotal = QUOTE_STAGE_TARGETS.filter(([stage]) => !CLOSED_STAGES.has(stage)).reduce(
+    (n, [, count]) => n + count,
+    0,
+  );
+  const spare = open.slice(activeTotal);
+  if (spare.length === 0) throw new Error('synthetic seed: no spare open SF opportunities');
+  let reuseCursor = 0;
+  const nextReused = () => spare[reuseCursor++ % spare.length]!;
 
   // Plan every quote (scenario + timeline) first, then create them in time order so quote numbers
   // are chronological.
@@ -345,7 +368,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
           ? won.shift()!
           : stage === 'CLOSED_LOST' && lost.length > 0
             ? lost.shift()!
-            : nextOpen();
+            : CLOSED_STAGES.has(stage)
+              ? nextReused()
+              : nextFreeOpen();
       const { steps, complete } = scenario(rng, stage, i);
       // Lay out the timeline backwards from the anchor so every event is in the past.
       const gaps = steps.map(

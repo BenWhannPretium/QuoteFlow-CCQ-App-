@@ -39,6 +39,7 @@ test/             integration tests against a real Postgres (`<TEST_DATABASE_URL
 | 0003 | `quote_number` | hand-written: `next_quote_number(timestamptz)`                                                        |
 | 0004 | `roles_rls`    | hand-written: roles, grants, append-only trigger, RLS helpers and policies                            |
 | 0005 | `sf_reader`    | **Drizzle-generated** (B-06): SF snapshot columns, account-name trigram index, `quote.sf_status_flag` |
+| 0006 | `intake`       | **Drizzle-generated + hand-written RLS** (B-07): `quote_draft` (owner/Admin-only RLS), intake columns on `quote`/`customer`, unique partial index `quote_one_active_per_opportunity_uidx` |
 
 Column comments are not a migration: they are derived from the schema (`c(column, meaning, owner)`) and
 re-applied after every `db:migrate`, so the database and the dictionary never drift.

@@ -10,6 +10,7 @@ import {
   numeric,
   pgTable,
   text,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -67,6 +68,16 @@ export const customer = documented(
         SYSTEM,
       ),
       lastSyncedAt: c(timestamptz('last_synced_at'), 'Last refresh from Salesforce.', SYSTEM),
+      location: c(
+        text('location'),
+        'Not-yet-established customers: where they are (city, state / country), as typed at intake.',
+        KAM,
+      ),
+      contact: c(
+        jsonb('contact'),
+        'Not-yet-established customers: business contact {name, email, phone} typed at intake.',
+        KAM,
+      ),
     },
     (t) => [
       check('customer_status_check', inList(t.status, CUSTOMER_STATUSES)),
@@ -212,6 +223,16 @@ export const quote = documented(
         KAM,
       ),
       estAnnualRevenue: c(money('est_annual_revenue'), 'Estimated annual revenue (USD).', KAM),
+      estAnnualRevenueSf: c(
+        money('est_annual_revenue_sf'),
+        'The SF opportunity amount the revenue was pre-filled from (kept when the KAM edits it).',
+        SF,
+      ),
+      estAnnualVolumeConfirmed: c(
+        boolean('est_annual_volume_confirmed').notNull().default(false),
+        'The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real.',
+        KAM,
+      ),
       expectedCloseDate: c(
         date('expected_close_date', { mode: 'string' }),
         'Expected close date.',
@@ -231,11 +252,26 @@ export const quote = documented(
         'Notes from the KAM to Engineering.',
         KAM,
       ),
+      submittedAt: c(
+        timestamptz('submitted_at'),
+        'When the KAM submitted the intake (the quote was created).',
+        SYSTEM,
+      ),
       // Ship-to
       shipTo: c(jsonb('ship_to'), 'Ship-to address used for the quote.', KAM),
       shipToOverridden: c(
         boolean('ship_to_overridden').notNull().default(false),
         'True when it differs from the customer default.',
+        KAM,
+      ),
+      shipToOriginal: c(
+        jsonb('ship_to_original'),
+        'The customer default ship-to the intake was pre-filled with (kept when overridden).',
+        KAM,
+      ),
+      shipToOverrideReason: c(
+        text('ship_to_override_reason'),
+        'Why the ship-to differs from the default. Interim home until B-09 moves it to an override row.',
         KAM,
       ),
       // Priority
@@ -326,11 +362,63 @@ export const quote = documented(
       index('quote_stage_priority_idx').on(t.stageKey, t.priorityScore.desc()),
       index('quote_kam_user_id_idx').on(t.kamUserId),
       index('quote_sf_opportunity_id_idx').on(t.sfOpportunityId),
+      // One active CCQ quote per SF opportunity (B-07). Closed quotes don't count, so a re-quote
+      // after Lost/Expired is a new quote on the same opportunity.
+      uniqueIndex('quote_one_active_per_opportunity_uidx')
+        .on(t.sfOpportunityId)
+        .where(sql`${t.status} <> 'closed'`),
       index('quote_assigned_engineer_id_idx').on(t.assignedEngineerId),
       index('quote_region_idx').on(t.region),
     ],
   ),
   { area: 'workflow', owner: SYSTEM, description: 'The CCQ quote: the workflow record CCQ owns.' },
+);
+
+export const quoteDraft = documented(
+  pgTable(
+    'quote_draft',
+    {
+      ...baseColumns(),
+      ownerUserId: c(
+        uuid('owner_user_id')
+          .notNull()
+          .references(() => appUser.id, { onDelete: 'restrict' }),
+        'The KAM writing the intake. Only they (and Admin) can see the draft.',
+        KAM,
+      ),
+      sfOpportunityId: c(
+        text('sf_opportunity_id'),
+        'SF opportunity picked in step 1 (no FK: it may come from a live SF search).',
+        KAM,
+      ),
+      step: c(integer('step').notNull().default(1), 'Wizard step to resume at (1–4).', KAM),
+      data: c(
+        jsonb('data').notNull().default({}),
+        'Intake fields as entered (contracts IntakeDraftData). Autosaved every 5 s.',
+        KAM,
+      ),
+      submittedQuoteId: c(
+        uuid('submitted_quote_id').references(() => quote.id, { onDelete: 'restrict' }),
+        'Quote created from this draft; set on submit, after which the draft is read-only.',
+        SYSTEM,
+      ),
+      submittedAt: c(timestamptz('submitted_at'), 'When the draft was submitted.', SYSTEM),
+    },
+    (t) => [
+      index('quote_draft_owner_idx').on(t.ownerUserId, t.updatedAt),
+      check('quote_draft_step_check', sql`${t.step} between 1 and 4`),
+      check(
+        'quote_draft_submitted_consistency_check',
+        sql`(${t.submittedQuoteId} is null) = (${t.submittedAt} is null)`,
+      ),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: KAM,
+    description:
+      'Intake drafts (B-07). Visible to the creator and Admin only; becomes a quote on submit.',
+  },
 );
 
 export const quoteNumberCounter = documented(

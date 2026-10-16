@@ -2,6 +2,48 @@ import { upsertConfig } from './_upsert';
 import type { DbOrTx } from '../../src/client';
 import { appSetting, scoringModel, sfStageMap } from '../../src/schema/index';
 
+const present = (field: string) => ({ field, op: 'present' });
+
+/** Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship-to, product family, resin, volume. */
+export const INTAKE_REQUIRED_FIELDS = [
+  present('sf_opportunity_id'),
+  present('customer.name'),
+  { anyOf: [present('ship_to.line1'), present('ship_to.city')] },
+  present('product_family'),
+  present('resin'),
+  present('est_annual_volume'),
+];
+
+/** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
+export const INTAKE_FIELD_HELP: Record<string, string> = {
+  sf_opportunity_id:
+    'Every CCQ quote starts from a Salesforce opportunity, so pipeline and outcomes stay linked.',
+  customer:
+    'Engineering and Pricing size the work differently for a new versus an established customer.',
+  ship_to: 'Freight and the plant that can fill the order both depend on where the product ships.',
+  ship_to_override_reason:
+    'A ship-to that differs from the account default changes the quote, so we record why.',
+  request_class:
+    'CCQ is new business that needs engineering or capital; stock and price checks take a faster route.',
+  product_family: 'Tells Engineering which product line and tooling family to look at.',
+  components: 'Closures, liners and labels change tooling, sourcing and the price build.',
+  market: 'Market drives material, regulatory and cleanliness requirements.',
+  resin: 'Resin decides the process, the machine and much of the cost.',
+  neck_finish: 'The neck finish is one of the details Engineering most often has to chase.',
+  packaging_type: 'How it ships (bulk, bagged, trayed) changes pack-out, labour and freight.',
+  packaging_notes: 'Pallet, case and labelling rules are a common reason quotes come back.',
+  est_annual_volume:
+    "Volume sizes the machine, cavitation and capacity. Please use the customer's real number.",
+  est_annual_revenue: 'Revenue helps rank the request; it starts from the Salesforce amount.',
+  expected_close_date: 'Lets Engineering plan around when the customer needs an answer.',
+  container_size: 'Size, with the container type and resin, makes up the standard description.',
+  standard_description: 'A consistent description makes requests easy to compare and search.',
+  description: 'Anything else about the request, in your own words.',
+  drawing_status:
+    'A drawing is the fastest way to an accurate quote; without one it usually takes longer.',
+  comments_for_engineering: 'Context only you know: the customer, competitors, history, deadlines.',
+};
+
 /** Settings for open decisions. Values are provisional seeds; the descriptions name the decision. */
 export const APP_SETTINGS: { key: string; value: unknown; description: string }[] = [
   {
@@ -46,6 +88,43 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'default_scope_type',
     value: 'all',
     description: 'Data scope for users with no user_scope row (PRD lean: full pipeline).',
+  },
+  // ── B-07 intake. All provisional: Danielle Leu and Jim Zweifel finalise "stop vs enrich" at M4 (D-05, CR-08).
+  {
+    key: 'intake_required_fields',
+    value: INTAKE_REQUIRED_FIELDS,
+    description:
+      'Intake fields that BLOCK a submit (required-field DSL). Every other missing field is an amber "Engineering may ask about this". D-05 / CR-08.',
+  },
+  {
+    key: 'intake_volume_placeholder',
+    value: { values: [1_000_000], roundMultiple: 1_000_000 },
+    description:
+      'Soft confirm when the annual volume looks like a default ("almost always entered as one million"): exact values, or any whole multiple of roundMultiple (null = off).',
+  },
+  {
+    key: 'intake_default_request_class',
+    value: 'CCQ',
+    description:
+      'Default request_class code at intake. Any other class shows "This may be redirected at qualification".',
+  },
+  {
+    key: 'intake_description_template',
+    value: '{container_size} {product_family}[, {resin}][ with {components}]',
+    description:
+      'Suggested standard description (Sarah Brennan). {field} is replaced by its label; a [ … ] segment is dropped when a field in it is empty. Format provisional.',
+  },
+  {
+    key: 'intake_field_help',
+    value: INTAKE_FIELD_HELP,
+    description:
+      'One-line "why we ask" helper text per intake field (feeds the P1 F-19 per-field explanations).',
+  },
+  {
+    key: 'salesforce_new_opportunity_url',
+    value: 'https://pretiumpkg.lightning.force.com/lightning/o/Opportunity/new',
+    description:
+      'Where the intake sends a KAM whose opportunity is not in Salesforce yet (DEC-12).',
   },
 ];
 

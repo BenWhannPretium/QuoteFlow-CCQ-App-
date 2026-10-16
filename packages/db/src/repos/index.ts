@@ -4,6 +4,7 @@
  */
 export * from './config';
 export * from './events';
+export * from './intake';
 export * from './integration';
 export * from './quotes';
 export * from './records';

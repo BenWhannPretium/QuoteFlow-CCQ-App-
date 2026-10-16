@@ -32,6 +32,7 @@ import { problemJsonPlugin } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
+import { IntakeService } from './services/intake';
 import { SalesforceService } from './services/salesforce';
 
 export interface AppDeps {
@@ -183,6 +184,14 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       : null;
   app.decorate('sfSync', sfSync);
 
+  // B-07 intake. A picked opportunity must be in the local snapshot (the quote's FK); a live read
+  // refreshes it. The scoring engine (B-08) plugs in here.
+  const intakeService = new IntakeService({
+    ...(deps.now ? { now: deps.now } : {}),
+    scoring: null,
+    ensureOpportunity: async (withTx, id) => (await sfService.detail(withTx, id)) !== null,
+  });
+
   // TODO(B-09): audit plugin.
   await app.register(v1Routes, {
     prefix: '/api/v1',
@@ -192,6 +201,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     identity,
     sfService,
     sfSync,
+    intakeService,
   });
 
   if (isProd) {
