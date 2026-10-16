@@ -435,7 +435,7 @@ Customer an opportunity is for. Existing (SF account) or not yet established.
 
 **Checks:** `customer_status_check`, `customer_sf_account_matches_status_check`
 
-**Indexes:** `customer_name_idx`
+**Indexes:** `customer_name_idx`, `customer_name_trgm_idx`
 
 ### eng_review
 
@@ -654,7 +654,7 @@ The CCQ quote: the workflow record CCQ owns.
 
 **Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
 
-**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`
+**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 
 ### quote_draft
 
@@ -775,7 +775,7 @@ One row per stay in a stage. Powers time-in-stage (CR-55).
 
 **Checks:** `stage_history_exit_after_enter_check`
 
-**Indexes:** `stage_history_quote_entered_idx`
+**Indexes:** `stage_history_quote_entered_idx`, `stage_history_open_stay_idx`
 
 ## Events and audit (`schema/events.ts`)
 

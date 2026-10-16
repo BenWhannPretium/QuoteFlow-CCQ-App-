@@ -1,17 +1,19 @@
 import { asQuoteId, asUserId, computeHoldMs, toSnakeCase } from '@ccq/domain';
 import type { HoldInterval, QuoteState, Role, TransitionEffects } from '@ccq/domain';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
-import { getQuoteById } from './quotes';
 import type { Quote } from './quotes';
-import { getEngReview, getPricingRecord, listCapacityEvidence, listHolds } from './records';
+import { listHolds } from './records';
 import {
   activityEvent,
   auditEvent,
+  capacityEvidence,
   customer,
+  engReview,
   gateDecision,
+  pricingRecord,
   quote,
   quoteHold,
   stageHistory,
@@ -29,71 +31,132 @@ const snake = (row: Record<string, unknown>): Record<string, unknown> =>
  * Pure data assembly; the domain decides what is required.
  */
 export async function loadQuoteState(db: DbOrTx, quoteId: string): Promise<QuoteState | undefined> {
-  const row = await getQuoteById(db, quoteId);
-  if (!row) return undefined;
-  const [eng, capacity, pricing, holds, decisions, cust] = await Promise.all([
-    getEngReview(db, quoteId),
-    listCapacityEvidence(db, quoteId),
-    getPricingRecord(db, quoteId),
-    listHolds(db, quoteId),
+  return (await loadQuoteStates(db, [quoteId])).get(quoteId);
+}
+
+/**
+ * `loadQuoteState` for many quotes with one query per table (B-14: the board asks the domain for each
+ * card's available actions). Quotes outside the caller's scope (RLS) are simply absent from the map.
+ */
+export async function loadQuoteStates(
+  db: DbOrTx,
+  quoteIds: readonly string[],
+): Promise<Map<string, QuoteState>> {
+  const states = new Map<string, QuoteState>();
+  const ids = [...new Set(quoteIds)];
+  if (ids.length === 0) return states;
+  const rows = await db.select().from(quote).where(inArray(quote.id, ids));
+  if (rows.length === 0) return states;
+  const found = rows.map((r) => r.id);
+  const customerIds = [
+    ...new Set(rows.map((r) => r.customerId).filter((id): id is string => !!id)),
+  ];
+  const [engs, capacity, pricing, holds, decisions, customers] = await Promise.all([
+    db.select().from(engReview).where(inArray(engReview.quoteId, found)),
+    db
+      .select()
+      .from(capacityEvidence)
+      .where(inArray(capacityEvidence.quoteId, found))
+      .orderBy(asc(capacityEvidence.analysisDate)),
+    db
+      .select({ record: pricingRecord })
+      .from(pricingRecord)
+      .innerJoin(quote, eq(quote.id, pricingRecord.quoteId))
+      .where(
+        and(inArray(pricingRecord.quoteId, found), eq(pricingRecord.quoteVersion, quote.version)),
+      ),
     db
       .select({
+        quoteId: quoteHold.quoteId,
+        startedAt: quoteHold.startedAt,
+        endedAt: quoteHold.endedAt,
+      })
+      .from(quoteHold)
+      .where(inArray(quoteHold.quoteId, found))
+      .orderBy(asc(quoteHold.startedAt)),
+    db
+      .select({
+        quoteId: gateDecision.quoteId,
         gateKey: gateDecision.gateKey,
         outcomeKey: gateDecision.outcomeKey,
         decidedBy: gateDecision.decidedBy,
         quoteVersion: gateDecision.quoteVersion,
       })
       .from(gateDecision)
-      .where(eq(gateDecision.quoteId, quoteId))
+      .where(inArray(gateDecision.quoteId, found))
       .orderBy(desc(gateDecision.decidedAt), desc(gateDecision.id)),
-    row.customerId
+    customerIds.length
       ? db
-          .select({ sfAccountId: customer.sfAccountId })
+          .select({ id: customer.id, sfAccountId: customer.sfAccountId })
           .from(customer)
-          .where(eq(customer.id, row.customerId))
+          .where(inArray(customer.id, customerIds))
       : Promise.resolve([]),
   ]);
-  const {
-    id: _e,
-    quoteId: _q,
-    createdAt: _c,
-    updatedAt: _u,
-    createdBy: _b,
-    ...engFields
-  } = eng ?? {};
-  const fields: Record<string, unknown> = {
-    ...snake(row),
-    ...snake(engFields),
-    capacity_evidence: capacity.map(snake),
-    pricing_record: pricing ? snake(pricing) : null,
-    // B-11: Engineering's latest feasibility outcome (e.g. capital_required) for the Quoting rules.
-    g2_outcome: decisions.find((d) => d.gateKey === 'G2')?.outcomeKey ?? null,
+  const byQuote = <T extends { quoteId: string }>(list: T[]) => {
+    const map = new Map<string, T[]>();
+    for (const item of list) {
+      const bucket = map.get(item.quoteId);
+      if (bucket) bucket.push(item);
+      else map.set(item.quoteId, [item]);
+    }
+    return map;
   };
-  // B-11: who acted as Pricing on this version (segregation `actor_is_price_approver`).
-  const priceApproverIds = [
-    ...new Set(
-      [
-        pricing?.priceApprovedBy,
-        ...decisions
-          .filter((d) => d.gateKey === 'G3' && d.quoteVersion === row.version)
-          .map((d) => d.decidedBy),
-      ].filter((id): id is string => !!id),
-    ),
-  ].map(asUserId);
-  const accountId = first(cust)?.sfAccountId;
-  return {
-    id: asQuoteId(row.id),
-    stageKey: row.stageKey,
-    status: row.status as QuoteState['status'],
-    version: row.version,
-    kamUserId: asUserId(row.kamUserId),
-    assignedEngineerId: row.assignedEngineerId ? asUserId(row.assignedEngineerId) : null,
-    ...(row.region ? { region: row.region } : {}),
-    ...(accountId ? { accountId } : {}),
-    fields,
-    holds: holds.map((h): HoldInterval => ({ startedAt: h.startedAt, endedAt: h.endedAt })),
-    priceApproverIds,
-  };
+  const engBy = new Map(engs.map((e) => [e.quoteId, e]));
+  const capacityBy = byQuote(capacity);
+  const pricingBy = new Map(pricing.map((p) => [p.record.quoteId, p.record]));
+  const holdsBy = byQuote(holds);
+  const decisionsBy = byQuote(decisions);
+  const accountBy = new Map(customers.map((c) => [c.id, c.sfAccountId]));
+
+  for (const row of rows) {
+    const {
+      id: _e,
+      quoteId: _q,
+      createdAt: _c,
+      updatedAt: _u,
+      createdBy: _b,
+      ...engFields
+    } = engBy.get(row.id) ?? {};
+    const pricingRow = pricingBy.get(row.id);
+    const quoteDecisions = decisionsBy.get(row.id) ?? [];
+    const fields: Record<string, unknown> = {
+      ...snake(row),
+      ...snake(engFields),
+      capacity_evidence: (capacityBy.get(row.id) ?? []).map(snake),
+      pricing_record: pricingRow ? snake(pricingRow) : null,
+      // B-11: Engineering's latest feasibility outcome (e.g. capital_required) for the Quoting rules.
+      g2_outcome: quoteDecisions.find((d) => d.gateKey === 'G2')?.outcomeKey ?? null,
+    };
+    // B-11: who acted as Pricing on this version (segregation `actor_is_price_approver`).
+    const priceApproverIds = [
+      ...new Set(
+        [
+          pricingRow?.priceApprovedBy,
+          ...quoteDecisions
+            .filter((d) => d.gateKey === 'G3' && d.quoteVersion === row.version)
+            .map((d) => d.decidedBy),
+        ].filter((id): id is string => !!id),
+      ),
+    ].map(asUserId);
+    const accountId = row.customerId ? accountBy.get(row.customerId) : undefined;
+    states.set(row.id, {
+      id: asQuoteId(row.id),
+      stageKey: row.stageKey,
+      status: row.status as QuoteState['status'],
+      version: row.version,
+      kamUserId: asUserId(row.kamUserId),
+      assignedEngineerId: row.assignedEngineerId ? asUserId(row.assignedEngineerId) : null,
+      ...(row.region ? { region: row.region } : {}),
+      ...(accountId ? { accountId } : {}),
+      fields,
+      holds: (holdsBy.get(row.id) ?? []).map((h): HoldInterval => ({
+        startedAt: h.startedAt,
+        endedAt: h.endedAt,
+      })),
+      priceApproverIds,
+    });
+  }
+  return states;
 }
 
 export interface PersistTransitionAudit {

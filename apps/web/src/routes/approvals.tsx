@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { InboxIcon } from 'lucide-react';
 import { Tabs } from 'radix-ui';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { ForbiddenPage, useCan } from '@/auth';
 import {
@@ -16,7 +16,12 @@ import {
   QualificationWarnings,
   SkeletonRows,
 } from '@/components';
-import { FinalReviewQueue } from '@/components/final-review/FinalReviewQueue';
+import {
+  FINAL_REVIEW_SORTS,
+  FinalReviewQueue,
+  type FinalReviewSearch,
+  type FinalReviewSort,
+} from '@/components/final-review/FinalReviewQueue';
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
@@ -25,7 +30,7 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 const TABS = ['final-review', 'to-qualify', 'overrides'] as const;
 type ApprovalsTab = (typeof TABS)[number];
 
-interface ApprovalsSearch {
+interface ApprovalsSearch extends FinalReviewSearch {
   /** The open tab (B-12). Without it: the first tab the caller can use. */
   tab?: ApprovalsTab;
   /**
@@ -39,6 +44,15 @@ export const Route = createFileRoute('/approvals')({
   validateSearch: (search: Record<string, unknown>): ApprovalsSearch => ({
     ...(TABS.includes(search.tab as ApprovalsTab) ? { tab: search.tab as ApprovalsTab } : {}),
     ...(typeof search.gate === 'string' && search.gate.trim() ? { gate: search.gate.trim() } : {}),
+    // B-14: the Final Review tab's filters and sort, in the URL like the pipeline views.
+    ...Object.fromEntries(
+      (['q', 'tier', 'g2', 'capital'] as const)
+        .filter((k) => typeof search[k] === 'string' && search[k].trim())
+        .map((k) => [k, (search[k] as string).trim().slice(0, 200)]),
+    ),
+    ...(FINAL_REVIEW_SORTS.includes(search.sort as FinalReviewSort)
+      ? { sort: search.sort as FinalReviewSort }
+      : {}),
   }),
   component: ApprovalsPage,
 });
@@ -51,6 +65,28 @@ function ApprovalsPage() {
       tab={tab ?? (gate === 'G1' ? 'to-qualify' : gate === 'G4' ? 'final-review' : undefined)}
     />
   );
+}
+
+function FinalReviewTab() {
+  const { q, tier, g2, capital, sort } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const onChange = useCallback(
+    (next: FinalReviewSearch) =>
+      void navigate({
+        search: (prev) => ({
+          ...(prev.tab ? { tab: prev.tab } : {}),
+          ...(prev.gate ? { gate: prev.gate } : {}),
+          q: next.q,
+          tier: next.tier,
+          g2: next.g2,
+          capital: next.capital,
+          sort: next.sort,
+        }),
+        replace: true,
+      }),
+    [navigate],
+  );
+  return <FinalReviewQueue value={{ q, tier, g2, capital, sort }} onChange={onChange} />;
 }
 
 const TAB_INFO: Record<ApprovalsTab, { label: string; title: string; description: string }> = {
@@ -127,7 +163,7 @@ function ApprovalsHome({ tab }: { tab: ApprovalsTab | undefined }) {
           ))}
         </Tabs.List>
         <Tabs.Content value="final-review">
-          <FinalReviewQueue />
+          <FinalReviewTab />
         </Tabs.Content>
         <Tabs.Content value="to-qualify">
           <GateQueue gateKey="G1" />

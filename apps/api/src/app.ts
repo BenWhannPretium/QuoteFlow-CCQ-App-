@@ -41,6 +41,7 @@ import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
 import { OutcomeService } from './services/outcome';
 import { OverrideService } from './services/overrideService';
+import { PipelineService } from './services/pipeline';
 import { PricingService } from './services/pricing';
 import { QuoteReadService } from './services/quotes';
 import { SalesforceService } from './services/salesforce';
@@ -268,6 +269,9 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     log: app.log.child({ component: 'outcome' }),
     ...now,
   });
+  // B-14 pipeline views: the quote list / prioritization view, the board and the CSV export.
+  const pipelineService = new PipelineService({ quotes: quoteReads, ...now });
+
   const expiryLog = app.log.child({ component: 'validity-expiry' });
   const validityExpiry =
     deps.db.db && deps.db.sql
@@ -303,6 +307,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     pricingService,
     finalReviewService,
     outcomeService,
+    pipelineService,
   });
 
   if (isProd) {

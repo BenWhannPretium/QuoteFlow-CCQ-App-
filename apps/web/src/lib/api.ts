@@ -1,4 +1,6 @@
 import {
+  BoardResponse,
+  QuoteListResponse,
   HandoffResponse,
   MyProposalsResponse,
   OutcomesReport,
@@ -290,20 +292,44 @@ export const api = {
   usageReport: (q: { from?: string | undefined; to?: string | undefined }) =>
     getJson(`/api/v1/admin/reports/usage${queryString(q)}`, UsageReportResponse),
   /** The CSV export as a Blob (it needs the bearer token, so it can't be a plain link). */
-  auditExport: async (q: Partial<AuditExportQuery>): Promise<Blob> => {
-    const session = getAuthSession();
-    if (!session) throw new Error('Not signed in');
-    const res = await fetch(`/api/v1/admin/audit/export.csv${queryString(q)}`, {
-      headers: { accept: 'text/csv', ...(await session.headers({ forceRefresh: false })) },
-    });
-    if (!res.ok) {
-      const parsed = ProblemDetails.safeParse(await res.json().catch(() => null));
-      throw new ApiError(
-        parsed.success
-          ? parsed.data
-          : { type: 'about:blank', title: res.statusText, status: res.status },
-      );
-    }
-    return res.blob();
-  },
+  auditExport: (q: Partial<AuditExportQuery>): Promise<Blob> =>
+    getCsv(`/api/v1/admin/audit/export.csv${queryString(q)}`),
+
+  // B-14 pipeline views. The query is the URL's filters (lib/pipeline-search), passed through.
+  quotes: (q: Record<string, string>) =>
+    getJson(`/api/v1/quotes${queryString(q)}`, QuoteListResponse),
+  board: (q: Record<string, string>) =>
+    getJson(`/api/v1/quotes/board${queryString(q)}`, BoardResponse),
+  /** The filtered list as CSV (audited server-side; 422 above 5,000 rows). */
+  quotesExport: (q: Record<string, string>): Promise<Blob> =>
+    getCsv(`/api/v1/quotes/export.csv${queryString(q)}`),
 };
+
+async function getCsv(path: string): Promise<Blob> {
+  const session = getAuthSession();
+  if (!session) throw new Error('Not signed in');
+  const res = await fetch(path, {
+    headers: { accept: 'text/csv', ...(await session.headers({ forceRefresh: false })) },
+  });
+  if (!res.ok) {
+    const parsed = ProblemDetails.safeParse(await res.json().catch(() => null));
+    throw new ApiError(
+      parsed.success
+        ? parsed.data
+        : { type: 'about:blank', title: res.statusText, status: res.status },
+    );
+  }
+  return res.blob();
+}
+
+/** Save a Blob as a file (the CSV exports). */
+export function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

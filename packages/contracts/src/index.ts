@@ -7,6 +7,7 @@ export * from './health';
 export * from './intake';
 export * from './outcome';
 export * from './overrides';
+export * from './pipeline';
 export * from './pricing';
 export * from './pricing-queue';
 export * from './problem';

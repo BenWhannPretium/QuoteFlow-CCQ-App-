@@ -40,6 +40,8 @@ export default defineConfig({
         'engineering.spec.ts',
         'pricing.spec.ts',
         'outcome.spec.ts',
+        'pipeline.spec.ts',
+        'board-perf.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

@@ -10,6 +10,7 @@ export * from './intake';
 export * from './integration';
 export * from './outcome';
 export * from './overrides';
+export * from './pipeline';
 export * from './pricing';
 export * from './quote-read';
 export * from './quotes';

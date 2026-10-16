@@ -87,6 +87,8 @@ export const customer = documented(
         sql`(${t.status} = 'existing') = (${t.sfAccountId} is not null)`,
       ),
       index('customer_name_idx').on(t.name),
+      // B-14 pipeline search (`q`: ILIKE '%…%' on the account name).
+      index('customer_name_trgm_idx').using('gin', t.name.op('gin_trgm_ops')),
     ],
   ),
   {
@@ -408,6 +410,10 @@ export const quote = documented(
         .where(sql`${t.status} <> 'closed'`),
       index('quote_assigned_engineer_id_idx').on(t.assignedEngineerId),
       index('quote_region_idx').on(t.region),
+      // B-14 pipeline views: search by quote number / description, and the default "last updated" sort.
+      index('quote_quote_number_trgm_idx').using('gin', t.quoteNumber.op('gin_trgm_ops')),
+      index('quote_description_trgm_idx').using('gin', t.description.op('gin_trgm_ops')),
+      index('quote_updated_at_idx').on(t.updatedAt.desc()),
     ],
   ),
   { area: 'workflow', owner: SYSTEM, description: 'The CCQ quote: the workflow record CCQ owns.' },
@@ -511,6 +517,10 @@ export const stageHistory = documented(
     },
     (t) => [
       index('stage_history_quote_entered_idx').on(t.quoteId, t.enteredAt),
+      // B-14: the open stay ("time in stage", the aged-over filter and sort).
+      index('stage_history_open_stay_idx')
+        .on(t.quoteId, t.enteredAt)
+        .where(sql`${t.exitedAt} is null`),
       check(
         'stage_history_exit_after_enter_check',
         sql`${t.exitedAt} is null or ${t.exitedAt} >= ${t.enteredAt}`,

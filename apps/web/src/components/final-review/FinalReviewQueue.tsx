@@ -2,12 +2,12 @@ import type { FinalReviewItem, FinalReviewQueueResponse } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { CheckIcon, InboxIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { CAPITAL_LABELS } from '@/components/pricing/QuotingTab';
 import { buttonVariants } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, NativeSelect } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, type FinalReviewQueueParams } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
@@ -32,14 +32,71 @@ import { finalReviewQueueKey } from './keys';
  * the decision itself happens on the review screen, from its sticky decision bar. The API says per
  * quote whether the caller may decide it (segregation, approver tier) and why not.
  */
-export function FinalReviewQueue() {
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<FilterValue>({});
+/** B-14: the tab's filters, sort and search live in the /approvals URL (shareable, like the pipeline). */
+export interface FinalReviewSearch {
+  q?: string | undefined;
+  tier?: string | undefined;
+  g2?: string | undefined;
+  capital?: string | undefined;
+  sort?: FinalReviewSort | undefined;
+}
+export const FINAL_REVIEW_SORTS = ['priority', 'score', 'waiting', 'quote'] as const;
+export type FinalReviewSort = (typeof FINAL_REVIEW_SORTS)[number];
+const SORT_LABEL: Record<FinalReviewSort, string> = {
+  priority: 'Tier, then score',
+  score: 'Score',
+  waiting: 'Waiting longest',
+  quote: 'Quote number',
+};
+
+/** Client-side order of the (small) queue; the server's order is `priority`. */
+export function sortFinalReview(
+  items: FinalReviewItem[],
+  sort: FinalReviewSort,
+): FinalReviewItem[] {
+  const list = [...items];
+  if (sort === 'score') {
+    list.sort((a, b) => (b.priority.score ?? -1) - (a.priority.score ?? -1));
+  } else if (sort === 'waiting') {
+    list.sort((a, b) => b.waitingMs - a.waitingMs);
+  } else if (sort === 'quote') {
+    list.sort((a, b) => a.quoteNumber.localeCompare(b.quoteNumber));
+  }
+  return list;
+}
+
+export function FinalReviewQueue({
+  value,
+  onChange,
+}: {
+  value: FinalReviewSearch;
+  onChange: (next: FinalReviewSearch) => void;
+}) {
+  const filters: FilterValue = {
+    ...(value.tier ? { tier: value.tier.split(',') } : {}),
+    ...(value.g2 ? { g2: value.g2.split(',') } : {}),
+    ...(value.capital ? { capital: value.capital.split(',') } : {}),
+  };
+  const setFilters = (next: FilterValue) =>
+    onChange({
+      ...value,
+      tier: next.tier?.join(',') || undefined,
+      g2: next.g2?.join(',') || undefined,
+      capital: next.capital?.join(',') || undefined,
+    });
+  const [search, setSearch] = useState(value.q ?? '');
+  useEffect(() => {
+    const trimmed = search.trim();
+    if (trimmed === (value.q ?? '')) return;
+    const t = setTimeout(() => onChange({ ...value, q: trimmed || undefined }), 300);
+    return () => clearTimeout(t);
+  }, [search, value, onChange]);
+  const sort = value.sort ?? 'priority';
   const params: FinalReviewQueueParams = {
-    ...(filters.tier?.length ? { tier: filters.tier.join(',') } : {}),
-    ...(filters.g2?.length ? { g2: filters.g2.join(',') } : {}),
-    ...(filters.capital?.length ? { capital: filters.capital.join(',') } : {}),
-    ...(search.trim() ? { q: search.trim() } : {}),
+    ...(value.tier ? { tier: value.tier } : {}),
+    ...(value.g2 ? { g2: value.g2 } : {}),
+    ...(value.capital ? { capital: value.capital } : {}),
+    ...(value.q ? { q: value.q } : {}),
   };
   const queue = useQuery({
     queryKey: [...finalReviewQueueKey, params],
@@ -68,6 +125,8 @@ export function FinalReviewQueue() {
             onSearch={setSearch}
             filters={filters}
             onFilters={setFilters}
+            sort={sort}
+            onSort={(next) => onChange({ ...value, sort: next === 'priority' ? undefined : next })}
           />
           {data.items.length === 0 ? (
             <EmptyState
@@ -85,7 +144,7 @@ export function FinalReviewQueue() {
             />
           ) : (
             <ol className="grid gap-3 lg:grid-cols-2" aria-label="Final Review queue">
-              {data.items.map((item) => (
+              {sortFinalReview(data.items, sort).map((item) => (
                 <ApprovalCard key={item.id} item={item} canDecide={data.canDecide} />
               ))}
             </ol>
@@ -126,15 +185,20 @@ function Toolbar({
   onSearch,
   filters,
   onFilters,
+  sort,
+  onSort,
 }: {
   data: FinalReviewQueueResponse;
   search: string;
   onSearch: (v: string) => void;
   filters: FilterValue;
   onFilters: (v: FilterValue) => void;
+  sort: FinalReviewSort;
+  onSort: (v: FinalReviewSort) => void;
 }) {
   const { data: config } = usePublicConfig();
   const searchId = useId();
+  const sortId = useId();
   const groups: FilterGroup[] = [
     {
       key: 'tier',
@@ -175,6 +239,21 @@ function Toolbar({
         />
       </div>
       <FiltersPopover groups={groups} value={filters} onChange={onFilters} />
+      <label htmlFor={sortId} className="text-muted-foreground text-sm">
+        Sort
+      </label>
+      <NativeSelect
+        id={sortId}
+        className="h-11 w-auto sm:h-9"
+        value={sort}
+        onChange={(e) => onSort(e.target.value as FinalReviewSort)}
+      >
+        {FINAL_REVIEW_SORTS.map((k) => (
+          <option key={k} value={k}>
+            {SORT_LABEL[k]}
+          </option>
+        ))}
+      </NativeSelect>
       {activeFilterCount(filters) > 0 && (
         <button
           type="button"

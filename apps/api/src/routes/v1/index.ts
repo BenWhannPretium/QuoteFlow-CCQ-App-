@@ -12,6 +12,7 @@ import { intakeRoutes } from './intake';
 import { meRoutes } from './me';
 import { outcomeRoutes } from './outcome';
 import { overrideRoutes } from './overrides';
+import { pipelineRoutes } from './pipeline';
 import { pricingRoutes } from './pricing';
 import { salesforceRoutes } from './salesforce';
 import { timelineRoutes } from './timeline';
@@ -26,6 +27,7 @@ import type { GateService } from '../../services/gateService';
 import type { IntakeService } from '../../services/intake';
 import type { OutcomeService } from '../../services/outcome';
 import type { OverrideService } from '../../services/overrideService';
+import type { PipelineService } from '../../services/pipeline';
 import type { PricingService } from '../../services/pricing';
 import type { SalesforceService } from '../../services/salesforce';
 import type { TimelineService } from '../../services/timeline';
@@ -46,6 +48,7 @@ export interface V1Options {
   pricingService: PricingService;
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
+  pipelineService: PipelineService;
 }
 
 /**
@@ -70,6 +73,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     pricingService,
     finalReviewService,
     outcomeService,
+    pipelineService,
   },
 ) => {
   // Pass only our options: forwarding `opts` would re-apply the parent's `prefix`.
@@ -88,5 +92,6 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(pricingRoutes, { service: pricingService });
   await app.register(finalReviewRoutes, { service: finalReviewService });
   await app.register(outcomeRoutes, { service: outcomeService });
-  // TODO(B-14+): attachments, lookups, dashboards.
+  await app.register(pipelineRoutes, { service: pipelineService });
+  // TODO(B-15+): attachments, lookups, dashboards.
 };

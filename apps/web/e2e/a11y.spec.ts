@@ -67,7 +67,7 @@ test('filters popover opens beside its button and filters the table', async ({ p
   const critical = page.getByRole('checkbox', { name: 'Critical' });
   await expect(critical).toBeInViewport();
   await critical.check();
-  await expect(page.getByRole('button', { name: 'Filters, 1 active' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filters 1 active' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(table.getByRole('row')).toHaveCount(2); // header + the Critical row
 });

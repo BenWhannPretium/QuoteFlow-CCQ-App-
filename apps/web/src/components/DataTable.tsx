@@ -44,6 +44,13 @@ export interface DataTableProps<T> {
   initialSorting?: SortingState;
   /** Height of the scroll area that keeps the header sticky. */
   maxHeight?: string;
+  /**
+   * B-14 server-side sorting: the rows arrive sorted, `sorting` reflects the URL and header clicks
+   * call `onSortingChange`. Columns without `enableSorting: false` must map to a server sort key.
+   */
+  manualSorting?: { sorting: SortingState; onSortingChange: (next: SortingState) => void };
+  /** Accessible row name for the "open" affordance (data-testid hook for e2e). */
+  rowTestId?: (row: T) => string;
 }
 
 /**
@@ -62,8 +69,11 @@ export function DataTable<T>({
   empty,
   initialSorting = [],
   maxHeight = '70dvh',
+  manualSorting,
+  rowTestId,
 }: DataTableProps<T>) {
-  const [sorting, setSorting] = useState<SortingState>(initialSorting);
+  const [localSorting, setLocalSorting] = useState<SortingState>(initialSorting);
+  const sorting = manualSorting?.sorting ?? localSorting;
   const isMobile = useIsMobile();
   // TanStack Table returns fresh functions each render; the React Compiler skips this component.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -71,9 +81,15 @@ export function DataTable<T>({
     data,
     columns,
     state: { sorting },
-    onSortingChange: setSorting,
+    onSortingChange: (updater) => {
+      const next = typeof updater === 'function' ? updater(sorting) : updater;
+      if (manualSorting) manualSorting.onSortingChange(next);
+      else setLocalSorting(next);
+    },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    ...(manualSorting
+      ? { manualSorting: true, sortDescFirst: true }
+      : { getSortedRowModel: getSortedRowModel() }),
     ...(getRowId ? { getRowId: (row: T) => getRowId(row) } : {}),
   });
 
@@ -82,7 +98,13 @@ export function DataTable<T>({
   if (rows.length === 0 && empty) return <>{empty}</>;
 
   return isMobile ? (
-    <CardList table={table} rows={rows} caption={caption} onRowClick={onRowClick} />
+    <CardList
+      table={table}
+      rows={rows}
+      caption={caption}
+      onRowClick={onRowClick}
+      rowTestId={rowTestId}
+    />
   ) : (
     <div
       className="bg-card rounded-card shadow-card overflow-auto border"
@@ -106,6 +128,7 @@ export function DataTable<T>({
           {rows.map((row) => (
             <tr
               key={row.id}
+              data-testid={rowTestId?.(row.original)}
               onClick={onRowClick ? () => onRowClick(row.original) : undefined}
               className={cn('hover:bg-muted', onRowClick && 'cursor-pointer')}
             >
@@ -166,11 +189,13 @@ function CardList<T>({
   rows,
   caption,
   onRowClick,
+  rowTestId,
 }: {
   table: ReturnType<typeof useReactTable<T>>;
   rows: Row<T>[];
   caption: string;
   onRowClick?: ((row: T) => void) | undefined;
+  rowTestId?: ((row: T) => string) | undefined;
 }) {
   const sortId = useId();
   const sortable = table.getAllLeafColumns().filter((c) => c.getCanSort());
@@ -216,6 +241,7 @@ function CardList<T>({
           return (
             <li
               key={row.id}
+              data-testid={rowTestId?.(row.original)}
               onClick={onRowClick ? () => onRowClick(row.original) : undefined}
               className={cn(
                 'bg-card rounded-card shadow-card grid gap-3 border p-4',

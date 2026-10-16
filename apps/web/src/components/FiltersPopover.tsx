@@ -1,5 +1,5 @@
 import { SlidersHorizontalIcon } from 'lucide-react';
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -24,13 +24,22 @@ export function FiltersPopover({
   value,
   onChange,
   label = 'Filters',
+  extra,
+  count: countOverride,
+  onClear,
 }: {
   groups: FilterGroup[];
   value: FilterValue;
   onChange: (next: FilterValue) => void;
   label?: string;
+  /** Inputs that aren't checkbox groups (B-14: aging, close-date range), shown above the groups. */
+  extra?: ReactNode;
+  /** The active count when `extra` holds filters too (default: checked boxes). */
+  count?: number;
+  /** "Clear all" when `extra` holds filters too (default: uncheck every box). */
+  onClear?: () => void;
 }) {
-  const count = activeFilterCount(value);
+  const count = countOverride ?? activeFilterCount(value);
   const baseId = useId();
 
   const toggle = (group: string, option: string, checked: boolean) => {
@@ -45,21 +54,23 @@ export function FiltersPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label={count ? `${label}, ${count} active` : label}
-        >
+        {/* The name comes from the content ("Filters 1 active"), so it contains the visible text. */}
+        <Button variant="outline" size="sm">
           <SlidersHorizontalIcon aria-hidden="true" />
           {label}
           {count > 0 && (
-            <span className="bg-primary text-primary-foreground rounded-pill min-w-5 px-1.5 text-xs">
-              {count}
-            </span>
+            <>
+              {' '}
+              <span className="bg-primary text-primary-foreground rounded-pill min-w-5 px-1.5 text-xs">
+                {count}
+              </span>
+              <span className="sr-only"> active</span>
+            </>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="grid max-h-[70dvh] gap-4 overflow-y-auto">
+      <PopoverContent className="grid max-h-[min(70dvh,var(--radix-popover-content-available-height))] gap-4 overflow-y-auto pb-0">
+        {extra}
         {groups.map((group) => (
           <fieldset key={group.key} className="grid gap-1">
             <legend className="mb-1 text-sm font-semibold">{group.label}</legend>
@@ -84,8 +95,13 @@ export function FiltersPopover({
             })}
           </fieldset>
         ))}
-        <div className="flex justify-between gap-2 border-t pt-3">
-          <Button variant="ghost" size="sm" disabled={count === 0} onClick={() => onChange({})}>
+        <div className="bg-popover sticky bottom-0 flex justify-between gap-2 border-t py-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={count === 0}
+            onClick={() => (onClear ? onClear() : onChange({}))}
+          >
             Clear all
           </Button>
           <PopoverClose asChild>

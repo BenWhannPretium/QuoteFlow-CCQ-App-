@@ -76,10 +76,11 @@ test('an unknown quote shows not found; the admin splat renders its stub', async
 test('header search opens the pipeline with the query', async ({ page }) => {
   await signInAs(page, 'kam');
   await page.goto('/');
-  await page.getByRole('searchbox', { name: 'Search quotes' }).fill('Acme');
+  // B-14: a type-ahead combobox; Enter with nothing highlighted opens the full list.
+  await page.getByRole('combobox', { name: 'Search quotes' }).fill('Acme');
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/quotes\?q=Acme/);
-  await expect(page.getByText('Search: “Acme”')).toBeVisible();
+  await expect(page.getByTestId('pipeline-toolbar').getByRole('searchbox')).toHaveValue('Acme');
 });
 
 test('theme toggle switches to dark and survives a reload', async ({ page }) => {
