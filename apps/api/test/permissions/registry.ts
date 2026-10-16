@@ -206,4 +206,22 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   },
   { method: 'GET', route: '/api/v1/notifications', permission: 'authenticated' },
   { method: 'POST', route: '/api/v1/notifications/read', permission: 'authenticated' },
+  // B-11 pricing queue and Quoting tab. The queue needs pricingQueue.read (Pricing, Leadership,
+  // Admin); the PUTs need quoting.edit (Pricing). "Only while in Quoting", the field checks and the
+  // commercial redaction of QuoteDetail.quoting for every other role are pricing.int.test.ts.
+  { method: 'GET', route: '/api/v1/queue/pricing', permission: 'pricingQueue.read' },
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/pricing-record',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/pricing-record`,
+    permission: 'quoting.edit',
+    sampleBody: { pricingBasisNote: 'March CDI' },
+  },
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/capital-readiness',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/capital-readiness`,
+    permission: 'quoting.edit',
+    sampleBody: { capitalReadiness: 'pending' },
+  },
 ];

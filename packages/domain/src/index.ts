@@ -11,6 +11,7 @@ export * from './errors';
 export * from './intake';
 export * from './overrides';
 export * from './policy';
+export * from './pricing';
 export * from './quote-number';
 export * from './scoring';
 export * from './timeline';

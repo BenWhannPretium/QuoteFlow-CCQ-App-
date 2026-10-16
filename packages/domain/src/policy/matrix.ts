@@ -57,6 +57,9 @@ export const PERMISSION_MATRIX: Readonly<
   'queue.assign': { EngLead: true, Admin: true },
   'engReview.edit': { EngLead: true, Engineer: assigned },
   'gate.G2.decide': { EngLead: true },
+  // B-11: the pricing queue page. Pricing works it, Leadership reads it, Admin reads it like the
+  // engineering queue. Everyone on it holds quote.read.commercialFields.
+  'pricingQueue.read': { Pricing: true, Leadership: true, Admin: true },
   'quoting.edit': { Pricing: true },
   'gate.G3.submit': { Pricing: true },
   'gate.G4.decide': { Approver: true },

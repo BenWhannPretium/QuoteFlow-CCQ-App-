@@ -38,6 +38,7 @@ export default defineConfig({
         'g1.spec.ts',
         'overrides.spec.ts',
         'engineering.spec.ts',
+        'pricing.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

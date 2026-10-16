@@ -8,6 +8,7 @@ export const PERMISSIONS = [
   'queue.assign',
   'engReview.edit',
   'gate.G2.decide',
+  'pricingQueue.read',
   'quoting.edit',
   'gate.G3.submit',
   'gate.G4.decide',

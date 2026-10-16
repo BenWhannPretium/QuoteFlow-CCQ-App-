@@ -1,6 +1,7 @@
 import {
   ENG_QUEUE_SETTINGS_SEED,
   OVERRIDE_SETTINGS_SEED,
+  PRICING_REF_FORMATS_SEED,
   SCORING_MODEL_V1_INPUT,
 } from '@ccq/domain';
 
@@ -163,6 +164,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: { 'G2:capital_required': 'pending' },
     description:
       'gate:outcome → the capital_readiness the decision writes on the pricing record (B-10: "Capital required" at G2 starts Pricing on pending).',
+  },
+  {
+    key: 'pricing_ref_formats',
+    value: PRICING_REF_FORMATS_SEED,
+    description:
+      'B-11: format-only checks for the pricing-app references on the Quoting tab ({erf|bpr: {label, pattern, example}}). Guesses until Cory McGahan confirms the real formats at M5 (D-PR).',
   },
   {
     key: 'salesforce_new_opportunity_url',

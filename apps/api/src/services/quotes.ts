@@ -34,6 +34,7 @@ import {
 
 import { engineeringView, loadEngQueueSettings } from './engineering-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
+import { quotingView } from './pricing-view';
 import type { ScoringService } from './scoring';
 
 /** Request-scoped inputs for building quote DTOs (loaded once per request). */
@@ -275,6 +276,7 @@ export class QuoteReadService {
         { ...q, accountId: state?.accountId ?? null },
       ),
       engineering: await engineeringView(db, ctx.actor, ctx.engQueue, q, state!),
+      quoting: await quotingView(db, ctx.actor, workflow, q, state!),
     };
   }
 }

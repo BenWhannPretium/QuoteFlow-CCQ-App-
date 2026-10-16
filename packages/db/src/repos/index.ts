@@ -9,6 +9,7 @@ export * from './events';
 export * from './intake';
 export * from './integration';
 export * from './overrides';
+export * from './pricing';
 export * from './quote-read';
 export * from './quotes';
 export * from './records';

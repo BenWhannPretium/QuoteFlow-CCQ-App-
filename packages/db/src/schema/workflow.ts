@@ -661,30 +661,56 @@ export const pricingRecord = documented(
     'pricing_record',
     {
       ...baseColumns(),
-      quoteId: c(
-        uuid('quote_id')
-          .notNull()
-          .unique()
-          .references(() => quote.id, { onDelete: 'restrict' }),
-        'Quote (one pricing record per quote).',
+      quoteId: c(quoteRef(), 'Quote.'),
+      quoteVersion: c(
+        integer('quote_version').notNull(),
+        'Quote version the record belongs to. A Rework / Return bumps the version and starts a new record; prior versions are kept as history (CR-38).',
       ),
       priceApprovedBy: c(userRef('price_approved_by'), 'Pricing approver.' + COMMERCIAL),
       priceApprovedAt: c(timestamptz('price_approved_at'), 'Price approval time.' + COMMERCIAL),
+      pricingBasisNote: c(
+        text('pricing_basis_note'),
+        'Basis of the approved price (e.g. resin index month, FOB terms). No figures are edited in CCQ.' +
+          COMMERCIAL,
+      ),
       pricingRefs: c(
         jsonb('pricing_refs').notNull().default({}),
-        'ERF/BPR ids from the pricing app.' + COMMERCIAL,
+        'Pricing-app references {erf: string[], bpr: string[]}, format-checked (app_setting pricing_ref_formats).' +
+          COMMERCIAL,
+      ),
+      noPricingAppRecordNote: c(
+        text('no_pricing_app_record_note'),
+        'Why there is no pricing-app record yet (stands in for a reference at G3).' + COMMERCIAL,
       ),
       approvedRangeNote: c(
         text('approved_range_note'),
-        'Note on the approved price range. No figures are edited in CCQ.' + COMMERCIAL,
+        'Approved negotiation range, as a note (guardrails are D-10, open). No figures are edited in CCQ.' +
+          COMMERCIAL,
       ),
+      costingCompleted: c(
+        boolean('costing_completed').notNull().default(false),
+        'CR-25 costing-before-pricing checkpoint: attestation only (costing stays in Excel).' +
+          COMMERCIAL,
+      ),
+      costingAttestedBy: c(userRef('costing_attested_by'), 'Who ticked "Costing completed".'),
+      costingAttestedAt: c(timestamptz('costing_attested_at'), 'When it was ticked.'),
       capitalReadiness: c(
         text('capital_readiness'),
         'not_required | pending | pre_approved | not_approved.' + COMMERCIAL,
       ),
+      cerReference: c(
+        text('cer_reference'),
+        'Capital expenditure request (CER) id, optional.' + COMMERCIAL,
+      ),
       capitalNotes: c(text('capital_notes'), 'Capital notes.' + COMMERCIAL),
+      capitalPendingJustification: c(
+        text('capital_pending_justification'),
+        'Why G3 is submitted with capital still pending (D-11 open: a warning, not a block).' +
+          COMMERCIAL,
+      ),
     },
     (t) => [
+      uniqueIndex('pricing_record_quote_version_uniq').on(t.quoteId, t.quoteVersion),
       check(
         'pricing_record_capital_readiness_check',
         inList(t.capitalReadiness, CAPITAL_READINESS),
@@ -694,7 +720,8 @@ export const pricingRecord = documented(
   {
     area: 'workflow',
     owner: PRICING,
-    description: 'Price approval and capital readiness record (CR-26). Commercial.',
+    description:
+      'Price approval and capital readiness record (CR-25/26), one row per quote version. Records the approval as a decision, never a price figure. Commercial.',
   },
 );
 

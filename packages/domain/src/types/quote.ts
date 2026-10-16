@@ -31,4 +31,9 @@ export interface QuoteState {
    */
   fields: Readonly<Record<string, unknown>>;
   holds: readonly HoldInterval[];
+  /**
+   * B-11: users who acted as Pricing on the current version: the recorded price approver and whoever
+   * decided G3. Read by the `actor_is_price_approver` segregation rule.
+   */
+  priceApproverIds?: readonly UserId[];
 }

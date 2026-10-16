@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { excludedSet, first } from './_util';
@@ -11,6 +11,7 @@ import {
   handoffRecord,
   override,
   pricingRecord,
+  quote,
   quoteHold,
   stageHistory,
 } from '../schema/index';
@@ -84,24 +85,50 @@ export async function insertCapacityEvidence(
   return row!;
 }
 
-export const getPricingRecord = async (db: DbOrTx, quoteId: string) =>
-  first(await db.select().from(pricingRecord).where(eq(pricingRecord.quoteId, quoteId)));
+/** The pricing record of the quote's current version (B-11: one row per version). */
+export async function getPricingRecord(db: DbOrTx, quoteId: string) {
+  return first(
+    await db
+      .select({ record: pricingRecord })
+      .from(pricingRecord)
+      .innerJoin(quote, eq(quote.id, pricingRecord.quoteId))
+      .where(
+        and(eq(pricingRecord.quoteId, quoteId), eq(pricingRecord.quoteVersion, quote.version)),
+      ),
+  )?.record;
+}
+
+/** Every version's pricing record, newest version first (the current one included). */
+export const listPricingRecords = (db: DbOrTx, quoteId: string) =>
+  db
+    .select()
+    .from(pricingRecord)
+    .where(eq(pricingRecord.quoteId, quoteId))
+    .orderBy(desc(pricingRecord.quoteVersion));
 
 const PRICING_FIELDS = [
   'priceApprovedBy',
   'priceApprovedAt',
+  'pricingBasisNote',
   'pricingRefs',
+  'noPricingAppRecordNote',
   'approvedRangeNote',
+  'costingCompleted',
+  'costingAttestedBy',
+  'costingAttestedAt',
   'capitalReadiness',
+  'cerReference',
   'capitalNotes',
+  'capitalPendingJustification',
 ] as const;
 
+/** Insert or update the record of one quote version. Other versions are never touched. */
 export async function upsertPricingRecord(db: DbOrTx, values: typeof pricingRecord.$inferInsert) {
   const [row] = await db
     .insert(pricingRecord)
     .values(values)
     .onConflictDoUpdate({
-      target: pricingRecord.quoteId,
+      target: [pricingRecord.quoteId, pricingRecord.quoteVersion],
       set: { ...excludedSet(pricingRecord, PRICING_FIELDS), updatedAt: new Date() },
     })
     .returning();

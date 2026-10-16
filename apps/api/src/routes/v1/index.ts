@@ -10,6 +10,7 @@ import { healthRoutes } from './health';
 import { intakeRoutes } from './intake';
 import { meRoutes } from './me';
 import { overrideRoutes } from './overrides';
+import { pricingRoutes } from './pricing';
 import { salesforceRoutes } from './salesforce';
 import { timelineRoutes } from './timeline';
 import type { AppDeps } from '../../app';
@@ -21,6 +22,7 @@ import type { EngineeringService } from '../../services/engineering';
 import type { GateService } from '../../services/gateService';
 import type { IntakeService } from '../../services/intake';
 import type { OverrideService } from '../../services/overrideService';
+import type { PricingService } from '../../services/pricing';
 import type { SalesforceService } from '../../services/salesforce';
 import type { TimelineService } from '../../services/timeline';
 
@@ -37,6 +39,7 @@ export interface V1Options {
   timelineService: TimelineService;
   auditService: AuditAdminService;
   engineeringService: EngineeringService;
+  pricingService: PricingService;
 }
 
 /**
@@ -58,6 +61,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     timelineService,
     auditService,
     engineeringService,
+    pricingService,
   },
 ) => {
   // Pass only our options: forwarding `opts` would re-apply the parent's `prefix`.
@@ -73,5 +77,6 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(timelineRoutes, { service: timelineService });
   await app.register(auditRoutes, { service: auditService });
   await app.register(engineeringRoutes, { service: engineeringService });
-  // TODO(B-11+): pricing queue, attachments, lookups, dashboards.
+  await app.register(pricingRoutes, { service: pricingService });
+  // TODO(B-12+): attachments, lookups, dashboards.
 };

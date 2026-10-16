@@ -38,6 +38,7 @@ import { EngineeringService } from './services/engineering';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
 import { OverrideService } from './services/overrideService';
+import { PricingService } from './services/pricing';
 import { QuoteReadService } from './services/quotes';
 import { SalesforceService } from './services/salesforce';
 import { ScoringService } from './services/scoring';
@@ -245,6 +246,13 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...now,
   });
 
+  // B-11 pricing queue and the Quoting tab.
+  const pricingService = new PricingService({
+    quotes: quoteReads,
+    log: app.log.child({ component: 'pricing' }),
+    ...now,
+  });
+
   await app.register(v1Routes, {
     prefix: '/api/v1',
     deps,
@@ -259,6 +267,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     timelineService,
     auditService,
     engineeringService,
+    pricingService,
   });
 
   if (isProd) {

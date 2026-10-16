@@ -95,8 +95,14 @@ export function violatedSegregationRules(
   return config.segregation.filter((rule) => {
     if (!rule.gateKeys.includes(gateKey)) return false;
     if (rule.outcomeKeys && !rule.outcomeKeys.includes(outcomeKey)) return false;
-    if (rule.deny === 'actor_is_kam') return quote.kamUserId === actor.userId;
-    return quote.assignedEngineerId === actor.userId;
+    switch (rule.deny) {
+      case 'actor_is_kam':
+        return quote.kamUserId === actor.userId;
+      case 'actor_is_assigned_engineer':
+        return quote.assignedEngineerId === actor.userId;
+      case 'actor_is_price_approver':
+        return (quote.priceApproverIds ?? []).includes(actor.userId);
+    }
   });
 }
 

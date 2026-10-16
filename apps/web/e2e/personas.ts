@@ -37,12 +37,21 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'leadership',
     landing: 'Leadership',
-    nav: ['home', 'queue-engineering', 'pipeline', 'analytics', 'audit'],
+    nav: ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'analytics', 'audit'],
   },
   {
     persona: 'admin',
     landing: 'Admin',
-    nav: ['home', 'intake', 'queue-engineering', 'pipeline', 'approvals', 'analytics', 'admin'],
+    nav: [
+      'home',
+      'intake',
+      'queue-engineering',
+      'queue-pricing',
+      'pipeline',
+      'approvals',
+      'analytics',
+      'admin',
+    ],
   },
   {
     persona: 'multi-role',

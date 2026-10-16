@@ -1,6 +1,6 @@
 import { asQuoteId, asUserId, computeHoldMs, toSnakeCase } from '@ccq/domain';
 import type { HoldInterval, QuoteState, Role, TransitionEffects } from '@ccq/domain';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
@@ -31,11 +31,21 @@ const snake = (row: Record<string, unknown>): Record<string, unknown> =>
 export async function loadQuoteState(db: DbOrTx, quoteId: string): Promise<QuoteState | undefined> {
   const row = await getQuoteById(db, quoteId);
   if (!row) return undefined;
-  const [eng, capacity, pricing, holds, cust] = await Promise.all([
+  const [eng, capacity, pricing, holds, decisions, cust] = await Promise.all([
     getEngReview(db, quoteId),
     listCapacityEvidence(db, quoteId),
     getPricingRecord(db, quoteId),
     listHolds(db, quoteId),
+    db
+      .select({
+        gateKey: gateDecision.gateKey,
+        outcomeKey: gateDecision.outcomeKey,
+        decidedBy: gateDecision.decidedBy,
+        quoteVersion: gateDecision.quoteVersion,
+      })
+      .from(gateDecision)
+      .where(eq(gateDecision.quoteId, quoteId))
+      .orderBy(desc(gateDecision.decidedAt), desc(gateDecision.id)),
     row.customerId
       ? db
           .select({ sfAccountId: customer.sfAccountId })
@@ -56,7 +66,20 @@ export async function loadQuoteState(db: DbOrTx, quoteId: string): Promise<Quote
     ...snake(engFields),
     capacity_evidence: capacity.map(snake),
     pricing_record: pricing ? snake(pricing) : null,
+    // B-11: Engineering's latest feasibility outcome (e.g. capital_required) for the Quoting rules.
+    g2_outcome: decisions.find((d) => d.gateKey === 'G2')?.outcomeKey ?? null,
   };
+  // B-11: who acted as Pricing on this version (segregation `actor_is_price_approver`).
+  const priceApproverIds = [
+    ...new Set(
+      [
+        pricing?.priceApprovedBy,
+        ...decisions
+          .filter((d) => d.gateKey === 'G3' && d.quoteVersion === row.version)
+          .map((d) => d.decidedBy),
+      ].filter((id): id is string => !!id),
+    ),
+  ].map(asUserId);
   const accountId = first(cust)?.sfAccountId;
   return {
     id: asQuoteId(row.id),
@@ -69,6 +92,7 @@ export async function loadQuoteState(db: DbOrTx, quoteId: string): Promise<Quote
     ...(accountId ? { accountId } : {}),
     fields,
     holds: holds.map((h): HoldInterval => ({ startedAt: h.startedAt, endedAt: h.endedAt })),
+    priceApproverIds,
   };
 }
 

@@ -547,7 +547,7 @@ Governed overrides (F-06). Log readable by Leadership and Admin only.
 
 ### pricing_record
 
-Price approval and capital readiness record (CR-26). Commercial.
+Price approval and capital readiness record (CR-25/26), one row per quote version. Records the approval as a decision, never a price figure. Commercial.
 
 **Owner:** Pricing
 
@@ -557,15 +557,25 @@ Price approval and capital readiness record (CR-26). Commercial.
 | `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
-| `quote_id` | uuid | no |  | quote.id | Quote (one pricing record per quote). | Pricing |
+| `quote_id` | uuid | no |  | quote.id | Quote. | Pricing |
+| `quote_version` | integer | no |  |  | Quote version the record belongs to. A Rework / Return bumps the version and starts a new record; prior versions are kept as history (CR-38). | Pricing |
 | `price_approved_by` | uuid | yes |  | app_user.id | Pricing approver. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
 | `price_approved_at` | timestamp with time zone | yes |  |  | Price approval time. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `pricing_refs` | jsonb | no | {} |  | ERF/BPR ids from the pricing app. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `approved_range_note` | text | yes |  |  | Note on the approved price range. No figures are edited in CCQ. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `pricing_basis_note` | text | yes |  |  | Basis of the approved price (e.g. resin index month, FOB terms). No figures are edited in CCQ. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `pricing_refs` | jsonb | no | {} |  | Pricing-app references {erf: string[], bpr: string[]}, format-checked (app_setting pricing_ref_formats). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `no_pricing_app_record_note` | text | yes |  |  | Why there is no pricing-app record yet (stands in for a reference at G3). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `approved_range_note` | text | yes |  |  | Approved negotiation range, as a note (guardrails are D-10, open). No figures are edited in CCQ. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `costing_completed` | boolean | no | false |  | CR-25 costing-before-pricing checkpoint: attestation only (costing stays in Excel). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `costing_attested_by` | uuid | yes |  | app_user.id | Who ticked "Costing completed". | Pricing |
+| `costing_attested_at` | timestamp with time zone | yes |  |  | When it was ticked. | Pricing |
 | `capital_readiness` | text | yes |  |  | not_required \| pending \| pre_approved \| not_approved. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `cer_reference` | text | yes |  |  | Capital expenditure request (CER) id, optional. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
 | `capital_notes` | text | yes |  |  | Capital notes. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `capital_pending_justification` | text | yes |  |  | Why G3 is submitted with capital still pending (D-11 open: a warning, not a block). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
 
 **Checks:** `pricing_record_capital_readiness_check`
+
+**Indexes:** `pricing_record_quote_version_uniq`
 
 ### quote
 

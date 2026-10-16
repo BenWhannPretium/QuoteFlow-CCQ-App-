@@ -70,10 +70,11 @@ test.describe('390 × 844', () => {
   test('admin gets four tabs and More; every tab fits', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');
-    // Seven items (B-09 added Approvals, B-10 the engineering queue): the fifth slot becomes "More".
+    // Eight items (B-09 added Approvals, B-10 the engineering queue, B-11 the pricing queue): the
+    // fifth slot becomes "More".
     await expect
       .poll(() => visibleNavKeys(page))
-      .toEqual(['home', 'intake', 'queue-engineering', 'pipeline']);
+      .toEqual(['home', 'intake', 'queue-engineering', 'queue-pricing']);
     await expect(
       page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'More' }),
     ).toBeVisible();

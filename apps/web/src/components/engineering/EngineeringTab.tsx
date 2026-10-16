@@ -6,33 +6,29 @@ import type {
 } from '@ccq/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { EyeOffIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useId, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
-import { api, isApiError } from '@/lib/api';
+import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
+import {
+  Field,
+  FormErrors,
+  HiddenValue,
+  errorFor,
+  problemErrors,
+  type ServerError,
+} from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { FieldOverride, timelineQueryKey } from '../Overrides';
-
-interface ServerError {
-  path: string;
-  message: string;
-}
-const problemErrors = (err: unknown): ServerError[] =>
-  isApiError(err)
-    ? ((err.problem as { errors?: ServerError[] }).errors ?? [
-        { path: '/', message: err.problem.detail ?? err.problem.title },
-      ])
-    : [{ path: '/', message: 'Something went wrong. Try again.' }];
 
 const DF22_HELP =
   'State your assumption. Quotes have historically assumed 85% vs ~70% demonstrated (DF-22).';
@@ -767,40 +763,6 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
   );
 }
 
-// ── Small form helpers ───────────────────────────────────────────────────────────────────────────
-
-function errorFor(errors: ServerError[], field: string): string | undefined {
-  return errors.find((e) => e.path === `/${field}`)?.message;
-}
-
-function Field({
-  label,
-  hint,
-  error,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string | undefined;
-  children: (id: string) => ReactNode;
-}) {
-  const id = useId();
-  return (
-    <div className={cn('grid content-start gap-1.5', error && 'text-destructive')}>
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      {children(id)}
-      {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
-      {error && (
-        <span className="text-destructive text-xs" role="alert">
-          {error}
-        </span>
-      )}
-    </div>
-  );
-}
-
 function ValueListSelect({
   id,
   list,
@@ -822,25 +784,5 @@ function ValueListSelect({
         </option>
       ))}
     </NativeSelect>
-  );
-}
-
-function FormErrors({ errors }: { errors: ServerError[] }) {
-  if (errors.length === 0) return null;
-  return (
-    <ul role="alert" className="text-destructive grid gap-1 text-sm">
-      {errors.map((e) => (
-        <li key={e.path + e.message}>{e.message}</li>
-      ))}
-    </ul>
-  );
-}
-
-function HiddenValue() {
-  return (
-    <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-      <EyeOffIcon className="size-3.5" aria-hidden="true" />
-      Hidden (commercial)
-    </span>
   );
 }
