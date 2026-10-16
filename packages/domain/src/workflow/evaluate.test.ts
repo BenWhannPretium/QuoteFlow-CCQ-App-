@@ -184,7 +184,7 @@ describe('hybrid: routing', () => {
     const c = validCase(config, 'G2', 'hold');
     const unassigned = evaluateTransition(
       config,
-      makeQuote('ENG_REVIEW'),
+      makeQuote('ENG_REVIEW', { fields: c.fields }),
       makeActor('EngLead'),
       c.request,
       NOW,
@@ -194,7 +194,7 @@ describe('hybrid: routing', () => {
     ]);
     const assigned = evaluateTransition(
       config,
-      makeQuote('ENG_REVIEW', { assignedEngineerId: OTHER_ID }),
+      makeQuote('ENG_REVIEW', { fields: c.fields, assignedEngineerId: OTHER_ID }),
       makeActor('EngLead'),
       c.request,
       NOW,
@@ -317,14 +317,58 @@ describe('validation: all errors, in order', () => {
       hybridConfig,
       makeQuote('ENG_REVIEW'),
       makeActor('EngLead'),
-      { gateKey: 'G2', outcomeKey: 'capital_required' },
+      { gateKey: 'G2', outcomeKey: 'proceed' },
       NOW,
     );
     expect(!result.ok && result.errors.map((e) => [e.code, e.field])).toEqual([
       ['MISSING_FIELD', 'process_type'],
+      ['MISSING_FIELD', 'machine_type'],
       ['MISSING_FIELD', 'plant_code'],
+      ['MISSING_FIELD', 'cavitation'],
+      ['MISSING_FIELD', 'cycle_time_s'],
       ['MISSING_FIELD', 'capacity_evidence'],
+    ]);
+  });
+
+  it('G2 "Capital required" needs only the preliminary capital figure (B-10)', () => {
+    const run = (fields: Record<string, unknown>) =>
+      evaluateTransition(
+        hybridConfig,
+        makeQuote('ENG_REVIEW', { fields }),
+        makeActor('EngLead'),
+        { gateKey: 'G2', outcomeKey: 'capital_required' },
+        NOW,
+      );
+    const missing = run({});
+    expect(!missing.ok && missing.errors.map((e) => [e.code, e.field])).toEqual([
       ['MISSING_FIELD', 'prelim_capital_usd'],
+    ]);
+    const ok = run({ prelim_capital_usd: 250_000 });
+    expect(ok.ok && ok.effects.nextStageKey).toBe('QUOTING');
+  });
+
+  it('G2 Stop closes as DECLINED; Hold needs a reason and a review date (B-10)', () => {
+    const stop = evaluateTransition(
+      hybridConfig,
+      makeQuote('ENG_REVIEW'),
+      makeActor('EngLead'),
+      { gateKey: 'G2', outcomeKey: 'stop', reasonCode: 'not_strategic', note: 'No line fits' },
+      NOW,
+    );
+    expect(stop.ok && [stop.effects.nextStageKey, stop.effects.closeAs]).toEqual([
+      'DECLINED',
+      'declined',
+    ]);
+    const hold = evaluateTransition(
+      hybridConfig,
+      makeQuote('ENG_REVIEW'),
+      makeActor('EngLead'),
+      { gateKey: 'G2', outcomeKey: 'hold' },
+      NOW,
+    );
+    expect(!hold.ok && hold.errors.map((e) => e.code).sort()).toEqual([
+      'MISSING_FIELD',
+      'REASON_REQUIRED',
     ]);
   });
 

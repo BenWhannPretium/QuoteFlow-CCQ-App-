@@ -68,3 +68,40 @@ export function computeTimeInStage(
     };
   });
 }
+
+export interface StageTimeTotal {
+  stageKey: string;
+  /** Number of separate stays (a return or re-quote re-enters a stage). */
+  visits: number;
+  elapsedMs: number;
+  heldMs: number;
+  /** Time in the stage excluding holds, summed over every stay. */
+  activeMs: number;
+  /** The quote is in this stage now. */
+  current: boolean;
+}
+
+/**
+ * Per-stage totals in order of first entry (the quote page's time-in-stage bar, B-17's cycle-time
+ * reports). Built from `computeTimeInStage`, so holds are excluded the same way everywhere.
+ */
+export function summarizeStageTimes(times: readonly StageTime[]): StageTimeTotal[] {
+  const totals = new Map<string, StageTimeTotal>();
+  for (const t of times) {
+    const total = totals.get(t.stageKey) ?? {
+      stageKey: t.stageKey,
+      visits: 0,
+      elapsedMs: 0,
+      heldMs: 0,
+      activeMs: 0,
+      current: false,
+    };
+    total.visits += 1;
+    total.elapsedMs += t.elapsedMs;
+    total.heldMs += t.heldMs;
+    total.activeMs += t.activeMs;
+    total.current ||= t.exitedAt === null;
+    totals.set(t.stageKey, total);
+  }
+  return [...totals.values()];
+}

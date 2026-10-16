@@ -25,10 +25,18 @@ const INTAKE_COMPLETE: RequiredRule[] = [
   { anyOf: [present('est_annual_volume'), present('est_annual_revenue')] },
 ];
 
-/** Engineering evidence needed to say "feasible" (CR-19 capacity evidence). */
+/**
+ * The engineering solution plus capacity evidence needed to say "feasible" (B-10, CR-19). The solution
+ * fields are the Engineering Review form's process, machine, plant/site (DF-10: decided by
+ * Engineering + Ops + Supply Chain), cavitation and cycle time. Provisional (9/15 interim one-pager);
+ * confirm at R2 with Jim Zweifel.
+ */
 const ENG_FEASIBLE: RequiredRule[] = [
   present('process_type'),
+  present('machine_type'),
   present('plant_code'),
+  present('cavitation'),
+  present('cycle_time_s'),
   { field: 'capacity_evidence', op: 'minItems', value: 1 },
 ];
 
@@ -60,8 +68,8 @@ function transition(
  * The seeded hybrid model (architecture §4.1): PRD v1 stages + G1 qualify, capacity evidence,
  * Final Review separate from the customer outcome, reason-coded closures. Every item is provisional.
  *
- * Assumptions to confirm (see 04-decisions-and-risks.md): G1 Stop closes as DECLINED (closeAs `declined`),
- * a later Stop (G2/G3) closes as CLOSED_LOST (closeAs `stopped`);
+ * Assumptions to confirm (see 04-decisions-and-risks.md): G1 and G2 Stops close as DECLINED (closeAs
+ * `declined`), a G3 Stop closes as CLOSED_LOST (closeAs `stopped`);
  * "Capital required" at G2 proceeds to QUOTING with a preliminary capital figure; a quote on hold is
  * resumed by the next gate decision (Hold keeps it in its stage).
  */
@@ -200,17 +208,26 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         requiredFields: ENG_FEASIBLE,
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
+      // B-10: "Capital required" needs the preliminary capital figure; Pricing's capital readiness
+      // starts as pending (app_setting `capital_readiness_on_outcome`).
       outcome('G2', 'capital_required', 'Capital required', {
-        requiredFields: [...ENG_FEASIBLE, present('prelim_capital_usd')],
+        requiredFields: [present('prelim_capital_usd')],
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
-      outcome('G2', 'hold', 'Hold', { reasonContext: 'hold' }),
+      outcome('G2', 'hold', 'Hold', {
+        requiresReasonCode: true,
+        reasonContext: 'hold',
+        requiredFields: [present('review_date')],
+      }),
+      // "Return to KAM" from the engineering queue: the note lists the missing information.
       outcome('G2', 'rework', 'Rework (back to KAM)', {
         requiresNote: true,
+        requiresReasonCode: true,
         reasonContext: 'rework',
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
       outcome('G2', 'stop', 'Stop', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'stop',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
@@ -279,7 +296,8 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       transition('G2', 'capital_required', { ...active, targetStageKeys: ['QUOTING'] }),
       transition('G2', 'hold', hold),
       transition('G2', 'rework', { ...active, targetStageKeys: ['INTAKE'], versionBump: true }),
-      transition('G2', 'stop', { ...closed, targetStageKeys: ['CLOSED_LOST'], closeAs: 'stopped' }),
+      // B-10: an engineering Stop is an internal "we won't pursue", like G1's: DECLINED, not a customer loss.
+      transition('G2', 'stop', { ...closed, targetStageKeys: ['DECLINED'], closeAs: 'declined' }),
       transition('G3', 'submit', { ...active, targetStageKeys: ['FINAL_REVIEW'] }),
       transition('G3', 'hold', hold),
       transition('G3', 'rework', { ...active, targetStageKeys: ['ENG_REVIEW'], versionBump: true }),

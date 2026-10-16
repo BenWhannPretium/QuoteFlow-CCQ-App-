@@ -25,8 +25,11 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
-    [['Leadership'], ['home', 'pipeline', 'analytics', 'audit']],
-    [['Admin'], ['home', 'intake', 'pipeline', 'approvals', 'analytics', 'admin']],
+    [['Leadership'], ['home', 'queue-engineering', 'pipeline', 'analytics', 'audit']],
+    [
+      ['Admin'],
+      ['home', 'intake', 'queue-engineering', 'pipeline', 'approvals', 'analytics', 'admin'],
+    ],
     [
       ['SalesLeader', 'Approver'],
       ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
@@ -40,6 +43,9 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
       navItemsFor(meFor(role)).find((i) => i.key === 'queue-engineering')?.label;
     expect(label('EngLead')).toBe('Engineering queue');
     expect(label('Engineer')).toBe('My assignments');
+    expect(label('Leadership')).toBe('Engineering queue');
+    expect(label('Admin')).toBe('Engineering queue');
+    expect(label('KAM')).toBeUndefined();
   });
 
   it('hides "To qualify" when G1 is switched off (g1_enabled=false)', () => {

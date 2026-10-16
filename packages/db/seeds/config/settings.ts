@@ -1,4 +1,8 @@
-import { OVERRIDE_SETTINGS_SEED, SCORING_MODEL_V1_INPUT } from '@ccq/domain';
+import {
+  ENG_QUEUE_SETTINGS_SEED,
+  OVERRIDE_SETTINGS_SEED,
+  SCORING_MODEL_V1_INPUT,
+} from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
 import type { DbOrTx } from '../../src/client';
@@ -140,6 +144,25 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'override_justification_min_length',
     value: OVERRIDE_SETTINGS_SEED.justificationMinLength,
     description: 'Minimum length (characters, trimmed) of an override justification.',
+  },
+  // ── B-10 engineering queue (DEC-26: manual prioritized queue to the upfront engineering lead).
+  {
+    key: 'eng_queue_aging_days',
+    value: ENG_QUEUE_SETTINGS_SEED.agingDays,
+    description:
+      "Engineering queue aging buckets in business days (US Central): < aging, aging–old, > old. 3 is Jim Zweifel's unwritten target. Buckets only, NOT an SLA (D-20).",
+  },
+  {
+    key: 'eng_queue_backup_assigner_user_ids',
+    value: ENG_QUEUE_SETTINGS_SEED.backupAssignerUserIds,
+    description:
+      'app_user ids who may assign / reassign engineering reviews when the EngLead is out (Op Model R-04). They also get the queue-arrival alert and need a role that can open the queue (engQueue.read).',
+  },
+  {
+    key: 'capital_readiness_on_outcome',
+    value: { 'G2:capital_required': 'pending' },
+    description:
+      'gate:outcome → the capital_readiness the decision writes on the pricing record (B-10: "Capital required" at G2 starts Pricing on pending).',
   },
   {
     key: 'salesforce_new_opportunity_url',

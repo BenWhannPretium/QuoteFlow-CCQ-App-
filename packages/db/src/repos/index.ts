@@ -4,6 +4,7 @@
  */
 export * from './audit';
 export * from './config';
+export * from './engineering';
 export * from './events';
 export * from './intake';
 export * from './integration';

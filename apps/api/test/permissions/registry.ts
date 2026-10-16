@@ -166,4 +166,44 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   { method: 'GET', route: '/api/v1/admin/audit', permission: 'audit.read' },
   { method: 'GET', route: '/api/v1/admin/audit/export.csv', permission: 'audit.read' },
   { method: 'GET', route: '/api/v1/admin/reports/usage', permission: 'audit.read' },
+  // B-10 engineering queue and Engineering Review. The queue needs engQueue.read. Assignment's floor
+  // is quote.read (a backup assigner may hold no queue.assign); the domain then requires queue.assign
+  // or the backup setting (engineering.int.test.ts: KAM 403, Engineer 403). Accept / edit need
+  // engReview.edit; "an Engineer edits only quotes assigned to them" is engineering.int.test.ts.
+  { method: 'GET', route: '/api/v1/queue/engineering', permission: 'engQueue.read' },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/assignment',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/assignment`,
+    permission: 'quote.read',
+    sampleBody: { engineerId: SAMPLE_OVERRIDE },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/eng-review/accept',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/eng-review/accept`,
+    permission: 'engReview.edit',
+  },
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/eng-review',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/eng-review`,
+    permission: 'engReview.edit',
+    sampleBody: { cavitation: 4 },
+  },
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/capacity-evidence',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/capacity-evidence`,
+    permission: 'engReview.edit',
+    sampleBody: { rows: [] },
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/stage-times',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/stage-times`,
+    permission: 'quote.read',
+  },
+  { method: 'GET', route: '/api/v1/notifications', permission: 'authenticated' },
+  { method: 'POST', route: '/api/v1/notifications/read', permission: 'authenticated' },
 ];

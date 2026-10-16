@@ -23,6 +23,7 @@ import {
   qualificationWarnings,
   redactScore,
   type Actor,
+  type EngQueueSettings,
   type OverrideSettings,
   type QualificationSettings,
   type QuoteState,
@@ -31,6 +32,7 @@ import {
   type WorkflowConfig,
 } from '@ccq/domain';
 
+import { engineeringView, loadEngQueueSettings } from './engineering-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import type { ScoringService } from './scoring';
 
@@ -42,6 +44,8 @@ export interface QuoteViewContext {
   kamCanSeePeerScores: boolean;
   /** B-09 `overridable_fields`: which fields the quote page offers an override for. */
   overrides: OverrideSettings;
+  /** B-10 engineering queue settings (aging buckets, backup assigners). */
+  engQueue: EngQueueSettings;
 }
 
 /** Fields a decision supplies itself (the dialog asks for them), so they never count as "missing". */
@@ -220,13 +224,14 @@ export class QuoteReadService {
   constructor(private readonly scoring: ScoringService) {}
 
   async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
-    const [model, qualification, kamCanSeePeerScores, overrides] = await Promise.all([
+    const [model, qualification, kamCanSeePeerScores, overrides, engQueue] = await Promise.all([
       this.scoring.model(db, now),
       this.scoring.qualificationSettings(db),
       this.scoring.kamCanSeePeerScores(db),
       loadOverrideSettings(db),
+      loadEngQueueSettings(db),
     ]);
-    return { actor, model, qualification, kamCanSeePeerScores, overrides };
+    return { actor, model, qualification, kamCanSeePeerScores, overrides, engQueue };
   }
 
   /** The quote's detail DTO, or undefined when it does not exist or is out of the caller's scope (RLS). */
@@ -269,6 +274,7 @@ export class QuoteReadService {
         { actor: ctx.actor, settings: ctx.overrides, kamCanSeePeerScores: ctx.kamCanSeePeerScores },
         { ...q, accountId: state?.accountId ?? null },
       ),
+      engineering: await engineeringView(db, ctx.actor, ctx.engQueue, q, state!),
     };
   }
 }

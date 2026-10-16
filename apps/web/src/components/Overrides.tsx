@@ -221,6 +221,7 @@ export function OverrideDialog({
         queryClient.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) }),
         queryClient.invalidateQueries({ queryKey: timelineQueryKey(quoteNumber) }),
         queryClient.invalidateQueries({ queryKey: overrideInboxQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ['eng-queue'] }),
       ]);
       toast.success({
         title: override.status === 'applied' ? `${field.label} overridden` : 'Override requested',

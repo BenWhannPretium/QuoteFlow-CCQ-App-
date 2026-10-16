@@ -200,9 +200,10 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'CLOSED_LOST':
+      // A G2 Stop closes as DECLINED since B-10, so every seeded loss is a customer decision.
       if (i < 4)
         return {
-          steps: [...toEng, ...engWork, g2('stop', { reason: 'customer_withdrew' })],
+          steps: [...toCustomer, g5('lost', { reason: 'capacity' })],
           complete: true,
         };
       if (i < 6)
@@ -234,7 +235,19 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'DECLINED':
-      // A G1 Stop closes as DECLINED (B-08); the rest are Final Review declines.
+      // G1 and G2 Stops close as DECLINED (B-08, B-10); the rest are Final Review declines.
+      if (i >= 2 && i < 4)
+        return {
+          steps: [
+            ...toEng,
+            ...engWork,
+            g2('stop', {
+              reason: 'customer_withdrew',
+              note: 'Customer withdrew during the engineering review.',
+            }),
+          ],
+          complete: true,
+        };
       if (i < 2)
         return {
           steps: [
@@ -472,13 +485,14 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       switch (step.kind) {
         case 'assign': {
           engineer = rng.pick(engineers);
-          await updateQuote(db, quoteId, {
-            assignedEngineerId: engineer.id,
-            queuePosition: rng.int(1, 30),
-          });
+          // B-10: queue_position is only set by an EngLead pin (a queue_position override); the draw
+          // keeps the stream stable.
+          discard(rng.int(1, 30));
+          await updateQuote(db, quoteId, { assignedEngineerId: engineer.id, assignedAt: at });
           await upsertEngReview(db, {
             quoteId,
             acceptedAt: at,
+            acceptedBy: engineer.id,
             createdAt: at,
             createdBy: persona('eng-lead').id,
           });
@@ -501,6 +515,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
           await upsertEngReview(db, {
             quoteId,
             acceptedAt: at,
+            acceptedBy: analyst.id,
             processType,
             machineType: rng.pick([
               'EBM_SHUTTLE',

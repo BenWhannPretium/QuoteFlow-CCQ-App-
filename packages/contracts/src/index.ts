@@ -1,6 +1,7 @@
 export * from './audit';
 export * from './auth';
 export * from './config';
+export * from './engineering';
 export * from './health';
 export * from './intake';
 export * from './overrides';

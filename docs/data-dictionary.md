@@ -450,15 +450,17 @@ Engineering Review fields (stage 2).
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | no |  | quote.id | Quote (one review per quote). | Engineering (EngLead / Engineer) |
 | `accepted_at` | timestamp with time zone | yes |  |  | When Engineering accepted the request. | Engineering (EngLead / Engineer) |
+| `accepted_by` | uuid | yes |  | app_user.id | Who accepted it (EngLead or the assigned engineer). | Engineering (EngLead / Engineer) |
 | `returned_reason` | text | yes |  |  | Why Engineering returned the request. | Engineering (EngLead / Engineer) |
 | `process_type` | text | yes |  |  | value_list process_type code. | Engineering (EngLead / Engineer) |
 | `machine_type` | text | yes |  |  | value_list machine_type code. | Engineering (EngLead / Engineer) |
-| `plant_code` | text | yes |  |  | value_list plant code. | Engineering (EngLead / Engineer) |
+| `plant_code` | text | yes |  |  | value_list plant code. Decided by Engineering + Ops + Supply Chain, never the KAM (DF-10). | Engineering (EngLead / Engineer) |
 | `cavitation` | integer | yes |  |  | Mould cavitation. | Engineering (EngLead / Engineer) |
 | `cycle_time_s` | numeric(8, 2) | yes |  |  | Cycle time (seconds). | Engineering (EngLead / Engineer) |
-| `tooling_notes` | text | yes |  |  | Tooling notes. | Engineering (EngLead / Engineer) |
+| `tooling_notes` | text | yes |  |  | Tooling notes (mold, hot runner). | Engineering (EngLead / Engineer) |
 | `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Preliminary capital estimate (USD). Commercial: stripped for roles without quote.read.commercialFields. | Engineering (EngLead / Engineer) |
-| `downstream_equipment_notes` | text | yes |  |  | Downstream equipment notes. | Engineering (EngLead / Engineer) |
+| `downstream_equipment_notes` | text | yes |  |  | Downstream equipment: air, water, electric, inspection / leak detection (DF-37). | Engineering (EngLead / Engineer) |
+| `technical_concept_notes` | text | yes |  |  | Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
 
 **Checks:** `eng_review_cavitation_check`
 
@@ -616,6 +618,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `queue_position` | integer | yes |  |  | Manual position in the engineering queue (DEC-26). | Engineering (EngLead / Engineer) |
 | `queue_position_overridden` | boolean | no | false |  | True when an applied override (EngLead pin) set the queue position. | Engineering (EngLead / Engineer) |
 | `assigned_engineer_id` | uuid | yes |  | app_user.id | Engineer assigned in Engineering Review. | Engineering (EngLead / Engineer) |
+| `assigned_at` | timestamp with time zone | yes |  |  | When the current engineer was assigned (B-10 "time since assignment"); reset on reassign. | Engineering (EngLead / Engineer) |
 | `erf_number` | text | yes |  |  | ERF number in the pricing app. | Pricing |
 | `cer_id` | text | yes |  |  | Capital expenditure request id (Apex). | Pricing |
 | `bpr_id` | text | yes |  |  | BPR (price implementation) id. | Pricing |

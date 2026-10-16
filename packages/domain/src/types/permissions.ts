@@ -4,6 +4,7 @@ export const PERMISSIONS = [
   'quote.read',
   'quote.read.commercialFields',
   'gate.G1.decide',
+  'engQueue.read',
   'queue.assign',
   'engReview.edit',
   'gate.G2.decide',
