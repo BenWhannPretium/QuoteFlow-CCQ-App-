@@ -6,7 +6,7 @@ import type {
   QuotingDetail,
 } from '@ccq/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon, PlugIcon } from 'lucide-react';
+import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
@@ -22,6 +22,11 @@ import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '..
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
+import {
+  PricingContextPanel,
+  pricingContextQueryKey,
+  type ReferenceKind,
+} from './PricingContextPanel';
 
 export const pricingQueueQueryKey = ['pricing-queue'] as const;
 
@@ -81,6 +86,7 @@ export function QuotingTab({
             </div>
           )}
           <EngineeringSummary quote={quote} />
+          <PricingContextForQuote quote={quote} />
           <PricingRecordCard key={`${quote.version}-${record?.updatedAt ?? ''}`} quote={quote} />
           <CapitalCard key={`cap-${quote.version}-${record?.updatedAt ?? ''}`} quote={quote} />
           <History records={quoting.pricingRecords ?? []} />
@@ -148,8 +154,44 @@ function useRefresh(quoteNumber: string) {
       queryClient.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) }),
       queryClient.invalidateQueries({ queryKey: timelineQueryKey(quoteNumber) }),
       queryClient.invalidateQueries({ queryKey: pricingQueueQueryKey }),
+      queryClient.invalidateQueries({ queryKey: pricingContextQueryKey(quoteNumber) }),
     ]);
   };
+}
+
+/**
+ * B-15: the read-only pricing-app panel. "Use as reference" adds the ERF/BPR to the current version's
+ * pricing record through the B-11 route (format-checked there); the server then sets the quote's ERF
+ * number if it has none. Unsaved edits in the approval form below are reloaded from the server.
+ */
+function PricingContextForQuote({ quote }: { quote: QuoteDetail }) {
+  const refresh = useRefresh(quote.quoteNumber);
+  const record = quote.quoting.pricingRecord ?? null;
+  const add = useMutation({
+    mutationFn: ({ kind, value }: { kind: ReferenceKind; value: string }) =>
+      api.updatePricingRecord(
+        quote.quoteNumber,
+        kind === 'erf'
+          ? { erfRefs: [...(record?.erfRefs ?? []), value] }
+          : { bprRefs: [...(record?.bprRefs ?? []), value] },
+      ),
+    onSuccess: async (detail, { kind, value }) => {
+      await refresh(detail);
+      toast.success({ title: `Added ${value} to the ${kind.toUpperCase()} references` });
+    },
+    onError: (err) => {
+      const [first] = problemErrors(err);
+      toast.error({ title: 'Could not add the reference', description: first?.message ?? '' });
+    },
+  });
+  return (
+    <PricingContextPanel
+      quoteNumber={quote.quoteNumber}
+      refFormats={quote.quoting.refFormats}
+      pendingReference={add.isPending ? add.variables.value : null}
+      onUseReference={(kind, value) => add.mutate({ kind, value })}
+    />
+  );
 }
 
 /** What Engineering handed over (read-only): Pricing reads the commercial numbers. */
@@ -319,14 +361,10 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
         >
           <fieldset className="grid gap-4">
             <legend className="mb-2 text-sm font-semibold">Pricing context</legend>
-            <div
-              className="text-muted-foreground flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm"
-              data-testid="pricing-app-slot"
-            >
-              <PlugIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              The read-only pricing-app panel arrives with B-15. Until then, enter the pricing-app
-              references by hand (checked by format only).
-            </div>
+            <p className="text-muted-foreground text-sm" data-testid="pricing-app-hint">
+              Pick references with &ldquo;Use as reference&rdquo; in the Pricing context above, or
+              type them (checked by format only), e.g. while the pricing app is unavailable.
+            </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="ERF number(s)"

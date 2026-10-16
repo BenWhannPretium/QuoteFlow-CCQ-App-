@@ -14,6 +14,7 @@ import { outcomeRoutes } from './outcome';
 import { overrideRoutes } from './overrides';
 import { pipelineRoutes } from './pipeline';
 import { pricingRoutes } from './pricing';
+import { pricingAppRoutes } from './pricing-app';
 import { salesforceRoutes } from './salesforce';
 import { timelineRoutes } from './timeline';
 import type { AppDeps } from '../../app';
@@ -29,6 +30,7 @@ import type { OutcomeService } from '../../services/outcome';
 import type { OverrideService } from '../../services/overrideService';
 import type { PipelineService } from '../../services/pipeline';
 import type { PricingService } from '../../services/pricing';
+import type { PricingAppService } from '../../services/pricing-app';
 import type { SalesforceService } from '../../services/salesforce';
 import type { TimelineService } from '../../services/timeline';
 
@@ -46,6 +48,7 @@ export interface V1Options {
   auditService: AuditAdminService;
   engineeringService: EngineeringService;
   pricingService: PricingService;
+  pricingAppService: PricingAppService;
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
   pipelineService: PipelineService;
@@ -71,6 +74,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     auditService,
     engineeringService,
     pricingService,
+    pricingAppService,
     finalReviewService,
     outcomeService,
     pipelineService,
@@ -90,8 +94,9 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(auditRoutes, { service: auditService });
   await app.register(engineeringRoutes, { service: engineeringService });
   await app.register(pricingRoutes, { service: pricingService });
+  await app.register(pricingAppRoutes, { service: pricingAppService });
   await app.register(finalReviewRoutes, { service: finalReviewService });
   await app.register(outcomeRoutes, { service: outcomeService });
   await app.register(pipelineRoutes, { service: pipelineService });
-  // TODO(B-15+): attachments, lookups, dashboards.
+  // TODO(B-16+): attachments, dashboards.
 };

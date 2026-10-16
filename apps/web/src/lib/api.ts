@@ -7,6 +7,7 @@ import {
   type HandoffBody,
   FinalReviewQueueResponse,
   PricingQueueResponse,
+  PricingContext,
   QuotingDetail,
   ReviewSummary,
   type CapitalReadinessBody,
@@ -273,6 +274,9 @@ export const api = {
     getJson(`${quotePath(quoteNumber)}/pricing-record`, QuotingDetail, { method: 'PUT', body }),
   updateCapitalReadiness: (quoteNumber: string, body: CapitalReadinessBody) =>
     getJson(`${quotePath(quoteNumber)}/capital-readiness`, QuotingDetail, { method: 'PUT', body }),
+  // B-15 pricing-app context (read-only; commercial roles only, 403 otherwise)
+  pricingContext: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/pricing-context`, PricingContext),
 
   // B-12 Final Review: the approvals queue and the one-page review summary (decisions: decideGate, G4)
   finalReviewQueue: (q: FinalReviewQueueParams = {}) =>

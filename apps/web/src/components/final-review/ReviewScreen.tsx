@@ -23,6 +23,7 @@ import { GateDecisionDialog } from '../GateDecisionDialog';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
 import { CapitalChip } from '../pricing/CapitalChip';
+import { PricingContextPanel } from '../pricing/PricingContextPanel';
 import { PriorityBadge, ScoreBreakdownTable } from '../Priority';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
@@ -126,6 +127,8 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
       <PrioritySection s={s} />
       <EngineeringSection s={s} />
       <PricingSection s={s} />
+      {/* B-15: read-only pricing-app context; renders nothing for roles without commercial access. */}
+      <PricingContextPanel quoteNumber={quoteNumber} />
       <AttachmentsSection s={s} />
       <DecisionsSection s={s} />
 

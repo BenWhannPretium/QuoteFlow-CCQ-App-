@@ -18,6 +18,7 @@ import {
   listUsersByIds,
   loadQuoteState,
   loadWorkflowConfigInput,
+  updateQuote,
   upsertPricingRecord,
   type PricingQueueRow,
   type Quote,
@@ -378,7 +379,43 @@ export class PricingService {
       );
       if (!plan.ok) fail(plan.errors);
       await this.apply(tx, actor, meta, loaded, plan, now);
+      await this.linkErf(
+        tx,
+        actor,
+        meta,
+        loaded.q,
+        plan.changed.includes('erfRefs') ? plan.next.erfRefs : [],
+        now,
+      );
       return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /**
+   * B-15 linkage: the first ERF reference recorded (typed, or picked with "Use as reference") becomes
+   * `quote.erf_number` when the quote has none yet. An existing one is never overwritten; a
+   * difference from the SF ERF number shows as a mismatch on the pricing context and the ERF linkage
+   * report.
+   */
+  private async linkErf(
+    tx: Tx,
+    actor: Actor,
+    meta: AuditMeta,
+    q: Quote,
+    erfRefs: readonly string[],
+    now: Date,
+  ) {
+    const erfNumber = erfRefs[0]?.trim();
+    if (q.erfNumber || !erfNumber) return;
+    await updateQuote(tx, q.id, { erfNumber, updatedAt: now });
+    await recordAudit(tx, actor, meta, {
+      action: 'update',
+      entity: 'quote',
+      entityId: q.id,
+      quoteId: q.id,
+      before: { erfNumber: null },
+      after: { erfNumber },
+      at: now,
     });
   }
 

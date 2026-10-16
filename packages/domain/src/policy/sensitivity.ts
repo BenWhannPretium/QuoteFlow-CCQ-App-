@@ -3,16 +3,35 @@
  * and the DTO shape (`prelimCapitalUsd`) are caught. Everything listed is tagged `commercial` (architecture §3.3).
  */
 export const COMMERCIAL_FIELDS = {
-  /** Exact keys, at any depth. */
-  keys: ['prelim_capital_usd'],
+  /**
+   * Exact keys, at any depth. B-15: the pricing app's estimated revenue / volume / net capital
+   * (`PricingErf`), wherever they appear.
+   */
+  keys: ['prelim_capital_usd', 'est_revenue_usd', 'est_volume', 'est_net_capital_usd'],
   /** Any key starting with one of these (price_approved_by, priceRange, margin_pct, …). */
   keyPrefixes: ['price', 'margin'],
   /**
    * Keys whose whole value is dropped (price approval details, pricing-app figures). B-11: everything
    * on the Quoting tab is commercial, so the record's version history (`pricing_records`) and the
    * capital readiness status go too; other roles see only the approval status (who and when).
+   *
+   * B-15 (F-11): every pricing-app record (ERF, BPR, SPR history) is commercial as a whole, labels
+   * included. The routes already need `quote.read.commercialFields`; this is the second layer.
+   * TODO(M5): Gemma Cebolla confirms the sensitivity labels (architecture §3.3 role list, and whether
+   * any ERF field, e.g. the decision or elapsed days, may go to KAMs/Engineers). Provisional until then:
+   * the whole record stays commercial.
    */
-  subtrees: ['pricing_record', 'pricing_records', 'capital_readiness'],
+  subtrees: [
+    'pricing_record',
+    'pricing_records',
+    'capital_readiness',
+    'erf_record',
+    'erf_records',
+    'bpr_record',
+    'bpr_records',
+    'spr_history',
+    'pricing_context',
+  ],
   /** Keys that are commercial only beneath an ancestor: the capacity-evidence numbers. */
   scopedKeys: {
     capacity_evidence: [

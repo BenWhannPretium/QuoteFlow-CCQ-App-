@@ -9,6 +9,7 @@ export * from './outcome';
 export * from './overrides';
 export * from './pipeline';
 export * from './pricing';
+export * from './pricing-app';
 export * from './pricing-queue';
 export * from './problem';
 export * from './proposals';
