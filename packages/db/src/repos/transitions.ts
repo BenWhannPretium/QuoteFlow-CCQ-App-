@@ -173,6 +173,9 @@ export async function persistTransition(
   }
 
   const closing = effects.nextStatus === 'closed';
+  if (closing && !effects.closure) {
+    throw new Error('A closing transition must carry its closure (CR-39): use evaluateTransition');
+  }
   // Re-entering INTAKE (a G1/G2 Rework) hands the quote back to the KAM: it is no longer submitted
   // until they resubmit it from a rework draft (B-08). The original submit stays in stage_history.
   const backToKam = effects.stageHistory.enter?.stageKey === INTAKE_STAGE_KEY;
@@ -183,12 +186,13 @@ export async function persistTransition(
       status: effects.nextStatus,
       version: effects.nextVersion,
       ...(backToKam ? { submittedAt: null } : {}),
-      ...(closing
+      // B-13 (CR-39): the domain planned every closure field; the CHECK constraint repeats the rule.
+      ...(closing && effects.closure
         ? {
-            outcome: effects.closeAs ?? null,
-            outcomeReasonCode: record.reasonCode,
-            closureOwnerId: record.decidedBy,
-            closedAt: at,
+            outcome: effects.closure.outcome,
+            outcomeReasonCode: effects.closure.outcomeReasonCode,
+            closureOwnerId: effects.closure.closureOwnerId,
+            closedAt: effects.closure.closedAt,
           }
         : {}),
     })

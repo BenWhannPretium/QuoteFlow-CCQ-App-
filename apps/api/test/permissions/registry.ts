@@ -234,4 +234,17 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/review-summary`,
     permission: 'quote.read',
   },
+  // B-13 customer decision. "My open proposals" is the KAM's own list (outcome.record: KAM own +
+  // SalesLeader). The hand-off floor is handoff.edit (KAM own, SalesLeader, Admin); the service checks
+  // the quote again (outcome.int.test.ts), so allowed roles get 404 on the sample quote. G5 decisions
+  // are the generic gate route above.
+  { method: 'GET', route: '/api/v1/quotes/mine/proposals', permission: 'outcome.record' },
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/handoff',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/handoff`,
+    permission: 'handoff.edit',
+    sampleBody: { notes: 'x' },
+  },
+  { method: 'GET', route: '/api/v1/admin/reports/outcomes', permission: 'analytics.read' },
 ];

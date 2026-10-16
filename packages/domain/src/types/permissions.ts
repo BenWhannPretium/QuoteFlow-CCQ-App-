@@ -14,6 +14,8 @@ export const PERMISSIONS = [
   'finalReview.read',
   'gate.G4.decide',
   'outcome.record',
+  'outcome.assignOwner',
+  'handoff.edit',
   'override.request',
   'override.approve',
   'override.revert',

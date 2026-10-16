@@ -309,8 +309,9 @@ Routing for each gate/outcome pair.
 | `next_status` | text | no |  |  | Quote status after the transition. | Admin / Knowledge Steward |
 | `close_as` | text | yes |  |  | Closure type recorded when the quote closes (awarded, lost, …). | Admin / Knowledge Steward |
 | `version_bump` | boolean | no | false |  | Return / rework / re-quote bumps quote.version. | Admin / Knowledge Steward |
+| `closure_owner` | text | no | "decider" |  | B-13 (CR-39): default closure owner when the transition closes the quote: kam (customer outcome) \| decider (internal no-go). | Admin / Knowledge Steward |
 
-**Checks:** `transition_rule_next_status_check`
+**Checks:** `transition_rule_next_status_check`, `transition_rule_closure_owner_check`
 
 ### value_list
 
@@ -493,7 +494,7 @@ Immutable record of each gate decision.
 
 ### handoff_record
 
-Minimal Awarded hand-off record (CR-41/42).
+Minimal Awarded hand-off record (CR-41/42, B-13).
 
 **Owner:** KAM
 
@@ -504,14 +505,22 @@ Minimal Awarded hand-off record (CR-41/42).
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | no |  | quote.id | Quote (one hand-off per awarded quote). | KAM |
-| `acceptance_evidence` | text | no |  |  | verbal \| po \| loi \| contract. | KAM |
-| `receiving_role` | text | yes |  |  | Team receiving the hand-off. | KAM |
-| `accepted_by_name` | text | yes |  |  | Customer contact who accepted (business contact only). | KAM |
-| `cer_id` | text | yes |  |  | CER id. | KAM |
-| `bpr_id` | text | yes |  |  | BPR id. | KAM |
+| `acceptance_evidence` | text | no |  |  | verbal \| po \| loi \| contract (the G5 Awarded reason code). | KAM |
+| `acceptance_date` | date | yes |  |  | B-13: when the customer accepted (from the Awarded decision). | KAM |
+| `acceptance_document_url` | text | yes |  |  | B-13: optional link to the PO / LOI / contract (http(s) only). | KAM |
+| `receiving_role` | text | yes |  |  | Team receiving the hand-off: a code from app_setting handoff_receiving_roles (commercial_activation \| npi_post_award_pm \| other). | KAM |
+| `receiving_role_other` | text | yes |  |  | B-13: the receiving team when receiving_role = other. | KAM |
+| `receiving_contact_name` | text | yes |  |  | B-13: the person on the receiving team who takes the hand-off. | KAM |
+| `accepted_on` | date | yes |  |  | B-13: the date the receiving team accepted the hand-off (accepted-by date). | KAM |
+| `accepted_by_name` | text | yes |  |  | Customer contact who accepted (business contact only). Unused by the B-13 form. | KAM |
+| `cer_id` | text | yes |  |  | CER id (Apex). A reference only, no integration. | KAM |
+| `bpr_id` | text | yes |  |  | BPR (price implementation) id. A reference only, no integration. | KAM |
 | `notes` | text | yes |  |  | Notes. | KAM |
+| `completed_at` | timestamp with time zone | yes |  |  | B-13: when someone ticked "Hand-off complete"; null while open. | KAM |
+| `completed_by` | uuid | yes |  | app_user.id | B-13: who confirmed the hand-off complete. | KAM |
+| `updated_by` | uuid | yes |  | app_user.id | B-13: who last edited the record. | KAM |
 
-**Checks:** `handoff_record_acceptance_evidence_check`
+**Checks:** `handoff_record_acceptance_evidence_check`, `handoff_record_completed_consistency_check`
 
 ### override
 
@@ -635,14 +644,15 @@ The CCQ quote: the workflow record CCQ owns.
 | `proposal_issued_at` | timestamp with time zone | yes |  |  | When the proposal went to the customer. | KAM |
 | `validity_until` | date | yes |  |  | Proposal validity date (default from validity_days_default). | KAM |
 | `review_date` | date | yes |  |  | Date to revisit a quote on customer hold. | KAM |
-| `outcome` | text | yes |  |  | Closure type: awarded \| lost \| declined \| expired \| redirected \| stopped. | KAM |
-| `outcome_reason_code` | text | yes |  |  | reason_code.code for the closure. | KAM |
-| `closure_owner_id` | uuid | yes |  | app_user.id | Who closed the quote (CR-39). | KAM |
+| `validity_expired_flagged_at` | timestamp with time zone | yes |  |  | B-13: when the daily expiry job flagged that validity_until had passed (the KAM is told to revalidate or record the outcome; nothing auto-closes, D-12). Cleared when a new validity date is set. | CCQ (system) |
+| `outcome` | text | yes |  |  | Closure type (transition_rule.close_as): awarded \| lost \| expired (customer outcomes, G5) \| declined \| redirected (internal no-go). | KAM |
+| `outcome_reason_code` | text | yes |  |  | reason_code.code for the closure (for awarded: the acceptance evidence). Mandatory to close (CR-39). | KAM |
+| `closure_owner_id` | uuid | yes |  | app_user.id | Who owns the closure (CR-39): the KAM for a customer outcome unless a SalesLeader names someone else; the decider for an internal no-go. Mandatory to close. | KAM |
 | `closed_at` | timestamp with time zone | yes |  |  | When the quote closed. | CCQ (system) |
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_sf_status_flag_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`
 

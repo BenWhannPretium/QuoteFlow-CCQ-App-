@@ -346,14 +346,27 @@ export const quote = documented(
         'Date to revisit a quote on customer hold.',
         KAM,
       ),
+      validityExpiredFlaggedAt: c(
+        timestamptz('validity_expired_flagged_at'),
+        'B-13: when the daily expiry job flagged that validity_until had passed (the KAM is told to revalidate or record the outcome; nothing auto-closes, D-12). Cleared when a new validity date is set.',
+        SYSTEM,
+      ),
       // Close-out
       outcome: c(
         text('outcome'),
-        'Closure type: awarded | lost | declined | expired | redirected | stopped.',
+        'Closure type (transition_rule.close_as): awarded | lost | expired (customer outcomes, G5) | declined | redirected (internal no-go).',
         KAM,
       ),
-      outcomeReasonCode: c(text('outcome_reason_code'), 'reason_code.code for the closure.', KAM),
-      closureOwnerId: c(userRef('closure_owner_id'), 'Who closed the quote (CR-39).', KAM),
+      outcomeReasonCode: c(
+        text('outcome_reason_code'),
+        'reason_code.code for the closure (for awarded: the acceptance evidence). Mandatory to close (CR-39).',
+        KAM,
+      ),
+      closureOwnerId: c(
+        userRef('closure_owner_id'),
+        'Who owns the closure (CR-39): the KAM for a customer outcome unless a SalesLeader names someone else; the decider for an internal no-go. Mandatory to close.',
+        KAM,
+      ),
       closedAt: c(timestamptz('closed_at'), 'When the quote closed.', SYSTEM),
       // Salesforce status (set by the SF sync; nothing is deleted)
       sfStatusFlag: c(
@@ -375,6 +388,11 @@ export const quote = documented(
       check(
         'quote_closed_consistency_check',
         sql`(${t.status} = 'closed') = (${t.closedAt} is not null)`,
+      ),
+      // B-13 (CR-39): the closure rule, repeated in the database. The domain enforces it first.
+      check(
+        'quote_closure_complete_check',
+        sql`${t.status} <> 'closed' or (${t.outcome} is not null and ${t.outcomeReasonCode} is not null and ${t.closureOwnerId} is not null)`,
       ),
       check(
         'quote_sf_status_flag_check',
@@ -828,22 +846,62 @@ export const handoffRecord = documented(
           .references(() => quote.id, { onDelete: 'restrict' }),
         'Quote (one hand-off per awarded quote).',
       ),
-      acceptanceEvidence: c(text('acceptance_evidence').notNull(), 'verbal | po | loi | contract.'),
-      receivingRole: c(text('receiving_role'), 'Team receiving the hand-off.'),
+      acceptanceEvidence: c(
+        text('acceptance_evidence').notNull(),
+        'verbal | po | loi | contract (the G5 Awarded reason code).',
+      ),
+      acceptanceDate: c(
+        date('acceptance_date', { mode: 'string' }),
+        'B-13: when the customer accepted (from the Awarded decision).',
+      ),
+      acceptanceDocumentUrl: c(
+        text('acceptance_document_url'),
+        'B-13: optional link to the PO / LOI / contract (http(s) only).',
+      ),
+      receivingRole: c(
+        text('receiving_role'),
+        'Team receiving the hand-off: a code from app_setting handoff_receiving_roles (commercial_activation | npi_post_award_pm | other).',
+      ),
+      receivingRoleOther: c(
+        text('receiving_role_other'),
+        'B-13: the receiving team when receiving_role = other.',
+      ),
+      receivingContactName: c(
+        text('receiving_contact_name'),
+        'B-13: the person on the receiving team who takes the hand-off.',
+      ),
+      acceptedOn: c(
+        date('accepted_on', { mode: 'string' }),
+        'B-13: the date the receiving team accepted the hand-off (accepted-by date).',
+      ),
       acceptedByName: c(
         text('accepted_by_name'),
-        'Customer contact who accepted (business contact only).',
+        'Customer contact who accepted (business contact only). Unused by the B-13 form.',
       ),
-      cerId: c(text('cer_id'), 'CER id.'),
-      bprId: c(text('bpr_id'), 'BPR id.'),
+      cerId: c(text('cer_id'), 'CER id (Apex). A reference only, no integration.'),
+      bprId: c(text('bpr_id'), 'BPR (price implementation) id. A reference only, no integration.'),
       notes: c(text('notes'), 'Notes.'),
+      completedAt: c(
+        timestamptz('completed_at'),
+        'B-13: when someone ticked "Hand-off complete"; null while open.',
+      ),
+      completedBy: c(userRef('completed_by'), 'B-13: who confirmed the hand-off complete.'),
+      updatedBy: c(userRef('updated_by'), 'B-13: who last edited the record.'),
     },
     (t) => [
       check(
         'handoff_record_acceptance_evidence_check',
         inList(t.acceptanceEvidence, ACCEPTANCE_EVIDENCE),
       ),
+      check(
+        'handoff_record_completed_consistency_check',
+        sql`(${t.completedAt} is null) = (${t.completedBy} is null)`,
+      ),
     ],
   ),
-  { area: 'workflow', owner: KAM, description: 'Minimal Awarded hand-off record (CR-41/42).' },
+  {
+    area: 'workflow',
+    owner: KAM,
+    description: 'Minimal Awarded hand-off record (CR-41/42, B-13).',
+  },
 );

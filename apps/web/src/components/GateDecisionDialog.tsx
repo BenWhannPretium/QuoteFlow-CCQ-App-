@@ -1,9 +1,10 @@
 import type { AvailableGateAction, GateDecisionBody, GateDecisionResponse } from '@ccq/contracts';
-import { validityUntil } from '@ccq/domain';
+import { EXPIRED_OUTCOME, LOST_OUTCOME, proposalCalendarDate, validityUntil } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -81,6 +82,12 @@ export function GateDecisionDialog({
   const [target, setTarget] = useState('');
   /** B-12: the actual send date of the proposal (`datetime-local`); untouched = now, set by the server. */
   const [issued, setIssued] = useState('');
+  /** B-13 (G5): the customer's acceptance date and document link, a competitor on a loss, the closure owner. */
+  const [acceptedAt, setAcceptedAt] = useState('');
+  const [docUrl, setDocUrl] = useState('');
+  const [competitor, setCompetitor] = useState('');
+  const [ownerChoice, setOwnerChoice] = useState<'' | 'me'>('');
+  const me = useCurrentUser();
   const [openedAt] = useState(() => Date.now());
   const [submitted, setSubmitted] = useState(false);
   const [serverErrors, setServerErrors] = useState<ServerError[]>([]);
@@ -90,6 +97,10 @@ export function GateDecisionDialog({
     date: useId(),
     target: useId(),
     issued: useId(),
+    accepted: useId(),
+    doc: useId(),
+    competitor: useId(),
+    owner: useId(),
     errors: useId(),
   };
 
@@ -98,7 +109,19 @@ export function GateDecisionDialog({
   const showReason = !!action && action.reasonCodes.length > 0;
   const needsReason = !!action?.requiresReasonCode;
   const needsNote =
-    !!action && (action.requiresNote || !!reason?.requiresNote || action.requiresExceptionNote);
+    !!action &&
+    (action.requiresNote ||
+      !!reason?.requiresNote ||
+      action.requiresExceptionNote ||
+      action.requiresNoteBeforeValidity);
+  // B-13: the customer's outcome (G5).
+  const needsAcceptance = !!action?.requiresAcceptanceDate;
+  const acceptedInFuture = !!acceptedAt && acceptedAt > proposalCalendarDate(new Date(openedAt));
+  const closes = !!action?.closesAs;
+  const canPickOwner =
+    closes && !!quote.data?.customerDecision.canAssignClosureOwner && !!action?.closureOwnerDefault;
+  const defaultOwnerIsMe =
+    action?.closureOwnerDefault === 'decider' || quote.data?.kamUserId === me.user.id;
   const needsDate = !!action?.requiresReviewDate;
   const needsTarget = !!action && action.targetStageKeys.length > 1;
   // B-12: an outcome that releases the proposition asks for the actual send date and shows the validity.
@@ -123,11 +146,15 @@ export function GateDecisionDialog({
     releases &&
       issuedInFuture &&
       'The proposal issue date can’t be in the future: enter the date it was actually sent.',
+    needsAcceptance && !acceptedAt && 'Enter the date the customer accepted.',
+    needsAcceptance && acceptedInFuture && 'The acceptance date can’t be in the future.',
     needsNote &&
       note.trim() === '' &&
       (action?.requiresExceptionNote && !action.requiresNote
         ? 'Add a strategic exception note (the quote is below a qualification minimum).'
-        : 'Add a note.'),
+        : action?.requiresNoteBeforeValidity && !action.requiresNote
+          ? 'The proposal is still valid: add a note saying why it is expired now.'
+          : 'Add a note.'),
   ].filter((p): p is string => !!p);
 
   const reset = () => {
@@ -137,6 +164,10 @@ export function GateDecisionDialog({
     setHoldUntil('');
     setTarget('');
     setIssued('');
+    setAcceptedAt('');
+    setDocUrl('');
+    setCompetitor('');
+    setOwnerChoice('');
     setSubmitted(false);
     setServerErrors([]);
   };
@@ -152,6 +183,7 @@ export function GateDecisionDialog({
         queryClient.invalidateQueries({ queryKey: finalReviewQueueKey }),
         queryClient.invalidateQueries({ queryKey: reviewSummaryKey(quoteNumber) }),
         queryClient.invalidateQueries({ queryKey: ['stage-times', quoteNumber] }),
+        queryClient.invalidateQueries({ queryKey: ['my-proposals'] }),
       ]);
       toast.success({
         title: `${action?.outcomeLabel ?? 'Decision'} recorded`,
@@ -253,6 +285,14 @@ export function GateDecisionDialog({
                     ...(needsDate && holdUntil ? { holdUntil } : {}),
                     ...(needsTarget && target ? { targetStageKey: target } : {}),
                     ...(releases && issuedAt ? { proposalIssuedAt: issuedAt.toISOString() } : {}),
+                    ...(needsAcceptance && acceptedAt ? { acceptedAt } : {}),
+                    ...(needsAcceptance && docUrl.trim()
+                      ? { acceptanceDocumentUrl: docUrl.trim() }
+                      : {}),
+                    ...(action.closesAs === LOST_OUTCOME && competitor.trim()
+                      ? { competitor: competitor.trim() }
+                      : {}),
+                    ...(canPickOwner && ownerChoice === 'me' ? { closureOwnerId: me.user.id } : {}),
                   });
                 }}
               >
@@ -276,6 +316,10 @@ export function GateDecisionDialog({
                           setReasonCode('');
                           setTarget('');
                           setIssued('');
+                          setAcceptedAt('');
+                          setDocUrl('');
+                          setCompetitor('');
+                          setOwnerChoice('');
                           setServerErrors([]);
                         }}
                         className="size-4 accent-[var(--primary)]"
@@ -291,7 +335,8 @@ export function GateDecisionDialog({
                 {showReason && (
                   <div className="grid gap-1.5">
                     <label htmlFor={ids.reason} className="text-sm font-medium">
-                      Reason {needsReason ? '(required)' : '(optional)'}
+                      {needsAcceptance ? 'Acceptance evidence' : 'Reason'}{' '}
+                      {needsReason ? '(required)' : '(optional)'}
                     </label>
                     <NativeSelect
                       id={ids.reason}
@@ -366,6 +411,83 @@ export function GateDecisionDialog({
                         {validityDays} days from the issue date, provisional).
                       </p>
                     )}
+                  </div>
+                )}
+
+                {needsAcceptance && (
+                  <div className="grid gap-4 sm:grid-cols-2" data-testid="acceptance-fields">
+                    <div className="grid gap-1.5">
+                      <label htmlFor={ids.accepted} className="text-sm font-medium">
+                        Customer accepted on (required)
+                      </label>
+                      <Input
+                        id={ids.accepted}
+                        type="date"
+                        value={acceptedAt}
+                        max={proposalCalendarDate(new Date(openedAt))}
+                        onChange={(e) => setAcceptedAt(e.target.value)}
+                        aria-invalid={submitted && (!acceptedAt || acceptedInFuture)}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <label htmlFor={ids.doc} className="text-sm font-medium">
+                        Document link (optional)
+                      </label>
+                      <Input
+                        id={ids.doc}
+                        type="url"
+                        inputMode="url"
+                        placeholder="https://…"
+                        value={docUrl}
+                        onChange={(e) => setDocUrl(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-muted-foreground text-xs sm:col-span-2">
+                      The reason above is the acceptance evidence. Next: the hand-off record (CER
+                      and BPR IDs, who receives it).
+                    </p>
+                  </div>
+                )}
+
+                {action?.closesAs === LOST_OUTCOME && (
+                  <div className="grid gap-1.5">
+                    <label htmlFor={ids.competitor} className="text-sm font-medium">
+                      Competitor (optional)
+                    </label>
+                    <Input
+                      id={ids.competitor}
+                      value={competitor}
+                      onChange={(e) => setCompetitor(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {action?.closesAs === EXPIRED_OUTCOME && (
+                  <p className="text-muted-foreground text-sm" data-testid="expired-explainer">
+                    Silence is not a loss: “No response / Expired” is recorded separately from Lost.
+                    {action.requiresNoteBeforeValidity
+                      ? ' The proposal is still within its validity date, so add a note.'
+                      : ''}
+                  </p>
+                )}
+
+                {canPickOwner && (
+                  <div className="grid gap-1.5">
+                    <label htmlFor={ids.owner} className="text-sm font-medium">
+                      Closure owner
+                    </label>
+                    <NativeSelect
+                      id={ids.owner}
+                      value={ownerChoice}
+                      onChange={(e) => setOwnerChoice(e.target.value as '' | 'me')}
+                    >
+                      <option value="">
+                        {action?.closureOwnerDefault === 'kam'
+                          ? `The KAM${quote.data?.kamName ? ` (${quote.data.kamName})` : ''}`
+                          : 'Me (the decider)'}
+                      </option>
+                      {!defaultOwnerIsMe && <option value="me">Me ({me.user.displayName})</option>}
+                    </NativeSelect>
                   </div>
                 )}
 

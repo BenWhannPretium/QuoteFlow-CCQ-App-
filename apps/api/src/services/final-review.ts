@@ -278,7 +278,7 @@ export class FinalReviewService {
         ...new Set(attachments.map((a) => a.uploadedBy)),
       ]);
 
-      const decisions = raw.map(decisionDto);
+      const decisions = raw.map((d) => decisionDto(d, q.version));
       const g2 = decisions.find((d) => d.gateKey === 'G2');
       const record = recordValues(pricing);
       const requirement = commercial

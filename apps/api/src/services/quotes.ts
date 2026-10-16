@@ -20,6 +20,8 @@ import {
   canSeePriorityScore,
   evaluateRules,
   fieldsReferenced,
+  isSupersededDecision,
+  isValidityLapsed,
   qualificationWarnings,
   redactScore,
   type Actor,
@@ -34,6 +36,7 @@ import {
 
 import { engineeringView, loadEngQueueSettings } from './engineering-view';
 import { loadReleaseSettings, type ReleaseSettings } from './final-review-view';
+import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from './outcome-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
 import type { ScoringService } from './scoring';
@@ -50,10 +53,18 @@ export interface QuoteViewContext {
   engQueue: EngQueueSettings;
   /** B-12 Final Review settings: validity days and the (disabled by default) approver tiers. */
   release: ReleaseSettings;
+  /** B-13: validity warning window, hand-off receiving roles, the SF stage map. */
+  outcome: OutcomeSettings;
+  /** The request's clock (validity countdowns are relative to it). */
+  now: Date;
 }
 
-/** Fields a decision supplies itself (the dialog asks for them), so they never count as "missing". */
-const DECISION_FIELDS = new Set(['review_date']);
+/**
+ * Fields a decision supplies itself (the dialog asks for them, or the server derives them at decision
+ * time), so they never count as "missing": the review date, B-13's acceptance date, the decision's own
+ * note and whether the validity has lapsed.
+ */
+const DECISION_FIELDS = new Set(['review_date', 'accepted_at', 'decision_note', 'validity_lapsed']);
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -148,10 +159,18 @@ export function gateActionsFor(
   ctx: QuoteViewContext,
   warnings: readonly QualificationWarning[],
 ): AvailableGateAction[] {
+  const lapsed = isValidityLapsed(state.fields.validity_until as string | null, ctx.now);
   return availableActions(workflow, state, ctx.actor, {
     approverTiers: ctx.release.approverTiers,
   }).map((a) => {
     const referenced = a.requiredFields.flatMap(fieldsReferenced);
+    const transition = workflow.transitions.find(
+      (t) => t.gateKey === a.gateKey && t.outcomeKey === a.outcomeKey,
+    );
+    // B-13: a rule a note would satisfy that still fails with the validity as it stands (Expired).
+    const noteBeforeValidity =
+      referenced.includes('decision_note') &&
+      evaluateRules(a.requiredFields, { ...state.fields, validity_lapsed: lapsed }).length > 0;
     const missing = evaluateRules(
       a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
       state.fields,
@@ -183,12 +202,19 @@ export function gateActionsFor(
       missing,
       releasesProposal: a.releasesProposal,
       validityDays: a.releasesProposal ? ctx.release.validityDays : null,
+      closesAs: a.nextStatus === 'closed' ? (transition?.closeAs ?? null) : null,
+      closureOwnerDefault:
+        a.nextStatus === 'closed' ? (transition?.closureOwner ?? 'decider') : null,
+      requiresAcceptanceDate: referenced.includes('accepted_at'),
+      requiresNoteBeforeValidity: noteBeforeValidity,
     };
   });
 }
 
+/** One decision as shown. `quoteVersion` is the quote's current version (for "superseded", CR-38). */
 export function decisionDto(
   d: Awaited<ReturnType<typeof listGateDecisionsWithNames>>[number],
+  quoteVersion: number,
 ): GateDecisionSummary {
   return {
     id: d.decision.id,
@@ -200,6 +226,7 @@ export function decisionDto(
     note: d.decision.note,
     reasonCode: d.decision.reasonCode,
     quoteVersion: d.decision.quoteVersion,
+    superseded: isSupersededDecision(d.decision.quoteVersion, quoteVersion),
   };
 }
 
@@ -232,7 +259,7 @@ export class QuoteReadService {
   constructor(private readonly scoring: ScoringService) {}
 
   async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
-    const [model, qualification, kamCanSeePeerScores, overrides, engQueue, release] =
+    const [model, qualification, kamCanSeePeerScores, overrides, engQueue, release, outcome] =
       await Promise.all([
         this.scoring.model(db, now),
         this.scoring.qualificationSettings(db),
@@ -240,8 +267,19 @@ export class QuoteReadService {
         loadOverrideSettings(db),
         loadEngQueueSettings(db),
         loadReleaseSettings(db),
+        loadOutcomeSettings(db),
       ]);
-    return { actor, model, qualification, kamCanSeePeerScores, overrides, engQueue, release };
+    return {
+      actor,
+      model,
+      qualification,
+      kamCanSeePeerScores,
+      overrides,
+      engQueue,
+      release,
+      outcome,
+      now,
+    };
   }
 
   /** The quote's detail DTO, or undefined when it does not exist or is out of the caller's scope (RLS). */
@@ -259,7 +297,7 @@ export class QuoteReadService {
       listGateDecisionsWithNames(db, q.id),
     ]);
     const summary = summaryDto(row, ctx);
-    const decisions = raw.map(decisionDto);
+    const decisions = raw.map((d) => decisionDto(d, q.version));
     const structured = (q.structuredDescription ?? {}) as { standard?: string | null };
     const shipTo = q.shipTo as QuoteDetail['shipTo'];
     return {
@@ -288,6 +326,16 @@ export class QuoteReadService {
       ),
       engineering: await engineeringView(db, ctx.actor, ctx.engQueue, q, state!),
       quoting: await quotingView(db, ctx.actor, workflow, q, state!),
+      customerDecision: await customerDecisionView(db, {
+        actor: ctx.actor,
+        workflow,
+        settings: ctx.outcome,
+        now: ctx.now,
+        quote: q,
+        state: state!,
+        sfStage: row.sfStage,
+        decisions: raw,
+      }),
     };
   }
 }

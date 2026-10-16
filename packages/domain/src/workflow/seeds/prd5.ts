@@ -82,7 +82,15 @@ export const prd5Config: WorkflowConfig = parseWorkflowConfig({
       requiresNote: true,
       provisional: true,
     },
-    { gateKey: 'P_FINAL', key: 'award', label: 'Awarded', provisional: true },
+    // B-13 (CR-39): every closure records a reason; for an award it is the acceptance evidence.
+    {
+      gateKey: 'P_FINAL',
+      key: 'award',
+      label: 'Awarded',
+      requiresReasonCode: true,
+      reasonContext: 'awarded',
+      provisional: true,
+    },
     {
       gateKey: 'P_FINAL',
       key: 'lose',

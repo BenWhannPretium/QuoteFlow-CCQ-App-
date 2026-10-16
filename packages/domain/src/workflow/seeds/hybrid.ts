@@ -99,6 +99,7 @@ function transition(
  */
 export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): WorkflowConfig {
   const closed = { nextStatus: 'closed' } as const;
+  const customerClosed = { nextStatus: 'closed', closureOwner: 'kam' } as const;
   const hold = { nextStatus: 'on_hold' } as const;
   const active = { nextStatus: 'active' } as const;
 
@@ -297,18 +298,38 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         reasonContext: 'rework',
         notify: [{ type: 'quote.returned', to: { stageOwner: true } }],
       }),
-      // G5
-      outcome('G5', 'awarded', 'Awarded'),
+      // G5 (B-13, CR-37/39): the CUSTOMER outcome, decider the KAM (own quotes) or a SalesLeader
+      // (outcome.record). Every closing outcome needs a reason code (CR-39): for Awarded it is the
+      // acceptance evidence (verbal award / PO / LOI / contract), with the acceptance date.
+      outcome('G5', 'awarded', 'Awarded', {
+        requiresReasonCode: true,
+        reasonContext: 'awarded',
+        requiredFields: [present('accepted_at')],
+      }),
       outcome('G5', 'lost', 'Lost', { requiresReasonCode: true, reasonContext: 'lost' }),
+      // "Silence is not a loss": its own terminal state, allowed once the validity date has passed, or
+      // earlier with a note saying why (e.g. the customer confirmed the project is shelved).
       outcome('G5', 'expired', 'No response / Expired', {
         requiresReasonCode: true,
         reasonContext: 'expired',
+        requiredFields: [
+          {
+            anyOf: [
+              { field: 'validity_lapsed', op: 'equals', value: true },
+              present('decision_note'),
+            ],
+          },
+        ],
       }),
+      // A customer hold stops the cycle-time clock (quote_hold, CR-57).
       outcome('G5', 'on_hold', 'On hold', {
+        requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: [present('review_date')],
       }),
+      // Back to the affected stage with a version bump; earlier approvals stay as recorded (CR-38).
       outcome('G5', 'requote', 'Re-quote', {
+        requiresReasonCode: true,
         reasonContext: 'requote',
         notify: [{ type: 'quote.requote', to: { stageOwner: true } }],
       }),
@@ -348,9 +369,23 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         targetStageKeys: ['QUOTING', 'ENG_REVIEW'],
         versionBump: true,
       }),
-      transition('G5', 'awarded', { ...closed, targetStageKeys: ['AWARDED'], closeAs: 'awarded' }),
-      transition('G5', 'lost', { ...closed, targetStageKeys: ['CLOSED_LOST'], closeAs: 'lost' }),
-      transition('G5', 'expired', { ...closed, targetStageKeys: ['EXPIRED'], closeAs: 'expired' }),
+      // B-13: a customer outcome's closure owner defaults to the KAM (CR-39; a SalesLeader may name
+      // another); internal no-gos default to the decider.
+      transition('G5', 'awarded', {
+        ...customerClosed,
+        targetStageKeys: ['AWARDED'],
+        closeAs: 'awarded',
+      }),
+      transition('G5', 'lost', {
+        ...customerClosed,
+        targetStageKeys: ['CLOSED_LOST'],
+        closeAs: 'lost',
+      }),
+      transition('G5', 'expired', {
+        ...customerClosed,
+        targetStageKeys: ['EXPIRED'],
+        closeAs: 'expired',
+      }),
       transition('G5', 'on_hold', hold),
       transition('G5', 'requote', {
         ...active,

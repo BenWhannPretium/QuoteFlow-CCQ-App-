@@ -43,7 +43,8 @@ async function nextFree(): Promise<string> {
   const old = created.shift();
   if (!old) throw new Error('test ran out of free opportunities');
   const [row] = await db.db.execute<{ id: string }>(sql`
-    update quote set stage_key = 'DECLINED', status = 'closed', outcome = 'declined', closed_at = now()
+    update quote set stage_key = 'DECLINED', status = 'closed', outcome = 'declined', closed_at = now(),
+      outcome_reason_code = 'other', closure_owner_id = kam_user_id
     where quote_number = ${old} returning sf_opportunity_id as id`);
   return row!.id;
 }

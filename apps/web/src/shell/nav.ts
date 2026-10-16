@@ -5,6 +5,7 @@ import { canFromMe } from '@/auth/permissions';
 export type NavKey =
   | 'home'
   | 'intake'
+  | 'proposals'
   | 'queue-engineering'
   | 'queue-pricing'
   | 'pipeline'
@@ -57,6 +58,9 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
   const items: NavItem[] = [item('home', 'Home', 'Home', '/')];
 
   if (can('quote.create')) items.push(item('intake', 'New intake', 'Intake', '/intake/new'));
+  // B-13: a KAM's open proposals (the customer decision; outcome.record, own quotes).
+  if (can('outcome.record'))
+    items.push(item('proposals', 'My proposals', 'Proposals', '/proposals'));
   if (can('gate.G1.decide') && g1Enabled) {
     items.push({
       ...item('qualify', 'To qualify', 'Qualify', '/approvals'),

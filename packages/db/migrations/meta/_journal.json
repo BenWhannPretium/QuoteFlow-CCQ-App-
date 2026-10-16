@@ -85,6 +85,13 @@
       "when": 1792169208671,
       "tag": "0011_b12_final_review",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792176061750,
+      "tag": "0012_b13_outcome_closure",
+      "breakpoints": true
     }
   ]
 }

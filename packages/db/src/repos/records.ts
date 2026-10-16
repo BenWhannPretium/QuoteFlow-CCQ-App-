@@ -185,7 +185,20 @@ export async function insertComment(db: DbOrTx, values: typeof comment.$inferIns
 export const getHandoffRecord = async (db: DbOrTx, quoteId: string) =>
   first(await db.select().from(handoffRecord).where(eq(handoffRecord.quoteId, quoteId)));
 
+export type HandoffRecordRow = typeof handoffRecord.$inferSelect;
+
 export async function insertHandoffRecord(db: DbOrTx, values: typeof handoffRecord.$inferInsert) {
   const [row] = await db.insert(handoffRecord).values(values).returning();
+  return row!;
+}
+
+/** B-13: create or replace the quote's hand-off record (one per quote). */
+export async function upsertHandoffRecord(db: DbOrTx, values: typeof handoffRecord.$inferInsert) {
+  const { quoteId: _q, createdBy: _c, id: _i, ...update } = values;
+  const [row] = await db
+    .insert(handoffRecord)
+    .values(values)
+    .onConflictDoUpdate({ target: handoffRecord.quoteId, set: update })
+    .returning();
   return row!;
 }

@@ -55,6 +55,7 @@ export function workflowRows(config: WorkflowConfig = buildHybridConfig({ g1Enab
       nextStatus: t.nextStatus,
       closeAs: t.closeAs ?? null,
       versionBump: t.versionBump,
+      closureOwner: t.closureOwner,
       provisional: t.provisional,
     })),
     segregation: config.segregation.map((r) => ({

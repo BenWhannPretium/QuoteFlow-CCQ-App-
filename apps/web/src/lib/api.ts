@@ -1,4 +1,8 @@
 import {
+  HandoffResponse,
+  MyProposalsResponse,
+  OutcomesReport,
+  type HandoffBody,
   FinalReviewQueueResponse,
   PricingQueueResponse,
   QuotingDetail,
@@ -273,6 +277,12 @@ export const api = {
     getJson(`/api/v1/approvals${queryString({ gate: 'G4', ...q })}`, FinalReviewQueueResponse),
   reviewSummary: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/review-summary`, ReviewSummary),
+
+  // B-13 customer decision (G5 decisions: decideGate), the hand-off record and the outcomes report
+  myProposals: () => getJson('/api/v1/quotes/mine/proposals', MyProposalsResponse),
+  updateHandoff: (quoteNumber: string, body: HandoffBody) =>
+    getJson(`${quotePath(quoteNumber)}/handoff`, HandoffResponse, { method: 'PUT', body }),
+  outcomesReport: () => getJson('/api/v1/admin/reports/outcomes', OutcomesReport),
 
   // B-09 usage audit (Leadership + Admin)
   auditEvents: (q: Partial<AuditQuery>) =>

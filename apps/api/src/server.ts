@@ -47,3 +47,4 @@ try {
 
 // Background jobs start only once the server is listening (never in tests that build the app).
 app.sfSync?.start();
+app.validityExpiry?.start();

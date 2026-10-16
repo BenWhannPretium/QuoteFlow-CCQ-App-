@@ -56,10 +56,18 @@ export function validateWorkflowConfig(config: WorkflowConfig): DomainError[] {
       if (known.length === 0 || terminalCount !== known.length)
         bad(`Transition ${id} closes the quote, so every target must be a terminal stage`);
       if (!rule.closeAs) bad(`Transition ${id} closes the quote but has no closeAs`);
+      // B-13 (CR-39): every closure records a reason code, so the outcome must ask for one.
+      const outcome = config.outcomes.find(
+        (o) => o.gateKey === rule.gateKey && o.key === rule.outcomeKey,
+      );
+      if (outcome && !outcome.requiresReasonCode)
+        bad(`Transition ${id} closes the quote, so its outcome must require a reason code`);
     } else {
       if (terminalCount > 0)
         bad(`Transition ${id} targets a terminal stage but nextStatus is ${rule.nextStatus}`);
       if (rule.closeAs) bad(`Transition ${id} sets closeAs but does not close the quote`);
+      if (rule.closureOwner === 'kam')
+        bad(`Transition ${id} sets a closure owner but does not close the quote`);
     }
   }
 

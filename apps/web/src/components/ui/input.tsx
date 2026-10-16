@@ -6,16 +6,21 @@ import { cn } from '@/lib/utils';
 const controlClass =
   'border-input bg-card text-foreground placeholder:text-muted-foreground w-full min-w-0 rounded-md border px-3 text-base sm:text-sm disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive';
 
-function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
+/** forwardRef so callers can move focus to it (B-13: the hand-off form after an award). */
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(function Input(
+  { className, type, ...props },
+  ref,
+) {
   return (
     <input
+      ref={ref}
       type={type}
       data-slot="input"
       className={cn(controlClass, 'min-h-11 py-2 sm:min-h-10', className)}
       {...props}
     />
   );
-}
+});
 
 /** forwardRef so callers (the comment composer) can manage the caret. */
 const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(

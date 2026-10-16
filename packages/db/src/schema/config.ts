@@ -11,6 +11,7 @@ import {
 
 import { c, documented, inList } from './_doc';
 import {
+  CLOSURE_OWNER_DEFAULTS,
   QUOTE_STATUSES,
   REASON_CONTEXTS,
   ROLES,
@@ -185,6 +186,10 @@ export const transitionRule = documented(
         boolean('version_bump').notNull().default(false),
         'Return / rework / re-quote bumps quote.version.',
       ),
+      closureOwner: c(
+        text('closure_owner').notNull().default('decider'),
+        'B-13 (CR-39): default closure owner when the transition closes the quote: kam (customer outcome) | decider (internal no-go).',
+      ),
     },
     (t) => [
       unique('transition_rule_gate_outcome_uq').on(t.gateKey, t.outcomeKey),
@@ -196,6 +201,7 @@ export const transitionRule = documented(
         .onDelete('restrict')
         .onUpdate('cascade'),
       check('transition_rule_next_status_check', inList(t.nextStatus, QUOTE_STATUSES)),
+      check('transition_rule_closure_owner_check', inList(t.closureOwner, CLOSURE_OWNER_DEFAULTS)),
     ],
   ),
   { area: 'config', owner: STEWARD, description: 'Routing for each gate/outcome pair.' },

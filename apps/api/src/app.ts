@@ -26,6 +26,7 @@ import {
 import { createEntraVerifier } from './auth/entra';
 import type { AppConfig } from './config';
 import { createSfSyncScheduler, type SfSyncScheduler } from './jobs/sfSync';
+import { createValidityExpiryScheduler, type ValidityExpiryScheduler } from './jobs/validityExpiry';
 import { loggerOptions } from './logger';
 import { auditPlugin } from './plugins/audit';
 import { authPlugin } from './plugins/auth';
@@ -38,6 +39,7 @@ import { EngineeringService } from './services/engineering';
 import { FinalReviewService } from './services/final-review';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
+import { OutcomeService } from './services/outcome';
 import { OverrideService } from './services/overrideService';
 import { PricingService } from './services/pricing';
 import { QuoteReadService } from './services/quotes';
@@ -72,6 +74,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     /** The Salesforce delta sync (B-06); null without a database. server.ts starts its schedule. */
     sfSync: SfSyncScheduler | null;
+    /** B-13: the daily proposal validity expiry flags; null without a database. server.ts starts it. */
+    validityExpiry: ValidityExpiryScheduler | null;
   }
 }
 
@@ -257,6 +261,31 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   // B-12 Final Review: the approvals queue and the one-page review summary (decisions are G4 via the gate route).
   const finalReviewService = new FinalReviewService({ quotes: quoteReads, ...now });
 
+  // B-13 customer decision: my open proposals, the Awarded hand-off, the outcomes report (G5 decisions
+  // are the gate route), and the daily validity expiry job (flags + tells the KAM; never closes, D-12).
+  const outcomeService = new OutcomeService({
+    quotes: quoteReads,
+    log: app.log.child({ component: 'outcome' }),
+    ...now,
+  });
+  const expiryLog = app.log.child({ component: 'validity-expiry' });
+  const validityExpiry =
+    deps.db.db && deps.db.sql
+      ? createValidityExpiryScheduler(
+          {
+            database: deps.db.db,
+            sql: deps.db.sql,
+            logger: {
+              info: (obj, msg) => expiryLog.info(obj, msg),
+              error: (obj, msg) => expiryLog.error(obj, msg),
+            },
+            ...(deps.now ? { now: deps.now } : {}),
+          },
+          config.VALIDITY_EXPIRY_INTERVAL_HOURS,
+        )
+      : null;
+  app.decorate('validityExpiry', validityExpiry);
+
   await app.register(v1Routes, {
     prefix: '/api/v1',
     deps,
@@ -273,6 +302,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     engineeringService,
     pricingService,
     finalReviewService,
+    outcomeService,
   });
 
   if (isProd) {
@@ -281,6 +311,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
 
   app.addHook('onClose', async () => {
     await sfSync?.stop();
+    await validityExpiry?.stop();
     await app.audit.flush();
     await deps.db.close();
   });

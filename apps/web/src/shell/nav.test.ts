@@ -19,8 +19,11 @@ const keys = (...roles: Role[]) => navItemsFor(meFor(...roles)).map((i) => i.key
 
 describe('navItemsFor (from the seeded permission matrix)', () => {
   it.each<[Role[], string[]]>([
-    [['KAM'], ['home', 'intake', 'pipeline']],
-    [['SalesLeader'], ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics']],
+    [['KAM'], ['home', 'intake', 'proposals', 'pipeline']],
+    [
+      ['SalesLeader'],
+      ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
+    ],
     [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'approvals', 'analytics']],
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
@@ -44,7 +47,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     ],
     [
       ['SalesLeader', 'Approver'],
-      ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
+      ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
     ],
   ])('%j → %j', (roles, expected) => {
     expect(keys(...roles)).toEqual(expected);
@@ -64,6 +67,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     expect(navItemsFor(meFor('SalesLeader'), { g1Enabled: false }).map((i) => i.key)).toEqual([
       'home',
       'intake',
+      'proposals',
       'pipeline',
       'approvals',
       'analytics',
@@ -135,7 +139,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
 });
 
 describe('isNavItemActive', () => {
-  const [home, , pipeline] = navItemsFor(meFor('KAM')) as [NavItem, NavItem, NavItem];
+  const [home, , , pipeline] = navItemsFor(meFor('KAM')) as [NavItem, NavItem, NavItem, NavItem];
   it('matches home exactly and pipeline on /quotes and /board', () => {
     expect(isNavItemActive(home, '/')).toBe(true);
     expect(isNavItemActive(home, '/quotes')).toBe(false);
