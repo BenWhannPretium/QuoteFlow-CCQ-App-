@@ -128,6 +128,8 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 | finalReview.read (B-12: the Final Review queue, Approvals tab) | | | | | | ✔ | ✔ | ✔ |
 | gate.G4.decide | | | | | | ✔ | | |
 | outcome.record | ✔ (own) | ✔ | | | | | | |
+| outcome.assignOwner (B-13: name a closure owner other than the default) | | ✔ | | | | | | |
+| handoff.edit (B-13: the Awarded hand-off record) | ✔ (own) | ✔ | | | | | | ✔ |
 | override.request | ✔ | ✔ | ✔ | | ✔ | | | |
 | override.approve | | ✔ | ✔ (priority, queue) | | | | | ✔ |
 | override.revert | | ✔ | ✔ | | | | | ✔ |
@@ -154,9 +156,9 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
 | 2 | `ENG_REVIEW` | Engineering Review | EngLead | **G2 Feasible solution?** | Proceed · Proceed with risk · Capital required · Hold · Rework (to KAM) · Stop | Manual prioritized queue (DEC-26). The EngLead is alerted on arrival, assigns, accepts or returns. Captures process, machine, plant/site, cavitation, cycle time, preliminary capital, **capacity evidence** (CR-19). B-10 rules: Proceed / Proceed with risk need the solution fields + ≥ 1 capacity row (risk: + note); Capital required needs the capital figure and sets capital readiness to pending; Hold: reason + review date; Rework: reason + note; Stop: reason + note, closes as **DECLINED**. |
 | 3 | `QUOTING` | Quoting | Pricing | **G3 Price approved & capital ready** (submit to Final Review) | Submit · Hold · Rework (to Eng) · Stop | Records price approval (approver, date, basis, range note, pricing-app refs, costing attestation) and capital-readiness status, one record per quote version. No editable price figures. B-11 rules: Submit needs approver + date, an ERF/BPR reference or a "no pricing-app record yet" note, and capital readiness ≠ pending unless a pending-capital justification is given (a warning, D-11); notifies the Approver group. Hold: reason + review date; Rework: reason, bumps the version; Stop: reason + note, closes as **DECLINED**. Segregation: whoever approved the price or decided G3 on the version cannot decide G4. |
 | 4 | `FINAL_REVIEW` | Final Review | Approver | **G4 Release proposition** | Approve · Decline (note required) · Return (to affected stage) | **Internal** approval only. It does *not* set Awarded or Lost (fixes PRD F-16, X-88). B-12 rules: Approve sets `proposal_issued_at` (default now, editable, not future) and `validity_until` (+ `validity_days_default`) and tells the KAM; Decline needs note + `decline` reason, closes as **DECLINED**, tells KAM + Pricing; Return needs a note + target, bumps the version. Segregation: not the KAM, not the Pricing approver. Optional approver tiers: `g4_tier_rules` (disabled). |
-| 5 | `CUSTOMER_DECISION` | Customer Decision | KAM | **G5 Outcome recorded** | Awarded · Lost · No response/Expired · On hold · Re-quote | Proposal issue date and validity date (seed 30 days, provisional, D-12). |
-| T | `AWARDED` | Awarded | — | (minimal hand-off record) | — | Captures acceptance evidence, CER ID, BPR ID and receiving role (CR-41/42, minimal). |
-| T | `CLOSED_LOST` · `DECLINED` · `EXPIRED` · `REDIRECTED` | Closed | — | — | — | Reason code + closure owner + date are mandatory (CR-39). |
+| 5 | `CUSTOMER_DECISION` | Customer Decision | KAM | **G5 Outcome recorded** (decider: `outcome.record`, the KAM on own quotes or a SalesLeader) | Awarded · Lost · No response/Expired · On hold · Re-quote | Proposal issue date and validity date (seed 30 days, provisional, D-12); the header shows a validity countdown (amber at ≤ `validity_warning_days`, red when expired) and the SF stage side by side with a mismatch flag. B-13 rules: Awarded needs the acceptance evidence (reason, context `awarded`: verbal / PO / LOI / contract) + acceptance date, optional document link, and opens the hand-off record; Lost needs a reason (Other + note), optional competitor; Expired ("silence is not a loss", its own state) needs a reason, and before the validity date also a note; On hold needs a reason + review date (the hold stops the cycle-time clock); Re-quote needs a change reason + target (QUOTING or ENG_REVIEW) and bumps the version. Customer outcomes' closure owner defaults to the KAM. A daily job flags lapsed validity and tells the KAM; nothing auto-closes (D-12). |
+| T | `AWARDED` | Awarded | — | (minimal hand-off record) | — | Captures acceptance evidence, CER ID, BPR ID, receiving role and contact, accepted-by date and a "Hand-off complete" tick (CR-41/42, minimal; `handoff.edit`). |
+| T | `CLOSED_LOST` · `DECLINED` · `EXPIRED` · `REDIRECTED` | Closed | — | — | — | Outcome + reason code + closure owner + date are mandatory on **every** terminal path (CR-39/40): `evaluateTransition` plans them (`TransitionEffects.closure`), refuses a closing decision without a reason, and the DB repeats it (`quote_closure_complete_check`). |
 
 **Engine rules (all in `packages/domain/src/workflow`)**
 
@@ -171,7 +173,8 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
   - a `stage_history` row (enter/exit timestamps used for time-in-stage)
   - an `activity_event`
   - an `audit_event`
-- Re-quote and return paths go **back to the affected stage only** and bump `quote.version`. Prior approvals are kept, never edited (CR-38).
+- Re-quote and return paths go **back to the affected stage only** and bump `quote.version`. Prior approvals are kept, never edited (CR-38); the read model marks decisions taken on an earlier version `superseded` (B-13).
+- A closing transition records its closure (B-13, CR-39): outcome = `closeAs`, the reason code (always required to close), the closure owner (`transition_rule.closure_owner`: `kam` for customer outcomes, `decider` for internal no-gos; `outcome.assignOwner` may name another) and `closed_at`.
 - On-hold time is tracked separately so cycle time can exclude customer holds (CR-57).
 
 **Gate decision API (built in B-08; reuse it for G2–G5)**
@@ -219,9 +222,9 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 **Reference and config** (all admin-editable and versioned)
 - `value_list`: list_key (product_family | market | resin | component | process_type | machine_type | plant | request_class | drawing_status | neck_finish | packaging_type), code, label, sort, active, provisional
 - `stage_definition`, `gate_definition`, `gate_outcome_definition`, `transition_rule`
-- `reason_code`: context (rework | redirect | stop | decline | lost | expired | hold | requote | override), code, label, active
+- `reason_code`: context (rework | redirect | stop | decline | lost | expired | hold | requote | override | awarded), code, label, active
 - `scoring_model`: version, attributes jsonb (key, label, weight, scale, mapping), tier_thresholds jsonb, effective_from, approved_by, change_reason
-- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome, pricing_ref_formats (B-11, ERF/BPR format checks), g4_tier_rules (B-12, null = disabled).
+- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome, pricing_ref_formats (B-11, ERF/BPR format checks), g4_tier_rules (B-12, null = disabled), validity_warning_days and handoff_receiving_roles (B-13).
 - `sf_stage_map`: sf_stage, ccq_stage_hint
 
 **Core workflow**
@@ -233,7 +236,7 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
   - **Ship-to:** ship_to jsonb plus ship_to_overridden bool, ship_to_original jsonb, ship_to_override_reason (interim until B-09 overrides)
   - **Priority:** priority_score, priority_tier, priority_tier_overridden bool, scoring_model_version
   - **Engineering:** assigned_engineer_id, assigned_at (B-10), queue_position + queue_position_overridden (EngLead pin, B-09)
-  - **Links and dates:** erf_number (link), cer_id, bpr_id, proposal_issued_at, validity_until
+  - **Links and dates:** erf_number (link), cer_id, bpr_id (B-13: mirrored from the hand-off), proposal_issued_at, validity_until, validity_expired_flagged_at (B-13 expiry job)
   - **Close-out:** outcome, outcome_reason_code, closure_owner_id, closed_at
 - `quote_draft` (B-07): owner_user_id, sf_opportunity_id, step, data jsonb, submitted_quote_id, submitted_at. Intake work in progress; visible only to its creator, plus Admin. It becomes a quote on submit.
 - `stage_history`: quote_id, stage_key, entered_at, exited_at, entered_by, on_hold_ms
@@ -244,7 +247,7 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `override`: quote_id, field (priority_tier | ship_to | queue_position | …), original_value jsonb, requested_value jsonb, justification (required), requested_by, status (requested | approved | rejected | applied | reverted), approval_mode (approver | self), decided_by, decided_at, decision_note, applied_at, reverted_by, reverted_at. At most one open (requested) override per quote and field (partial unique index). Which fields, and who requests / approves / reverts each, is `app_setting.overridable_fields` (B-09). The quote carries `*_overridden` flags (`priority_tier_overridden`, `ship_to_overridden`, `queue_position_overridden`).
 - `attachment`: quote_id, kind (bottle_drawing | spec | sample_photo | other), file_name, size, mime, sp_drive_id, sp_item_id, sp_web_url, uploaded_by
 - `comment`: quote_id, author_id, body, mentions[]
-- `handoff_record`: quote_id, acceptance_evidence (verbal | po | loi | contract), receiving_role, accepted_by_name, cer_id, bpr_id, notes. Minimal, for Stage 6.
+- `handoff_record`: quote_id, acceptance_evidence (verbal | po | loi | contract), acceptance_date, acceptance_document_url, receiving_role (+ receiving_role_other), receiving_contact_name, accepted_on, accepted_by_name, cer_id, bpr_id, notes, completed_at / completed_by ("Hand-off complete"), updated_by. Minimal, for Stage 6 (B-13). Opened by the G5 Awarded decision.
 - `quote_hold`: quote_id, stage_key, started_at, ended_at, reason_code. Hold intervals, so cycle time can exclude holds (CR-57).
 - `segregation_rule`: rule_key, gate_keys[], outcome_keys[], deny (actor_is_kam | actor_is_assigned_engineer | actor_is_price_approver), message. Config.
 - `quote_number_counter`: year, last_value. Used only by `next_quote_number()`.
