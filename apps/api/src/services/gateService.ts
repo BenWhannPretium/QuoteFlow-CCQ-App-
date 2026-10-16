@@ -227,20 +227,14 @@ export class GateService {
     });
   }
 
-  /** One quote's detail (and a `view` audit row). */
-  async detail(
-    withTx: GateWithTx,
-    actor: Actor,
-    quoteNumber: string,
-    meta: AuditMeta,
-  ): Promise<QuoteDetail> {
+  /** One quote's detail. The route marks the request so the audit plugin records the view. */
+  async detail(withTx: GateWithTx, actor: Actor, quoteNumber: string): Promise<QuoteDetail> {
     const now = this.now();
     return withTx(async (tx) => {
       const workflow = await GateService.workflow(tx);
       const ctx = await this.opts.quotes.context(tx, actor, now);
       const dto = await this.opts.quotes.detail(tx, workflow, ctx, quoteNumber);
       if (!dto) throw new GateError(404, GATE_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
-      await this.opts.quotes.auditView(tx, actor, dto, now, meta);
       return dto;
     });
   }

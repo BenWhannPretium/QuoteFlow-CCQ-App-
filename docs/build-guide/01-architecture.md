@@ -128,6 +128,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 | override.approve | | ✔ | ✔ (priority, queue) | | | | | ✔ |
 | override.revert | | ✔ | ✔ | | | | | ✔ |
 | overrideLog.read | | | | | | | ✔ | ✔ |
+| audit.read (B-09: audit viewer, usage report) | | | | | | | ✔ | ✔ |
 | attachment.upload | ✔ | ✔ | ✔ | ✔ | ✔ | | | |
 | export.csv | ✔ (scope) | ✔ | ✔ | | ✔ | ✔ | ✔ | ✔ |
 | analytics.read | | ✔ | ✔ | | ✔ | ✔ | ✔ | ✔ |
@@ -236,7 +237,7 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `eng_review`: quote_id, accepted_at, returned_reason, process_type, machine_type, plant_code, cavitation, cycle_time_s, tooling_notes, prelim_capital_usd *(commercial)*, downstream_equipment_notes
 - `capacity_evidence`: quote_id, site, line_asset, assumed_effectiveness_pct, cycle_time_s, utilization_pct, buffer_pct, analysis_date, analyst_id, notes. **All fields are entered** with no OEE default; D-08.
 - `pricing_record` *(commercial)*: quote_id, price_approved_by, price_approved_at, pricing_refs jsonb (ERF/BPR ids from the pricing app), approved_range_note, capital_readiness (not_required | pending | pre_approved | not_approved), capital_notes
-- `override`: quote_id, field (priority_tier | ship_to | queue_position | …), original_value jsonb, requested_value jsonb, justification (required), requested_by, status (requested | approved | rejected | applied | reverted), decided_by, decided_at, reverted_by, reverted_at
+- `override`: quote_id, field (priority_tier | ship_to | queue_position | …), original_value jsonb, requested_value jsonb, justification (required), requested_by, status (requested | approved | rejected | applied | reverted), approval_mode (approver | self), decided_by, decided_at, decision_note, applied_at, reverted_by, reverted_at. At most one open (requested) override per quote and field (partial unique index). Which fields, and who requests / approves / reverts each, is `app_setting.overridable_fields` (B-09). The quote carries `*_overridden` flags (`priority_tier_overridden`, `ship_to_overridden`, `queue_position_overridden`).
 - `attachment`: quote_id, kind (bottle_drawing | spec | sample_photo | other), file_name, size, mime, sp_drive_id, sp_item_id, sp_web_url, uploaded_by
 - `comment`: quote_id, author_id, body, mentions[]
 - `handoff_record`: quote_id, acceptance_evidence (verbal | po | loi | contract), receiving_role, accepted_by_name, cer_id, bpr_id, notes. Minimal, for Stage 6.

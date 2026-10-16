@@ -119,7 +119,13 @@ export async function updateOverride(
   patch: Partial<
     Pick<
       typeof override.$inferInsert,
-      'status' | 'decidedBy' | 'decidedAt' | 'decisionNote' | 'revertedBy' | 'revertedAt'
+      | 'status'
+      | 'decidedBy'
+      | 'decidedAt'
+      | 'decisionNote'
+      | 'revertedBy'
+      | 'revertedAt'
+      | 'appliedAt'
     >
   >,
 ) {

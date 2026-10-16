@@ -536,10 +536,12 @@ Governed overrides (F-06). Log readable by Leadership and Admin only.
 | `decision_note` | text | yes |  |  | Approver note. | Override requester / approver |
 | `reverted_by` | uuid | yes |  | app_user.id | Who reverted it. | Override requester / approver |
 | `reverted_at` | timestamp with time zone | yes |  |  | When it was reverted. | Override requester / approver |
+| `approval_mode` | text | no | "approver" |  | approver (waits for a configured approver) \| self (applied by the requester, logged). From overridable_fields at request time. | Override requester / approver |
+| `applied_at` | timestamp with time zone | yes |  |  | When the value was written to the quote. | Override requester / approver |
 
-**Checks:** `override_status_check`, `override_justification_check`
+**Checks:** `override_status_check`, `override_approval_mode_check`, `override_justification_check`
 
-**Indexes:** `override_quote_idx`, `override_status_idx`
+**Indexes:** `override_quote_idx`, `override_status_idx`, `override_one_open_per_field_uidx`
 
 ### pricing_record
 
@@ -604,7 +606,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `ship_to` | jsonb | yes |  |  | Ship-to address used for the quote. | KAM |
 | `ship_to_overridden` | boolean | no | false |  | True when it differs from the customer default. | KAM |
 | `ship_to_original` | jsonb | yes |  |  | The customer default ship-to the intake was pre-filled with (kept when overridden). | KAM |
-| `ship_to_override_reason` | text | yes |  |  | Why the ship-to differs from the default. Interim home until B-09 moves it to an override row. | KAM |
+| `ship_to_override_reason` | text | yes |  |  | Why the ship-to differs: the justification of the applied ship_to override (the override row is the record). | KAM |
 | `priority_score` | numeric(5, 2) | yes |  |  | Advisory priority score 0–100. | CCQ (system) |
 | `priority_tier` | text | yes |  |  | Critical \| High \| Standard \| Low (scoring_model tiers). | CCQ (system) |
 | `priority_tier_overridden` | boolean | no | false |  | True when an approved override set the tier. | CCQ (system) |
@@ -612,6 +614,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `priority_breakdown` | jsonb | yes |  |  | The score explanation as computed: {breakdown: [{key, label, weight, raw, points, contribution, explanation, unknown, sensitive}], unknowns, computedTier}. Raw commercial inputs are stripped on read for roles without commercial access. | CCQ (system) |
 | `priority_scored_at` | timestamp with time zone | yes |  |  | When the score was last computed (submit, an input change, or a gate decision such as the G2 capital estimate). | CCQ (system) |
 | `queue_position` | integer | yes |  |  | Manual position in the engineering queue (DEC-26). | Engineering (EngLead / Engineer) |
+| `queue_position_overridden` | boolean | no | false |  | True when an applied override (EngLead pin) set the queue position. | Engineering (EngLead / Engineer) |
 | `assigned_engineer_id` | uuid | yes |  | app_user.id | Engineer assigned in Engineering Review. | Engineering (EngLead / Engineer) |
 | `erf_number` | text | yes |  |  | ERF number in the pricing app. | Pricing |
 | `cer_id` | text | yes |  |  | Capital expenditure request id (Apex). | Pricing |
@@ -800,7 +803,7 @@ Append-only usage and change audit (F-12). UPDATE/DELETE revoked from ccq_app an
 
 **Checks:** `audit_event_action_check`
 
-**Indexes:** `audit_event_quote_at_idx`, `audit_event_actor_at_idx`
+**Indexes:** `audit_event_quote_at_idx`, `audit_event_actor_at_idx`, `audit_event_at_idx`
 
 ### notification
 

@@ -7,6 +7,7 @@ import type { Rng } from './rng';
 import { DAY_MS } from './rng';
 import type { DbOrTx } from '../../src/client';
 import {
+  getQuoteById,
   insertAttachment,
   insertAuditEvent,
   insertCapacityEvidence,
@@ -427,7 +428,8 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
         ? 'Customer wants lightweighting options explored.'
         : null,
       shipTo: opp.customer.shipTo,
-      shipToOverridden: rng.chance(0.1),
+      // B-09: a ship-to override is an `override` row (see addExtras); the draw keeps the stream stable.
+      shipToOverridden: discard(rng.chance(0.1)),
       submittedAt: createdAt,
       createdAt,
       updatedAt: createdAt,
@@ -634,6 +636,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
   return { quotes: plan.length, byStage };
 }
 
+/** Consume a random draw without using it, so the rows generated after it stay the same. */
+const discard = (_draw: unknown): false => false;
+
 /** Overrides, attachments metadata (no files), comments and a few view audits. */
 async function addExtras(
   ctx: QuoteGenContext,
@@ -648,7 +653,7 @@ async function addExtras(
   const leader = personas.get('sales-leader')!;
 
   if (ordinal % 9 === 0) {
-    const status = rng.pick([
+    const drawn = rng.pick([
       'requested',
       'approved',
       'applied',
@@ -656,18 +661,25 @@ async function addExtras(
       'rejected',
       'reverted',
     ] as const);
+    // B-09: approving applies at once, so a decided-for request is `applied`.
+    const status = drawn === 'approved' ? 'applied' : drawn;
     const decided = status !== 'requested';
-    await insertOverride(db, {
+    const current = await getQuoteById(db, quoteId);
+    const originalTier = current?.priorityTier ?? 'STANDARD';
+    const requestedTier = originalTier === 'HIGH' ? 'CRITICAL' : 'HIGH';
+    const o = await insertOverride(db, {
       quoteId,
       field: 'priority_tier',
-      originalValue: 'STANDARD',
-      requestedValue: 'HIGH',
+      originalValue: originalTier,
+      requestedValue: requestedTier,
       justification: 'Strategic account renewal tied to this launch.',
       reasonCode: 'strategic_account',
       requestedBy: kam.id,
       status,
+      approvalMode: 'approver',
       decidedBy: decided ? leader.id : null,
       decidedAt: decided ? mid : null,
+      appliedAt: status === 'applied' || status === 'reverted' ? mid : null,
       decisionNote:
         status === 'rejected'
           ? 'Score already reflects the account; keep the computed tier.'
@@ -677,22 +689,82 @@ async function addExtras(
       createdAt: from,
       createdBy: kam.id,
     });
-    if (status === 'applied' || status === 'approved') {
-      await updateQuote(db, quoteId, { priorityTier: 'HIGH', priorityTierOverridden: true });
+    if (status === 'applied') {
+      await updateQuote(db, quoteId, { priorityTier: requestedTier, priorityTierOverridden: true });
     }
+    // The timeline events B-09's override service would have written.
+    const payload = {
+      overrideId: o.id,
+      field: 'priority_tier',
+      fieldLabel: 'Priority tier',
+      from: originalTier,
+      to: requestedTier,
+      justification: o.justification,
+      approvalMode: 'approver',
+    };
+    const events: { type: string; actorId: string; at: Date; payload: object }[] = [
+      { type: 'override_requested', actorId: kam.id, at: from, payload },
+    ];
+    if (decided) {
+      events.push({
+        type: status === 'rejected' ? 'override_rejected' : 'override_applied',
+        actorId: leader.id,
+        at: mid,
+        payload: { ...payload, note: o.decisionNote },
+      });
+    }
+    if (status === 'reverted') {
+      events.push({
+        type: 'override_reverted',
+        actorId: leader.id,
+        at: new Date(mid.getTime() + DAY_MS),
+        payload: { ...payload, from: requestedTier, to: originalTier },
+      });
+    }
+    await db
+      .insert(activityEvent)
+      .values(events.map((e) => ({ quoteId, ...e, createdBy: e.actorId })));
   } else if (ordinal % 23 === 0) {
-    await insertOverride(db, {
+    const current = await getQuoteById(db, quoteId);
+    const original = (current?.shipTo ?? null) as Record<string, unknown> | null;
+    const requested = { ...(original ?? {}), line1: 'Alternate DC (synthetic)' };
+    const justification = 'Customer is consolidating to a new distribution centre.';
+    const o = await insertOverride(db, {
       quoteId,
       field: 'ship_to',
-      originalValue: null,
-      requestedValue: { city: 'Alternate DC (synthetic)' },
-      justification: 'Customer is consolidating to a new distribution centre.',
+      originalValue: original,
+      requestedValue: requested,
+      justification,
       requestedBy: kam.id,
       status: 'applied',
+      approvalMode: 'self',
       decidedBy: kam.id,
       decidedAt: mid,
+      appliedAt: mid,
       createdAt: from,
       createdBy: kam.id,
+    });
+    await db.insert(activityEvent).values({
+      quoteId,
+      type: 'override_applied',
+      actorId: kam.id,
+      at: mid,
+      payload: {
+        overrideId: o.id,
+        field: 'ship_to',
+        fieldLabel: 'Ship-to',
+        from: original,
+        to: requested,
+        justification,
+        approvalMode: 'self',
+      },
+      createdBy: kam.id,
+    });
+    await updateQuote(db, quoteId, {
+      shipTo: requested,
+      shipToOriginal: original,
+      shipToOverridden: true,
+      shipToOverrideReason: justification,
     });
   }
 

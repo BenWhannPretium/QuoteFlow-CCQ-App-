@@ -10,7 +10,6 @@ import type {
 import type { DbOrTx } from '@ccq/db';
 import {
   getQuoteSummaryByNumber,
-  insertAuditEvent,
   listGateDecisionsWithNames,
   loadQuoteState,
   type QuoteSummaryRow,
@@ -24,6 +23,7 @@ import {
   qualificationWarnings,
   redactScore,
   type Actor,
+  type OverrideSettings,
   type QualificationSettings,
   type QuoteState,
   type ScoreResult,
@@ -31,7 +31,7 @@ import {
   type WorkflowConfig,
 } from '@ccq/domain';
 
-import type { AuditMeta } from './intake';
+import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import type { ScoringService } from './scoring';
 
 /** Request-scoped inputs for building quote DTOs (loaded once per request). */
@@ -40,6 +40,8 @@ export interface QuoteViewContext {
   model: ScoringModel | null;
   qualification: QualificationSettings;
   kamCanSeePeerScores: boolean;
+  /** B-09 `overridable_fields`: which fields the quote page offers an override for. */
+  overrides: OverrideSettings;
 }
 
 /** Fields a decision supplies itself (the dialog asks for them), so they never count as "missing". */
@@ -218,12 +220,13 @@ export class QuoteReadService {
   constructor(private readonly scoring: ScoringService) {}
 
   async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
-    const [model, qualification, kamCanSeePeerScores] = await Promise.all([
+    const [model, qualification, kamCanSeePeerScores, overrides] = await Promise.all([
       this.scoring.model(db, now),
       this.scoring.qualificationSettings(db),
       this.scoring.kamCanSeePeerScores(db),
+      loadOverrideSettings(db),
     ]);
-    return { actor, model, qualification, kamCanSeePeerScores };
+    return { actor, model, qualification, kamCanSeePeerScores, overrides };
   }
 
   /** The quote's detail DTO, or undefined when it does not exist or is out of the caller's scope (RLS). */
@@ -261,23 +264,11 @@ export class QuoteReadService {
       decisions,
       availableActions: gateActionsFor(workflow, state!, ctx, summary.warnings),
       rework: reworkRequestFor(workflow, q, decisions, raw),
+      overridableFields: await quoteOverridableFields(
+        db,
+        { actor: ctx.actor, settings: ctx.overrides, kamCanSeePeerScores: ctx.kamCanSeePeerScores },
+        { ...q, accountId: state?.accountId ?? null },
+      ),
     };
-  }
-
-  /** Every quote view is audited (CLAUDE.md rule 3). */
-  async auditView(db: DbOrTx, actor: Actor, dto: QuoteDetail, at: Date, meta: AuditMeta) {
-    await insertAuditEvent(db, {
-      at,
-      actorId: actor.userId,
-      actorRoles: [...actor.roles],
-      action: 'view',
-      entity: 'quote',
-      entityId: dto.id,
-      quoteId: dto.id,
-      ip: meta.ip ?? null,
-      userAgent: meta.userAgent ?? null,
-      requestId: meta.requestId ?? null,
-      createdBy: actor.userId,
-    });
   }
 }

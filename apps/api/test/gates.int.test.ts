@@ -164,6 +164,7 @@ describe('scoring and the quote read', () => {
   it('every quote view is audited', async () => {
     const q = await submitted();
     await detail(q.quoteNumber, 'Leadership');
+    await app.audit.flush(); // B-09: view audits are written after the response
     const audits = await db.db
       .select()
       .from(schema.auditEvent)

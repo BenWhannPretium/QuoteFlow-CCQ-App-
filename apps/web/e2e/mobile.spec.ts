@@ -67,12 +67,16 @@ test.describe('390 × 844', () => {
     expect(small).toEqual([]);
   });
 
-  test('admin gets five tabs; every tab fits', async ({ page }) => {
+  test('admin gets four tabs and More; every tab fits', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');
+    // Six items (B-09 added Approvals for override.approve): the fifth slot becomes "More".
     await expect
       .poll(() => visibleNavKeys(page))
-      .toEqual(['home', 'intake', 'pipeline', 'analytics', 'admin']);
+      .toEqual(['home', 'intake', 'pipeline', 'approvals']);
+    await expect(
+      page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'More' }),
+    ).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

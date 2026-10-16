@@ -16,7 +16,9 @@ import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminSplatRouteImport } from './routes/admin/$'
+import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminIntegrationsRouteImport } from './routes/admin/integrations'
+import { Route as AdminOverrideLogRouteImport } from './routes/admin/override-log'
 import { Route as AdminUiKitRouteImport } from './routes/admin/ui-kit'
 import { Route as IntakeNewRouteImport } from './routes/intake/new'
 import { Route as QueueEngineeringRouteImport } from './routes/queue/engineering'
@@ -24,6 +26,7 @@ import { Route as QueuePricingRouteImport } from './routes/queue/pricing'
 import { Route as QuotesIndexRouteImport } from './routes/quotes/index'
 import { Route as QuotesQuoteNumberRouteImport } from './routes/quotes/$quoteNumber'
 import { Route as AdminReportsErfLinkageRouteImport } from './routes/admin/reports/erf-linkage'
+import { Route as AdminReportsUsageRouteImport } from './routes/admin/reports/usage'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -60,9 +63,19 @@ const AdminSplatRoute = AdminSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminOverrideLogRoute = AdminOverrideLogRouteImport.update({
+  id: '/override-log',
+  path: '/override-log',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminUiKitRoute = AdminUiKitRouteImport.update({
@@ -100,6 +113,11 @@ const AdminReportsErfLinkageRoute = AdminReportsErfLinkageRouteImport.update({
   path: '/reports/erf-linkage',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminReportsUsageRoute = AdminReportsUsageRouteImport.update({
+  id: '/reports/usage',
+  path: '/reports/usage',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -108,7 +126,9 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/admin/$': typeof AdminSplatRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
+  '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -117,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/quotes/': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/usage': typeof AdminReportsUsageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -124,7 +145,9 @@ export interface FileRoutesByTo {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/admin/$': typeof AdminSplatRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
+  '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -133,6 +156,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/quotes': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/usage': typeof AdminReportsUsageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -142,7 +166,9 @@ export interface FileRoutesById {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/admin/$': typeof AdminSplatRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
+  '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -151,6 +177,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/quotes/': typeof QuotesIndexRoute
   '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/usage': typeof AdminReportsUsageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,7 +188,9 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/admin/$'
+    | '/admin/audit'
     | '/admin/integrations'
+    | '/admin/override-log'
     | '/admin/ui-kit'
     | '/intake/new'
     | '/queue/engineering'
@@ -170,6 +199,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/quotes/'
     | '/admin/reports/erf-linkage'
+    | '/admin/reports/usage'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,7 +207,9 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/admin/$'
+    | '/admin/audit'
     | '/admin/integrations'
+    | '/admin/override-log'
     | '/admin/ui-kit'
     | '/intake/new'
     | '/queue/engineering'
@@ -186,6 +218,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/quotes'
     | '/admin/reports/erf-linkage'
+    | '/admin/reports/usage'
   id:
     | '__root__'
     | '/'
@@ -194,7 +227,9 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/admin/$'
+    | '/admin/audit'
     | '/admin/integrations'
+    | '/admin/override-log'
     | '/admin/ui-kit'
     | '/intake/new'
     | '/queue/engineering'
@@ -203,6 +238,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/quotes/'
     | '/admin/reports/erf-linkage'
+    | '/admin/reports/usage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -269,11 +305,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSplatRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/integrations': {
       id: '/admin/integrations'
       path: '/integrations'
       fullPath: '/admin/integrations'
       preLoaderRoute: typeof AdminIntegrationsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/override-log': {
+      id: '/admin/override-log'
+      path: '/override-log'
+      fullPath: '/admin/override-log'
+      preLoaderRoute: typeof AdminOverrideLogRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/ui-kit': {
@@ -325,23 +375,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsErfLinkageRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/reports/usage': {
+      id: '/admin/reports/usage'
+      path: '/reports/usage'
+      fullPath: '/admin/reports/usage'
+      preLoaderRoute: typeof AdminReportsUsageRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
   }
 }
 
 interface AdminRouteRouteChildren {
   AdminSplatRoute: typeof AdminSplatRoute
+  AdminAuditRoute: typeof AdminAuditRoute
   AdminIntegrationsRoute: typeof AdminIntegrationsRoute
+  AdminOverrideLogRoute: typeof AdminOverrideLogRoute
   AdminUiKitRoute: typeof AdminUiKitRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminReportsErfLinkageRoute: typeof AdminReportsErfLinkageRoute
+  AdminReportsUsageRoute: typeof AdminReportsUsageRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSplatRoute: AdminSplatRoute,
+  AdminAuditRoute: AdminAuditRoute,
   AdminIntegrationsRoute: AdminIntegrationsRoute,
+  AdminOverrideLogRoute: AdminOverrideLogRoute,
   AdminUiKitRoute: AdminUiKitRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminReportsErfLinkageRoute: AdminReportsErfLinkageRoute,
+  AdminReportsUsageRoute: AdminReportsUsageRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(

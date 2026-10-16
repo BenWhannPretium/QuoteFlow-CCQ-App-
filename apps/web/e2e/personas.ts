@@ -15,12 +15,12 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'sales-leader',
     landing: 'SalesLeader',
-    nav: ['home', 'intake', 'qualify', 'pipeline', 'analytics'],
+    nav: ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
   },
   {
     persona: 'eng-lead',
     landing: 'EngLead',
-    nav: ['home', 'queue-engineering', 'pipeline', 'analytics'],
+    nav: ['home', 'queue-engineering', 'pipeline', 'approvals', 'analytics'],
   },
   { persona: 'engineer', landing: 'Engineer', nav: ['home', 'queue-engineering', 'pipeline'] },
   {
@@ -34,8 +34,12 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
     nav: ['home', 'queue-pricing', 'pipeline', 'analytics'],
   },
   { persona: 'approver', landing: 'Approver', nav: ['home', 'pipeline', 'approvals', 'analytics'] },
-  { persona: 'leadership', landing: 'Leadership', nav: ['home', 'pipeline', 'analytics'] },
-  { persona: 'admin', landing: 'Admin', nav: ['home', 'intake', 'pipeline', 'analytics', 'admin'] },
+  { persona: 'leadership', landing: 'Leadership', nav: ['home', 'pipeline', 'analytics', 'audit'] },
+  {
+    persona: 'admin',
+    landing: 'Admin',
+    nav: ['home', 'intake', 'pipeline', 'approvals', 'analytics', 'admin'],
+  },
   {
     persona: 'multi-role',
     landing: 'Approver',

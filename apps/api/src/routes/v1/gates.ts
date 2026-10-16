@@ -10,16 +10,10 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
+import { auditMeta as meta } from '../../plugins/audit';
 import { requireActor } from '../../plugins/auth';
 import { problem, sendProblem } from '../../plugins/problem-json';
 import { GateError, type GateService, type GateWithTx } from '../../services/gateService';
-import type { AuditMeta } from '../../services/intake';
-
-const meta = (req: FastifyRequest): AuditMeta => ({
-  ip: req.ip,
-  userAgent: req.headers['user-agent'],
-  requestId: req.id,
-});
 
 async function handle<T>(req: FastifyRequest, reply: FastifyReply, fn: () => Promise<T>) {
   try {
@@ -66,9 +60,12 @@ export const gateRoutes: FastifyPluginAsyncZod<{ service: GateService }> = async
       },
     },
     async (req, reply) =>
-      handle(req, reply, () =>
-        service.detail(withTx(req), requireActor(req), req.params.quoteNumber, meta(req)),
-      ),
+      handle(req, reply, async () => {
+        const dto = await service.detail(withTx(req), requireActor(req), req.params.quoteNumber);
+        // Audited as a view after the response, debounced per user per quote (B-09 audit plugin).
+        req.auditView = { entity: 'quote', entityId: dto.id, quoteId: dto.id };
+        return dto;
+      }),
   );
 
   app.post(

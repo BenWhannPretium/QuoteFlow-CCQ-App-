@@ -6,6 +6,7 @@ import {
   HomeIcon,
   KanbanSquareIcon,
   ListChecksIcon,
+  ScrollTextIcon,
   SettingsIcon,
   WrenchIcon,
   type LucideIcon,
@@ -22,5 +23,6 @@ export const NAV_ICONS: Record<NavKey, LucideIcon> = {
   qualify: ListChecksIcon,
   approvals: CheckSquareIcon,
   analytics: BarChart3Icon,
+  audit: ScrollTextIcon,
   admin: SettingsIcon,
 };

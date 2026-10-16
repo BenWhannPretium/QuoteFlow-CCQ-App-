@@ -27,16 +27,20 @@ import { createEntraVerifier } from './auth/entra';
 import type { AppConfig } from './config';
 import { createSfSyncScheduler, type SfSyncScheduler } from './jobs/sfSync';
 import { loggerOptions } from './logger';
+import { auditPlugin } from './plugins/audit';
 import { authPlugin } from './plugins/auth';
 import { problemJsonPlugin } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
+import { AuditAdminService } from './services/auditAdmin';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
+import { OverrideService } from './services/overrideService';
 import { QuoteReadService } from './services/quotes';
 import { SalesforceService } from './services/salesforce';
 import { ScoringService } from './services/scoring';
+import { TimelineService } from './services/timeline';
 
 export interface AppDeps {
   db: {
@@ -161,6 +165,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       : {}),
   });
   await app.register(requestContextPlugin, deps.db.db ? { database: deps.db.db } : {});
+  // B-09 usage audit: async, debounced quote-view rows; services write mutation rows in their transaction.
+  await app.register(auditPlugin, { database: deps.db.db, now: deps.now });
 
   // Salesforce (B-06): read-only. Logs carry ids and counts only, never record contents.
   const sfLog = app.log.child({ component: 'salesforce' });
@@ -217,7 +223,20 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ensureOpportunity: async (withTx, id) => (await sfService.detail(withTx, id)) !== null,
   });
 
-  // TODO(B-09): audit plugin.
+  // B-09 governed overrides, the quote timeline + comments, and the admin audit viewer / usage report.
+  const now = deps.now ? { now: deps.now } : {};
+  const overrideService = new OverrideService({
+    quotes: quoteReads,
+    log: app.log.child({ component: 'overrides' }),
+    ...now,
+  });
+  const timelineService = new TimelineService({
+    quotes: quoteReads,
+    log: app.log.child({ component: 'timeline' }),
+    ...now,
+  });
+  const auditService = new AuditAdminService(now);
+
   await app.register(v1Routes, {
     prefix: '/api/v1',
     deps,
@@ -228,6 +247,9 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     sfSync,
     intakeService,
     gateService,
+    overrideService,
+    timelineService,
+    auditService,
   });
 
   if (isProd) {
@@ -236,6 +258,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
 
   app.addHook('onClose', async () => {
     await sfSync?.stop();
+    await app.audit.flush();
     await deps.db.close();
   });
 

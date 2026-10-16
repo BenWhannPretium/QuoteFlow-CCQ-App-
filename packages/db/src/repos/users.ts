@@ -1,5 +1,5 @@
 import type { Role, Scope } from '@ccq/domain';
-import { and, eq, inArray, notInArray } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, notInArray, or } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { excludedSet, first } from './_util';
@@ -81,3 +81,42 @@ export const listUsersByIds = (db: DbOrTx, ids: string[]) =>
   ids.length === 0
     ? Promise.resolve([])
     : db.select().from(appUser).where(inArray(appUser.id, ids));
+
+/** Active users whose name, UPN or email matches `q` (the @mention picker). Identity tables have no RLS. */
+export function searchUsers(db: DbOrTx, q: string, limit = 10) {
+  const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  return db
+    .select({
+      id: appUser.id,
+      displayName: appUser.displayName,
+      upn: appUser.upn,
+      email: appUser.email,
+    })
+    .from(appUser)
+    .where(
+      and(
+        eq(appUser.active, true),
+        or(
+          ilike(appUser.displayName, pattern),
+          ilike(appUser.upn, pattern),
+          ilike(appUser.email, pattern),
+        ),
+      ),
+    )
+    .orderBy(asc(appUser.displayName))
+    .limit(limit);
+}
+
+/** Active users holding any of the roles (notification recipients by role). */
+export async function listActiveUserIdsWithRoles(
+  db: DbOrTx,
+  roles: readonly Role[],
+): Promise<string[]> {
+  if (roles.length === 0) return [];
+  const rows = await db
+    .selectDistinct({ id: appUser.id })
+    .from(appUser)
+    .innerJoin(userRole, eq(userRole.userId, appUser.id))
+    .where(and(eq(appUser.active, true), inArray(userRole.role, [...roles])));
+  return rows.map((r) => r.id);
+}

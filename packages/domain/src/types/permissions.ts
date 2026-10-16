@@ -15,6 +15,7 @@ export const PERMISSIONS = [
   'override.approve',
   'override.revert',
   'overrideLog.read',
+  'audit.read',
   'attachment.upload',
   'export.csv',
   'analytics.read',

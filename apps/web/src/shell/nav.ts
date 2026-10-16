@@ -11,6 +11,7 @@ export type NavKey =
   | 'qualify'
   | 'approvals'
   | 'analytics'
+  | 'audit'
   | 'admin';
 
 export interface NavItem {
@@ -41,7 +42,8 @@ const item = (
  *
  * "My queue" is labelled per role: the EngLead owns the engineering queue (queue.assign), an
  * Engineer works their assignments (engReview.edit, assigned), Pricing works the pricing queue.
- * The Approver's queue is Approvals.
+ * The Approver's queue is Approvals; it also holds the override requests an approver decides (B-09).
+ * Leadership reads the usage audit log (audit.read) without the rest of Admin.
  */
 export interface NavOptions {
   /** `g1_enabled` (from the G1 gate row in public config). When false the "To qualify" queue is hidden. */
@@ -72,9 +74,12 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
   if (can('quote.read')) {
     items.push(item('pipeline', 'Pipeline', 'Pipeline', '/quotes', ['/quotes', '/board']));
   }
-  if (can('gate.G4.decide')) items.push(item('approvals', 'Approvals', 'Approvals', '/approvals'));
+  if (can('gate.G4.decide') || can('override.approve')) {
+    items.push(item('approvals', 'Approvals', 'Approvals', '/approvals'));
+  }
   if (can('analytics.read')) items.push(item('analytics', 'Analytics', 'Analytics', '/analytics'));
   if (can('config.manage')) items.push(item('admin', 'Admin', 'Admin', '/admin'));
+  else if (can('audit.read')) items.push(item('audit', 'Audit log', 'Audit', '/admin/audit'));
   return items;
 }
 

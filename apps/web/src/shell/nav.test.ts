@@ -20,13 +20,13 @@ const keys = (...roles: Role[]) => navItemsFor(meFor(...roles)).map((i) => i.key
 describe('navItemsFor (from the seeded permission matrix)', () => {
   it.each<[Role[], string[]]>([
     [['KAM'], ['home', 'intake', 'pipeline']],
-    [['SalesLeader'], ['home', 'intake', 'qualify', 'pipeline', 'analytics']],
-    [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'analytics']],
+    [['SalesLeader'], ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics']],
+    [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'approvals', 'analytics']],
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
-    [['Leadership'], ['home', 'pipeline', 'analytics']],
-    [['Admin'], ['home', 'intake', 'pipeline', 'analytics', 'admin']],
+    [['Leadership'], ['home', 'pipeline', 'analytics', 'audit']],
+    [['Admin'], ['home', 'intake', 'pipeline', 'approvals', 'analytics', 'admin']],
     [
       ['SalesLeader', 'Approver'],
       ['home', 'intake', 'qualify', 'pipeline', 'approvals', 'analytics'],
@@ -47,6 +47,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
       'home',
       'intake',
       'pipeline',
+      'approvals',
       'analytics',
     ]);
     const qualify = navItemsFor(meFor('SalesLeader')).find((i) => i.key === 'qualify')!;

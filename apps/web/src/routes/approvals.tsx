@@ -1,13 +1,15 @@
 import type { QuoteSummary } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { InboxIcon } from 'lucide-react';
+import { ConstructionIcon, InboxIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { ForbiddenPage, useCan } from '@/auth';
 import {
   EmptyState,
   ErrorState,
   GateDecisionDialog,
+  OverrideInbox,
   PageHeader,
   PriorityBadge,
   QualificationWarnings,
@@ -16,7 +18,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { StubPage } from '@/shell/StubPage';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 interface ApprovalsSearch {
@@ -33,14 +34,40 @@ export const Route = createFileRoute('/approvals')({
 function ApprovalsPage() {
   const { gate } = Route.useSearch();
   if (gate) return <GateQueuePage gateKey={gate} />;
+  return <ApprovalsHome />;
+}
+
+/**
+ * Approvals: override requests for approvers (B-09) and the Final Review queue (B-12). Each section
+ * shows only for the permission it needs; the API checks every call again.
+ */
+function ApprovalsHome() {
+  useDocumentTitle('Approvals');
+  const canOverride = useCan('override.approve');
+  const canFinal = useCan('gate.G4.decide');
+  if (!canOverride && !canFinal) return <ForbiddenPage />;
   return (
-    <StubPage
-      title="Approvals"
-      eyebrow="Final review"
-      description="Submitted quotes waiting for a decision."
-      buildStep="B-12"
-      permission="gate.G4.decide"
-    />
+    <div className="grid gap-8" data-testid="page" data-page-title="Approvals">
+      <PageHeader
+        className="mb-0"
+        title="Approvals"
+        eyebrow="Decisions waiting on you"
+        description="Override requests and, for Final Review approvers, submitted quotes."
+      />
+      {canOverride && <OverrideInbox />}
+      {canFinal && (
+        <section className="grid gap-3" aria-labelledby="final-review-heading">
+          <h2 id="final-review-heading" className="text-base font-semibold">
+            Final review
+          </h2>
+          <EmptyState
+            icon={ConstructionIcon}
+            title="Coming soon"
+            description="Submitted quotes waiting for a Final Review decision arrive in B-12."
+          />
+        </section>
+      )}
+    </div>
   );
 }
 

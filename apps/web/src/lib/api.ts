@@ -1,4 +1,18 @@
 import {
+  AuditListResponse,
+  CommentResponse,
+  OverrideListResponse,
+  OverrideLogResponse,
+  OverrideResponse,
+  TimelineResponse,
+  UsageReportResponse,
+  UserSearchResponse,
+  type AuditExportQuery,
+  type AuditQuery,
+  type CreateCommentBody,
+  type CreateOverrideBody,
+  type OverrideLogQuery,
+  type TimelineFilter,
   GateDecisionResponse,
   GateQueueResponse,
   QuoteDetail,
@@ -45,6 +59,18 @@ interface RequestOptions {
   /** JSON request body. */
   body?: unknown;
 }
+
+/** `?a=1&b=2` from the defined, non-empty values (or ''). */
+function queryString(params: Record<string, string | number | undefined | null>): string {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+  }
+  const text = qs.toString();
+  return text ? `?${text}` : '';
+}
+
+const quotePath = (quoteNumber: string) => `/api/v1/quotes/${encodeURIComponent(quoteNumber)}`;
 
 async function getJson<S extends z.ZodType>(
   path: string,
@@ -137,4 +163,55 @@ export const api = {
     getJson(`/api/v1/quotes/${encodeURIComponent(quoteNumber)}/rework`, IntakeDraft, {
       method: 'POST',
     }),
+
+  // B-09 governed overrides
+  requestOverride: (quoteNumber: string, body: CreateOverrideBody) =>
+    getJson(`${quotePath(quoteNumber)}/overrides`, OverrideResponse, { method: 'POST', body }),
+  quoteOverrides: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/overrides`, OverrideListResponse),
+  overrideInbox: () => getJson('/api/v1/overrides?status=requested', OverrideListResponse),
+  approveOverride: (id: string, note?: string) =>
+    getJson(`/api/v1/overrides/${id}/approve`, OverrideResponse, {
+      method: 'POST',
+      body: note ? { note } : {},
+    }),
+  rejectOverride: (id: string, note: string) =>
+    getJson(`/api/v1/overrides/${id}/reject`, OverrideResponse, { method: 'POST', body: { note } }),
+  revertOverride: (id: string) =>
+    getJson(`/api/v1/overrides/${id}/revert`, OverrideResponse, { method: 'POST' }),
+  overrideLog: (q: Partial<OverrideLogQuery>) =>
+    getJson(`/api/v1/admin/override-log${queryString(q)}`, OverrideLogResponse),
+
+  // B-09 timeline and comments
+  timeline: (quoteNumber: string, p: { filter?: TimelineFilter; cursor?: string | null }) =>
+    getJson(
+      `${quotePath(quoteNumber)}/timeline${queryString({ filter: p.filter, cursor: p.cursor })}`,
+      TimelineResponse,
+    ),
+  addComment: (quoteNumber: string, body: CreateCommentBody) =>
+    getJson(`${quotePath(quoteNumber)}/comments`, CommentResponse, { method: 'POST', body }),
+  searchUsers: (q: string) => getJson(`/api/v1/users${queryString({ q })}`, UserSearchResponse),
+
+  // B-09 usage audit (Leadership + Admin)
+  auditEvents: (q: Partial<AuditQuery>) =>
+    getJson(`/api/v1/admin/audit${queryString(q)}`, AuditListResponse),
+  usageReport: (q: { from?: string | undefined; to?: string | undefined }) =>
+    getJson(`/api/v1/admin/reports/usage${queryString(q)}`, UsageReportResponse),
+  /** The CSV export as a Blob (it needs the bearer token, so it can't be a plain link). */
+  auditExport: async (q: Partial<AuditExportQuery>): Promise<Blob> => {
+    const session = getAuthSession();
+    if (!session) throw new Error('Not signed in');
+    const res = await fetch(`/api/v1/admin/audit/export.csv${queryString(q)}`, {
+      headers: { accept: 'text/csv', ...(await session.headers({ forceRefresh: false })) },
+    });
+    if (!res.ok) {
+      const parsed = ProblemDetails.safeParse(await res.json().catch(() => null));
+      throw new ApiError(
+        parsed.success
+          ? parsed.data
+          : { type: 'about:blank', title: res.statusText, status: res.status },
+      );
+    }
+    return res.blob();
+  },
 };
