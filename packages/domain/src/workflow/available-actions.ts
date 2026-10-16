@@ -1,4 +1,6 @@
-import { findTransition, violatedSegregationRules } from './evaluate';
+import { findTransition, violatedSegregationRules, type EvaluateOptions } from './evaluate';
+import { releasesProposal } from '../final-review/release';
+import { approverTierErrors } from '../final-review/tiers';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
@@ -18,6 +20,8 @@ export interface AvailableAction {
   /** Rules the decision will be checked against, so the form can mark fields required up front. */
   requiredFields: RequiredRule[];
   nextStatus: 'active' | 'on_hold' | 'closed';
+  /** B-12: the outcome releases the proposition (Final Review → Customer Decision), so it sets the issue and validity dates. */
+  releasesProposal: boolean;
 }
 
 /**
@@ -29,6 +33,7 @@ export function availableActions(
   config: WorkflowConfig,
   quote: QuoteState,
   actor: Actor,
+  options: EvaluateOptions = {},
 ): AvailableAction[] {
   if (quote.status === 'closed') return [];
   const actions: AvailableAction[] = [];
@@ -41,6 +46,16 @@ export function availableActions(
       const transition = findTransition(config, gate.key, outcome.key);
       if (!transition) continue;
       if (violatedSegregationRules(config, quote, actor, gate.key, outcome.key).length > 0)
+        continue;
+      if (
+        approverTierErrors(
+          options.approverTiers ?? null,
+          quote.fields,
+          actor,
+          gate.key,
+          outcome.key,
+        ).length > 0
+      )
         continue;
 
       actions.push({
@@ -56,6 +71,7 @@ export function availableActions(
         targetStageKeys: transition.targetStageKeys,
         requiredFields: [...gate.requiredFields, ...outcome.requiredFields],
         nextStatus: transition.nextStatus,
+        releasesProposal: releasesProposal(config, gate.key, outcome.key),
       });
     }
   }

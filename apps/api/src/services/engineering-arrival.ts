@@ -18,6 +18,8 @@ export async function onEngQueueArrival(
   quote: { id: string; quoteNumber: string },
   actorId: string,
   log?: FastifyBaseLogger,
+  /** B-12: set when Final Review returned the quote here, so the alert says why. */
+  returnedFrom?: 'final_review',
 ): Promise<number> {
   await resetEngReviewAcceptance(tx, quote.id);
   const settings = await loadEngQueueSettings(tx);
@@ -36,8 +38,12 @@ export async function onEngQueueArrival(
     planned,
     {
       quoteId: quote.id,
-      title: `${quote.quoteNumber} is in the engineering queue`,
-      body: 'A quote is waiting for an engineer. Open the engineering queue to assign it.',
+      title: returnedFrom
+        ? `${quote.quoteNumber} was returned to Engineering`
+        : `${quote.quoteNumber} is in the engineering queue`,
+      body: returnedFrom
+        ? 'Final Review returned it for another look. Open the engineering queue to assign it.'
+        : 'A quote is waiting for an engineer. Open the engineering queue to assign it.',
       excludeUserId: actorId,
     },
     log,

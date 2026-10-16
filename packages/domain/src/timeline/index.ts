@@ -20,6 +20,8 @@ export const TIMELINE_CATEGORY_TYPES: Readonly<
     'hold_ended',
     'version_bumped',
     'quote_closed',
+    // B-12: the Final Review approval set the proposal issue and validity dates.
+    'proposal_released',
   ],
   override: [
     'override_requested',

@@ -44,7 +44,7 @@ export default defineConfig({
     },
     {
       name: 'mobile',
-      testMatch: 'mobile.spec.ts',
+      testMatch: ['mobile.spec.ts', 'final-review.spec.ts'],
       // 390 × 844 (iPhone 12–14 class) on Chromium.
       use: {
         ...devices['Desktop Chrome'],

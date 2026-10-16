@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
@@ -31,13 +31,6 @@ export const CAPITAL_LABELS: Record<CapitalReadiness, string> = {
   pre_approved: 'Pre-approved',
   not_approved: 'Not approved',
 };
-
-/** `2026-10-30T15:00:00.000Z` → the `datetime-local` value in the browser's zone. */
-function toLocalInput(iso: string | null | undefined): string {
-  const d = iso ? new Date(iso) : new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 const splitRefs = (text: string) =>
   text

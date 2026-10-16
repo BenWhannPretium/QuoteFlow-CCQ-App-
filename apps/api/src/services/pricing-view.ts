@@ -196,6 +196,8 @@ export async function onPricingArrival(
   quote: { id: string; quoteNumber: string; version: number },
   actorId: string,
   log?: FastifyBaseLogger,
+  /** B-12: set when Final Review returned the quote here, so the alert says why. */
+  returnedFrom?: 'final_review',
 ): Promise<void> {
   const rows = await listPricingRecords(tx, quote.id);
   if (!rows.some((r) => r.quoteVersion === quote.version)) {
@@ -216,8 +218,12 @@ export async function onPricingArrival(
     planned,
     {
       quoteId: quote.id,
-      title: `${quote.quoteNumber} is ready for pricing`,
-      body: 'Engineering has cleared it. Open the pricing queue to record the price approval.',
+      title: returnedFrom
+        ? `${quote.quoteNumber} was returned to Quoting`
+        : `${quote.quoteNumber} is ready for pricing`,
+      body: returnedFrom
+        ? 'Final Review returned it for another look. Open the pricing queue to record the price approval again.'
+        : 'Engineering has cleared it. Open the pricing queue to record the price approval.',
       excludeUserId: actorId,
     },
     log,

@@ -1,11 +1,11 @@
 import type { QuoteDetail } from '@ccq/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { RotateCcwIcon } from 'lucide-react';
 import { Tabs } from 'radix-ui';
 import { useState } from 'react';
 
-import { useCurrentUser } from '@/auth';
+import { useCan, useCurrentUser } from '@/auth';
 import {
   ErrorState,
   FieldOverride,
@@ -23,11 +23,12 @@ import {
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 const TABS = ['overview', 'engineering', 'quoting'] as const;
@@ -59,6 +60,7 @@ function QuotePage() {
     queryFn: () => api.quote(quoteNumber),
   });
   const [deciding, setDeciding] = useState<{ gate: string; outcome?: string } | null>(null);
+  const canReadFinalReview = useCan('finalReview.read');
 
   if (quote.isPending) {
     return (
@@ -86,11 +88,25 @@ function QuotePage() {
         title={q.quoteNumber}
         eyebrow="Quote"
         description={[q.customerName, q.opportunityName].filter(Boolean).join(' · ') || undefined}
-        actions={gates.map((g) => (
-          <Button key={g} onClick={() => setDeciding({ gate: g })}>
-            {q.availableActions.find((a) => a.gateKey === g)?.gateLabel ?? g}
-          </Button>
-        ))}
+        actions={
+          <>
+            {q.stageKey === 'FINAL_REVIEW' && q.status !== 'closed' && canReadFinalReview && (
+              <Link
+                to="/quotes/$quoteNumber/review"
+                params={{ quoteNumber: q.quoteNumber }}
+                className={cn(buttonVariants({ variant: 'outline' }))}
+                data-testid="open-final-review"
+              >
+                Open Final Review
+              </Link>
+            )}
+            {gates.map((g) => (
+              <Button key={g} onClick={() => setDeciding({ gate: g })}>
+                {q.availableActions.find((a) => a.gateKey === g)?.gateLabel ?? g}
+              </Button>
+            ))}
+          </>
+        }
       />
       <div className="flex flex-wrap items-center gap-3">
         <StageBadge stageKey={q.stageKey} />
@@ -303,6 +319,17 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
                 : 'Not submitted',
             },
             { label: 'Stage', value: stageLabel(config, quote.stageKey) },
+            // B-12: set by the Final Review approval; B-13 adds the validity countdown.
+            ...(quote.proposalIssuedAt
+              ? [
+                  {
+                    id: 'proposal-issued',
+                    label: 'Proposal issued',
+                    value: new Date(quote.proposalIssuedAt).toLocaleString(),
+                  },
+                  { id: 'valid-until', label: 'Valid until', value: quote.validityUntil },
+                ]
+              : []),
           ]}
         />
       </CardContent>

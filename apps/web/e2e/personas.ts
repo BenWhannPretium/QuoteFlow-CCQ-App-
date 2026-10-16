@@ -37,7 +37,15 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'leadership',
     landing: 'Leadership',
-    nav: ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'analytics', 'audit'],
+    nav: [
+      'home',
+      'queue-engineering',
+      'queue-pricing',
+      'pipeline',
+      'approvals',
+      'analytics',
+      'audit',
+    ],
   },
   {
     persona: 'admin',

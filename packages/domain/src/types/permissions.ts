@@ -11,6 +11,7 @@ export const PERMISSIONS = [
   'pricingQueue.read',
   'quoting.edit',
   'gate.G3.submit',
+  'finalReview.read',
   'gate.G4.decide',
   'outcome.record',
   'override.request',

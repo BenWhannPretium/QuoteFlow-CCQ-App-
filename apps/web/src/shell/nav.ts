@@ -43,7 +43,8 @@ const item = (
  * "My queue" is labelled per role: the EngLead owns the engineering queue (queue.assign), an
  * Engineer works their assignments (engReview.edit, assigned), Leadership reads the queue
  * (engQueue.read), Pricing works the pricing queue (Leadership and Admin read it, pricingQueue.read).
- * The Approver's queue is Approvals; it also holds the override requests an approver decides (B-09).
+ * The Approver's queue is Approvals: Final Review (B-12), plus the override requests an approver
+ * decides (B-09). Leadership reads the Final Review queue (finalReview.read).
  * Leadership reads the usage audit log (audit.read) without the rest of Admin.
  */
 export interface NavOptions {
@@ -78,7 +79,9 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
   if (can('quote.read')) {
     items.push(item('pipeline', 'Pipeline', 'Pipeline', '/quotes', ['/quotes', '/board']));
   }
-  if (can('gate.G4.decide') || can('override.approve')) {
+  // B-12: Approvals holds the Final Review queue (Approver decides, Leadership and Admin read), the
+  // "To qualify" tab and the override requests an approver decides.
+  if (can('finalReview.read') || can('gate.G4.decide') || can('override.approve')) {
     items.push(item('approvals', 'Approvals', 'Approvals', '/approvals'));
   }
   if (can('analytics.read')) items.push(item('analytics', 'Analytics', 'Analytics', '/analytics'));
@@ -93,9 +96,23 @@ export function isNavItemActive(
   search: Record<string, unknown> = {},
 ): boolean {
   if (navItem.to === '/') return pathname === '/';
-  // Items that share a path (Approvals vs the G1 queue) are told apart by their search params.
+  // Items that share a path (Approvals vs the G1 queue) are told apart by their search params: the
+  // "To qualify" tab is `?gate=G1` or `?tab=to-qualify`; every other tab (Final Review, Overrides) is Approvals.
   const wantsGate = navItem.search?.gate;
-  if (navItem.to === '/approvals' && (search.gate ?? undefined) !== wantsGate) return false;
+  const shown =
+    search.tab === 'to-qualify'
+      ? 'G1'
+      : search.gate === 'G4'
+        ? undefined
+        : (search.gate ?? undefined);
+  if (navItem.to === '/approvals' && shown !== wantsGate) return false;
+  // B-12: the Final Review screen lives under /quotes/:qn/review but belongs to Approvals.
+  const isReview = /^\/quotes\/[^/]+\/review$/.test(pathname);
+  if (navItem.key === 'approvals')
+    return (
+      isReview || navItem.activePrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+    );
+  if (isReview) return false;
   return navItem.activePrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

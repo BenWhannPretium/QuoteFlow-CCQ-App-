@@ -1,4 +1,4 @@
-import type { CapitalReadiness, PricingQueueItem, PricingQueueResponse } from '@ccq/contracts';
+import type { PricingQueueItem, PricingQueueResponse } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -25,6 +25,7 @@ import {
   type FilterValue,
 } from '@/components';
 import { formatDuration } from '@/components/engineering/format';
+import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { CAPITAL_LABELS, pricingQueueQueryKey } from '@/components/pricing/QuotingTab';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,13 +44,6 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 export const Route = createFileRoute('/queue/pricing')({
   component: PricingQueuePage,
 });
-
-const CAPITAL_STYLE: Record<CapitalReadiness, string> = {
-  not_required: 'bg-secondary text-secondary-foreground',
-  pending: 'bg-warning text-warning-foreground',
-  pre_approved: 'bg-secondary text-secondary-foreground',
-  not_approved: 'bg-destructive text-destructive-foreground',
-};
 
 /**
  * The pricing queue (B-11, DEC-19/20): every quote in Quoting, highest priority first, then the
@@ -225,21 +219,6 @@ function Toolbar({
       </NativeSelect>
       <FiltersPopover groups={groups} value={filters} onChange={onFilters} />
     </div>
-  );
-}
-
-export function CapitalChip({ value }: { value: CapitalReadiness | null | undefined }) {
-  if (!value) return <span className="text-muted-foreground">Not recorded</span>;
-  return (
-    <span
-      className={cn(
-        'rounded-pill inline-flex px-2 py-0.5 text-xs whitespace-nowrap',
-        CAPITAL_STYLE[value],
-      )}
-      data-testid="capital-readiness"
-    >
-      {CAPITAL_LABELS[value]}
-    </span>
   );
 }
 

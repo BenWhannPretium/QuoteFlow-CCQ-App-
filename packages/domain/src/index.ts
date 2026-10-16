@@ -8,6 +8,7 @@ export const DOMAIN_PACKAGE = '@ccq/domain' as const;
 export * from './comments';
 export * from './engineering';
 export * from './errors';
+export * from './final-review';
 export * from './intake';
 export * from './overrides';
 export * from './policy';

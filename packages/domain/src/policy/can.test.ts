@@ -39,6 +39,7 @@ const EXPECTED: Record<string, Role[]> = {
   'pricingQueue.read': ['Pricing', 'Leadership', 'Admin'],
   'quoting.edit': ['Pricing'],
   'gate.G3.submit': ['Pricing'],
+  'finalReview.read': ['Approver', 'Leadership', 'Admin'],
   'gate.G4.decide': ['Approver'],
   'outcome.record': ['SalesLeader'],
   'override.request': ['KAM', 'SalesLeader', 'EngLead', 'Pricing'],

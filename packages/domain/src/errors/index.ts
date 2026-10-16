@@ -25,6 +25,9 @@ export const DOMAIN_ERROR_CODES = [
   // B-10 engineering queue
   'INVALID_ASSIGNEE',
   'ALREADY_ACCEPTED',
+  // B-12 Final Review
+  'TIER_APPROVER_REQUIRED',
+  'INVALID_PROPOSAL_DATE',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
