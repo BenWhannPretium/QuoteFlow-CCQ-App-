@@ -8,6 +8,8 @@ import type { RoutePermission } from '../../src/plugins/auth';
 const SAMPLE_DRAFT_ID = '019a0000-0000-7000-8000-00000000d7a1';
 /** A well-formed quote number no seed uses, so allowed roles get 404 (not 403). */
 const SAMPLE_QUOTE = 'CCQ-2099-99999';
+/** An override id nothing uses, so allowed roles get 404 (not 403). */
+const SAMPLE_OVERRIDE = '019a0000-0000-7000-8000-0000000000e1';
 
 export interface RegisteredRoute {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -102,4 +104,66 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: '/api/v1/gates/G1/queue',
     permission: 'quote.read',
   },
+  // B-09 governed overrides. Floors are matrix permissions; the per-field approver config and segregation
+  // are domain checks (overrides.int.test.ts). Revert's floor is quote.read: a KAM may revert a
+  // self-applied ship-to they made.
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/overrides',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/overrides`,
+    permission: 'override.request',
+    sampleBody: { field: 'priority_tier', requestedValue: 'HIGH', justification: 'x'.repeat(20) },
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/overrides',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/overrides`,
+    permission: 'quote.read',
+  },
+  { method: 'GET', route: '/api/v1/overrides', permission: 'override.approve' },
+  {
+    method: 'POST',
+    route: '/api/v1/overrides/:id/approve',
+    url: `/api/v1/overrides/${SAMPLE_OVERRIDE}/approve`,
+    permission: 'override.approve',
+    sampleBody: {},
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/overrides/:id/reject',
+    url: `/api/v1/overrides/${SAMPLE_OVERRIDE}/reject`,
+    permission: 'override.approve',
+    sampleBody: { note: 'no' },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/overrides/:id/revert',
+    url: `/api/v1/overrides/${SAMPLE_OVERRIDE}/revert`,
+    permission: 'quote.read',
+  },
+  { method: 'GET', route: '/api/v1/admin/override-log', permission: 'overrideLog.read' },
+  // B-09 timeline, comments and the @mention picker.
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/timeline',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/timeline`,
+    permission: 'quote.read',
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/comments',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/comments`,
+    permission: 'quote.read',
+    sampleBody: { body: 'hello' },
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/users',
+    url: '/api/v1/users?q=a',
+    permission: 'quote.read',
+  },
+  // B-09 usage audit (audit.read = Leadership + Admin).
+  { method: 'GET', route: '/api/v1/admin/audit', permission: 'audit.read' },
+  { method: 'GET', route: '/api/v1/admin/audit/export.csv', permission: 'audit.read' },
+  { method: 'GET', route: '/api/v1/admin/reports/usage', permission: 'audit.read' },
 ];

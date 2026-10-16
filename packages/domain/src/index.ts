@@ -5,10 +5,13 @@
  */
 export const DOMAIN_PACKAGE = '@ccq/domain' as const;
 
+export * from './comments';
 export * from './errors';
 export * from './intake';
+export * from './overrides';
 export * from './policy';
 export * from './quote-number';
 export * from './scoring';
+export * from './timeline';
 export * from './types';
 export * from './workflow';

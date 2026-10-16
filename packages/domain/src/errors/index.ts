@@ -14,6 +14,14 @@ export const DOMAIN_ERROR_CODES = [
   'QUOTE_CLOSED',
   'INVALID_QUOTE_NUMBER',
   'INVALID_CONFIG',
+  // B-09 governed overrides
+  'NOT_OVERRIDABLE',
+  'JUSTIFICATION_REQUIRED',
+  'INVALID_VALUE',
+  'NO_CHANGE',
+  'OVERRIDE_PENDING',
+  'INVALID_STATE',
+  'STALE_VALUE',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

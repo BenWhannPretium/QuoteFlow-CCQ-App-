@@ -66,3 +66,10 @@ export const listUnreadNotifications = (db: DbOrTx, userId: string) =>
 
 export const markNotificationRead = (db: DbOrTx, id: string, at: Date) =>
   db.update(notification).set({ readAt: at }).where(eq(notification.id, id));
+
+export async function insertNotifications(
+  db: DbOrTx,
+  values: (typeof notification.$inferInsert)[],
+): Promise<void> {
+  if (values.length > 0) await db.insert(notification).values(values);
+}

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { IntakeAddress } from './intake';
+import { QuoteOverridableField } from './overrides';
 
 // ── Priority (B-08, advisory) ────────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,8 @@ export const QuoteDetail = QuoteSummary.extend({
   /** What the caller may decide now (rendered as the decision dialog's options). */
   availableActions: z.array(AvailableGateAction),
   rework: ReworkRequest.nullable(),
+  /** B-09: the overridable fields (tier, ship-to, …) with pending / applied overrides and whether the caller may request one. */
+  overridableFields: z.array(QuoteOverridableField),
 });
 export type QuoteDetail = z.infer<typeof QuoteDetail>;
 

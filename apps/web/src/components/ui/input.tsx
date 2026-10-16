@@ -17,15 +17,19 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
   );
 }
 
-function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
-  return (
-    <textarea
-      data-slot="textarea"
-      className={cn(controlClass, 'min-h-24 py-2', className)}
-      {...props}
-    />
-  );
-}
+/** forwardRef so callers (the comment composer) can manage the caret. */
+const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
+  function Textarea({ className, ...props }, ref) {
+    return (
+      <textarea
+        ref={ref}
+        data-slot="textarea"
+        className={cn(controlClass, 'min-h-24 py-2', className)}
+        {...props}
+      />
+    );
+  },
+);
 
 function NativeSelect({ className, ...props }: React.ComponentProps<'select'>) {
   return (

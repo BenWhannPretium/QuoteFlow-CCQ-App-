@@ -1,12 +1,18 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 
 import { RequirePermission } from '@/auth';
+import { adminPagePermission } from '@/auth/admin-pages';
 
-/** Every /admin/* page needs config.manage (the API checks it again on every call). */
+/** Every /admin/* page is permission-guarded: config.manage, or audit.read / overrideLog.read (B-09). */
 export const Route = createFileRoute('/admin')({
-  component: () => (
-    <RequirePermission permission="config.manage">
+  component: AdminLayout,
+});
+
+function AdminLayout() {
+  const { pathname } = useLocation();
+  return (
+    <RequirePermission permission={adminPagePermission(pathname)}>
       <Outlet />
     </RequirePermission>
-  ),
-});
+  );
+}

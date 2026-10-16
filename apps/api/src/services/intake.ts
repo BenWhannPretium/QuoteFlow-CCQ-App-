@@ -52,7 +52,9 @@ import {
 } from '@ccq/domain';
 import { eq } from 'drizzle-orm';
 
+import { recordIntakeShipToOverride } from './overrideService';
 import type { ScoringService } from './scoring';
+import type { AuditMeta } from '../plugins/audit';
 
 /**
  * Intake drafts and submit (B-07). The domain decides blocking vs warning (`evaluateIntake`) and the
@@ -62,11 +64,7 @@ import type { ScoringService } from './scoring';
 export type IntakeWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 type WithTx = IntakeWithTx;
 
-export interface AuditMeta {
-  ip?: string | undefined;
-  userAgent?: string | undefined;
-  requestId?: string | undefined;
-}
+export type { AuditMeta } from '../plugins/audit';
 
 /** A failure the route turns into problem+json. */
 export class IntakeError extends Error {
@@ -621,19 +619,17 @@ export class IntakeService {
       });
     }
     if (shipToOverridden) {
-      // Kept on the quote until B-09's override service takes ship-to changes over.
-      await insertActivityEvent(tx, {
-        quoteId: quote.id,
-        type: 'ship_to_overridden',
-        actorId: actor.userId,
-        at: now,
-        payload: {
-          original: values.ship_to_default,
-          shipTo: values.ship_to,
-          reason: quote.shipToOverrideReason,
-        },
-        createdBy: actor.userId,
-      });
+      // B-09: a ship-to that differs from the account default is a self-applied, logged override.
+      await recordIntakeShipToOverride(
+        tx,
+        actor,
+        meta,
+        quote.id,
+        values.ship_to_default,
+        values.ship_to,
+        quote.shipToOverrideReason!,
+        now,
+      );
     }
 
     // Priority score (B-08): advisory; orders the G1 and engineering queues.

@@ -43,6 +43,7 @@ const EXPECTED: Record<string, Role[]> = {
   'override.approve': ['SalesLeader', 'Admin'],
   'override.revert': ['SalesLeader', 'EngLead', 'Admin'],
   'overrideLog.read': ['Leadership', 'Admin'],
+  'audit.read': ['Leadership', 'Admin'],
   'attachment.upload': ['KAM', 'SalesLeader', 'EngLead', 'Engineer', 'Pricing'],
   'export.csv': ['KAM', 'SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
   'analytics.read': ['SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],

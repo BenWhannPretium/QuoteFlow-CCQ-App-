@@ -69,6 +69,7 @@ export const auditEvent = documented(
       check('audit_event_action_check', inList(t.action, AUDIT_ACTIONS)),
       index('audit_event_quote_at_idx').on(t.quoteId, t.at),
       index('audit_event_actor_at_idx').on(t.actorId, t.at),
+      index('audit_event_at_idx').on(t.at),
     ],
   ),
   {

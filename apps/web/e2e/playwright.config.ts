@@ -36,6 +36,7 @@ export default defineConfig({
         'admin-integrations.spec.ts',
         'intake.spec.ts',
         'g1.spec.ts',
+        'overrides.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

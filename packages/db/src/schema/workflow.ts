@@ -21,6 +21,7 @@ import {
   ATTACHMENT_KINDS,
   CAPITAL_READINESS,
   CUSTOMER_STATUSES,
+  OVERRIDE_APPROVAL_MODES,
   OVERRIDE_STATUSES,
   QUOTE_STATUSES,
   SF_STATUS_FLAGS,
@@ -271,7 +272,7 @@ export const quote = documented(
       ),
       shipToOverrideReason: c(
         text('ship_to_override_reason'),
-        'Why the ship-to differs from the default. Interim home until B-09 moves it to an override row.',
+        'Why the ship-to differs: the justification of the applied ship_to override (the override row is the record).',
         KAM,
       ),
       // Priority
@@ -308,6 +309,11 @@ export const quote = documented(
       queuePosition: c(
         integer('queue_position'),
         'Manual position in the engineering queue (DEC-26).',
+        ENG,
+      ),
+      queuePositionOverridden: c(
+        boolean('queue_position_overridden').notNull().default(false),
+        'True when an applied override (EngLead pin) set the queue position.',
         ENG,
       ),
       // Engineering
@@ -703,12 +709,21 @@ export const override = documented(
       decisionNote: c(text('decision_note'), 'Approver note.'),
       revertedBy: c(userRef('reverted_by'), 'Who reverted it.'),
       revertedAt: c(timestamptz('reverted_at'), 'When it was reverted.'),
+      approvalMode: c(
+        text('approval_mode').notNull().default('approver'),
+        'approver (waits for a configured approver) | self (applied by the requester, logged). From overridable_fields at request time.',
+      ),
+      appliedAt: c(timestamptz('applied_at'), 'When the value was written to the quote.'),
     },
     (t) => [
       check('override_status_check', inList(t.status, OVERRIDE_STATUSES)),
+      check('override_approval_mode_check', inList(t.approvalMode, OVERRIDE_APPROVAL_MODES)),
       check('override_justification_check', sql`length(trim(${t.justification})) > 0`),
       index('override_quote_idx').on(t.quoteId),
-      index('override_status_idx').on(t.status),
+      index('override_status_idx').on(t.status, t.createdAt),
+      uniqueIndex('override_one_open_per_field_uidx')
+        .on(t.quoteId, t.field)
+        .where(sql`${t.status} = 'requested'`),
     ],
   ),
   {

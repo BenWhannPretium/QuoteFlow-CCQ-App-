@@ -1,4 +1,4 @@
-import { SCORING_MODEL_V1_INPUT } from '@ccq/domain';
+import { OVERRIDE_SETTINGS_SEED, SCORING_MODEL_V1_INPUT } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
 import type { DbOrTx } from '../../src/client';
@@ -128,6 +128,18 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: INTAKE_FIELD_HELP,
     description:
       'One-line "why we ask" helper text per intake field (feeds the P1 F-19 per-field explanations).',
+  },
+  // ── B-09 governed overrides. Who approves is a blueprint gap: interim SalesLeader / EngLead, confirm in R1.
+  {
+    key: 'overridable_fields',
+    value: OVERRIDE_SETTINGS_SEED.fields,
+    description:
+      'Fields that may be overridden, with who requests, approves (approval: approver | self) and reverts each. Who approves overrides is a blueprint gap to confirm in R1.',
+  },
+  {
+    key: 'override_justification_min_length',
+    value: OVERRIDE_SETTINGS_SEED.justificationMinLength,
+    description: 'Minimum length (characters, trimmed) of an override justification.',
   },
   {
     key: 'salesforce_new_opportunity_url',

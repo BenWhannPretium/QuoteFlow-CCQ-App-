@@ -309,7 +309,21 @@ describe('customer and ship-to', () => {
       .select({ type: schema.activityEvent.type })
       .from(schema.activityEvent)
       .where(eq(schema.activityEvent.quoteId, quoteId));
-    expect(activity.map((a) => a.type)).toContain('ship_to_overridden');
+    expect(activity.map((a) => a.type)).toContain('override_applied');
+    // B-09: the ship-to change is a self-applied, logged override row with the original kept.
+    const overrides = await db.db
+      .select()
+      .from(schema.override)
+      .where(eq(schema.override.quoteId, quoteId));
+    expect(overrides).toHaveLength(1);
+    expect(overrides[0]).toMatchObject({
+      field: 'ship_to',
+      status: 'applied',
+      approvalMode: 'self',
+      justification: 'Filled at the customer’s co-packer',
+    });
+    expect(overrides[0]!.originalValue).toMatchObject({ line1: data.shipTo!.line1 });
+    expect(overrides[0]!.requestedValue).toMatchObject({ line1: '99 Co-packer Way' });
   });
 
   it('a not-yet-established customer gets name, location and contact only (DEC-27)', async () => {

@@ -66,6 +66,8 @@ export const PERMISSION_MATRIX: Readonly<
   },
   'override.revert': { SalesLeader: true, EngLead: true, Admin: true },
   'overrideLog.read': { Leadership: true, Admin: true },
+  // B-09: the usage audit viewer and adoption report ("config.manage + Leadership read").
+  'audit.read': { Leadership: true, Admin: true },
   'attachment.upload': {
     KAM: true,
     SalesLeader: true,

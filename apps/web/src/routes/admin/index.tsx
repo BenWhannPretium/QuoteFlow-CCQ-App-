@@ -28,6 +28,15 @@ export const Route = createFileRoute('/admin/')({
             >
               ERF linkage report
             </Link>
+            <Link to="/admin/audit" className={buttonVariants({ variant: 'outline' })}>
+              Audit log
+            </Link>
+            <Link to="/admin/reports/usage" className={buttonVariants({ variant: 'outline' })}>
+              Usage report
+            </Link>
+            <Link to="/admin/override-log" className={buttonVariants({ variant: 'outline' })}>
+              Override log
+            </Link>
             <Link to="/admin/ui-kit" className={buttonVariants({ variant: 'outline' })}>
               Open the UI kit
             </Link>

@@ -7,11 +7,13 @@ import { useState } from 'react';
 import { useCurrentUser } from '@/auth';
 import {
   ErrorState,
+  FieldOverride,
   GateDecisionDialog,
   KeyValueGrid,
   PageHeader,
   PriorityBadge,
   QualificationWarnings,
+  QuoteTimeline,
   quoteQueryKey,
   ScoreBreakdownTable,
   SkeletonCard,
@@ -78,7 +80,10 @@ function QuotePage() {
               : `Closed${q.outcome ? ` (${q.outcome})` : ''}`}
           </span>
         )}
-        <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} />
+        <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="quote-priority">
+          <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} />
+          <FieldOverride quote={q} field="priority_tier" />
+        </span>
       </div>
 
       <ReworkBanner quote={q} />
@@ -100,6 +105,12 @@ function QuotePage() {
           <DecisionsCard quote={q} />
         </div>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <QuoteTimeline quoteNumber={q.quoteNumber} />
+        </CardContent>
+      </Card>
 
       {deciding && (
         <GateDecisionDialog
@@ -205,10 +216,20 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
             { label: 'Drawing', value: label('drawing_status', quote.drawingStatus) },
             { label: 'Packaging', value: label('packaging_type', quote.packagingType) },
             {
+              id: 'ship-to',
               label: 'Ship-to',
-              value: ship
-                ? [ship.line1, ship.city, ship.state, ship.postal].filter(Boolean).join(', ')
-                : null,
+              value: (
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span data-testid="ship-to-value">
+                    {ship
+                      ? [ship.line1, ship.city, ship.state, ship.postal]
+                          .filter(Boolean)
+                          .join(', ') || '–'
+                      : '–'}
+                  </span>
+                  <FieldOverride quote={quote} field="ship_to" />
+                </span>
+              ),
             },
             {
               id: 'desc',

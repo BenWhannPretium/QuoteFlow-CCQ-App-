@@ -36,7 +36,7 @@ export function TierChip({
       )}
     >
       {label ?? tier}
-      {overridden && <span className="ml-1 font-normal opacity-90">(override)</span>}
+      {overridden && <span className="ml-1 font-normal">(override)</span>}
     </span>
   );
 }

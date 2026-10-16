@@ -90,4 +90,6 @@ export const PUBLIC_SETTING_KEYS = [
   'intake_description_template',
   'intake_field_help',
   'salesforce_new_opportunity_url',
+  // B-09 overrides (the per-field config reaches the quote page as QuoteDetail.overridableFields)
+  'override_justification_min_length',
 ] as const;
