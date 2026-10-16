@@ -12,7 +12,7 @@ from the DB tables seeded in B-03). Every seeded item is `provisional: true`.
 | `policy/`       | permission matrix as data, `can` / `assertCan` (role + data scope), `redact`, `canSeeOverrideLog`    |
 | `quote-number/` | `formatQuoteNumber(2026, 1)` → `CCQ-2026-00001`, parser and validator                                |
 | `errors/`       | `DomainError` (`code`, `message`, optional `field`) and `ForbiddenError`                             |
-| `scoring/`      | interface only; implemented in B-08                                                                  |
+| `scoring/`      | advisory priority: `parseScoringModel`, `score`, `redactScore`, qualification warnings (B-08)        |
 
 ## Using the engine
 
@@ -125,10 +125,35 @@ const config = parseWorkflowConfig({
 
 Assumptions baked into the hybrid seed (all provisional, listed in `04-decisions-and-risks.md` terms):
 
-- Stop closes the quote as `CLOSED_LOST` with `closeAs: 'stopped'`.
+- G1 Stop closes the quote as `DECLINED` (`closeAs: 'declined'`); a G2/G3 Stop closes it as `CLOSED_LOST` (`closeAs: 'stopped'`).
+- G1 needs `submitted_at`: a quote sent back by Rework waits for its KAM to resubmit. G1 Hold needs a reason and `review_date`;
+  Rework needs a reason and a note; Stop needs a reason and a note.
 - G2 "Capital required" proceeds to QUOTING and requires `prelim_capital_usd`.
 - A quote on hold stays in its stage, and the next gate decision resumes it. Entering `on_hold` opens a hold interval, and leaving it closes the interval.
 - Reason codes are required only for closing outcomes and G4 Decline; the codes themselves are placeholders until D-15.
+
+## Scoring (B-08, advisory)
+
+The score orders queues and informs G1; a person decides. Everything business-specific is a `ScoringModel` (the
+`scoring_model` row), validated by `parseScoringModel` (weights must sum to 1):
+
+```ts
+const model = parseScoringModel(row); // { version, attributes[], tiers[], unknownScore }
+const result = score(model, facts, now); // { total (0–100, 1 dp), tier, tierLabel, modelVersion, breakdown[], unknowns[] }
+```
+
+- An attribute has a `key`, `label`, `weight` and an `input`. If `input` names a resolver in `INPUT_RESOLVERS` (`map`,
+  `days_to_close`), that resolver produces the value; otherwise it is a numeric fact path (`quote.est_annual_revenue`,
+  `eng_review.prelim_capital_usd`). Numbers go through `bands: [min, max, points]` (min inclusive, max exclusive,
+  `null` = open). `map: { by, values, default }` looks up a code (`by` may join facts with `+`). `inverse` flips the points.
+- An unknown input scores `unknownScore` and is listed in `unknowns` with `unknownExplanation`
+  ("Capital exposure unknown until Engineering Review").
+- **A new kind of input** is one entry in `INPUT_RESOLVERS`. A new attribute _set_ is config only (the tests load the
+  10/14 prototype set as v2).
+- `redactScore(result, actor)` hides the raw value of commercial inputs (e.g. capital) from roles without commercial access.
+  `canSeePriorityScore` applies `kam_can_see_peer_scores`.
+- `qualificationWarnings(settings, facts)` produces the D-06 minimum value/volume warnings (never a block).
+  `exceptionNoteErrors` asks for a strategic exception note on the configured `gate:outcome` pairs.
 
 ## Policy
 

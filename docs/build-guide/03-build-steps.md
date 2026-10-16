@@ -251,13 +251,25 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** engineering needs a ranked queue, and leadership wants a qualify decision before engineering spends effort.
 - **People:** M4 outcome (attribute set, interim G1 decider). The Knowledge Steward (unassigned) eventually owns the weights; until then Bailey approves the provisional weights.
 - **Done when:**
-  - [ ] scoring model v1 is config-driven: 7 PRD attributes, each mapped to 0–100 through bands, weighted, with tiers Low / Standard / High / Critical
-  - [ ] the score explanation breakdown shows in the UI
-  - [ ] the score recalculates when inputs change and records the model version
-  - [ ] min value/volume **warnings**
-  - [ ] G1 decision screen for the SalesLeader with Advance / Hold / Rework / Redirect / Stop, reason codes and note rules
-  - [ ] G1 can be disabled by config
+  - [x] scoring model v1 is config-driven: 7 PRD attributes, each mapped to 0–100 through bands, weighted, with tiers Low / Standard / High / Critical
+  - [x] the score explanation breakdown shows in the UI
+  - [x] the score recalculates when inputs change and records the model version
+  - [x] min value/volume **warnings**
+  - [x] G1 decision screen for the SalesLeader with Advance / Hold / Rework / Redirect / Stop, reason codes and note rules
+  - [x] G1 can be disabled by config
 - **Prompt:** `prompts/B-08-scoring-and-g1.md`
+- **Built 2026-10-16, ahead of M4. Notes and deviations:**
+  - **Not yet confirmed at M4 (Oct 23).** The attribute set and weights (D-19) and the G1 decider (D-06) ship as the provisional seeds listed in `04-decisions-and-risks.md` §2 ("Provisional choices B-08 shipped"). Update this note after M4. If M4 changes them, it is a config change: a new `scoring_model` version, or `role_permission` / gate rows.
+  - **Scoring engine** (`packages/domain/src/scoring/`): `parseScoringModel` (weights must sum to 1; bands, maps and tiers are validated), `score(model, facts, now)` → `{ total, tier, tierLabel, modelVersion, breakdown[], unknowns[] }`, `redactScore`, `qualificationWarnings`, `exceptionNoteErrors` and `canSeePriorityScore`. Attribute inputs go through the `INPUT_RESOLVERS` registry (`map` and `days_to_close`). Any other `input` is a numeric fact path such as `eng_review.prelim_capital_usd`. A test configures the 10/14 prototype set as v2 with no code change. Ten fixture quotes are snapshot-tested.
+  - **Stored explanation:** migration 0007 adds `quote.priority_breakdown` and `quote.priority_scored_at`. The breakdown is stored with the score, so the "Why?" table always adds up to the stored total. Timing depends on today's date, so a score is "as of" its `priority_scored_at`. A scheduled rescore is not built (follow-up if leadership wants timing to tick daily). Tier keys are now `CRITICAL / HIGH / STANDARD / LOW`, with labels in the model. Public config `tiers[]` gained `label`.
+  - **Recalculation:** on submit and resubmit, after every gate decision (covers the G2 capital estimate), and through `ScoringService.recalculate` for B-10's engineering-review edits. A change of computed tier writes `priority_tier_changed`. With `priority_tier_overridden` (B-09), the score and computed tier update but the displayed tier stays.
+  - **Redaction:** with `kam_can_see_peer_scores=false`, a KAM-only user gets `priority.visible=false` and nulls for other KAMs' quotes (server-side). The capital figure behind *Capital exposure* is a commercial field: roles without `quote.read.commercialFields` get its points but `raw: null`.
+  - **Generic gate route + service** (documented in `01-architecture.md` §4.1, "Gate decision API"). The route floor is `quote.read`. The domain enforces the gate's decider permission, so "only SalesLeader decides G1" is an integration test over all 8 roles rather than a matrix-registry row. Notifications go through a `NotificationHook` that only logs until B-18.
+  - **Rework = back to the KAM's drafts:** the Rework transition re-enters INTAKE and clears `submitted_at`, and G1 now requires `submitted_at` (a gate rule), so a returned quote leaves the queue until it is resubmitted. The KAM opens a **rework draft** (`POST /quotes/:quoteNumber/rework`, migration 0007 `quote_draft.rework_of_quote_id`, at most one open per quote). It is pre-filled from the last submitted intake (or rebuilt from the quote), and submitting it updates the **same** quote and number (`quote_resubmitted`). `GET /quotes/drafts` gained `returned[]`. The quote page and the wizard show the reason and note.
+  - **Domain seed changes:** G1 Stop now closes as **DECLINED** (`closeAs: declined`). Before, every Stop was CLOSED_LOST; G2/G3 Stop still is. Hold needs a reason code + review date. Rework needs a reason code + note. Stop needs a reason code + note. The synthetic seed was adjusted to match (the two G1 stops are now in the DECLINED count; the stage totals are unchanged), and every synthetic quote is scored by the real engine.
+  - **Quote read:** `GET /api/v1/quotes/:quoteNumber` (audited as `view`) and the quote detail page (intake, priority explanation, decisions, rework banner) replace the B-05 stub. The full timeline and overrides stay B-09.
+  - **Web:** `/approvals?gate=G1` "To qualify" (nav item for `gate.G1.decide`, hidden when the G1 gate is disabled), `GateDecisionDialog` rebuilt on `availableActions` (the UI-kit demo of it was removed; `g1.spec.ts` now covers its axe scan, validation and focus return), `PriorityBadge` / `ScoreBreakdownTable` / `QualificationWarnings`.
+  - **Tests:** domain 100% lines (scoring snapshots, validation, unknowns, prototype v2, G1 rules). API `gates.int.test.ts`: all 5 outcomes and their constraints through the generic route, the 8-role decider check, segregation, evidence/history/activity/audit/notification, rework round-trip with rescore, warnings + exception note, peer-score and commercial redaction, and `g1_enabled=false`. Playwright `g1.spec.ts`: a SalesLeader qualifies one quote and redirects another, and the rework banner reaches the KAM.
 
 ### B-09: Governed overrides, activity timeline, usage audit (F-06, F-08, F-12) · **Tue Oct 27** · Ben
 - **Why:** these are cross-cutting controls used by every later stage. Building them once means later stages just call them.

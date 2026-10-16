@@ -609,6 +609,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `priority_tier` | text | yes |  |  | Critical \| High \| Standard \| Low (scoring_model tiers). | CCQ (system) |
 | `priority_tier_overridden` | boolean | no | false |  | True when an approved override set the tier. | CCQ (system) |
 | `scoring_model_version` | integer | yes |  |  | scoring_model.model_version used for the score. | CCQ (system) |
+| `priority_breakdown` | jsonb | yes |  |  | The score explanation as computed: {breakdown: [{key, label, weight, raw, points, contribution, explanation, unknown, sensitive}], unknowns, computedTier}. Raw commercial inputs are stripped on read for roles without commercial access. | CCQ (system) |
+| `priority_scored_at` | timestamp with time zone | yes |  |  | When the score was last computed (submit, an input change, or a gate decision such as the G2 capital estimate). | CCQ (system) |
 | `queue_position` | integer | yes |  |  | Manual position in the engineering queue (DEC-26). | Engineering (EngLead / Engineer) |
 | `assigned_engineer_id` | uuid | yes |  | app_user.id | Engineer assigned in Engineering Review. | Engineering (EngLead / Engineer) |
 | `erf_number` | text | yes |  |  | ERF number in the pricing app. | Pricing |
