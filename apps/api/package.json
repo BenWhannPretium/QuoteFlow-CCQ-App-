@@ -5,7 +5,7 @@
   "description": "QuoteFlow Fastify API (serves the SPA in production)",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=../../.env src/server.ts",
+    "dev": "node --watch --import tsx --env-file-if-exists=../../.env src/server.ts",
     "build": "tsup",
     "start": "node dist/server.js",
     "lint": "eslint .",

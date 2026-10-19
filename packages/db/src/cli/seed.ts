@@ -1,3 +1,5 @@
+import { pathToFileURL } from 'node:url';
+
 import { seedConfig } from '../../seeds/config/index';
 import { seedSynthetic } from '../../seeds/synthetic/index';
 import { createDb } from '../client';
@@ -31,7 +33,8 @@ export async function runSeed(url: string, { synthetic }: { synthetic: boolean }
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL, not a `file://` template: on Windows argv[1] is `C:\…`, which never matched.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const url = requireDatabaseUrl();
   await runSeed(url, { synthetic: process.argv.includes('--synthetic') });
   console.warn(`seeded ${redactUrl(url)}`);
