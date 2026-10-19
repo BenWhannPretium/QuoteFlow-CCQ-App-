@@ -12,11 +12,53 @@ export const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations', import.meta
 export const ANALYTICS_SQL_DIR = fileURLToPath(new URL('../sql/analytics', import.meta.url));
 
 /** The analytics view files, in apply order (`00_…`, `10_…`). */
-export function analyticsSqlFiles(): { name: string; sql: string }[] {
-  return readdirSync(ANALYTICS_SQL_DIR)
+export function analyticsSqlFiles(
+  dir: string = ANALYTICS_SQL_DIR,
+): { name: string; sql: string }[] {
+  return readdirSync(dir)
     .filter((f) => f.endsWith('.sql'))
     .sort()
-    .map((name) => ({ name, sql: readFileSync(`${ANALYTICS_SQL_DIR}/${name}`, 'utf8') }));
+    .map((name) => ({ name, sql: readFileSync(`${dir}/${name}`, 'utf8') }));
+}
+
+export interface MigrationPaths {
+  /** Drizzle migrations folder. Defaults to this package's `migrations/`. */
+  migrationsDir?: string;
+  /** Analytics view files. Defaults to this package's `sql/analytics/`. */
+  analyticsSqlDir?: string;
+}
+
+/**
+ * B-20: make the login that runs migrations a member of the runtime and migrator roles.
+ *
+ * Locally the login is a superuser, so `SET LOCAL ROLE ccq_app` and the `*_migrator` RLS policies just
+ * work. On Azure Database for PostgreSQL the admin login is not a superuser and has no BYPASSRLS: it
+ * creates the roles (CREATEROLE), but PostgreSQL 16 gives the creator only ADMIN OPTION on them
+ * (INHERIT and SET off), so `pg_has_role(…, 'MEMBER')` is true while neither applies. Without membership, `SET LOCAL ROLE ccq_app` fails and seeds or data migrations see no
+ * rows under FORCE ROW LEVEL SECURITY. Runs before the migrations (so a data migration on a populated
+ * database sees every row) and is idempotent; the roles match migration 0004.
+ */
+export async function ensureRoleMembership(sql: postgres.Sql): Promise<void> {
+  const [me] = await sql<{ super: boolean }[]>`
+    select rolsuper as super from pg_roles where rolname = current_user`;
+  if (me?.super) return;
+  await sql.unsafe(`
+    DO $$
+    DECLARE r text;
+    BEGIN
+      FOREACH r IN ARRAY ARRAY['ccq_app', 'ccq_migrator', 'ccq_readonly'] LOOP
+        BEGIN
+          EXECUTE format('CREATE ROLE %I NOLOGIN', r);
+        EXCEPTION WHEN duplicate_object OR unique_violation THEN
+          NULL;
+        END;
+      END LOOP;
+      FOREACH r IN ARRAY ARRAY['ccq_app', 'ccq_migrator'] LOOP
+        IF NOT (pg_has_role(current_user, r, 'USAGE') AND pg_has_role(current_user, r, 'SET')) THEN
+          EXECUTE format('GRANT %I TO %I WITH INHERIT TRUE, SET TRUE', r, current_user);
+        END IF;
+      END LOOP;
+    END $$;`);
 }
 
 /**
@@ -24,16 +66,20 @@ export function analyticsSqlFiles(): { name: string; sql: string }[] {
  * the analytics views. Comments are derived from the Drizzle schema, and the views are `drop … create`
  * files, so both are refreshed on every run rather than frozen into a migration.
  */
-export async function runMigrations(databaseUrl: string): Promise<void> {
+export async function runMigrations(
+  databaseUrl: string,
+  { migrationsDir = MIGRATIONS_DIR, analyticsSqlDir = ANALYTICS_SQL_DIR }: MigrationPaths = {},
+): Promise<void> {
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
   try {
-    await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS_DIR });
+    await ensureRoleMembership(sql);
+    await migrate(drizzle(sql), { migrationsFolder: migrationsDir });
     await sql.begin(async (tx) => {
       for (const statement of commentStatements()) await tx.unsafe(statement);
     });
     // One transaction: a bad view file leaves the previous definitions in place.
     await sql.begin(async (tx) => {
-      for (const file of analyticsSqlFiles()) await tx.unsafe(file.sql);
+      for (const file of analyticsSqlFiles(analyticsSqlDir)) await tx.unsafe(file.sql);
     });
   } finally {
     await sql.end({ timeout: 5 });

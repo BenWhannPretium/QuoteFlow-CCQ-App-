@@ -1,0 +1,97 @@
+name: Deploy (test)
+
+# B-20: after CI passes on main, build the commit CI tested and deploy it to the Azure **test** App
+# Service. Also runnable by hand (Actions → Deploy (test) → Run workflow).
+#
+# Auth is OpenID Connect to a user-assigned managed identity (no stored cloud secrets). Repository
+# variables (Settings → Secrets and variables → Actions → Variables), none of them secrets:
+#   AZURE_CLIENT_ID        client id of the deploy identity (id-quoteflow-deploy)
+#   AZURE_TENANT_ID        Pretium's Entra tenant id
+#   AZURE_SUBSCRIPTION_ID  subscription holding rg-ccq-test
+#   AZURE_WEBAPP_NAME      the test web app name
+#   AZURE_RESOURCE_GROUP   rg-ccq-test
+# The identity's federated credential trusts subject repo:<owner>/<repo>:environment:test, so the job
+# must keep `environment: test`. If the repo moves to the Pretium org, add a credential for the new
+# name. Runbook: docs/build-guide/06-azure-entra-setup.md.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build and deploy to test
+    # Skip until the Azure variables exist. From CI: only a successful **push** run in this repository
+    # (a pull request from a fork on a branch named main also reports head_branch "main").
+    if: >-
+      vars.AZURE_WEBAPP_NAME != '' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: test
+      url: https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run: the commit CI tested, not whatever main is now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package for App Service
+        run: |
+          scripts/package-azure.sh .azure-deploy
+          (cd .azure-deploy && zip -qry ../quoteflow.zip .)
+          ls -lh quoteflow.zip
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy
+        run: |
+          az webapp deploy \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
+            --src-path quoteflow.zip --type zip --clean true --restart true \
+            --timeout 900000
+
+      - name: Smoke test (health)
+        run: |
+          url="https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/v1/health"
+          for i in $(seq 1 30); do
+            body="$(curl -fsS --max-time 10 "$url" || true)"
+            if echo "$body" | grep -q '"status":"ok"'; then echo "healthy: $body"; exit 0; fi
+            echo "waiting for the app ($i/30)…"; sleep 10
+          done
+          echo "the app did not report healthy in 5 minutes: check Log stream in the portal" >&2
+          exit 1
