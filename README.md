@@ -11,19 +11,19 @@ Prerequisites: Node 22 (`nvm use`), pnpm 9 (`corepack enable`), Docker.
 cp .env.example .env              # local defaults: AUTH_MODE=dev, synthetic data only
 pnpm i
 docker compose up -d db           # Postgres 16 on :5432 (add `mailpit` and set MAIL_MODE=smtp for local email, inbox on :8025)
-pnpm db:migrate && pnpm db:seed
+pnpm db:migrate && pnpm db:seed --synthetic
 pnpm dev                          # web http://localhost:5173 · api http://localhost:3000 · docs http://localhost:3000/docs
 ```
 
 | Script                  | What it does                                                        |
 | ----------------------- | ------------------------------------------------------------------- |
-| `pnpm dev`              | API (tsx watch) + web (Vite, proxies `/api` to the API)             |
+| `pnpm dev`              | API (node --watch + tsx) + web (Vite, proxies `/api` to the API)    |
 | `pnpm verify`           | lint + typecheck + unit + integration + build (what CI runs)        |
 | `pnpm test`             | unit tests (Vitest)                                                 |
 | `pnpm test:integration` | API tests against a real Postgres (`ccq_test`, created + migrated)  |
 | `pnpm e2e`              | Playwright smoke against the production build (needs a migrated DB) |
 | `pnpm db:migrate`       | apply Drizzle migrations to `DATABASE_URL`                          |
-| `pnpm db:seed`          | load config seeds + synthetic data                                  |
+| `pnpm db:seed`          | load config seeds (add `--synthetic` for the synthetic data set)    |
 | `pnpm db:reset`         | drop, re-migrate (refuses in production)                            |
 
 ## Repository layout

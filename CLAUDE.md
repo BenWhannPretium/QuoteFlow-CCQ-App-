@@ -103,7 +103,7 @@ Sources of truth for requirements (read the relevant one before building a featu
 ```bash
 pnpm i
 docker compose up -d db
-pnpm db:migrate && pnpm db:seed   # synthetic data only
+pnpm db:migrate && pnpm db:seed --synthetic   # synthetic data only
 pnpm dev                          # web on :5173, api on :3000
 ```
 
