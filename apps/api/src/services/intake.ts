@@ -57,6 +57,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { AttachmentService } from './attachments';
 import { onEngQueueArrival } from './engineering-arrival';
 import { recordIntakeShipToOverride } from './overrideService';
+import { onQualifyArrival } from './qualify-arrival';
 import type { ScoringService } from './scoring';
 import type { AuditMeta } from '../plugins/audit';
 
@@ -677,9 +678,10 @@ export class IntakeService {
 
     let stageKey = 'INTAKE';
     let status: string = quote.status;
-    let routedTo =
-      workflow.gates.find((g) => g.enabled && g.stageKey === 'INTAKE' && !submitGate(g.key))?.key ??
-      'INTAKE';
+    const qualifyGate = workflow.gates.find(
+      (g) => g.enabled && g.stageKey === 'INTAKE' && !submitGate(g.key),
+    );
+    let routedTo = qualifyGate?.key ?? 'INTAKE';
     if (action) {
       const result = evaluateTransition(
         workflow,
@@ -705,10 +707,13 @@ export class IntakeService {
       stageKey = moved.stageKey;
       status = moved.status;
       routedTo = moved.stageKey;
-      // B-10: the EngLead's arrival alert (in-app; email is B-18).
+      // B-10: the EngLead's arrival alert (in-app + email, B-18).
       if (result.effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
         await onEngQueueArrival(tx, quote, actor.userId);
       }
+    } else if (qualifyGate) {
+      // B-18: waiting at G1: tell the gate's deciders (in-app now, the 7:00 AM Central digest by email).
+      await onQualifyArrival(tx, quote, qualifyGate, actor.userId, Boolean(reworkOf));
     }
 
     const warnings: IntakeIssue[] = evaluation.warnings;

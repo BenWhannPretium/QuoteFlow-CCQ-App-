@@ -50,6 +50,7 @@ describe('loadConfig', () => {
       FILESTORE_MODE: 'sharepoint',
       SP_SITE_ID: 'contoso.sharepoint.com,site-guid,web-guid',
       SP_DRIVE_ID: 'b!drive',
+      MAIL_MODE: 'graph',
     });
     expect(c.AUTH_MODE).toBe('entra');
     expect(c.ENTRA_API_SCOPE).toBe('access_as_user');
@@ -147,6 +148,7 @@ describe('Attachment store config (B-16)', () => {
     ENTRA_TENANT_ID: 't',
     ENTRA_API_AUDIENCE: 'api://quoteflow',
     ENTRA_SPA_CLIENT_ID: 's',
+    MAIL_MODE: 'graph',
   };
 
   it('defaults to the local store under .data/files', () => {
@@ -207,5 +209,54 @@ describe('Attachment store config (B-16)', () => {
         GRAPH_CLIENT_ID: 'c',
       }),
     ).toThrow(/test site only/);
+  });
+});
+
+describe('Notification email config (B-18)', () => {
+  const dev = { ...base, NODE_ENV: 'development', AUTH_MODE: 'dev' };
+  const prod = {
+    ...base,
+    NODE_ENV: 'production',
+    AUTH_MODE: 'entra',
+    ENTRA_TENANT_ID: 't',
+    ENTRA_API_AUDIENCE: 'api://quoteflow',
+    ENTRA_SPA_CLIENT_ID: 's',
+    FILESTORE_MODE: 'blob',
+    BLOB_ACCOUNT_URL: 'https://ccq.blob.core.windows.net',
+    BLOB_CONTAINER: 'ccq',
+  };
+
+  it('defaults to the fake transport, the shared mailbox and a one-minute dispatcher', () => {
+    const c = loadConfig(dev);
+    expect(c.MAIL_MODE).toBe('fake');
+    expect(c.MAIL_FROM).toBe('ccq-noreply@pretiumpkg.com');
+    expect(c.SMTP_HOST).toBe('localhost');
+    expect(c.SMTP_PORT).toBe(1025);
+    expect(c.NOTIFICATION_DISPATCH_INTERVAL_SECONDS).toBe(60);
+  });
+
+  it('takes the mailbox IT names and mailpit settings from the environment', () => {
+    const c = loadConfig({
+      ...dev,
+      MAIL_MODE: 'smtp',
+      MAIL_FROM: 'quoteflow@pretiumpkg.com',
+      SMTP_PORT: '2525',
+      NOTIFICATION_DISPATCH_INTERVAL_SECONDS: '0',
+    });
+    expect(c.MAIL_MODE).toBe('smtp');
+    expect(c.MAIL_FROM).toBe('quoteflow@pretiumpkg.com');
+    expect(c.SMTP_PORT).toBe(2525);
+    expect(c.NOTIFICATION_DISPATCH_INTERVAL_SECONDS).toBe(0);
+  });
+
+  it('refuses a bad mailbox address and an unknown mode', () => {
+    expect(() => loadConfig({ ...dev, MAIL_FROM: 'not-an-address' })).toThrow(/MAIL_FROM/);
+    expect(() => loadConfig({ ...dev, MAIL_MODE: 'sendgrid' })).toThrow(/MAIL_MODE/);
+  });
+
+  it('allows only graph in production', () => {
+    expect(() => loadConfig(prod)).toThrow(/MAIL_MODE=fake is forbidden when NODE_ENV=production/);
+    expect(() => loadConfig({ ...prod, MAIL_MODE: 'smtp' })).toThrow(/MAIL_MODE=smtp is forbidden/);
+    expect(loadConfig({ ...prod, MAIL_MODE: 'graph' }).MAIL_MODE).toBe('graph');
   });
 });

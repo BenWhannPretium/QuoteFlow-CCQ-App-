@@ -252,6 +252,7 @@ const notifications = async (qn: string, type: string) =>
       and(
         eq(schema.notification.quoteId, (await quoteRow(qn)).id),
         eq(schema.notification.type, type),
+        eq(schema.notification.channel, 'in_app'),
       ),
     )
     .orderBy(desc(schema.notification.createdAt));

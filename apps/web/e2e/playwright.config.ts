@@ -47,6 +47,7 @@ export default defineConfig({
         'attachments.spec.ts',
         'board-perf.spec.ts',
         'dashboards.spec.ts',
+        'notifications.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },
@@ -87,6 +88,8 @@ export default defineConfig({
         FILESTORE_MODE: 'blob',
         BLOB_ACCOUNT_URL: 'https://ccqe2e.blob.core.windows.net',
         BLOB_CONTAINER: 'e2e',
+        // Production sends mail through Graph only. Signed-out smoke queues no email, so nothing is sent.
+        MAIL_MODE: 'graph',
       },
     },
     {

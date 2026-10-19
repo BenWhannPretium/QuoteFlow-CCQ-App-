@@ -12,6 +12,8 @@ const SAMPLE_DRAFT_ID = '019a0000-0000-7000-8000-00000000d7a1';
 const SAMPLE_QUOTE = 'CCQ-2099-99999';
 /** An override id nothing uses, so allowed roles get 404 (not 403). */
 const SAMPLE_OVERRIDE = '019a0000-0000-7000-8000-0000000000e1';
+/** A notification id nothing uses, so every role gets 404 (it is nobody's). */
+const SAMPLE_NOTIFICATION = '019a0000-0000-7000-8000-0000000000b8';
 /** An attachment id nothing uses, so allowed roles get 404 (not 403). */
 const SAMPLE_ATTACHMENT = '019a0000-0000-7000-8000-0000000000a7';
 
@@ -214,8 +216,23 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/stage-times`,
     permission: 'quote.read',
   },
+  // B-18 notifications and email preferences: everything is the caller's own, so every signed-in role
+  // is allowed; notifications.int.test.ts proves one user can never read or mark another's.
   { method: 'GET', route: '/api/v1/notifications', permission: 'authenticated' },
   { method: 'POST', route: '/api/v1/notifications/read', permission: 'authenticated' },
+  {
+    method: 'POST',
+    route: '/api/v1/notifications/:id/read',
+    url: `/api/v1/notifications/${SAMPLE_NOTIFICATION}/read`,
+    permission: 'authenticated',
+  },
+  { method: 'GET', route: '/api/v1/me/preferences', permission: 'authenticated' },
+  {
+    method: 'PUT',
+    route: '/api/v1/me/preferences',
+    permission: 'authenticated',
+    sampleBody: { email: { 'quote.assigned': true } },
+  },
   // B-11 pricing queue and Quoting tab. The queue needs pricingQueue.read (Pricing, Leadership,
   // Admin); the PUTs need quoting.edit (Pricing). "Only while in Quoting", the field checks and the
   // commercial redaction of QuoteDetail.quoting for every other role are pricing.int.test.ts.

@@ -77,6 +77,9 @@ importers:
       mssql:
         specifier: 12.7.2
         version: 12.7.2
+      nodemailer:
+        specifier: 10.0.16
+        version: 10.0.16
       pino:
         specifier: 10.4.0
         version: 10.4.0
@@ -349,6 +352,9 @@ importers:
       mssql:
         specifier: 12.7.2
         version: 12.7.2
+      nodemailer:
+        specifier: 10.0.16
+        version: 10.0.16
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -4014,6 +4020,10 @@ packages:
   node-releases@2.0.59:
     resolution: {integrity: sha512-5qr2okC4ItAI0hG5SaV0HoYMpnM/Y6+Oqr7AmPYy/2uEoGvS+GbSKLeRxSS1uAdu59yz0ouzcuXievSgg///WA==}
     engines: {node: '>=18'}
+
+  nodemailer@10.0.16:
+    resolution: {integrity: sha512-VL9xKErxN+el77o8eBOuYKUPMyEx7F9hfnDCuiUKJRp9v3wnWMOudYgP/SWbwSHy8rUL4cylobuXtki1LpQS7A==}
+    engines: {node: '>=20.0.0'}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -8354,6 +8364,8 @@ snapshots:
   natural-compare@1.4.0: {}
 
   node-releases@2.0.59: {}
+
+  nodemailer@10.0.16: {}
 
   object-assign@4.1.1: {}
 

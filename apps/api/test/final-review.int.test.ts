@@ -249,10 +249,27 @@ const notifications = async (qn: string, type?: string) => {
   const rows = await db.db
     .select()
     .from(schema.notification)
-    .where(eq(schema.notification.quoteId, (await quoteRow(qn)).id))
+    .where(
+      and(
+        eq(schema.notification.quoteId, (await quoteRow(qn)).id),
+        eq(schema.notification.channel, 'in_app'),
+      ),
+    )
     .orderBy(desc(schema.notification.createdAt));
   return type ? rows.filter((n) => n.type === type) : rows;
 };
+/** The email-outbox rows for a quote and type (the in-app rows are `notifications`). */
+const emailRows = async (qn: string, type: string) =>
+  db.db
+    .select()
+    .from(schema.notification)
+    .where(
+      and(
+        eq(schema.notification.quoteId, (await quoteRow(qn)).id),
+        eq(schema.notification.type, type),
+        eq(schema.notification.channel, 'email'),
+      ),
+    );
 const errorCodes = (res: { json: () => unknown }) =>
   ((res.json() as { errors?: { code: string }[] }).errors ?? []).map((e) => e.code).sort();
 const errorPaths = (res: { json: () => unknown }) =>
@@ -616,14 +633,21 @@ describe('G4 Approve', () => {
     });
   });
 
-  it('notifies the KAM: "Approved; issue the proposal."', async () => {
+  it('notifies the KAM and the pricing approver, in-app and by email: "Approved; issue the proposal."', async () => {
     const qn = await inFinalReview();
     ok(await decide(qn, { outcomeKey: 'approve' }));
     const rows = await notifications(qn, 'quote.approved_for_customer');
-    expect(rows.map((r) => r.userId)).toEqual([await userId('kam')]);
-    expect(rows[0]).toMatchObject({ channel: 'in_app' });
-    expect(rows[0]!.body).toContain('Approved; issue the proposal.');
-    expect(rows[0]!.body).toContain(validityFrom(clock, 30));
+    const kam = await userId('kam');
+    const priceApprover = await userId('pricing');
+    expect(rows.map((r) => r.userId).sort()).toEqual([kam, priceApprover].sort());
+    expect(rows.every((r) => r.channel === 'in_app')).toBe(true);
+    const forKam = rows.find((r) => r.userId === kam)!;
+    expect(forKam.body).toContain('Approved; issue the proposal.');
+    expect(forKam.body).toContain(validityFrom(clock, 30));
+    // The same two people are emailed, with the validity date and nothing commercial.
+    const emails = await emailRows(qn, 'quote.approved_for_customer');
+    expect(emails.map((r) => r.userId).sort()).toEqual([kam, priceApprover].sort());
+    expect(emails[0]!.payload).toEqual({ validityUntil: validityFrom(clock, 30) });
   });
 
   it('takes the validity days from config, not from code', async () => {
@@ -788,6 +812,10 @@ describe('G4 Decline', () => {
       [...new Set([await userId('kam'), ...pricingUsers.map((u) => u.id)])].sort(),
     );
     expect(rows[0]!.body).toContain('Capacity unavailable');
+    // Emailed to the same people, with the reason label (never the approver's note).
+    const emails = await emailRows(qn, 'quote.declined');
+    expect(emails.map((r) => r.userId).sort()).toEqual(recipients.sort());
+    expect(emails[0]!.payload).toEqual({ reason: 'Capacity unavailable' });
   });
 });
 

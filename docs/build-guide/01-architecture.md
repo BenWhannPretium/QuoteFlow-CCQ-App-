@@ -190,7 +190,7 @@ One route and one service record every gate decision. Later stages add no decisi
 | Who | The route floor is `quote.read`. The domain then checks the gate's own `deciderPermission` from `gate_definition`, the data scope and the segregation rules, so who decides a gate is config. A caller who may not decide gets **403**. |
 | Rules | `evaluateTransition` plus the qualification exception note (`exceptionNoteErrors`). Every unmet rule comes back in one **422** problem, `errors[]` with `{ path, message, code }`. `holdUntil` is passed to the domain as `payload.review_date`. |
 | One transaction | `gate_decision` (evidence = the domain's rule fields **plus** the priority breakdown, warnings and key intake fields the decider saw), `quote_hold`, `stage_history`, the quote row (`review_date` for holds; `submitted_at` cleared when a Rework re-enters INTAKE), `activity_event`, `audit_event`, then a rescore |
-| After commit | `NotificationHook(effects.notifications)`. B-18 replaces the default, which only logs. |
+| Notifications | B-18: written **in the decision's transaction** (so a rolled-back decision notifies no one) by `persistNotifications`: the arrival alerts, a quote returned to its KAM, the G4 decisions. After commit, `NotificationHook` only observes what was planned (a test seam); it no longer delivers. See §4.3. |
 | Read side | `GET /api/v1/quotes/:quoteNumber` returns `availableActions` (each with `requiresReviewDate`, `requiresExceptionNote` and the `missing` fields). `GET /api/v1/gates/:gateKey/queue` lists the quotes waiting for a gate. The web's `GateDecisionDialog` renders from these, so G2–G5 need no new dialog. |
 
 To add a stage's decisions (B-10 to B-13): seed or adjust the gate, outcome and transition rows. Open the dialog with `gateKey="G2"` (or whichever gate), and add any stage-specific evidence to `GateService` only if the decider needs to see it. If a stage edits a scoring input (e.g. `eng_review.prelim_capital_usd`), call `ScoringService.recalculate`.
@@ -210,6 +210,30 @@ CCQ owns operational stages. Salesforce stages are read and shown side by side:
 The mapping table `sf_stage_map` is config, so mismatches can be flagged; for example, CCQ shows Awarded while SF still shows Quoting.
 
 ---
+
+### 4.3 Notifications (B-18)
+
+Every notification is written **in the same transaction as the change** that causes it (`apps/api/src/services/notificationService.ts`). One event becomes an `in_app` row (the bell) and, for the types the catalogue emails (`packages/domain/src/notifications/events.ts`), an `email` row (the outbox). A dispatcher job (`apps/api/src/jobs/notificationDispatch.ts`, every minute, advisory lock) sends the outbox through the `MailTransport`.
+
+| Event (`type`) | Recipients | In-app | Email |
+|---|---|---|---|
+| Quote entered the engineering queue (`quote.ready_for_eng_review`) | every active `EngLead` + the backup assigners (config) | yes | yes |
+| Assigned / reassigned (`quote.assigned`) | the engineer | yes | yes |
+| Returned to the KAM, G1/G2 rework (`quote.reworked`) | the KAM | yes | yes |
+| Waiting at G1 (`quote.to_qualify`) | holders of the G1 decider permission (`SalesLeader`) | yes | **daily digest, 7:00 AM Central**: one email listing everything waiting |
+| Awaiting Final Review (`quote.ready_for_final_review`) | holders of `gate.G4.decide` (`Approver`) | yes | yes |
+| G4 decided (`quote.approved_for_customer`, `quote.declined`) | the KAM, the pricing approver (who approved the price at G3), and on a decline the `Pricing` role | yes | yes |
+| Override requested / decided (`override.*`) | the approvers / the requester | yes | no |
+| @mention in a comment (`comment.mention`) | the mentioned user | yes | yes (who and where, never the comment) |
+| Proposal validity within `validity_warning_days` / passed (`quote.validity_expiring`, `quote.validity_expired`) | the KAM | yes | yes, once per state (dedupe key = quote + validity date) |
+| Integration failure (`integration.failed`) | Admins | yes | no |
+| Email failed after every retry (`notification.delivery_failed`) | Admins (the owners) only | yes | no |
+
+- **Email rules.** Plain branded HTML plus a text alternative; subject `[QuoteFlow] CCQ-2026-00042 needs your review: Engineering queue`; the body has the quote number, account, product, tier, the action and a deep link. **No pricing, margin or capital figure in any email, whatever the recipient's role:** templates take no commercial field, free text is scrubbed of amounts of money, and the finished message is scanned and refused if one remains (`packages/domain/src/notifications/commercial.ts`). Account, product and tier are read **as the recipient** (their roles and data scope, RLS on), so an email never says more than the recipient may see in the app.
+- **Delivery.** 3 tries: the first, then after 1 minute, then after 5 more. The third failure is final (`failed_at`): the owners (Admins) get an in-app alert and an error log; nobody else does. A message the mail system refuses (bad address) is final at once. A recipient who is inactive, has no address or opted out is skipped.
+- **Preferences.** `user_preference` (`email.<type>` = false): each user can opt out of email per type at `/me/preferences`; in-app cannot be switched off. The app setting `email_notifications_enabled` (default true) switches all email off: in-app only, the documented fallback.
+- **Transport.** `MAIL_MODE` = `graph` (production; Graph `sendMail` as MIME from `MAIL_FROM`, app-only `Mail.Send` limited to that mailbox by an Exchange application access policy), `smtp` (mailpit, `docker compose up -d mailpit`, inbox on :8025) or `fake` (default; nothing leaves the process).
+- **Not in P0:** the Teams digest and SLA / stale alerts (their thresholds are open: D-20).
 
 ## 5. Data model (PostgreSQL 16, Drizzle)
 
@@ -259,7 +283,8 @@ The full column list, with each column's meaning and owner, is generated into [`
 **Events and audit**
 - `activity_event`: quote_id, type, actor_id, at, payload jsonb. Powers the user-facing timeline.
 - `audit_event` (append-only; UPDATE/DELETE revoked from the app role): at, actor_id, actor_roles, action (view | create | update | stage_change | gate_decision | override_* | upload | download | export | config_change | sign_in), entity, entity_id, quote_id, before jsonb, after jsonb, ip, user_agent, request_id
-- `notification`: user_id, type, quote_id, title, body, read_at, channel (in_app | email), sent_at, error
+- `notification`: user_id, type, quote_id, title, body, read_at, channel (in_app | email), sent_at, error. B-18 adds `dedupe_key` (once per state: unique per user and channel), `payload` (the non-commercial facts an email is built from), and the outbox state `attempts`, `next_attempt_at`, `failed_at`. An `email` row is the outbox entry the dispatcher sends; an `in_app` row is the bell's item.
+- `user_preference`: user_id, key, value jsonb; unique (user_id, key). B-18: `email.<notification type>` = false opts out of that email (a missing row = on). Any request context may read them (the actor of an event must know who opted out); only the user or Admin writes.
 - `integration_run`: source (salesforce | pricing | sharepoint), started_at, finished_at, status, counts jsonb, error
 
 **Indexes (minimum)**
@@ -283,7 +308,7 @@ The full column list, with each column's meaning and owner, is generated into [`
 | **Salesforce** (Unlimited Edition, `pretiumpkg.my.salesforce.com`) | Read-only | `jsforce` with the OAuth 2.0 **JWT bearer** flow, as a dedicated **read-only integration user** on a connected app. SOQL on `Opportunity`, `Account` and the custom `Opportunity Product Specification` object. Delta sync every 15 min (`SystemModstamp`), plus a live lookup on intake search. Start against the **UAT org** (`integration@pretiumpkg.com.uat`), then production. | Private key in Key Vault. **Rachel Dew** (SF admin) creates the connected app, integration user and permission set. **Zac Cairns / Graham Parle** own the field crosswalk. | `FakeSalesforceReader` loaded from a masked fixture JSON. Shaped like the "New Last Week" report (102 rows; fields: name, account, amount, close date, stage, owner alias). |
 | **Pricing application** (legacy .NET; ERF, BPR, SPR tables) | Read-only | `PricingReader` interface (B-15: `packages/integrations/src/pricing/`, `PRICING_MODE` = fake \| sqlserver \| fabric; column names only in `columnMap.ts`). Route decided at M5: **(A)** read-only SQL login on a replica/view (`mssql`), or **(B)** the D&A-landed copy in Fabric via its SQL analytics endpoint. Lookup by ERF number, BPR number and customer. SPR read for history only. | **Cory McGahan** (IT: DB access and schema), **Gemma Cebolla** (Pricing: scope and sensitivity), **Brennan Paul** (D&A: Fabric route) | Reference fields typed manually (ERF #, BPR #) and validated by format only. |
 | **SharePoint** (ERF/drawing folders) | Read/write files only | Microsoft Graph, **app-only, `Sites.Selected`** scoped to one site. Folder per quote: `/CCQ/{quote_number}/` (`attachment_settings`). Upload via a resumable upload session in 5 MB ranges; the API streams the bytes. B-16: `FileStore` in `packages/integrations/src/graph/`, `FILESTORE_MODE` = sharepoint \| blob \| local. | IT grants Sites.Selected. **Bailey / BT** confirms the folder structure being prepared for Ranger. | Store files in a private Azure Blob container behind the same interface. |
-| **Email / Teams** (P0: alert the engineering lead; P1: digest) | Outbound | Graph `sendMail` from a shared mailbox (e.g. `ccq-noreply@`) using an application access policy. Teams digest is P1. | IT: mailbox + application access policy | In-app notifications only. |
+| **Email / Teams** (P0: alert the engineering lead; P1: digest) | Outbound | B-18: `MailTransport` in `packages/integrations/src/mail/` (`MAIL_MODE` = graph \| smtp \| fake). Graph `sendMail` as MIME from the shared mailbox (`MAIL_FROM`, e.g. `ccq-noreply@pretiumpkg.com`), app-only `Mail.Send` restricted to that one mailbox by an Exchange application access policy; credentials as for SharePoint. smtp = mailpit locally. Production allows `graph` only. Teams digest is P1. | IT: mailbox + application access policy (M7) | In-app notifications only (set `email_notifications_enabled` to false). |
 | **Entra ID** | Auth | SPA app registration (MSAL, auth code + PKCE) and API app registration (exposes the `access_as_user` scope and app roles). API validates JWTs with `jose`. Graph via the App Service managed identity or a client secret in Key Vault. | IT identity team | `AUTH_MODE=dev` locally only |
 | **Fabric** (D&A) | Out (later) | **Not MVP.** Post-MVP, mirror the CCQ Postgres to Fabric for D&A-certified analytics. MVP dashboards are labelled "operational; not D&A-certified". | Brennan Paul | — |
 | **Ranger AI** | — | P1. Advisory only, via an API when its contract and PoC conclude. | Bailey / Zac | — |

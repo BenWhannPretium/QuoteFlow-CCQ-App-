@@ -31,8 +31,11 @@ import {
   AssignmentResponse,
   EngineeringDetail,
   EngQueueResponse,
+  MarkNotificationReadResponse,
   MarkNotificationsReadResponse,
   NotificationListResponse,
+  PreferencesResponse,
+  type UpdatePreferencesBody,
   StageTimesResponse,
   type CapacityEvidenceBody,
   type EngReviewBody,
@@ -289,9 +292,25 @@ export const api = {
     }),
   stageTimes: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/stage-times`, StageTimesResponse),
-  notifications: () => getJson('/api/v1/notifications', NotificationListResponse),
+  // B-18 notifications and email preferences
+  notifications: (q: { limit?: number; cursor?: string | undefined; unread?: boolean } = {}) =>
+    getJson(
+      `/api/v1/notifications${queryString({
+        limit: q.limit,
+        cursor: q.cursor,
+        unread: q.unread ? 'true' : undefined,
+      })}`,
+      NotificationListResponse,
+    ),
+  markNotificationRead: (id: string) =>
+    getJson(`/api/v1/notifications/${encodeURIComponent(id)}/read`, MarkNotificationReadResponse, {
+      method: 'POST',
+    }),
   markNotificationsRead: () =>
     getJson('/api/v1/notifications/read', MarkNotificationsReadResponse, { method: 'POST' }),
+  preferences: () => getJson('/api/v1/me/preferences', PreferencesResponse),
+  updatePreferences: (body: UpdatePreferencesBody) =>
+    getJson('/api/v1/me/preferences', PreferencesResponse, { method: 'PUT', body }),
 
   // B-11 pricing queue and the Quoting tab
   pricingQueue: (q: PricingQueueParams = {}) =>

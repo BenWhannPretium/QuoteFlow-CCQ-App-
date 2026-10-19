@@ -325,6 +325,7 @@ describe('arrival alert (P0, in-app)', () => {
         and(
           eq(schema.notification.quoteId, quote),
           eq(schema.notification.type, 'quote.ready_for_eng_review'),
+          eq(schema.notification.channel, 'in_app'),
         ),
       );
     const leads = await db.db.execute<{ id: string }>(sql`
@@ -370,6 +371,7 @@ describe('arrival alert (P0, in-app)', () => {
           and(
             eq(schema.notification.quoteId, sub.quoteId),
             eq(schema.notification.type, 'quote.ready_for_eng_review'),
+            eq(schema.notification.channel, 'in_app'),
           ),
         );
       expect(n.length).toBeGreaterThan(0);
@@ -426,6 +428,7 @@ describe('assignment', () => {
         and(
           eq(schema.notification.quoteId, quoteId),
           eq(schema.notification.type, 'quote.assigned'),
+          eq(schema.notification.channel, 'in_app'),
         ),
       );
     expect(note).toMatchObject({ userId: engineer, title: `${qn} is assigned to you` });
@@ -831,7 +834,7 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     await decide(qn, 'G2', { outcomeKey: 'proceed' });
     const id = (await detail(qn)).id;
     const before = await db.db.execute<{ n: number }>(
-      sql`select count(*)::int as n from notification where quote_id = ${id} and type = 'quote.ready_for_eng_review'`,
+      sql`select count(*)::int as n from notification where quote_id = ${id} and type = 'quote.ready_for_eng_review' and channel = 'in_app'`,
     );
     const back = await decide(
       qn,
@@ -842,7 +845,7 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     );
     expect(back.statusCode, back.body).toBe(201);
     const after = await db.db.execute<{ n: number }>(
-      sql`select count(*)::int as n from notification where quote_id = ${id} and type = 'quote.ready_for_eng_review'`,
+      sql`select count(*)::int as n from notification where quote_id = ${id} and type = 'quote.ready_for_eng_review' and channel = 'in_app'`,
     );
     expect(after[0]!.n).toBeGreaterThan(before[0]!.n);
     const d = await detail(qn);

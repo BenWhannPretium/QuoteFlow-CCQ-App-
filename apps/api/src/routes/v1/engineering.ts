@@ -6,8 +6,6 @@ import {
   EngQueueQuery,
   EngQueueResponse,
   EngReviewBody,
-  MarkNotificationsReadResponse,
-  NotificationListResponse,
   QuoteNumberParams,
   StageTimesResponse,
 } from '@ccq/contracts';
@@ -166,37 +164,5 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
     },
     async (req, reply) =>
       handleProblems(req, reply, () => service.stageTimes(withTx(req), req.params.quoteNumber)),
-  );
-
-  app.get(
-    '/notifications',
-    {
-      config: { permission: 'authenticated' },
-      schema: {
-        tags: ['notifications'],
-        summary: 'The caller’s latest in-app notifications and the unread count (B-18 adds email)',
-        security,
-        response: { 200: NotificationListResponse },
-      },
-    },
-    async (req, reply) =>
-      handleProblems(req, reply, () => service.notifications(withTx(req), requireActor(req))),
-  );
-
-  app.post(
-    '/notifications/read',
-    {
-      config: { permission: 'authenticated' },
-      schema: {
-        tags: ['notifications'],
-        summary: 'Mark all of the caller’s notifications read',
-        security,
-        response: { 200: MarkNotificationsReadResponse },
-      },
-    },
-    async (req, reply) =>
-      handleProblems(req, reply, () =>
-        service.markNotificationsRead(withTx(req), requireActor(req)),
-      ),
   );
 };

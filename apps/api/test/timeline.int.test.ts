@@ -128,9 +128,23 @@ describe('comments', () => {
         and(
           eq(schema.notification.quoteId, quoteId),
           eq(schema.notification.type, 'comment.mention'),
+          eq(schema.notification.channel, 'in_app'),
         ),
       );
     expect(notes.map((n) => n.userId)).toEqual([engLead.id]);
+    // B-18: the mentioned user is emailed too, with who mentioned them (never the comment).
+    const [email] = await db.db
+      .select()
+      .from(schema.notification)
+      .where(
+        and(
+          eq(schema.notification.quoteId, quoteId),
+          eq(schema.notification.type, 'comment.mention'),
+          eq(schema.notification.channel, 'email'),
+        ),
+      );
+    expect(email).toMatchObject({ userId: engLead.id, sentAt: null });
+    expect(Object.keys(email!.payload as object)).toEqual(['actor']);
     expect(notes[0]!.title).toContain(qn);
     expect(notes[0]!.body).toContain('sample');
     expect(notes[0]!.body).not.toContain('**');

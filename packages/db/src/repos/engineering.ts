@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
@@ -8,7 +8,6 @@ import {
   capacityEvidence,
   customer,
   engReview,
-  notification,
   quote,
   quoteHold,
   sfOpportunitySnapshot,
@@ -136,42 +135,6 @@ export function listCapacityEvidenceWithNames(db: DbOrTx, quoteId: string) {
     .leftJoin(appUser, eq(appUser.id, capacityEvidence.analystId))
     .where(eq(capacityEvidence.quoteId, quoteId))
     .orderBy(asc(capacityEvidence.analysisDate), asc(capacityEvidence.createdAt));
-}
-
-/** The signed-in user's notifications, newest first, with the unread count (RLS: own rows only). */
-export async function listMyNotifications(db: DbOrTx, userId: string, limit = 20) {
-  const [items, unread] = await Promise.all([
-    db
-      .select({
-        notification,
-        quoteNumber: quote.quoteNumber,
-      })
-      .from(notification)
-      .leftJoin(quote, eq(quote.id, notification.quoteId))
-      .where(and(eq(notification.userId, userId), eq(notification.channel, 'in_app')))
-      .orderBy(sql`${notification.createdAt} desc`, sql`${notification.id} desc`)
-      .limit(limit),
-    db
-      .select({ n: count() })
-      .from(notification)
-      .where(
-        and(
-          eq(notification.userId, userId),
-          eq(notification.channel, 'in_app'),
-          isNull(notification.readAt),
-        ),
-      ),
-  ]);
-  return { items, unread: unread[0]?.n ?? 0 };
-}
-
-export async function markAllNotificationsRead(db: DbOrTx, userId: string, at: Date) {
-  const rows = await db
-    .update(notification)
-    .set({ readAt: at })
-    .where(and(eq(notification.userId, userId), isNull(notification.readAt)))
-    .returning({ id: notification.id });
-  return rows.length;
 }
 
 /** Hold intervals for many quotes at once (the queue's time-in-stage). */

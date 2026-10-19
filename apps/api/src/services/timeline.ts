@@ -33,7 +33,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 
 import { decodeCursor, page } from './cursor';
-import { persistNotifications } from './notifications';
+import { persistNotifications } from './notificationService';
 import { overrideQuoteOf, overrideRecordOf } from './overrides-view';
 import { ServiceProblem } from './problem';
 import type { QuoteReadService, QuoteViewContext } from './quotes';
@@ -242,6 +242,8 @@ export class TimelineService {
           title: `${author} mentioned you on ${quote.quoteNumber}`,
           body: excerpt.length > 280 ? `${excerpt.slice(0, 277)}…` : excerpt,
           excludeUserId: actor.userId,
+          // The email says who and where, never what: the comment may mention prices.
+          payload: { actor: author },
         },
         this.opts.log,
       );

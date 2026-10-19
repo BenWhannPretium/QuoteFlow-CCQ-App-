@@ -10,7 +10,7 @@ Prerequisites: Node 22 (`nvm use`), pnpm 9 (`corepack enable`), Docker.
 ```bash
 cp .env.example .env              # local defaults: AUTH_MODE=dev, synthetic data only
 pnpm i
-docker compose up -d db           # Postgres 16 on :5432 (add `mailpit` for local email)
+docker compose up -d db           # Postgres 16 on :5432 (add `mailpit` and set MAIL_MODE=smtp for local email, inbox on :8025)
 pnpm db:migrate && pnpm db:seed
 pnpm dev                          # web http://localhost:5173 · api http://localhost:3000 · docs http://localhost:3000/docs
 ```

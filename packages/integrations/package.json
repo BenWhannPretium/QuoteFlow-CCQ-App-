@@ -19,6 +19,7 @@
     "@ccq/contracts": "workspace:*",
     "jsforce": "3.10.28",
     "mssql": "12.7.2",
+    "nodemailer": "10.0.16",
     "zod": "4.6.7"
   },
   "devDependencies": {

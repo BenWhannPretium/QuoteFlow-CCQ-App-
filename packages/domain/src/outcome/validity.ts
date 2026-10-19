@@ -97,3 +97,23 @@ export function quotesToFlagExpired<T extends ExpiryCandidate>(
       isValidityLapsed(r.validityUntil, now),
   );
 }
+
+/**
+ * B-18: the pre-expiry warning's selection. Open quotes waiting for the customer whose validity has
+ * `warningDays` days left or fewer (today counts: 0 = last valid day) and has not passed. The caller
+ * dedupes per validity date (a notification dedupe key), so running this daily warns once per state.
+ */
+export function quotesToWarnExpiring<T extends ExpiryCandidate>(
+  rows: readonly T[],
+  now: Date,
+  warningDays: number,
+  stageKey: string = CUSTOMER_DECISION_STAGE_KEY,
+): (T & { daysLeft: number })[] {
+  const out: (T & { daysLeft: number })[] = [];
+  for (const r of rows) {
+    if (r.stageKey !== stageKey || r.status === 'closed') continue;
+    const s = validityStatus(r.validityUntil, now, warningDays);
+    if (s.state === 'expiring' && s.daysLeft !== null) out.push({ ...r, daysLeft: s.daysLeft });
+  }
+  return out;
+}

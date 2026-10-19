@@ -8,6 +8,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
@@ -163,6 +164,36 @@ export const userScope = documented(
     owner: 'Admin',
     description:
       'Data scope per user (architecture §3.2). Enforced by the policy function and by RLS.',
+  },
+);
+
+export const userPreference = documented(
+  pgTable(
+    'user_preference',
+    {
+      ...baseColumns(),
+      userId: c(
+        uuid('user_id')
+          .notNull()
+          .references(() => appUser.id, { onDelete: 'cascade' }),
+        'The user the preference belongs to.',
+      ),
+      key: c(
+        text('key').notNull(),
+        'Preference key, e.g. email.quote.assigned (B-18: email per notification type).',
+      ),
+      value: c(
+        jsonb('value').notNull(),
+        'Preference value; email.* keys hold true or false. A missing row means the default (email on).',
+      ),
+    },
+    (t) => [uniqueIndex('user_preference_user_key_idx').on(t.userId, t.key)],
+  ),
+  {
+    area: 'identity',
+    owner: 'Each user',
+    description:
+      'Per-user preferences (B-18: opt out of email per notification type). In-app notifications cannot be switched off.',
   },
 );
 

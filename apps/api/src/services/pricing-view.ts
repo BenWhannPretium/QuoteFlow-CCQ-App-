@@ -30,7 +30,7 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
-import { persistNotifications } from './notifications';
+import { persistNotifications } from './notificationService';
 
 type PricingRow = Awaited<ReturnType<typeof listPricingRecords>>[number];
 

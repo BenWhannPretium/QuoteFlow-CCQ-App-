@@ -7,7 +7,6 @@ import {
   type EngQueueItem,
   type EngQueueResponse,
   type EngReviewBody,
-  type NotificationListResponse,
   type StageTimesResponse,
 } from '@ccq/contracts';
 import type { Tx } from '@ccq/db';
@@ -23,13 +22,11 @@ import {
   listEngQueueRows,
   listHolds,
   listHoldsForQuotes,
-  listMyNotifications,
   listStageHistory,
   listUsersByIds,
   listValueList,
   loadQuoteState,
   loadWorkflowConfigInput,
-  markAllNotificationsRead,
   resetEngReviewAcceptance,
   updateCapacityEvidence,
   updateQuote,
@@ -70,7 +67,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { loadEngQueueSettings, engineeringView } from './engineering-view';
 import { loadIntakeConfig } from './intake';
-import { persistNotifications } from './notifications';
+import { persistNotifications } from './notificationService';
 import { ServiceProblem } from './problem';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
 import type { ScoringService } from './scoring';
@@ -395,6 +392,7 @@ export class EngineeringService {
             ? 'The engineering review was reassigned to you.'
             : 'You have a new engineering review.',
           excludeUserId: actor.userId,
+          payload: { reassigned: plan.from ? 'yes' : 'no' },
         },
         this.opts.log,
       );
@@ -692,31 +690,6 @@ export class EngineeringService {
         })),
       };
     });
-  }
-
-  async notifications(withTx: EngWithTx, actor: Actor): Promise<NotificationListResponse> {
-    return withTx(async (tx) => {
-      const { items, unread } = await listMyNotifications(tx, actor.userId);
-      return {
-        unread,
-        items: items.map(({ notification: n, quoteNumber }) => ({
-          id: n.id,
-          type: n.type,
-          title: n.title,
-          body: n.body,
-          quoteNumber: quoteNumber ?? null,
-          createdAt: n.createdAt.toISOString(),
-          readAt: iso(n.readAt),
-        })),
-      };
-    });
-  }
-
-  async markNotificationsRead(withTx: EngWithTx, actor: Actor): Promise<{ marked: number }> {
-    const now = this.now();
-    return withTx(async (tx) => ({
-      marked: await markAllNotificationsRead(tx, actor.userId, now),
-    }));
   }
 }
 

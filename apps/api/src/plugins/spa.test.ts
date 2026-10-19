@@ -24,6 +24,7 @@ describe('production SPA serving', () => {
         FILESTORE_MODE: 'sharepoint',
         SP_SITE_ID: 'site',
         SP_DRIVE_ID: 'drive',
+        MAIL_MODE: 'graph',
       }),
       { db: fakeDb() },
     );

@@ -132,28 +132,6 @@ export const StageTimesResponse = z.object({
 });
 export type StageTimesResponse = z.infer<typeof StageTimesResponse>;
 
-// ── In-app notifications (B-10 minimum feed; B-18 adds email and per-item read) ─────────────────
-
-export const NotificationItem = z.object({
-  id: z.string(),
-  type: z.string(),
-  title: z.string(),
-  body: z.string(),
-  quoteNumber: z.string().nullable(),
-  createdAt: z.string(),
-  readAt: z.string().nullable(),
-});
-export type NotificationItem = z.infer<typeof NotificationItem>;
-
-export const NotificationListResponse = z.object({
-  unread: z.number().int(),
-  items: z.array(NotificationItem),
-});
-export type NotificationListResponse = z.infer<typeof NotificationListResponse>;
-
-export const MarkNotificationsReadResponse = z.object({ marked: z.number().int() });
-export type MarkNotificationsReadResponse = z.infer<typeof MarkNotificationsReadResponse>;
-
 export const ENGINEERING_PROBLEM_CODES = {
   notFound: 'not_found',
   notPermitted: 'not_permitted',

@@ -434,3 +434,149 @@ describe('quote number function privileges', () => {
     ).toBe('42501');
   });
 });
+
+describe('RLS on notification and user_preference (B-18)', () => {
+  it('a user reads, marks read and deletes only their own notifications; Admin sees all', async () => {
+    const kam = persona('kam');
+    const engineer = persona('engineer');
+    await db.execute(sql`
+      insert into notification (id, user_id, type, title, body, channel)
+      values (${uuidv7()}, ${kam.id}, 'quote.assigned', 'probe', 'probe', 'in_app'),
+             (${uuidv7()}, ${engineer.id}, 'quote.assigned', 'probe', 'probe', 'in_app')`);
+    await asPersona(db, 'engineer', async (tx) => {
+      const rows = await raw<{ user_id: string }>(
+        tx,
+        sql`select user_id from notification where title = 'probe'`,
+      );
+      expect(rows.map((r) => r.user_id)).toEqual([engineer.id]);
+      // Someone else's row is invisible to an update: zero rows, no error.
+      const touched = await raw(
+        tx,
+        sql`update notification set read_at = now() where title = 'probe' and user_id = ${kam.id} returning id`,
+      );
+      expect(touched).toHaveLength(0);
+    });
+    await asPersona(db, 'admin', async (tx) => {
+      const rows = await raw(tx, sql`select id from notification where title = 'probe'`);
+      expect(rows).toHaveLength(2);
+    });
+    await db.execute(sql`delete from notification where title = 'probe'`);
+  });
+
+  it('any request context can create a notification for someone else, but cannot read it back (no RETURNING)', async () => {
+    const engineer = persona('engineer');
+    await asPersona(db, 'kam', (tx) =>
+      raw(
+        tx,
+        sql`insert into notification (id, user_id, type, title, body, channel)
+            values (${uuidv7()}, ${engineer.id}, 'quote.assigned', 'cross-user', 'x', 'in_app')`,
+      ),
+    );
+    // RETURNING reads the new row through the SELECT policy, which hides it from its creator.
+    expect(
+      await pgError(
+        asPersona(db, 'kam', (tx) =>
+          raw(
+            tx,
+            sql`insert into notification (id, user_id, type, title, body, channel)
+                values (${uuidv7()}, ${engineer.id}, 'quote.assigned', 'cross-user-2', 'x', 'in_app') returning id`,
+          ),
+        ),
+      ),
+    ).toBe('42501');
+    const [row] = await raw<{ n: number }>(
+      db as never,
+      sql`select count(*)::int as n from notification where title like 'cross-user%'`,
+    );
+    expect(row!.n).toBe(1);
+    await db.execute(sql`delete from notification where title like 'cross-user%'`);
+  });
+
+  it('a (user, channel, dedupe key) is written once; a different channel or user is fine', async () => {
+    const kam = persona('kam');
+    const engineer = persona('engineer');
+    const ins = (user: string, channel: string) =>
+      db.execute(sql`
+        insert into notification (id, user_id, type, title, body, channel, dedupe_key)
+        values (${uuidv7()}, ${user}, 'quote.validity_expiring', 'dedupe', 'x', ${channel}, 'k1')
+        on conflict do nothing returning id`);
+    expect(await ins(kam.id, 'in_app')).toHaveLength(1);
+    expect(await ins(kam.id, 'in_app')).toHaveLength(0);
+    expect(await ins(kam.id, 'email')).toHaveLength(1);
+    expect(await ins(engineer.id, 'in_app')).toHaveLength(1);
+    await db.execute(sql`delete from notification where title = 'dedupe'`);
+  });
+
+  it('a sent email cannot also be marked failed', async () => {
+    const kam = persona('kam');
+    expect(
+      await pgError(
+        db.execute(sql`
+          insert into notification (id, user_id, type, title, body, channel, sent_at, failed_at)
+          values (${uuidv7()}, ${kam.id}, 'quote.assigned', 'both', 'x', 'email', now(), now())`),
+      ),
+    ).toBe('23514');
+  });
+
+  it('preferences: every context may read them, only the user (or Admin) writes their own', async () => {
+    const kam = persona('kam');
+    const engineer = persona('engineer');
+    await asPersona(db, 'engineer', (tx) =>
+      raw(
+        tx,
+        sql`insert into user_preference (id, user_id, key, value)
+            values (${uuidv7()}, ${engineer.id}, 'email.quote.assigned', 'false'::jsonb)`,
+      ),
+    );
+    // The KAM, causing an event for the engineer, can read the engineer's opt-out…
+    await asPersona(db, 'kam', async (tx) => {
+      const rows = await raw<{ user_id: string }>(
+        tx,
+        sql`select user_id from user_preference where key = 'email.quote.assigned'`,
+      );
+      expect(rows.map((r) => r.user_id)).toEqual([engineer.id]);
+      // …but an update or a delete of it touches no rows…
+      expect(
+        await raw(
+          tx,
+          sql`update user_preference set value = 'true'::jsonb where user_id = ${engineer.id} returning id`,
+        ),
+      ).toHaveLength(0);
+      expect(
+        await raw(tx, sql`delete from user_preference where user_id = ${engineer.id} returning id`),
+      ).toHaveLength(0);
+      // …and their own they can write.
+      await raw(
+        tx,
+        sql`insert into user_preference (id, user_id, key, value)
+            values (${uuidv7()}, ${kam.id}, 'email.quote.assigned', 'false'::jsonb)`,
+      );
+    });
+    // Writing someone else's is refused by the WITH CHECK.
+    expect(
+      await pgError(
+        asPersona(db, 'kam', (tx) =>
+          raw(
+            tx,
+            sql`insert into user_preference (id, user_id, key, value)
+                values (${uuidv7()}, ${engineer.id}, 'email.quote.declined', 'false'::jsonb)`,
+          ),
+        ),
+      ),
+    ).toBe('42501');
+    // The engineer's flag is still false, and one row per (user, key).
+    const [still] = await raw<{ value: unknown }>(
+      db as never,
+      sql`select value from user_preference where user_id = ${engineer.id} and key = 'email.quote.assigned'`,
+    );
+    expect(still!.value).toBe(false);
+    expect(
+      await pgError(
+        db.execute(sql`
+          insert into user_preference (id, user_id, key, value)
+          values (${uuidv7()}, ${kam.id}, 'email.quote.assigned', 'true'::jsonb)`),
+      ),
+    ).toBe('23505');
+    await db.execute(sql`delete from user_preference where key like 'email.%'`);
+  });
+});
