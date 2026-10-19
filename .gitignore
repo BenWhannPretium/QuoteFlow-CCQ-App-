@@ -31,3 +31,4 @@ Thumbs.db
 
 # B-16 local attachment store (FILESTORE_MODE=local)
 .data/
+.azure-deploy/

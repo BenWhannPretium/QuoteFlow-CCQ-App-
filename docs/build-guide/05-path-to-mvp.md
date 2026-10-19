@@ -63,6 +63,7 @@ Each step: **who**, **what the meeting must produce** (your checklist for the me
 - **After:** file or update the IT tickets (`02` §4).
 
 #### Step 2. Entra and Azure working session · *M2*
+- **Runbook:** [`06-azure-entra-setup.md`](06-azure-entra-setup.md) has every command, labelled IT / Dev.
 - **Who:** Vincent Brown (Entra / app permissions), Tim Webb (IT infra), Alicia Avellaneda-Cruz (IT PM). Optional: Tre.
 - **Why now:** sign-in, roles and the test environment all hang off this. It also creates the Graph permissions SharePoint and email need later.
 - **Leave the meeting with:**
