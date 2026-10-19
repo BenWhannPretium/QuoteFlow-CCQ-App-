@@ -1,5 +1,7 @@
 /**
- * Role landing pages (F-02). The dashboard cards are placeholders until B-17 fills them with data.
+ * Role landing pages (F-02). The header, the call to action and the order of roles live here; the
+ * dashboard blocks themselves come from `GET /api/v1/dashboards/:role` (B-17, `Dashboards.tsx`). Roles
+ * without a data dashboard (Admin, Post-award) keep the static cards below.
  * Copy here names roles and work, never stage or gate labels: those come from config.
  */
 export type LandingRole =
@@ -25,7 +27,8 @@ export interface LandingDefinition {
   title: string;
   description: string;
   action?: { label: string; to: string; permission: string };
-  cards: LandingCard[];
+  /** Static cards, only for roles without a data dashboard. */
+  cards?: LandingCard[];
 }
 
 export const LANDINGS: Record<LandingRole, LandingDefinition> = {
@@ -35,11 +38,6 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     title: 'My quotes',
     description: 'Your intakes and quotes, and anything waiting on you.',
     action: { label: 'New intake', to: '/intake/new', permission: 'quote.create' },
-    cards: [
-      { title: 'Waiting on me', description: 'Quotes returned to you or waiting for an outcome.' },
-      { title: 'My open quotes', description: 'Every open quote you own, by stage.' },
-      { title: 'Recent outcomes', description: 'Quotes closed in the last 30 days.' },
-    ],
   },
   SalesLeader: {
     role: 'SalesLeader',
@@ -47,11 +45,6 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     title: 'Sales pipeline',
     description: 'Qualification decisions and the health of your team’s pipeline.',
     action: { label: 'New intake', to: '/intake/new', permission: 'quote.create' },
-    cards: [
-      { title: 'Ready to qualify', description: 'New intakes waiting for your decision.' },
-      { title: 'Pipeline by stage', description: 'Open quotes and value at each stage.' },
-      { title: 'Overrides to review', description: 'Priority and queue changes awaiting you.' },
-    ],
   },
   EngLead: {
     role: 'EngLead',
@@ -59,11 +52,6 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     title: 'Engineering queue',
     description: 'Assign upfront engineering work and keep the queue moving.',
     action: { label: 'Open the queue', to: '/queue/engineering', permission: 'queue.assign' },
-    cards: [
-      { title: 'Unassigned', description: 'Quotes in engineering with no engineer yet.' },
-      { title: 'In review', description: 'Work in progress by engineer, oldest first.' },
-      { title: 'Capacity', description: 'Load per engineer against the queue.' },
-    ],
   },
   Engineer: {
     role: 'Engineer',
@@ -71,10 +59,6 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     title: 'My assignments',
     description: 'The engineering reviews assigned to you.',
     action: { label: 'Open my work', to: '/queue/engineering', permission: 'engQueue.read' },
-    cards: [
-      { title: 'Assigned to me', description: 'Your open reviews, by priority.' },
-      { title: 'Due soon', description: 'Reviews closest to their target date.' },
-    ],
   },
   Pricing: {
     role: 'Pricing',
@@ -82,11 +66,6 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     title: 'Pricing desk',
     description: 'Quotes ready to price and proposals coming up for renewal.',
     action: { label: 'Open the queue', to: '/queue/pricing', permission: 'quoting.edit' },
-    cards: [
-      { title: 'Ready to quote', description: 'Quotes cleared by engineering, by priority.' },
-      { title: 'In progress', description: 'Quotes you are pricing now.' },
-      { title: 'Expiring proposals', description: 'Proposals near the end of their validity.' },
-    ],
   },
   Approver: {
     role: 'Approver',
@@ -94,21 +73,13 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     title: 'Approvals',
     description: 'Quotes waiting for your final review decision.',
     action: { label: 'Review approvals', to: '/approvals', permission: 'gate.G4.decide' },
-    cards: [
-      { title: 'Waiting for me', description: 'Submitted quotes awaiting your decision.' },
-      { title: 'Decided this week', description: 'Your recent approvals and returns.' },
-    ],
   },
   Leadership: {
     role: 'Leadership',
     roleLabel: 'Leadership',
     title: 'Leadership overview',
     description: 'Pipeline value, throughput and where work is waiting.',
-    cards: [
-      { title: 'Pipeline value', description: 'Open opportunity value by stage and tier.' },
-      { title: 'Throughput', description: 'Quotes in and out per week.' },
-      { title: 'Aging', description: 'Where quotes wait longest.' },
-    ],
+    action: { label: 'Open analytics', to: '/analytics', permission: 'analytics.read' },
   },
   Admin: {
     role: 'Admin',

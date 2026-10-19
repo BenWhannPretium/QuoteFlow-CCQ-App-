@@ -47,8 +47,10 @@ import { problemJsonPlugin } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
+import { AnalyticsService } from './services/analytics';
 import { AttachmentService, LocalLinkSigner } from './services/attachments';
 import { AuditAdminService } from './services/auditAdmin';
+import { DashboardService } from './services/dashboards';
 import { EngineeringService } from './services/engineering';
 import { FinalReviewService } from './services/final-review';
 import { GateService, type NotificationHook } from './services/gateService';
@@ -442,6 +444,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     outcomeService,
     pipelineService,
     attachmentService,
+    analyticsService: new AnalyticsService(now),
+    dashboardService: new DashboardService(now),
     fileStore,
     localSigner,
   });

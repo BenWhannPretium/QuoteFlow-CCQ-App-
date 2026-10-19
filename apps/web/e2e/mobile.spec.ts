@@ -34,9 +34,11 @@ test.describe('390 × 844', () => {
       - paragraph: Your intakes and quotes, and anything waiting on you.
       - link "New intake"
       - region "Dashboard":
-        - heading "Waiting on me" [level=2]
-        - heading "My open quotes" [level=2]
-        - heading "Recent outcomes" [level=2]
+        - heading "Returned to me" [level=2]
+        - heading "My drafts" [level=2]
+        - heading "My open quotes by stage" [level=2]
+        - heading "Proposals expiring soon" [level=2]
+        - heading "My outcome capture rate" [level=2]
     `);
 
     // Visual snapshot, attached to the report for review (pixel baselines differ by OS fonts).

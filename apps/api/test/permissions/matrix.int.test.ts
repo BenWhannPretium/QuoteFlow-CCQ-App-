@@ -22,7 +22,8 @@ const ROLES: Role[] = [
 const allowed = (r: RegisteredRoute, role: Role) =>
   r.permission === 'public' ||
   r.permission === 'authenticated' ||
-  holdsPermission({ roles: [role] }, r.permission);
+  (holdsPermission({ roles: [role] }, r.permission) &&
+    (!r.requires || holdsPermission({ roles: [role] }, r.requires)));
 
 const url = process.env.TEST_DATABASE_URL ?? 'postgres://ccq:ccq@localhost:5432/ccq_test';
 let db: DbClient;
@@ -30,7 +31,8 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 
 beforeAll(async () => {
   db = createDb(url);
-  app = await buildApp(testConfig({ DATABASE_URL: url }), { db });
+  // The matrix makes ~9 requests per registered route from one client: keep it clear of the rate limit.
+  app = await buildApp(testConfig({ DATABASE_URL: url, RATE_LIMIT_MAX: '100000' }), { db });
   await app.ready();
 });
 afterAll(async () => {

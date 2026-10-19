@@ -87,6 +87,18 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 - **Uploader removal window** (`attachment_settings.uploaderRemoveHours`) = 24 h; Admin may always remove (new permission `attachment.removeAny`). *Ask R2/R3* whether EngLead should also hold `attachment.removeAny`.
 - **Blob fallback.** If SharePoint access slips: a private storage account container (`BLOB_ACCOUNT_URL`, `BLOB_CONTAINER`) with the App Service managed identity as Storage Blob Data Contributor (it also signs user-delegation SAS links). Files uploaded under one mode stay in that store: switching modes does not migrate them (their download answers 503 until switched back or migrated).
 
+**B-17 questions for M6 (Thu Oct 22: D&A, Brennan Paul) and R3 (Nov 5: leadership).** Built 2026-10-19. The definitions live in `packages/db/sql/analytics/*.sql` (one `COMMENT ON VIEW` each); D&A can read them and reuse them in Fabric. Config or one SQL line, not a redesign:
+
+- **Windows.** Outcomes are a *proposal cohort* (proposals issued in the window); cycle times use stays that *ended* in the window. *Ask D&A:* is that how the certified models should window them, or by decision date?
+- **Win rate and capture.** Win rate = awarded ÷ (awarded + lost), Expired excluded ("silence is not a loss"); capture = recorded ÷ (recorded + gone dark). The page warns when capture is under 50% (`LOW_CAPTURE_BELOW` in `contracts/analytics.ts`). *Ask R3:* is 50% the right line, and should a win rate be hidden entirely below it?
+- **Amounts** are the Salesforce opportunity amount as entered; there is no price or margin in any chart. *Ask:* is "SF amount as entered" the right label for leadership?
+- **Cycle time** = wall clock minus recorded holds (CR-57). Holds are only the ones recorded at G1–G3/G5; a quote that sits idle without a Hold decision counts as active time. End-to-end stops at the first G4 Approve.
+- **First-pass (S-03)** counts a G1 or G2 Rework as "not first pass"; requests still waiting for G1 are left out. **Gate compliance (S-08)** accepts any decision on the gate, including `SUBMIT` as G1 when G1 is off.
+- **Queue aging buckets** (< 3 / 3–10 / > 10 business days) use `eng_queue_aging_days` for Engineering and, for now, Pricing too. *Ask Gemma* whether Pricing wants its own edges.
+- **Adoption** needs `audit.read` (Leadership, Admin), not `analytics.read`. *Ask R3* whether SalesLeader / others should see it, which needs a summary view that is not row-level secured by audit actor.
+- **Plain views, no 15-minute refresh job** (see B-17 in `03-build-steps.md`). If D&A wants materialized snapshots, they can build them in Fabric from the same SQL.
+- **Region** filters the analytics but not the quote-list drill-down (the list has no region filter yet).
+
 **Provisional choices B-11 shipped for R3 (Thu Nov 5, Gemma Cebolla + pricing analyst) and M5 (Cory McGahan) to confirm (DEC-19/20/23, D-10, D-11, D-PR).** Config rows, not code, except where noted:
 
 - **G3 outcome rules** (workflow config): Submit needs the price approver and approval time, at least one ERF / BPR reference **or** a "no pricing-app record yet" note, and a capital readiness status; **pending capital needs a justification** and then shows as a warning on the decision (D-11 is open: warn, don't block). Hold: reason + review date. Rework (back to Engineering): reason code only, bumps the version. **Stop: reason + note, closes as DECLINED** (was CLOSED_LOST): Pricing's "won't pursue" is internal, like G1/G2. *Ask R3:* should "Costing completed" (CR-25) be required to submit rather than a warning? Should "capital not approved" block?
