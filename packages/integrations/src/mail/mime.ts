@@ -1,4 +1,4 @@
-import MailComposer from 'nodemailer/lib/mail-composer/index.js';
+import MailComposer from 'nodemailer/lib/mail-composer';
 
 import type { MailMessage } from './contract';
 
