@@ -20,6 +20,7 @@ import {
   SkeletonCard,
   StageBadge,
 } from '@/components';
+import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
 import {
@@ -36,22 +37,28 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
-const TABS = ['overview', 'engineering', 'quoting'] as const;
+const TABS = ['overview', 'engineering', 'quoting', 'attachments'] as const;
 const TAB_LABELS: Record<QuoteTab, string> = {
   overview: 'Overview',
   engineering: 'Engineering',
   quoting: 'Quoting',
+  attachments: 'Attachments',
 };
 type QuoteTab = (typeof TABS)[number];
 
 interface QuoteSearch {
-  /** `?tab=engineering` opens the Engineering tab (B-10), `?tab=quoting` the Quoting tab (B-11). */
+  /**
+   * `?tab=engineering` opens the Engineering tab (B-10), `?tab=quoting` the Quoting tab (B-11),
+   * `?tab=attachments` the files (B-16).
+   */
   tab?: QuoteTab;
 }
 
 export const Route = createFileRoute('/quotes/$quoteNumber')({
   validateSearch: (search: Record<string, unknown>): QuoteSearch =>
-    search.tab === 'engineering' || search.tab === 'quoting' ? { tab: search.tab } : {},
+    search.tab === 'engineering' || search.tab === 'quoting' || search.tab === 'attachments'
+      ? { tab: search.tab }
+      : {},
   component: QuotePage,
 });
 
@@ -145,12 +152,12 @@ function QuotePage() {
         }
         className="grid gap-6"
       >
-        <Tabs.List aria-label="Quote sections" className="flex gap-1 border-b">
+        <Tabs.List aria-label="Quote sections" className="flex gap-1 overflow-x-auto border-b">
           {TABS.map((t) => (
             <Tabs.Trigger
               key={t}
               value={t}
-              className="text-foreground-2 data-[state=active]:border-primary data-[state=active]:text-foreground -mb-px min-h-11 border-b-2 border-transparent px-4 text-sm font-medium"
+              className="text-foreground-2 data-[state=active]:border-primary data-[state=active]:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-3 text-sm font-medium sm:px-4"
             >
               {TAB_LABELS[t]}
             </Tabs.Trigger>
@@ -187,6 +194,13 @@ function QuotePage() {
             quote={q}
             onDecide={(outcome) => setDeciding({ gate: 'G2', ...(outcome ? { outcome } : {}) })}
           />
+        </Tabs.Content>
+        <Tabs.Content value="attachments">
+          <Card>
+            <CardContent className="pt-6">
+              <AttachmentsPanel target={{ quoteNumber: q.quoteNumber }} />
+            </CardContent>
+          </Card>
         </Tabs.Content>
         <Tabs.Content value="quoting">
           <QuotingTab

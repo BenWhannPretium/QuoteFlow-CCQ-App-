@@ -22,6 +22,7 @@ export const PERMISSIONS = [
   'overrideLog.read',
   'audit.read',
   'attachment.upload',
+  'attachment.removeAny',
   'export.csv',
   'analytics.read',
   'config.manage',

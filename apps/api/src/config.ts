@@ -68,6 +68,31 @@ const EnvSchema = z
      * flags and notifies; nothing auto-closes (D-12).
      */
     VALIDITY_EXPIRY_INTERVAL_HOURS: z.coerce.number().int().min(0).max(168).default(24),
+
+    /**
+     * B-16 attachments. sharepoint = Graph, app-only, Sites.Selected on the CCQ site (the target, M7);
+     * blob = a private Azure Blob container (the fallback, same interface); local = a folder on disk
+     * (development and CI only; refused in production).
+     */
+    FILESTORE_MODE: z.enum(['sharepoint', 'blob', 'local']).default('local'),
+    /** local: where files go (relative to the API's working directory). */
+    FILESTORE_LOCAL_DIR: nonEmpty.default('.data/files'),
+    /** sharepoint: the CCQ site (recorded at M7; Sites.Selected is granted on it) and its library. */
+    SP_SITE_ID: nonEmpty.optional(),
+    SP_DRIVE_ID: nonEmpty.optional(),
+    /** blob: https://<account>.blob.core.windows.net and the private container. */
+    BLOB_ACCOUNT_URL: z.url({ protocol: /^https$/ }).optional(),
+    BLOB_CONTAINER: nonEmpty.optional(),
+    /**
+     * Graph / Blob credentials. Default: the App Service managed identity (GRAPH_MI_CLIENT_ID for a
+     * user-assigned one). A client secret is for a developer against the **test** site only and is
+     * refused in production.
+     */
+    GRAPH_MI_CLIENT_ID: nonEmpty.optional(),
+    GRAPH_TENANT_ID: nonEmpty.optional(),
+    GRAPH_CLIENT_ID: nonEmpty.optional(),
+    /** SECRET (test site only). Never logged, never in production. */
+    GRAPH_CLIENT_SECRET: nonEmpty.optional(),
   })
   .superRefine((env, ctx) => {
     if (env.AUTH_MODE === 'dev' && env.NODE_ENV === 'production') {
@@ -107,6 +132,48 @@ const EnvSchema = z
           path: [key],
           message: `${key} is required when PRICING_MODE=${env.PRICING_MODE}`,
         });
+      }
+    }
+    const storeRequired =
+      env.FILESTORE_MODE === 'sharepoint'
+        ? (['SP_SITE_ID', 'SP_DRIVE_ID'] as const)
+        : env.FILESTORE_MODE === 'blob'
+          ? (['BLOB_ACCOUNT_URL', 'BLOB_CONTAINER'] as const)
+          : [];
+    for (const key of storeRequired) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: `${key} is required when FILESTORE_MODE=${env.FILESTORE_MODE}`,
+        });
+      }
+    }
+    if (env.FILESTORE_MODE === 'local' && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['FILESTORE_MODE'],
+        message:
+          'FILESTORE_MODE=local is forbidden when NODE_ENV=production. Use sharepoint (or the blob fallback).',
+      });
+    }
+    if (env.GRAPH_CLIENT_SECRET) {
+      if (env.NODE_ENV === 'production') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['GRAPH_CLIENT_SECRET'],
+          message:
+            'GRAPH_CLIENT_SECRET is for the test site only; production uses the managed identity.',
+        });
+      }
+      for (const key of ['GRAPH_TENANT_ID', 'GRAPH_CLIENT_ID'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is required with GRAPH_CLIENT_SECRET`,
+          });
+        }
       }
     }
     if (env.AUTH_MODE === 'entra') {

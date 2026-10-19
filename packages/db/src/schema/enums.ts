@@ -13,7 +13,9 @@ export const CAPITAL_READINESS = [
   'pre_approved',
   'not_approved',
 ] as const;
-export const ATTACHMENT_KINDS = ['bottle_drawing', 'spec', 'sample_photo', 'other'] as const;
+export { ATTACHMENT_KINDS } from '@ccq/domain';
+/** B-16: where an attachment's bytes are (FILESTORE_MODE). */
+export const ATTACHMENT_STORAGES = ['sharepoint', 'blob', 'local'] as const;
 export const ACCEPTANCE_EVIDENCE = ['verbal', 'po', 'loi', 'contract'] as const;
 export const NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
 export const INTEGRATION_SOURCES = ['salesforce', 'pricing', 'sharepoint'] as const;

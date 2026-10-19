@@ -1,8 +1,9 @@
 import type { IntakeAddress, IntakeDraftData } from '@ccq/contracts';
 import type { IntakeEvaluation } from '@ccq/domain';
-import { PaperclipIcon, PencilIcon, Undo2Icon } from 'lucide-react';
+import { PencilIcon, Undo2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 
@@ -559,7 +560,8 @@ export function ReviewStep({
   cfg,
   evaluation,
   goTo,
-}: StepProps & { goTo: (step: number) => void }) {
+  draftId,
+}: StepProps & { goTo: (step: number) => void; draftId: string }) {
   const drawingMissing = evaluation.warnings.find((w) => w.code === 'DRAWING_MISSING');
   const other = evaluation.warnings.filter((w) => w.code !== 'ENRICH');
   const enrich = evaluation.warnings.filter((w) => w.code === 'ENRICH');
@@ -631,15 +633,13 @@ export function ReviewStep({
             cfg={cfg}
           />
         </Field>
-        <div>
-          <Button variant="outline" disabled aria-describedby="upload-later">
-            <PaperclipIcon aria-hidden /> Attach drawing
-          </Button>
-          <p id="upload-later" className="text-muted-foreground mt-1 text-xs">
-            Uploads arrive with SharePoint storage. For now, choose the drawing status and send the
-            file to Engineering as usual.
-          </p>
-        </div>
+        {/* B-16: files wait in the draft's folder and move to the quote's on submit. */}
+        <AttachmentsPanel
+          target={{ draftId }}
+          heading="Drawing and other files"
+          headingLevel={3}
+          onDrawingStatus={(code) => update({ drawingStatus: code })}
+        />
         <Field {...meta(cfg, 'comments_for_engineering')}>
           <Textarea
             id={fid('comments_for_engineering')}

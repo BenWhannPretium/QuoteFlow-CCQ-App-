@@ -325,6 +325,7 @@ export class FinalReviewService {
           uploadedByName: uploaders.find((u) => u.id === a.uploadedBy)?.displayName ?? null,
           uploadedAt: a.createdAt.toISOString(),
           webUrl: a.spWebUrl,
+          available: a.storage !== null && a.storageItemId !== null,
         })),
         warnings,
         decisions,

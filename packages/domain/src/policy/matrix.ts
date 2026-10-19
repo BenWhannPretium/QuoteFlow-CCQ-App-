@@ -89,6 +89,9 @@ export const PERMISSION_MATRIX: Readonly<
     Engineer: true,
     Pricing: true,
   },
+  // B-16: soft-delete any file. An uploader may remove their own within attachment_settings'
+  // uploaderRemoveHours (domain attachmentRemoval); this grant is for everyone else's.
+  'attachment.removeAny': { Admin: true },
   'export.csv': {
     KAM: true,
     SalesLeader: true,

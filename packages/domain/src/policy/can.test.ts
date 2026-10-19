@@ -50,6 +50,7 @@ const EXPECTED: Record<string, Role[]> = {
   'overrideLog.read': ['Leadership', 'Admin'],
   'audit.read': ['Leadership', 'Admin'],
   'attachment.upload': ['KAM', 'SalesLeader', 'EngLead', 'Engineer', 'Pricing'],
+  'attachment.removeAny': ['Admin'],
   'export.csv': ['KAM', 'SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
   'analytics.read': ['SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
   'config.manage': ['Admin'],

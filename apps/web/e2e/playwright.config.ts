@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -14,6 +16,7 @@ const webPort = Number(process.env.E2E_WEB_PORT ?? 4173);
 const smokeURL = `http://localhost:${smokePort}`;
 const webURL = `http://localhost:${webPort}`;
 const databaseUrl = process.env.DATABASE_URL ?? 'postgres://ccq:ccq@localhost:5432/ccq';
+const e2eFilesDir = fileURLToPath(new URL('../../../.data/e2e-files', import.meta.url));
 
 export default defineConfig({
   testDir: '.',
@@ -41,6 +44,7 @@ export default defineConfig({
         'pricing.spec.ts',
         'outcome.spec.ts',
         'pipeline.spec.ts',
+        'attachments.spec.ts',
         'board-perf.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
@@ -78,6 +82,10 @@ export default defineConfig({
         APP_BASE_URL: smokeURL,
         GIT_SHA: process.env.GIT_SHA ?? 'e2e',
         LOG_LEVEL: 'warn',
+        // Production refuses the local store; signed-out smoke never touches files.
+        FILESTORE_MODE: 'blob',
+        BLOB_ACCOUNT_URL: 'https://ccqe2e.blob.core.windows.net',
+        BLOB_CONTAINER: 'e2e',
       },
     },
     {
@@ -93,6 +101,9 @@ export default defineConfig({
         APP_BASE_URL: webURL,
         GIT_SHA: process.env.GIT_SHA ?? 'e2e',
         RATE_LIMIT_MAX: '100000',
+        // B-16: uploads land in a git-ignored folder at the repo root.
+        FILESTORE_MODE: 'local',
+        FILESTORE_LOCAL_DIR: e2eFilesDir,
       },
     },
     {

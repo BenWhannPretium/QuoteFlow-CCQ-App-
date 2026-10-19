@@ -19,6 +19,7 @@ import { stageDefinition } from './config';
 import {
   ACCEPTANCE_EVIDENCE,
   ATTACHMENT_KINDS,
+  ATTACHMENT_STORAGES,
   CAPITAL_READINESS,
   CUSTOMER_STATUSES,
   OVERRIDE_APPROVAL_MODES,
@@ -806,26 +807,79 @@ export const attachment = documented(
     'attachment',
     {
       ...baseColumns(),
-      quoteId: c(quoteRef(), 'Quote.'),
+      quoteId: c(
+        uuid('quote_id').references(() => quote.id, { onDelete: 'restrict' }),
+        'Quote. Null while the file sits on an intake draft (set on submit).',
+      ),
+      draftId: c(
+        uuid('draft_id').references(() => quoteDraft.id, { onDelete: 'set null' }),
+        'Intake draft the file was uploaded to (B-16); kept after submit for provenance. Null once a deleted draft took its (removed) files with it.',
+        KAM,
+      ),
       kind: c(text('kind').notNull(), 'bottle_drawing | spec | sample_photo | other.'),
-      fileName: c(text('file_name').notNull(), 'Original file name.'),
+      fileName: c(
+        text('file_name').notNull(),
+        'Original file name (metadata; the stored name is sanitized).',
+      ),
+      storedName: c(
+        text('stored_name'),
+        'Sanitized name in storage (after any conflict rename).',
+        SYSTEM,
+      ),
       size: c(bigint('size', { mode: 'number' }).notNull(), 'Size in bytes.'),
-      mime: c(text('mime').notNull(), 'MIME type.'),
+      mime: c(
+        text('mime').notNull(),
+        'Canonical MIME type for the verified file type (never the browser claim).',
+      ),
+      note: c(text('note'), 'Optional note from the uploader.'),
+      sha256: c(text('sha256'), 'SHA-256 of the bytes as streamed (hex).', SYSTEM),
+      storage: c(
+        text('storage'),
+        'sharepoint | blob | local (FILESTORE_MODE at upload). Null: metadata only, no bytes (synthetic seed).',
+        SYSTEM,
+      ),
+      storageItemId: c(
+        text('storage_item_id'),
+        "The store's id for the file: Graph driveItem id, blob name or local path.",
+        SYSTEM,
+      ),
+      storagePath: c(
+        text('storage_path'),
+        'Current folder path in the store (quote folder, draft folder, or the removed folder).',
+        SYSTEM,
+      ),
       spDriveId: c(text('sp_drive_id'), 'SharePoint drive id.', 'SharePoint'),
       spItemId: c(text('sp_item_id'), 'SharePoint item id.', 'SharePoint'),
       spWebUrl: c(text('sp_web_url'), 'SharePoint web URL.', 'SharePoint'),
       uploadedBy: c(userRef('uploaded_by').notNull(), 'Uploader.'),
+      removedAt: c(
+        timestamptz('removed_at'),
+        'Soft delete: when the file was removed (moved to the removed folder).',
+        SYSTEM,
+      ),
+      removedBy: c(userRef('removed_by'), 'Who removed it.', SYSTEM),
     },
     (t) => [
       check('attachment_kind_check', inList(t.kind, ATTACHMENT_KINDS)),
       check('attachment_size_check', sql`${t.size} >= 0`),
+      check('attachment_storage_check', inList(t.storage, ATTACHMENT_STORAGES)),
+      check(
+        'attachment_owner_check',
+        sql`${t.quoteId} is not null or ${t.draftId} is not null or ${t.removedAt} is not null`,
+      ),
+      check(
+        'attachment_removed_consistency_check',
+        sql`(${t.removedAt} is null) = (${t.removedBy} is null)`,
+      ),
       index('attachment_quote_idx').on(t.quoteId),
+      index('attachment_draft_idx').on(t.draftId),
     ],
   ),
   {
     area: 'workflow',
     owner: 'Uploader',
-    description: 'Attachment metadata. Bytes live in SharePoint (/CCQ/{quote_number}/).',
+    description:
+      'Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.quoteFolder, /CCQ/{quote_number}/), or Blob/local by FILESTORE_MODE. Removal is soft.',
   },
 );
 
