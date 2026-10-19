@@ -1,3 +1,5 @@
+import type { Permission } from '@ccq/domain';
+
 import type { RoutePermission } from '../../src/plugins/auth';
 
 /**
@@ -18,6 +20,12 @@ export interface RegisteredRoute {
   route: string;
   url?: string;
   permission: RoutePermission | 'public';
+  /**
+   * A permission the service checks on top of the route's own (B-17 `/dashboards/:role` opens a role's
+   * dashboard only with the permission behind it). Roles without it are denied (403), not just those
+   * without the route's permission.
+   */
+  requires?: Permission;
   sampleBody?: unknown;
 }
 
@@ -338,5 +346,27 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/files/local',
     url: '/api/v1/files/local?t=not-a-signed-token',
     permission: 'public',
+  },
+  // B-17 operational analytics: one endpoint per chart. analytics.read (SalesLeader, EngLead, Pricing,
+  // Approver, Leadership, Admin); adoption reads the audit log, so it needs audit.read.
+  { method: 'GET', route: '/api/v1/analytics/filters', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/pipeline', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/cycle-time', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/flow', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/outcomes', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/first-pass', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/g1-yield', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/overrides', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/gate-compliance', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/priority', permission: 'analytics.read' },
+  { method: 'GET', route: '/api/v1/analytics/adoption', permission: 'audit.read' },
+  // Role dashboards: the floor is quote.read; the Leadership dashboard needs analytics.read on top
+  // (the other six roles' dashboards are covered in analytics.int.test.ts).
+  {
+    method: 'GET',
+    route: '/api/v1/dashboards/:role',
+    url: '/api/v1/dashboards/Leadership',
+    permission: 'quote.read',
+    requires: 'analytics.read',
   },
 ];

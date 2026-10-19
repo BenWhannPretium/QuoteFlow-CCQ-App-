@@ -46,12 +46,13 @@ export default defineConfig({
         'pipeline.spec.ts',
         'attachments.spec.ts',
         'board-perf.spec.ts',
+        'dashboards.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },
     {
       name: 'mobile',
-      testMatch: ['mobile.spec.ts', 'final-review.spec.ts'],
+      testMatch: ['mobile.spec.ts', 'final-review.spec.ts', 'dashboards.mobile.spec.ts'],
       // 390 × 844 (iPhone 12–14 class) on Chromium.
       use: {
         ...devices['Desktop Chrome'],

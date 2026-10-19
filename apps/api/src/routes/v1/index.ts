@@ -2,6 +2,7 @@ import type { FileStore } from '@ccq/integrations';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { adminRoutes } from './admin';
+import { analyticsRoutes } from './analytics';
 import { attachmentRoutes } from './attachments';
 import { auditRoutes } from './audit';
 import { authConfigRoutes } from './auth-config';
@@ -23,8 +24,10 @@ import type { AppDeps } from '../../app';
 import type { IdentityService } from '../../auth/directory';
 import type { AppConfig } from '../../config';
 import type { SfSyncScheduler } from '../../jobs/sfSync';
+import type { AnalyticsService } from '../../services/analytics';
 import type { AttachmentService, LocalLinkSigner } from '../../services/attachments';
 import type { AuditAdminService } from '../../services/auditAdmin';
+import type { DashboardService } from '../../services/dashboards';
 import type { EngineeringService } from '../../services/engineering';
 import type { FinalReviewService } from '../../services/final-review';
 import type { GateService } from '../../services/gateService';
@@ -56,6 +59,8 @@ export interface V1Options {
   outcomeService: OutcomeService;
   pipelineService: PipelineService;
   attachmentService: AttachmentService;
+  analyticsService: AnalyticsService;
+  dashboardService: DashboardService;
   fileStore: FileStore;
   localSigner: LocalLinkSigner;
 }
@@ -85,6 +90,8 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     outcomeService,
     pipelineService,
     attachmentService,
+    analyticsService,
+    dashboardService,
     fileStore,
     localSigner,
   },
@@ -113,5 +120,8 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     signer: localSigner,
     ...(deps.now ? { now: deps.now } : {}),
   });
-  // TODO(B-17+): dashboards.
+  await app.register(analyticsRoutes, {
+    analytics: analyticsService,
+    dashboards: dashboardService,
+  });
 };

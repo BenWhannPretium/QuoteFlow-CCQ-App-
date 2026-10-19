@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -7,11 +8,21 @@ import postgres from 'postgres';
 import { commentStatements } from './dictionary/model';
 
 export const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations', import.meta.url));
+/** B-17: the analytics views. One definition of every operational metric; D&A reuses these files. */
+export const ANALYTICS_SQL_DIR = fileURLToPath(new URL('../sql/analytics', import.meta.url));
+
+/** The analytics view files, in apply order (`00_…`, `10_…`). */
+export function analyticsSqlFiles(): { name: string; sql: string }[] {
+  return readdirSync(ANALYTICS_SQL_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((name) => ({ name, sql: readFileSync(`${ANALYTICS_SQL_DIR}/${name}`, 'utf8') }));
+}
 
 /**
- * Apply all pending drizzle migrations, then (re)apply the schema's table and column comments.
- * Comments are derived from the Drizzle schema, so they are refreshed on every run rather than
- * frozen into a migration.
+ * Apply all pending drizzle migrations, then (re)apply the schema's table and column comments and
+ * the analytics views. Comments are derived from the Drizzle schema, and the views are `drop … create`
+ * files, so both are refreshed on every run rather than frozen into a migration.
  */
 export async function runMigrations(databaseUrl: string): Promise<void> {
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
@@ -19,6 +30,10 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
     await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS_DIR });
     await sql.begin(async (tx) => {
       for (const statement of commentStatements()) await tx.unsafe(statement);
+    });
+    // One transaction: a bad view file leaves the previous definitions in place.
+    await sql.begin(async (tx) => {
+      for (const file of analyticsSqlFiles()) await tx.unsafe(file.sql);
     });
   } finally {
     await sql.end({ timeout: 5 });

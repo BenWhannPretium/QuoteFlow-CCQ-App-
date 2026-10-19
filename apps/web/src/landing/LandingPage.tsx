@@ -1,6 +1,6 @@
+import { DASHBOARD_ROLES, type DashboardRole } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { LayoutDashboardIcon } from 'lucide-react';
 
 import { canFromMe, useCurrentUser } from '@/auth';
 import { EmptyState } from '@/components/EmptyState';
@@ -14,12 +14,16 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
+import { RoleDashboard } from './Dashboards';
 import { LANDINGS, landingFor, landingRolesFor, type LandingDefinition } from './landings';
 
 /**
- * F-02 role landing: the dashboard for the user's primary role (multi-role users get tabs).
- * Cards are placeholders until B-17 connects them to data.
+ * F-02 role landing: the dashboard for the user's primary role (multi-role users get tabs). The blocks
+ * are computed by `GET /api/v1/dashboards/:role` (B-17); Admin and Post-award keep static cards.
  */
+const isDashboardRole = (role: string): role is DashboardRole =>
+  (DASHBOARD_ROLES as readonly string[]).includes(role);
+
 export function LandingPage({ requestedRole }: { requestedRole: string | undefined }) {
   const me = useCurrentUser();
   const landing = landingFor(me.roles, requestedRole);
@@ -53,24 +57,24 @@ export function LandingPage({ requestedRole }: { requestedRole: string | undefin
         }
       />
       {roles.length > 1 && <RoleTabs roles={roles} current={landing} />}
-      <section aria-label="Dashboard" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {landing.cards.map((card) => (
-          <Card key={card.title} data-testid="landing-card">
-            <CardHeader>
-              <CardTitle>
-                <h2 className="text-base font-semibold">{card.title}</h2>
-              </CardTitle>
-              <CardDescription>{card.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <LayoutDashboardIcon className="size-4" aria-hidden="true" />
-                Live figures arrive in B-17.
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {landing.role === 'Admin' && <SystemStatusCard />}
+      <section aria-label="Dashboard" className="grid gap-4 lg:grid-cols-2">
+        {isDashboardRole(landing.role) ? (
+          <RoleDashboard role={landing.role} />
+        ) : (
+          <>
+            {landing.cards?.map((card) => (
+              <Card key={card.title} data-testid="landing-card">
+                <CardHeader>
+                  <CardTitle>
+                    <h2 className="text-base font-semibold">{card.title}</h2>
+                  </CardTitle>
+                  <CardDescription>{card.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+            {landing.role === 'Admin' && <SystemStatusCard />}
+          </>
+        )}
       </section>
     </div>
   );

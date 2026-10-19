@@ -1,4 +1,17 @@
 import {
+  AdoptionResponse,
+  AnalyticsFiltersResponse,
+  CycleTimeResponse,
+  DashboardResponse,
+  FirstPassResponse,
+  FlowResponse,
+  G1YieldResponse,
+  GateComplianceResponse,
+  OutcomesResponse,
+  OverridesResponse,
+  PipelineResponse,
+  PriorityResponse,
+  type DashboardRole,
   AttachmentDownloadResponse,
   AttachmentListResponse,
   AttachmentUploadResponse,
@@ -80,6 +93,16 @@ export interface EngQueueParams {
   productFamily?: string;
   q?: string;
 }
+
+/** GET /analytics/* filters: US Central days and single or comma-joined dimension values. */
+export type AnalyticsQueryParams = {
+  from?: string | undefined;
+  to?: string | undefined;
+  market?: string | undefined;
+  productFamily?: string | undefined;
+  kam?: string | undefined;
+  region?: string | undefined;
+};
 
 /** GET /queue/pricing filters (contracts `PricingQueueQuery`), as sent on the URL. */
 export interface PricingQueueParams {
@@ -292,6 +315,30 @@ export const api = {
   updateHandoff: (quoteNumber: string, body: HandoffBody) =>
     getJson(`${quotePath(quoteNumber)}/handoff`, HandoffResponse, { method: 'PUT', body }),
   outcomesReport: () => getJson('/api/v1/admin/reports/outcomes', OutcomesReport),
+
+  // B-17 role dashboards and operational analytics. Every figure is computed on the server.
+  dashboard: (role: DashboardRole) => getJson(`/api/v1/dashboards/${role}`, DashboardResponse),
+  analyticsFilters: () => getJson('/api/v1/analytics/filters', AnalyticsFiltersResponse),
+  analyticsPipeline: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/pipeline${queryString(q)}`, PipelineResponse),
+  analyticsCycleTime: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/cycle-time${queryString(q)}`, CycleTimeResponse),
+  analyticsFlow: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/flow${queryString(q)}`, FlowResponse),
+  analyticsOutcomes: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/outcomes${queryString(q)}`, OutcomesResponse),
+  analyticsFirstPass: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/first-pass${queryString(q)}`, FirstPassResponse),
+  analyticsG1Yield: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/g1-yield${queryString(q)}`, G1YieldResponse),
+  analyticsOverrides: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/overrides${queryString(q)}`, OverridesResponse),
+  analyticsGateCompliance: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/gate-compliance${queryString(q)}`, GateComplianceResponse),
+  analyticsPriority: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/priority${queryString(q)}`, PriorityResponse),
+  analyticsAdoption: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/adoption${queryString(q)}`, AdoptionResponse),
 
   // B-09 usage audit (Leadership + Admin)
   auditEvents: (q: Partial<AuditQuery>) =>

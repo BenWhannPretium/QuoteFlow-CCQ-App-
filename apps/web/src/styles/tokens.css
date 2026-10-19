@@ -94,6 +94,23 @@
   --input: var(--pf-control-line);
   --ring: var(--pf-copper);
 
+  /*
+   * Data visualisation (B-17). Green is the data colour, copper is emphasis or alert only. The ordinal
+   * ramp (stages in order) passes the dataviz validator (monotone lightness, single hue, visible steps);
+   * its light end is under 3:1 on white, so every chart has a legend and a table view, and stacked
+   * segments are separated by a 2px surface gap. Never use these for chrome.
+   */
+  --dv-ramp-1: #9cb3b1;
+  --dv-ramp-2: #7a9a97;
+  --dv-ramp-3: #58807c;
+  --dv-ramp-4: #3c6b66;
+  --dv-ramp-5: #225651;
+  --dv-primary: #225651;
+  --dv-secondary: #84a29f;
+  --dv-emphasis: #c05131;
+  --dv-grid: #dfe6e5;
+  --dv-axis: #416f6b;
+
   /* QuoteFlow additions */
   --action: var(--pf-copper);
   --action-hover: var(--pf-copper-hover);
@@ -137,6 +154,17 @@
   --pf-tier-low-fg: #dcd5be;
 
   --pf-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.25);
+
+  --dv-ramp-1: #3f6d67;
+  --dv-ramp-2: #5c8c86;
+  --dv-ramp-3: #7fa9a3;
+  --dv-ramp-4: #a6c6c1;
+  --dv-ramp-5: #d2e4e1;
+  --dv-primary: #7fb8b1;
+  --dv-secondary: #3f6d67;
+  --dv-emphasis: #e08a68;
+  --dv-grid: #22403b;
+  --dv-axis: #9cb3b1;
 
   --primary: #7fb8b1;
   --primary-foreground: #0d1a18;
