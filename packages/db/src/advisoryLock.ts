@@ -9,6 +9,8 @@ export const ADVISORY_LOCKS = {
   sfSync: 606_001n,
   /** B-13: daily proposal validity expiry flags. */
   validityExpiry: 1_301_001n,
+  /** B-18: the email dispatcher (and the to-qualify digest). */
+  notificationDispatch: 1_801_001n,
 } as const;
 
 /**

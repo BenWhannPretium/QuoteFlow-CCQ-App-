@@ -14,6 +14,7 @@ import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as BoardRouteImport } from './routes/board'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ProposalsRouteImport } from './routes/proposals'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminSplatRouteImport } from './routes/admin/$'
@@ -22,6 +23,7 @@ import { Route as AdminIntegrationsRouteImport } from './routes/admin/integratio
 import { Route as AdminOverrideLogRouteImport } from './routes/admin/override-log'
 import { Route as AdminUiKitRouteImport } from './routes/admin/ui-kit'
 import { Route as IntakeNewRouteImport } from './routes/intake/new'
+import { Route as MePreferencesRouteImport } from './routes/me/preferences'
 import { Route as QueueEngineeringRouteImport } from './routes/queue/engineering'
 import { Route as QueuePricingRouteImport } from './routes/queue/pricing'
 import { Route as QuotesIndexRouteImport } from './routes/quotes/index'
@@ -54,6 +56,11 @@ const ApprovalsRoute = ApprovalsRouteImport.update({
 const BoardRoute = BoardRouteImport.update({
   id: '/board',
   path: '/board',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProposalsRoute = ProposalsRouteImport.update({
@@ -94,6 +101,11 @@ const AdminUiKitRoute = AdminUiKitRouteImport.update({
 const IntakeNewRoute = IntakeNewRouteImport.update({
   id: '/intake/new',
   path: '/intake/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MePreferencesRoute = MePreferencesRouteImport.update({
+  id: '/me/preferences',
+  path: '/me/preferences',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QueueEngineeringRoute = QueueEngineeringRouteImport.update({
@@ -143,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
+  '/notifications': typeof NotificationsRoute
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -150,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
+  '/me/preferences': typeof MePreferencesRoute
   '/queue/engineering': typeof QueueEngineeringRoute
   '/queue/pricing': typeof QueuePricingRoute
   '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
@@ -165,6 +179,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
+  '/notifications': typeof NotificationsRoute
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -172,6 +187,7 @@ export interface FileRoutesByTo {
   '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
+  '/me/preferences': typeof MePreferencesRoute
   '/queue/engineering': typeof QueueEngineeringRoute
   '/queue/pricing': typeof QueuePricingRoute
   '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
@@ -189,6 +205,7 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
+  '/notifications': typeof NotificationsRoute
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -196,6 +213,7 @@ export interface FileRoutesById {
   '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
   '/intake/new': typeof IntakeNewRoute
+  '/me/preferences': typeof MePreferencesRoute
   '/queue/engineering': typeof QueueEngineeringRoute
   '/queue/pricing': typeof QueuePricingRoute
   '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
@@ -214,6 +232,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/approvals'
     | '/board'
+    | '/notifications'
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
@@ -221,6 +240,7 @@ export interface FileRouteTypes {
     | '/admin/override-log'
     | '/admin/ui-kit'
     | '/intake/new'
+    | '/me/preferences'
     | '/queue/engineering'
     | '/queue/pricing'
     | '/quotes/$quoteNumber'
@@ -236,6 +256,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/approvals'
     | '/board'
+    | '/notifications'
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
@@ -243,6 +264,7 @@ export interface FileRouteTypes {
     | '/admin/override-log'
     | '/admin/ui-kit'
     | '/intake/new'
+    | '/me/preferences'
     | '/queue/engineering'
     | '/queue/pricing'
     | '/quotes/$quoteNumber'
@@ -259,6 +281,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/approvals'
     | '/board'
+    | '/notifications'
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
@@ -266,6 +289,7 @@ export interface FileRouteTypes {
     | '/admin/override-log'
     | '/admin/ui-kit'
     | '/intake/new'
+    | '/me/preferences'
     | '/queue/engineering'
     | '/queue/pricing'
     | '/quotes/$quoteNumber'
@@ -283,8 +307,10 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   ApprovalsRoute: typeof ApprovalsRoute
   BoardRoute: typeof BoardRoute
+  NotificationsRoute: typeof NotificationsRoute
   ProposalsRoute: typeof ProposalsRoute
   IntakeNewRoute: typeof IntakeNewRoute
+  MePreferencesRoute: typeof MePreferencesRoute
   QueueEngineeringRoute: typeof QueueEngineeringRoute
   QueuePricingRoute: typeof QueuePricingRoute
   QuotesQuoteNumberRoute: typeof QuotesQuoteNumberRoute
@@ -327,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/board'
       fullPath: '/board'
       preLoaderRoute: typeof BoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proposals': {
@@ -383,6 +416,13 @@ declare module '@tanstack/react-router' {
       path: '/intake/new'
       fullPath: '/intake/new'
       preLoaderRoute: typeof IntakeNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me/preferences': {
+      id: '/me/preferences'
+      path: '/me/preferences'
+      fullPath: '/me/preferences'
+      preLoaderRoute: typeof MePreferencesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/queue/engineering': {
@@ -478,8 +518,10 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   ApprovalsRoute: ApprovalsRoute,
   BoardRoute: BoardRoute,
+  NotificationsRoute: NotificationsRoute,
   ProposalsRoute: ProposalsRoute,
   IntakeNewRoute: IntakeNewRoute,
+  MePreferencesRoute: MePreferencesRoute,
   QueueEngineeringRoute: QueueEngineeringRoute,
   QueuePricingRoute: QueuePricingRoute,
   QuotesQuoteNumberRoute: QuotesQuoteNumberRoute,

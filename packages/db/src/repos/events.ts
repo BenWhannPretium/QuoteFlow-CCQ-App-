@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, gte } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { activityEvent, auditEvent, notification } from '../schema/index';
@@ -55,21 +55,4 @@ export const listActivity = (db: DbOrTx, quoteId: string) =>
 export async function insertNotification(db: DbOrTx, values: typeof notification.$inferInsert) {
   const [row] = await db.insert(notification).values(values).returning();
   return row!;
-}
-
-export const listUnreadNotifications = (db: DbOrTx, userId: string) =>
-  db
-    .select()
-    .from(notification)
-    .where(and(eq(notification.userId, userId), isNull(notification.readAt)))
-    .orderBy(desc(notification.createdAt));
-
-export const markNotificationRead = (db: DbOrTx, id: string, at: Date) =>
-  db.update(notification).set({ readAt: at }).where(eq(notification.id, id));
-
-export async function insertNotifications(
-  db: DbOrTx,
-  values: (typeof notification.$inferInsert)[],
-): Promise<void> {
-  if (values.length > 0) await db.insert(notification).values(values);
 }

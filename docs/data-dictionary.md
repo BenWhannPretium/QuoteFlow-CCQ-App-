@@ -9,7 +9,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 
 ## Tables
 
-- **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_role`](#user_role), [`user_scope`](#user_scope)
+- **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
 - **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`notification`](#notification)
@@ -60,6 +60,24 @@ Permission matrix (architecture §3.4) as config, seeded from packages/domain/sr
 | `qualifier` | jsonb | yes |  |  | Null for an unrestricted grant, else {kind: own \| assigned \| fields \| stages, …} (policy/matrix.ts). | Admin / Knowledge Steward |
 
 **Checks:** `role_permission_role_check`, `role_permission_permission_check`
+
+### user_preference
+
+Per-user preferences (B-18: opt out of email per notification type). In-app notifications cannot be switched off.
+
+**Owner:** Each user
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `user_id` | uuid | no |  | app_user.id | The user the preference belongs to. | Each user |
+| `key` | text | no |  |  | Preference key, e.g. email.quote.assigned (B-18: email per notification type). | Each user |
+| `value` | jsonb | no |  |  | Preference value; email.* keys hold true or false. A missing row means the default (email on). | Each user |
+
+**Indexes:** `user_preference_user_key_idx`
 
 ### user_role
 
@@ -839,7 +857,7 @@ Append-only usage and change audit (F-12). UPDATE/DELETE revoked from ccq_app an
 
 ### notification
 
-In-app and email notifications.
+In-app notifications (channel in_app) and the email outbox (channel email, sent by the dispatcher with retries).
 
 **Owner:** CCQ (system)
 
@@ -857,11 +875,16 @@ In-app and email notifications.
 | `read_at` | timestamp with time zone | yes |  |  | When the recipient read it. | CCQ (system) |
 | `channel` | text | no | "in_app" |  | in_app \| email. | CCQ (system) |
 | `sent_at` | timestamp with time zone | yes |  |  | When delivered (email). | CCQ (system) |
-| `error` | text | yes |  |  | Last delivery error. | CCQ (system) |
+| `error` | text | yes |  |  | Last delivery error (a code and a short message; never the content). | CCQ (system) |
+| `dedupe_key` | text | yes |  |  | Once-per-state key (e.g. quote.validity_expiring:<quote>:<date>, digest:<date>). Unique per user and channel when set. | CCQ (system) |
+| `payload` | jsonb | no | {} |  | Non-commercial facts the email is built from (actor name, reason label, validity date). Never prices or capital. | CCQ (system) |
+| `attempts` | integer | no | 0 |  | Email send attempts so far (3 tries, then failed_at). | CCQ (system) |
+| `next_attempt_at` | timestamp with time zone | yes |  |  | Email: when the dispatcher may try next. Null for in-app rows. | CCQ (system) |
+| `failed_at` | timestamp with time zone | yes |  |  | Email: set when the last retry failed; the owners were alerted. | CCQ (system) |
 
-**Checks:** `notification_channel_check`
+**Checks:** `notification_channel_check`, `notification_delivery_state_check`
 
-**Indexes:** `notification_user_unread_idx`
+**Indexes:** `notification_user_unread_idx`, `notification_user_created_idx`, `notification_dedupe_idx`, `notification_email_due_idx`
 
 ## Integration (`schema/integration.ts`)
 

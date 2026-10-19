@@ -4,11 +4,15 @@ import type { Database } from '@ccq/db';
 import { ATTACHMENT_MAX_BYTES } from '@ccq/domain';
 import {
   createFileStore,
+  createMailTransport,
   createPricingReader,
   createSalesforceReader,
   type FileStore,
   type FileStoreConfig,
   type FileStoreLogger,
+  type GraphCredentialConfig,
+  type MailConfig,
+  type MailTransport,
   type PricingLogger,
   type PricingReader,
   type SalesforceReader,
@@ -38,6 +42,10 @@ import {
 } from './auth/directory';
 import { createEntraVerifier } from './auth/entra';
 import type { AppConfig } from './config';
+import {
+  createNotificationDispatchScheduler,
+  type NotificationDispatchScheduler,
+} from './jobs/notificationDispatch';
 import { createSfSyncScheduler, type SfSyncScheduler } from './jobs/sfSync';
 import { createValidityExpiryScheduler, type ValidityExpiryScheduler } from './jobs/validityExpiry';
 import { loggerOptions } from './logger';
@@ -51,10 +59,12 @@ import { AnalyticsService } from './services/analytics';
 import { AttachmentService, LocalLinkSigner } from './services/attachments';
 import { AuditAdminService } from './services/auditAdmin';
 import { DashboardService } from './services/dashboards';
+import { EmailContentBuilder } from './services/emailContent';
 import { EngineeringService } from './services/engineering';
 import { FinalReviewService } from './services/final-review';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
+import { NotificationService } from './services/notificationService';
 import { OutcomeService } from './services/outcome';
 import { OverrideService } from './services/overrideService';
 import { PipelineService } from './services/pipeline';
@@ -86,8 +96,10 @@ export interface AppDeps {
   entraKeySet?: JWTVerifyGetKey;
   /** Test seam: the clock for provisioning cache, sign-in audit windows, scoring and decisions. */
   now?: () => Date;
-  /** Test seam: where gate decisions' planned notifications go (B-18 delivers them). */
+  /** Test seam: observes the gate decision's planned notifications (they are persisted in the decision's transaction). */
   notify?: NotificationHook;
+  /** Test seam: the mail transport (defaults to MAIL_MODE: Graph, mailpit SMTP or the in-memory fake). */
+  mail?: MailTransport;
 }
 
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -98,6 +110,8 @@ declare module 'fastify' {
     sfSync: SfSyncScheduler | null;
     /** B-13: the daily proposal validity expiry flags; null without a database. server.ts starts it. */
     validityExpiry: ValidityExpiryScheduler | null;
+    /** B-18: the email dispatcher (and the 7:00 AM Central to-qualify digest); null without a database. server.ts starts it. */
+    notificationDispatch: NotificationDispatchScheduler | null;
     /** B-15: hourly pricing-app usage counts (flushed to integration_run about once a minute). */
     pricingUsage: PricingUsage;
   }
@@ -147,12 +161,9 @@ function pricingReaderFor(config: AppConfig, logger: PricingLogger): PricingRead
   }
 }
 
-export function fileStoreConfig(
-  config: AppConfig,
-  signer: LocalLinkSigner,
-  now?: () => Date,
-): FileStoreConfig {
-  const credential = config.GRAPH_CLIENT_SECRET
+/** App-only Graph credentials: the managed identity, or (a developer, test site only) a client secret. */
+export function graphCredentialFor(config: AppConfig): GraphCredentialConfig {
+  return config.GRAPH_CLIENT_SECRET
     ? {
         kind: 'client-secret' as const,
         tenantId: config.GRAPH_TENANT_ID!,
@@ -160,6 +171,26 @@ export function fileStoreConfig(
         clientSecret: config.GRAPH_CLIENT_SECRET,
       }
     : { kind: 'managed-identity' as const, clientId: config.GRAPH_MI_CLIENT_ID };
+}
+
+/** B-18: where notification email goes. */
+export function mailConfig(config: AppConfig): MailConfig {
+  switch (config.MAIL_MODE) {
+    case 'graph':
+      return { mode: 'graph', mailbox: config.MAIL_FROM, credential: graphCredentialFor(config) };
+    case 'smtp':
+      return { mode: 'smtp', host: config.SMTP_HOST, port: config.SMTP_PORT };
+    case 'fake':
+      return { mode: 'fake' };
+  }
+}
+
+export function fileStoreConfig(
+  config: AppConfig,
+  signer: LocalLinkSigner,
+  now?: () => Date,
+): FileStoreConfig {
+  const credential = graphCredentialFor(config);
   switch (config.FILESTORE_MODE) {
     case 'sharepoint':
       return { mode: 'sharepoint', driveId: config.SP_DRIVE_ID!, credential };
@@ -297,7 +328,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   const scoring = new ScoringService();
   const quoteReads = new QuoteReadService(scoring);
   const gateLog = app.log.child({ component: 'gates' });
-  // TODO(B-18): deliver in-app + email notifications. Until then planned notifications are logged.
+  // B-18: the notifications a decision plans are written in the decision's own transaction (in-app +
+  // the email outbox; see gateService). This after-commit hook only logs what was planned.
   const notify: NotificationHook = (notifications, ctx) => {
     if (notifications.length > 0) {
       gateLog.info(
@@ -312,6 +344,46 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     notify: deps.notify ?? notify,
     ...(deps.now ? { now: deps.now } : {}),
   });
+
+  // B-18 notifications: the bell and preferences (reads), and the email dispatcher. Email rows are
+  // written with the change that causes them; the dispatcher (every minute, advisory lock) sends them
+  // from the shared mailbox and builds the 7:00 AM Central to-qualify digest.
+  const notificationService = new NotificationService(deps.now ? { now: deps.now } : {});
+  const mailLog = app.log.child({ component: 'notification-dispatch' });
+  const mailTransport =
+    deps.mail ??
+    createMailTransport(mailConfig(config), {
+      logger: {
+        info: (obj, msg) => mailLog.info(obj, msg),
+        warn: (obj, msg) => mailLog.warn(obj, msg),
+        error: (obj, msg) => mailLog.error(obj, msg),
+      },
+    });
+  const notificationDispatch =
+    deps.db.db && deps.db.sql
+      ? createNotificationDispatchScheduler(
+          {
+            database: deps.db.db,
+            sql: deps.db.sql,
+            logger: {
+              info: (obj, msg) => mailLog.info(obj, msg),
+              error: (obj, msg) => mailLog.error(obj, msg),
+            },
+            transport: mailTransport,
+            from: config.MAIL_FROM,
+            content: new EmailContentBuilder({
+              database: deps.db.db,
+              quotes: quoteReads,
+              gates: gateService,
+              appBaseUrl: config.APP_BASE_URL,
+              now: deps.now ?? (() => new Date()),
+            }),
+            ...(deps.now ? { now: deps.now } : {}),
+          },
+          config.NOTIFICATION_DISPATCH_INTERVAL_SECONDS,
+        )
+      : null;
+  app.decorate('notificationDispatch', notificationDispatch);
 
   // B-16 attachments (F-13): SharePoint via Graph (Sites.Selected), the Blob fallback, or local disk.
   // Logs carry operations, sizes and error codes only, never file names or contents.
@@ -438,6 +510,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     timelineService,
     auditService,
     engineeringService,
+    notificationService,
     pricingService,
     pricingAppService,
     finalReviewService,
@@ -457,6 +530,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   app.addHook('onClose', async () => {
     await sfSync?.stop();
     await validityExpiry?.stop();
+    await notificationDispatch?.stop();
     await pricingUsage.stop();
     await app.audit.flush();
     await deps.db.close();

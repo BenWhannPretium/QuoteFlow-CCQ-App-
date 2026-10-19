@@ -1,4 +1,14 @@
-import { check, index, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { c, documented, inList } from './_doc';
 import { AUDIT_ACTIONS, NOTIFICATION_CHANNELS } from './enums';
@@ -101,12 +111,51 @@ export const notification = documented(
       readAt: c(timestamptz('read_at'), 'When the recipient read it.'),
       channel: c(text('channel').notNull().default('in_app'), 'in_app | email.'),
       sentAt: c(timestamptz('sent_at'), 'When delivered (email).'),
-      error: c(text('error'), 'Last delivery error.'),
+      error: c(
+        text('error'),
+        'Last delivery error (a code and a short message; never the content).',
+      ),
+      dedupeKey: c(
+        text('dedupe_key'),
+        'Once-per-state key (e.g. quote.validity_expiring:<quote>:<date>, digest:<date>). Unique per user and channel when set.',
+      ),
+      payload: c(
+        jsonb('payload').notNull().default({}),
+        'Non-commercial facts the email is built from (actor name, reason label, validity date). Never prices or capital.',
+      ),
+      attempts: c(
+        integer('attempts').notNull().default(0),
+        'Email send attempts so far (3 tries, then failed_at).',
+      ),
+      nextAttemptAt: c(
+        timestamptz('next_attempt_at'),
+        'Email: when the dispatcher may try next. Null for in-app rows.',
+      ),
+      failedAt: c(
+        timestamptz('failed_at'),
+        'Email: set when the last retry failed; the owners were alerted.',
+      ),
     },
     (t) => [
       check('notification_channel_check', inList(t.channel, NOTIFICATION_CHANNELS)),
+      check(
+        'notification_delivery_state_check',
+        sql`not (${t.sentAt} is not null and ${t.failedAt} is not null)`,
+      ),
       index('notification_user_unread_idx').on(t.userId, t.readAt),
+      index('notification_user_created_idx').on(t.userId, t.channel, t.createdAt),
+      uniqueIndex('notification_dedupe_idx')
+        .on(t.userId, t.channel, t.dedupeKey)
+        .where(sql`${t.dedupeKey} is not null`),
+      index('notification_email_due_idx')
+        .on(t.nextAttemptAt)
+        .where(sql`${t.channel} = 'email' and ${t.sentAt} is null and ${t.failedAt} is null`),
     ],
   ),
-  { area: 'events', owner: SYSTEM, description: 'In-app and email notifications.' },
+  {
+    area: 'events',
+    owner: SYSTEM,
+    description:
+      'In-app notifications (channel in_app) and the email outbox (channel email, sent by the dispatcher with retries).',
+  },
 );

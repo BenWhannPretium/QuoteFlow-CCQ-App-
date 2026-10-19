@@ -62,6 +62,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: 30,
     description: 'Default proposal validity in days. PTF says 30; D-12 open.',
   },
+  // ── B-18 notifications. Provisional.
+  {
+    key: 'email_notifications_enabled',
+    value: true,
+    description:
+      'Send notification emails (B-18). false = in-app notifications only (the documented fallback if the shared mailbox is not ready). Turning it off stops new email rows and drops the ones still queued (the dispatcher skips them; they are not sent later).',
+  },
   // ── B-13 customer decision (D-12, D-15, R3). All provisional.
   {
     key: 'validity_warning_days',

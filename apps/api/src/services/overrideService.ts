@@ -39,7 +39,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 
 import { decodeCursor, page } from './cursor';
-import { persistNotifications } from './notifications';
+import { persistNotifications } from './notificationService';
 import {
   currentFieldValue,
   loadOverrideSettings,

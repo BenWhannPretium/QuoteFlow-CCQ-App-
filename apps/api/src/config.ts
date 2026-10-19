@@ -93,6 +93,22 @@ const EnvSchema = z
     GRAPH_CLIENT_ID: nonEmpty.optional(),
     /** SECRET (test site only). Never logged, never in production. */
     GRAPH_CLIENT_SECRET: nonEmpty.optional(),
+
+    /**
+     * B-18 notification email. graph = Microsoft Graph `sendMail` from the shared mailbox, app-only (the
+     * target; Exchange application access policy restricts it to that mailbox); smtp = mailpit on
+     * localhost (`docker compose up -d mailpit`); fake = nothing leaves the process (tests, quiet dev).
+     * Production allows only graph. In-app notifications work in every mode; to send no email at all set
+     * the app setting `email_notifications_enabled` to false.
+     */
+    MAIL_MODE: z.enum(['fake', 'smtp', 'graph']).default('fake'),
+    /** The shared mailbox the email is sent from (IT names it at M7). Graph sends as this mailbox. */
+    MAIL_FROM: z.email().default('ccq-noreply@pretiumpkg.com'),
+    /** smtp: the mailpit host and port. */
+    SMTP_HOST: nonEmpty.default('localhost'),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1025),
+    /** Seconds between email dispatch runs; 0 disables the schedule (tests). */
+    NOTIFICATION_DISPATCH_INTERVAL_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
   })
   .superRefine((env, ctx) => {
     if (env.AUTH_MODE === 'dev' && env.NODE_ENV === 'production') {
@@ -175,6 +191,13 @@ const EnvSchema = z
           });
         }
       }
+    }
+    if (env.MAIL_MODE !== 'graph' && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MAIL_MODE'],
+        message: `MAIL_MODE=${env.MAIL_MODE} is forbidden when NODE_ENV=production. Use graph (the shared mailbox).`,
+      });
     }
     if (env.AUTH_MODE === 'entra') {
       for (const key of ['ENTRA_TENANT_ID', 'ENTRA_API_AUDIENCE', 'ENTRA_SPA_CLIENT_ID'] as const) {

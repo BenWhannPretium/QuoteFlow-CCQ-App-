@@ -13,6 +13,7 @@ import { gateRoutes } from './gates';
 import { healthRoutes } from './health';
 import { intakeRoutes } from './intake';
 import { meRoutes } from './me';
+import { notificationRoutes } from './notifications';
 import { outcomeRoutes } from './outcome';
 import { overrideRoutes } from './overrides';
 import { pipelineRoutes } from './pipeline';
@@ -32,6 +33,7 @@ import type { EngineeringService } from '../../services/engineering';
 import type { FinalReviewService } from '../../services/final-review';
 import type { GateService } from '../../services/gateService';
 import type { IntakeService } from '../../services/intake';
+import type { NotificationService } from '../../services/notificationService';
 import type { OutcomeService } from '../../services/outcome';
 import type { OverrideService } from '../../services/overrideService';
 import type { PipelineService } from '../../services/pipeline';
@@ -53,6 +55,7 @@ export interface V1Options {
   timelineService: TimelineService;
   auditService: AuditAdminService;
   engineeringService: EngineeringService;
+  notificationService: NotificationService;
   pricingService: PricingService;
   pricingAppService: PricingAppService;
   finalReviewService: FinalReviewService;
@@ -84,6 +87,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     timelineService,
     auditService,
     engineeringService,
+    notificationService,
     pricingService,
     pricingAppService,
     finalReviewService,
@@ -109,6 +113,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(timelineRoutes, { service: timelineService });
   await app.register(auditRoutes, { service: auditService });
   await app.register(engineeringRoutes, { service: engineeringService });
+  await app.register(notificationRoutes, { service: notificationService });
   await app.register(pricingRoutes, { service: pricingService });
   await app.register(pricingAppRoutes, { service: pricingAppService });
   await app.register(finalReviewRoutes, { service: finalReviewService });

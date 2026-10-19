@@ -59,6 +59,7 @@ import {
   recordValues,
 } from './pricing-view';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
+import { onReturnedToKam } from './returned-to-kam';
 import type { ScoringService } from './scoring';
 
 export type GateWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
@@ -371,7 +372,7 @@ export class GateService {
           createdBy: actor.userId,
         });
       }
-      // B-12: in-app notices for the Final Review decisions (email is B-18). A Return is announced
+      // B-12: notices for the Final Review decisions (in-app + email, B-18). A Return is announced
       // by the arrival alert of the stage it goes back to.
       if (gateKey === RELEASE_GATE_KEY) {
         await onFinalReviewDecided(tx, {
@@ -393,12 +394,19 @@ export class GateService {
           now,
         });
       }
-      // B-10: the EngLead's arrival alert (in-app; email is B-18) whenever a quote enters the queue.
+      // B-18: a quote returned to its KAM (G1 / G2 rework) tells the KAM, in-app and by email.
+      await onReturnedToKam(tx, {
+        quote: { id: row.quote.id, quoteNumber },
+        actorId: actor.userId,
+        effects,
+        workflow,
+      });
+      // B-10: the EngLead's arrival alert (in-app + email, B-18) whenever a quote enters the queue.
       if (effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
         await onEngQueueArrival(tx, row.quote, actor.userId, undefined, returnedFrom(gateKey));
       }
       // B-11: entering Quoting starts this version's pricing record (references carried forward) and
-      // tells Pricing; G3 Submit tells the Approver group (in-app; email is B-18).
+      // tells Pricing; G3 Submit tells the Approver group (in-app + email, B-18).
       const entered = effects.stageHistory.enter?.stageKey;
       if (entered === PRICING_QUEUE_STAGE_KEY) {
         await onPricingArrival(

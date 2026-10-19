@@ -8,6 +8,7 @@ export * from './engineering';
 export * from './final-review';
 export * from './health';
 export * from './intake';
+export * from './notifications';
 export * from './outcome';
 export * from './overrides';
 export * from './pipeline';

@@ -511,7 +511,7 @@ describe('G3 Submit to Final Review', () => {
     const { quote } = GateDecisionResponse.parse(ok.json());
     expect(quote).toMatchObject({ stageKey: 'FINAL_REVIEW', status: 'active' });
 
-    // The Approver group is told (in-app; email is B-18).
+    // The Approver group is told in-app and by email (B-18).
     const notes = await db.db
       .select()
       .from(schema.notification)
@@ -519,12 +519,37 @@ describe('G3 Submit to Final Review', () => {
         and(
           eq(schema.notification.quoteId, quote.id),
           eq(schema.notification.type, 'quote.ready_for_final_review'),
+          eq(schema.notification.channel, 'in_app'),
         ),
       );
     const approvers = await db.db.execute<{ id: string }>(sql`
       select distinct u.id from app_user u join user_role r on r.user_id = u.id
       where r.role = 'Approver' and u.active`);
     expect(notes.map((n) => n.userId).sort()).toEqual(approvers.map((a) => a.id).sort());
+    const emails = await db.db
+      .select()
+      .from(schema.notification)
+      .where(
+        and(
+          eq(schema.notification.quoteId, quote.id),
+          eq(schema.notification.type, 'quote.ready_for_final_review'),
+          eq(schema.notification.channel, 'email'),
+        ),
+      );
+    expect(emails.map((n) => n.userId).sort()).toEqual(approvers.map((a) => a.id).sort());
+    // Pricing's own arrival alert ("ready for pricing") stays in-app only.
+    expect(
+      await db.db
+        .select()
+        .from(schema.notification)
+        .where(
+          and(
+            eq(schema.notification.quoteId, quote.id),
+            eq(schema.notification.type, 'quote.ready_for_quoting'),
+            eq(schema.notification.channel, 'email'),
+          ),
+        ),
+    ).toHaveLength(0);
 
     // The decision keeps what Pricing was warned about; the record is closed to edits now.
     const [decision] = await db.db

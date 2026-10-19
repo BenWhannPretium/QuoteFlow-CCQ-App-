@@ -10,6 +10,7 @@ export * from './engineering';
 export * from './events';
 export * from './intake';
 export * from './integration';
+export * from './notifications';
 export * from './outcome';
 export * from './overrides';
 export * from './pipeline';

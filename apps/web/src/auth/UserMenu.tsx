@@ -1,4 +1,5 @@
-import { LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { BellIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 
 import {
   DropdownMenu,
@@ -64,6 +65,12 @@ export function UserMenu() {
             ))}
           </p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/me/preferences" data-testid="email-preferences-link">
+            <BellIcon aria-hidden="true" /> Email preferences
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup
