@@ -44,7 +44,7 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
       'pipeline',
       'approvals',
       'analytics',
-      'audit',
+      'admin',
     ],
   },
   {

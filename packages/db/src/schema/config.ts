@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
@@ -7,6 +8,7 @@ import {
   pgTable,
   text,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { c, documented, inList } from './_doc';
@@ -66,6 +68,10 @@ export const stageDefinition = documented(
       ...configColumns(),
       key: c(text('key').notNull().unique(), 'Stage key used on quotes (INTAKE, ENG_REVIEW, …).'),
       label: c(text('label').notNull(), 'Display label; editable without code changes.'),
+      helpText: c(
+        text('help_text'),
+        'B-19: help shown next to the stage (admin-editable); null = none.',
+      ),
       ownerRole: c(
         text('owner_role'),
         'Role that owns work in the stage; null for terminal stages.',
@@ -99,6 +105,10 @@ export const gateDefinition = documented(
         'Stage the gate sits at the exit of.',
       ),
       label: c(text('label').notNull(), 'Display label.'),
+      helpText: c(
+        text('help_text'),
+        'B-19: help shown next to the gate (admin-editable); null = none.',
+      ),
       deciderPermission: c(
         text('decider_permission').notNull(),
         'Permission the decider must hold.',
@@ -134,6 +144,10 @@ export const gateOutcomeDefinition = documented(
       ),
       key: c(text('key').notNull(), 'Outcome key, unique within the gate (advance, hold, …).'),
       label: c(text('label').notNull(), 'Display label (button text).'),
+      helpText: c(
+        text('help_text'),
+        'B-19: help shown next to the outcome (admin-editable); null = none.',
+      ),
       requiresNote: c(boolean('requires_note').notNull().default(false), 'A note is mandatory.'),
       requiresReasonCode: c(
         boolean('requires_reason_code').notNull().default(false),
@@ -269,27 +283,36 @@ export const reasonCode = documented(
 );
 
 export const scoringModel = documented(
-  pgTable('scoring_model', {
-    ...baseColumns(),
-    ...configColumns(),
-    modelVersion: c(
-      integer('model_version').notNull().unique(),
-      'Scoring model version stamped on quotes.',
-    ),
-    attributes: c(
-      jsonb('attributes').notNull(),
-      'Attributes (domain scoring DSL): [{key, label, weight, input, bands | map, inverse, unknownScore, unknownExplanation}]. Weights sum to 1.',
-    ),
-    tierThresholds: c(
-      jsonb('tier_thresholds').notNull(),
-      '{tiers: [{key, label, min}], unknownScore}: tiers on the 0–100 score and the neutral score for unknown inputs.',
-    ),
-    effectiveFrom: c(
-      timestamptz('effective_from').notNull(),
-      'When the model starts applying to new scores.',
-    ),
-    changeReason: c(text('change_reason').notNull(), 'Why this version exists.'),
-  }),
+  pgTable(
+    'scoring_model',
+    {
+      ...baseColumns(),
+      ...configColumns(),
+      modelVersion: c(
+        integer('model_version').notNull().unique(),
+        'Scoring model version stamped on quotes.',
+      ),
+      attributes: c(
+        jsonb('attributes').notNull(),
+        'Attributes (domain scoring DSL): [{key, label, weight, input, bands | map, inverse, unknownScore, unknownExplanation}]. Weights sum to 1.',
+      ),
+      tierThresholds: c(
+        jsonb('tier_thresholds').notNull(),
+        '{tiers: [{key, label, min}], unknownScore}: tiers on the 0–100 score and the neutral score for unknown inputs.',
+      ),
+      effectiveFrom: c(
+        timestamptz('effective_from'),
+        'When the model starts applying to new scores. Null = a draft (B-19): never used to score.',
+      ),
+      changeReason: c(text('change_reason').notNull(), 'Why this version exists.'),
+    },
+    (t) => [
+      // B-19: at most one draft at a time (the admin console's "Create new version").
+      uniqueIndex('scoring_model_one_draft_uidx')
+        .on(sql`(true)`)
+        .where(sql`${t.effectiveFrom} is null`),
+    ],
+  ),
   {
     area: 'config',
     owner: 'Jim Zweifel + sales leadership (D-19)',

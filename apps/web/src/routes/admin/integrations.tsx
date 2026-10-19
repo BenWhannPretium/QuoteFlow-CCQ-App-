@@ -1,9 +1,10 @@
-import type { IntegrationRun } from '@ccq/contracts';
+import type { ConnectorHealth, IntegrationRun } from '@ccq/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import { RefreshCwIcon } from 'lucide-react';
 
+import { adminKey, BackToAdmin, useCanEditConfig } from '@/admin/shared';
 import { DataTable } from '@/components/DataTable';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -17,6 +18,65 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 export const Route = createFileRoute('/admin/integrations')({ component: IntegrationsPage });
 
 const runsKey = ['admin', 'integrations'] as const;
+
+const HEALTH_STYLE: Record<ConnectorHealth['health'], string> = {
+  ok: 'bg-success/15 text-success',
+  degraded: 'bg-warning text-warning-foreground',
+  down: 'bg-destructive text-destructive-foreground',
+  unknown: 'bg-muted text-muted-foreground',
+};
+
+/** B-19: one card per connector: how it is configured and how its recent runs went. */
+function ConnectorHealthPanel() {
+  const health = useQuery({
+    queryKey: adminKey('connector-health'),
+    queryFn: api.admin.connectorHealth,
+  });
+  if (health.isError)
+    return <ErrorState error={health.error} onRetry={() => void health.refetch()} />;
+  return (
+    <section aria-labelledby="connector-health" className="mb-6 grid gap-2">
+      <h2 id="connector-health" className="font-display text-lg">
+        Connector health
+      </h2>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {(health.data?.items ?? []).map((c) => (
+          <li
+            key={c.source}
+            className="bg-card rounded-card grid gap-1 border p-3"
+            data-testid={`health-${c.source}`}
+          >
+            <span className="flex items-center gap-2">
+              <span className="font-medium capitalize">{c.source}</span>
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-xs font-semibold capitalize',
+                  HEALTH_STYLE[c.health],
+                )}
+              >
+                {c.health}
+              </span>
+            </span>
+            <span className="text-muted-foreground text-xs">Mode: {c.mode}</span>
+            <span className="text-xs">
+              Last run: {when(c.lastRunAt)}
+              {c.lastStatus ? ` (${c.lastStatus})` : ''}
+            </span>
+            <span className="text-xs">Last success: {when(c.lastSuccessAt)}</span>
+            {c.failures24h > 0 && (
+              <span className="text-destructive text-xs">{c.failures24h} failure(s) in 24 h</span>
+            )}
+            {c.lastError && (
+              <span className="text-muted-foreground truncate text-xs" title={c.lastError}>
+                {c.lastError}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 const STATUS_STYLE: Record<IntegrationRun['status'], string> = {
   succeeded: 'bg-success/15 text-success',
@@ -81,9 +141,10 @@ const columns = [
   }),
 ];
 
-/** Admin → Integrations: recent integration_run rows and a manual Salesforce sync (B-06). */
+/** Admin → Integrations: connector health (B-19), recent integration_run rows and a manual Salesforce sync (B-06). */
 function IntegrationsPage() {
   useDocumentTitle('Integrations');
+  const canSync = useCanEditConfig();
   const queryClient = useQueryClient();
   const runs = useQuery({ queryKey: runsKey, queryFn: () => api.integrationRuns() });
   const sync = useMutation({
@@ -100,22 +161,33 @@ function IntegrationsPage() {
         description: countsSummary(result.counts),
       });
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: runsKey }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: runsKey }),
+        queryClient.invalidateQueries({ queryKey: adminKey('connector-health') }),
+      ]),
   });
 
   return (
     <div data-testid="page" data-page-title="Integrations">
+      <BackToAdmin />
       <PageHeader
         eyebrow="Configuration"
         title="Integrations"
         description="Salesforce is read every 15 minutes (read-only). Failures alert admins; the app keeps working from the last snapshot."
         actions={
-          <Button onClick={() => sync.mutate()} disabled={sync.isPending}>
-            <RefreshCwIcon className={cn('size-4', sync.isPending && 'animate-spin')} aria-hidden />
-            {sync.isPending ? 'Syncing…' : 'Sync Salesforce now'}
-          </Button>
+          canSync && (
+            <Button onClick={() => sync.mutate()} disabled={sync.isPending}>
+              <RefreshCwIcon
+                className={cn('size-4', sync.isPending && 'animate-spin')}
+                aria-hidden
+              />
+              {sync.isPending ? 'Syncing…' : 'Sync Salesforce now'}
+            </Button>
+          )
         }
       />
+      <ConnectorHealthPanel />
       {runs.isError ? (
         <ErrorState error={runs.error} onRetry={() => void runs.refetch()} />
       ) : (

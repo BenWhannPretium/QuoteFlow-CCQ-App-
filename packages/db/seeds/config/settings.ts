@@ -200,6 +200,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description:
       'B-11: format-only checks for the pricing-app references on the Quoting tab ({erf|bpr: {label, pattern, example}}). Guesses until Cory McGahan confirms the real formats at M5 (D-PR).',
   },
+  // ── B-19 admin console.
+  {
+    key: 'role_change_request_url',
+    value: null,
+    description:
+      'Where Admin > Users sends someone who needs a different CCQ role: the IT ticket form for Entra group membership (roles come from Entra groups; CCQ never edits them). Null = "contact the IT help desk" until IT confirms the link.',
+  },
   {
     key: 'salesforce_new_opportunity_url',
     value: 'https://pretiumpkg.lightning.force.com/lightning/o/Opportunity/new',

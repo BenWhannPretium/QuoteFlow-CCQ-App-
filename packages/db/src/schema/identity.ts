@@ -156,6 +156,10 @@ export const userScope = documented(
         text('values').array().notNull().default([]),
         'Regions or SF account ids for region / account_list scopes; empty otherwise.',
       ),
+      version: c(
+        integer('version').notNull().default(1),
+        'B-19: bumped on every admin change (optimistic concurrency).',
+      ),
     },
     (t) => [check('user_scope_scope_type_check', inList(t.scopeType, SCOPE_TYPES))],
   ),

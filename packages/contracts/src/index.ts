@@ -1,3 +1,4 @@
+export * from './admin-config';
 export * from './analytics';
 export * from './attachments';
 export * from './audit';

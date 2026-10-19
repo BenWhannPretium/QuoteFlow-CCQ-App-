@@ -13,6 +13,8 @@ export function testConfig(overrides: Record<string, string> = {}): AppConfig {
     AUTH_MODE: 'dev',
     APP_BASE_URL: 'http://localhost:5173',
     GIT_SHA: 'test-sha',
+    // Tests change config rows directly; a cached /config/public would hide that.
+    CONFIG_CACHE_SECONDS: '0',
     ...overrides,
   });
 }

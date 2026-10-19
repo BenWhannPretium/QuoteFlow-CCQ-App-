@@ -1,4 +1,28 @@
 import {
+  ActivateScoringResponse,
+  AdminReasonCodesResponse,
+  AdminScoringResponse,
+  AdminSettingsResponse,
+  AdminUsersResponse,
+  AdminValueListsResponse,
+  AdminWorkflowResponse,
+  ConnectorHealthResponse,
+  DecisionLogResponse,
+  ScoringPreviewResponse,
+  type ActivateScoringDraftBody,
+  type CreateReasonCodeBody,
+  type CreateValueListEntryBody,
+  type DecisionLogQuery,
+  type ReorderBody,
+  type ScoringModelBody,
+  type UpdateGateBody,
+  type UpdateOutcomeBody,
+  type UpdateReasonCodeBody,
+  type UpdateScoringDraftBody,
+  type UpdateSettingBody,
+  type UpdateStageBody,
+  type UpdateUserScopeBody,
+  type UpdateValueListEntryBody,
   AdoptionResponse,
   AnalyticsFiltersResponse,
   CycleTimeResponse,
@@ -387,7 +411,87 @@ export const api = {
     getJson(`/api/v1/attachments/${id}/download?format=json`, AttachmentDownloadResponse),
   removeAttachment: (id: string) =>
     getJson(`/api/v1/attachments/${id}`, z.null(), { method: 'DELETE' }),
+
+  // B-19 admin configuration console (reads config.read; writes config.manage, each with a reason)
+  admin: {
+    valueLists: () => getJson('/api/v1/admin/config/value-lists', AdminValueListsResponse),
+    createValueListEntry: (body: CreateValueListEntryBody) =>
+      getJson('/api/v1/admin/config/value-lists', Created, { method: 'POST', body }),
+    updateValueListEntry: (id: string, body: UpdateValueListEntryBody) =>
+      getJson(`/api/v1/admin/config/value-lists/${id}`, Saved, { method: 'PATCH', body }),
+    reorderValueList: (listKey: string, body: ReorderBody) =>
+      getJson(`/api/v1/admin/config/value-lists/${encodeURIComponent(listKey)}/order`, Ok, {
+        method: 'PUT',
+        body,
+      }),
+    reasonCodes: () => getJson('/api/v1/admin/config/reason-codes', AdminReasonCodesResponse),
+    createReasonCode: (body: CreateReasonCodeBody) =>
+      getJson('/api/v1/admin/config/reason-codes', Created, { method: 'POST', body }),
+    updateReasonCode: (id: string, body: UpdateReasonCodeBody) =>
+      getJson(`/api/v1/admin/config/reason-codes/${id}`, Saved, { method: 'PATCH', body }),
+    reorderReasonCodes: (context: string, body: ReorderBody) =>
+      getJson(`/api/v1/admin/config/reason-codes/${encodeURIComponent(context)}/order`, Ok, {
+        method: 'PUT',
+        body,
+      }),
+    workflow: () => getJson('/api/v1/admin/config/workflow', AdminWorkflowResponse),
+    updateStage: (key: string, body: UpdateStageBody) =>
+      getJson(`/api/v1/admin/config/stages/${encodeURIComponent(key)}`, Saved, {
+        method: 'PATCH',
+        body,
+      }),
+    updateGate: (key: string, body: UpdateGateBody) =>
+      getJson(`/api/v1/admin/config/gates/${encodeURIComponent(key)}`, Saved, {
+        method: 'PATCH',
+        body,
+      }),
+    updateOutcome: (gateKey: string, key: string, body: UpdateOutcomeBody) =>
+      getJson(
+        `/api/v1/admin/config/gates/${encodeURIComponent(gateKey)}/outcomes/${encodeURIComponent(key)}`,
+        Saved,
+        { method: 'PATCH', body },
+      ),
+    settings: () => getJson('/api/v1/admin/config/settings', AdminSettingsResponse),
+    updateSetting: (key: string, body: UpdateSettingBody) =>
+      getJson(`/api/v1/admin/config/settings/${encodeURIComponent(key)}`, Saved, {
+        method: 'PATCH',
+        body,
+      }),
+    scoring: () => getJson('/api/v1/admin/config/scoring', AdminScoringResponse),
+    previewScoring: (model: ScoringModelBody) =>
+      getJson('/api/v1/admin/config/scoring/preview', ScoringPreviewResponse, {
+        method: 'POST',
+        body: { model },
+      }),
+    createScoringDraft: (changeReason: string) =>
+      getJson(
+        '/api/v1/admin/config/scoring/draft',
+        z.object({ id: z.string(), modelVersion: z.number() }),
+        { method: 'POST', body: { changeReason } },
+      ),
+    updateScoringDraft: (body: UpdateScoringDraftBody) =>
+      getJson('/api/v1/admin/config/scoring/draft', Saved, { method: 'PUT', body }),
+    activateScoringDraft: (body: ActivateScoringDraftBody) =>
+      getJson('/api/v1/admin/config/scoring/draft/activate', ActivateScoringResponse, {
+        method: 'POST',
+        body,
+      }),
+    discardScoringDraft: (body: { version: number; changeReason: string }) =>
+      getJson('/api/v1/admin/config/scoring/draft/discard', Ok, { method: 'POST', body }),
+    users: () => getJson('/api/v1/admin/users', AdminUsersResponse),
+    updateUserScope: (id: string, body: UpdateUserScopeBody) =>
+      getJson(`/api/v1/admin/users/${id}/scope`, Ok, { method: 'PUT', body }),
+    connectorHealth: () => getJson('/api/v1/admin/integrations/health', ConnectorHealthResponse),
+    decisionLog: (q: Partial<DecisionLogQuery>) =>
+      getJson(`/api/v1/admin/config/decision-log${queryString(q)}`, DecisionLogResponse),
+    decisionLogExport: (q: Partial<DecisionLogQuery>): Promise<Blob> =>
+      getCsv(`/api/v1/admin/config/decision-log/export.csv${queryString(q)}`),
+  },
 };
+
+const Created = z.object({ id: z.string() });
+const Saved = z.object({ id: z.string(), version: z.number() });
+const Ok = z.object({ ok: z.literal(true) });
 
 /** Where an upload goes: a quote (any stage) or an open intake draft. */
 export type AttachmentTarget = { quoteNumber: string } | { draftId: string };

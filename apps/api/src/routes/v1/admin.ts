@@ -15,7 +15,7 @@ import { erfLinkageReport } from '../../services/salesforce';
 /** How long POST /admin/salesforce/sync waits before answering 202 (the run continues). */
 export const SYNC_WAIT_MS = 25_000;
 
-/** Admin: integrations and reports (config.manage). */
+/** Admin: integrations and reports. Reading the runs is config.read (Leadership too, B-19); acting is config.manage. */
 export const adminRoutes: FastifyPluginAsyncZod<{ sfSync: SfSyncScheduler | null }> = async (
   app,
   { sfSync },
@@ -57,7 +57,7 @@ export const adminRoutes: FastifyPluginAsyncZod<{ sfSync: SfSyncScheduler | null
   app.get(
     '/admin/integrations',
     {
-      config: { permission: 'config.manage' },
+      config: { permission: 'config.read' },
       schema: {
         tags: ['admin'],
         summary: 'Recent integration runs (Salesforce sync, pricing, SharePoint), newest first',

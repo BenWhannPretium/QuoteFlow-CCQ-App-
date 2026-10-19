@@ -113,7 +113,12 @@ test('ship-to: the KAM self-applies with a reason; the timeline and a comment wi
 test('Leadership reads the audit log and the usage report; a KAM cannot', async ({ page }) => {
   await signInAs(page, 'leadership');
   await page.goto('/');
-  await page.getByRole('navigation', { name: 'Primary' }).locator('[data-nav="audit"]').click();
+  // B-19: Leadership's nav item is Admin (read-only console); the audit log is a card on its hub.
+  await page.getByRole('navigation', { name: 'Primary' }).locator('[data-nav="admin"]').click();
+  await page
+    .getByRole('navigation', { name: 'Reports and audit' })
+    .getByRole('link', { name: /Audit log/ })
+    .click();
   await expect(page.getByRole('heading', { level: 1, name: 'Audit log' })).toBeVisible();
   await expect(page.getByRole('table', { name: 'Audit events, newest first' })).toBeVisible();
   await page.getByLabel('Action').selectOption('sign in');

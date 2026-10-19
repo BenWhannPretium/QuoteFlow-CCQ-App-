@@ -36,6 +36,8 @@ export interface AuditEntry {
   quoteId?: string | null;
   before?: unknown;
   after?: unknown;
+  /** B-19: required for `config_change` (the decision log's "why"). */
+  changeReason?: string | null;
   at: Date;
 }
 
@@ -70,6 +72,7 @@ export async function recordAudit(db: DbOrTx, actor: Actor, meta: AuditMeta, ent
     quoteId: entry.quoteId ?? null,
     before: entry.before === undefined ? null : redactSecrets(entry.before),
     after: entry.after === undefined ? null : redactSecrets(entry.after),
+    changeReason: entry.changeReason ?? null,
     ip: meta.ip ?? null,
     userAgent: meta.userAgent ?? null,
     requestId: meta.requestId ?? null,

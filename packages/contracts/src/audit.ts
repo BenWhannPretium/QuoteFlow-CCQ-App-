@@ -52,6 +52,8 @@ export const AuditEventDto = z.object({
   quoteNumber: z.string().nullable(),
   before: z.unknown(),
   after: z.unknown(),
+  /** B-19: why a config change was made (config_change rows); null otherwise. */
+  changeReason: z.string().nullable(),
   ip: z.string().nullable(),
   userAgent: z.string().nullable(),
   requestId: z.string().nullable(),

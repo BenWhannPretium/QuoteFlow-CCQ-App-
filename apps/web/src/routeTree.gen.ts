@@ -19,9 +19,16 @@ import { Route as ProposalsRouteImport } from './routes/proposals'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminSplatRouteImport } from './routes/admin/$'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
+import { Route as AdminDecisionLogRouteImport } from './routes/admin/decision-log'
 import { Route as AdminIntegrationsRouteImport } from './routes/admin/integrations'
 import { Route as AdminOverrideLogRouteImport } from './routes/admin/override-log'
+import { Route as AdminReasonCodesRouteImport } from './routes/admin/reason-codes'
+import { Route as AdminScoringRouteImport } from './routes/admin/scoring'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminUiKitRouteImport } from './routes/admin/ui-kit'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminValueListsRouteImport } from './routes/admin/value-lists'
+import { Route as AdminWorkflowRouteImport } from './routes/admin/workflow'
 import { Route as IntakeNewRouteImport } from './routes/intake/new'
 import { Route as MePreferencesRouteImport } from './routes/me/preferences'
 import { Route as QueueEngineeringRouteImport } from './routes/queue/engineering'
@@ -83,6 +90,11 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminDecisionLogRoute = AdminDecisionLogRouteImport.update({
+  id: '/decision-log',
+  path: '/decision-log',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
@@ -93,9 +105,39 @@ const AdminOverrideLogRoute = AdminOverrideLogRouteImport.update({
   path: '/override-log',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminReasonCodesRoute = AdminReasonCodesRouteImport.update({
+  id: '/reason-codes',
+  path: '/reason-codes',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminScoringRoute = AdminScoringRouteImport.update({
+  id: '/scoring',
+  path: '/scoring',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminUiKitRoute = AdminUiKitRouteImport.update({
   id: '/ui-kit',
   path: '/ui-kit',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminValueListsRoute = AdminValueListsRouteImport.update({
+  id: '/value-lists',
+  path: '/value-lists',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminWorkflowRoute = AdminWorkflowRouteImport.update({
+  id: '/workflow',
+  path: '/workflow',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const IntakeNewRoute = IntakeNewRouteImport.update({
@@ -159,9 +201,16 @@ export interface FileRoutesByFullPath {
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/decision-log': typeof AdminDecisionLogRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/override-log': typeof AdminOverrideLogRoute
+  '/admin/reason-codes': typeof AdminReasonCodesRoute
+  '/admin/scoring': typeof AdminScoringRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/value-lists': typeof AdminValueListsRoute
+  '/admin/workflow': typeof AdminWorkflowRoute
   '/intake/new': typeof IntakeNewRoute
   '/me/preferences': typeof MePreferencesRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -183,9 +232,16 @@ export interface FileRoutesByTo {
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/decision-log': typeof AdminDecisionLogRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/override-log': typeof AdminOverrideLogRoute
+  '/admin/reason-codes': typeof AdminReasonCodesRoute
+  '/admin/scoring': typeof AdminScoringRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/value-lists': typeof AdminValueListsRoute
+  '/admin/workflow': typeof AdminWorkflowRoute
   '/intake/new': typeof IntakeNewRoute
   '/me/preferences': typeof MePreferencesRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -209,9 +265,16 @@ export interface FileRoutesById {
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/decision-log': typeof AdminDecisionLogRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/override-log': typeof AdminOverrideLogRoute
+  '/admin/reason-codes': typeof AdminReasonCodesRoute
+  '/admin/scoring': typeof AdminScoringRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/ui-kit': typeof AdminUiKitRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/value-lists': typeof AdminValueListsRoute
+  '/admin/workflow': typeof AdminWorkflowRoute
   '/intake/new': typeof IntakeNewRoute
   '/me/preferences': typeof MePreferencesRoute
   '/queue/engineering': typeof QueueEngineeringRoute
@@ -236,9 +299,16 @@ export interface FileRouteTypes {
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
+    | '/admin/decision-log'
     | '/admin/integrations'
     | '/admin/override-log'
+    | '/admin/reason-codes'
+    | '/admin/scoring'
+    | '/admin/settings'
     | '/admin/ui-kit'
+    | '/admin/users'
+    | '/admin/value-lists'
+    | '/admin/workflow'
     | '/intake/new'
     | '/me/preferences'
     | '/queue/engineering'
@@ -260,9 +330,16 @@ export interface FileRouteTypes {
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
+    | '/admin/decision-log'
     | '/admin/integrations'
     | '/admin/override-log'
+    | '/admin/reason-codes'
+    | '/admin/scoring'
+    | '/admin/settings'
     | '/admin/ui-kit'
+    | '/admin/users'
+    | '/admin/value-lists'
+    | '/admin/workflow'
     | '/intake/new'
     | '/me/preferences'
     | '/queue/engineering'
@@ -285,9 +362,16 @@ export interface FileRouteTypes {
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
+    | '/admin/decision-log'
     | '/admin/integrations'
     | '/admin/override-log'
+    | '/admin/reason-codes'
+    | '/admin/scoring'
+    | '/admin/settings'
     | '/admin/ui-kit'
+    | '/admin/users'
+    | '/admin/value-lists'
+    | '/admin/workflow'
     | '/intake/new'
     | '/me/preferences'
     | '/queue/engineering'
@@ -390,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuditRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/decision-log': {
+      id: '/admin/decision-log'
+      path: '/decision-log'
+      fullPath: '/admin/decision-log'
+      preLoaderRoute: typeof AdminDecisionLogRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/integrations': {
       id: '/admin/integrations'
       path: '/integrations'
@@ -404,11 +495,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOverrideLogRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/reason-codes': {
+      id: '/admin/reason-codes'
+      path: '/reason-codes'
+      fullPath: '/admin/reason-codes'
+      preLoaderRoute: typeof AdminReasonCodesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/scoring': {
+      id: '/admin/scoring'
+      path: '/scoring'
+      fullPath: '/admin/scoring'
+      preLoaderRoute: typeof AdminScoringRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/ui-kit': {
       id: '/admin/ui-kit'
       path: '/ui-kit'
       fullPath: '/admin/ui-kit'
       preLoaderRoute: typeof AdminUiKitRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/value-lists': {
+      id: '/admin/value-lists'
+      path: '/value-lists'
+      fullPath: '/admin/value-lists'
+      preLoaderRoute: typeof AdminValueListsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/workflow': {
+      id: '/admin/workflow'
+      path: '/workflow'
+      fullPath: '/admin/workflow'
+      preLoaderRoute: typeof AdminWorkflowRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/intake/new': {
@@ -487,9 +620,16 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminSplatRoute: typeof AdminSplatRoute
   AdminAuditRoute: typeof AdminAuditRoute
+  AdminDecisionLogRoute: typeof AdminDecisionLogRoute
   AdminIntegrationsRoute: typeof AdminIntegrationsRoute
   AdminOverrideLogRoute: typeof AdminOverrideLogRoute
+  AdminReasonCodesRoute: typeof AdminReasonCodesRoute
+  AdminScoringRoute: typeof AdminScoringRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUiKitRoute: typeof AdminUiKitRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminValueListsRoute: typeof AdminValueListsRoute
+  AdminWorkflowRoute: typeof AdminWorkflowRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminReportsErfLinkageRoute: typeof AdminReportsErfLinkageRoute
   AdminReportsOutcomesRoute: typeof AdminReportsOutcomesRoute
@@ -499,9 +639,16 @@ interface AdminRouteRouteChildren {
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSplatRoute: AdminSplatRoute,
   AdminAuditRoute: AdminAuditRoute,
+  AdminDecisionLogRoute: AdminDecisionLogRoute,
   AdminIntegrationsRoute: AdminIntegrationsRoute,
   AdminOverrideLogRoute: AdminOverrideLogRoute,
+  AdminReasonCodesRoute: AdminReasonCodesRoute,
+  AdminScoringRoute: AdminScoringRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminUiKitRoute: AdminUiKitRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminValueListsRoute: AdminValueListsRoute,
+  AdminWorkflowRoute: AdminWorkflowRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminReportsErfLinkageRoute: AdminReportsErfLinkageRoute,
   AdminReportsOutcomesRoute: AdminReportsOutcomesRoute,

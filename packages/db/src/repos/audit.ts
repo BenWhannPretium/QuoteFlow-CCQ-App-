@@ -40,6 +40,8 @@ export interface AuditSearch {
   actorId?: string | undefined;
   quoteId?: string | undefined;
   action?: NewAuditEvent['action'] | undefined;
+  /** B-19 decision log: one config table. */
+  entity?: string | undefined;
   from?: Date | undefined;
   /** Exclusive. */
   to?: Date | undefined;
@@ -52,6 +54,7 @@ export function searchAuditEvents(db: DbOrTx, s: AuditSearch) {
   if (s.actorId) where.push(eq(auditEvent.actorId, s.actorId));
   if (s.quoteId) where.push(eq(auditEvent.quoteId, s.quoteId));
   if (s.action) where.push(eq(auditEvent.action, s.action));
+  if (s.entity) where.push(eq(auditEvent.entity, s.entity));
   if (s.from) where.push(gte(auditEvent.at, s.from));
   if (s.to) where.push(lt(auditEvent.at, s.to));
   if (s.before) {

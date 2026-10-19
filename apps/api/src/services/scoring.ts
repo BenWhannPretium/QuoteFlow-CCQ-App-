@@ -19,7 +19,12 @@ import {
 
 /** What triggered a recalculation; recorded on the tier-change activity event. */
 export type ScoringTrigger =
-  'intake_submit' | 'intake_resubmit' | 'input_change' | `gate:${string}`;
+  | 'intake_submit'
+  | 'intake_resubmit'
+  | 'input_change'
+  /** B-19: an admin activated a new scoring model version (background rescore of open quotes). */
+  | 'model_change'
+  | `gate:${string}`;
 
 /**
  * Advisory priority scoring (F-05, B-08). The domain computes; this service loads the model in effect,
@@ -54,7 +59,8 @@ export class ScoringService {
 
   /**
    * Scores the quote and stores the result. Writes a `priority_tier_changed` activity event when the
-   * computed tier moves (an override keeps the displayed tier; the score and computed tier still update).
+   * computed tier moves (an override keeps the displayed tier; the score and computed tier still update),
+   * and says so in `tierChanged`.
    */
   async recalculate(
     db: DbOrTx,
@@ -62,7 +68,7 @@ export class ScoringService {
     actorId: string,
     at: Date,
     trigger: ScoringTrigger,
-  ): Promise<ScoreResult | null> {
+  ): Promise<(ScoreResult & { tierChanged: boolean }) | null> {
     const [model, before, facts] = await Promise.all([
       this.model(db, at),
       getQuoteById(db, quoteId),
@@ -78,7 +84,8 @@ export class ScoringService {
     const previous =
       (before.priorityBreakdown as { computedTier?: string } | null)?.computedTier ??
       (before.priorityTierOverridden ? null : before.priorityTier);
-    if (previous && previous !== result.tier) {
+    const tierChanged = !!previous && previous !== result.tier;
+    if (tierChanged) {
       await insertActivityEvent(db, {
         quoteId,
         type: 'priority_tier_changed',
@@ -96,6 +103,6 @@ export class ScoringService {
         createdBy: actorId,
       });
     }
-    return result;
+    return { ...result, tierChanged };
   }
 }

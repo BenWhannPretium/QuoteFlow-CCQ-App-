@@ -71,6 +71,10 @@ export const auditEvent = documented(
       ),
       before: c(jsonb('before'), 'State before the change.'),
       after: c(jsonb('after'), 'State after the change.'),
+      changeReason: c(
+        text('change_reason'),
+        'B-19: why a config change was made (required on every config_change row; the F-21 decision log).',
+      ),
       ip: c(text('ip'), 'Client IP address.'),
       userAgent: c(text('user_agent'), 'Client user agent.'),
       requestId: c(text('request_id'), 'API request id, for log correlation.'),

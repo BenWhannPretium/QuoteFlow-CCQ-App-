@@ -2,11 +2,12 @@ import type { FileStore } from '@ccq/integrations';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { adminRoutes } from './admin';
+import { adminConfigRoutes } from './admin-config';
 import { analyticsRoutes } from './analytics';
 import { attachmentRoutes } from './attachments';
 import { auditRoutes } from './audit';
 import { authConfigRoutes } from './auth-config';
-import { configRoutes } from './config';
+import { configRoutes, type PublicConfigCache } from './config';
 import { engineeringRoutes } from './engineering';
 import { finalReviewRoutes } from './final-review';
 import { gateRoutes } from './gates';
@@ -25,6 +26,7 @@ import type { AppDeps } from '../../app';
 import type { IdentityService } from '../../auth/directory';
 import type { AppConfig } from '../../config';
 import type { SfSyncScheduler } from '../../jobs/sfSync';
+import type { AdminConfigService } from '../../services/adminConfig';
 import type { AnalyticsService } from '../../services/analytics';
 import type { AttachmentService, LocalLinkSigner } from '../../services/attachments';
 import type { AuditAdminService } from '../../services/auditAdmin';
@@ -62,6 +64,8 @@ export interface V1Options {
   outcomeService: OutcomeService;
   pipelineService: PipelineService;
   attachmentService: AttachmentService;
+  adminConfig: AdminConfigService;
+  configCache: PublicConfigCache;
   analyticsService: AnalyticsService;
   dashboardService: DashboardService;
   fileStore: FileStore;
@@ -94,6 +98,8 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     outcomeService,
     pipelineService,
     attachmentService,
+    adminConfig,
+    configCache,
     analyticsService,
     dashboardService,
     fileStore,
@@ -104,9 +110,10 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(healthRoutes, { deps, version });
   await app.register(authConfigRoutes, { config });
   await app.register(meRoutes, { config, identity });
-  await app.register(configRoutes, deps.now ? { now: deps.now } : {});
+  await app.register(configRoutes, { cache: configCache, ...(deps.now ? { now: deps.now } : {}) });
   await app.register(salesforceRoutes, { service: sfService });
   await app.register(adminRoutes, { sfSync });
+  await app.register(adminConfigRoutes, { service: adminConfig });
   await app.register(intakeRoutes, { service: intakeService });
   await app.register(gateRoutes, { service: gateService });
   await app.register(overrideRoutes, { service: overrideService });
