@@ -163,6 +163,11 @@ export function createIdentityService(
       return user;
     },
     featureFlags: () => directory.featureFlags(),
+    /**
+     * Forget cached users (B-19: after an admin edits a data scope, so this instance applies it on the
+     * next request; other instances pick it up when their 5-minute cache entry expires).
+     */
+    clear: () => cache.clear(),
   };
 }
 

@@ -16,6 +16,8 @@ const SAMPLE_OVERRIDE = '019a0000-0000-7000-8000-0000000000e1';
 const SAMPLE_NOTIFICATION = '019a0000-0000-7000-8000-0000000000b8';
 /** An attachment id nothing uses, so allowed roles get 404 (not 403). */
 const SAMPLE_ATTACHMENT = '019a0000-0000-7000-8000-0000000000a7';
+/** A config row / user id nothing uses, so allowed roles get 404 (not 403). */
+const SAMPLE_CONFIG_ID = '019a0000-0000-7000-8000-0000000000c0';
 
 export interface RegisteredRoute {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -52,8 +54,128 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   },
   // The matrix app has a database, so the allowed POST runs a real sync against the fake reader.
   { method: 'POST', route: '/api/v1/admin/salesforce/sync', permission: 'config.manage' },
-  { method: 'GET', route: '/api/v1/admin/integrations', permission: 'config.manage' },
+  { method: 'GET', route: '/api/v1/admin/integrations', permission: 'config.read' },
   { method: 'GET', route: '/api/v1/admin/reports/erf-linkage', permission: 'config.manage' },
+  // B-19 admin configuration console: reads config.read (Leadership + Admin), writes config.manage.
+  // Sample write bodies fail validation (400) or name nothing (404), so the matrix changes no config.
+  { method: 'GET', route: '/api/v1/admin/integrations/health', permission: 'config.read' },
+  { method: 'GET', route: '/api/v1/admin/config/value-lists', permission: 'config.read' },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/config/value-lists',
+    permission: 'config.manage',
+    sampleBody: { listKey: 'resin', code: 'X', label: 'X', changeReason: '' },
+  },
+  {
+    method: 'PATCH',
+    route: '/api/v1/admin/config/value-lists/:id',
+    url: `/api/v1/admin/config/value-lists/${SAMPLE_CONFIG_ID}`,
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: 'matrix test', label: 'x' },
+  },
+  {
+    method: 'PUT',
+    route: '/api/v1/admin/config/value-lists/:listKey/order',
+    url: '/api/v1/admin/config/value-lists/resin/order',
+    permission: 'config.manage',
+    sampleBody: { items: [], changeReason: 'matrix test' },
+  },
+  { method: 'GET', route: '/api/v1/admin/config/reason-codes', permission: 'config.read' },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/config/reason-codes',
+    permission: 'config.manage',
+    sampleBody: { context: 'lost', code: 'X', label: 'X', changeReason: '' },
+  },
+  {
+    method: 'PATCH',
+    route: '/api/v1/admin/config/reason-codes/:id',
+    url: `/api/v1/admin/config/reason-codes/${SAMPLE_CONFIG_ID}`,
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: 'matrix test', label: 'x' },
+  },
+  {
+    method: 'PUT',
+    route: '/api/v1/admin/config/reason-codes/:context/order',
+    url: '/api/v1/admin/config/reason-codes/lost/order',
+    permission: 'config.manage',
+    sampleBody: { items: [], changeReason: 'matrix test' },
+  },
+  { method: 'GET', route: '/api/v1/admin/config/workflow', permission: 'config.read' },
+  {
+    method: 'PATCH',
+    route: '/api/v1/admin/config/stages/:key',
+    url: '/api/v1/admin/config/stages/NO_SUCH_STAGE',
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: 'matrix test', label: 'x' },
+  },
+  {
+    method: 'PATCH',
+    route: '/api/v1/admin/config/gates/:key',
+    url: '/api/v1/admin/config/gates/NO_SUCH_GATE',
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: 'matrix test', label: 'x' },
+  },
+  {
+    method: 'PATCH',
+    route: '/api/v1/admin/config/gates/:gateKey/outcomes/:key',
+    url: '/api/v1/admin/config/gates/G1/outcomes/no_such_outcome',
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: 'matrix test', label: 'x' },
+  },
+  { method: 'GET', route: '/api/v1/admin/config/settings', permission: 'config.read' },
+  {
+    method: 'PATCH',
+    route: '/api/v1/admin/config/settings/:key',
+    url: '/api/v1/admin/config/settings/no_such_setting',
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: 'matrix test', value: 1 },
+  },
+  { method: 'GET', route: '/api/v1/admin/config/scoring', permission: 'config.read' },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/config/scoring/preview',
+    permission: 'config.read',
+    sampleBody: { model: { attributes: [], tiers: [], unknownScore: 50 } },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/config/scoring/draft',
+    permission: 'config.manage',
+    sampleBody: { changeReason: '' },
+  },
+  {
+    method: 'PUT',
+    route: '/api/v1/admin/config/scoring/draft',
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: '', model: {} },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/config/scoring/draft/activate',
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: '' },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/config/scoring/draft/discard',
+    permission: 'config.manage',
+    sampleBody: { version: 1, changeReason: '' },
+  },
+  { method: 'GET', route: '/api/v1/admin/users', permission: 'config.read' },
+  {
+    method: 'PUT',
+    route: '/api/v1/admin/users/:id/scope',
+    url: `/api/v1/admin/users/${SAMPLE_CONFIG_ID}/scope`,
+    permission: 'config.manage',
+    sampleBody: { version: null, changeReason: '', type: 'all' },
+  },
+  { method: 'GET', route: '/api/v1/admin/config/decision-log', permission: 'config.read' },
+  {
+    method: 'GET',
+    route: '/api/v1/admin/config/decision-log/export.csv',
+    permission: 'config.read',
+  },
   // B-07 intake drafts. The sample id is a draft nobody owns, so allowed roles get 404 (not 403);
   // the allowed POST creates a real (empty) draft for the caller.
   {

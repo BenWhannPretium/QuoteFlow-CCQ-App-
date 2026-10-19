@@ -120,6 +120,13 @@
       "when": 1792424231909,
       "tag": "0016_b18_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792431567768,
+      "tag": "0017_b19_admin_config",
+      "breakpoints": true
     }
   ]
 }

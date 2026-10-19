@@ -88,6 +88,7 @@ function dto(r: AuditSearchRow): AuditEventDto {
     quoteNumber: r.quoteNumber ?? null,
     before: e.before ?? null,
     after: e.after ?? null,
+    changeReason: e.changeReason,
     ip: e.ip,
     userAgent: e.userAgent,
     requestId: e.requestId,

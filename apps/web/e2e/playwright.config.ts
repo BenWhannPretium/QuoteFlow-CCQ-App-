@@ -37,6 +37,7 @@ export default defineConfig({
         'shell.spec.ts',
         'a11y.spec.ts',
         'admin-integrations.spec.ts',
+        'admin-config.spec.ts',
         'intake.spec.ts',
         'g1.spec.ts',
         'overrides.spec.ts',

@@ -8,6 +8,8 @@ import { z } from 'zod';
 export const PublicStage = z.object({
   key: z.string(),
   label: z.string(),
+  /** B-19: admin-editable help text; null = none. */
+  helpText: z.string().nullable(),
   ownerRole: z.string().nullable(),
   terminal: z.boolean(),
   sort: z.number().int(),
@@ -19,6 +21,8 @@ export const PublicGate = z.object({
   key: z.string(),
   stageKey: z.string(),
   label: z.string(),
+  /** B-19: admin-editable help text; null = none. */
+  helpText: z.string().nullable(),
   deciderPermission: z.string(),
   enabled: z.boolean(),
   sort: z.number().int(),
@@ -30,6 +34,8 @@ export const PublicGateOutcome = z.object({
   gateKey: z.string(),
   key: z.string(),
   label: z.string(),
+  /** B-19: admin-editable help text; null = none. */
+  helpText: z.string().nullable(),
   requiresNote: z.boolean(),
   requiresReasonCode: z.boolean(),
   reasonContext: z.string().nullable(),

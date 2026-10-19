@@ -89,7 +89,8 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
     items.push(item('approvals', 'Approvals', 'Approvals', '/approvals'));
   }
   if (can('analytics.read')) items.push(item('analytics', 'Analytics', 'Analytics', '/analytics'));
-  if (can('config.manage')) items.push(item('admin', 'Admin', 'Admin', '/admin'));
+  // B-19: Admin is config.read (Leadership reads every configuration screen; only Admin changes).
+  if (can('config.read')) items.push(item('admin', 'Admin', 'Admin', '/admin'));
   else if (can('audit.read')) items.push(item('audit', 'Audit log', 'Audit', '/admin/audit'));
   return items;
 }

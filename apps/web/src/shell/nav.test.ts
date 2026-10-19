@@ -30,7 +30,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
     [
       ['Leadership'],
-      ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'analytics', 'audit'],
+      ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'analytics', 'admin'],
     ],
     [
       ['Admin'],
@@ -133,7 +133,7 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
   });
 
   it('follows the permissions, not role names', () => {
-    const me = { ...meFor('KAM'), permissions: ['quote.read', 'config.manage'] };
+    const me = { ...meFor('KAM'), permissions: ['quote.read', 'config.read'] };
     expect(navItemsFor(me).map((i) => i.key)).toEqual(['home', 'pipeline', 'admin']);
   });
 });

@@ -109,6 +109,11 @@ const EnvSchema = z
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1025),
     /** Seconds between email dispatch runs; 0 disables the schedule (tests). */
     NOTIFICATION_DISPATCH_INTERVAL_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
+    /**
+     * B-19: seconds each API instance caches `GET /config/public`. An admin change clears the cache on
+     * the instance that made it; other instances serve the old config for at most this long. 0 = no cache.
+     */
+    CONFIG_CACHE_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
   })
   .superRefine((env, ctx) => {
     if (env.AUTH_MODE === 'dev' && env.NODE_ENV === 'production') {

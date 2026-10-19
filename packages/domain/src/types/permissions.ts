@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   'attachment.removeAny',
   'export.csv',
   'analytics.read',
+  'config.read',
   'config.manage',
 ] as const;
 

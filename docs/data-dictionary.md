@@ -111,6 +111,7 @@ Data scope per user (architecture §3.2). Enforced by the policy function and by
 | `user_id` | uuid | no |  | app_user.id | The user the scope applies to (one scope per user). | Admin |
 | `scope_type` | text | no | "all" |  | all \| region \| owner \| account_list. | Admin |
 | `values` | text[] | no | [] |  | Regions or SF account ids for region / account_list scopes; empty otherwise. | Admin |
+| `version` | integer | no | 1 |  | B-19: bumped on every admin change (optimistic concurrency). | Admin |
 
 **Checks:** `user_scope_scope_type_check`
 
@@ -155,6 +156,7 @@ Gates at stage exits and who decides them.
 | `key` | text | no |  |  | Gate key (G1…G5, SUBMIT). | Admin / Knowledge Steward |
 | `stage_key` | text | no |  | stage_definition.key | Stage the gate sits at the exit of. | Admin / Knowledge Steward |
 | `label` | text | no |  |  | Display label. | Admin / Knowledge Steward |
+| `help_text` | text | yes |  |  | B-19: help shown next to the gate (admin-editable); null = none. | Admin / Knowledge Steward |
 | `decider_permission` | text | no |  |  | Permission the decider must hold. | Admin / Knowledge Steward |
 | `enabled` | boolean | no | true |  | A disabled gate cannot be used (e.g. G1 when g1_enabled=false). | Admin / Knowledge Steward |
 | `required_fields` | jsonb | no | [] |  | Required-field rules applied to every outcome (domain DSL). | Admin / Knowledge Steward |
@@ -181,6 +183,7 @@ The choices available at each gate and their constraints.
 | `gate_key` | text | no |  | gate_definition.key | Gate the outcome belongs to. | Admin / Knowledge Steward |
 | `key` | text | no |  |  | Outcome key, unique within the gate (advance, hold, …). | Admin / Knowledge Steward |
 | `label` | text | no |  |  | Display label (button text). | Admin / Knowledge Steward |
+| `help_text` | text | yes |  |  | B-19: help shown next to the outcome (admin-editable); null = none. | Admin / Knowledge Steward |
 | `requires_note` | boolean | no | false |  | A note is mandatory. | Admin / Knowledge Steward |
 | `requires_reason_code` | boolean | no | false |  | A reason code is mandatory. | Admin / Knowledge Steward |
 | `reason_context` | text | yes |  |  | reason_code.context the chosen code must belong to. | Admin / Knowledge Steward |
@@ -234,8 +237,10 @@ Versioned priority-scoring model (F-05, B-08). Advisory only: it orders queues a
 | `model_version` | integer | no |  |  | Scoring model version stamped on quotes. | Jim Zweifel + sales leadership (D-19) |
 | `attributes` | jsonb | no |  |  | Attributes (domain scoring DSL): [{key, label, weight, input, bands \| map, inverse, unknownScore, unknownExplanation}]. Weights sum to 1. | Jim Zweifel + sales leadership (D-19) |
 | `tier_thresholds` | jsonb | no |  |  | {tiers: [{key, label, min}], unknownScore}: tiers on the 0–100 score and the neutral score for unknown inputs. | Jim Zweifel + sales leadership (D-19) |
-| `effective_from` | timestamp with time zone | no |  |  | When the model starts applying to new scores. | Jim Zweifel + sales leadership (D-19) |
+| `effective_from` | timestamp with time zone | yes |  |  | When the model starts applying to new scores. Null = a draft (B-19): never used to score. | Jim Zweifel + sales leadership (D-19) |
 | `change_reason` | text | no |  |  | Why this version exists. | Jim Zweifel + sales leadership (D-19) |
+
+**Indexes:** `scoring_model_one_draft_uidx`
 
 ### segregation_rule
 
@@ -299,6 +304,7 @@ Workflow stages (architecture §4.1), seeded from the domain hybrid model.
 | `approved_at` | timestamp with time zone | yes |  |  | When the value was approved. | Admin / Knowledge Steward |
 | `key` | text | no |  |  | Stage key used on quotes (INTAKE, ENG_REVIEW, …). | Admin / Knowledge Steward |
 | `label` | text | no |  |  | Display label; editable without code changes. | Admin / Knowledge Steward |
+| `help_text` | text | yes |  |  | B-19: help shown next to the stage (admin-editable); null = none. | Admin / Knowledge Steward |
 | `owner_role` | text | yes |  |  | Role that owns work in the stage; null for terminal stages. | Admin / Knowledge Steward |
 | `terminal` | boolean | no | false |  | Terminal stages have no exit gate. | Admin / Knowledge Steward |
 | `sort` | integer | no | 0 |  | Board column order. | Admin / Knowledge Steward |
@@ -847,6 +853,7 @@ Append-only usage and change audit (F-12). UPDATE/DELETE revoked from ccq_app an
 | `quote_id` | uuid | yes |  | quote.id | Quote involved, if any. | CCQ (system) |
 | `before` | jsonb | yes |  |  | State before the change. | CCQ (system) |
 | `after` | jsonb | yes |  |  | State after the change. | CCQ (system) |
+| `change_reason` | text | yes |  |  | B-19: why a config change was made (required on every config_change row; the F-21 decision log). | CCQ (system) |
 | `ip` | text | yes |  |  | Client IP address. | CCQ (system) |
 | `user_agent` | text | yes |  |  | Client user agent. | CCQ (system) |
 | `request_id` | text | yes |  |  | API request id, for log correlation. | CCQ (system) |

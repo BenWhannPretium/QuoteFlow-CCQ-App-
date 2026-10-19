@@ -140,6 +140,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 | attachment.removeAny (B-16: remove anyone's file; an uploader may remove their own within 24 h) | | | | | | | | ✔ |
 | export.csv | ✔ (scope) | ✔ | ✔ | | ✔ | ✔ | ✔ | ✔ |
 | analytics.read | | ✔ | ✔ | | ✔ | ✔ | ✔ | ✔ |
+| config.read (B-19: every Admin configuration screen, read-only) | | | | | | | ✔ | ✔ |
 | config.manage | | | | | | | | ✔ |
 
 > The G1 decider (D-06), the override approver (blueprint gap) and the Final Review approver (D-10) are **open decisions**. The matrix is config-backed (`role_permission` table seeded from `matrix.ts`), so changing who approves needs no code change.
@@ -237,20 +238,20 @@ Every notification is written **in the same transaction as the change** that cau
 
 ## 5. Data model (PostgreSQL 16, Drizzle)
 
-All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Config tables also carry `version`, `provisional bool` and `approved_by`/`approved_at`.
+All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Config tables also carry `version`, `provisional bool` and `approved_by`/`approved_at`. B-19: the admin console bumps `version` on every change (optimistic concurrency, 409 on a stale version), and a re-seed only refreshes rows still at `version = 1`, provisional and unapproved, so it never overwrites an admin's edit.
 
 **Identity and access**
 - `app_user`: entra_oid (unique), upn, display_name, email, region, active, last_seen_at
 - `user_role`: user_id, role. Synced from the token on each sign-in; the token is the source of truth.
-- `user_scope`: user_id, scope_type, values[]
+- `user_scope`: user_id, scope_type, values[], version (B-19: edited in Admin › Users)
 - `role_permission`: role, permission. Config, seeded from the matrix.
 
 **Reference and config** (all admin-editable and versioned)
 - `value_list`: list_key (product_family | market | resin | component | process_type | machine_type | plant | request_class | drawing_status | neck_finish | packaging_type), code, label, sort, active, provisional
-- `stage_definition`, `gate_definition`, `gate_outcome_definition`, `transition_rule`
+- `stage_definition`, `gate_definition`, `gate_outcome_definition`, `transition_rule`. B-19: the first three carry `help_text`; labels, help text, `requires_note` / `requires_reason_code` and required-field rules are admin-editable. Stages and transitions are added or removed only by migration plus a domain seed change.
 - `reason_code`: context (rework | redirect | stop | decline | lost | expired | hold | requote | override | awarded), code, label, active
-- `scoring_model`: version, attributes jsonb (key, label, weight, scale, mapping), tier_thresholds jsonb, effective_from, approved_by, change_reason
-- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome, pricing_ref_formats (B-11, ERF/BPR format checks), g4_tier_rules (B-12, null = disabled), validity_warning_days and handoff_receiving_roles (B-13), attachment_settings (B-16: folder templates, uploader removal window).
+- `scoring_model`: version, attributes jsonb (key, label, weight, scale, mapping), tier_thresholds jsonb, effective_from, approved_by, change_reason. B-19: `effective_from` null = the (single) draft, never used to score; activation sets it to now. Versions are never edited once active.
+- `app_setting`: key, value jsonb. Examples: validity_days_default, g1_enabled, min_value_warning, min_volume_warning_by_process, sla_hours_by_stage (null until D-20), eng_queue_aging_days (B-10 buckets, not an SLA), eng_queue_backup_assigner_user_ids (R-04), capital_readiness_on_outcome, pricing_ref_formats (B-11, ERF/BPR format checks), g4_tier_rules (B-12, null = disabled), validity_warning_days and handoff_receiving_roles (B-13), attachment_settings (B-16: folder templates, uploader removal window), role_change_request_url (B-19: the IT form for Entra group changes). Each key's editor and validator: `packages/domain/src/config-admin/settings.ts`.
 - `sf_stage_map`: sf_stage, ccq_stage_hint
 
 **Core workflow**
@@ -282,7 +283,7 @@ The full column list, with each column's meaning and owner, is generated into [`
 
 **Events and audit**
 - `activity_event`: quote_id, type, actor_id, at, payload jsonb. Powers the user-facing timeline.
-- `audit_event` (append-only; UPDATE/DELETE revoked from the app role): at, actor_id, actor_roles, action (view | create | update | stage_change | gate_decision | override_* | upload | download | export | config_change | sign_in), entity, entity_id, quote_id, before jsonb, after jsonb, ip, user_agent, request_id
+- `audit_event` (append-only; UPDATE/DELETE revoked from the app role): at, actor_id, actor_roles, action (view | create | update | stage_change | gate_decision | override_* | upload | download | export | config_change | sign_in), entity, entity_id, quote_id, before jsonb, after jsonb, change_reason (B-19: required on config_change; the F-21 decision log reads these rows), ip, user_agent, request_id
 - `notification`: user_id, type, quote_id, title, body, read_at, channel (in_app | email), sent_at, error. B-18 adds `dedupe_key` (once per state: unique per user and channel), `payload` (the non-commercial facts an email is built from), and the outbox state `attempts`, `next_attempt_at`, `failed_at`. An `email` row is the outbox entry the dispatcher sends; an `in_app` row is the bell's item.
 - `user_preference`: user_id, key, value jsonb; unique (user_id, key). B-18: `email.<notification type>` = false opts out of that email (a missing row = on). Any request context may read them (the actor of an event must know who opted out); only the user or Admin writes.
 - `integration_run`: source (salesforce | pricing | sharepoint), started_at, finished_at, status, counts jsonb, error

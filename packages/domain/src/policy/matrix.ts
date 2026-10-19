@@ -109,6 +109,8 @@ export const PERMISSION_MATRIX: Readonly<
     Leadership: true,
     Admin: true,
   },
+  // B-19: the admin configuration console. Leadership reads every screen; only Admin changes config.
+  'config.read': { Leadership: true, Admin: true },
   'config.manage': { Admin: true },
 };
 

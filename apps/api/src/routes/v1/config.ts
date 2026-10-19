@@ -3,8 +3,11 @@ import type { DbOrTx } from '@ccq/db';
 import {
   getScoringModel,
   listActiveValueLists,
+  listGateRows,
+  listOutcomeRows,
   listReasonCodes,
   listSettings,
+  listStageRows,
   loadWorkflowConfigInput,
   scoringModelInputFromRow,
 } from '@ccq/db/repos';
@@ -15,13 +18,20 @@ const publicSettingKeys = new Set<string>(PUBLIC_SETTING_KEYS);
 
 /** Assemble the UI config from the config tables. Labels only: no rules are evaluated here. */
 export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicConfigResponse> {
-  const [workflow, reasons, values, settings, model] = await Promise.all([
-    loadWorkflowConfigInput(db),
-    listReasonCodes(db),
-    listActiveValueLists(db),
-    listSettings(db),
-    getScoringModel(db, now),
-  ]);
+  const [workflow, reasons, values, settings, model, stageRows, gateRows, outcomeRows] =
+    await Promise.all([
+      loadWorkflowConfigInput(db),
+      listReasonCodes(db),
+      listActiveValueLists(db),
+      listSettings(db),
+      getScoringModel(db, now),
+      listStageRows(db),
+      listGateRows(db),
+      listOutcomeRows(db),
+    ]);
+  const stageHelp = new Map(stageRows.map((r) => [r.key, r.helpText]));
+  const gateHelp = new Map(gateRows.map((r) => [r.key, r.helpText]));
+  const outcomeHelp = new Map(outcomeRows.map((r) => [`${r.gateKey}/${r.key}`, r.helpText]));
 
   const valueLists: PublicConfigResponse['valueLists'] = {};
   for (const v of values) {
@@ -44,6 +54,7 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
     stages: workflow.stages.map((s, i) => ({
       key: s.key,
       label: s.label,
+      helpText: stageHelp.get(s.key) ?? null,
       ownerRole: s.ownerRole ?? null,
       terminal: s.terminal ?? false,
       sort: i,
@@ -53,6 +64,7 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
       key: g.key,
       stageKey: g.stageKey,
       label: g.label,
+      helpText: gateHelp.get(g.key) ?? null,
       deciderPermission: g.deciderPermission,
       enabled: g.enabled ?? true,
       sort: i,
@@ -62,6 +74,7 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
       gateKey: o.gateKey,
       key: o.key,
       label: o.label,
+      helpText: outcomeHelp.get(`${o.gateKey}/${o.key}`) ?? null,
       requiresNote: o.requiresNote ?? false,
       requiresReasonCode: o.requiresReasonCode ?? false,
       reasonContext: o.reasonContext ?? null,
@@ -85,7 +98,40 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
   };
 }
 
-export const configRoutes: FastifyPluginAsyncZod<{ now?: () => Date }> = async (app, opts) => {
+/**
+ * B-19: a per-instance cache of the public config (no per-user data in it: config tables have no
+ * RLS and settings are allow-listed). Admin writes call `invalidate()`; other API instances serve the
+ * old value for at most `ttlMs`. Failed loads are not cached.
+ */
+export class PublicConfigCache {
+  private entry: { at: number; value: Promise<PublicConfigResponse> } | null = null;
+
+  constructor(
+    readonly ttlMs: number,
+    private readonly clock: () => number = () => Date.now(),
+  ) {}
+
+  get(load: () => Promise<PublicConfigResponse>): Promise<PublicConfigResponse> {
+    if (this.ttlMs <= 0) return load();
+    const t = this.clock();
+    if (this.entry && t - this.entry.at < this.ttlMs) return this.entry.value;
+    const entry = { at: t, value: load() };
+    this.entry = entry;
+    entry.value.catch(() => {
+      if (this.entry === entry) this.entry = null;
+    });
+    return entry.value;
+  }
+
+  invalidate(): void {
+    this.entry = null;
+  }
+}
+
+export const configRoutes: FastifyPluginAsyncZod<{
+  now?: () => Date;
+  cache: PublicConfigCache;
+}> = async (app, opts) => {
   const now = opts.now ?? (() => new Date());
   app.get(
     '/config/public',
@@ -98,6 +144,6 @@ export const configRoutes: FastifyPluginAsyncZod<{ now?: () => Date }> = async (
         response: { 200: PublicConfigResponse },
       },
     },
-    async (req) => app.withTx(req, (tx) => loadPublicConfig(tx, now())),
+    async (req) => opts.cache.get(() => app.withTx(req, (tx) => loadPublicConfig(tx, now()))),
   );
 };

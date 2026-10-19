@@ -53,6 +53,7 @@ const EXPECTED: Record<string, Role[]> = {
   'attachment.removeAny': ['Admin'],
   'export.csv': ['KAM', 'SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
   'analytics.read': ['SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
+  'config.read': ['Leadership', 'Admin'],
   'config.manage': ['Admin'],
 };
 

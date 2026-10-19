@@ -6,8 +6,9 @@ import type { DbOrTx } from '../../src/client';
 
 /**
  * Idempotent config upsert. New rows are inserted; existing rows are refreshed from the seed only
- * while they are still provisional and unapproved, so a re-seed never overwrites a value the
- * business has approved. The config `version` is not bumped by seeding.
+ * while they are still provisional, unapproved and untouched (`version = 1`), so a re-seed never
+ * overwrites a value the business has approved or an admin has edited (B-19 bumps `version` on every
+ * console change). The config `version` is not bumped by seeding.
  */
 export async function upsertConfig<T extends PgTable>(
   db: DbOrTx,
@@ -33,12 +34,13 @@ export async function upsertConfig<T extends PgTable>(
   }
   const provisional = columns.provisional!;
   const approvedAt = columns.approvedAt!;
+  const version = columns.version!;
   await db
     .insert(table)
     .values(rows)
     .onConflictDoUpdate({
       target: conflictKeys.map((k) => columns[k]!),
       set,
-      setWhere: sql`${provisional} = true and ${approvedAt} is null`,
+      setWhere: sql`${provisional} = true and ${approvedAt} is null and ${version} = 1`,
     });
 }

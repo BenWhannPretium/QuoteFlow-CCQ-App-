@@ -54,7 +54,9 @@ import { authPlugin } from './plugins/auth';
 import { problemJsonPlugin } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
+import { PublicConfigCache } from './routes/v1/config';
 import { v1Routes } from './routes/v1/index';
+import { AdminConfigService } from './services/adminConfig';
 import { AnalyticsService } from './services/analytics';
 import { AttachmentService, LocalLinkSigner } from './services/attachments';
 import { AuditAdminService } from './services/auditAdmin';
@@ -114,6 +116,8 @@ declare module 'fastify' {
     notificationDispatch: NotificationDispatchScheduler | null;
     /** B-15: hourly pricing-app usage counts (flushed to integration_run about once a minute). */
     pricingUsage: PricingUsage;
+    /** B-19: the admin configuration console (tests await `adminConfig.rescore.flush()`). */
+    adminConfig: AdminConfigService;
   }
 }
 
@@ -496,6 +500,26 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       : null;
   app.decorate('validityExpiry', validityExpiry);
 
+  // B-19 admin configuration console. A committed change clears this instance's /config/public cache
+  // (others expire within CONFIG_CACHE_SECONDS); a scope change clears cached identities.
+  const configCache = new PublicConfigCache(config.CONFIG_CACHE_SECONDS * 1000);
+  const adminConfig = new AdminConfigService({
+    scoring,
+    database: deps.db.db,
+    log: app.log.child({ component: 'admin-config' }),
+    onConfigChange: () => configCache.invalidate(),
+    onScopeChange: () => identity.clear(),
+    connectorModes: {
+      salesforce: config.SF_MODE,
+      pricing: config.PRICING_MODE,
+      sharepoint: config.FILESTORE_MODE,
+      mail: config.MAIL_MODE,
+    },
+    ...now,
+  });
+  app.decorate('adminConfig', adminConfig);
+  app.addHook('onClose', async () => adminConfig.rescore.flush());
+
   await app.register(v1Routes, {
     prefix: '/api/v1',
     deps,
@@ -517,6 +541,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     outcomeService,
     pipelineService,
     attachmentService,
+    adminConfig,
+    configCache,
     analyticsService: new AnalyticsService(now),
     dashboardService: new DashboardService(now),
     fileStore,
