@@ -15,6 +15,7 @@ QuoteFlow replaces the legacy ERF application for new-business quotes that need 
 | [`03-build-steps.md`](03-build-steps.md) | 25 ordered build steps (B-00…B-24) with people, dates and acceptance checklists |
 | [`prompts/`](prompts/) | One detailed Claude Code starter prompt per build step |
 | [`04-decisions-and-risks.md`](04-decisions-and-risks.md) | Locked decisions, open decisions (owner, needed-by date, fallback), PRD v1.1 corrections, risks, sources |
+| [`05-path-to-mvp.md`](05-path-to-mvp.md) | **Start here for what's left.** The short version: remaining work, integrations, user feedback by app area, who to meet and what each meeting must produce, in order |
 
 ## The plan on one page
 
