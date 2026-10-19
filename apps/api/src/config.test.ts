@@ -47,6 +47,9 @@ describe('loadConfig', () => {
       ENTRA_TENANT_ID: '00000000-0000-0000-0000-000000000000',
       ENTRA_API_AUDIENCE: 'api://quoteflow',
       ENTRA_SPA_CLIENT_ID: '11111111-1111-1111-1111-111111111111',
+      FILESTORE_MODE: 'sharepoint',
+      SP_SITE_ID: 'contoso.sharepoint.com,site-guid,web-guid',
+      SP_DRIVE_ID: 'b!drive',
     });
     expect(c.AUTH_MODE).toBe('entra');
     expect(c.ENTRA_API_SCOPE).toBe('access_as_user');
@@ -132,5 +135,77 @@ describe('Pricing app config (B-15)', () => {
         PRICING_SQL_DATABASE: 'pricing_lakehouse',
       }).PRICING_MODE,
     ).toBe('fabric');
+  });
+});
+
+describe('Attachment store config (B-16)', () => {
+  const dev = { ...base, NODE_ENV: 'development', AUTH_MODE: 'dev' };
+  const prod = {
+    ...base,
+    NODE_ENV: 'production',
+    AUTH_MODE: 'entra',
+    ENTRA_TENANT_ID: 't',
+    ENTRA_API_AUDIENCE: 'api://quoteflow',
+    ENTRA_SPA_CLIENT_ID: 's',
+  };
+
+  it('defaults to the local store under .data/files', () => {
+    const c = loadConfig(dev);
+    expect(c.FILESTORE_MODE).toBe('local');
+    expect(c.FILESTORE_LOCAL_DIR).toBe('.data/files');
+  });
+
+  it('refuses the local store in production', () => {
+    expect(() => loadConfig(prod)).toThrow(/FILESTORE_MODE=local is forbidden/);
+  });
+
+  it('sharepoint needs the site and the drive; blob needs the account and container', () => {
+    expect(() => loadConfig({ ...dev, FILESTORE_MODE: 'sharepoint' })).toThrow(
+      /SP_SITE_ID is required[\s\S]*SP_DRIVE_ID is required/,
+    );
+    expect(() => loadConfig({ ...dev, FILESTORE_MODE: 'blob' })).toThrow(
+      /BLOB_ACCOUNT_URL is required[\s\S]*BLOB_CONTAINER is required/,
+    );
+    expect(() =>
+      loadConfig({
+        ...dev,
+        FILESTORE_MODE: 'blob',
+        BLOB_ACCOUNT_URL: 'http://insecure.example',
+        BLOB_CONTAINER: 'ccq',
+      }),
+    ).toThrow(/BLOB_ACCOUNT_URL/);
+    expect(
+      loadConfig({
+        ...prod,
+        FILESTORE_MODE: 'blob',
+        BLOB_ACCOUNT_URL: 'https://ccqfiles.blob.core.windows.net',
+        BLOB_CONTAINER: 'attachments',
+      }).FILESTORE_MODE,
+    ).toBe('blob');
+  });
+
+  it('a Graph client secret is for local test-site use only, with its tenant and client id', () => {
+    const sp = { FILESTORE_MODE: 'sharepoint', SP_SITE_ID: 's', SP_DRIVE_ID: 'd' };
+    expect(() => loadConfig({ ...dev, ...sp, GRAPH_CLIENT_SECRET: 'x' })).toThrow(
+      /GRAPH_TENANT_ID is required[\s\S]*GRAPH_CLIENT_ID is required/,
+    );
+    expect(
+      loadConfig({
+        ...dev,
+        ...sp,
+        GRAPH_CLIENT_SECRET: 'x',
+        GRAPH_TENANT_ID: 't',
+        GRAPH_CLIENT_ID: 'c',
+      }).GRAPH_CLIENT_SECRET,
+    ).toBe('x');
+    expect(() =>
+      loadConfig({
+        ...prod,
+        ...sp,
+        GRAPH_CLIENT_SECRET: 'x',
+        GRAPH_TENANT_ID: 't',
+        GRAPH_CLIENT_ID: 'c',
+      }),
+    ).toThrow(/test site only/);
   });
 });

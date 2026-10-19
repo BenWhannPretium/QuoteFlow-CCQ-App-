@@ -1,15 +1,21 @@
 import { fileURLToPath } from 'node:url';
 
 import type { Database } from '@ccq/db';
+import { ATTACHMENT_MAX_BYTES } from '@ccq/domain';
 import {
+  createFileStore,
   createPricingReader,
   createSalesforceReader,
+  type FileStore,
+  type FileStoreConfig,
+  type FileStoreLogger,
   type PricingLogger,
   type PricingReader,
   type SalesforceReader,
   type SfLogger,
 } from '@ccq/integrations';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import sensible from '@fastify/sensible';
 import swagger from '@fastify/swagger';
@@ -41,6 +47,7 @@ import { problemJsonPlugin } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { v1Routes } from './routes/v1/index';
+import { AttachmentService, LocalLinkSigner } from './services/attachments';
 import { AuditAdminService } from './services/auditAdmin';
 import { EngineeringService } from './services/engineering';
 import { FinalReviewService } from './services/final-review';
@@ -69,6 +76,8 @@ export interface AppDeps {
   salesforce?: SalesforceReader;
   /** Test seam: the pricing-app reader (defaults to PRICING_MODE: the synthetic fake, Route A or B). */
   pricing?: PricingReader;
+  /** Test seam: the attachment store (defaults to FILESTORE_MODE: SharePoint, Blob or local). */
+  fileStore?: FileStore;
   /** Test seam: replaces the Postgres-backed user directory. */
   directory?: UserDirectory;
   /** Test seam: Entra signing keys (defaults to the tenant JWKS). */
@@ -136,6 +145,39 @@ function pricingReaderFor(config: AppConfig, logger: PricingLogger): PricingRead
   }
 }
 
+export function fileStoreConfig(
+  config: AppConfig,
+  signer: LocalLinkSigner,
+  now?: () => Date,
+): FileStoreConfig {
+  const credential = config.GRAPH_CLIENT_SECRET
+    ? {
+        kind: 'client-secret' as const,
+        tenantId: config.GRAPH_TENANT_ID!,
+        clientId: config.GRAPH_CLIENT_ID!,
+        clientSecret: config.GRAPH_CLIENT_SECRET,
+      }
+    : { kind: 'managed-identity' as const, clientId: config.GRAPH_MI_CLIENT_ID };
+  switch (config.FILESTORE_MODE) {
+    case 'sharepoint':
+      return { mode: 'sharepoint', driveId: config.SP_DRIVE_ID!, credential };
+    case 'blob':
+      return {
+        mode: 'blob',
+        accountUrl: config.BLOB_ACCOUNT_URL!,
+        container: config.BLOB_CONTAINER!,
+        credential,
+      };
+    case 'local':
+      return {
+        mode: 'local',
+        root: config.FILESTORE_LOCAL_DIR,
+        downloadUrl: (itemId, fileName, expiresAt) => signer.sign(itemId, fileName, expiresAt),
+        ...(now ? { now } : {}),
+      };
+  }
+}
+
 export async function buildApp(config: AppConfig, deps: AppDeps): Promise<FastifyInstance> {
   const isProd = config.NODE_ENV === 'production';
 
@@ -166,6 +208,11 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     },
   });
   await app.register(rateLimit, { max: config.RATE_LIMIT_MAX, timeWindow: '1 minute' });
+  // B-16 uploads: one file per request, streamed. The limit is one byte over the 100 MB cap, so a
+  // body that runs past its declared size is caught by the store (413) before the parser cuts it.
+  await app.register(multipart, {
+    limits: { fileSize: ATTACHMENT_MAX_BYTES + 1, files: 1, fields: 5, fieldSize: 2_000, parts: 6 },
+  });
 
   if (!isProd) {
     await app.register(swagger, {
@@ -264,12 +311,32 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...(deps.now ? { now: deps.now } : {}),
   });
 
+  // B-16 attachments (F-13): SharePoint via Graph (Sites.Selected), the Blob fallback, or local disk.
+  // Logs carry operations, sizes and error codes only, never file names or contents.
+  const fileLog = app.log.child({ component: 'attachments' });
+  const fileLogger: FileStoreLogger = {
+    info: (obj, msg) => fileLog.info(obj, msg),
+    warn: (obj, msg) => fileLog.warn(obj, msg),
+    error: (obj, msg) => fileLog.error(obj, msg),
+  };
+  const localSigner = new LocalLinkSigner();
+  const fileStore =
+    deps.fileStore ??
+    createFileStore(fileStoreConfig(config, localSigner, deps.now), { logger: fileLogger });
+  const attachmentService = new AttachmentService({
+    store: fileStore,
+    log: fileLog,
+    ...(deps.now ? { now: deps.now } : {}),
+  });
+
   // B-07 intake. A picked opportunity must be in the local snapshot (the quote's FK); a live read
   // refreshes it.
   const intakeService = new IntakeService({
     ...(deps.now ? { now: deps.now } : {}),
     scoring,
     ensureOpportunity: async (withTx, id) => (await sfService.detail(withTx, id)) !== null,
+    attachments: attachmentService,
+    log: app.log.child({ component: 'intake' }),
   });
 
   // B-09 governed overrides, the quote timeline + comments, and the admin audit viewer / usage report.
@@ -374,6 +441,9 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     finalReviewService,
     outcomeService,
     pipelineService,
+    attachmentService,
+    fileStore,
+    localSigner,
   });
 
   if (isProd) {

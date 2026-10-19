@@ -10,6 +10,8 @@ const SAMPLE_DRAFT_ID = '019a0000-0000-7000-8000-00000000d7a1';
 const SAMPLE_QUOTE = 'CCQ-2099-99999';
 /** An override id nothing uses, so allowed roles get 404 (not 403). */
 const SAMPLE_OVERRIDE = '019a0000-0000-7000-8000-0000000000e1';
+/** An attachment id nothing uses, so allowed roles get 404 (not 403). */
+const SAMPLE_ATTACHMENT = '019a0000-0000-7000-8000-0000000000a7';
 
 export interface RegisteredRoute {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -289,5 +291,52 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/quotes/export.csv',
     url: '/api/v1/quotes/export.csv?stage=INTAKE',
     permission: 'export.csv',
+  },
+  // B-16 attachments. Uploads are attachment.upload (quote) / quote.create (draft); without a
+  // multipart body an allowed role gets 415 (the service then checks scope and the draft owner:
+  // attachments.int.test.ts). Read, download and remove are the quote.read floor; the service checks
+  // the quote's scope, the uploader / 24 h window and attachment.removeAny. The local-store link is
+  // public: its HMAC-signed token is the authorization (an unsigned one is 404).
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/attachments',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/attachments`,
+    permission: 'attachment.upload',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/attachments',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/attachments`,
+    permission: 'quote.read',
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/drafts/:id/attachments',
+    url: `/api/v1/quotes/drafts/${SAMPLE_DRAFT_ID}/attachments`,
+    permission: 'quote.create',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/drafts/:id/attachments',
+    url: `/api/v1/quotes/drafts/${SAMPLE_DRAFT_ID}/attachments`,
+    permission: 'quote.create',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/attachments/:id/download',
+    url: `/api/v1/attachments/${SAMPLE_ATTACHMENT}/download`,
+    permission: 'quote.read',
+  },
+  {
+    method: 'DELETE',
+    route: '/api/v1/attachments/:id',
+    url: `/api/v1/attachments/${SAMPLE_ATTACHMENT}`,
+    permission: 'quote.read',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/files/local',
+    url: '/api/v1/files/local?t=not-a-signed-token',
+    permission: 'public',
   },
 ];

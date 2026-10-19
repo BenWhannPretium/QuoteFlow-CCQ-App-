@@ -1,6 +1,8 @@
+import type { FileStore } from '@ccq/integrations';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { adminRoutes } from './admin';
+import { attachmentRoutes } from './attachments';
 import { auditRoutes } from './audit';
 import { authConfigRoutes } from './auth-config';
 import { configRoutes } from './config';
@@ -21,6 +23,7 @@ import type { AppDeps } from '../../app';
 import type { IdentityService } from '../../auth/directory';
 import type { AppConfig } from '../../config';
 import type { SfSyncScheduler } from '../../jobs/sfSync';
+import type { AttachmentService, LocalLinkSigner } from '../../services/attachments';
 import type { AuditAdminService } from '../../services/auditAdmin';
 import type { EngineeringService } from '../../services/engineering';
 import type { FinalReviewService } from '../../services/final-review';
@@ -52,6 +55,9 @@ export interface V1Options {
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
   pipelineService: PipelineService;
+  attachmentService: AttachmentService;
+  fileStore: FileStore;
+  localSigner: LocalLinkSigner;
 }
 
 /**
@@ -78,6 +84,9 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     finalReviewService,
     outcomeService,
     pipelineService,
+    attachmentService,
+    fileStore,
+    localSigner,
   },
 ) => {
   // Pass only our options: forwarding `opts` would re-apply the parent's `prefix`.
@@ -98,5 +107,11 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(finalReviewRoutes, { service: finalReviewService });
   await app.register(outcomeRoutes, { service: outcomeService });
   await app.register(pipelineRoutes, { service: pipelineService });
-  // TODO(B-16+): attachments, dashboards.
+  await app.register(attachmentRoutes, {
+    service: attachmentService,
+    store: fileStore,
+    signer: localSigner,
+    ...(deps.now ? { now: deps.now } : {}),
+  });
+  // TODO(B-17+): dashboards.
 };

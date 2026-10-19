@@ -14,6 +14,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@azure/identity": "4.13.3",
+    "@azure/storage-blob": "12.34.0",
     "@ccq/contracts": "workspace:*",
     "jsforce": "3.10.28",
     "mssql": "12.7.2",

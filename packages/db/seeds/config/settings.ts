@@ -1,4 +1,5 @@
 import {
+  ATTACHMENT_SETTINGS_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   HANDOFF_RECEIVING_ROLES_SEED,
   VALIDITY_WARNING_DAYS_SEED,
@@ -197,6 +198,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: 'https://pretiumpkg.lightning.force.com/lightning/o/Opportunity/new',
     description:
       'Where the intake sends a KAM whose opportunity is not in Salesforce yet (DEC-12).',
+  },
+  {
+    key: 'attachment_settings',
+    value: ATTACHMENT_SETTINGS_SEED,
+    description:
+      'B-16 (D-SP): folders relative to the document library root ({quoteFolder} with {quote_number}, {draftFolder} with {draft_id}, {removedFolder} for soft deletes) and how many hours an uploader may remove their own file (Admin always may). Folder convention agreed at M7 with Bailey (ERF restructure for Ranger); /CCQ/{quote_number}/ until then.',
   },
 ];
 

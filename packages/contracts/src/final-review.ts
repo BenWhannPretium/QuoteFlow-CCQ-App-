@@ -96,8 +96,10 @@ export const ReviewAttachment = z.object({
   mime: z.string(),
   uploadedByName: z.string().nullable(),
   uploadedAt: z.string(),
-  /** Null until the file is in SharePoint (B-16). */
+  /** SharePoint's own link (null for Blob/local); the UI downloads through the audited route. */
   webUrl: z.string().nullable(),
+  /** B-16: false for metadata-only rows (no stored bytes). */
+  available: z.boolean(),
 });
 export type ReviewAttachment = z.infer<typeof ReviewAttachment>;
 

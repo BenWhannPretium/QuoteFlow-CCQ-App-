@@ -390,7 +390,7 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
         ))}
       {step === 2 && <CustomerStep {...stepProps} />}
       {step === 3 && <ProductStep {...stepProps} />}
-      {step === 4 && <ReviewStep {...stepProps} goTo={goTo} />}
+      {step === 4 && <ReviewStep {...stepProps} goTo={goTo} draftId={draft.id} />}
 
       {submitError && (
         <Notice tone="blocking" testId="submit-error">

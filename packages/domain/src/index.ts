@@ -5,6 +5,7 @@
  */
 export const DOMAIN_PACKAGE = '@ccq/domain' as const;
 
+export * from './attachments';
 export * from './comments';
 export * from './engineering';
 export * from './errors';

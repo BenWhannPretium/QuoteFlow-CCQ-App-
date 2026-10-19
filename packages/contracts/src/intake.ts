@@ -216,6 +216,8 @@ export const SubmitIntakeResponse = z.object({
   /** True when the submit resubmitted a quote returned for rework. */
   resubmitted: z.boolean(),
   warnings: z.array(IntakeIssue),
+  /** B-16: files that came with the draft (now on the quote). */
+  attachments: z.number().int(),
 });
 export type SubmitIntakeResponse = z.infer<typeof SubmitIntakeResponse>;
 

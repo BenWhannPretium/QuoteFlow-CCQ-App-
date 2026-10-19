@@ -1,4 +1,7 @@
 import {
+  AttachmentDownloadResponse,
+  AttachmentListResponse,
+  AttachmentUploadResponse,
   BoardResponse,
   QuoteListResponse,
   HandoffResponse,
@@ -307,7 +310,99 @@ export const api = {
   /** The filtered list as CSV (audited server-side; 422 above 5,000 rows). */
   quotesExport: (q: Record<string, string>): Promise<Blob> =>
     getCsv(`/api/v1/quotes/export.csv${queryString(q)}`),
+
+  // B-16 attachments (uploads: uploadAttachment below, for progress)
+  quoteAttachments: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/attachments`, AttachmentListResponse),
+  draftAttachments: (draftId: string) =>
+    getJson(`/api/v1/quotes/drafts/${draftId}/attachments`, AttachmentListResponse),
+  /** A short-lived link (the download is authorized and audited server-side first). */
+  attachmentLink: (id: string) =>
+    getJson(`/api/v1/attachments/${id}/download?format=json`, AttachmentDownloadResponse),
+  removeAttachment: (id: string) =>
+    getJson(`/api/v1/attachments/${id}`, z.null(), { method: 'DELETE' }),
 };
+
+/** Where an upload goes: a quote (any stage) or an open intake draft. */
+export type AttachmentTarget = { quoteNumber: string } | { draftId: string };
+
+export const attachmentsPath = (target: AttachmentTarget) =>
+  'quoteNumber' in target
+    ? `${quotePath(target.quoteNumber)}/attachments`
+    : `/api/v1/quotes/drafts/${target.draftId}/attachments`;
+
+export interface UploadHandle {
+  promise: Promise<AttachmentUploadResponse>;
+  abort: () => void;
+}
+
+/**
+ * Upload one file with progress (XMLHttpRequest: fetch has no upload progress). The text fields go
+ * first, `size` included, because the server streams the file straight to SharePoint, whose upload
+ * session needs the total up front.
+ */
+export function uploadAttachment(
+  target: AttachmentTarget,
+  file: File,
+  fields: { kind: string; note?: string },
+  onProgress: (fraction: number) => void,
+): UploadHandle {
+  let xhr: XMLHttpRequest | null = null;
+  let aborted = false;
+  const send = async (forceRefresh: boolean): Promise<{ status: number; body: unknown }> => {
+    const session = getAuthSession();
+    if (!session) throw new Error('Not signed in');
+    const headers = await session.headers({ forceRefresh });
+    const form = new FormData();
+    form.append('kind', fields.kind);
+    if (fields.note) form.append('note', fields.note);
+    form.append('size', String(file.size));
+    form.append('file', file, file.name);
+    return new Promise((resolve, reject) => {
+      if (aborted) return reject(new DOMException('Upload cancelled', 'AbortError'));
+      const req = new XMLHttpRequest();
+      xhr = req;
+      req.open('POST', attachmentsPath(target));
+      req.setRequestHeader('accept', 'application/json');
+      for (const [k, v] of Object.entries(headers)) req.setRequestHeader(k, v);
+      req.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(e.loaded / e.total);
+      };
+      req.onload = () => {
+        let body: unknown = null;
+        try {
+          body = JSON.parse(req.responseText);
+        } catch {
+          body = null;
+        }
+        resolve({ status: req.status, body });
+      };
+      req.onerror = () => reject(new Error('The connection dropped during the upload'));
+      req.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+      req.send(form);
+    });
+  };
+  const promise = (async () => {
+    let res = await send(false);
+    if (res.status === 401) res = await send(true);
+    if (res.status < 200 || res.status >= 300) {
+      const parsed = ProblemDetails.safeParse(res.body);
+      throw new ApiError(
+        parsed.success
+          ? parsed.data
+          : { type: 'about:blank', title: 'Upload failed', status: res.status },
+      );
+    }
+    return AttachmentUploadResponse.parse(res.body);
+  })();
+  return {
+    promise,
+    abort: () => {
+      aborted = true;
+      xhr?.abort();
+    },
+  };
+}
 
 async function getCsv(path: string): Promise<Blob> {
   const session = getAuthSession();

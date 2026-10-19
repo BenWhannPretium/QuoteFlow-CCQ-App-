@@ -280,6 +280,75 @@ describe('RLS on quote_draft: creator plus Admin only (B-07)', () => {
   });
 });
 
+describe('RLS on draft attachments: the draft owner plus Admin (B-16)', () => {
+  it('a file on an open draft follows the draft; once on a quote it follows the quote', async () => {
+    const kam = persona('kam');
+    const [draft] = await asPersona(db, 'kam', (tx) =>
+      raw<{ id: string }>(
+        tx,
+        sql`insert into quote_draft (id, owner_user_id, data) values (${uuidv7()}, ${kam.id}, '{}') returning id`,
+      ),
+    );
+    const fileId = uuidv7();
+    await asPersona(db, 'kam', (tx) =>
+      raw(
+        tx,
+        sql`insert into attachment (id, draft_id, kind, file_name, size, mime, uploaded_by)
+            values (${fileId}, ${draft!.id}, 'bottle_drawing', 'a.pdf', 10, 'application/pdf', ${kam.id})`,
+      ),
+    );
+    const sees = (key: Parameters<typeof asPersona>[1]) =>
+      asPersona(
+        db,
+        key,
+        async (tx) => (await raw(tx, sql`select 1 from attachment where id = ${fileId}`)).length,
+      );
+    expect(await sees('kam')).toBe(1);
+    expect(await sees('admin')).toBe(1);
+    // Scope `all` and every-quote roles still don't see someone else's draft.
+    expect(await sees('kam-region')).toBe(0);
+    expect(await sees('sales-leader')).toBe(0);
+    expect(await sees('leadership')).toBe(0);
+
+    // Someone else can't attach a file to my draft (WITH CHECK).
+    expect(
+      await pgError(
+        asPersona(db, 'kam-region', (tx) =>
+          raw(
+            tx,
+            sql`insert into attachment (id, draft_id, kind, file_name, size, mime, uploaded_by)
+                values (${uuidv7()}, ${draft!.id}, 'spec', 'b.pdf', 10, 'application/pdf', ${persona('kam-region').id})`,
+          ),
+        ),
+      ),
+    ).toBe('42501');
+
+    // Claimed by a quote of the owner-scoped KAM: now visible with the quote, not the draft.
+    await raw(
+      db as never,
+      sql`update attachment set quote_id = ${ownQuoteId} where id = ${fileId}`,
+    );
+    expect(await sees('sales-leader')).toBe(1);
+    expect(await sees('kam-owner')).toBe(1);
+    await raw(
+      db as never,
+      sql`update attachment set quote_id = ${otherQuoteId} where id = ${fileId}`,
+    );
+    expect(await sees('kam-owner')).toBe(0);
+  });
+
+  it('a row needs a quote or a draft', async () => {
+    const code = await pgError(
+      raw(
+        db as never,
+        sql`insert into attachment (id, kind, file_name, size, mime, uploaded_by)
+            values (${uuidv7()}, 'spec', 'x.pdf', 1, 'application/pdf', ${persona('kam').id})`,
+      ),
+    );
+    expect(code).toBe('23514');
+  });
+});
+
 describe('one active quote per SF opportunity (B-07)', () => {
   it('a second active quote on the same opportunity violates the unique partial index', async () => {
     const [active] = await raw<{ sf_opportunity_id: string; kam_user_id: string }>(

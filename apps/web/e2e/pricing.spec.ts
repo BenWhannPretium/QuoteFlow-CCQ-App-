@@ -133,7 +133,8 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await expect(erf.getByText('Referenced')).toBeVisible();
   const bprs = panel.getByTestId('pricing-context-bprs');
   await expect(bprs).toContainText('follows ERF 48211');
-  await bprs.getByRole('button', { name: 'Use as reference' }).click();
+  // The SF opportunity's own ERF can bring another BPR into the list; use the one asserted below.
+  await bprs.getByTestId('use-bpr-BPR-482111').click();
   await expect(pricing.getByText('Added BPR-482111 to the BPR references')).toBeVisible();
   await expect(form.getByLabel('BPR number(s)')).toHaveValue('BPR-482111');
   await expect(bprs.getByText('Referenced')).toBeVisible();

@@ -52,7 +52,9 @@ import {
   type WorkflowConfig,
 } from '@ccq/domain';
 import { eq } from 'drizzle-orm';
+import type { FastifyBaseLogger } from 'fastify';
 
+import type { AttachmentService } from './attachments';
 import { onEngQueueArrival } from './engineering-arrival';
 import { recordIntakeShipToOverride } from './overrideService';
 import type { ScoringService } from './scoring';
@@ -140,6 +142,12 @@ export interface IntakeServiceOptions {
    * a live SF search. Returns false when neither the snapshot nor SF knows the id.
    */
   ensureOpportunity: (withTx: WithTx, sfOpportunityId: string) => Promise<boolean>;
+  /**
+   * B-16: a draft's files go with it. Submit claims them for the quote (same transaction) and moves
+   * their bytes to the quote folder after the commit; deleting a draft removes them (soft).
+   */
+  attachments?: Pick<AttachmentService, 'claimDraftFiles' | 'removeDraftFiles' | 'settle'>;
+  log?: FastifyBaseLogger;
 }
 
 export class IntakeService {
@@ -357,6 +365,7 @@ export class IntakeService {
   async remove(withTx: WithTx, actor: Actor, id: string, meta: AuditMeta): Promise<void> {
     await withTx(async (tx) => {
       await this.ownDraft(tx, actor, id, true);
+      await this.opts.attachments?.removeDraftFiles(tx, actor, id, meta);
       if (!(await deleteOpenQuoteDraft(tx, id))) throw notFound();
       await insertAuditEvent(tx, {
         at: this.now(),
@@ -401,8 +410,9 @@ export class IntakeService {
       );
     }
 
+    let result: SubmitIntakeResponse;
     try {
-      return await withTx((tx) => this.submitInTx(tx, actor, id, meta));
+      result = await withTx((tx) => this.submitInTx(tx, actor, id, meta));
     } catch (err) {
       if (pgCode(err) === '23505') {
         // Lost the race with another submit for the same opportunity (unique partial index).
@@ -414,6 +424,13 @@ export class IntakeService {
       }
       throw err;
     }
+    // The draft's files move to the quote folder now; a failure is retried on the next list.
+    if (this.opts.attachments && result.attachments > 0) {
+      await this.opts.attachments.settle(withTx, result.quoteId).catch((err: unknown) => {
+        this.opts.log?.warn({ err }, 'moving intake files to the quote folder failed');
+      });
+    }
+    return result;
   }
 
   /** Links the SF Account's customer row, or records a not-yet-established one (DEC-27). */
@@ -645,6 +662,8 @@ export class IntakeService {
         )
       : null;
 
+    const attachments =
+      (await this.opts.attachments?.claimDraftFiles(tx, actor, draft.id, quote.id, now)) ?? 0;
     await updateQuoteDraft(tx, draft.id, { submittedQuoteId: quote.id, submittedAt: now });
 
     // Routing. The KAM's own submit gate (decider quote.create) is enabled only when G1 is off.
@@ -703,6 +722,7 @@ export class IntakeService {
       priorityTier: scored?.tier ?? null,
       resubmitted: Boolean(reworkOf),
       warnings,
+      attachments,
     };
   }
 }

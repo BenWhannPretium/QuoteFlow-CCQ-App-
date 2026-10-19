@@ -17,6 +17,7 @@ import { api } from '@/lib/api';
 import { absoluteTime, relativeTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
 
+import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
 import { GateDecisionDialog } from '../GateDecisionDialog';
@@ -456,15 +457,9 @@ function AttachmentsSection({ s }: { s: ReviewSummary }) {
           {s.attachments.map((a) => (
             <li key={a.id} className="flex flex-wrap items-center gap-2 text-sm">
               <FileIcon className="size-4 shrink-0" aria-hidden="true" />
-              {a.webUrl ? (
-                <a
-                  href={a.webUrl}
-                  className="text-emphasis underline"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {a.fileName}
-                </a>
+              {/* B-16: through the audited download route, not a direct SharePoint link. */}
+              {a.available ? (
+                <AttachmentDownloadLink id={a.id} fileName={a.fileName} />
               ) : (
                 <span>{a.fileName}</span>
               )}

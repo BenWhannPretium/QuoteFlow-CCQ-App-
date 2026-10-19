@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { excludedSet, first } from './_util';
@@ -162,17 +162,72 @@ export async function updateOverride(
   return first(await db.update(override).set(patch).where(eq(override.id, id)).returning());
 }
 
+/** A quote's current files, oldest first (removed ones excluded). */
 export const listAttachments = (db: DbOrTx, quoteId: string) =>
   db
     .select()
     .from(attachment)
-    .where(eq(attachment.quoteId, quoteId))
-    .orderBy(asc(attachment.createdAt));
+    .where(and(eq(attachment.quoteId, quoteId), isNull(attachment.removedAt)))
+    .orderBy(asc(attachment.createdAt), asc(attachment.id));
+
+/** An intake draft's current files (before submit the quote id is null). */
+export const listDraftAttachments = (db: DbOrTx, draftId: string) =>
+  db
+    .select()
+    .from(attachment)
+    .where(
+      and(
+        eq(attachment.draftId, draftId),
+        isNull(attachment.quoteId),
+        isNull(attachment.removedAt),
+      ),
+    )
+    .orderBy(asc(attachment.createdAt), asc(attachment.id));
+
+export async function getAttachment(db: DbOrTx, id: string, forUpdate = false) {
+  const q = db.select().from(attachment).where(eq(attachment.id, id));
+  return first(await (forUpdate ? q.for('update') : q));
+}
 
 export async function insertAttachment(db: DbOrTx, values: typeof attachment.$inferInsert) {
   const [row] = await db.insert(attachment).values(values).returning();
   return row!;
 }
+
+export async function updateAttachment(
+  db: DbOrTx,
+  id: string,
+  patch: Partial<
+    Pick<
+      typeof attachment.$inferInsert,
+      | 'quoteId'
+      | 'storageItemId'
+      | 'storagePath'
+      | 'storedName'
+      | 'spItemId'
+      | 'spWebUrl'
+      | 'removedAt'
+      | 'removedBy'
+      | 'updatedAt'
+    >
+  >,
+) {
+  return first(await db.update(attachment).set(patch).where(eq(attachment.id, id)).returning());
+}
+
+/** Submit: the draft's files now belong to the quote (their bytes move after the commit). */
+export const claimDraftAttachments = (db: DbOrTx, draftId: string, quoteId: string, at: Date) =>
+  db
+    .update(attachment)
+    .set({ quoteId, updatedAt: at })
+    .where(
+      and(
+        eq(attachment.draftId, draftId),
+        isNull(attachment.quoteId),
+        isNull(attachment.removedAt),
+      ),
+    )
+    .returning();
 
 export const listComments = (db: DbOrTx, quoteId: string) =>
   db.select().from(comment).where(eq(comment.quoteId, quoteId)).orderBy(asc(comment.createdAt));

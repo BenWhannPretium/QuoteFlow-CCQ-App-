@@ -59,7 +59,9 @@ describe('schema documentation', () => {
     expect(stmts.length).toBe(tables.length + tables.reduce((n, t) => n + t.columns.length, 0));
     expect(stmts.find((s) => s.includes('quote.read.commercialFields'))).toBeDefined();
     for (const s of stmts)
-      expect(s).toMatch(/^COMMENT ON (TABLE|COLUMN) "[a-z_]+"(\."[a-z_]+")? IS '(?:[^']|'')*'$/);
+      expect(s).toMatch(
+        /^COMMENT ON (TABLE|COLUMN) "[a-z0-9_]+"(\."[a-z0-9_]+")? IS '(?:[^']|'')*'$/,
+      );
   });
 
   it('docs/data-dictionary.md is up to date (run `pnpm db:dictionary`)', () => {

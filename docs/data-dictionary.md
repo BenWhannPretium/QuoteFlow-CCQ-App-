@@ -342,7 +342,7 @@ Pick-list values for intake and engineering fields. Seeded from ERF Template Rev
 
 ### attachment
 
-Attachment metadata. Bytes live in SharePoint (/CCQ/{quote_number}/).
+Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.quoteFolder, /CCQ/{quote_number}/), or Blob/local by FILESTORE_MODE. Removal is soft.
 
 **Owner:** Uploader
 
@@ -352,19 +352,28 @@ Attachment metadata. Bytes live in SharePoint (/CCQ/{quote_number}/).
 | `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
-| `quote_id` | uuid | no |  | quote.id | Quote. | Uploader |
+| `quote_id` | uuid | yes |  | quote.id | Quote. Null while the file sits on an intake draft (set on submit). | Uploader |
+| `draft_id` | uuid | yes |  | quote_draft.id | Intake draft the file was uploaded to (B-16); kept after submit for provenance. Null once a deleted draft took its (removed) files with it. | KAM |
 | `kind` | text | no |  |  | bottle_drawing \| spec \| sample_photo \| other. | Uploader |
-| `file_name` | text | no |  |  | Original file name. | Uploader |
+| `file_name` | text | no |  |  | Original file name (metadata; the stored name is sanitized). | Uploader |
+| `stored_name` | text | yes |  |  | Sanitized name in storage (after any conflict rename). | CCQ (system) |
 | `size` | bigint | no |  |  | Size in bytes. | Uploader |
-| `mime` | text | no |  |  | MIME type. | Uploader |
+| `mime` | text | no |  |  | Canonical MIME type for the verified file type (never the browser claim). | Uploader |
+| `note` | text | yes |  |  | Optional note from the uploader. | Uploader |
+| `sha256` | text | yes |  |  | SHA-256 of the bytes as streamed (hex). | CCQ (system) |
+| `storage` | text | yes |  |  | sharepoint \| blob \| local (FILESTORE_MODE at upload). Null: metadata only, no bytes (synthetic seed). | CCQ (system) |
+| `storage_item_id` | text | yes |  |  | The store's id for the file: Graph driveItem id, blob name or local path. | CCQ (system) |
+| `storage_path` | text | yes |  |  | Current folder path in the store (quote folder, draft folder, or the removed folder). | CCQ (system) |
 | `sp_drive_id` | text | yes |  |  | SharePoint drive id. | SharePoint |
 | `sp_item_id` | text | yes |  |  | SharePoint item id. | SharePoint |
 | `sp_web_url` | text | yes |  |  | SharePoint web URL. | SharePoint |
 | `uploaded_by` | uuid | no |  | app_user.id | Uploader. | Uploader |
+| `removed_at` | timestamp with time zone | yes |  |  | Soft delete: when the file was removed (moved to the removed folder). | CCQ (system) |
+| `removed_by` | uuid | yes |  | app_user.id | Who removed it. | CCQ (system) |
 
-**Checks:** `attachment_kind_check`, `attachment_size_check`
+**Checks:** `attachment_kind_check`, `attachment_size_check`, `attachment_storage_check`, `attachment_owner_check`, `attachment_removed_consistency_check`
 
-**Indexes:** `attachment_quote_idx`
+**Indexes:** `attachment_quote_idx`, `attachment_draft_idx`
 
 ### capacity_evidence
 

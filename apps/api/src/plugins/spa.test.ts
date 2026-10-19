@@ -21,6 +21,9 @@ describe('production SPA serving', () => {
         ENTRA_API_AUDIENCE: 'api://ccq',
         ENTRA_SPA_CLIENT_ID: 'spa-client',
         WEB_DIST_DIR: dist,
+        FILESTORE_MODE: 'sharepoint',
+        SP_SITE_ID: 'site',
+        SP_DRIVE_ID: 'drive',
       }),
       { db: fakeDb() },
     );
