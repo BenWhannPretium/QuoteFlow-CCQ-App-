@@ -32,5 +32,10 @@
     "turbo": "2.11.8",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
+  },
+  "pnpm": {
+    "overrides": {
+      "tedious": "20.3.3"
+    }
   }
 }

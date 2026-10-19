@@ -1,7 +1,14 @@
 import { fileURLToPath } from 'node:url';
 
 import type { Database } from '@ccq/db';
-import { createSalesforceReader, type SalesforceReader, type SfLogger } from '@ccq/integrations';
+import {
+  createPricingReader,
+  createSalesforceReader,
+  type PricingLogger,
+  type PricingReader,
+  type SalesforceReader,
+  type SfLogger,
+} from '@ccq/integrations';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import sensible from '@fastify/sensible';
@@ -43,6 +50,7 @@ import { OutcomeService } from './services/outcome';
 import { OverrideService } from './services/overrideService';
 import { PipelineService } from './services/pipeline';
 import { PricingService } from './services/pricing';
+import { PricingAppService, PricingUsage } from './services/pricing-app';
 import { QuoteReadService } from './services/quotes';
 import { SalesforceService } from './services/salesforce';
 import { ScoringService } from './services/scoring';
@@ -59,6 +67,8 @@ export interface AppDeps {
   };
   /** Test seam: the Salesforce reader (defaults to SF_MODE: the synthetic fake or jsforce). */
   salesforce?: SalesforceReader;
+  /** Test seam: the pricing-app reader (defaults to PRICING_MODE: the synthetic fake, Route A or B). */
+  pricing?: PricingReader;
   /** Test seam: replaces the Postgres-backed user directory. */
   directory?: UserDirectory;
   /** Test seam: Entra signing keys (defaults to the tenant JWKS). */
@@ -77,6 +87,8 @@ declare module 'fastify' {
     sfSync: SfSyncScheduler | null;
     /** B-13: the daily proposal validity expiry flags; null without a database. server.ts starts it. */
     validityExpiry: ValidityExpiryScheduler | null;
+    /** B-15: hourly pricing-app usage counts (flushed to integration_run about once a minute). */
+    pricingUsage: PricingUsage;
   }
 }
 
@@ -93,6 +105,35 @@ function salesforceReaderFor(config: AppConfig, logger: SfLogger): SalesforceRea
     },
     { logger },
   );
+}
+
+function pricingReaderFor(config: AppConfig, logger: PricingLogger): PricingReader {
+  switch (config.PRICING_MODE) {
+    case 'fake':
+      return createPricingReader({ mode: 'fake' }, { logger });
+    case 'sqlserver':
+      return createPricingReader(
+        {
+          mode: 'sqlserver',
+          server: config.PRICING_SQL_SERVER!,
+          port: config.PRICING_SQL_PORT,
+          database: config.PRICING_SQL_DATABASE!,
+          user: config.PRICING_SQL_USER!,
+          password: config.PRICING_SQL_PASSWORD!,
+        },
+        { logger },
+      );
+    case 'fabric':
+      return createPricingReader(
+        {
+          mode: 'fabric',
+          server: config.PRICING_SQL_SERVER!,
+          database: config.PRICING_SQL_DATABASE!,
+          managedIdentityClientId: config.PRICING_SQL_MI_CLIENT_ID,
+        },
+        { logger },
+      );
+  }
 }
 
 export async function buildApp(config: AppConfig, deps: AppDeps): Promise<FastifyInstance> {
@@ -259,6 +300,30 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...now,
   });
 
+  // B-15 pricing-app reader (F-11): read-only ERF/BPR lookups and the quote's pricing context.
+  // Logs carry operations, counts and error codes only, never row contents.
+  const pricingLog = app.log.child({ component: 'pricing-app' });
+  const pricingLogger: PricingLogger = {
+    info: (obj, msg) => pricingLog.info(obj, msg),
+    warn: (obj, msg) => pricingLog.warn(obj, msg),
+    error: (obj, msg) => pricingLog.error(obj, msg),
+  };
+  if (config.PRICING_MODE === 'fake' && isProd) {
+    app.log.warn('PRICING_MODE=fake in production: pricing-app data is the synthetic fixture');
+  }
+  const pricingUsage = new PricingUsage({
+    database: deps.db.db,
+    now: deps.now ?? (() => new Date()),
+    logger: pricingLogger,
+  });
+  const pricingAppService = new PricingAppService({
+    reader: deps.pricing ?? pricingReaderFor(config, pricingLogger),
+    usage: pricingUsage,
+    logger: pricingLogger,
+    ...now,
+  });
+  app.decorate('pricingUsage', pricingUsage);
+
   // B-12 Final Review: the approvals queue and the one-page review summary (decisions are G4 via the gate route).
   const finalReviewService = new FinalReviewService({ quotes: quoteReads, ...now });
 
@@ -305,6 +370,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     auditService,
     engineeringService,
     pricingService,
+    pricingAppService,
     finalReviewService,
     outcomeService,
     pipelineService,
@@ -317,6 +383,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   app.addHook('onClose', async () => {
     await sfSync?.stop();
     await validityExpiry?.stop();
+    await pricingUsage.stop();
     await app.audit.flush();
     await deps.db.close();
   });

@@ -6,7 +6,9 @@ import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 // B-11: Pricing finds an engineering-cleared quote in the pricing queue, records the price approval
 // (references, basis, range, costing attestation) and capital readiness, and submits to Final Review
-// (G3). The KAM sees only "Price approved ✓"; the Approver is notified. The quote is created, qualified
+// (G3). B-15: the read-only pricing-app panel resolves the ERF and its BPRs, "Use as reference" adds a
+// BPR, and the manual fallback works when the pricing app is down. The KAM sees only "Price approved
+// ✓" and no panel (403 from the API); the Approver is notified. The quote is created, qualified
 // and engineered through the API (those stages have their own specs).
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
@@ -102,7 +104,12 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   // Pricing reads the engineering summary, commercial numbers included.
   await expect(tab.getByTestId('quoting-g2')).toContainText('Capital required');
   await expect(tab).toContainText('$420,000');
-  await expect(tab.getByTestId('pricing-app-slot')).toContainText('B-15');
+  // B-15: the read-only pricing-app panel (PRICING_MODE=fake) sits above the approval form.
+  const panel = tab.getByTestId('pricing-context');
+  await expect(panel.getByRole('heading', { name: 'Pricing context' })).toBeVisible();
+  await expect(panel.getByTestId('pricing-context-spr')).toContainText(
+    'Historical (SPR retired Nov 2025)',
+  );
 
   // ── The price approval: a bad reference is caught by format ──
   const form = tab.getByTestId('pricing-record-form');
@@ -113,10 +120,41 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await form.getByLabel('Costing completed (Cost-to-Serve)').check();
   await form.getByRole('button', { name: 'Save price approval' }).click();
   await expect(form.getByRole('alert').first()).toContainText('is not a valid ERF number');
-  await form.getByLabel('ERF number(s)').fill('48213');
+  await form.getByLabel('ERF number(s)').fill('48211');
   await form.getByRole('button', { name: 'Save price approval' }).click();
   await expect(pricing.getByText('Price approval recorded')).toBeVisible();
   await expect(tab.getByTestId('price-approval-status')).toContainText('Price approved ✓');
+
+  // ── B-15: the referenced ERF resolves in the pricing app, with the BPR that follows it ──
+  const erf = panel.getByTestId('pricing-context-erf').filter({ hasText: 'ERF 48211' });
+  await expect(erf).toContainText('Abandoned');
+  await expect(erf).toContainText('Est. net capital');
+  await expect(erf).toContainText('To price confirmed');
+  await expect(erf.getByText('Referenced')).toBeVisible();
+  const bprs = panel.getByTestId('pricing-context-bprs');
+  await expect(bprs).toContainText('follows ERF 48211');
+  await bprs.getByRole('button', { name: 'Use as reference' }).click();
+  await expect(pricing.getByText('Added BPR-482111 to the BPR references')).toBeVisible();
+  await expect(form.getByLabel('BPR number(s)')).toHaveValue('BPR-482111');
+  await expect(bprs.getByText('Referenced')).toBeVisible();
+  expect(await seriousViolations(pricing)).toEqual([]);
+
+  // ── Pricing app down: the panel says so and manual references still save ──
+  await pricing.route('**/api/v1/quotes/*/pricing-context', (route) =>
+    route.fulfill({ status: 503, contentType: 'application/problem+json', body: '{}' }),
+  );
+  await pricing.reload();
+  await expect(pricing.getByTestId('pricing-context-unavailable')).toContainText(
+    'Pricing app unavailable; enter references manually.',
+  );
+  await form.getByLabel('BPR number(s)').fill('BPR-482111, BPR-55120');
+  const saved = pricing.waitForResponse(
+    (r) => r.url().endsWith('/pricing-record') && r.request().method() === 'PUT',
+  );
+  await form.getByRole('button', { name: 'Save price approval' }).click();
+  expect((await saved).status()).toBe(200);
+  await expect(form.getByLabel('BPR number(s)')).toHaveValue('BPR-482111, BPR-55120');
+  await pricing.unroute('**/api/v1/quotes/*/pricing-context');
   // No price figure can be typed anywhere on the tab.
   await expect(tab.locator('input[type="number"]')).toHaveCount(0);
 
@@ -148,8 +186,18 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
     /Price approved ✓ on .+ by /,
   );
   await expect(kamTab.getByTestId('quoting-redacted')).toBeVisible();
-  for (const secret of ['March CDI', 'Hold the list price', '48213', 'CER-4410', 'board Nov 10']) {
+  for (const secret of ['March CDI', 'Hold the list price', '48211', 'CER-4410', 'board Nov 10']) {
     await expect(kam.getByTestId('quote-detail')).not.toContainText(secret);
+  }
+  // B-15: no pricing-app panel for the KAM, and the API refuses (server-enforced, not just hidden).
+  await expect(kam.getByTestId('pricing-context')).toHaveCount(0);
+  for (const persona of ['kam', 'engineer']) {
+    const denied = await request.get(`/api/v1/quotes/${quoteNumber}/pricing-context`, {
+      headers: as(persona),
+    });
+    expect(denied.status()).toBe(403);
+    const lookup = await request.get('/api/v1/pricing/erf/48211', { headers: as(persona) });
+    expect(lookup.status()).toBe(403);
   }
   expect(await seriousViolations(kam)).toEqual([]);
 

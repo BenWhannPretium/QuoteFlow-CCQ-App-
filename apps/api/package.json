@@ -26,6 +26,7 @@
     "fastify-type-provider-zod": "7.0.0",
     "jose": "6.2.12",
     "jsforce": "3.10.28",
+    "mssql": "12.7.2",
     "pino": "10.4.0",
     "zod": "4.6.7"
   },

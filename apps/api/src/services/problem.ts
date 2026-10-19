@@ -6,7 +6,7 @@ import { problem, sendProblem } from '../plugins/problem-json';
 /** A failure a route turns into problem+json (B-09 services). `extra` is merged into the body. */
 export class ServiceProblem extends Error {
   constructor(
-    readonly status: 400 | 403 | 404 | 409 | 422,
+    readonly status: 400 | 403 | 404 | 409 | 422 | 503,
     readonly code: string,
     message: string,
     readonly extra: Record<string, unknown> = {},

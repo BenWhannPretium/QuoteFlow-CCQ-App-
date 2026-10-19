@@ -115,4 +115,35 @@ describe('redact', () => {
     expect(isCommercialKey('cycle_time_s', ['capacity_evidence'])).toBe(true);
     expect(toSnakeCase('prelimCapitalUsd')).toBe('prelim_capital_usd');
   });
+
+  it('B-15: strips every pricing-app record (ERF, BPR, SPR) and its figures', () => {
+    const erf = {
+      erfNumber: '26367',
+      estRevenueUsd: 1,
+      estVolume: 2,
+      estNetCapitalUsd: 3,
+      plant: 'CHI',
+    };
+    const context = {
+      refs: { quoteErfNumber: '26367', erfRefs: ['26367'] },
+      linkage: { status: 'match' },
+      erfRecords: [erf],
+      bprRecords: [{ bprNumber: 'BPR-1' }],
+      sprHistory: [{ sprNumber: 'SPR-1' }],
+      erfRecord: erf,
+      bprRecord: { bprNumber: 'BPR-1' },
+      nested: { erf },
+    };
+    for (const role of ['KAM', 'Engineer', 'SalesLeader', 'PostAward'] as const) {
+      expect(redact(context, makeActor(role))).toEqual({
+        refs: { quoteErfNumber: '26367', erfRefs: ['26367'] },
+        linkage: { status: 'match' },
+        nested: { erf: { erfNumber: '26367', plant: 'CHI' } },
+      });
+    }
+    for (const role of ['Pricing', 'EngLead', 'Approver', 'Leadership', 'Admin'] as const) {
+      expect(redact(context, makeActor(role))).toEqual(context);
+    }
+    expect(redact({ pricingContext: { x: 1 }, keep: 1 }, makeActor('KAM'))).toEqual({ keep: 1 });
+  });
 });

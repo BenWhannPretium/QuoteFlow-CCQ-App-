@@ -40,7 +40,7 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 | **D-12** | Quote validity default (30 days PTF vs 60-day proposals) | Record the date in MVP; default 30; alerts only | Pricing + Sales leadership | D-pack / R3 | Oct 28 | 30 days (provisional) |
 | **D-K1** | Can KAMs see peers' priority scores? | Yes (PRD lean); override log restricted to leadership | Darren / Sarah | D-pack | Oct 28 | Yes (setting) |
 | **D-18** | Authoritative source for customer + ship-to (SF Account vs ERP customer master) | SF Account for MVP; flag gaps | Zac Cairns + Graham Parle; data owner TBD | **M3** | Oct 21 | SF Account |
-| **D-PR** | Pricing-app read path (SQL replica vs Fabric) + columns + sensitivity labels | Whichever Cory can grant fastest | Cory McGahan, Gemma Cebolla, Brennan Paul | **M5** | Oct 21 | Manual ERF/BPR reference fields |
+| **D-PR** | Pricing-app read path (SQL replica vs Fabric) + columns + sensitivity labels | Whichever Cory can grant fastest | Cory McGahan, Gemma Cebolla, Brennan Paul | **M5** | Oct 21 | Manual ERF/BPR reference fields. *B-15 built both routes behind `PRICING_MODE` (fake until M5); see the B-15 questions below.* |
 | **D-SP** | SharePoint site/folder for attachments; `Sites.Selected` grant | `/CCQ/{quote_number}/` on the CCQ site | IT M365 admin + Bailey | **M7** | Oct 27 | Azure Blob behind the same interface |
 | **D-03** | Stage-gate model (PRD 5 vs Op Model 6) | Configurable engine, hybrid seed. **Steering can relabel without code.** | Oleg Yarovinski; approver CCQ Steering | Bailey's decision package | Before scale | Hybrid seed |
 | **D-16w** | Salesforce write-back | None in MVP | Darren + Salesforce owner | — | Before scale | Read-only |
@@ -70,6 +70,13 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 - **New permission `engQueue.read`** (EngLead, Engineer, Leadership, Admin): the queue page.
 - **Engineers do not read commercial numbers** (architecture §3.3): prelim capital and the capacity figures are write-only for an assigned Engineer. *Ask R2:* should an Engineer see the numbers on quotes assigned to them? That would be a matrix change (an `assigned` qualifier on `quote.read.commercialFields`) agreed with the data owners.
 - **Accept** is open to the EngLead and the assigned engineer. *Ask R2:* lead-only?
+
+**B-15 questions for M5 (Wed Oct 21: Cory McGahan, Gemma Cebolla, Brennan Paul) (D-PR).** B-15 was built on 2026-10-16, before M5, with the fake reader as the default and both real routes ready behind `PRICING_MODE`. Code, not config, where noted:
+
+- **Route A or B?** `PRICING_MODE=sqlserver` (read-only SQL login, encrypted, `ApplicationIntent=ReadOnly`, password from Key Vault) or `PRICING_MODE=fabric` (SQL analytics endpoint, managed identity). Either needs only env settings; record the choice in `03-build-steps.md` (B-15).
+- **View names and every column** (code: `packages/integrations/src/pricing/columnMap.ts`). The ERF figure, decision, flag and elapsed-day columns use the names in Cory's 2026-09-22 export (`evidence`); the key, customer, description, dates, all BPR and all SPR columns are **guesses** (`placeholder`). *Ask Cory:* the views he will expose (names, schema), the key column types, how a BPR points at its ERF (a column, or a link table: cardinality is not 1:1), whether the pricing app carries the SF opportunity id, the exact accepted/rejected/abandoned flag columns, and whether a 0 in revenue/volume/capital ever means "blank" (B-15 treats only NULL/blank as unknown).
+- **Sensitivity labels** (code: `packages/domain/src/policy/sensitivity.ts`). Provisional: every pricing-app record (ERF, BPR, SPR) is commercial as a whole, for Pricing / EngLead / Approver / Leadership / Admin only. *Ask Gemma:* is that the right role list (architecture §3.3), and may any ERF field (e.g. the decision or elapsed days) go to KAMs or Engineers?
+- **Linkage rule** (code): the first ERF reference recorded on the pricing record becomes `quote.erf_number` when the quote has none; it never overwrites. A different SF ERF number is a warning only (CCQ never writes to SF). *Ask Gemma* if Pricing wants to be able to correct `quote.erf_number`.
 
 **Provisional choices B-11 shipped for R3 (Thu Nov 5, Gemma Cebolla + pricing analyst) and M5 (Cory McGahan) to confirm (DEC-19/20/23, D-10, D-11, D-PR).** Config rows, not code, except where noted:
 

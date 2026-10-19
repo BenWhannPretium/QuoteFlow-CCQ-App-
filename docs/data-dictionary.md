@@ -858,7 +858,7 @@ In-app and email notifications.
 
 ### integration_run
 
-One row per integration call or sync job; failures alert owners.
+One row per sync job (Salesforce), or per hour of on-demand reads (pricing app, B-15); failures alert owners.
 
 **Owner:** CCQ (system)
 
@@ -877,4 +877,4 @@ One row per integration call or sync job; failures alert owners.
 
 **Checks:** `integration_run_source_check`, `integration_run_status_check`
 
-**Indexes:** `integration_run_source_started_idx`
+**Indexes:** `integration_run_source_started_idx`, `integration_run_pricing_hour_uq`
