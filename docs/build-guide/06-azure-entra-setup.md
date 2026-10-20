@@ -12,7 +12,7 @@
 - Commands are copy-paste. Variables are set once at the top of each part. If Cloud Shell times out (20 minutes idle), paste that part's variable block again before carrying on.
 - After most steps there's a **Check:** line: what you should see in the portal.
 
-**Sources.** Microsoft Learn, read on 2026-10-19; links at the end. The CLI changes often, so if a flag is rejected, run the command with `--help` and use the new name.
+**Sources.** Microsoft Learn, read on 2026-10-19, and every command re-checked against its CLI or Graph reference page the same evening; links at the end. The CLI changes often, so if a flag is rejected, run the command with `--help` and use the new name.
 
 ---
 
@@ -167,10 +167,13 @@ echo "SPA client id: $SPA_APP_ID"
 
 1. **Pre-authorize the SPA on the API.** Users then never see a consent prompt for QuoteFlow:
    ```bash
+   SCOPE_ID=$(az ad app show --id $API_APP_ID --query "api.oauth2PermissionScopes[?value=='access_as_user'].id | [0]" -o tsv)
+   echo "scope=$SCOPE_ID"
    az rest --method PATCH --uri "https://graph.microsoft.com/v1.0/applications/$API_OBJ_ID" \
      --headers "Content-Type=application/json" \
-     --body "{\"api\":{\"preAuthorizedApplications\":[{\"appId\":\"$SPA_APP_ID\",\"permissionIds\":[\"$SCOPE_ID\"]}]}}"
+     --body "{\"api\":{\"preAuthorizedApplications\":[{\"appId\":\"$SPA_APP_ID\",\"delegatedPermissionIds\":[\"$SCOPE_ID\"]}]}}"
    ```
+   Graph v1.0 calls the list `delegatedPermissionIds`; `permissionIds` is the old manifest name and is refused. *Portal alternative:* **QuoteFlow-API → Expose an API → Add a client application** → paste the SPA client id → tick the scope → **Add application**.
    **Check:** **QuoteFlow-API → Expose an API → Authorized client applications** lists the SPA's client id.
 2. **[IT] Portal: add the permissions and grant admin consent.** Go to **App registrations → QuoteFlow-SPA → API permissions**.
    - **Add a permission → APIs my organization uses** (or **My APIs**) → **QuoteFlow-API** → **Delegated** → tick `access_as_user` → **Add permissions**.
@@ -277,7 +280,7 @@ When it finishes:
 ```bash
 az postgres flexible-server parameter set --resource-group $RG --server-name $PG \
   --name azure.extensions --value "pg_trgm,pgcrypto"
-az postgres flexible-server db create --resource-group $RG --server-name $PG --database-name ccq
+az postgres flexible-server db create --resource-group $RG --server-name $PG --name ccq
 ```
 - **Why:** QuoteFlow's migrations need the `pg_trgm` (search) and `pgcrypto` extensions, and Azure only allows extensions on its allow-list.
 - **Check:** portal → the server → **Server parameters** → `azure.extensions` shows both. **Databases** lists `ccq`. **Networking** shows "Allow public access from any Azure service" ticked.
@@ -333,7 +336,7 @@ az webapp update --name $WEBAPP --resource-group $RG --https-only true -o none
 az webapp config set --name $WEBAPP --resource-group $RG \
   --startup-file "node apps/api/dist/azureStart.js" --always-on true --ftps-state Disabled \
   --min-tls-version 1.2 --http20-enabled true -o none
-az webapp config set --name $WEBAPP --resource-group $RG --generic-configurations '{"healthCheckPath": "/api/v1/health"}' -o none
+az webapp config set --name $WEBAPP --resource-group $RG --generic-configurations healthCheckPath=/api/v1/health -o none
 ```
 
 Then the app settings. These are the app's configuration. None of them is a secret except `DATABASE_URL`, which points at Key Vault.
