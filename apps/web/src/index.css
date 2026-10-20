@@ -220,12 +220,12 @@
       var(--t) bottom right / 1px 11px no-repeat;
   }
 
-  /* Page-load reveal: the header, then each direct child of a .stagger, rising 6 px. */
+  /* Page-load reveal: the header, then each direct child of a .stagger, wiping up 6 px. */
   .rise {
-    animation: pf-rise 520ms var(--pf-ease) both;
+    animation: pf-rise 520ms var(--pf-ease) backwards;
   }
   .stagger > * {
-    animation: pf-rise 520ms var(--pf-ease) both;
+    animation: pf-rise 520ms var(--pf-ease) backwards;
   }
   .stagger > :nth-child(1) {
     animation-delay: 60ms;
@@ -244,13 +244,19 @@
   }
 }
 
+/*
+ * A wipe upwards, like a sheet coming off the plotter. No opacity change: text is at full contrast
+ * from the first frame (axe and screen magnifiers never see a faded state). The clip extends 24 px
+ * past the box so registration marks are not cut off mid-way, and `backwards` fill leaves nothing
+ * applied once it ends.
+ */
 @keyframes pf-rise {
   from {
-    opacity: 0;
+    clip-path: inset(-24px -24px 100% -24px);
     transform: translateY(6px);
   }
   to {
-    opacity: 1;
+    clip-path: inset(-24px);
     transform: none;
   }
 }
