@@ -58,7 +58,10 @@ function Section({
       data-testid={`review-${id}`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id={`${id}-heading`} className="text-base font-semibold">
+        <h2
+          id={`${id}-heading`}
+          className="font-display text-[1.1875rem] font-[450] tracking-[-0.012em]"
+        >
           {title}
         </h2>
         {aside}
@@ -155,9 +158,12 @@ function Header({ s, now }: { s: ReviewSummary; now: number }) {
   const g3 = s.decisions.find((d) => d.gateKey === 'G3' && d.outcomeKey === 'submit');
   const record = s.quoting.pricingRecord;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-testid="review-header">
+    <div
+      className="reg-marks bg-card rounded-card flex flex-wrap items-center gap-x-3 gap-y-2 border px-5 py-4"
+      data-testid="review-header"
+    >
       <StageBadge stageKey={q.stageKey} />
-      <span className="text-muted-foreground text-sm">Version {q.version}</span>
+      <span className="spec-label text-muted-foreground">Version {q.version}</span>
       <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} showWhy={false} />
       <span className="inline-flex items-center gap-1 text-sm" data-testid="review-price-status">
         {s.quoting.approval.approved ? (

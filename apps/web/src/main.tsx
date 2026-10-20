@@ -9,6 +9,11 @@ import { createQueryClient } from './lib/query-client';
 import { routeTree } from './routeTree.gen';
 import { RouteError } from './shell/RouteError';
 import { ThemeProvider } from './theme/ThemeProvider';
+// Open substitutes for the licensed brand fonts (see styles/tokens.css). Latin subsets load on demand.
+import '@fontsource-variable/newsreader/opsz.css';
+import '@fontsource-variable/hanken-grotesk/wght.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
 import './index.css';
 
 const queryClient = createQueryClient();

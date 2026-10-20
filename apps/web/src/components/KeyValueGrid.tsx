@@ -25,8 +25,8 @@ export function KeyValueGrid({
     <dl className={cn('grid gap-x-6 gap-y-4', COLUMNS[columns], className)}>
       {items.map((item, i) => (
         <div key={item.id ?? (typeof item.label === 'string' ? item.label : i)} className="min-w-0">
-          <dt className="text-muted-foreground text-xs font-medium">{item.label}</dt>
-          <dd className="mt-0.5 text-sm break-words">
+          <dt className="spec-label text-muted-foreground text-[0.625rem]">{item.label}</dt>
+          <dd className="mt-1 text-sm break-words">
             {item.value === null || item.value === undefined || item.value === ''
               ? '–'
               : item.value}

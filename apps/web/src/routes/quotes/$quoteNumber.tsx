@@ -10,6 +10,7 @@ import {
   ErrorState,
   FieldOverride,
   GateDecisionDialog,
+  GateRail,
   KeyValueGrid,
   PageHeader,
   PriorityBadge,
@@ -122,20 +123,26 @@ function QuotePage() {
           </>
         }
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <StageBadge stageKey={q.stageKey} />
-        {q.status !== 'active' && (
-          <span className="text-muted-foreground text-sm" data-testid="quote-status">
-            {q.status === 'on_hold'
-              ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
-              : `Closed${q.outcome ? ` (${q.outcome})` : ''}`}
+      <section
+        aria-label="Stage and priority"
+        className="reg-marks bg-card rounded-card rise grid gap-5 border px-5 pt-4 pb-5"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <StageBadge stageKey={q.stageKey} />
+          {q.status !== 'active' && (
+            <span className="text-muted-foreground text-sm" data-testid="quote-status">
+              {q.status === 'on_hold'
+                ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
+                : `Closed${q.outcome ? ` (${q.outcome})` : ''}`}
+            </span>
+          )}
+          <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="quote-priority">
+            <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} />
+            <FieldOverride quote={q} field="priority_tier" />
           </span>
-        )}
-        <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="quote-priority">
-          <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} />
-          <FieldOverride quote={q} field="priority_tier" />
-        </span>
-      </div>
+        </div>
+        <GateRail stageKey={q.stageKey} />
+      </section>
 
       <CustomerDecisionHeader quote={q} />
       <ReworkBanner quote={q} />
@@ -157,7 +164,7 @@ function QuotePage() {
             <Tabs.Trigger
               key={t}
               value={t}
-              className="text-foreground-2 data-[state=active]:border-primary data-[state=active]:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-3 text-sm font-medium sm:px-4"
+              className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground hover:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-3 text-sm font-medium transition-colors sm:px-4"
             >
               {TAB_LABELS[t]}
             </Tabs.Trigger>

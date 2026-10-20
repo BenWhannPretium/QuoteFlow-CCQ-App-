@@ -164,7 +164,7 @@ function HeaderCell<T>({ header }: { header: Header<T, unknown> }) {
       scope="col"
       aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
       className={cn(
-        'bg-muted text-foreground-2 sticky top-0 z-10 border-b px-4 py-2 text-left text-xs font-semibold whitespace-nowrap',
+        'bg-muted text-foreground-2 spec-label sticky top-0 z-10 border-b border-line-strong px-4 py-2.5 text-left text-[0.625rem] whitespace-nowrap',
         header.column.columnDef.meta?.numeric && 'text-right',
       )}
     >
@@ -256,7 +256,9 @@ function CardList<T>({
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {rest.map((cell) => (
                   <div key={cell.id} className="min-w-0">
-                    <dt className="text-muted-foreground text-xs">{headerText(cell.column.id)}</dt>
+                    <dt className="spec-label text-muted-foreground text-[0.625rem]">
+                      {headerText(cell.column.id)}
+                    </dt>
                     <dd className="text-sm break-words">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </dd>

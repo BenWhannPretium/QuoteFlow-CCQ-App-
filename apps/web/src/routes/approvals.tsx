@@ -156,7 +156,7 @@ function ApprovalsHome({ tab }: { tab: ApprovalsTab | undefined }) {
               key={t}
               value={t}
               data-testid={`approvals-tab-${t}`}
-              className="text-foreground-2 data-[state=active]:border-primary data-[state=active]:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-4 text-sm font-medium"
+              className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground hover:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-4 text-sm font-medium transition-colors"
             >
               {TAB_INFO[t].label}
             </Tabs.Trigger>

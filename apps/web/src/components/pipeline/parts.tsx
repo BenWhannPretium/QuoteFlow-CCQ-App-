@@ -50,7 +50,7 @@ export function PipelineViewTabs({
     cn(
       'inline-flex min-h-11 items-center border-b-2 px-4 text-sm font-medium sm:min-h-10',
       active
-        ? 'border-primary text-foreground'
+        ? 'border-action text-foreground'
         : 'text-foreground-2 hover:text-foreground border-transparent',
     );
   return (

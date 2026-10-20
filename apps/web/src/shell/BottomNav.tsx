@@ -45,7 +45,12 @@ export function BottomNav({
                 data-nav={item.key}
                 aria-current={active ? 'page' : undefined}
                 aria-label={item.label}
-                className={cn(tabClass, active ? 'text-emphasis' : 'text-muted-foreground')}
+                className={cn(
+                  tabClass,
+                  active
+                    ? 'text-emphasis before:bg-action relative before:absolute before:inset-x-4 before:top-0 before:h-0.5'
+                    : 'text-muted-foreground',
+                )}
               >
                 <Icon className="size-5" aria-hidden="true" />
                 <span className="max-w-full truncate" aria-hidden="true">

@@ -16,10 +16,7 @@ export function StageBadge({ stageKey, className }: { stageKey: string; classNam
     >
       <span
         aria-hidden="true"
-        className={cn(
-          'size-1.5 rounded-full',
-          stage?.terminal ? 'bg-muted-foreground' : 'bg-primary',
-        )}
+        className={cn('size-1.5', stage?.terminal ? 'bg-muted-foreground' : 'bg-primary')}
       />
       {stageLabel(data, stageKey)}
     </span>
