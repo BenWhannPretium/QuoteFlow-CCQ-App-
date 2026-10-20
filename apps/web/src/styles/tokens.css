@@ -1,18 +1,21 @@
 /*
- * Pretium design tokens for QuoteFlow (CCQ Workflow Blueprint + the Pretium design system).
+ * Pretium design tokens for QuoteFlow: "crafted industrial" (B-25 design refresh).
  *
  * Layer 1 (--pf-*): raw brand values. Change colours here only.
  * Layer 2 (--background, --primary, …): shadcn/ui semantic variables, mapped from layer 1.
  * index.css maps layer 2 into the Tailwind theme (bg-primary, text-muted-foreground, …).
  *
- * Contrast (WCAG AA, 4.5:1 for text) was checked for every text/background pair below.
- * Two blueprint values were darkened to pass (noted in docs/build-guide/03-build-steps.md, B-05):
- *   - High tier chip text #B04A2C → #A64427 (4.45 → 4.95 on #F6E5E0)
- *   - copper used as *text* on light surfaces → #A64427 (copper #C05131 is 4.37 on #F5F7F6)
+ * The look: warm paper surfaces and green-black ink, a deep Pretium-green rail, copper for the one
+ * call to action, near-square machined corners, hairlines instead of shadows, and spec-sheet details
+ * (mono labels, drafting grid, registration marks, the gate ruler). See docs/build-guide B-25.
  *
- * Fonts: "Value Serif Pro" (display) and "Basis Grotesque Pro" (body) are licensed. No font files
- * are in the repo yet, so the stacks fall back to Georgia and Arial. When Pretium provides the
- * files, put them in apps/web/public/fonts and add @font-face rules (font-display: swap) here.
+ * Contrast (WCAG AA, 4.5:1 for text, 3:1 for controls) is checked for every text/background pair
+ * below by tokens.test.ts (pnpm test).
+ *
+ * Fonts: the licensed "Value Serif Pro" and "Basis Grotesque Pro" are not in the repo. Until they
+ * are, the stacks use open substitutes, self-hosted from @fontsource (imported in main.tsx):
+ * Newsreader (display), Hanken Grotesk (body), IBM Plex Mono (spec labels and figures). To switch,
+ * add @font-face rules for the licensed files and put their names first in the three stacks below.
  */
 
 :root {
@@ -23,29 +26,42 @@
   --pf-copper-hover: #a64427;
   /* Copper as text: AA on every light surface. */
   --pf-copper-text: #a64427;
-  /* Copper on the green header band (focus ring, accents). */
+  /* Copper on the green rail (active mark, focus ring). */
   --pf-copper-on-green: #f2b8a2;
 
-  /* Surfaces */
-  --pf-bg: #f5f7f6;
-  --pf-surface: #ffffff;
-  --pf-surface-2: #f5f7f6;
+  /* Surfaces: warm paper, not grey. Cards are a shade lighter than the page. */
+  --pf-bg: #f2f0ea;
+  --pf-surface: #fcfbf8;
+  --pf-surface-2: #eceae2;
   --pf-surface-3: #dfe6e5;
-  --pf-line: #dfe6e5;
-  --pf-line-2: #c7d5d3;
+  --pf-line: #dcd8cc;
+  --pf-line-2: #c6c0b1;
   /* Form-control borders need 3:1 against the surface (WCAG 1.4.11). */
-  --pf-control-line: #6f8f8b;
+  --pf-control-line: #7b8580;
 
-  /* Text */
-  --pf-fg: #14211f;
-  --pf-fg-2: #2f4a47;
-  --pf-muted: #416f6b;
+  /* Ink */
+  --pf-fg: #13221f;
+  --pf-fg-2: #2c3e3a;
+  --pf-muted: #4a605c;
 
-  /* Header band */
-  --pf-header-bg: var(--pf-green);
+  /* The rail: deep Pretium green, lit slightly from the top. */
+  --pf-rail-bg: #1b4642;
+  --pf-rail-bg-2: #12312e;
+  --pf-rail-fg: #f3f1ea;
+  --pf-rail-muted: #b3c8c4;
+  --pf-rail-line: rgb(255 255 255 / 0.1);
+  --pf-rail-hover: rgb(255 255 255 / 0.06);
+  --pf-rail-active: rgb(255 255 255 / 0.1);
+
+  /*
+   * Header: the green band on mobile. From 641 px the header is a paper top bar beside the rail and
+   * index.css swaps these to the paper values.
+   */
+  --pf-header-bg: var(--pf-rail-bg);
   --pf-header-fg: #ffffff;
   --pf-header-muted: #c9dcd9;
   --pf-header-control: rgb(255 255 255 / 0.12);
+  --pf-header-line: rgb(255 255 255 / 0.25);
 
   /* Status */
   --pf-danger: #b3261e;
@@ -60,20 +76,30 @@
   --pf-tier-high-fg: #a64427;
   --pf-tier-standard-bg: #dfe6e5;
   --pf-tier-standard-fg: #225651;
-  --pf-tier-low-bg: #eeedea;
+  --pf-tier-low-bg: #e9e6dc;
   --pf-tier-low-fg: #4f4932;
 
-  /* Shape and depth */
-  --pf-radius-card: 16px;
-  --pf-radius-pill: 999px;
-  --pf-shadow: 0 1px 2px rgba(20, 33, 31, 0.06), 0 6px 18px rgba(34, 86, 81, 0.07);
+  /* Shape and depth: machined, not soft. Hairlines carry the structure; shadows only on lift. */
+  --pf-radius-card: 4px;
+  --pf-radius-pill: 3px;
+  --pf-shadow: 0 1px 0 rgb(19 34 31 / 0.04);
+  --pf-shadow-lift: 0 1px 2px rgb(19 34 31 / 0.06), 0 10px 24px -8px rgb(19 34 31 / 0.18);
+  /* Drafting grid and registration marks. */
+  --pf-grid-line: rgb(34 86 81 / 0.07);
+  --pf-reg-mark: #8c9a95;
+
+  /* Motion */
+  --pf-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  --pf-dur: 180ms;
 
   /* Type */
-  --pf-font-display: 'Value Serif Pro', Georgia, 'Times New Roman', serif;
-  --pf-font-body: 'Basis Grotesque Pro', Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  --pf-font-display: 'Value Serif Pro', 'Newsreader Variable', Georgia, 'Times New Roman', serif;
+  --pf-font-body:
+    'Basis Grotesque Pro', 'Hanken Grotesk Variable', Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  --pf-font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   /* shadcn/ui semantic variables */
-  --radius: 0.75rem;
+  --radius: 0.25rem;
   --background: var(--pf-bg);
   --foreground: var(--pf-fg);
   --card: var(--pf-surface);
@@ -86,7 +112,7 @@
   --secondary-foreground: var(--pf-green);
   --muted: var(--pf-surface-2);
   --muted-foreground: var(--pf-muted);
-  --accent: var(--pf-surface-3);
+  --accent: var(--pf-surface-2);
   --accent-foreground: var(--pf-fg);
   --destructive: var(--pf-danger);
   --destructive-foreground: #ffffff;
@@ -108,8 +134,8 @@
   --dv-primary: #225651;
   --dv-secondary: #84a29f;
   --dv-emphasis: #c05131;
-  --dv-grid: #dfe6e5;
-  --dv-axis: #416f6b;
+  --dv-grid: #dcd8cc;
+  --dv-axis: #4a605c;
 
   /* QuoteFlow additions */
   --action: var(--pf-copper);
@@ -125,20 +151,25 @@
 
 /* Dark palette: applied for the "dark" class (system preference or the manual toggle). */
 :root.dark {
-  --pf-bg: #0d1a18;
-  --pf-surface: #132623;
-  --pf-surface-2: #18302c;
-  --pf-surface-3: #22403b;
-  --pf-line: #22403b;
-  --pf-line-2: #2e5550;
+  /* Green-black, not blue-black: the paper becomes a dark drafting board. */
+  --pf-bg: #0d1614;
+  --pf-surface: #131f1d;
+  --pf-surface-2: #182725;
+  --pf-surface-3: #20342f;
+  --pf-line: #22332f;
+  --pf-line-2: #31473f;
   --pf-control-line: #6f8f8b;
 
-  --pf-fg: #e7efee;
-  --pf-fg-2: #c9d8d6;
-  --pf-muted: #9cb3b1;
+  --pf-fg: #ece9e1;
+  --pf-fg-2: #c9d2ce;
+  --pf-muted: #9db0ac;
   --pf-copper-text: #ec8a66;
 
-  --pf-header-bg: #173e3a;
+  --pf-rail-bg: #12302c;
+  --pf-rail-bg-2: #0a1d1b;
+  --pf-rail-line: rgb(255 255 255 / 0.08);
+
+  --pf-header-bg: var(--pf-rail-bg);
   --pf-header-muted: #b9d3cf;
 
   --pf-danger: #f2a093;
@@ -148,12 +179,15 @@
 
   --pf-tier-high-bg: #3a2219;
   --pf-tier-high-fg: #ec8a66;
-  --pf-tier-standard-bg: #22403b;
+  --pf-tier-standard-bg: #20342f;
   --pf-tier-standard-fg: #b9d3cf;
   --pf-tier-low-bg: #2e2b20;
   --pf-tier-low-fg: #dcd5be;
 
-  --pf-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.25);
+  --pf-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
+  --pf-shadow-lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 28px -8px rgb(0 0 0 / 0.6);
+  --pf-grid-line: rgb(157 176 172 / 0.06);
+  --pf-reg-mark: #5d7470;
 
   --dv-ramp-1: #3f6d67;
   --dv-ramp-2: #5c8c86;
@@ -163,13 +197,13 @@
   --dv-primary: #7fb8b1;
   --dv-secondary: #3f6d67;
   --dv-emphasis: #e08a68;
-  --dv-grid: #22403b;
-  --dv-axis: #9cb3b1;
+  --dv-grid: #22332f;
+  --dv-axis: #9db0ac;
 
   --primary: #7fb8b1;
-  --primary-foreground: #0d1a18;
+  --primary-foreground: #0d1614;
   --secondary-foreground: var(--pf-fg);
-  --destructive-foreground: #0d1a18;
+  --destructive-foreground: #0d1614;
   --ring: var(--pf-copper-text);
 
   color-scheme: dark;

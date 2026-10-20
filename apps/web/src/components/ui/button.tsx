@@ -9,13 +9,14 @@ import { cn } from '@/lib/utils';
  * states. Default size is 44 px tall on mobile (tap target) and 40 px from `sm` up.
  */
 const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-pill text-sm font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-pill text-sm font-medium tracking-[0.01em] whitespace-nowrap transition-[background-color,color,border-color,transform] duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
   {
     variants: {
       variant: {
         action: 'bg-action text-action-foreground hover:bg-action-hover',
         primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        outline: 'border border-line-strong bg-card text-foreground hover:bg-accent',
+        outline:
+          'border border-line-strong bg-card text-foreground hover:border-foreground-2 hover:bg-card',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'text-foreground hover:bg-accent',
         destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',

@@ -57,7 +57,7 @@ export function LandingPage({ requestedRole }: { requestedRole: string | undefin
         }
       />
       {roles.length > 1 && <RoleTabs roles={roles} current={landing} />}
-      <section aria-label="Dashboard" className="grid gap-4 lg:grid-cols-2">
+      <section aria-label="Dashboard" className="stagger grid gap-5 lg:grid-cols-2">
         {isDashboardRole(landing.role) ? (
           <RoleDashboard role={landing.role} />
         ) : (

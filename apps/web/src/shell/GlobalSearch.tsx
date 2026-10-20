@@ -99,7 +99,7 @@ export function GlobalSearch({ className }: { className?: string }) {
           }
         }}
         placeholder="Search quote number, customer, opportunity"
-        className="bg-header-control text-header-foreground placeholder:text-header-muted min-h-10 w-full rounded-pill border border-white/25 pr-4 pl-9 text-sm"
+        className="bg-header-control text-header-foreground placeholder:text-header-muted min-h-10 w-full rounded-pill border border-header-line pr-4 pl-9 text-sm"
       />
       <ul
         id={listId}

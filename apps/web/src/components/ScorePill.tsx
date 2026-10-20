@@ -20,7 +20,7 @@ export function ScorePill({
 }) {
   const text = score == null ? '–' : String(Math.round(score));
   const pill = cn(
-    'rounded-pill bg-secondary text-secondary-foreground inline-flex min-w-10 items-center justify-center px-2.5 py-0.5 text-sm font-semibold tabular-nums',
+    'rounded-pill bg-secondary text-secondary-foreground inline-flex min-w-10 items-center justify-center px-2 py-0.5 font-mono text-[0.8125rem] font-medium tabular-nums',
     className,
   );
   const accessibleName = score == null ? `${label}: not scored` : `${label} ${text}`;

@@ -304,7 +304,7 @@ interface ColumnState {
 
 function laneClass(s: ColumnState) {
   return cn(
-    'bg-muted/60 rounded-card flex w-[85vw] max-w-sm shrink-0 snap-start flex-col gap-2 border p-2 sm:w-72',
+    'bg-muted/70 rounded-card flex w-[85vw] max-w-sm shrink-0 snap-start flex-col gap-2 border p-2 sm:w-72',
     s.dragging && s.allowed && 'border-primary border-dashed',
     s.dragging && s.allowed && s.over && 'bg-accent ring-ring ring-2',
     s.dragging && !s.allowed && !s.isSource && 'opacity-60',
@@ -515,7 +515,10 @@ function CardBody({
 }) {
   return (
     <article
-      className={cn('bg-card rounded-card grid gap-1.5 border p-3 text-sm', className)}
+      className={cn(
+        'bg-card rounded-card ease-machined hover:border-line-strong hover:shadow-lift grid gap-1.5 border p-3 text-sm transition-[box-shadow,border-color,translate] duration-200 hover:-translate-y-px',
+        className,
+      )}
       aria-label={card.quoteNumber}
     >
       <div className="flex items-center gap-2">
@@ -541,7 +544,7 @@ function CardBody({
       <Link
         to="/quotes/$quoteNumber"
         params={{ quoteNumber: card.quoteNumber }}
-        className="text-emphasis w-fit font-semibold underline-offset-4 hover:underline"
+        className="text-emphasis w-fit font-mono text-[0.8125rem] font-medium underline-offset-4 hover:underline"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {card.quoteNumber}

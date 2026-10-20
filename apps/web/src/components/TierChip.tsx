@@ -30,13 +30,15 @@ export function TierChip({
     <span
       data-tier={tier.toLowerCase()}
       className={cn(
-        'rounded-pill inline-flex items-center px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap',
+        'rounded-pill inline-flex items-center px-2 py-0.5 text-[0.6875rem] font-semibold tracking-[0.06em] whitespace-nowrap uppercase',
         style,
         className,
       )}
     >
       {label ?? tier}
-      {overridden && <span className="ml-1 font-normal">(override)</span>}
+      {overridden && (
+        <span className="ml-1 font-normal normal-case tracking-normal">(override)</span>
+      )}
     </span>
   );
 }

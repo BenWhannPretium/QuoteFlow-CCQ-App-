@@ -1,7 +1,7 @@
 import { useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
-import { useCurrentUser } from '@/auth';
+import { DevPersonaSwitcher, useCurrentUser } from '@/auth';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { usePublicConfig } from '@/config/public-config';
 
@@ -11,8 +11,8 @@ import { navItemsFor } from './nav';
 import { SideNav } from './SideNav';
 
 /**
- * Skip link, green header, left rail (desktop) or bottom tabs (≤ 640 px), and <main>.
- * 16 px side gutters on mobile; bottom padding clears the tab bar.
+ * Skip link; full-height green rail beside a paper top bar and <main> (desktop), or the green band
+ * and bottom tabs (≤ 640 px). 16 px side gutters on mobile; bottom padding clears the tab bar.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const me = useCurrentUser();
@@ -30,16 +30,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           Skip to main content
         </a>
-        <Header />
         <div className="flex">
           <SideNav items={items} pathname={pathname} search={search} />
-          <main
-            id="main"
-            tabIndex={-1}
-            className="min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 sm:pb-10 lg:px-8"
-          >
-            <div className="mx-auto max-w-6xl">{children}</div>
-          </main>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <DevPersonaSwitcher />
+            <Header />
+            <main
+              id="main"
+              tabIndex={-1}
+              className="relative min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-8 sm:pt-8 sm:pb-12 lg:px-12"
+            >
+              <div className="mx-auto max-w-6xl">{children}</div>
+            </main>
+          </div>
         </div>
         <BottomNav items={items} pathname={pathname} search={search} />
       </div>
