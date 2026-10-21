@@ -8,10 +8,15 @@ import type { QuoteState } from '../types/quote';
 
 /**
  * The Quoting stage's pricing record (B-11, CR-25/26, DEC-19/20/23). CCQ records the price APPROVAL as
- * a decision: who approved, when, on what basis, and the pricing-app references. It never holds or
+ * a decision: who approved, when, on what basis. It never holds or
  * edits a price figure (PRD §9): how Pricing derives prices is out of scope (DEC-23) and costing stays
  * in Excel and the pricing app (CLAUDE.md rule 5). One record per quote version: a Rework or Return
  * bumps the version and starts a new record, the prior one is kept as history (CR-38).
+ *
+ * B-26 (CCQ demo, 10/20): no BPR. A BPR is the price-implementation step after CCQ, never part of it.
+ * ERF numbers stay only as a transition field ("Legacy ERF #") for requests that started in the ERF
+ * application; they are optional and no gate needs them. The old `bpr` refs and "no pricing-app record
+ * yet" note columns are kept for history and no longer written.
  */
 
 export const CAPITAL_READINESS_VALUES = [
@@ -51,18 +56,23 @@ const refFormat = z
     { message: 'pattern must be a valid regular expression that matches its example' },
   );
 
-/** app_setting `pricing_ref_formats`. Format-only validation: CCQ cannot look a reference up yet (B-15). */
-export const pricingRefFormatsSchema = z.object({ erf: refFormat, bpr: refFormat }).strict();
-export type PricingRefFormats = z.infer<typeof pricingRefFormatsSchema>;
+/**
+ * app_setting `pricing_ref_formats`. Format-only validation: CCQ cannot look a reference up yet (B-15).
+ * B-26: only the legacy ERF format is used; a stored `bpr` entry is accepted and ignored.
+ */
+export const pricingRefFormatsSchema = z
+  .object({ erf: refFormat, bpr: refFormat.optional() })
+  .strict()
+  .transform(({ erf }) => ({ erf }));
+export type PricingRefFormats = z.output<typeof pricingRefFormatsSchema>;
 export type PricingRefKind = keyof PricingRefFormats;
 
 /**
- * Provisional seed: ERF numbers in the Salesforce fixture are 5-digit numbers; the BPR format is a
- * guess. Ask Cory McGahan for the real formats at M5 (D-PR) and change the setting, not the code.
+ * Provisional seed: ERF numbers in the Salesforce fixture are 5-digit numbers. Ask Cory McGahan for
+ * the real format at M5 (D-PR) and change the setting, not the code.
  */
 export const PRICING_REF_FORMATS_SEED: PricingRefFormats = {
-  erf: { label: 'ERF number', pattern: '^\\d{4,7}$', example: '26367' },
-  bpr: { label: 'BPR number', pattern: '^(BPR-?)?\\d{3,10}$', example: 'BPR-10432' },
+  erf: { label: 'Legacy ERF number', pattern: '^\\d{4,7}$', example: '26367' },
 };
 
 export function parsePricingRefFormats(input: unknown): PricingRefFormats {
@@ -90,9 +100,8 @@ export interface PricingRecordValues {
   priceApprovedAt: Date | null;
   pricingBasisNote: string | null;
   approvedRangeNote: string | null;
+  /** B-26: legacy ERF numbers (transition only). */
   erfRefs: string[];
-  bprRefs: string[];
-  noPricingAppRecordNote: string | null;
   /** CR-25 costing-before-pricing checkpoint: an attestation only (costing stays in Excel). */
   costingCompleted: boolean;
   costingAttestedBy: string | null;
@@ -109,8 +118,6 @@ export const EMPTY_PRICING_RECORD: PricingRecordValues = {
   pricingBasisNote: null,
   approvedRangeNote: null,
   erfRefs: [],
-  bprRefs: [],
-  noPricingAppRecordNote: null,
   costingCompleted: false,
   costingAttestedBy: null,
   costingAttestedAt: null,
@@ -121,14 +128,13 @@ export const EMPTY_PRICING_RECORD: PricingRecordValues = {
 };
 
 /**
- * What a new version's record starts from: the pricing-app references and the CER reference (the same
- * deal in the pricing app and Apex). The approval, notes and capital status are recorded afresh.
+ * What a new version's record starts from: the legacy ERF numbers and the CER reference (the same
+ * deal in Apex). The approval, notes and capital status are recorded afresh.
  */
 export function carryForwardPricingRecord(prior: PricingRecordValues | null): PricingRecordValues {
   return {
     ...EMPTY_PRICING_RECORD,
     erfRefs: [...(prior?.erfRefs ?? [])],
-    bprRefs: [...(prior?.bprRefs ?? [])],
     cerReference: prior?.cerReference ?? null,
   };
 }
@@ -168,8 +174,6 @@ export interface PricingRecordInput {
   pricingBasisNote?: string | null | undefined;
   approvedRangeNote?: string | null | undefined;
   erfRefs?: readonly string[] | undefined;
-  bprRefs?: readonly string[] | undefined;
-  noPricingAppRecordNote?: string | null | undefined;
   costingCompleted?: boolean | undefined;
 }
 
@@ -193,7 +197,7 @@ function normalizeRefs(
   formats: PricingRefFormats,
   errors: DomainError[],
 ): string[] {
-  const field = kind === 'erf' ? 'erfRefs' : 'bprRefs';
+  const field = `${kind}Refs`;
   const format = formats[kind];
   const re = new RegExp(format.pattern);
   const out: string[] = [];
@@ -275,13 +279,8 @@ export function planPricingRecord(
   if (input.pricingBasisNote !== undefined) next.pricingBasisNote = clean(input.pricingBasisNote);
   if (input.approvedRangeNote !== undefined)
     next.approvedRangeNote = clean(input.approvedRangeNote);
-  if (input.noPricingAppRecordNote !== undefined) {
-    next.noPricingAppRecordNote = clean(input.noPricingAppRecordNote);
-  }
   if (input.erfRefs !== undefined)
     next.erfRefs = normalizeRefs('erf', input.erfRefs, ctx.formats, errors);
-  if (input.bprRefs !== undefined)
-    next.bprRefs = normalizeRefs('bpr', input.bprRefs, ctx.formats, errors);
 
   if (input.costingCompleted !== undefined && input.costingCompleted !== current.costingCompleted) {
     next.costingCompleted = input.costingCompleted;
@@ -364,15 +363,14 @@ export function priceApprovalStatus(
 }
 
 export interface QuotingWarning {
-  code:
-    'CAPITAL_PENDING' | 'CAPITAL_NOT_APPROVED' | 'COSTING_NOT_ATTESTED' | 'NO_PRICING_APP_RECORD';
+  code: 'CAPITAL_PENDING' | 'CAPITAL_NOT_APPROVED' | 'COSTING_NOT_ATTESTED';
   message: string;
 }
 
 /**
- * Things the G3 decider and the Final Review approver should see, none of which block (D-11 is open):
- * capital still pending (with its justification), capital not approved, costing not attested (CR-25),
- * and a submit backed by the "no pricing-app record yet" note instead of a reference.
+ * Things the G3 decider and the Final Review approver should see: capital still pending (with its
+ * justification; D-11 is open, so it does not block), capital not approved, and costing not attested
+ * (CR-25; B-26 made it a G3 rule, cost before price, so this warning now explains the block).
  */
 export function quotingWarnings(record: PricingRecordValues | null): QuotingWarning[] {
   if (!record) return [];
@@ -391,13 +389,8 @@ export function quotingWarnings(record: PricingRecordValues | null): QuotingWarn
   if (!record.costingCompleted) {
     out.push({
       code: 'COSTING_NOT_ATTESTED',
-      message: 'Costing (Cost-to-Serve) is not marked as completed (CR-25)',
-    });
-  }
-  if (record.erfRefs.length === 0 && record.bprRefs.length === 0 && record.noPricingAppRecordNote) {
-    out.push({
-      code: 'NO_PRICING_APP_RECORD',
-      message: `No pricing-app record yet: ${record.noPricingAppRecordNote}`,
+      message:
+        'Costing (Cost-to-Serve) is not marked as completed: cost comes before price (CR-25)',
     });
   }
   return out;

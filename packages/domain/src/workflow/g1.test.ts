@@ -75,8 +75,9 @@ describe('G1 outcomes', () => {
     expect(r.ok && r.effects.nextStageKey).toBe('ENG_REVIEW');
   });
 
-  it('Hold: needs a reason and a review date, stays in INTAKE on hold', () => {
+  it('Hold: needs a reason, a review date and an owner (B-26), stays in INTAKE on hold', () => {
     expect(codes(decide({ gateKey: 'G1', outcomeKey: 'hold' }))).toEqual([
+      'MISSING_FIELD',
       'MISSING_FIELD',
       'REASON_REQUIRED',
     ]);
@@ -84,7 +85,7 @@ describe('G1 outcomes', () => {
       gateKey: 'G1',
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
-      payload: { review_date: '2026-11-02' },
+      payload: { review_date: '2026-11-02', hold_owner_id: 'user-owner' },
     });
     expect(r.ok && [r.effects.nextStageKey, r.effects.nextStatus, r.effects.hold.action]).toEqual([
       'INTAKE',

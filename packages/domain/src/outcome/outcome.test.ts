@@ -39,6 +39,7 @@ const DECIDER: Record<string, Role> = {
   G3: 'Pricing',
   G4: 'Approver',
   G5: 'SalesLeader',
+  G6: 'SalesLeader',
   P_INTAKE: 'KAM',
   P_ENG: 'EngLead',
   P_QUOTE: 'Pricing',
@@ -141,9 +142,11 @@ describe('the closure rule (CR-39/40): every terminal path', () => {
       'G2/stop': 'decider',
       'G3/stop': 'decider',
       'G4/decline': 'decider',
-      'G5/awarded': 'kam',
       'G5/lost': 'kam',
       'G5/expired': 'kam',
+      // B-26: Won closes at G6; "commitment not authorized" is Pretium's own no-go.
+      'G6/advance': 'kam',
+      'G6/stop': 'decider',
     });
   });
 
@@ -287,10 +290,12 @@ describe('G5 outcomes (B-13)', () => {
     );
   const codes = (r: ReturnType<typeof decide>) => (r.ok ? [] : r.errors.map((e) => e.code).sort());
 
-  it('offers the five outcomes with the configured reason codes', () => {
+  it('offers the six outcomes with the configured reason codes', () => {
     const actions = availableActions(hybridConfig, makeQuote('CUSTOMER_DECISION'), leader);
     expect(actions.map((a) => [a.outcomeKey, a.requiresReasonCode, a.nextStatus])).toEqual([
-      ['awarded', true, 'closed'],
+      // B-26: an award is not spend authority; it moves to Commit & Hand Off.
+      ['awarded', true, 'active'],
+      ['negotiating', false, 'active'],
       ['lost', true, 'closed'],
       ['expired', true, 'closed'],
       ['on_hold', true, 'on_hold'],
@@ -317,7 +322,7 @@ describe('G5 outcomes (B-13)', () => {
     ]);
   });
 
-  it('Awarded needs the acceptance evidence (reason) and its date, and lands in AWARDED', () => {
+  it('Awarded needs the acceptance evidence (reason) and its date, and moves to Commit & Hand Off', () => {
     expect(codes(decide({ gateKey: 'G5', outcomeKey: 'awarded' }))).toEqual([
       'MISSING_FIELD',
       'REASON_REQUIRED',
@@ -332,9 +337,24 @@ describe('G5 outcomes (B-13)', () => {
       reasonCode: 'po',
       payload: { accepted_at: '2026-10-19' },
     });
-    expect(ok.ok && [ok.effects.nextStageKey, ok.effects.closure?.outcome]).toEqual([
-      'AWARDED',
-      'awarded',
+    expect(ok.ok && [ok.effects.nextStageKey, ok.effects.nextStatus, ok.effects.closure]).toEqual([
+      'COMMIT_HANDOFF',
+      'active',
+      undefined,
+    ]);
+  });
+
+  it('B-26: "In negotiation" needs a note and keeps the quote in Customer Decision', () => {
+    expect(codes(decide({ gateKey: 'G5', outcomeKey: 'negotiating' }))).toEqual(['NOTE_REQUIRED']);
+    const r = decide({
+      gateKey: 'G5',
+      outcomeKey: 'negotiating',
+      note: 'Counter at -2%, in range',
+    });
+    expect(r.ok && [r.effects.nextStageKey, r.effects.nextStatus, r.effects.versionBump]).toEqual([
+      'CUSTOMER_DECISION',
+      'active',
+      false,
     ]);
   });
 
@@ -359,8 +379,9 @@ describe('G5 outcomes (B-13)', () => {
     expect(noted.ok && noted.effects.nextStageKey).toBe('EXPIRED');
   });
 
-  it('On hold needs a reason and a review date, and starts the hold clock', () => {
+  it('On hold needs a reason, a review date and an owner (B-26), and starts the hold clock', () => {
     expect(codes(decide({ gateKey: 'G5', outcomeKey: 'on_hold' }))).toEqual([
+      'MISSING_FIELD',
       'MISSING_FIELD',
       'REASON_REQUIRED',
     ]);
@@ -368,7 +389,7 @@ describe('G5 outcomes (B-13)', () => {
       gateKey: 'G5',
       outcomeKey: 'on_hold',
       reasonCode: 'customer_requested_delay',
-      payload: { review_date: '2026-11-30' },
+      payload: { review_date: '2026-11-30', hold_owner_id: KAM_ID },
     });
     expect(r.ok && [r.effects.nextStatus, r.effects.hold.action, r.effects.closure]).toEqual([
       'on_hold',
@@ -499,6 +520,8 @@ describe('Salesforce stage side by side', () => {
 
   it('agrees, or stays quiet mid-pipeline and for unmapped or missing stages', () => {
     expect(cmp('AWARDED', 'Closed Won – Product Shipping').mismatch).toBe(false);
+    // B-26: awarded and waiting on the CER / hand-off agrees with SF's award stages.
+    expect(cmp('COMMIT_HANDOFF', 'Closed Won – Product Shipping').mismatch).toBe(false);
     expect(cmp('ENG_REVIEW', 'Qualifying').mismatch).toBe(false);
     expect(cmp('CUSTOMER_DECISION', 'Something new')).toMatchObject({
       ccqStageHint: null,
@@ -521,7 +544,7 @@ describe('Salesforce stage side by side', () => {
       stageLabel: (k) => hybridConfig.stages.find((s) => s.key === k)!.label,
     });
     expect(r.reason).toBe(
-      'CCQ shows Customer Decision but Salesforce shows "Closed Won – Product Shipping" (Awarded)',
+      'CCQ shows Customer Decision but Salesforce shows "Closed Won – Product Shipping" (Closed – Won)',
     );
   });
 });
@@ -566,7 +589,13 @@ describe('outcomes report', () => {
 
   it('keeps expired apart from lost, everywhere', () => {
     const r = summarizeOutcomes(rows, hybridConfig, NOW);
-    expect(r.customer).toEqual({ awarded: 3, lost: 1, expired: 2, winRate: 0.75 });
+    expect(r.customer).toEqual({
+      awarded: 3,
+      lost: 1,
+      expired: 2,
+      commitmentPending: 0,
+      winRate: 0.75,
+    });
     const byKey = Object.fromEntries(r.outcomes.map((o) => [o.outcome, o]));
     expect(byKey.lost).toMatchObject({ kind: 'customer', count: 1, label: 'Closed Lost' });
     expect(byKey.expired).toMatchObject({
@@ -613,8 +642,19 @@ describe('outcomes report', () => {
     });
   });
 
-  it('customer outcomes are the closures decided at Customer Decision', () => {
+  it('customer outcomes: G5 closures and the KAM-owned G6 closure (Won), not G6 "not authorized"', () => {
     expect([...customerOutcomeKeys(hybridConfig)].sort()).toEqual(['awarded', 'expired', 'lost']);
+  });
+
+  it('B-26: an award waiting in Commit & Hand Off counts as a win and as recorded', () => {
+    const pending: OutcomeReportRow = { ...open(null), stageKey: 'COMMIT_HANDOFF' };
+    const r = summarizeOutcomes([...rows, pending], hybridConfig, NOW);
+    expect(r.customer).toMatchObject({ awarded: 4, commitmentPending: 1, winRate: 0.8 });
+    expect(r.capture).toMatchObject({ recorded: 7, proposalsIssued: 9 });
+    expect(r.outcomes.find((o) => o.outcome === 'not_authorized')).toMatchObject({
+      kind: 'internal',
+      count: 0,
+    });
   });
 });
 
@@ -649,10 +689,9 @@ describe('hand-off record (Stage 6, minimal)', () => {
     expect(!r.ok && r.errors.map((e) => e.code)).toEqual(['NOT_AWARDED']);
   });
 
-  it('captures the CER / BPR IDs and the receiving role; only the keys sent change', () => {
+  it('captures the CER and the receiving role (B-26: no BPR); only the keys sent change', () => {
     const r = plan({
       cerId: ' CER-2026-0412 ',
-      bprId: 'BPR-55120',
       receivingRole: 'commercial_activation',
       receivingContactName: 'Amanda Cronkhite',
     });
@@ -662,12 +701,50 @@ describe('hand-off record (Stage 6, minimal)', () => {
       acceptanceEvidence: 'po',
       acceptanceDate: '2026-10-19',
       cerId: 'CER-2026-0412',
-      bprId: 'BPR-55120',
+      cerStatus: 'pending',
+      cerApprovedOn: null,
       receivingRole: 'commercial_activation',
       receivingContactName: 'Amanda Cronkhite',
     });
-    expect(r.changed.sort()).toEqual(['bprId', 'cerId', 'receivingContactName', 'receivingRole']);
+    expect(r.values).not.toHaveProperty('bprId');
+    expect(r.changed.sort()).toEqual(['cerId', 'receivingContactName', 'receivingRole']);
     expect(r.completion).toBeNull();
+  });
+
+  it('B-26 (G6a): an approved CER needs its ID and approval date; other statuses clear the date', () => {
+    const missing = plan({ cerStatus: 'approved' });
+    expect(!missing.ok && missing.errors.map((e) => e.field).sort()).toEqual([
+      'cerApprovedOn',
+      'cerId',
+    ]);
+    const future = plan({ cerStatus: 'approved', cerId: 'CER-1', cerApprovedOn: '2026-12-01' });
+    expect(!future.ok && future.errors.map((e) => e.field)).toEqual(['cerApprovedOn']);
+    const ok = plan({ cerStatus: 'approved', cerId: 'CER-1', cerApprovedOn: '2026-10-19' });
+    expect(ok.ok && [ok.values.cerStatus, ok.values.cerApprovedOn]).toEqual([
+      'approved',
+      '2026-10-19',
+    ]);
+    const bad = plan({ cerStatus: 'maybe' });
+    expect(!bad.ok && bad.errors.map((e) => e.field)).toEqual(['cerStatus']);
+    expect(plan({ cerStatus: 'not_required' }).ok).toBe(true);
+  });
+
+  it('B-26: editable in Commit & Hand Off and on Closed – Won, nowhere else', () => {
+    for (const [stageKey, ok] of [
+      ['COMMIT_HANDOFF', true],
+      ['AWARDED', true],
+      ['CUSTOMER_DECISION', false],
+    ] as const) {
+      const r = planHandoff({
+        stageKey,
+        current: award,
+        edit: { notes: 'x' },
+        actorId: 'user-kam',
+        now: NOW,
+        receivingRoles: roles,
+      });
+      expect(r.ok, stageKey).toBe(ok);
+    }
   });
 
   it('validates evidence, role, references, dates and the link', () => {

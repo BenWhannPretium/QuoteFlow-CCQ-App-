@@ -55,11 +55,7 @@ export function reviewWarnings(input: ReviewWarningInput): ReviewWarning[] {
     });
   }
   for (const w of input.quoting) {
-    out.push({
-      code: w.code,
-      severity: w.code === 'NO_PRICING_APP_RECORD' ? 'info' : 'risk',
-      message: w.message,
-    });
+    out.push({ code: w.code, severity: 'risk', message: w.message });
   }
   for (const w of input.qualification) {
     out.push({ code: w.code, severity: 'info', message: w.message });

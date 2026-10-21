@@ -32,6 +32,8 @@ export const DOMAIN_ERROR_CODES = [
   'CLOSURE_INCOMPLETE',
   'INVALID_CLOSURE_OWNER',
   'NOT_AWARDED',
+  // B-26: an escalation type with nobody configured to receive it.
+  'NO_RECIPIENTS',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

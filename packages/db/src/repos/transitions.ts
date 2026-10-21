@@ -13,6 +13,7 @@ import {
   customer,
   engReview,
   gateDecision,
+  handoffRecord,
   pricingRecord,
   quote,
   quoteHold,
@@ -51,7 +52,7 @@ export async function loadQuoteStates(
   const customerIds = [
     ...new Set(rows.map((r) => r.customerId).filter((id): id is string => !!id)),
   ];
-  const [engs, capacity, pricing, holds, decisions, customers] = await Promise.all([
+  const [engs, capacity, pricing, holds, decisions, customers, handoffs] = await Promise.all([
     db.select().from(engReview).where(inArray(engReview.quoteId, found)),
     db
       .select()
@@ -91,6 +92,8 @@ export async function loadQuoteStates(
           .from(customer)
           .where(inArray(customer.id, customerIds))
       : Promise.resolve([]),
+    // B-26: the hand-off record, for the G6 (Commit & Hand Off) rules.
+    db.select().from(handoffRecord).where(inArray(handoffRecord.quoteId, found)),
   ]);
   const byQuote = <T extends { quoteId: string }>(list: T[]) => {
     const map = new Map<string, T[]>();
@@ -107,6 +110,7 @@ export async function loadQuoteStates(
   const holdsBy = byQuote(holds);
   const decisionsBy = byQuote(decisions);
   const accountBy = new Map(customers.map((c) => [c.id, c.sfAccountId]));
+  const handoffBy = new Map(handoffs.map((h) => [h.quoteId, h]));
 
   for (const row of rows) {
     const {
@@ -124,6 +128,7 @@ export async function loadQuoteStates(
       ...snake(engFields),
       capacity_evidence: (capacityBy.get(row.id) ?? []).map(snake),
       pricing_record: pricingRow ? snake(pricingRow) : null,
+      handoff_record: handoffBy.has(row.id) ? snake(handoffBy.get(row.id)!) : null,
       // B-11: Engineering's latest feasibility outcome (e.g. capital_required) for the Quoting rules.
       g2_outcome: quoteDecisions.find((d) => d.gateKey === 'G2')?.outcomeKey ?? null,
     };
@@ -195,12 +200,16 @@ export async function persistTransition(
     createdBy: record.decidedBy,
   });
 
+  // B-26: a hold names its owner (`hold_owner_id`, supplied with the decision).
+  const holdOwner = record.payload?.hold_owner_id;
+  const holdOwnerId = typeof holdOwner === 'string' ? holdOwner : null;
   if (effects.hold.action === 'start') {
     await db.insert(quoteHold).values({
       quoteId,
       stageKey: effects.fromStageKey,
       startedAt: effects.hold.at,
       reasonCode: record.reasonCode,
+      ownerId: holdOwnerId,
       createdBy: record.decidedBy,
     });
   } else if (effects.hold.action === 'end') {
@@ -249,6 +258,8 @@ export async function persistTransition(
       status: effects.nextStatus,
       version: effects.nextVersion,
       ...(backToKam ? { submittedAt: null } : {}),
+      ...(effects.nextStatus === 'on_hold' && holdOwnerId ? { holdOwnerId } : {}),
+      ...(effects.hold.action === 'end' ? { holdOwnerId: null } : {}),
       // B-13 (CR-39): the domain planned every closure field; the CHECK constraint repeats the rule.
       ...(closing && effects.closure
         ? {

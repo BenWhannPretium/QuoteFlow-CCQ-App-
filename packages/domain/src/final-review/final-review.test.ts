@@ -77,7 +77,12 @@ describe('G4 is an internal decision (X-88): it never awards or loses a quote', 
   const g4Transitions = hybridConfig.transitions.filter((t) => t.gateKey === 'G4');
 
   it('no G4 transition targets Awarded / Closed Lost or closes as awarded / lost', () => {
-    expect(g4Transitions.map((t) => t.outcomeKey).sort()).toEqual(['approve', 'decline', 'return']);
+    expect(g4Transitions.map((t) => t.outcomeKey).sort()).toEqual([
+      'approve',
+      'decline',
+      'hold',
+      'return',
+    ]);
     for (const t of g4Transitions) {
       expect(t.targetStageKeys).not.toContain('AWARDED');
       expect(t.targetStageKeys).not.toContain('CLOSED_LOST');
@@ -106,11 +111,11 @@ describe('G4 is an internal decision (X-88): it never awards or loses a quote', 
     expect(r.effects.gateDecisionRecord.decidedBy).toBe(OTHER_ID);
   });
 
-  it('only G5 (the customer outcome) can award or lose', () => {
-    const closing = hybridConfig.transitions
-      .filter((t) => ['awarded', 'lost'].includes(t.closeAs ?? ''))
-      .map((t) => t.gateKey);
-    expect(new Set(closing)).toEqual(new Set(['G5']));
+  it('only the customer outcome can lose (G5), and only G6 closes Won after an award (B-26)', () => {
+    const gatesClosingAs = (closeAs: string) =>
+      new Set(hybridConfig.transitions.filter((t) => t.closeAs === closeAs).map((t) => t.gateKey));
+    expect(gatesClosingAs('lost')).toEqual(new Set(['G5']));
+    expect(gatesClosingAs('awarded')).toEqual(new Set(['G6']));
   });
 
   it('G4 stays on the Approver permission, nothing else', () => {
@@ -513,8 +518,8 @@ describe('approver tiers (D-10): a hook, disabled by default', () => {
       availableActions(hybridConfig, quote, actor, { approverTiers: rules })
         .filter((a) => a.gateKey === 'G4')
         .map((a) => a.outcomeKey);
-    expect(keys(null)).toEqual(['approve', 'decline', 'return']);
-    expect(keys(SAMPLE)).toEqual(['decline', 'return']);
+    expect(keys(null)).toEqual(['approve', 'hold', 'return', 'decline']);
+    expect(keys(SAMPLE)).toEqual(['hold', 'return', 'decline']);
 
     const requirement = approverRequirement(SAMPLE, quote.fields, actor);
     expect(requirement).toEqual({
@@ -604,7 +609,7 @@ describe('finalReviewAvailability', () => {
 
   it('a tier that bars every outcome blocks the decision with the tier message', () => {
     const rules = parseApproverTierRules({
-      outcomeKeys: ['approve', 'decline', 'return'],
+      outcomeKeys: ['approve', 'hold', 'decline', 'return'],
       tiers: [{ key: 't', label: 'Executive', minCapitalUsd: 1, approverRoles: ['Leadership'] }],
     });
     const r = finalReviewAvailability(
@@ -717,14 +722,14 @@ describe('review warnings', () => {
       ...base,
       quoting: [
         { code: 'CAPITAL_PENDING', message: 'Capital is still pending: board Nov 10' },
-        { code: 'NO_PRICING_APP_RECORD', message: 'No pricing-app record yet: pending' },
+        { code: 'COSTING_NOT_ATTESTED', message: 'Costing is not marked as completed' },
       ],
       qualification: [{ code: 'BELOW_MIN_VOLUME', message: 'Below the minimum volume' }],
       requirement: { tierLabel: 'Executive', satisfied: false },
     });
     expect(out.map((w) => [w.code, w.severity])).toEqual([
       ['CAPITAL_PENDING', 'risk'],
-      ['NO_PRICING_APP_RECORD', 'info'],
+      ['COSTING_NOT_ATTESTED', 'risk'],
       ['BELOW_MIN_VOLUME', 'info'],
       ['TIER_APPROVER_REQUIRED', 'risk'],
     ]);

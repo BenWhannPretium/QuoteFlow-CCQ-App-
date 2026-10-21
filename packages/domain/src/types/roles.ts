@@ -5,6 +5,8 @@ export const ROLES = [
   'EngLead',
   'Engineer',
   'Pricing',
+  // B-26: the pricing lead (Hema's role) triages the pricing queue, like EngLead does engineering.
+  'PricingLead',
   'Approver',
   'Leadership',
   'Admin',

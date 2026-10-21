@@ -7,8 +7,12 @@ import type { WorkflowConfig } from '../types/workflow-config';
  * The outcomes report (B-13, admin): counts by outcome and reason, and the outcome capture rate. Today
  * 71% of FY26 requests have no recorded customer outcome; this is the number that shows it closing.
  *
- * - **Customer outcomes** are closures decided at the Customer Decision gate (G5): awarded, lost,
- *   expired. **Internal** closures (G1–G3 Stop, G4 Decline, G1 Redirect) are counted, never mixed in.
+ * - **Customer outcomes** are the customer's closures (closure owner = the KAM) decided at Customer
+ *   Decision (G5: lost, expired) or at Commit & Hand Off (G6: awarded, B-26). **Internal** closures
+ *   (G1–G3 Stop, G4 Decline, G1 Redirect, G6 "commitment not authorized") are counted, never mixed in.
+ * - **B-26:** an award (G5) moves the quote to Commit & Hand Off; it closes Won at G6. A quote waiting
+ *   there is a customer win already (`customer.commitmentPending`), counted in the awards, the win rate
+ *   and the capture rate.
  * - **Expired is not lost** ("silence is not a loss"): it has its own row and is left out of the win rate.
  * - **Capture rate** = recorded customer outcomes ÷ (recorded + "gone dark"), where gone dark = a
  *   proposal still open in Customer Decision after its validity date. Proposals still within validity
@@ -19,8 +23,10 @@ import type { WorkflowConfig } from '../types/workflow-config';
 export const AWARDED_OUTCOME = 'awarded';
 export const LOST_OUTCOME = 'lost';
 export const EXPIRED_OUTCOME = 'expired';
-/** The terminal stage an award lands in (the hand-off record lives there). */
+/** The terminal stage an award lands in (Closed – Won). */
 export const AWARDED_STAGE_KEY = 'AWARDED';
+/** B-26: Stage 6, where an awarded quote waits for the CER and the hand-off (the hand-off record lives here). */
+export const COMMIT_STAGE_KEY = 'COMMIT_HANDOFF';
 
 export interface OutcomeReportRow {
   stageKey: string;
@@ -53,6 +59,8 @@ export interface OutcomeReport {
     awarded: number;
     lost: number;
     expired: number;
+    /** B-26: awarded by the customer, still in Commit & Hand Off (included in `awarded`). */
+    commitmentPending: number;
     /** awarded ÷ (awarded + lost); expired is excluded. Null when nothing is decided yet. */
     winRate: number | null;
   };
@@ -71,14 +79,21 @@ export interface OutcomeReport {
   incompleteClosures: number;
 }
 
-/** Which closeAs values the G5 (Customer Decision) gate produces, from the workflow config. */
+/**
+ * Which closeAs values are the customer's outcome, from the workflow config: the closures the G5
+ * (Customer Decision) gate makes, and the KAM-owned closures of the Commit & Hand Off gate (B-26: G6
+ * Won; its "commitment not authorized" is Pretium's own no-go, so internal).
+ */
 export function customerOutcomeKeys(config: WorkflowConfig): Set<string> {
-  const gates = new Set(
-    config.gates.filter((g) => g.stageKey === CUSTOMER_DECISION_STAGE_KEY).map((g) => g.key),
-  );
+  const stageOf = new Map(config.gates.map((g) => [g.key, g.stageKey]));
   return new Set(
     config.transitions
-      .filter((t) => gates.has(t.gateKey) && t.nextStatus === 'closed' && t.closeAs)
+      .filter((t) => {
+        if (t.nextStatus !== 'closed' || !t.closeAs) return false;
+        const stage = stageOf.get(t.gateKey);
+        if (stage === CUSTOMER_DECISION_STAGE_KEY) return true;
+        return stage === COMMIT_STAGE_KEY && t.closureOwner === 'kam';
+      })
       .map((t) => t.closeAs as string),
   );
 }
@@ -141,13 +156,16 @@ export function summarizeOutcomes(
     );
 
   const count = (outcome: string) => outcomes.find((o) => o.outcome === outcome)?.count ?? 0;
-  const awarded = count(AWARDED_OUTCOME);
+  const commitmentPending = rows.filter(
+    (r) => r.status !== 'closed' && r.stageKey === COMMIT_STAGE_KEY,
+  ).length;
+  const awarded = count(AWARDED_OUTCOME) + commitmentPending;
   const lost = count(LOST_OUTCOME);
   const expired = count(EXPIRED_OUTCOME);
 
-  const recorded = rows.filter(
-    (r) => r.status === 'closed' && r.outcome !== null && customer.has(r.outcome),
-  ).length;
+  const recorded =
+    rows.filter((r) => r.status === 'closed' && r.outcome !== null && customer.has(r.outcome))
+      .length + commitmentPending;
   const open = rows.filter(
     (r) => r.status !== 'closed' && r.stageKey === CUSTOMER_DECISION_STAGE_KEY,
   );
@@ -157,12 +175,19 @@ export function summarizeOutcomes(
     (r) =>
       r.proposalIssuedAt !== null ||
       r.stageKey === CUSTOMER_DECISION_STAGE_KEY ||
+      r.stageKey === COMMIT_STAGE_KEY ||
       (r.outcome !== null && customer.has(r.outcome)),
   ).length;
 
   return {
     outcomes,
-    customer: { awarded, lost, expired, winRate: ratio(awarded, awarded + lost) },
+    customer: {
+      awarded,
+      lost,
+      expired,
+      commitmentPending,
+      winRate: ratio(awarded, awarded + lost),
+    },
     capture: {
       proposalsIssued,
       recorded,

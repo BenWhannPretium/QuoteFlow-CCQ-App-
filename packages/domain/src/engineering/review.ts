@@ -260,3 +260,51 @@ export function engineeringCompleteness(values: FieldValues, config: IntakeConfi
   const { blocking, warnings } = evaluateIntake(values, config);
   return [...blocking, ...warnings].filter((w) => w.code !== 'REQUEST_CLASS_REDIRECT');
 }
+
+// ── B-26: the capacity owner's G2 sign-off (deck slide 11) ────────────────────────────────────────
+
+export const CAPACITY_SIGNOFF_STATUSES = ['approved', 'blocked'] as const;
+export type CapacitySignoffStatus = (typeof CAPACITY_SIGNOFF_STATUSES)[number];
+
+export type CapacitySignoffPlan =
+  | { ok: true; status: CapacitySignoffStatus | null; note: string | null }
+  | { ok: false; errors: DomainError[] };
+
+/**
+ * Record (or clear, `status: null`) the capacity owner's sign-off while the quote is in Engineering
+ * Review. Needs `capacity.signoff` (seeded to the EngLead; the capacity owner is D-07). Blocking needs a
+ * note saying why; a block stops every G2 Advance until it is changed or escalated.
+ */
+export function planCapacitySignoff(
+  actor: Actor,
+  quote: EngQuote,
+  input: { status: string | null; note?: string | null | undefined },
+): CapacitySignoffPlan {
+  if (!can(actor, 'capacity.signoff', quote)) {
+    return {
+      ok: false,
+      errors: [new DomainError('NOT_PERMITTED', 'Only the capacity owner signs off capacity')],
+    };
+  }
+  const errors = stageErrors(quote);
+  const status =
+    input.status === null ? null : CAPACITY_SIGNOFF_STATUSES.find((s) => s === input.status);
+  if (status === undefined) {
+    errors.push(
+      new DomainError(
+        'INVALID_VALUE',
+        `Sign-off must be one of: ${CAPACITY_SIGNOFF_STATUSES.join(', ')}`,
+        'status',
+      ),
+    );
+  }
+  const note = input.note?.trim() || null;
+  if (status === 'blocked' && !note) {
+    errors.push(new DomainError('NOTE_REQUIRED', 'Say why capacity is blocked', 'note'));
+  }
+  if (note && note.length > 2000) {
+    errors.push(new DomainError('INVALID_VALUE', 'Keep the note to 2000 characters', 'note'));
+  }
+  if (errors.length > 0 || status === undefined) return { ok: false, errors };
+  return { ok: true, status, note };
+}

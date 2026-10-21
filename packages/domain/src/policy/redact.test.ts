@@ -75,7 +75,14 @@ describe('redact', () => {
     const roles = ROLES.filter((role) =>
       Object.keys(redact(quote(), makeActor(role)) as object).includes('pricing_record'),
     );
-    expect(roles.sort()).toEqual(['Admin', 'Approver', 'EngLead', 'Leadership', 'Pricing']);
+    expect(roles.sort()).toEqual([
+      'Admin',
+      'Approver',
+      'EngLead',
+      'Leadership',
+      'Pricing',
+      'PricingLead',
+    ]);
   });
 
   it('never mutates its input', () => {

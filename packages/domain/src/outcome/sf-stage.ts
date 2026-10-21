@@ -1,10 +1,15 @@
+import { AWARDED_STAGE_KEY, COMMIT_STAGE_KEY } from './report';
+
 /**
  * Salesforce stage, side by side with the CCQ stage (B-13, architecture §4.2). CCQ owns the operational
  * stage; the SF stage is read only. `sf_stage_map` (config) gives each SF stage the CCQ stage it usually
  * lines up with. The two only have to agree once either side records an outcome: mid-pipeline SF
  * stages are used loosely ("Qualifying" while engineering works), so flagging those would be noise. The
  * mismatch that matters is "CCQ still waits for the customer, SF says Closed Won" or the reverse.
+ * B-26: Commit & Hand Off and Closed – Won are both "the customer awarded it", so SF's award stages
+ * (verbal award, PO in hand, closed won) agree with either.
  */
+const AWARD_SIDE = new Set([COMMIT_STAGE_KEY, AWARDED_STAGE_KEY]);
 
 export interface SfStageMapEntry {
   sfStage: string;
@@ -32,7 +37,11 @@ export function compareSfStage(input: {
   const sfStage = input.sfStage?.trim() || null;
   if (!sfStage) return { sfStage: null, ccqStageHint: null, mismatch: false, reason: null };
   const hint = input.map.find((m) => m.sfStage === sfStage)?.ccqStageHint ?? null;
-  if (!hint || hint === input.ccqStageKey) {
+  if (
+    !hint ||
+    hint === input.ccqStageKey ||
+    (AWARD_SIDE.has(hint) && AWARD_SIDE.has(input.ccqStageKey))
+  ) {
     return { sfStage, ccqStageHint: hint, mismatch: false, reason: null };
   }
   const terminal = new Set(input.terminalStageKeys);

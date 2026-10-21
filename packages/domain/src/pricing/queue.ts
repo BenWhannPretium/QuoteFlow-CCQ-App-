@@ -1,3 +1,9 @@
+import { UNASSIGNED } from '../engineering/queue';
+import { DomainError } from '../errors';
+import { can, type PolicyResource } from '../policy/can';
+import type { Actor } from '../types/actor';
+import type { Role } from '../types/roles';
+
 /**
  * The pricing queue (B-11, DEC-19/20): every open quote in Quoting, for the Pricing team. Pricing is a
  * required gate ("all pricing requests and decisions reviewed and approved through the Pricing team"),
@@ -26,6 +32,8 @@ export interface PricingQueueEntry {
   priceApproved: boolean;
   productFamily: string | null;
   kamUserId: string;
+  /** B-26: the pricer the pricing lead assigned it to; null = unassigned. */
+  assignedPricerId: string | null;
   /** Lower-cased text the search box matches: quote number, customer, opportunity, KAM, engineer, refs. */
   searchText: string;
 }
@@ -69,6 +77,8 @@ export interface PricingQueueFilter {
   priceApproved?: boolean;
   productFamilies?: readonly string[];
   kamUserId?: string;
+  /** B-26: one pricer's work; `unassigned` = nobody yet. */
+  pricerId?: string;
   /** Free text, matched case-insensitively against `searchText`. */
   q?: string;
 }
@@ -95,7 +105,68 @@ export function filterPricingQueue<T extends PricingQueueEntry>(
     )
       return false;
     if (filter.kamUserId && e.kamUserId !== filter.kamUserId) return false;
+    if (filter.pricerId) {
+      const want = filter.pricerId === UNASSIGNED ? null : filter.pricerId;
+      if (e.assignedPricerId !== want) return false;
+    }
     if (q && !e.searchText.includes(q)) return false;
     return true;
   });
+}
+
+// ── B-26: Quoting assignment (the pricing lead triages the pricing queue) ───────────────────────────
+
+/** Roles Quoting work can be assigned to (the picker offers users holding one of them). */
+export const PRICING_ASSIGNABLE_ROLES: readonly Role[] = ['Pricing', 'PricingLead'];
+
+export interface PricerAssignee {
+  id: string;
+  roles: readonly Role[];
+  active: boolean;
+}
+
+export type PricerAssignmentPlan =
+  | { ok: true; changed: boolean; from: string | null; to: string }
+  | { ok: false; errors: DomainError[] };
+
+/**
+ * Assign or reassign the pricer on a quote in Quoting (on hold is fine). Needs `pricingQueue.assign`
+ * (PricingLead, Admin); the assignee must be an active user holding Pricing or PricingLead. The same
+ * pricer again is a no-op (`changed: false`), so a bulk reassign can include them.
+ */
+export function planPricerAssignment(
+  actor: Actor,
+  quote: PolicyResource & { stageKey: string; status: string; assignedPricerId: string | null },
+  assignee: PricerAssignee | undefined,
+): PricerAssignmentPlan {
+  if (!can(actor, 'pricingQueue.assign', quote)) {
+    return {
+      ok: false,
+      errors: [new DomainError('NOT_PERMITTED', 'Requires pricingQueue.assign')],
+    };
+  }
+  const errors: DomainError[] = [];
+  if (quote.status === 'closed')
+    errors.push(new DomainError('QUOTE_CLOSED', 'The quote is closed'));
+  else if (quote.stageKey !== PRICING_QUEUE_STAGE_KEY) {
+    errors.push(
+      new DomainError('WRONG_STAGE', `The quote is in ${quote.stageKey}, not in Quoting`),
+    );
+  }
+  if (
+    !assignee ||
+    !assignee.active ||
+    !assignee.roles.some((r) => PRICING_ASSIGNABLE_ROLES.includes(r))
+  ) {
+    errors.push(
+      new DomainError(
+        'INVALID_ASSIGNEE',
+        'Assign an active user with the Pricing or PricingLead role',
+        'pricerId',
+      ),
+    );
+  }
+  if (errors.length > 0) return { ok: false, errors };
+  const from = quote.assignedPricerId;
+  return { ok: true, changed: from !== assignee!.id, from, to: assignee!.id };
 }

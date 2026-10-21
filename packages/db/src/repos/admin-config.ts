@@ -127,6 +127,8 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(engReview.machineType, code);
     case 'plant':
       return eq(engReview.plantCode, code);
+    case 'tooling_funding_model':
+      return eq(quote.toolingFundingModel, code);
   }
 }
 
