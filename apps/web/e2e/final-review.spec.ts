@@ -141,7 +141,7 @@ test('an Approver approves one quote and declines another from a phone', async (
   await page.getByLabel('Search Final Review').fill(declineMe);
   const risky = page.locator(`[data-testid="final-review-item"][data-quote="${declineMe}"]`);
   await expect(risky).toHaveCount(1);
-  await expect(risky.getByTestId('g2-outcome')).toHaveText('Capital required');
+  await expect(risky.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
   await expect(risky.getByTestId('capital-readiness')).toHaveText('Pending');
   await expect(risky.getByTestId('approval-status')).toContainText('Approved');
   await expect(risky.getByTestId('waiting')).toContainText('Waiting');

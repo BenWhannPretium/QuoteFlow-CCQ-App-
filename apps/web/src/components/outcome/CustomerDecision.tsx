@@ -295,7 +295,11 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
         ...quote,
         customerDecision: res.customerDecision,
       });
-      await queryClient.invalidateQueries({ queryKey: timelineQueryKey(quote.quoteNumber) });
+      // The G6 actions' "missing" list depends on the hand-off (CER, accepted), so refetch the quote.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: quoteQueryKey(quote.quoteNumber) }),
+        queryClient.invalidateQueries({ queryKey: timelineQueryKey(quote.quoteNumber) }),
+      ]);
       toast.success({
         title: res.customerDecision.handoff?.completed ? 'Hand-off accepted' : 'Hand-off saved',
       });

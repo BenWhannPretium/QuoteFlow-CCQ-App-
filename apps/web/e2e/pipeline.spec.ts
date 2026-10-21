@@ -19,6 +19,10 @@ async function quoteInEngReview(request: Parameters<typeof submitQuote>[0]): Pro
 
 /** A real mouse drag (dnd-kit's MouseSensor needs a few moves past its 6 px threshold). */
 async function drag(page: Page, from: Locator, to: Locator) {
+  // The board scrolls sideways (B-26 added a column): bring the target on screen first, or the
+  // drag's auto-scroll moves the board under the pointer and the drop lands on the next column.
+  await to.scrollIntoViewIfNeeded();
+  await from.scrollIntoViewIfNeeded();
   const a = (await from.boundingBox())!;
   const b = (await to.boundingBox())!;
   await page.mouse.move(a.x + a.width / 2, a.y + 20);

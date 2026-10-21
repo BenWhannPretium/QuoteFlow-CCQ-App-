@@ -100,7 +100,7 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await pricing.getByLabel('Search the pricing queue').fill(quoteNumber);
   const row = pricing.getByRole('row').filter({ hasText: quoteNumber });
   await expect(row).toHaveCount(1);
-  await expect(row.getByTestId('g2-outcome')).toHaveText('Capital required');
+  await expect(row.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
   await expect(row.getByTestId('capital-readiness')).toHaveText('Pending');
   await expect(row.getByTestId('approval-status')).toHaveText('Awaiting approval');
   await expect(row).toContainText('Unassigned');
@@ -111,7 +111,7 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   const tab = pricing.getByTestId('quoting-tab');
   await expect(tab.getByTestId('price-approval-status')).toContainText('not recorded');
   // Pricing reads the engineering summary, commercial numbers included.
-  await expect(tab.getByTestId('quoting-g2')).toContainText('Capital required');
+  await expect(tab.getByTestId('quoting-g2')).toContainText('Advance – capital required');
   await expect(tab).toContainText('$420,000');
   // B-15: the read-only pricing-app panel (PRICING_MODE=fake) sits above the approval form.
   const panel = tab.getByTestId('pricing-context');
@@ -128,7 +128,7 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await form.getByLabel('Approved negotiation range').fill('Hold the list price; floor per Gemma');
   await form.getByLabel('Costing completed (Cost-to-Serve)').check();
   await form.getByRole('button', { name: 'Save price approval' }).click();
-  await expect(form.getByRole('alert').first()).toContainText('is not a valid ERF number');
+  await expect(form.getByRole('alert').first()).toContainText('is not a valid Legacy ERF number');
   await form.getByLabel('Legacy ERF #').fill('48211');
   await form.getByRole('button', { name: 'Save price approval' }).click();
   await expect(pricing.getByText('Price approval recorded')).toBeVisible();
@@ -172,11 +172,11 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await expect(tab.getByTestId('quoting-warnings')).toContainText('Capital is still pending');
   expect(await seriousViolations(pricing)).toEqual([]);
 
-  // ── G3 Submit to Final Review ──
-  await tab.getByRole('button', { name: 'Submit to Final Review…' }).click();
+  // ── G3 Advance to Final Review ──
+  await tab.getByRole('button', { name: 'Advance to Final Review…' }).click();
   const g3 = pricing.getByRole('dialog');
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
-  await expect(g3.getByRole('radio', { name: 'Submit to Final Review' })).toBeChecked();
+  await expect(g3.getByRole('radio', { name: 'Advance to Final Review' })).toBeChecked();
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(g3).toHaveCount(0);
   await expect(pricing.getByText(`${quoteNumber} is now in Final Review`)).toBeVisible();

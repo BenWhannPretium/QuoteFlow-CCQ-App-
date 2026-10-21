@@ -76,7 +76,7 @@ export function QuotingTab({
           {record && record.warnings.length > 0 && <Warnings record={record} />}
           {canDecideG3 && (
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => onDecide('submit')}>Submit to Final Review…</Button>
+              <Button onClick={() => onDecide('submit')}>Advance to Final Review…</Button>
               <Button variant="outline" onClick={() => onDecide('rework')}>
                 Return to Engineering…
               </Button>

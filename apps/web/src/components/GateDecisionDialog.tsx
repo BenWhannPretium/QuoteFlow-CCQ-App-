@@ -331,6 +331,8 @@ export function GateDecisionDialog({
                         type="radio"
                         name="outcome"
                         value={a.outcomeKey}
+                        // The label also holds the ⓘ definition; the radio's name is the outcome alone.
+                        aria-label={a.outcomeLabel}
                         checked={outcomeKey === a.outcomeKey}
                         onChange={() => {
                           setOutcomeKey(a.outcomeKey);
