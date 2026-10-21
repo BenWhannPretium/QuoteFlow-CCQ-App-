@@ -66,6 +66,8 @@ jobs:
         run: pnpm build
 
       - name: Package for App Service
+        env:
+          GIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           scripts/package-azure.sh .azure-deploy
           (cd .azure-deploy && zip -qry ../quoteflow.zip .)
@@ -85,13 +87,20 @@ jobs:
             --src-path quoteflow.zip --type zip --clean true --restart true \
             --timeout 900000
 
+      # Healthy is not enough: the old container keeps serving until the new one starts, so wait for
+      # /health to report this commit (apps/api/dist/GIT_SHA) with the database up.
       - name: Smoke test (health)
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           url="https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/v1/health"
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             body="$(curl -fsS --max-time 10 "$url" || true)"
-            if echo "$body" | grep -q '"status":"ok"'; then echo "healthy: $body"; exit 0; fi
-            echo "waiting for the app ($i/30)…"; sleep 10
+            if echo "$body" | grep -q '"status":"ok"' && echo "$body" | grep -q "\"version\":\"$SHA\"" \
+              && echo "$body" | grep -q '"db":"up"'; then
+              echo "healthy on $SHA: $body"; exit 0
+            fi
+            echo "waiting for $SHA ($i/60): ${body:-no response}"; sleep 10
           done
-          echo "the app did not report healthy in 5 minutes: check Log stream in the portal" >&2
+          echo "the new build did not report healthy in 10 minutes: check Log stream in the portal" >&2
           exit 1

@@ -9,6 +9,7 @@
  * One instance is assumed while migrating (the test plan is a single B1 instance); scale out only
  * after moving migrations to a deployment step.
  */
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { createDb } from '@ccq/db';
@@ -32,6 +33,14 @@ const synthetic = process.env.SEED_SYNTHETIC_DATA === 'true';
 
 // tsup copies packages/db/migrations and packages/db/sql next to this bundle (see tsup.config.ts).
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
+
+// The package carries the commit it was built from (scripts/package-azure.sh). /health reports it, so
+// the deploy smoke test can tell the new build from the one it replaces. An app setting still wins.
+const shaFile = here('./GIT_SHA');
+if (!process.env.GIT_SHA && existsSync(shaFile)) {
+  const sha = readFileSync(shaFile, 'utf8').trim();
+  if (sha) process.env.GIT_SHA = sha;
+}
 
 try {
   await runMigrations(databaseUrl, {
