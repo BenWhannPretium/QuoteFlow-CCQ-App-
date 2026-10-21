@@ -113,4 +113,27 @@ export const AssignmentResponse = z.object({
 });
 export type AssignmentResponse = z.infer<typeof AssignmentResponse>;
 
+/**
+ * B-26 (CCQ demo, 10/20, Bailey): when someone leaves or changes role, move all their open work, or a
+ * chosen set, to another person in one go. POST /queue/engineering/reassign and /queue/pricing/reassign.
+ * `quoteNumbers` omitted = every open quote assigned to `fromUserId` in that queue.
+ */
+export const BulkReassignBody = z
+  .object({
+    fromUserId: z.uuid(),
+    toUserId: z.uuid(),
+    quoteNumbers: z.array(z.string().max(20)).min(1).max(200).optional(),
+  })
+  .strict();
+export type BulkReassignBody = z.infer<typeof BulkReassignBody>;
+
+export const BulkReassignResponse = z.object({
+  /** Quotes now assigned to `toUserId`. */
+  reassigned: z.array(z.string()),
+  /** Listed quotes that were not moved, with why (not in the queue, not assigned to the person…). */
+  skipped: z.array(z.object({ quoteNumber: z.string(), reason: z.string() })),
+  toUserName: z.string().nullable(),
+});
+export type BulkReassignResponse = z.infer<typeof BulkReassignResponse>;
+
 export * from './eng-review';

@@ -409,9 +409,7 @@ function PricingSection({ s }: { s: ReviewSummary }) {
             items={[
               { label: 'Pricing basis', value: r.pricingBasisNote },
               { label: 'Approved range', value: r.approvedRangeNote },
-              { label: 'ERF', value: r.erfRefs.join(', ') },
-              { label: 'BPR', value: r.bprRefs.join(', ') },
-              { label: 'No pricing-app record', value: r.noPricingAppRecordNote },
+              { label: 'Legacy ERF #', value: r.erfRefs.join(', ') },
               {
                 label: 'Costing completed',
                 value: r.costingCompleted
@@ -522,7 +520,7 @@ function DecisionsSection({ s }: { s: ReviewSummary }) {
 }
 
 /**
- * The sticky decision bar: Decline, Return and Approve as large touch targets, pinned above the
+ * The sticky decision bar: Stop, Hold (B-26), Rework and Advance as large touch targets, pinned above the
  * mobile tab bar. The buttons are the server's availableActions for G4 (so segregation and the
  * approver tier have already been applied); when there are none it says why.
  */
@@ -551,10 +549,15 @@ function DecisionBar({
               still decline or return it.
             </p>
           )}
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:justify-end">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
             {has('decline') && (
               <Button variant="outline" size="lg" onClick={() => onDecide('decline')}>
                 {label('decline', 'Decline')}
+              </Button>
+            )}
+            {has('hold') && (
+              <Button variant="outline" size="lg" onClick={() => onDecide('hold')}>
+                {label('hold', 'Hold')}
               </Button>
             )}
             {has('return') && (

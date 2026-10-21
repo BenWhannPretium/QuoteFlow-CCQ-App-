@@ -1,6 +1,6 @@
 # 06: Entra and Azure Setup Runbook (Phase 1: Unlock the platform)
 
-**Goal for the 1-hour session:** real Microsoft sign-in with the eight CCQ roles, and QuoteFlow running on an Azure **test** URL, deployed automatically from GitHub. Synthetic data only.
+**Goal for the 1-hour session:** real Microsoft sign-in with the nine CCQ roles (B-26 added `CCQ.PricingLead`), and QuoteFlow running on an Azure **test** URL, deployed automatically from GitHub. Synthetic data only.
 
 **Who does what.** Every step has an owner label:
 - **[IT]**: Vincent Brown or the IT admin. Needs the Entra and Azure rights listed in §0.2.
@@ -49,7 +49,7 @@
 | App Insights / Log Analytics | `appi-quoteflow-test` / `log-quoteflow-test` | |
 | Deploy identity | `id-quoteflow-deploy` | Used by GitHub Actions; no password |
 | App registrations | `QuoteFlow-API`, `QuoteFlow-SPA` | |
-| Groups | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin` | `SG-CCQ-PostAward` later (P2) |
+| Groups | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead` (B-26), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin` | `SG-CCQ-PostAward` later (P2) |
 
 ### 0.4 Running order for the hour
 
@@ -125,6 +125,7 @@ cat > roles.json <<EOF
  {"allowedMemberTypes":["User"],"value":"CCQ.EngLead","displayName":"CCQ Engineering Lead","description":"Owns the engineering queue and the G2 decision","id":"$(uuid)","isEnabled":true},
  {"allowedMemberTypes":["User"],"value":"CCQ.Engineer","displayName":"CCQ Engineer","description":"Engineering review on assigned quotes","id":"$(uuid)","isEnabled":true},
  {"allowedMemberTypes":["User"],"value":"CCQ.Pricing","displayName":"CCQ Pricing","description":"Quoting stage: price approval and references","id":"$(uuid)","isEnabled":true},
+ {"allowedMemberTypes":["User"],"value":"CCQ.PricingLead","displayName":"CCQ Pricing Lead","description":"Pricing, plus assigns and reassigns pricers on the pricing queue","id":"$(uuid)","isEnabled":true},
  {"allowedMemberTypes":["User"],"value":"CCQ.Approver","displayName":"CCQ Approver","description":"Final Review (G4) approve or decline","id":"$(uuid)","isEnabled":true},
  {"allowedMemberTypes":["User"],"value":"CCQ.Leadership","displayName":"CCQ Leadership","description":"Read everything including analytics","id":"$(uuid)","isEnabled":true},
  {"allowedMemberTypes":["User"],"value":"CCQ.Admin","displayName":"CCQ Admin","description":"Manages QuoteFlow configuration","id":"$(uuid)","isEnabled":true},
@@ -137,7 +138,29 @@ az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv
 - **Spelling matters.** The server reads the `roles` claim and only accepts values starting `CCQ.` exactly as above.
 - `"User"` is what the portal calls **Users/Groups**.
 - `CCQ.PostAward` is created now so nobody has to come back for it; it has no group yet.
-- **Check:** the last command prints the nine values. **App roles** shows nine roles, all enabled.
+- **Check:** the last command prints the ten values. **App roles** shows ten roles, all enabled.
+- **Only for a new registration.** `--app-roles` replaces the whole list, and Entra refuses to change or drop a role that is enabled. To add a role to a registration that already has roles, use A4a.
+
+### A4a. Adding a role to an existing registration (B-26: `CCQ.PricingLead`)
+
+Anyone who owns **QuoteFlow-API** (Ben is an owner after A8) can do this; no IT ticket is needed for the role itself. Creating the security group may need a groups admin, depending on the tenant's settings.
+
+**Portal (about 5 minutes):**
+1. **Entra admin center → App registrations → All applications → QuoteFlow-API → App roles → + Create app role.**
+2. **Display name** `CCQ Pricing Lead`. **Allowed member types** *Users/Groups*. **Value** `CCQ.PricingLead` (exact spelling and case). **Description** "Pricing, plus assigns and reassigns pricers on the pricing queue". Tick **Do you want to enable this app role?** → **Apply**.
+3. **Groups → New group:** type *Security*, name `SG-CCQ-PricingLead`, add the pricing lead(s) as **direct** members → **Create**.
+4. **Enterprise applications → QuoteFlow-API → Users and groups → + Add user/group:** pick `SG-CCQ-PricingLead` (or, without Entra ID P1/P2, the people themselves) → role **CCQ Pricing Lead** → **Assign**.
+5. The user signs out and in again (the role arrives in a new token). The account menu then shows **Pricing Lead**, and the pricing queue shows the assign controls.
+
+**CLI (appends, keeping the existing roles and their ids):**
+```bash
+uuid() { cat /proc/sys/kernel/random/uuid; }
+az ad app show --id $API_APP_ID --query appRoles > roles-current.json
+jq --arg id "$(uuid)" '. + [{"allowedMemberTypes":["User"],"value":"CCQ.PricingLead","displayName":"CCQ Pricing Lead","description":"Pricing, plus assigns and reassigns pricers on the pricing queue","id":$id,"isEnabled":true}]' roles-current.json > roles.json
+az ad app update --id $API_APP_ID --app-roles @roles.json
+az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv   # now includes CCQ.PricingLead
+```
+Then run the A8 loop with `R=PricingLead` only. The app needs no change: it accepts any `CCQ.` role it knows, and B-26 added `PricingLead` to the code.
 
 ### A5. [IT] Lock the API to assigned people only
 
@@ -187,7 +210,7 @@ echo "SPA client id: $SPA_APP_ID"
 1. **Create the groups** (skip any that already exist) and **assign each to its role**:
    ```bash
    API_SP_ID=$(az ad sp show --id $API_APP_ID --query id -o tsv)
-   for R in KAM SalesLeader EngLead Engineer Pricing Approver Leadership Admin; do
+   for R in KAM SalesLeader EngLead Engineer Pricing PricingLead Approver Leadership Admin; do
      G="SG-CCQ-$R"
      GID=$(az ad group show --group "$G" --query id -o tsv 2>/dev/null) || GID=""
      [ -z "$GID" ] && GID=$(az ad group create --display-name "$G" --mail-nickname "$G" --query id -o tsv)
@@ -198,12 +221,12 @@ echo "SPA client id: $SPA_APP_ID"
        && echo "$G -> CCQ.$R assigned"
    done
    ```
-   **Check:** **Enterprise applications → QuoteFlow-API → Users and groups** shows eight groups, each with its role.
+   **Check:** **Enterprise applications → QuoteFlow-API → Users and groups** shows nine groups, each with its role.
    - **If the tenant has no Entra ID P1/P2:** the POST fails for groups. Assign **people** directly instead: **Users and groups → Add user/group** → pick the user → pick the role → **Assign**.
    - **Nested groups don't work.** Only *direct* members of an `SG-CCQ-*` group get the role.
 2. **Put Ben in the groups he needs for testing.** One person can hold several roles, and the app shows role tabs. Admin is required; the others let him demo each screen.
    ```bash
-   for R in Admin KAM SalesLeader EngLead Pricing Approver Leadership; do
+   for R in Admin KAM SalesLeader EngLead Pricing PricingLead Approver Leadership; do
      az ad group member add --group "SG-CCQ-$R" --member-id $DEV_OID 2>/dev/null; echo "added to SG-CCQ-$R"
    done
    ```

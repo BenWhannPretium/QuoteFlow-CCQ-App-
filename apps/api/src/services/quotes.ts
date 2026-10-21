@@ -24,6 +24,7 @@ import {
   isValidityLapsed,
   qualificationWarnings,
   redactScore,
+  withDerivedFields,
   type Actor,
   type EngQueueSettings,
   type OverrideSettings,
@@ -34,6 +35,7 @@ import {
   type WorkflowConfig,
 } from '@ccq/domain';
 
+import { commercialView, loadCommercialSettings, type CommercialSettings } from './commercial';
 import { engineeringView, loadEngQueueSettings } from './engineering-view';
 import { loadReleaseSettings, type ReleaseSettings } from './final-review-view';
 import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from './outcome-view';
@@ -55,6 +57,8 @@ export interface QuoteViewContext {
   release: ReleaseSettings;
   /** B-13: validity warning window, hand-off receiving roles, the SF stage map. */
   outcome: OutcomeSettings;
+  /** B-26: Legal triggers, pricing pass-through, notices, escalation routes, the Process Owner. */
+  commercial: CommercialSettings;
   /** The request's clock (validity countdowns are relative to it). */
   now: Date;
 }
@@ -64,7 +68,14 @@ export interface QuoteViewContext {
  * time), so they never count as "missing": the review date, B-13's acceptance date, the decision's own
  * note and whether the validity has lapsed.
  */
-const DECISION_FIELDS = new Set(['review_date', 'accepted_at', 'decision_note', 'validity_lapsed']);
+const DECISION_FIELDS = new Set([
+  'review_date',
+  'accepted_at',
+  'decision_note',
+  'validity_lapsed',
+  // B-26: the hold owner is picked in the dialog.
+  'hold_owner_id',
+]);
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -160,7 +171,9 @@ export function gateActionsFor(
   warnings: readonly QualificationWarning[],
 ): AvailableGateAction[] {
   const lapsed = isValidityLapsed(state.fields.validity_until as string | null, ctx.now);
-  return availableActions(workflow, state, ctx.actor, {
+  // B-26: the server-derived fields (Legal review required, pricing pass-through) count as present.
+  const derived = withDerivedFields(state, ctx.commercial.derived);
+  return availableActions(workflow, derived, ctx.actor, {
     approverTiers: ctx.release.approverTiers,
   }).map((a) => {
     const referenced = a.requiredFields.flatMap(fieldsReferenced);
@@ -170,10 +183,10 @@ export function gateActionsFor(
     // B-13: a rule a note would satisfy that still fails with the validity as it stands (Expired).
     const noteBeforeValidity =
       referenced.includes('decision_note') &&
-      evaluateRules(a.requiredFields, { ...state.fields, validity_lapsed: lapsed }).length > 0;
+      evaluateRules(a.requiredFields, { ...derived.fields, validity_lapsed: lapsed }).length > 0;
     const missing = evaluateRules(
       a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
-      state.fields,
+      derived.fields,
     ).map((e) => ({ field: e.field ?? '', message: e.message }));
     return {
       gateKey: a.gateKey,
@@ -207,6 +220,8 @@ export function gateActionsFor(
         a.nextStatus === 'closed' ? (transition?.closureOwner ?? 'decider') : null,
       requiresAcceptanceDate: referenced.includes('accepted_at'),
       requiresNoteBeforeValidity: noteBeforeValidity,
+      requiresHoldOwner: referenced.includes('hold_owner_id'),
+      helpText: a.helpText,
     };
   });
 }
@@ -259,16 +274,25 @@ export class QuoteReadService {
   constructor(private readonly scoring: ScoringService) {}
 
   async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
-    const [model, qualification, kamCanSeePeerScores, overrides, engQueue, release, outcome] =
-      await Promise.all([
-        this.scoring.model(db, now),
-        this.scoring.qualificationSettings(db),
-        this.scoring.kamCanSeePeerScores(db),
-        loadOverrideSettings(db),
-        loadEngQueueSettings(db),
-        loadReleaseSettings(db),
-        loadOutcomeSettings(db),
-      ]);
+    const [
+      model,
+      qualification,
+      kamCanSeePeerScores,
+      overrides,
+      engQueue,
+      release,
+      outcome,
+      commercial,
+    ] = await Promise.all([
+      this.scoring.model(db, now),
+      this.scoring.qualificationSettings(db),
+      this.scoring.kamCanSeePeerScores(db),
+      loadOverrideSettings(db),
+      loadEngQueueSettings(db),
+      loadReleaseSettings(db),
+      loadOutcomeSettings(db),
+      loadCommercialSettings(db),
+    ]);
     return {
       actor,
       model,
@@ -278,6 +302,7 @@ export class QuoteReadService {
       engQueue,
       release,
       outcome,
+      commercial,
       now,
     };
   }
@@ -336,6 +361,7 @@ export class QuoteReadService {
         sfStage: row.sfStage,
         decisions: raw,
       }),
+      commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!),
     };
   }
 }

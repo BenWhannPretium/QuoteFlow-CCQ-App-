@@ -7,6 +7,7 @@ import { analyticsRoutes } from './analytics';
 import { attachmentRoutes } from './attachments';
 import { auditRoutes } from './audit';
 import { authConfigRoutes } from './auth-config';
+import { commercialRoutes } from './commercial';
 import { configRoutes, type PublicConfigCache } from './config';
 import { engineeringRoutes } from './engineering';
 import { finalReviewRoutes } from './final-review';
@@ -30,6 +31,7 @@ import type { AdminConfigService } from '../../services/adminConfig';
 import type { AnalyticsService } from '../../services/analytics';
 import type { AttachmentService, LocalLinkSigner } from '../../services/attachments';
 import type { AuditAdminService } from '../../services/auditAdmin';
+import type { CommercialService } from '../../services/commercial';
 import type { DashboardService } from '../../services/dashboards';
 import type { EngineeringService } from '../../services/engineering';
 import type { FinalReviewService } from '../../services/final-review';
@@ -62,6 +64,7 @@ export interface V1Options {
   pricingAppService: PricingAppService;
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
+  commercialService: CommercialService;
   pipelineService: PipelineService;
   attachmentService: AttachmentService;
   adminConfig: AdminConfigService;
@@ -96,6 +99,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     pricingAppService,
     finalReviewService,
     outcomeService,
+    commercialService,
     pipelineService,
     attachmentService,
     adminConfig,
@@ -125,6 +129,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(pricingAppRoutes, { service: pricingAppService });
   await app.register(finalReviewRoutes, { service: finalReviewService });
   await app.register(outcomeRoutes, { service: outcomeService });
+  await app.register(commercialRoutes, { service: commercialService });
   await app.register(pipelineRoutes, { service: pipelineService });
   await app.register(attachmentRoutes, {
     service: attachmentService,

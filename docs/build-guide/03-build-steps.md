@@ -19,8 +19,9 @@ Each step lists:
 
 ```
 Foundations           Intake & record         Stages                     Integrations & insight     Ship
-B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 → B-09 → B-10 → B-11 → B-12 → B-13 → B-14 → B-15 → B-16 → B-17 → B-18 → B-19 → B-21 → B-22 → B-23 → B-24
+B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 → B-09 → B-10 → B-11 → B-12 → B-13 → B-14 → B-15 → B-16 → B-17 → B-18 → B-19 → B-26 → B-21 → B-22 → B-23 → B-24
                                    └─ B-20 (Azure IaC + CD) runs in parallel from Oct 21, first deploy Oct 23
+                                   └─ B-25 (design refresh, Oct 20) and B-26 (demo feedback + future-state deck, Oct 21) were added after the plan
 ```
 
 - **Domain and data first.** The stage engine, permissions and audit are the spine. Every screen after that is a thin view on top.
@@ -589,6 +590,47 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 
 ---
 
+### B-26: CCQ demo feedback and future-state process alignment (added step) · **Wed Oct 21** · Ben
+- **Why:** the CCQ demo (2026-10-20) drew feedback from Bailey and Darren (A1–A9), and Bailey asked for a check against the *CCQ Future-State Process Maps: Executive Summary* deck (B1–B11). Ben confirmed every item on 2026-10-21: build all of them now and adjust after the next round of feedback. The step comes before Phase 4 because it changes the stage model (Stage 6), the roles (PricingLead) and the G2–G5 rules, which UAT has to see.
+- **People:** Ben (build). Bailey and Darren (feedback owners). The new open decisions D-24 to D-29 are in `04-decisions-and-risks.md`; every new value ships as provisional config.
+- **Done when:**
+  - Demo feedback (A):
+    - [x] **A1** bulk or individual reassignment of an engineer's work: `POST /queue/engineering/reassign` (`queue.assign`), every quote audited and notified like a single assignment; "Reassign work…" on the engineering queue
+    - [x] **A2** approving an override needs a note, like declining (`NOTE_REQUIRED`)
+    - [x] **A3** every gate outcome has a definition (`outcome_definition.help_text`, seeded from `packages/domain/src/workflow/seeds/outcome-help.ts`; stage help from `packages/db/seeds/config/workflow-help.ts`), shown as an ⓘ in the decision dialog and editable in the admin console
+    - [x] **A4** BPR removed everywhere (fields, pricing-app lookups, the `/pricing/bpr/:bprNumber` route, the "no pricing-app record" note). ERF stays only as an optional **Legacy ERF #** for the transition. G3 needs only the price approval (or pass-through, B7), costing attested (B6) and capital readiness
+    - [x] **A5** role-specific analytics: a focused Engineering Lead view (`GET /analytics/engineering`, `engQueue.read`: queue and load per engineer, aging, capacity sign-offs, G2 outcomes, time in Engineering Review, time to assign, rework reasons; no commercial figures) and a reorganized Leadership view (Pipeline → Outcomes → Cycle time → Flow → Reasons → Quality → Priority → Adoption). PricingLead gets a "Pricing triage" landing with the open load per pricer
+    - [x] **A6** pricing-lead triage: new role **PricingLead** (`CCQ.PricingLead`), permission `pricingQueue.assign`, pricer assignment per quote and bulk reassignment, assignee column and filter on the pricing queue, `quote.pricing_assigned` notification
+    - [x] **A7** missing Engineering Lead notification fixed. Root cause: the actor was always excluded from role notifications, so a KAM who is also an EngLead never heard about their own submission. `notifyActorViaRole` now keeps the actor when they hold the receiving role
+    - [x] **A8** sidebar footer replaced with the official white horizontal Pretium logo (`apps/web/src/assets/brand/`, from the Pretium brand kit)
+    - [x] **A9** "Take a photo" → "Add photo"
+  - Future-state deck (B):
+    - [x] **B1** capital-likely flag (`PUT /quotes/:qn/capital-flag`, `capitalFlag.edit`). The first time it is set, Capital Management is told (`capital_management_notice`, `quote.capital_likely`). G3 needs capital readiness `not_required` or `pre_approved` while the flag is set
+    - [x] **B2** Market Development notice when the estimated annual revenue reaches `market_development_notice.minAnnualRevenueUsd` on arrival in Engineering Review (off until D-27 sets it)
+    - [x] **B3** the five standard outcomes (Advance, Hold, Rework, Redirect, Stop) at every gate where they apply: G2 gains Redirect; G3 gains Re-cost and Redirect; G4 gains Hold; labels follow the deck
+    - [x] **B4** every hold names an owner (`hold_owner_id`, an active user; default the decider), stored on `quote_hold.owner_id` and on the quote while on hold
+    - [x] **B5** capacity sign-off at G2 (`PUT /quotes/:qn/capacity-signoff`, `capacity.signoff`: EngLead; blocked needs a note; reset when acceptance resets), plus Equipment BOM and Supply Chain notes on the engineering review
+    - [x] **B6** tooling funding model (value list `tooling_funding_model`) and the costing attestation required before price approval; G3 Re-cost clears the attestation
+    - [x] **B7** pricing pass-through threshold (`pricing_pass_through.maxAnnualRevenueUsd`, null = off): below it, price approval is not needed at G3 (`pass_through_eligible`, derived by the server)
+    - [x] **B8** terms check at G4 (`PUT /quotes/:qn/terms`, `terms.edit`): payment terms, MOQ, tooling commitment, non-standard terms. A Legal review is required when `legal_review_triggers` fire (new customer, non-standard terms, tooling commitment); G4 Advance needs the terms checked and, when required, the Legal review date
+    - [x] **B9** G5 **In negotiation** (a counter within range; note required; the quote stays in Customer Decision and shows a chip)
+    - [x] **B10** **Stage 6, Commit & Hand Off** (`COMMIT_HANDOFF`, owner KAM, gate G6 `gate.G6.decide`). G5 Awarded now enters Stage 6 and stays open. G6 Advance needs the CER `approved` (with its ID and approval date) or `not_required`, and the hand-off accepted, then closes **Closed – Won** (`AWARDED`, KAM-owned). G6 Stop closes **Closed – Commitment not authorized** (`NOT_AUTHORIZED`, reason context `not_authorized`). Hold and Re-quote as at other gates. The CER is a reference ID only (no integration)
+    - [x] **B11** Process Owner setting (`process_owner`) and escalations (`POST /quotes/:qn/escalations`, `quote.escalate`) routed by `escalation_routes` (queue or priority conflict, capacity, strategic exception, pricing exception, payback, process); `NO_RECIPIENTS` when a route has nobody yet
+  - [x] migration `0018_b26_demo_feedback.sql`; RLS `app_sees_all_quotes()` includes PricingLead
+  - [x] permission-matrix tests cover every new route (allowed and denied for each role, PricingLead included); domain unit tests; API integration tests per feature
+  - [x] docs: this step, D-24 to D-29, the architecture doc, the Entra runbook (`CCQ.PricingLead`), CLAUDE.md, the DB README
+- **Built 2026-10-21. Notes and deviations:**
+  - **Stage 6 changes what "Awarded" means.** G5 Awarded records the customer's acceptance; the quote is not won until G6. The SF stage map sends "Verbal Award" and "PO(s) in hand" to `COMMIT_HANDOFF`, and SF "Closed Won" agrees with a quote in either stage, so no mismatch is flagged while commitment is pending. The outcomes report counts Stage 6 quotes as wins and shows them as **commitment pending**.
+  - **Server-derived decision fields:** `legal_review_required`, `legal_review_reasons` and `pass_through_eligible` are computed from config (`withDerivedFields`) before any gate rule runs, so nobody can type them. The customer's status (`existing` / `not_yet_established`) drives the new-customer Legal trigger.
+  - **Defaults are off or empty** where the deck leaves a number open: pass-through (D-24), the Market Development threshold (D-27), notice recipients and the Process Owner (D-28). Every value is `provisional`.
+  - **Legacy columns kept:** `quote.bpr_id`, `handoff_record.bpr_id` and `pricing_record.bpr_refs` stay in the schema, marked deprecated and no longer written, so old rows and audits keep their values. `pricing_ref_formats` keeps a `bpr` key only for backward compatibility.
+  - **Analytics:** a quote awarded at G5 and waiting in Stage 6 counts as **awarded** in the win and capture rates (`analytics_quote.customer_outcome`): the customer said yes. It is also shown as "Awarded, commitment pending".
+  - **Not built here:** a capital-likely checkbox in the intake wizard (the flag is set on the quote after intake); Playwright specs were updated for the new labels and steps but are to be run in CI.
+  - **Synthetic data:** 13 personas (the pricing lead is new, drawn from its own random stream so the other 12 and the SF fixture do not change). 19 quotes close Won through G6 and 3 wait in Stage 6.
+  - **Not built (parked, see `04` §2):** Salesforce write-back and the new-item flow / Apex, knowledge-base chat, the Ranger hand-off, governed proposal templates, tiered or same-sitting G3 + G4 approvals, and migrating legacy ERF records.
+
+---
+
 ## Phase 4: Harden, load, UAT, sign-off (Nov 6–13)
 
 ### B-21: Security, access and quality hardening · **Fri Nov 6** · Ben
@@ -653,5 +695,10 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 | Full decision log and corrections ledger | P2 | Knowledge Steward |
 | Post-award hand-off view (Nicole, Anne) | P2 | D-14 |
 | Visit-to-win analysis | P2 | — |
-| Salesforce write-back | Decide before scale | D-16 |
-| CER / BPR integration | Scale | Capital-system redesign (Jan) |
+| Salesforce write-back, incl. the new-item flow / Apex (future-state deck) | Decide before scale | D-16 |
+| CER integration (BPR retired in B-26; the CER is a reference ID at G6) | Scale | Capital-system redesign (Jan); D-26 |
+| Knowledge-base chat over the CCQ record (future-state deck) | P2 | D-22; Knowledge Steward |
+| Ranger hand-off (ERF inputs → Ranger) | P1 | D-22; ERF restructure |
+| Governed proposal templates | P1 | Pricing + Legal; D-25 |
+| Tiered or same-sitting G3 + G4 approvals | P1 | D-10 tiers |
+| Migrating legacy ERF records into CCQ | Decide before scale | D-29 |

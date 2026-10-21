@@ -168,6 +168,11 @@ async function inEngineering() {
     }),
     200,
   );
+  // B-26: the capacity owner's sign-off before G2.
+  ok(
+    await persona('eng-lead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' }),
+    200,
+  );
   return qn;
 }
 
@@ -209,8 +214,41 @@ async function inFinalReview() {
 /** Released by Final Review: waiting for the customer, validity = today + 30 (D-12 seed). */
 async function inCustomerDecision() {
   const qn = await inFinalReview();
+  // B-26: the KAM checks the terms before the offer is released.
+  ok(
+    await persona('kam').put(`/api/v1/quotes/${qn}/terms`, {
+      termsPaymentTerms: 'Net 45',
+      termsToolingCommitment: false,
+      checked: true,
+    }),
+    200,
+  );
   ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'approver'));
   tick();
+  return qn;
+}
+
+/** B-26: awarded by the customer (G5), now in Commit & Hand Off. */
+async function inCommit(evidence = 'loi') {
+  const qn = await inCustomerDecision();
+  ok(await g5(qn, { outcomeKey: 'awarded', reasonCode: evidence, acceptedAt: today() }));
+  tick();
+  return qn;
+}
+
+/** B-26: the CER is not required and the receiving team accepted the hand-off (G6 can close Won). */
+async function committed(evidence = 'loi') {
+  const qn = await inCommit(evidence);
+  ok(
+    await persona('kam').put(`/api/v1/quotes/${qn}/handoff`, {
+      cerStatus: 'not_required',
+      receivingRole: 'commercial_activation',
+      receivingContactName: 'Pat Doe',
+      acceptedOn: today(),
+      complete: true,
+    }),
+    200,
+  );
   return qn;
 }
 
@@ -426,7 +464,7 @@ describe('G5 Awarded', () => {
     expect((await quoteRow(qn)).status).toBe('active');
   });
 
-  it('→ AWARDED with outcome, evidence, owner (the KAM) and date, and opens the hand-off record', async () => {
+  it('→ Commit & Hand Off (B-26: acceptance is not spend authority) and opens the hand-off record', async () => {
     const qn = await inCustomerDecision();
     const res = await g5(qn, {
       outcomeKey: 'awarded',
@@ -438,29 +476,21 @@ describe('G5 Awarded', () => {
     ok(res);
     const { quote } = GateDecisionResponse.parse(res.json());
     expect(await closure(qn)).toEqual({
-      stageKey: 'AWARDED',
-      status: 'closed',
-      outcome: 'awarded',
-      outcomeReasonCode: 'po',
-      closureOwnerId: ids.kam,
-      closedAt: clock.toISOString(),
+      stageKey: 'COMMIT_HANDOFF',
+      status: 'active',
+      outcome: null,
+      outcomeReasonCode: null,
+      closureOwnerId: null,
+      closedAt: null,
     });
     expect(quote.customerDecision).toMatchObject({
-      closure: {
-        outcome: 'awarded',
-        outcomeLabel: 'Awarded',
-        kind: 'customer',
-        reasonLabel: 'Purchase order (PO)',
-        closureOwnerId: ids.kam,
-        gateKey: 'G5',
-        decidedByRoles: ['KAM'],
-        note: 'PO 4471 received',
-      },
+      closure: null,
       handoff: {
         acceptanceEvidence: 'po',
         acceptanceEvidenceLabel: 'Purchase order (PO)',
         acceptanceDate: today(),
         acceptanceDocumentUrl: 'https://pretium.sharepoint.example/po-4471.pdf',
+        cerStatus: 'pending',
         completed: false,
       },
       canEditHandoff: true,
@@ -471,8 +501,13 @@ describe('G5 Awarded', () => {
       decidedByRoles: ['KAM'],
       customer: { validity: { state: 'valid' } },
     });
-    expect(await events(qn, 'quote_closed')).toMatchObject([
-      { payload: { closeAs: 'awarded', reasonCode: 'po', closureOwnerId: ids.kam } },
+    expect(await events(qn, 'quote_closed')).toEqual([]);
+    // The KAM's G6 options.
+    expect(quote.availableActions.map((a) => `${a.gateKey}/${a.outcomeKey}`)).toEqual([
+      'G6/advance',
+      'G6/hold',
+      'G6/requote',
+      'G6/stop',
     ]);
   });
 
@@ -587,11 +622,12 @@ describe('G5 On hold', () => {
   it('needs a reason and a review date; the hold time is excluded from time in stage (CR-57)', async () => {
     const qn = await inCustomerDecision();
     let res = await g5(qn, { outcomeKey: 'on_hold' });
-    expect(errorCodes(res)).toEqual(['MISSING_FIELD', 'REASON_REQUIRED']);
+    expect(errorCodes(res)).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'REASON_REQUIRED']);
     res = await g5(qn, {
       outcomeKey: 'on_hold',
       reasonCode: 'customer_requested_delay',
       holdUntil: addCalendarDays(today(), 14),
+      holdOwnerId: await userId('kam'),
     });
     ok(res);
     const row = await quoteRow(qn);
@@ -670,6 +706,96 @@ describe('G5 Re-quote (CR-38)', () => {
   });
 });
 
+describe('B-26: G6 Commit & Hand Off (deck slide 15)', () => {
+  it('closes Won only when the CER is approved or not required and the hand-off is accepted', async () => {
+    const qn = await inCommit('po');
+    const blocked = await decide(qn, 'G6', { outcomeKey: 'advance', reasonCode: 'po' }, 'kam');
+    expect(blocked.statusCode).toBe(422);
+    expect(errorPaths(blocked)).toEqual([
+      '/handoff_record.cer_status',
+      '/handoff_record.completed_at',
+    ]);
+    const put = (body: Record<string, unknown>) =>
+      persona('kam').put(`/api/v1/quotes/${qn}/handoff`, body);
+    // An approved CER needs its ID and approval date.
+    expect((await put({ cerStatus: 'approved' })).statusCode).toBe(422);
+    ok(await put({ cerStatus: 'approved', cerId: 'CER-9001', cerApprovedOn: today() }), 200);
+    expect(
+      errorPaths(await decide(qn, 'G6', { outcomeKey: 'advance', reasonCode: 'po' }, 'kam')),
+    ).toEqual(['/handoff_record.completed_at']);
+    ok(
+      await put({
+        receivingRole: 'commercial_activation',
+        receivingContactName: 'Pat Doe',
+        acceptedOn: today(),
+        complete: true,
+      }),
+      200,
+    );
+    for (const key of ['eng-lead', 'pricing', 'approver', 'admin']) {
+      expect(
+        (await decide(qn, 'G6', { outcomeKey: 'advance', reasonCode: 'po' }, key)).statusCode,
+        key,
+      ).toBe(403);
+    }
+    const won = await decide(qn, 'G6', { outcomeKey: 'advance', reasonCode: 'po' }, 'kam');
+    ok(won);
+    expect(await closure(qn)).toMatchObject({
+      stageKey: 'AWARDED',
+      status: 'closed',
+      outcome: 'awarded',
+      closureOwnerId: ids.kam,
+    });
+    expect(GateDecisionResponse.parse(won.json()).quote.customerDecision.closure).toMatchObject({
+      outcome: 'awarded',
+      kind: 'customer',
+      gateKey: 'G6',
+    });
+  });
+
+  it('Hold is "commitment pending" (owner + review date); Re-quote returns to the affected gate', async () => {
+    const qn = await inCommit();
+    ok(
+      await decide(
+        qn,
+        'G6',
+        {
+          outcomeKey: 'hold',
+          reasonCode: 'awaiting_capital_decision',
+          holdUntil: addCalendarDays(today(), 10),
+          holdOwnerId: await userId('kam'),
+        },
+        'kam',
+      ),
+    );
+    expect(await quoteRow(qn)).toMatchObject({ stageKey: 'COMMIT_HANDOFF', status: 'on_hold' });
+    const back = await decide(
+      qn,
+      'G6',
+      { outcomeKey: 'requote', reasonCode: 'volume_change', targetStageKey: 'QUOTING' },
+      'kam',
+    );
+    ok(back);
+    expect(await quoteRow(qn)).toMatchObject({ stageKey: 'QUOTING', status: 'active', version: 2 });
+  });
+
+  it('SF "Closed Won" agrees with a quote waiting in Commit & Hand Off', async () => {
+    const qn = await inCommit();
+    await setSfStage(qn, 'Closed Won – Product Shipping');
+    expect((await detail(qn)).customerDecision.sf.mismatch).toBe(false);
+  });
+});
+
+describe('B-26: G5 In negotiation', () => {
+  it('records a counter within range with a note; the quote stays in Customer Decision', async () => {
+    const qn = await inCustomerDecision();
+    expect(errorCodes(await g5(qn, { outcomeKey: 'negotiating' }))).toEqual(['NOTE_REQUIRED']);
+    ok(await g5(qn, { outcomeKey: 'negotiating', note: 'Counter at -2%, inside the range' }));
+    expect(await quoteRow(qn)).toMatchObject({ stageKey: 'CUSTOMER_DECISION', status: 'active' });
+    expect((await detail(qn)).customerDecision.inNegotiation).toBe(true);
+  });
+});
+
 describe('the closure rule (CR-39/40): every terminal path', () => {
   /** Each terminal path: how to get there and the decision that closes it. */
   const paths: [string, () => Promise<string>, string, Record<string, unknown>, string, string][] =
@@ -715,12 +841,20 @@ describe('the closure rule (CR-39/40): every terminal path', () => {
         'DECLINED',
       ],
       [
-        'G5 Awarded',
-        inCustomerDecision,
-        'G5',
-        { outcomeKey: 'awarded', reasonCode: 'loi', acceptedAt: '2026-10-30' },
+        'G6 Advance (Closed – Won)',
+        () => committed('loi'),
+        'G6',
+        { outcomeKey: 'advance', reasonCode: 'loi' },
         'kam',
         'AWARDED',
+      ],
+      [
+        'G6 Stop (commitment not authorized)',
+        inCommit,
+        'G6',
+        { outcomeKey: 'stop', reasonCode: 'cer_not_approved', note: 'CER refused' },
+        'sales-leader',
+        'NOT_AUTHORIZED',
       ],
       [
         'G5 Lost',
@@ -759,8 +893,9 @@ describe('the closure rule (CR-39/40): every terminal path', () => {
         closedAt: clock.toISOString(),
       });
       expect(row.outcome).toBeTruthy();
-      // Customer outcomes: owned by the KAM. Internal no-gos: by the decider.
-      expect(row.closureOwnerId).toBe(gate === 'G5' ? ids.kam : await userId(by));
+      // Customer outcomes (G5, and Won at G6): owned by the KAM. Internal no-gos: by the decider.
+      const customer = gate === 'G5' || (gate === 'G6' && body.outcomeKey === 'advance');
+      expect(row.closureOwnerId).toBe(customer ? ids.kam : await userId(by));
       const [closing] = (await decisions(qn, gate)).slice(-1);
       expect(
         (closing!.evidence as { decidedByRoles: string[] }).decidedByRoles.length,
@@ -768,7 +903,7 @@ describe('the closure rule (CR-39/40): every terminal path', () => {
       expect((await detail(qn)).customerDecision.closure).toMatchObject({
         outcome: row.outcome,
         reasonCode,
-        kind: gate === 'G5' ? 'customer' : 'internal',
+        kind: customer ? 'customer' : 'internal',
       });
     },
   );
@@ -869,15 +1004,11 @@ describe('the daily validity expiry job', () => {
 });
 
 describe('the hand-off record (PUT /quotes/:qn/handoff)', () => {
-  async function awarded() {
-    const qn = await inCustomerDecision();
-    ok(await g5(qn, { outcomeKey: 'awarded', reasonCode: 'contract', acceptedAt: today() }));
-    return qn;
-  }
+  const awarded = () => inCommit('contract');
   const put = (qn: string, body: Record<string, unknown>, by = 'kam') =>
     persona(by).put(`/api/v1/quotes/${qn}/handoff`, body);
 
-  it('only on AWARDED quotes', async () => {
+  it('only in Commit & Hand Off (or on a Closed – Won quote)', async () => {
     const qn = await inCustomerDecision();
     const res = await put(qn, { cerId: 'CER-1' });
     expect(res.statusCode).toBe(409);
@@ -885,11 +1016,13 @@ describe('the hand-off record (PUT /quotes/:qn/handoff)', () => {
     expect((await detail(qn)).customerDecision.canEditHandoff).toBe(false);
   });
 
-  it('captures the CER / BPR IDs and the receiving role; timeline gets field names, audit the values', async () => {
+  it('captures the CER (B-26: status and approval date; no BPR) and the receiving role; timeline gets field names, audit the values', async () => {
     const qn = await awarded();
+    expect((await put(qn, { bprId: 'BPR-1' })).statusCode).toBe(400);
     const res = await put(qn, {
       cerId: ' CER-2026-0412 ',
-      bprId: 'BPR-55120',
+      cerStatus: 'approved',
+      cerApprovedOn: today(),
       receivingRole: 'commercial_activation',
       receivingContactName: 'Amanda Cronkhite',
       acceptedOn: today(),
@@ -900,19 +1033,21 @@ describe('the hand-off record (PUT /quotes/:qn/handoff)', () => {
     expect(customerDecision.handoff).toMatchObject({
       acceptanceEvidence: 'contract',
       cerId: 'CER-2026-0412',
-      bprId: 'BPR-55120',
+      cerStatus: 'approved',
+      cerApprovedOn: today(),
       receivingRole: 'commercial_activation',
       receivingRoleLabel: 'Commercial Activation',
       receivingContactName: 'Amanda Cronkhite',
       acceptedOn: today(),
       completed: false,
     });
-    expect(await quoteRow(qn)).toMatchObject({ cerId: 'CER-2026-0412', bprId: 'BPR-55120' });
+    expect(await quoteRow(qn)).toMatchObject({ cerId: 'CER-2026-0412' });
     const [e] = await events(qn, 'handoff_updated');
     expect((e!.payload as { fields: string[] }).fields.sort()).toEqual([
       'acceptedOn',
-      'bprId',
+      'cerApprovedOn',
       'cerId',
+      'cerStatus',
       'notes',
       'receivingContactName',
       'receivingRole',
@@ -982,13 +1117,16 @@ describe('the outcomes report (GET /admin/reports/outcomes)', () => {
     ok(await g5(lost, { outcomeKey: 'lost', reasonCode: 'capacity' }));
     const expired = await inCustomerDecision();
     ok(await g5(expired, { outcomeKey: 'expired', reasonCode: 'no_response', note: 'Silent' }));
-    const won = await inCustomerDecision();
-    ok(await g5(won, { outcomeKey: 'awarded', reasonCode: 'verbal', acceptedAt: today() }));
+    const won = await committed('verbal');
+    ok(await decide(won, 'G6', { outcomeKey: 'advance', reasonCode: 'verbal' }, 'kam'));
+    // B-26: an award still in Commit & Hand Off counts as a win (commitment pending).
+    await inCommit('po');
 
     const r = await report();
     expect(r.customer.lost).toBe(base.customer.lost + 1);
     expect(r.customer.expired).toBe(base.customer.expired + 1);
-    expect(r.customer.awarded).toBe(base.customer.awarded + 1);
+    expect(r.customer.awarded).toBe(base.customer.awarded + 2);
+    expect(r.customer.commitmentPending).toBe(base.customer.commitmentPending + 1);
     expect(r.customer.winRate).toBeCloseTo(
       r.customer.awarded / (r.customer.awarded + r.customer.lost),
       2,
@@ -1002,7 +1140,8 @@ describe('the outcomes report (GET /admin/reports/outcomes)', () => {
         .find((x) => x.outcome === 'expired')!
         .reasons.find((x) => x.code === 'no_response')!.count + 1,
     );
-    expect(r.capture.recorded).toBe(base.capture.recorded + 3);
+    expect(r.capture.recorded).toBe(base.capture.recorded + 4);
+    expect(by('not_authorized').kind).toBe('internal');
     expect(r.capture.rate).toBe(
       Math.round((r.capture.recorded / (r.capture.recorded + r.capture.goneDark)) * 1000) / 1000,
     );

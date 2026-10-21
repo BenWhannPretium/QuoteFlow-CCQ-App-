@@ -1,6 +1,9 @@
 import {
   ENGINEERING_PROBLEM_CODES,
   type AssignmentResponse,
+  type BulkReassignBody,
+  type BulkReassignResponse,
+  type CapacitySignoffBody,
   type CapacityEvidenceBody,
   type EngineeringDetail,
   type EngQueueFilters,
@@ -53,6 +56,7 @@ import {
   planAccept,
   planAssignment,
   planCapacityEvidence,
+  planCapacitySignoff,
   sortEngQueue,
   summarizeStageTimes,
   type Actor,
@@ -331,78 +335,172 @@ export class EngineeringService {
     meta: AuditMeta,
   ): Promise<AssignmentResponse> {
     const now = this.now();
+    return withTx((tx) => this.assignInTx(tx, actor, quoteNumber, engineerId, meta, now));
+  }
+
+  private async assignInTx(
+    tx: Tx,
+    actor: Actor,
+    quoteNumber: string,
+    engineerId: string,
+    meta: AuditMeta,
+    now: Date,
+  ): Promise<AssignmentResponse> {
+    const { q, state } = await this.loadQuote(tx, quoteNumber);
+    const settings = await loadEngQueueSettings(tx);
+    const user = await getUserWithRoles(tx, engineerId);
+    const plan = planAssignment(
+      actor,
+      settings,
+      state,
+      user ? { id: user.id, roles: user.roles as Role[], active: user.active } : undefined,
+    );
+    if (!plan.ok) fail(plan.errors);
+    if (!plan.changed) {
+      return {
+        quoteNumber,
+        assignedEngineerId: plan.to,
+        assignedEngineerName: user!.displayName,
+        assignedAt: iso(q.assignedAt),
+        changed: false,
+      };
+    }
+    const names = await listUsersByIds(
+      tx,
+      [plan.from, plan.to].filter((x): x is string => !!x),
+    );
+    const nameOf = (id: string | null) => names.find((u) => u.id === id)?.displayName ?? null;
+
+    await updateQuote(tx, q.id, { assignedEngineerId: plan.to, assignedAt: now });
+    // A new engineer starts their own review: acceptance is per assignee.
+    if (plan.from) await resetEngReviewAcceptance(tx, q.id);
+    await insertActivityEvent(tx, {
+      quoteId: q.id,
+      type: 'engineer_assigned',
+      actorId: actor.userId,
+      at: now,
+      payload: {
+        from: plan.from,
+        fromName: nameOf(plan.from),
+        to: plan.to,
+        toName: nameOf(plan.to),
+      },
+      createdBy: actor.userId,
+    });
+    await recordAudit(tx, actor, meta, {
+      action: 'update',
+      entity: 'quote',
+      entityId: q.id,
+      quoteId: q.id,
+      before: { assignedEngineerId: plan.from, assignedAt: iso(q.assignedAt) },
+      after: { assignedEngineerId: plan.to, assignedAt: now.toISOString() },
+      at: now,
+    });
+    await persistNotifications(
+      tx,
+      [{ type: 'quote.assigned', recipient: { kind: 'user', userId: asUserId(plan.to) } }],
+      {
+        quoteId: q.id,
+        title: `${quoteNumber} is assigned to you`,
+        body: plan.from
+          ? 'The engineering review was reassigned to you.'
+          : 'You have a new engineering review.',
+        excludeUserId: actor.userId,
+        payload: { reassigned: plan.from ? 'yes' : 'no' },
+      },
+      this.opts.log,
+    );
+    return {
+      quoteNumber,
+      assignedEngineerId: plan.to,
+      assignedEngineerName: nameOf(plan.to),
+      assignedAt: now.toISOString(),
+      changed: true,
+    };
+  }
+
+  /**
+   * B-26 (CCQ demo, 10/20, Bailey): POST /queue/engineering/reassign. Move an engineer's open
+   * Engineering Review work (all of it, or the listed quotes) to another engineer in one transaction,
+   * e.g. when someone leaves. Each move is recorded, audited and announced like a single assignment.
+   * Listed quotes not in the queue or not assigned to `fromUserId` are skipped, with why.
+   */
+  async bulkReassign(
+    withTx: EngWithTx,
+    actor: Actor,
+    body: BulkReassignBody,
+    meta: AuditMeta,
+  ): Promise<BulkReassignResponse> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      const rows = await listEngQueueRows(tx, ENG_QUEUE_STAGE_KEY);
+      const held = rows.filter((r) => r.quote.assignedEngineerId === body.fromUserId);
+      const wanted = body.quoteNumbers ? new Set(body.quoteNumbers) : null;
+      const skipped: BulkReassignResponse['skipped'] = [];
+      for (const n of wanted ?? []) {
+        if (!held.some((r) => r.quote.quoteNumber === n)) {
+          skipped.push({ quoteNumber: n, reason: 'Not in Engineering Review with this engineer' });
+        }
+      }
+      const reassigned: string[] = [];
+      for (const row of held) {
+        if (wanted && !wanted.has(row.quote.quoteNumber)) continue;
+        const r = await this.assignInTx(tx, actor, row.quote.quoteNumber, body.toUserId, meta, now);
+        if (r.changed) reassigned.push(r.quoteNumber);
+      }
+      const [to] = await listUsersByIds(tx, [body.toUserId]);
+      return { reassigned, skipped, toUserName: to?.displayName ?? null };
+    });
+  }
+
+  /**
+   * B-26: PUT /quotes/:qn/capacity-signoff. The capacity owner approves or blocks capacity for this
+   * stay in the queue (G2 Advance needs it approved). Recorded on the timeline and audited.
+   */
+  async signOffCapacity(
+    withTx: EngWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    body: CapacitySignoffBody,
+    meta: AuditMeta,
+  ): Promise<EngineeringDetail> {
+    const now = this.now();
     return withTx(async (tx) => {
       const { q, state } = await this.loadQuote(tx, quoteNumber);
-      const settings = await loadEngQueueSettings(tx);
-      const user = await getUserWithRoles(tx, engineerId);
-      const plan = planAssignment(
-        actor,
-        settings,
-        state,
-        user ? { id: user.id, roles: user.roles as Role[], active: user.active } : undefined,
-      );
+      const plan = planCapacitySignoff(actor, state, { status: body.status, note: body.note });
       if (!plan.ok) fail(plan.errors);
-      if (!plan.changed) {
-        return {
-          quoteNumber,
-          assignedEngineerId: plan.to,
-          assignedEngineerName: user!.displayName,
-          assignedAt: iso(q.assignedAt),
-          changed: false,
-        };
-      }
-      const names = await listUsersByIds(
-        tx,
-        [plan.from, plan.to].filter((x): x is string => !!x),
-      );
-      const nameOf = (id: string | null) => names.find((u) => u.id === id)?.displayName ?? null;
-
-      await updateQuote(tx, q.id, { assignedEngineerId: plan.to, assignedAt: now });
-      // A new engineer starts their own review: acceptance is per assignee.
-      if (plan.from) await resetEngReviewAcceptance(tx, q.id);
+      const eng = await getEngReview(tx, q.id);
+      const before = {
+        status: eng?.capacitySignoffStatus ?? null,
+        note: eng?.capacitySignoffNote ?? null,
+      };
+      await upsertEngReview(tx, {
+        ...reviewColumns(eng),
+        quoteId: q.id,
+        capacitySignoffStatus: plan.status,
+        capacitySignoffBy: plan.status ? actor.userId : null,
+        capacitySignoffAt: plan.status ? now : null,
+        capacitySignoffNote: plan.note,
+        createdBy: eng?.createdBy ?? actor.userId,
+      });
       await insertActivityEvent(tx, {
         quoteId: q.id,
-        type: 'engineer_assigned',
+        type: 'capacity_signoff',
         actorId: actor.userId,
         at: now,
-        payload: {
-          from: plan.from,
-          fromName: nameOf(plan.from),
-          to: plan.to,
-          toName: nameOf(plan.to),
-        },
+        payload: { status: plan.status, note: plan.note },
         createdBy: actor.userId,
       });
       await recordAudit(tx, actor, meta, {
         action: 'update',
-        entity: 'quote',
-        entityId: q.id,
+        entity: 'eng_review',
+        entityId: eng?.id ?? null,
         quoteId: q.id,
-        before: { assignedEngineerId: plan.from, assignedAt: iso(q.assignedAt) },
-        after: { assignedEngineerId: plan.to, assignedAt: now.toISOString() },
+        before,
+        after: { status: plan.status, note: plan.note },
         at: now,
       });
-      await persistNotifications(
-        tx,
-        [{ type: 'quote.assigned', recipient: { kind: 'user', userId: asUserId(plan.to) } }],
-        {
-          quoteId: q.id,
-          title: `${quoteNumber} is assigned to you`,
-          body: plan.from
-            ? 'The engineering review was reassigned to you.'
-            : 'You have a new engineering review.',
-          excludeUserId: actor.userId,
-          payload: { reassigned: plan.from ? 'yes' : 'no' },
-        },
-        this.opts.log,
-      );
-      return {
-        quoteNumber,
-        assignedEngineerId: plan.to,
-        assignedEngineerName: nameOf(plan.to),
-        assignedAt: now.toISOString(),
-        changed: true,
-      };
+      return this.detail(tx, actor, quoteNumber);
     });
   }
 
@@ -711,8 +809,14 @@ function reviewColumns(eng: Awaited<ReturnType<typeof getEngReview>>) {
     downstreamEquipmentNotes: eng?.downstreamEquipmentNotes ?? null,
     prelimCapitalUsd: eng?.prelimCapitalUsd ?? null,
     technicalConceptNotes: eng?.technicalConceptNotes ?? null,
+    equipmentBomNotes: eng?.equipmentBomNotes ?? null,
+    supplyChainNotes: eng?.supplyChainNotes ?? null,
     acceptedAt: eng?.acceptedAt ?? null,
     acceptedBy: eng?.acceptedBy ?? null,
     returnedReason: eng?.returnedReason ?? null,
+    capacitySignoffStatus: eng?.capacitySignoffStatus ?? null,
+    capacitySignoffBy: eng?.capacitySignoffBy ?? null,
+    capacitySignoffAt: eng?.capacitySignoffAt ?? null,
+    capacitySignoffNote: eng?.capacitySignoffNote ?? null,
   };
 }

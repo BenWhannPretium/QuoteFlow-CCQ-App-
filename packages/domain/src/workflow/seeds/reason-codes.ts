@@ -70,6 +70,13 @@ const CODES: Record<string, [code: string, label: string][]> = {
     ['loi', 'Letter of intent (LOI)'],
     ['contract', 'Contract'],
   ],
+  // B-26 (deck slide 15): G6 Stop, commitment not authorized. "Other" needs a note.
+  not_authorized: [
+    ['cer_not_approved', 'CER not approved'],
+    ['terms_not_confirmed', 'Commitment terms not confirmed'],
+    ['handoff_not_accepted', 'Hand-off not accepted'],
+    ['other', 'Other (note required)'],
+  ],
   override: [
     ['priority_correction', 'Priority correction'],
     ['strategic_account', 'Strategic account'],
@@ -77,7 +84,7 @@ const CODES: Record<string, [code: string, label: string][]> = {
 };
 
 /** Codes that need a note when chosen, as `context:code`. */
-const NOTE_REQUIRED = new Set(['lost:other', 'requote:other']);
+const NOTE_REQUIRED = new Set(['lost:other', 'requote:other', 'not_authorized:other']);
 /** Codes no longer offered, as `context:code` (inactive rows keep old decisions' labels). */
 const RETIRED = new Set(['requote:price_change', 'requote:validity_lapsed']);
 

@@ -268,14 +268,14 @@ export function outcomeCohort(
     db,
     sql`
     select ${key} as key, ${label} as label,
-      count(*) filter (where outcome = 'awarded')::int as awarded,
-      count(*) filter (where outcome = 'lost')::int as lost,
-      count(*) filter (where outcome = 'expired')::int as expired,
+      count(*) filter (where customer_outcome = 'awarded')::int as awarded,
+      count(*) filter (where customer_outcome = 'lost')::int as lost,
+      count(*) filter (where customer_outcome = 'expired')::int as expired,
       count(*) filter (where outcome_state = 'open'
         and (validity_until is null or validity_until >= ${today}))::int as awaiting,
       count(*) filter (where outcome_state = 'open' and validity_until < ${today})::int as gone_dark,
-      coalesce(sum(sf_amount) filter (where outcome = 'awarded'), 0)::float8 as awarded_amount,
-      coalesce(sum(sf_amount) filter (where outcome = 'lost'), 0)::float8 as lost_amount
+      coalesce(sum(sf_amount) filter (where customer_outcome = 'awarded'), 0)::float8 as awarded_amount,
+      coalesce(sum(sf_amount) filter (where customer_outcome = 'lost'), 0)::float8 as lost_amount
     from analytics_quote
     where outcome_state is not null
       and outcome_cohort_at >= ${ts(f.from)} and outcome_cohort_at < ${ts(f.to)} ${dims(f)}

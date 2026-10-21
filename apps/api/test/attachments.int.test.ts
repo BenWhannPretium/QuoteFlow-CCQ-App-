@@ -132,12 +132,12 @@ const auditRows = async (entityId: string) =>
     sql`select action, actor_id, quote_id, after from audit_event where entity_id = ${entityId} order by at, id`,
   );
 
-/** A quote to work on: in INTAKE-or-later, drawing status reset to COMING. */
+/** A quote to work on (no live attachments): in INTAKE-or-later, drawing status reset to COMING. */
 async function quoteOf(kamCondition: ReturnType<typeof sql>) {
   const [row] = await db.db.execute<{ quote_number: string; id: string }>(sql`
     select q.quote_number, q.id from quote q join app_user u on u.id = q.kam_user_id
     where ${kamCondition} and q.status <> 'closed'
-      and not exists (select 1 from attachment a where a.quote_id = q.id)
+      and not exists (select 1 from attachment a where a.quote_id = q.id and a.removed_at is null)
     order by q.quote_number limit 1`);
   await db.db.execute(sql`update quote set drawing_status = 'COMING' where id = ${row!.id}`);
   return row!;

@@ -27,6 +27,8 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'approvals', 'analytics']],
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
+    // B-26: the pricing lead works the same queue (and assigns it).
+    [['PricingLead'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
     [
       ['Leadership'],
@@ -173,5 +175,8 @@ describe('landing', () => {
 
   it('returns null for users with no known role', () => {
     expect(landingFor(['Unknown'])).toBeNull();
+    // B-26: a pricing lead who also prices lands on the triage view first.
+    expect(landingFor(['Pricing', 'PricingLead'])?.role).toBe('PricingLead');
+    expect(landingFor(['PricingLead'])?.action?.permission).toBe('pricingQueue.assign');
   });
 });

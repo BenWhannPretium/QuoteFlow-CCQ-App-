@@ -553,6 +553,32 @@ function Pricing({ d }: { d: PricingDashboard }) {
   return (
     <>
       <QueueBlock q={d.queue} title="Quoting queue" testId="dash-queue" />
+      {d.load && (
+        <Block
+          title="Open load per pricer"
+          info={d.load.info}
+          testId="dash-pricer-load"
+          action={<MoreLink to="/queue/pricing">Assign in the queue</MoreLink>}
+        >
+          {d.load.items.length === 0 ? (
+            <Empty>The queue is empty.</Empty>
+          ) : (
+            <ul className="divide-y">
+              {d.load.items.map((l) => (
+                <li
+                  key={l.pricerId ?? 'none'}
+                  className="flex items-center justify-between gap-2 py-2 text-sm"
+                >
+                  <span className={cn(l.pricerId === null && 'text-emphasis font-medium')}>
+                    {l.name}
+                  </span>
+                  <span className="font-medium tabular-nums">{l.open}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Block>
+      )}
       <Block
         title="Capital readiness pending"
         info={d.capitalPending.info}
@@ -736,6 +762,7 @@ export function RoleDashboard({ role }: { role: DashboardRole }) {
     case 'Engineer':
       return <Engineering d={d} />;
     case 'Pricing':
+    case 'PricingLead':
       return <Pricing d={d} />;
     case 'Approver':
       return <Approver d={d} />;

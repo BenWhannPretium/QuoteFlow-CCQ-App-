@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { CommercialDetail } from './commercial';
 import { EngineeringDetail } from './eng-review';
 import { IntakeAddress } from './intake';
 import { CustomerDecisionDetail } from './outcome';
@@ -92,6 +93,10 @@ export const AvailableGateAction = z.object({
   requiresAcceptanceDate: z.boolean(),
   /** B-13: a note is required only because the proposal's validity has not passed yet (Expired). */
   requiresNoteBeforeValidity: z.boolean(),
+  /** B-26: the outcome needs a hold owner (sent as `holdOwnerId`). */
+  requiresHoldOwner: z.boolean(),
+  /** B-26: the outcome's definition (admin-editable help text); null when none is set. */
+  helpText: z.string().nullable(),
 });
 export type AvailableGateAction = z.infer<typeof AvailableGateAction>;
 
@@ -181,6 +186,8 @@ export const QuoteDetail = QuoteSummary.extend({
   quoting: QuotingDetail,
   /** B-13: the Customer Decision header (validity countdown, SF stage), the closure and the hand-off. */
   customerDecision: CustomerDecisionDetail,
+  /** B-26: capital flag, commercial terms, Legal review, hold owner and escalations. */
+  commercial: CommercialDetail,
 });
 export type QuoteDetail = z.infer<typeof QuoteDetail>;
 
@@ -201,6 +208,8 @@ export const GateDecisionBody = z.object({
   reasonCode: z.string().max(80).optional(),
   /** Review date for a Hold (`YYYY-MM-DD`); stored as the quote's review_date. */
   holdUntil: z.iso.date().optional(),
+  /** B-26: who owns the hold (an active CCQ user); every hold names one. */
+  holdOwnerId: z.uuid().optional(),
   /** Only for outcomes with several target stages (returns / re-quotes). */
   targetStageKey: z.string().optional(),
   /**

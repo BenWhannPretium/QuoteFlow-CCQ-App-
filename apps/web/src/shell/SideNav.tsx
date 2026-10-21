@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useLayoutEffect, useRef, useState } from 'react';
 
+import pretiumLogoWhite from '@/assets/brand/pretium-horizontal-white.png';
 import { cn } from '@/lib/utils';
 
 import { isNavItemActive, type NavItem } from './nav';
@@ -82,8 +83,15 @@ export function SideNav({
           })}
         </ul>
       </div>
-      <div className="border-rail-line text-rail-muted mx-6 mt-4 border-t py-5">
-        <p className="spec-label text-[0.625rem]">Pretium Packaging</p>
+      {/* B-26 (A8): the official Pretium lockup (white, for the green rail), not a typed name. */}
+      <div className="border-rail-line mx-6 mt-4 border-t py-5" data-testid="rail-brand">
+        <img
+          src={pretiumLogoWhite}
+          alt="Pretium Packaging"
+          width={128}
+          height={24}
+          className="h-6 w-auto opacity-90"
+        />
       </div>
     </nav>
   );

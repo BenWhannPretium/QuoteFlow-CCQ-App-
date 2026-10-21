@@ -1,9 +1,7 @@
 import {
   PRICING_APP_PROBLEM_CODES,
   type PricingAppSource,
-  type PricingBprResponse,
   type PricingContext,
-  type PricingContextBpr,
   type PricingErf,
   type PricingErfResponse,
   type PricingErfSearchQuery,
@@ -154,7 +152,7 @@ interface Cached<T> {
 const unavailableMessage = (code: string) => `Pricing app unavailable (${code})`;
 
 /** De-duplicated references, compared by their prefix-free key; the first spelling is kept. */
-function uniqueRefs(values: (string | null | undefined)[], kind: 'erf' | 'bpr'): string[] {
+function uniqueRefs(values: (string | null | undefined)[], kind: 'erf'): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const v of values) {
@@ -227,18 +225,6 @@ export class PricingAppService {
       (r) => r.getErf(n),
       (v) => (v ? 1 : 0),
     );
-  private getBpr = (n: string) =>
-    this.read(
-      `bpr:${refKey(n, 'bpr')}`,
-      (r) => r.getBpr(n),
-      (v) => (v ? 1 : 0),
-    );
-  private bprsForErf = (n: string) =>
-    this.read(
-      `bprs:${refKey(n, 'erf')}`,
-      (r) => r.findBprsForErf(n),
-      (v) => v.length,
-    );
   private sprHistory = (customerName: string) =>
     this.read(
       `spr:${customerName.toLowerCase()}`,
@@ -262,7 +248,7 @@ export class PricingAppService {
     throw new PricingAppError(
       503,
       PRICING_APP_PROBLEM_CODES.unavailable,
-      `${unavailableMessage(code)}. Enter ERF/BPR references manually.`,
+      `${unavailableMessage(code)}. Enter legacy ERF numbers manually.`,
     );
   }
 
@@ -278,15 +264,7 @@ export class PricingAppService {
           'The pricing app has no ERF with this number',
         );
       }
-      const bprs = await this.bprsForErf(erfNumber);
-      return redact(
-        {
-          source: this.source(Math.min(erf.at, bprs.at), null),
-          erfRecord: erf.value,
-          bprRecords: bprs.value,
-        },
-        actor,
-      );
+      return redact({ source: this.source(erf.at, null), erfRecord: erf.value }, actor);
     } catch (err) {
       if (err instanceof ServiceProblem) throw err;
       return this.unavailable(err, 'erf');
@@ -319,28 +297,9 @@ export class PricingAppService {
     }
   }
 
-  /** GET /pricing/bpr/:bprNumber */
-  async bpr(actor: Actor, bprNumber: string): Promise<PricingBprResponse> {
-    this.opts.usage.add('requests');
-    try {
-      const bpr = await this.getBpr(bprNumber);
-      if (!bpr.value) {
-        throw new PricingAppError(
-          404,
-          PRICING_APP_PROBLEM_CODES.notFound,
-          'The pricing app has no BPR with this number',
-        );
-      }
-      return redact({ source: this.source(bpr.at, null), bprRecord: bpr.value }, actor);
-    } catch (err) {
-      if (err instanceof ServiceProblem) throw err;
-      return this.unavailable(err, 'bpr');
-    }
-  }
-
   /**
-   * GET /quotes/:qn/pricing-context: resolves `quote.erf_number`, the current pricing record's ERF/BPR
-   * references and the SF opportunity's ERF number. The quote is read under RLS (404 when out of
+   * GET /quotes/:qn/pricing-context: resolves the legacy `quote.erf_number`, the current pricing
+   * record's legacy ERF numbers and the SF opportunity's ERF number (B-26: no BPR). The quote is read under RLS (404 when out of
    * scope). A reader failure is not an error here: the response says the pricing app is unavailable
    * and the UI falls back to manual references.
    */
@@ -369,14 +328,12 @@ export class PricingAppService {
       quoteErfNumber: q.erfNumber,
       sfErfNumber: opportunity?.erfNumberSf ?? null,
       erfRefs: record?.erfRefs ?? [],
-      bprRefs: record?.bprRefs ?? [],
     };
     const linkageStatus = erfLinkage(refs.sfErfNumber, refs.quoteErfNumber);
     const erfNumbers = uniqueRefs(
       [refs.quoteErfNumber, ...refs.erfRefs, refs.sfErfNumber],
       'erf',
     ).slice(0, MAX_CONTEXT_REFS);
-    const bprNumbers = uniqueRefs(refs.bprRefs, 'bpr').slice(0, MAX_CONTEXT_REFS);
     const customerName = customer?.name ?? opportunity?.accountName ?? null;
 
     const base = {
@@ -391,17 +348,9 @@ export class PricingAppService {
       };
       const erfs = await Promise.all(
         erfNumbers.map(async (n) => {
-          const [erf, bprs] = await Promise.all([this.getErf(n), this.bprsForErf(n)]);
+          const erf = await this.getErf(n);
           seen(erf.at);
-          seen(bprs.at);
-          return { n, erf: erf.value, bprs: bprs.value };
-        }),
-      );
-      const referenced = await Promise.all(
-        bprNumbers.map(async (n) => {
-          const bpr = await this.getBpr(n);
-          seen(bpr.at);
-          return { n, bpr: bpr.value };
+          return { n, erf: erf.value };
         }),
       );
       let spr: PricingSpr[] = [];
@@ -411,32 +360,13 @@ export class PricingAppService {
         spr = history.value;
       }
 
-      const bprRecords: PricingContextBpr[] = [];
-      const bprSeen = new Set<string>();
-      for (const { bpr } of referenced) {
-        if (bpr && !bprSeen.has(refKey(bpr.bprNumber, 'bpr'))) {
-          bprSeen.add(refKey(bpr.bprNumber, 'bpr'));
-          bprRecords.push({ ...bpr, via: 'reference' });
-        }
-      }
-      for (const { bprs } of erfs) {
-        for (const bpr of bprs) {
-          if (bprSeen.has(refKey(bpr.bprNumber, 'bpr'))) continue;
-          bprSeen.add(refKey(bpr.bprNumber, 'bpr'));
-          bprRecords.push({ ...bpr, via: 'erf' });
-        }
-      }
       const erfRecords = erfs.map((e) => e.erf).filter((e): e is PricingErf => e !== null);
       const context: PricingContext = {
         source: this.source(oldest, null),
         ...base,
         erfRecords,
-        bprRecords,
         sprHistory: spr,
-        notFound: {
-          erf: erfs.filter((e) => !e.erf).map((e) => e.n),
-          bpr: referenced.filter((r) => !r.bpr).map((r) => r.n),
-        },
+        notFound: { erf: erfs.filter((e) => !e.erf).map((e) => e.n) },
       };
       return { quoteId: q.id, context: redact(context, actor) };
     } catch (err) {
@@ -446,9 +376,8 @@ export class PricingAppService {
         source: this.source(null, unavailableMessage(code)),
         ...base,
         erfRecords: [],
-        bprRecords: [],
         sprHistory: [],
-        notFound: { erf: [], bpr: [] },
+        notFound: { erf: [] },
       };
       return { quoteId: q.id, context: redact(context, actor) };
     }

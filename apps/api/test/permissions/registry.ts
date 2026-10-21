@@ -332,6 +332,20 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'engReview.edit',
     sampleBody: { rows: [] },
   },
+  // B-26: the capacity owner's sign-off, and moving one engineer's open work to another.
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/capacity-signoff',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/capacity-signoff`,
+    permission: 'capacity.signoff',
+    sampleBody: { status: 'approved' },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/queue/engineering/reassign',
+    permission: 'queue.assign',
+    sampleBody: { fromUserId: SAMPLE_CONFIG_ID, toUserId: SAMPLE_OVERRIDE },
+  },
   {
     method: 'GET',
     route: '/api/v1/quotes/:quoteNumber/stage-times',
@@ -366,6 +380,20 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'quoting.edit',
     sampleBody: { pricingBasisNote: 'March CDI' },
   },
+  // B-26: the pricing lead assigns Quoting work, one quote or a pricer's whole load.
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/pricing-assignment',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/pricing-assignment`,
+    permission: 'pricingQueue.assign',
+    sampleBody: { pricerId: SAMPLE_OVERRIDE },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/queue/pricing/reassign',
+    permission: 'pricingQueue.assign',
+    sampleBody: { fromUserId: SAMPLE_CONFIG_ID, toUserId: SAMPLE_OVERRIDE },
+  },
   {
     method: 'PUT',
     route: '/api/v1/quotes/:quoteNumber/capital-readiness',
@@ -387,12 +415,6 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     method: 'GET',
     route: '/api/v1/pricing/erf',
     url: '/api/v1/pricing/erf?customer=synthetic&q=bottle',
-    permission: 'quote.read.commercialFields',
-  },
-  {
-    method: 'GET',
-    route: '/api/v1/pricing/bpr/:bprNumber',
-    url: '/api/v1/pricing/bpr/BPR-0',
     permission: 'quote.read.commercialFields',
   },
   {
@@ -424,6 +446,29 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     sampleBody: { notes: 'x' },
   },
   { method: 'GET', route: '/api/v1/admin/reports/outcomes', permission: 'analytics.read' },
+  // B-26 commercial: capital flag, terms + Legal review, escalations. KAM grants are own-quote and an
+  // Engineer's assigned-quote; the service checks the quote, so allowed roles get 404 on the sample.
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/capital-flag',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/capital-flag`,
+    permission: 'capitalFlag.edit',
+    sampleBody: { capitalLikely: true },
+  },
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/terms',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/terms`,
+    permission: 'terms.edit',
+    sampleBody: { termsMoq: '50k' },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/escalations',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/escalations`,
+    permission: 'quote.escalate',
+    sampleBody: { code: 'process', note: 'x' },
+  },
   // B-14 pipeline views. List and board are the quote.read floor (scope + redaction:
   // pipeline.int.test.ts); the CSV export is export.csv (every role but Engineer).
   {
@@ -499,6 +544,8 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   { method: 'GET', route: '/api/v1/analytics/gate-compliance', permission: 'analytics.read' },
   { method: 'GET', route: '/api/v1/analytics/priority', permission: 'analytics.read' },
   { method: 'GET', route: '/api/v1/analytics/adoption', permission: 'audit.read' },
+  // B-26 (A5): the Engineering lens, for the people who read the engineering queue.
+  { method: 'GET', route: '/api/v1/analytics/engineering', permission: 'engQueue.read' },
   // Role dashboards: the floor is quote.read; the Leadership dashboard needs analytics.read on top
   // (the other six roles' dashboards are covered in analytics.int.test.ts).
   {

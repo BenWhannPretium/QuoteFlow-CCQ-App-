@@ -171,14 +171,14 @@ test.describe('Attachments', () => {
 test.describe('Attachments at 390 × 844', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test('a phone can take a photo of the sample and upload it', async ({ page, request }) => {
+  test('a phone can add a photo of the sample and upload it', async ({ page, request }) => {
     const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
     await signInAs(page, 'kam');
     await page.goto(`/quotes/${quoteNumber}?tab=attachments`);
     const camera = page.getByTestId('attachment-camera');
     await expect(camera).toHaveAttribute('capture', 'environment');
     await expect(camera).toHaveAttribute('accept', 'image/*');
-    await expect(page.getByText('Take a photo')).toBeVisible();
+    await expect(page.getByText('Add photo')).toBeVisible();
     await camera.setInputFiles({ name: 'IMG_0042.jpg', mimeType: 'image/jpeg', buffer: JPEG });
     const row = page.getByTestId('attachment-row');
     await expect(row).toContainText('IMG_0042.jpg');

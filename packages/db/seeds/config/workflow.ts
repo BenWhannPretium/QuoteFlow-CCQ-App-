@@ -2,6 +2,7 @@ import { buildHybridConfig } from '@ccq/domain';
 import type { WorkflowConfig } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
+import { STAGE_HELP } from './workflow-help';
 import type { DbOrTx } from '../../src/client';
 import {
   gateDefinition,
@@ -22,6 +23,7 @@ export function workflowRows(config: WorkflowConfig = buildHybridConfig({ g1Enab
       key: s.key,
       label: s.label,
       ownerRole: s.ownerRole ?? null,
+      helpText: STAGE_HELP[s.key] ?? null,
       terminal: s.terminal,
       sort: (i + 1) * 10,
       provisional: s.provisional,
@@ -40,6 +42,8 @@ export function workflowRows(config: WorkflowConfig = buildHybridConfig({ g1Enab
       gateKey: o.gateKey,
       key: o.key,
       label: o.label,
+      // B-26: the decision definition shown next to each option.
+      helpText: o.helpText,
       requiresNote: o.requiresNote,
       requiresReasonCode: o.requiresReasonCode,
       reasonContext: o.reasonContext ?? null,

@@ -60,6 +60,7 @@ import { AdminConfigService } from './services/adminConfig';
 import { AnalyticsService } from './services/analytics';
 import { AttachmentService, LocalLinkSigner } from './services/attachments';
 import { AuditAdminService } from './services/auditAdmin';
+import { CommercialService } from './services/commercial';
 import { DashboardService } from './services/dashboards';
 import { EmailContentBuilder } from './services/emailContent';
 import { EngineeringService } from './services/engineering';
@@ -479,6 +480,12 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     log: app.log.child({ component: 'outcome' }),
     ...now,
   });
+  // B-26: capital flag, commercial terms + Legal review, escalations.
+  const commercialService = new CommercialService({
+    quotes: quoteReads,
+    log: app.log.child({ component: 'commercial' }),
+    ...now,
+  });
   // B-14 pipeline views: the quote list / prioritization view, the board and the CSV export.
   const pipelineService = new PipelineService({ quotes: quoteReads, ...now });
 
@@ -539,6 +546,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     pricingAppService,
     finalReviewService,
     outcomeService,
+    commercialService,
     pipelineService,
     attachmentService,
     adminConfig,

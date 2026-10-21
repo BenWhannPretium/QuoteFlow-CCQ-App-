@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 /**
- * B-15 (F-11): read-only records from the legacy pricing application (ERF, BPR; SPR as history).
+ * B-15 (F-11): read-only records from the legacy pricing application (ERF; SPR as history).
+ * B-26 (CCQ demo, 10/20): CCQ shows no BPR. A BPR is the price-implementation step after CCQ, so the
+ * BPR route and BPR records are gone; ERFs are shown as legacy, transition-only context.
  * The connector in `@ccq/integrations` (pricing/) maps view rows into these shapes; which column feeds
  * which property is in pricing/columnMap.ts (confirmed with Cory McGahan and Gemma Cebolla at M5).
  *
@@ -99,7 +101,6 @@ const ref = z
   .regex(/^[A-Za-z0-9 _./-]+$/, 'Letters, digits, spaces and - _ . / only');
 
 export const PricingErfParams = z.object({ erfNumber: ref });
-export const PricingBprParams = z.object({ bprNumber: ref });
 
 /** GET /api/v1/pricing/erf?customer=&q=&opportunity=: at least one filter. */
 export const PricingErfSearchQuery = z
@@ -130,11 +131,10 @@ export const PricingAppSource = z.object({
 });
 export type PricingAppSource = z.infer<typeof PricingAppSource>;
 
-/** GET /api/v1/pricing/erf/:erfNumber: the ERF with the BPRs that follow it. */
+/** GET /api/v1/pricing/erf/:erfNumber: one legacy ERF. */
 export const PricingErfResponse = z.object({
   source: PricingAppSource,
   erfRecord: PricingErf,
-  bprRecords: z.array(PricingBpr),
 });
 export type PricingErfResponse = z.infer<typeof PricingErfResponse>;
 
@@ -146,9 +146,6 @@ export const PricingErfSearchResponse = z.object({
 });
 export type PricingErfSearchResponse = z.infer<typeof PricingErfSearchResponse>;
 
-export const PricingBprResponse = z.object({ source: PricingAppSource, bprRecord: PricingBpr });
-export type PricingBprResponse = z.infer<typeof PricingBprResponse>;
-
 /** CCQ ERF number vs the one on the SF opportunity (same rules as the admin ERF linkage report). */
 export const ErfLinkageStatus = z.enum([
   'match',
@@ -159,16 +156,9 @@ export const ErfLinkageStatus = z.enum([
 ]);
 export type ErfLinkageStatus = z.infer<typeof ErfLinkageStatus>;
 
-/** A BPR in the context panel, with why it is there. */
-export const PricingContextBpr = PricingBpr.extend({
-  /** `reference`: on the pricing record; `erf`: follows one of the quote's ERFs. */
-  via: z.enum(['reference', 'erf']),
-});
-export type PricingContextBpr = z.infer<typeof PricingContextBpr>;
-
 /**
- * GET /api/v1/quotes/:quoteNumber/pricing-context: the quote's `erf_number`, the current pricing
- * record's ERF/BPR references and the SF opportunity's ERF number, resolved in the pricing app.
+ * GET /api/v1/quotes/:quoteNumber/pricing-context: the quote's legacy `erf_number`, the current
+ * pricing record's legacy ERF numbers and the SF opportunity's ERF number, resolved in the pricing app.
  * When the reader is down, `source.available` is false and the record lists are empty; the refs and
  * linkage still come back so the Quoting tab can fall back to manual references.
  */
@@ -179,9 +169,8 @@ export const PricingContext = z.object({
     quoteErfNumber: z.string().nullable(),
     /** The ERF number on the SF opportunity ("used inconsistently": compared, never trusted). */
     sfErfNumber: z.string().nullable(),
-    /** The current version's pricing record references. */
+    /** The current version's pricing record legacy ERF numbers. */
     erfRefs: z.array(z.string()),
-    bprRefs: z.array(z.string()),
   }),
   linkage: z.object({
     status: ErfLinkageStatus,
@@ -189,12 +178,11 @@ export const PricingContext = z.object({
     mismatch: z.boolean(),
   }),
   erfRecords: z.array(PricingErf),
-  bprRecords: z.array(PricingContextBpr),
   /** SPRs for the customer: history only (retired Nov 2025), newest first. */
   sprHistory: z.array(PricingSpr),
   /** References the pricing app does not know. */
-  notFound: z.object({ erf: z.array(z.string()), bpr: z.array(z.string()) }),
-  /** The caller may add an ERF/BPR to the pricing record ("Use as reference"): Pricing, in Quoting. */
+  notFound: z.object({ erf: z.array(z.string()) }),
+  /** The caller may add a legacy ERF to the pricing record ("Use as reference"): Pricing, in Quoting. */
   canUseAsReference: z.boolean(),
 });
 export type PricingContext = z.infer<typeof PricingContext>;

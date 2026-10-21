@@ -106,6 +106,13 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['INJECTION_PRESS', 'Injection press'],
     ['OTHER', 'Other'],
   ],
+  // B-26 (future-state deck slide 12): how the tooling / capital is funded. Provisional.
+  tooling_funding_model: [
+    ['COMPANY_FUNDED', 'Company-funded'],
+    ['CUSTOMER_FUNDED', 'Customer-funded'],
+    ['ZERO_CER', '$0 CER'],
+    ['AMORTIZED', 'Amortized'],
+  ],
 };
 
 export function valueListRows() {

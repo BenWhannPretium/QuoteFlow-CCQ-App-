@@ -26,33 +26,65 @@ const EXPECTED: Record<string, Role[]> = {
     'EngLead',
     'Engineer',
     'Pricing',
+    'PricingLead',
     'Approver',
     'Leadership',
     'Admin',
   ],
-  'quote.read.commercialFields': ['EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
+  'quote.read.commercialFields': [
+    'EngLead',
+    'Pricing',
+    'PricingLead',
+    'Approver',
+    'Leadership',
+    'Admin',
+  ],
   'gate.G1.decide': ['SalesLeader'],
   'engQueue.read': ['EngLead', 'Engineer', 'Leadership', 'Admin'],
   'queue.assign': ['EngLead', 'Admin'],
   'engReview.edit': ['EngLead'],
   'gate.G2.decide': ['EngLead'],
-  'pricingQueue.read': ['Pricing', 'Leadership', 'Admin'],
-  'quoting.edit': ['Pricing'],
-  'gate.G3.submit': ['Pricing'],
+  'pricingQueue.read': ['Pricing', 'PricingLead', 'Leadership', 'Admin'],
+  'pricingQueue.assign': ['PricingLead', 'Admin'],
+  'quoting.edit': ['Pricing', 'PricingLead'],
+  'gate.G3.submit': ['Pricing', 'PricingLead'],
   'finalReview.read': ['Approver', 'Leadership', 'Admin'],
   'gate.G4.decide': ['Approver'],
   'outcome.record': ['SalesLeader'],
   'outcome.assignOwner': ['SalesLeader'],
   'handoff.edit': ['SalesLeader', 'Admin'],
-  'override.request': ['KAM', 'SalesLeader', 'EngLead', 'Pricing'],
+  // B-26 (qualified grants, KAM own / Engineer assigned, are not in this role-level view)
+  'gate.G6.decide': ['SalesLeader'],
+  'terms.edit': ['SalesLeader', 'Pricing', 'PricingLead'],
+  'capitalFlag.edit': ['SalesLeader', 'EngLead', 'Pricing', 'PricingLead'],
+  'capacity.signoff': ['EngLead'],
+  'quote.escalate': ['SalesLeader', 'EngLead', 'Pricing', 'PricingLead', 'Approver', 'Admin'],
+  'override.request': ['KAM', 'SalesLeader', 'EngLead', 'Pricing', 'PricingLead'],
   'override.approve': ['SalesLeader', 'Admin'],
   'override.revert': ['SalesLeader', 'EngLead', 'Admin'],
   'overrideLog.read': ['Leadership', 'Admin'],
   'audit.read': ['Leadership', 'Admin'],
-  'attachment.upload': ['KAM', 'SalesLeader', 'EngLead', 'Engineer', 'Pricing'],
+  'attachment.upload': ['KAM', 'SalesLeader', 'EngLead', 'Engineer', 'Pricing', 'PricingLead'],
   'attachment.removeAny': ['Admin'],
-  'export.csv': ['KAM', 'SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
-  'analytics.read': ['SalesLeader', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'],
+  'export.csv': [
+    'KAM',
+    'SalesLeader',
+    'EngLead',
+    'Pricing',
+    'PricingLead',
+    'Approver',
+    'Leadership',
+    'Admin',
+  ],
+  'analytics.read': [
+    'SalesLeader',
+    'EngLead',
+    'Pricing',
+    'PricingLead',
+    'Approver',
+    'Leadership',
+    'Admin',
+  ],
   'config.read': ['Leadership', 'Admin'],
   'config.manage': ['Admin'],
 };
@@ -90,6 +122,18 @@ describe('qualified grants', () => {
     expect(can(makeActor('SalesLeader'), 'outcome.record', makeQuote('CUSTOMER_DECISION'))).toBe(
       true,
     );
+  });
+
+  it('B-26: G6, terms and escalation follow the KAM own / Engineer assigned qualifiers', () => {
+    const own = makeQuote('COMMIT_HANDOFF');
+    expect(can(makeActor('KAM', { userId: KAM_ID }), 'gate.G6.decide', own)).toBe(true);
+    expect(can(makeActor('KAM'), 'gate.G6.decide', own)).toBe(false);
+    expect(can(makeActor('KAM', { userId: KAM_ID }), 'terms.edit', own)).toBe(true);
+    const eng = makeQuote('ENG_REVIEW', { assignedEngineerId: OTHER_ID });
+    expect(can(makeActor('Engineer'), 'quote.escalate', eng)).toBe(true);
+    expect(can(makeActor('Engineer'), 'capitalFlag.edit', eng)).toBe(true);
+    expect(can(makeActor('Engineer', { userId: KAM_ID }), 'quote.escalate', eng)).toBe(false);
+    expect(can(makeActor('Leadership'), 'quote.escalate', eng)).toBe(false);
   });
 
   it('engReview.edit: Engineer only when assigned; EngLead always', () => {

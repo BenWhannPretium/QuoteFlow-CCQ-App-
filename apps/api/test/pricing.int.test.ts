@@ -1,7 +1,9 @@
 import {
+  BulkReassignResponse,
   GateDecisionResponse,
   IntakeDraft,
   MeResponse,
+  PricerAssignmentResponse,
   PricingQueueResponse,
   QuoteDetail,
   QuotingDetail,
@@ -96,6 +98,14 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
 }
 
 /** A quote Engineering cleared into Quoting with the given G2 outcome. */
+/** B-26: the capacity owner's G2 sign-off (seeded to the EngLead). */
+async function signOff(qn: string) {
+  const res = await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, {
+    status: 'approved',
+  });
+  expect(res.statusCode, res.body).toBe(200);
+}
+
 async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required' = 'proceed') {
   const res = await as('KAM').post('/api/v1/quotes/drafts', {
     data: await prefill(await nextFree()),
@@ -130,6 +140,7 @@ async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required
     ],
   });
   expect(cap.statusCode, cap.body).toBe(200);
+  await signOff(qn);
   const body =
     g2 === 'proceed_with_risk' ? { outcomeKey: g2, note: 'Tight on line 4' } : { outcomeKey: g2 };
   const adv = await decide(qn, 'G2', body, 'EngLead');
@@ -177,7 +188,6 @@ const SECRETS = {
   cer: 'CER-77731',
   justification: 'Board signs the CER on Nov 10',
   erf: '48213',
-  bpr: 'BPR-55120',
 };
 
 /** A full approval: references, basis, range, costing. */
@@ -188,7 +198,6 @@ async function approve(qn: string, extra: Record<string, unknown> = {}) {
     pricingBasisNote: SECRETS.basis,
     approvedRangeNote: SECRETS.range,
     erfRefs: [SECRETS.erf],
-    bprRefs: [SECRETS.bpr.toLowerCase()],
     costingCompleted: true,
     ...extra,
   });
@@ -199,7 +208,10 @@ async function approve(qn: string, extra: Record<string, unknown> = {}) {
 beforeAll(async () => {
   const fresh = await freshSfDatabase('pricing');
   db = fresh.client;
-  app = await buildApp(testConfig({ DATABASE_URL: fresh.url }), { db, now: () => clock });
+  app = await buildApp(testConfig({ DATABASE_URL: fresh.url, RATE_LIMIT_MAX: '100000' }), {
+    db,
+    now: () => clock,
+  });
   await app.ready();
   const rows = await db.db.execute<{ id: string }>(sql`
     select s.sf_opportunity_id as id from sf_opportunity_snapshot s
@@ -244,7 +256,7 @@ describe('the pricing queue', () => {
     const item = q.items.find((i) => i.quoteNumber === qn)!;
     expect(item).toMatchObject({
       g2Outcome: 'capital_required',
-      g2OutcomeLabel: 'Capital required',
+      g2OutcomeLabel: 'Advance – capital required',
       g2Flag: true,
       capitalReadiness: 'pending',
       priceApproved: false,
@@ -304,7 +316,10 @@ describe('the pricing queue', () => {
           eq(schema.notification.type, 'quote.ready_for_quoting'),
         ),
       );
-    expect(notes.map((n) => n.userId)).toEqual([await userId('Pricing')]);
+    // B-26: the Pricing team includes the pricing lead.
+    expect(notes.map((n) => n.userId).sort()).toEqual(
+      [await userId('Pricing'), await userId('PricingLead')].sort(),
+    );
   });
 });
 
@@ -320,11 +335,14 @@ describe('the price approval record', () => {
       pricingBasisNote: SECRETS.basis,
       approvedRangeNote: SECRETS.range,
       erfRefs: [SECRETS.erf],
-      bprRefs: [SECRETS.bpr],
       costingCompleted: true,
     });
+    expect(quoting.pricingRecord).not.toHaveProperty('bprRefs');
     expect(quoting.pricingRecord!.costingAttestedByName).toBeTruthy();
-    expect(quoting.pricingUsers.map((u) => u.id)).toEqual([pricer]);
+    // B-26: the pricing lead is on the Pricing team too.
+    expect(quoting.pricingUsers.map((u) => u.id).sort()).toEqual(
+      [pricer, await userId('PricingLead')].sort(),
+    );
     expect(quoting.refFormats.erf.example).toBe('26367');
 
     const timeline = await db.db
@@ -359,10 +377,12 @@ describe('the price approval record', () => {
       approvedBy: await userId('KAM'),
       approvedAt: new Date(clock.getTime() + 24 * HOUR).toISOString(),
       erfRefs: ['ERF twelve'],
-      bprRefs: ['???'],
     });
     expect(bad.statusCode).toBe(422);
-    expect(errorPaths(bad)).toEqual(['/approvedAt', '/approvedBy', '/bprRefs/0', '/erfRefs/0']);
+    expect(errorPaths(bad)).toEqual(['/approvedAt', '/approvedBy', '/erfRefs/0']);
+    // B-26: BPR references and the "no record yet" note are gone from the body.
+    expect((await putRecord(qn, { bprRefs: ['BPR-1'] })).statusCode).toBe(400);
+    expect((await putRecord(qn, { noPricingAppRecordNote: 'x' })).statusCode).toBe(400);
     // The formats are config (ask Cory at M5): change the setting, not the code.
     const formats = (erf: object) =>
       db.db.execute(sql`
@@ -484,27 +504,29 @@ describe('capital readiness', () => {
 });
 
 describe('G3 Submit to Final Review', () => {
-  it('needs the approval, a reference or the "no record yet" note, and a capital status', async () => {
+  it('needs the approval, the costing attestation and a capital status (B-26: no ERF / BPR)', async () => {
     const qn = await inQuoting();
     const empty = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
     expect(empty.statusCode).toBe(422);
     expect(errorPaths(empty)).toEqual([
       '/pricing_record.capital_readiness',
       '/pricing_record.capital_readiness,pricing_record.capital_pending_justification',
-      '/pricing_record.price_approved_at',
-      '/pricing_record.price_approved_by',
-      '/pricing_record.pricing_refs.erf,pricing_record.pricing_refs.bpr,pricing_record.no_pricing_app_record_note',
+      '/pricing_record.costing_completed',
+      '/pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible',
     ]);
     // The decision dialog lists the same gaps before the click.
     const missing = (await detail(qn)).dto.availableActions.find(
       (a) => a.gateKey === 'G3' && a.outcomeKey === 'submit',
     )!.missing;
-    expect(missing).toHaveLength(5);
+    expect(missing).toHaveLength(4);
 
-    await putRecord(qn, {
-      approvedBy: await userId('Pricing'),
-      noPricingAppRecordNote: 'New SKU: no pricing-app record until the ERF is raised',
-    });
+    // Cost before price: the approval alone is not enough.
+    await putRecord(qn, { approvedBy: await userId('Pricing') });
+    await putCapital(qn, { capitalReadiness: 'not_required' });
+    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing'))).toEqual([
+      '/pricing_record.costing_completed',
+    ]);
+    await putRecord(qn, { costingCompleted: true });
     await putCapital(qn, { capitalReadiness: 'not_required' });
     const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
     expect(ok.statusCode, ok.body).toBe(201);
@@ -560,7 +582,7 @@ describe('G3 Submit to Final Review', () => {
       (decision!.evidence as { quoting: { warnings: { code: string }[] } }).quoting.warnings.map(
         (w) => w.code,
       ),
-    ).toEqual(['COSTING_NOT_ATTESTED', 'NO_PRICING_APP_RECORD']);
+    ).toEqual([]);
     expect((await putRecord(qn, { pricingBasisNote: 'late' })).statusCode).toBe(409);
   });
 
@@ -598,6 +620,75 @@ describe('G3 Submit to Final Review', () => {
     for (const role of ['KAM', 'EngLead', 'Approver', 'Leadership', 'Admin'] as Role[]) {
       expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, role)).statusCode, role).toBe(403);
     }
+    // B-26: the pricing lead decides G3 like Pricing.
+    const lead = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
+    expect(lead.statusCode, lead.body).toBe(201);
+  });
+
+  it('B-26: below the pass-through threshold a price advances without formal approval', async () => {
+    const qn = await inQuoting();
+    await putRecord(qn, { costingCompleted: true });
+    await putCapital(qn, { capitalReadiness: 'not_required' });
+    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing')).statusCode).toBe(422);
+    const id = await quoteId(qn);
+    await db.db.execute(sql`update quote set est_annual_revenue = 40000 where id = ${id}`);
+    await db.db.execute(
+      sql`update app_setting set value = '{"maxAnnualRevenueUsd": 50000}'::jsonb where key = 'pricing_pass_through'`,
+    );
+    try {
+      expect((await detail(qn)).dto.commercial.passThroughEligible).toBe(true);
+      const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
+      expect(ok.statusCode, ok.body).toBe(201);
+    } finally {
+      await db.db.execute(
+        sql`update app_setting set value = '{"maxAnnualRevenueUsd": null}'::jsonb where key = 'pricing_pass_through'`,
+      );
+    }
+  });
+
+  it('B-26: a "capital likely" quote needs capital readiness confirmed, not pending', async () => {
+    const qn = await inQuoting();
+    await approve(qn);
+    await putCapital(qn, {
+      capitalReadiness: 'pending',
+      capitalPendingJustification: SECRETS.justification,
+    });
+    const flag = await as('EngLead').put(`/api/v1/quotes/${qn}/capital-flag`, {
+      capitalLikely: true,
+    });
+    expect(flag.statusCode, flag.body).toBe(200);
+    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing'))).toEqual([
+      '/capital_likely,pricing_record.capital_readiness',
+    ]);
+    await putCapital(qn, { capitalReadiness: 'pre_approved' });
+    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing')).statusCode).toBe(201);
+  });
+
+  it('B-26: Rework (re-cost) stays in Quoting and clears the costing attestation; Redirect stays too', async () => {
+    const qn = await inQuoting();
+    await approve(qn);
+    const recost = await decide(
+      qn,
+      'G3',
+      { outcomeKey: 'recost', reasonCode: 'missing_information', note: 'Freight changed' },
+      'Pricing',
+    );
+    expect(recost.statusCode, recost.body).toBe(201);
+    expect(GateDecisionResponse.parse(recost.json()).quote).toMatchObject({
+      stageKey: 'QUOTING',
+      version: 1,
+    });
+    expect((await records(qn)).at(-1)).toMatchObject({
+      costingCompleted: false,
+      costingAttestedBy: null,
+    });
+    const redirect = await decide(
+      qn,
+      'G3',
+      { outcomeKey: 'redirect', note: 'Customer funds the tooling' },
+      'Pricing',
+    );
+    expect(GateDecisionResponse.parse(redirect.json()).quote.stageKey).toBe('QUOTING');
   });
 
   it('segregation: the price approver and the G3 submitter are on the quote state for G4', async () => {
@@ -612,16 +703,22 @@ describe('G3 Submit to Final Review', () => {
     expect(actions.some((a) => a.gateKey === 'G4')).toBe(true);
   });
 
-  it('Hold needs a reason and a review date', async () => {
+  it('Hold needs a reason, a review date and an owner (B-26)', async () => {
     const qn = await inQuoting();
     expect(errorCodes(await decide(qn, 'G3', { outcomeKey: 'hold' }, 'Pricing'))).toEqual([
+      'MISSING_FIELD',
       'MISSING_FIELD',
       'REASON_REQUIRED',
     ]);
     const ok = await decide(
       qn,
       'G3',
-      { outcomeKey: 'hold', reasonCode: 'awaiting_capital_decision', holdUntil: '2026-11-20' },
+      {
+        outcomeKey: 'hold',
+        reasonCode: 'awaiting_capital_decision',
+        holdUntil: '2026-11-20',
+        holdOwnerId: await userId('Pricing'),
+      },
       'Pricing',
     );
     expect(GateDecisionResponse.parse(ok.json()).quote).toMatchObject({
@@ -672,6 +769,7 @@ describe('G3 Submit to Final Review', () => {
     });
     tick();
     // Engineering clears it again: version 2 gets its own record, the references carried forward.
+    await signOff(qn); // B-26: the sign-off is per stay in the queue
     expect((await decide(qn, 'G2', { outcomeKey: 'proceed' }, 'EngLead')).statusCode).toBe(201);
     const rows = await records(qn);
     expect(rows.map((r) => r.quoteVersion)).toEqual([1, 2]);
@@ -681,7 +779,7 @@ describe('G3 Submit to Final Review', () => {
       approvedRangeNote: null,
       capitalReadiness: null,
       cerReference: 'CER-5',
-      pricingRefs: { erf: [SECRETS.erf], bpr: [SECRETS.bpr] },
+      pricingRefs: { erf: [SECRETS.erf] },
     });
 
     const quoting = (await detail(qn)).dto.quoting;
@@ -698,5 +796,83 @@ describe('G3 Submit to Final Review', () => {
     const after = await records(qn);
     expect(after[0]).toEqual(v1);
     expect(after[1]!.approvedRangeNote).toBe('v2 range');
+  });
+});
+
+describe('B-26: the pricing lead triages the queue (CCQ demo, Darren and Bailey)', () => {
+  it('assigns and reassigns a pricer; the pricer is told and the queue shows it', async () => {
+    const qn = await inQuoting();
+    const pricer = await userId('Pricing');
+    const lead = await userId('PricingLead');
+    const url = `/api/v1/quotes/${qn}/pricing-assignment`;
+    for (const role of ['Pricing', 'KAM', 'EngLead', 'Approver', 'Leadership'] as Role[]) {
+      expect((await as(role).post(url, { pricerId: pricer })).statusCode, role).toBe(403);
+    }
+    const res = await as('PricingLead').post(url, { pricerId: pricer });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(PricerAssignmentResponse.parse(res.json())).toMatchObject({
+      assignedPricerId: pricer,
+      changed: true,
+    });
+    expect(
+      PricerAssignmentResponse.parse(
+        (await as('PricingLead').post(url, { pricerId: pricer })).json(),
+      ).changed,
+    ).toBe(false);
+    // Only Pricing / PricingLead users can take Quoting work.
+    expect((await as('PricingLead').post(url, { pricerId: await userId('KAM') })).statusCode).toBe(
+      422,
+    );
+
+    const q = await queue('PricingLead');
+    expect(q.canAssign).toBe(true);
+    expect(q.pricers.map((p) => p.id)).toEqual(expect.arrayContaining([pricer, lead]));
+    expect(q.items.find((i) => i.quoteNumber === qn)).toMatchObject({
+      assignedPricerId: pricer,
+    });
+    expect((await queue('Pricing', '?pricer=me')).items.map((i) => i.quoteNumber)).toContain(qn);
+    expect((await queue('Pricing')).canAssign).toBe(false);
+
+    const told = await db.db
+      .select()
+      .from(schema.notification)
+      .where(
+        and(
+          eq(schema.notification.quoteId, await quoteId(qn)),
+          eq(schema.notification.type, 'quote.pricing_assigned'),
+          eq(schema.notification.userId, pricer),
+        ),
+      );
+    expect(told.length).toBeGreaterThan(0);
+  });
+
+  it("moves a pricer's whole load to another pricer in one go", async () => {
+    const pricer = await userId('Pricing');
+    const lead = await userId('PricingLead');
+    const a = await inQuoting();
+    const b = await inQuoting();
+    for (const qn of [a, b]) {
+      await as('PricingLead').post(`/api/v1/quotes/${qn}/pricing-assignment`, { pricerId: pricer });
+    }
+    const res = await as('PricingLead').post('/api/v1/queue/pricing/reassign', {
+      fromUserId: pricer,
+      toUserId: lead,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(BulkReassignResponse.parse(res.json()).reassigned).toEqual(
+      expect.arrayContaining([a, b]),
+    );
+    const items = (await queue('PricingLead')).items;
+    for (const qn of [a, b]) {
+      expect(items.find((i) => i.quoteNumber === qn)!.assignedPricerId).toBe(lead);
+    }
+    expect(
+      (
+        await as('Pricing').post('/api/v1/queue/pricing/reassign', {
+          fromUserId: lead,
+          toUserId: pricer,
+        })
+      ).statusCode,
+    ).toBe(403);
   });
 });

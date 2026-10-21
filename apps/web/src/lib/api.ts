@@ -24,6 +24,7 @@ import {
   type UpdateUserScopeBody,
   type UpdateValueListEntryBody,
   AdoptionResponse,
+  EngineeringAnalyticsResponse,
   AnalyticsFiltersResponse,
   CycleTimeResponse,
   DashboardResponse,
@@ -53,6 +54,10 @@ import {
   type CapitalReadinessBody,
   type PricingRecordBody,
   AssignmentResponse,
+  BulkReassignResponse,
+  PricerAssignmentResponse,
+  type BulkReassignBody,
+  type CapacitySignoffBody,
   EngineeringDetail,
   EngQueueResponse,
   MarkNotificationReadResponse,
@@ -80,6 +85,10 @@ import {
   GateDecisionResponse,
   GateQueueResponse,
   QuoteDetail,
+  EscalationResponse,
+  type CapitalFlagBody,
+  type EscalationBody,
+  type TermsBody,
   type GateDecisionBody,
   AuthConfigResponse,
   IntakeDraft,
@@ -139,6 +148,8 @@ export interface PricingQueueParams {
   approved?: 'yes' | 'no';
   productFamily?: string;
   kam?: string;
+  /** B-26: a pricer's id, `me` or `unassigned`. */
+  pricer?: string;
   q?: string;
 }
 
@@ -314,6 +325,15 @@ export const api = {
       method: 'PUT',
       body,
     }),
+  /** B-26 (A1): move an engineer's open work (or the listed quotes) to another engineer. */
+  bulkReassignEngineering: (body: BulkReassignBody) =>
+    getJson('/api/v1/queue/engineering/reassign', BulkReassignResponse, { method: 'POST', body }),
+  /** B-26 (B5): the capacity owner's sign-off. */
+  updateCapacitySignoff: (quoteNumber: string, body: CapacitySignoffBody) =>
+    getJson(`${quotePath(quoteNumber)}/capacity-signoff`, EngineeringDetail, {
+      method: 'PUT',
+      body,
+    }),
   stageTimes: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/stage-times`, StageTimesResponse),
   // B-18 notifications and email preferences
@@ -339,6 +359,14 @@ export const api = {
   // B-11 pricing queue and the Quoting tab
   pricingQueue: (q: PricingQueueParams = {}) =>
     getJson(`/api/v1/queue/pricing${queryString({ ...q })}`, PricingQueueResponse),
+  /** B-26 (A6): the pricing lead assigns a pricer. */
+  assignPricer: (quoteNumber: string, pricerId: string) =>
+    getJson(`${quotePath(quoteNumber)}/pricing-assignment`, PricerAssignmentResponse, {
+      method: 'POST',
+      body: { pricerId },
+    }),
+  bulkReassignPricing: (body: BulkReassignBody) =>
+    getJson('/api/v1/queue/pricing/reassign', BulkReassignResponse, { method: 'POST', body }),
   updatePricingRecord: (quoteNumber: string, body: PricingRecordBody) =>
     getJson(`${quotePath(quoteNumber)}/pricing-record`, QuotingDetail, { method: 'PUT', body }),
   updateCapitalReadiness: (quoteNumber: string, body: CapitalReadinessBody) =>
@@ -358,6 +386,14 @@ export const api = {
   updateHandoff: (quoteNumber: string, body: HandoffBody) =>
     getJson(`${quotePath(quoteNumber)}/handoff`, HandoffResponse, { method: 'PUT', body }),
   outcomesReport: () => getJson('/api/v1/admin/reports/outcomes', OutcomesReport),
+
+  // B-26 commercial: the capital-likely flag, the terms check and Legal review, escalations
+  setCapitalFlag: (quoteNumber: string, body: CapitalFlagBody) =>
+    getJson(`${quotePath(quoteNumber)}/capital-flag`, QuoteDetail, { method: 'PUT', body }),
+  updateTerms: (quoteNumber: string, body: TermsBody) =>
+    getJson(`${quotePath(quoteNumber)}/terms`, QuoteDetail, { method: 'PUT', body }),
+  escalate: (quoteNumber: string, body: EscalationBody) =>
+    getJson(`${quotePath(quoteNumber)}/escalations`, EscalationResponse, { method: 'POST', body }),
 
   // B-17 role dashboards and operational analytics. Every figure is computed on the server.
   dashboard: (role: DashboardRole) => getJson(`/api/v1/dashboards/${role}`, DashboardResponse),
@@ -382,6 +418,9 @@ export const api = {
     getJson(`/api/v1/analytics/priority${queryString(q)}`, PriorityResponse),
   analyticsAdoption: (q: AnalyticsQueryParams) =>
     getJson(`/api/v1/analytics/adoption${queryString(q)}`, AdoptionResponse),
+  // B-26 (A5): the Engineering lens (engQueue.read).
+  analyticsEngineering: (q: AnalyticsQueryParams) =>
+    getJson(`/api/v1/analytics/engineering${queryString(q)}`, EngineeringAnalyticsResponse),
 
   // B-09 usage audit (Leadership + Admin)
   auditEvents: (q: Partial<AuditQuery>) =>

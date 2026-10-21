@@ -38,6 +38,7 @@ export const PERMISSION_MATRIX: Readonly<
     EngLead: true,
     Engineer: true,
     Pricing: true,
+    PricingLead: true,
     Approver: true,
     Leadership: true,
     Admin: true,
@@ -46,6 +47,7 @@ export const PERMISSION_MATRIX: Readonly<
   'quote.read.commercialFields': {
     EngLead: true,
     Pricing: true,
+    PricingLead: true,
     Approver: true,
     Leadership: true,
     Admin: true,
@@ -59,9 +61,11 @@ export const PERMISSION_MATRIX: Readonly<
   'gate.G2.decide': { EngLead: true },
   // B-11: the pricing queue page. Pricing works it, Leadership reads it, Admin reads it like the
   // engineering queue. Everyone on it holds quote.read.commercialFields.
-  'pricingQueue.read': { Pricing: true, Leadership: true, Admin: true },
-  'quoting.edit': { Pricing: true },
-  'gate.G3.submit': { Pricing: true },
+  'pricingQueue.read': { Pricing: true, PricingLead: true, Leadership: true, Admin: true },
+  // B-26: the pricing lead assigns Quoting work to a pricer, like `queue.assign` for engineering.
+  'pricingQueue.assign': { PricingLead: true, Admin: true },
+  'quoting.edit': { Pricing: true, PricingLead: true },
+  'gate.G3.submit': { Pricing: true, PricingLead: true },
   // B-12: the Final Review queue (Approvals → Final Review). The Approver works it, Leadership reads
   // it, Admin reads it like the other queues. Everyone on it holds quote.read.commercialFields.
   'finalReview.read': { Approver: true, Leadership: true, Admin: true },
@@ -72,7 +76,40 @@ export const PERMISSION_MATRIX: Readonly<
   'outcome.assignOwner': { SalesLeader: true },
   // B-13: the minimal Awarded hand-off record (Stage 6). KAM on their own quotes, SalesLeader, Admin.
   'handoff.edit': { KAM: own, SalesLeader: true, Admin: true },
-  'override.request': { KAM: true, SalesLeader: true, EngLead: true, Pricing: true },
+  // B-26: G6 Commit & Hand Off (Stage 6). The KAM records it on their own quotes, a sales leader on any
+  // (CER approvers and the receiving team are outside CCQ; their decisions are recorded as references).
+  'gate.G6.decide': { KAM: own, SalesLeader: true },
+  // B-26: the commercial terms (tooling funding model, MOQ, payment terms) and the Legal review record.
+  'terms.edit': { KAM: own, SalesLeader: true, Pricing: true, PricingLead: true },
+  // B-26: the early "capital likely" flag (slide 9 "Aware"): Sales or upfront Engineering sets it.
+  'capitalFlag.edit': {
+    KAM: own,
+    SalesLeader: true,
+    EngLead: true,
+    Engineer: assigned,
+    Pricing: true,
+    PricingLead: true,
+  },
+  // B-26: the capacity owner's G2 sign-off (owner TBD, D-07; seeded to the EngLead, provisional).
+  'capacity.signoff': { EngLead: true },
+  // B-26: raise an escalation on a quote (routed by app_setting `escalation_routes`).
+  'quote.escalate': {
+    KAM: own,
+    SalesLeader: true,
+    EngLead: true,
+    Engineer: assigned,
+    Pricing: true,
+    PricingLead: true,
+    Approver: true,
+    Admin: true,
+  },
+  'override.request': {
+    KAM: true,
+    SalesLeader: true,
+    EngLead: true,
+    Pricing: true,
+    PricingLead: true,
+  },
   'override.approve': {
     SalesLeader: true,
     EngLead: { kind: 'fields', fields: ['priority_tier', 'queue_position'] },
@@ -88,6 +125,7 @@ export const PERMISSION_MATRIX: Readonly<
     EngLead: true,
     Engineer: true,
     Pricing: true,
+    PricingLead: true,
   },
   // B-16: soft-delete any file. An uploader may remove their own within attachment_settings'
   // uploaderRemoveHours (domain attachmentRemoval); this grant is for everyone else's.
@@ -97,6 +135,7 @@ export const PERMISSION_MATRIX: Readonly<
     SalesLeader: true,
     EngLead: true,
     Pricing: true,
+    PricingLead: true,
     Approver: true,
     Leadership: true,
     Admin: true,
@@ -105,6 +144,7 @@ export const PERMISSION_MATRIX: Readonly<
     SalesLeader: true,
     EngLead: true,
     Pricing: true,
+    PricingLead: true,
     Approver: true,
     Leadership: true,
     Admin: true,

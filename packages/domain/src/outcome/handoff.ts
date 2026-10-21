@@ -1,13 +1,23 @@
 import { DomainError } from '../errors';
-import { AWARDED_STAGE_KEY } from './report';
+import { AWARDED_STAGE_KEY, COMMIT_STAGE_KEY } from './report';
 import { proposalCalendarDate } from '../final-review/release';
 
 /**
- * The minimal Awarded hand-off record (B-13, Stage 6, CR-41/42). It records who the award was handed
- * to and the system references they need, as links only: the CER ID (Apex) and the BPR ID (price
- * implementation). No integration (CER/BPR integration is Scale, after the capital-system redesign).
- * Shown on AWARDED quotes; editable by `handoff.edit` (the KAM on their own quotes, SalesLeader, Admin).
+ * The hand-off record (B-13, CR-41/42; B-26 Stage 6, Commit & Hand Off). An award (G5) opens it; G6
+ * closes the quote Won only when the CER is approved (or not required) and the receiving team accepted
+ * the hand-off. It records who the award was handed to and the CER as a reference only: the CER ID
+ * (Apex), its status and approval date. No integration (CER integration is Scale, after the
+ * capital-system redesign). B-26: no BPR ID; BPR is outside CCQ (the old column is kept for history).
+ * Editable in Commit & Hand Off, and on Closed – Won quotes awarded before B-26, by `handoff.edit` (the
+ * KAM on their own quotes, SalesLeader, Admin).
  */
+
+/** B-26 (G6a): where the CER stands, per the official CER matrix (matrix TBD, D-26). */
+export const CER_STATUSES = ['pending', 'approved', 'not_approved', 'not_required'] as const;
+export type CerStatus = (typeof CER_STATUSES)[number];
+
+/** The stages a hand-off can be edited in. */
+export const HANDOFF_STAGE_KEYS: readonly string[] = [COMMIT_STAGE_KEY, AWARDED_STAGE_KEY];
 
 /** Acceptance evidence (also the G5 Awarded reason codes, context `awarded`; DB CHECK on handoff_record). */
 export const ACCEPTANCE_EVIDENCE_TYPES = ['verbal', 'po', 'loi', 'contract'] as const;
@@ -57,7 +67,9 @@ export interface HandoffValues {
   acceptanceDate: string | null;
   acceptanceDocumentUrl: string | null;
   cerId: string | null;
-  bprId: string | null;
+  /** B-26: the CER's status and, when approved, the approval date (`YYYY-MM-DD`). */
+  cerStatus: CerStatus;
+  cerApprovedOn: string | null;
   receivingRole: string | null;
   receivingRoleOther: string | null;
   receivingContactName: string | null;
@@ -74,13 +86,17 @@ export interface HandoffInput {
   acceptanceDate?: string | null | undefined;
   acceptanceDocumentUrl?: string | null | undefined;
   cerId?: string | null | undefined;
-  bprId?: string | null | undefined;
+  cerStatus?: string | undefined;
+  cerApprovedOn?: string | null | undefined;
   receivingRole?: string | null | undefined;
   receivingRoleOther?: string | null | undefined;
   receivingContactName?: string | null | undefined;
   acceptedOn?: string | null | undefined;
   notes?: string | null | undefined;
-  /** The "Hand-off complete" checkbox: true records who confirmed it and when; false re-opens it. */
+  /**
+   * The "Hand-off accepted" checkbox (G6b): true records who confirmed the receiving team accepted it,
+   * and when; false re-opens it.
+   */
   complete?: boolean | undefined;
 }
 
@@ -156,7 +172,8 @@ export function handoffFromAward(input: {
     acceptanceDate: input.acceptedAt,
     acceptanceDocumentUrl: input.acceptanceDocumentUrl,
     cerId: null,
-    bprId: null,
+    cerStatus: 'pending',
+    cerApprovedOn: null,
     receivingRole: null,
     receivingRoleOther: null,
     receivingContactName: null,
@@ -168,9 +185,10 @@ export function handoffFromAward(input: {
 }
 
 /**
- * Apply a hand-off edit. Only on an AWARDED quote. Marking it complete needs the evidence, the
- * receiving role (and the team's name for "other"), the receiving contact and the accepted-by date; the
- * CER and BPR IDs may not exist yet, so they are optional.
+ * Apply a hand-off edit. Only in Commit & Hand Off (or on a Closed – Won quote). Marking it accepted
+ * needs the evidence, the receiving role (and the team's name for "other"), the receiving contact and the
+ * accepted-by date. B-26: a CER marked approved needs its ID and approval date; the ID may not exist yet
+ * while the CER is pending.
  */
 export function planHandoff(input: {
   stageKey: string;
@@ -182,7 +200,7 @@ export function planHandoff(input: {
 }): HandoffPlan {
   const { current, edit, now } = input;
   const errors: DomainError[] = [];
-  if (input.stageKey !== AWARDED_STAGE_KEY) {
+  if (!HANDOFF_STAGE_KEYS.includes(input.stageKey)) {
     return {
       ok: false,
       errors: [new DomainError('NOT_AWARDED', 'A hand-off is recorded only on an awarded quote')],
@@ -205,11 +223,14 @@ export function planHandoff(input: {
 
   const pick = <K extends keyof HandoffValues>(key: K, value: HandoffValues[K] | undefined) =>
     value === undefined ? (current?.[key] ?? null) : value;
-  const next: Omit<HandoffValues, 'acceptanceEvidence' | 'completedAt' | 'completedBy'> = {
+  const next: Omit<
+    HandoffValues,
+    'acceptanceEvidence' | 'cerStatus' | 'completedAt' | 'completedBy'
+  > = {
     acceptanceDate: pick('acceptanceDate', clean(edit.acceptanceDate)),
     acceptanceDocumentUrl: pick('acceptanceDocumentUrl', clean(edit.acceptanceDocumentUrl)),
     cerId: pick('cerId', clean(edit.cerId)),
-    bprId: pick('bprId', clean(edit.bprId)),
+    cerApprovedOn: pick('cerApprovedOn', clean(edit.cerApprovedOn)),
     receivingRole: pick('receivingRole', clean(edit.receivingRole)),
     receivingRoleOther: pick('receivingRoleOther', clean(edit.receivingRoleOther)),
     receivingContactName: pick('receivingContactName', clean(edit.receivingContactName)),
@@ -218,20 +239,42 @@ export function planHandoff(input: {
   };
   if (next.receivingRole !== OTHER_RECEIVING_ROLE) next.receivingRoleOther = null;
 
-  for (const [field, label] of [
-    ['cerId', 'The CER ID'],
-    ['bprId', 'The BPR ID'],
-  ] as const) {
-    const v = next[field];
-    if (v && !REFERENCE.test(v)) {
+  if (next.cerId && !REFERENCE.test(next.cerId)) {
+    errors.push(
+      new DomainError(
+        'INVALID_VALUE',
+        'The CER ID may hold letters, digits and . _ / # - (up to 64 characters)',
+        'cerId',
+      ),
+    );
+  }
+  const cerStatus =
+    edit.cerStatus !== undefined
+      ? CER_STATUSES.find((c) => c === edit.cerStatus)
+      : (current?.cerStatus ?? 'pending');
+  if (!cerStatus) {
+    errors.push(
+      new DomainError(
+        'INVALID_VALUE',
+        `CER status must be one of: ${CER_STATUSES.join(', ')}`,
+        'cerStatus',
+      ),
+    );
+  } else if (cerStatus === 'approved') {
+    if (!next.cerId) {
+      errors.push(new DomainError('MISSING_FIELD', 'An approved CER needs its CER ID', 'cerId'));
+    }
+    if (!next.cerApprovedOn) {
       errors.push(
         new DomainError(
-          'INVALID_VALUE',
-          `${label} may hold letters, digits and . _ / # - (up to 64 characters)`,
-          field,
+          'MISSING_FIELD',
+          'An approved CER needs its approval date',
+          'cerApprovedOn',
         ),
       );
     }
+  } else {
+    next.cerApprovedOn = null;
   }
   if (next.receivingRole && !input.receivingRoles.some((r) => r.code === next.receivingRole)) {
     errors.push(
@@ -245,6 +288,7 @@ export function planHandoff(input: {
   errors.push(
     ...pastDateErrors(next.acceptanceDate, now, 'acceptanceDate', 'The acceptance date'),
     ...pastDateErrors(next.acceptedOn, now, 'acceptedOn', 'The accepted-by date'),
+    ...pastDateErrors(next.cerApprovedOn, now, 'cerApprovedOn', 'The CER approval date'),
     ...documentUrlErrors(next.acceptanceDocumentUrl, 'acceptanceDocumentUrl'),
   );
 
@@ -261,16 +305,17 @@ export function planHandoff(input: {
     for (const [field, what] of missing) {
       if (!next[field]) {
         errors.push(
-          new DomainError('MISSING_FIELD', `Hand-off complete needs ${what}`, String(field)),
+          new DomainError('MISSING_FIELD', `Hand-off accepted needs ${what}`, String(field)),
         );
       }
     }
   }
-  if (errors.length > 0 || !evidence) return { ok: false, errors };
+  if (errors.length > 0 || !evidence || !cerStatus) return { ok: false, errors };
 
   const values: HandoffValues = {
     acceptanceEvidence: evidence,
     ...next,
+    cerStatus,
     completedAt: complete ? (wasComplete ? current.completedAt : now) : null,
     completedBy: complete ? (wasComplete ? current.completedBy : input.actorId) : null,
   };

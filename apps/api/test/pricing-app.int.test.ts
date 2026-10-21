@@ -1,6 +1,5 @@
 import {
   IntegrationRunsResponse,
-  PricingBprResponse,
   PricingContext,
   PricingErfResponse,
   PricingErfSearchResponse,
@@ -73,7 +72,7 @@ async function resetQuote(fields: { erf: string | null; sfErf: string | null }) 
     update sf_opportunity_snapshot s set erf_number_sf = ${fields.sfErf}
     from quote q where q.quote_number = ${qn} and q.sf_opportunity_id = s.sf_opportunity_id`);
   await db.db.execute(sql`
-    update pricing_record p set pricing_refs = '{"erf": [], "bpr": []}'::jsonb
+    update pricing_record p set pricing_refs = '{"erf": []}'::jsonb
     from quote q where q.quote_number = ${qn} and p.quote_id = q.id and p.quote_version = q.version`);
 }
 
@@ -121,7 +120,6 @@ describe('access: commercial roles only (server-enforced)', () => {
   const urls = () => [
     `/api/v1/pricing/erf/${ERF_A}`,
     `/api/v1/pricing/erf?customer=${encodeURIComponent(CUSTOMER.slice(0, 8))}`,
-    `/api/v1/pricing/bpr/${BPR_X}`,
     `/api/v1/quotes/${qn}/pricing-context`,
   ];
 
@@ -154,21 +152,20 @@ describe('access: commercial roles only (server-enforced)', () => {
 });
 
 describe('lookups', () => {
-  it('an ERF by number (prefix tolerated) with every BPR that follows it', async () => {
+  it('a legacy ERF by number (prefix tolerated); B-26: no BPRs', async () => {
     const res = await as('Pricing').get(`/api/v1/pricing/erf/ERF-${ERF_A}`);
     expect(res.statusCode, res.body).toBe(200);
     const body = PricingErfResponse.parse(res.json());
     expect(body.erfRecord.erfNumber).toBe(ERF_A);
-    expect(body.bprRecords.length).toBeGreaterThanOrEqual(2);
-    expect(body.bprRecords.every((b) => b.erfNumber === ERF_A)).toBe(true);
+    expect(res.json()).not.toHaveProperty('bprRecords');
     expect(body.source).toMatchObject({ mode: 'fake', available: true, error: null });
   });
 
-  it('404 for an unknown ERF/BPR; 400 for a malformed number', async () => {
+  it('404 for an unknown ERF; 400 for a malformed number; B-26: the BPR route is gone', async () => {
     const erf = await as('Pricing').get('/api/v1/pricing/erf/9999990');
     expect(erf.statusCode).toBe(404);
     expect(erf.json()).toMatchObject({ code: 'not_found' });
-    expect((await as('Pricing').get('/api/v1/pricing/bpr/BPR-0')).statusCode).toBe(404);
+    expect((await as('Pricing').get(`/api/v1/pricing/bpr/${BPR_X}`)).statusCode).toBe(404);
     expect(
       (await as('Pricing').get(`/api/v1/pricing/erf/${encodeURIComponent("1';--")}`)).statusCode,
     ).toBe(400);
@@ -192,35 +189,30 @@ describe('lookups', () => {
     expect((await as('Pricing').get('/api/v1/pricing/erf')).statusCode).toBe(400);
     expect((await as('Pricing').get('/api/v1/pricing/erf?q=x&limit=51')).statusCode).toBe(400);
   });
-
-  it('a BPR by number', async () => {
-    const res = await as('Approver').get(`/api/v1/pricing/bpr/${BPR_X.toLowerCase()}`);
-    expect(res.statusCode, res.body).toBe(200);
-    expect(PricingBprResponse.parse(res.json()).bprRecord.bprNumber).toBe(BPR_X);
-  });
 });
 
 describe('the quote pricing context', () => {
-  it('resolves quote.erf_number, the record refs and the SF ERF number, with BPRs and SPR history', async () => {
+  it('resolves quote.erf_number, the legacy ERF numbers and the SF ERF number, with SPR history (B-26: no BPR)', async () => {
     await resetQuote({ erf: ERF_A, sfErf: ERF_B });
     const save = await as('Pricing').put(`/api/v1/quotes/${qn}/pricing-record`, {
       erfRefs: [ERF_A, '7777770'],
-      bprRefs: [BPR_X, 'BPR-000999'],
     });
     expect(save.statusCode, save.body).toBe(200);
+    // BPR references are no longer accepted (strict body).
+    const bpr = await as('Pricing').put(`/api/v1/quotes/${qn}/pricing-record`, {
+      bprRefs: [BPR_X],
+    });
+    expect(bpr.statusCode).toBe(400);
 
     const ctx = await context();
     expect(ctx.refs).toEqual({
       quoteErfNumber: ERF_A,
       sfErfNumber: ERF_B,
       erfRefs: [ERF_A, '7777770'],
-      bprRefs: [BPR_X, 'BPR-000999'],
     });
     expect(ctx.erfRecords.map((e) => e.erfNumber).sort()).toEqual([ERF_A, ERF_B].sort());
-    expect(ctx.notFound).toEqual({ erf: ['7777770'], bpr: ['BPR-000999'] });
-    expect(ctx.bprRecords[0]).toMatchObject({ bprNumber: BPR_X, via: 'reference' });
-    const viaErf = ctx.bprRecords.filter((b) => b.via === 'erf');
-    expect(viaErf.filter((b) => b.erfNumber === ERF_A).length).toBeGreaterThanOrEqual(2);
+    expect(ctx.notFound).toEqual({ erf: ['7777770'] });
+    expect(ctx).not.toHaveProperty('bprRecords');
     expect(ctx.sprHistory.map((s) => s.sprNumber)).toContain('SPR-90001');
     expect(ctx.linkage).toEqual({ status: 'mismatch', mismatch: true });
     expect(ctx.canUseAsReference).toBe(true);
@@ -325,13 +317,12 @@ describe('cache, fallback and usage counts', () => {
     const lookup = await as('Pricing').get(`/api/v1/pricing/erf/${ERF_A}`);
     expect(lookup.statusCode).toBe(503);
     expect(lookup.json()).toMatchObject({ code: 'pricing_app_unavailable' });
-    expect(lookup.body).toMatch(/enter ERF\/BPR references manually/i);
+    expect(lookup.body).toMatch(/enter legacy ERF numbers manually/i);
     expect(lookup.body).not.toContain(CUSTOMER);
 
     // Manual references still save while the reader is down.
     const save = await as('Pricing').put(`/api/v1/quotes/${qn}/pricing-record`, {
       erfRefs: [ERF_A],
-      bprRefs: [BPR_X],
     });
     expect(save.statusCode, save.body).toBe(200);
 

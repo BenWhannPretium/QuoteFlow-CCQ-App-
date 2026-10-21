@@ -56,6 +56,13 @@ const ENG_REVIEW_FIELDS = [
   'prelimCapitalUsd',
   'downstreamEquipmentNotes',
   'technicalConceptNotes',
+  // B-26
+  'equipmentBomNotes',
+  'supplyChainNotes',
+  'capacitySignoffStatus',
+  'capacitySignoffBy',
+  'capacitySignoffAt',
+  'capacitySignoffNote',
 ] as const;
 
 export async function upsertEngReview(db: DbOrTx, values: typeof engReview.$inferInsert) {
@@ -111,7 +118,7 @@ const PRICING_FIELDS = [
   'priceApprovedAt',
   'pricingBasisNote',
   'pricingRefs',
-  'noPricingAppRecordNote',
+  // B-26: `noPricingAppRecordNote` is no longer written (kept for history).
   'approvedRangeNote',
   'costingCompleted',
   'costingAttestedBy',

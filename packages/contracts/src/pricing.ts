@@ -25,10 +25,8 @@ export const PricingRecordBody = z
     pricingBasisNote: note,
     /** The approved negotiation range, as words (guardrails are D-10, open). */
     approvedRangeNote: note,
+    /** B-26: legacy ERF numbers, a transition-only reference (no gate needs them; no BPR). */
     erfRefs: z.array(ref).max(20),
-    bprRefs: z.array(ref).max(20),
-    /** Stands in for a reference at G3 while the pricing app has no record yet. */
-    noPricingAppRecordNote: note,
     /** CR-25 costing-before-pricing checkpoint: an attestation only (costing stays in Excel). */
     costingCompleted: z.boolean(),
   })
@@ -60,9 +58,8 @@ export const PricingRecordView = z.object({
   priceApprovedAt: z.string().nullable(),
   pricingBasisNote: z.string().nullable(),
   approvedRangeNote: z.string().nullable(),
+  /** B-26: legacy ERF numbers (transition only). */
   erfRefs: z.array(z.string()),
-  bprRefs: z.array(z.string()),
-  noPricingAppRecordNote: z.string().nullable(),
   costingCompleted: z.boolean(),
   costingAttestedByName: z.string().nullable(),
   costingAttestedAt: z.string().nullable(),
@@ -70,7 +67,7 @@ export const PricingRecordView = z.object({
   cerReference: z.string().nullable(),
   capitalNotes: z.string().nullable(),
   capitalPendingJustification: z.string().nullable(),
-  /** What the G3 decider and Final Review are warned about (nothing here blocks). */
+  /** What the G3 decider and Final Review are warned about. */
   warnings: z.array(QuotingWarning),
   updatedAt: z.string().nullable(),
 });
@@ -118,8 +115,8 @@ export const QuotingDetail = z.object({
   canEdit: z.boolean(),
   /** The price-approver picker (empty unless canEdit). */
   pricingUsers: z.array(z.object({ id: z.string(), displayName: z.string() })),
-  /** Format hints for the pricing-app references (app_setting `pricing_ref_formats`). */
-  refFormats: z.object({ erf: PricingRefFormatView, bpr: PricingRefFormatView }),
+  /** Format hint for the legacy ERF numbers (app_setting `pricing_ref_formats`). */
+  refFormats: z.object({ erf: PricingRefFormatView }),
 });
 export type QuotingDetail = z.infer<typeof QuotingDetail>;
 

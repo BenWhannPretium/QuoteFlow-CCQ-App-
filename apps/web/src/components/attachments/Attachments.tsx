@@ -81,7 +81,7 @@ function errorText(err: unknown): { message: string; retryable: boolean } {
 }
 
 /**
- * Files on a quote or an intake draft (F-13, B-16): a drop zone (plus "Take a photo" on phones),
+ * Files on a quote or an intake draft (F-13, B-16): a drop zone (plus "Add photo" on phones),
  * per-file progress with retry, clear type/size errors, and the list with download and remove.
  * The server is the control: it re-checks type, size, content and permission on every upload.
  */
@@ -275,7 +275,7 @@ export function AttachmentsPanel({
               htmlFor={`${ids}-camera`}
               className="border-line-strong bg-card hover:bg-accent rounded-pill inline-flex min-h-11 cursor-pointer items-center gap-2 border px-4 text-sm font-medium sm:min-h-10"
             >
-              <CameraIcon className="size-4" aria-hidden="true" /> Take a photo
+              <CameraIcon className="size-4" aria-hidden="true" /> Add photo
             </label>
             <input
               id={`${ids}-camera`}

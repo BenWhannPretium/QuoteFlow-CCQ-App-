@@ -124,6 +124,14 @@ test.describe('role dashboards', () => {
     await expect(page.getByTestId('dash-decided')).toBeVisible();
   });
 
+  test('B-26: the pricing lead lands on triage with each pricer’s load', async ({ page }) => {
+    await signInAs(page, 'pricing-lead');
+    await page.goto('/');
+    await expect(page.getByTestId('landing')).toHaveAttribute('data-role', 'PricingLead');
+    await expect(page.getByTestId('dash-queue')).toContainText('Unassigned');
+    await expect(page.getByTestId('dash-pricer-load')).toBeVisible();
+  });
+
   test('Leadership: headline numbers, win rate always beside capture, link to analytics', async ({
     page,
   }) => {
@@ -157,11 +165,14 @@ test.describe('analytics', () => {
     await signInAs(page, 'leadership');
     await page.goto('/analytics');
     await expect(page.getByRole('heading', { level: 1, name: 'Analytics' })).toBeVisible();
+    // B-26 (A5): the leadership report reads pipeline → outcomes → time → reasons → governance.
+    await expect(page.getByTestId('analytics-page')).toHaveAttribute('data-lens', 'leadership');
     for (const name of [
       'Pipeline',
+      'Outcomes',
       'Cycle time',
       'Flow',
-      'Outcomes',
+      'Reasons',
       'Quality and governance',
       'Priority',
       'Adoption',
@@ -307,4 +318,35 @@ test.describe('analytics', () => {
       expect(await seriousViolations(page)).toEqual([]);
     });
   }
+});
+
+test.describe('B-26 analytics lenses (A5)', () => {
+  test('an engineering lead lands on the Engineering lens and can open the leadership report', async ({
+    page,
+  }) => {
+    await signInAs(page, 'eng-lead');
+    await page.goto('/analytics');
+    await expect(page.getByTestId('analytics-page')).toHaveAttribute('data-lens', 'engineering');
+    const lens = page.getByTestId('engineering-lens');
+    await expect(
+      lens.getByRole('heading', { level: 2, name: 'The queue right now' }),
+    ).toBeVisible();
+    await expect(lens.getByRole('heading', { level: 2, name: 'Capacity sign-off' })).toBeVisible();
+    await expect(page.getByTestId('chart-eng-load')).toBeVisible();
+    await expect(page.getByTestId('chart-g2-outcomes')).toBeVisible();
+    await page.getByTestId('lens-leadership').click();
+    await expect(page.getByTestId('analytics-page')).toHaveAttribute('data-lens', 'leadership');
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Reasons', exact: true }),
+    ).toBeVisible();
+  });
+
+  test('a pricer sees the leadership report only, with awards pending commitment', async ({
+    page,
+  }) => {
+    await signInAs(page, 'pricing');
+    await page.goto('/analytics');
+    await expect(page.getByTestId('lens-engineering')).toHaveCount(0);
+    await expect(page.getByTestId('stat-commitment-pending')).toBeVisible();
+  });
 });

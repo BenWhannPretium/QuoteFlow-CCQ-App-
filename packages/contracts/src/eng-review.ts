@@ -21,10 +21,34 @@ export const EngReviewBody = z
     downstreamEquipmentNotes: text(4000),
     prelimCapitalUsd: z.number().min(0).max(999_999_999_999).nullable(),
     technicalConceptNotes: text(4000),
+    /** B-26 (deck slide 11): Operations Engineering's equipment BOM. */
+    equipmentBomNotes: text(4000),
+    /** B-26: Supply Chain's network and freight view. */
+    supplyChainNotes: text(4000),
   })
   .partial()
   .strict();
 export type EngReviewBody = z.infer<typeof EngReviewBody>;
+
+/**
+ * B-26: PUT /api/v1/quotes/:quoteNumber/capacity-signoff. The capacity owner approves or blocks
+ * capacity (G2 Advance needs `approved`); null clears it. Blocking needs a note.
+ */
+export const CapacitySignoffBody = z
+  .object({
+    status: z.enum(['approved', 'blocked']).nullable(),
+    note: z.string().trim().max(2000).nullable().optional(),
+  })
+  .strict();
+export type CapacitySignoffBody = z.infer<typeof CapacitySignoffBody>;
+
+export const CapacitySignoff = z.object({
+  status: z.enum(['approved', 'blocked']).nullable(),
+  byName: z.string().nullable(),
+  at: z.string().nullable(),
+  note: z.string().nullable(),
+});
+export type CapacitySignoff = z.infer<typeof CapacitySignoff>;
 
 const pct = z.number().min(0).max(100);
 
@@ -62,6 +86,8 @@ export const EngReviewFields = z.object({
   /** Absent for roles without commercial access. */
   prelimCapitalUsd: z.number().nullable().optional(),
   technicalConceptNotes: z.string().nullable(),
+  equipmentBomNotes: z.string().nullable(),
+  supplyChainNotes: z.string().nullable(),
   updatedAt: z.string().nullable(),
 });
 export type EngReviewFields = z.infer<typeof EngReviewFields>;
@@ -93,6 +119,10 @@ export const EngineeringDetail = z.object({
   acceptedByName: z.string().nullable(),
   review: EngReviewFields,
   capacityEvidence: z.array(CapacityEvidenceRow),
+  /** B-26: the capacity owner's sign-off for this stay in the queue. */
+  capacitySignoff: CapacitySignoff,
+  /** B-26: the caller may record the sign-off (capacity.signoff, in Engineering Review). */
+  canSignOffCapacity: z.boolean(),
   /** Commercial numbers were withheld from this response: inputs for them are write-only. */
   commercialRedacted: z.boolean(),
   canEdit: z.boolean(),

@@ -20,7 +20,9 @@ import {
   ACCEPTANCE_EVIDENCE,
   ATTACHMENT_KINDS,
   ATTACHMENT_STORAGES,
+  CAPACITY_SIGNOFF_STATUSES,
   CAPITAL_READINESS,
+  CER_STATUSES,
   CUSTOMER_STATUSES,
   OVERRIDE_APPROVAL_MODES,
   OVERRIDE_STATUSES,
@@ -330,10 +332,96 @@ export const quote = documented(
         'When the current engineer was assigned (B-10 "time since assignment"); reset on reassign.',
         ENG,
       ),
+      // B-26: Quoting assignment (the pricing lead triages the pricing queue)
+      assignedPricerId: c(
+        userRef('assigned_pricer_id'),
+        'B-26: the pricer the pricing lead assigned the Quoting work to.',
+        PRICING,
+      ),
+      pricerAssignedAt: c(
+        timestamptz('pricer_assigned_at'),
+        'B-26: when the current pricer was assigned; reset on reassign.',
+        PRICING,
+      ),
+      // B-26: capital awareness (deck slide 9, "Aware")
+      capitalLikely: c(
+        boolean('capital_likely').notNull().default(false),
+        'B-26: significant capital is likely (set at Stage 1 by Sales or upfront Engineering, or by the capital_likely_notice threshold). When set, G3 needs capital readiness confirmed.',
+        KAM,
+      ),
+      capitalLikelySetBy: c(
+        userRef('capital_likely_set_by'),
+        'B-26: who last set or cleared capital_likely (null when set by the threshold).',
+        KAM,
+      ),
+      capitalLikelySetAt: c(
+        timestamptz('capital_likely_set_at'),
+        'B-26: when capital_likely last changed.',
+        KAM,
+      ),
+      capitalNoticeSentAt: c(
+        timestamptz('capital_notice_sent_at'),
+        'B-26: when Capital Management was given early notice (awareness, not approval). Once per quote.',
+        SYSTEM,
+      ),
+      marketDevNoticeSentAt: c(
+        timestamptz('market_dev_notice_sent_at'),
+        'B-26: when Market Development was told the quote is above the value threshold. Once per quote.',
+        SYSTEM,
+      ),
+      // B-26: commercial terms (deck slides 12-13)
+      toolingFundingModel: c(
+        text('tooling_funding_model'),
+        'B-26: value_list tooling_funding_model code (company-funded, customer-funded, $0 CER, amortized).',
+        KAM,
+      ),
+      termsToolingCommitment: c(
+        boolean('terms_tooling_commitment'),
+        'B-26: the offer carries a tooling commitment (a Legal review trigger).',
+        KAM,
+      ),
+      termsMoq: c(text('terms_moq'), 'B-26: minimum order quantity terms.', KAM),
+      termsPaymentTerms: c(text('terms_payment_terms'), 'B-26: payment terms.', KAM),
+      termsNonstandard: c(
+        boolean('terms_nonstandard').notNull().default(false),
+        'B-26: the terms are nonstandard (a Legal review trigger).',
+        KAM,
+      ),
+      termsNotes: c(text('terms_notes'), 'B-26: notes on the terms check.', KAM),
+      termsCheckedAt: c(
+        timestamptz('terms_checked_at'),
+        'B-26: when the terms check was recorded (G4 Advance needs it). Cleared when the terms change.',
+        KAM,
+      ),
+      termsCheckedBy: c(userRef('terms_checked_by'), 'B-26: who recorded the terms check.', KAM),
+      legalReviewedOn: c(
+        date('legal_reviewed_on', { mode: 'string' }),
+        'B-26: the date Legal reviewed the offer (needed at G4 when a legal_review_triggers trigger applies).',
+        KAM,
+      ),
+      legalReviewerName: c(
+        text('legal_reviewer_name'),
+        'B-26: who in Legal reviewed it (Legal is not a CCQ role).',
+        KAM,
+      ),
+      legalReviewNote: c(text('legal_review_note'), 'B-26: Legal review notes.', KAM),
+      legalRecordedBy: c(
+        userRef('legal_recorded_by'),
+        'B-26: the CCQ user who recorded the Legal review.',
+        KAM,
+      ),
       // Links and dates
-      erfNumber: c(text('erf_number'), 'ERF number in the pricing app.', PRICING),
+      erfNumber: c(
+        text('erf_number'),
+        'B-26: legacy ERF number, a transition-only field for requests that started in the ERF application. ERFs are being retired; nothing new is created there.',
+        PRICING,
+      ),
       cerId: c(text('cer_id'), 'Capital expenditure request id (Apex).', PRICING),
-      bprId: c(text('bpr_id'), 'BPR (price implementation) id.', PRICING),
+      bprId: c(
+        text('bpr_id'),
+        'Deprecated (B-26): BPR is outside CCQ. Kept for history; no longer written.',
+        PRICING,
+      ),
       proposalIssuedAt: c(
         timestamptz('proposal_issued_at'),
         'When the proposal went to the customer.',
@@ -348,6 +436,11 @@ export const quote = documented(
         date('review_date', { mode: 'string' }),
         'Date to revisit a quote on customer hold.',
         KAM,
+      ),
+      holdOwnerId: c(
+        userRef('hold_owner_id'),
+        'B-26: who owns the current hold (deck slide 16: reason, owner and review date).',
+        SYSTEM,
       ),
       validityExpiredFlaggedAt: c(
         timestamptz('validity_expired_flagged_at'),
@@ -545,6 +638,7 @@ export const quoteHold = documented(
       startedAt: c(timestamptz('started_at').notNull(), 'Hold start.'),
       endedAt: c(timestamptz('ended_at'), 'Hold end; null while on hold.'),
       reasonCode: c(text('reason_code'), 'reason_code (context hold).', KAM),
+      ownerId: c(userRef('owner_id'), 'B-26: who owns the hold (follows up by the review date).'),
     },
     (t) => [
       index('quote_hold_quote_idx').on(t.quoteId, t.startedAt),
@@ -636,8 +730,36 @@ export const engReview = documented(
         text('technical_concept_notes'),
         'Technical concept: how Engineering proposes to make it.',
       ),
+      // B-26 (deck slide 11): joint validation inputs and the capacity owner's sign-off
+      equipmentBomNotes: c(
+        text('equipment_bom_notes'),
+        'B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection).',
+      ),
+      supplyChainNotes: c(
+        text('supply_chain_notes'),
+        'B-26: Supply Chain network and freight view.',
+      ),
+      capacitySignoffStatus: c(
+        text('capacity_signoff_status'),
+        'B-26: approved | blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved).',
+      ),
+      capacitySignoffBy: c(userRef('capacity_signoff_by'), 'B-26: who signed off capacity.'),
+      capacitySignoffAt: c(
+        timestamptz('capacity_signoff_at'),
+        'B-26: when capacity was signed off.',
+      ),
+      capacitySignoffNote: c(
+        text('capacity_signoff_note'),
+        "B-26: the capacity owner's note (required to block).",
+      ),
     },
-    (t) => [check('eng_review_cavitation_check', sql`${t.cavitation} > 0`)],
+    (t) => [
+      check('eng_review_cavitation_check', sql`${t.cavitation} > 0`),
+      check(
+        'eng_review_capacity_signoff_status_check',
+        sql`${t.capacitySignoffStatus} is null or ${inList(t.capacitySignoffStatus, CAPACITY_SIGNOFF_STATUSES)}`,
+      ),
+    ],
   ),
   { area: 'workflow', owner: ENG, description: 'Engineering Review fields (stage 2).' },
 );
@@ -943,11 +1065,22 @@ export const handoffRecord = documented(
         'Customer contact who accepted (business contact only). Unused by the B-13 form.',
       ),
       cerId: c(text('cer_id'), 'CER id (Apex). A reference only, no integration.'),
-      bprId: c(text('bpr_id'), 'BPR (price implementation) id. A reference only, no integration.'),
+      cerStatus: c(
+        text('cer_status').notNull().default('pending'),
+        'B-26 (G6a): pending | approved | not_approved | not_required, per the official CER matrix (TBD).',
+      ),
+      cerApprovedOn: c(
+        date('cer_approved_on', { mode: 'string' }),
+        'B-26: the date the CER was approved (required when cer_status = approved).',
+      ),
+      bprId: c(
+        text('bpr_id'),
+        'Deprecated (B-26): BPR is outside CCQ. Kept for history; no longer written.',
+      ),
       notes: c(text('notes'), 'Notes.'),
       completedAt: c(
         timestamptz('completed_at'),
-        'B-13: when someone ticked "Hand-off complete"; null while open.',
+        'B-13: when someone ticked "Hand-off complete" (B-26: "Hand-off accepted", G6b); null while open.',
       ),
       completedBy: c(userRef('completed_by'), 'B-13: who confirmed the hand-off complete.'),
       updatedBy: c(userRef('updated_by'), 'B-13: who last edited the record.'),
@@ -957,6 +1090,7 @@ export const handoffRecord = documented(
         'handoff_record_acceptance_evidence_check',
         inList(t.acceptanceEvidence, ACCEPTANCE_EVIDENCE),
       ),
+      check('handoff_record_cer_status_check', inList(t.cerStatus, CER_STATUSES)),
       check(
         'handoff_record_completed_consistency_check',
         sql`(${t.completedAt} is null) = (${t.completedBy} is null)`,
@@ -966,6 +1100,7 @@ export const handoffRecord = documented(
   {
     area: 'workflow',
     owner: KAM,
-    description: 'Minimal Awarded hand-off record (CR-41/42, B-13).',
+    description:
+      'Hand-off record (CR-41/42, B-13): opened by an award, completed in Commit & Hand Off (B-26 Stage 6).',
   },
 );
