@@ -9,7 +9,7 @@ Source of truth for the model: `docs/build-guide/01-architecture.md` §5. Genera
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `pnpm db:migrate`                   | Apply pending migrations, then refresh `COMMENT ON` for every table and column                        |
 | `pnpm db:seed`                      | Config seeds only (idempotent, all `provisional=true`)                                                |
-| `pnpm db:seed --synthetic`          | Config + synthetic data (12 users, 70 customers, 102 SF opportunities, 150 quotes)                    |
+| `pnpm db:seed --synthetic`          | Config + synthetic data (13 users, 70 customers, 102 SF opportunities, 150 quotes)                    |
 | `pnpm db:reset`                     | Drop, migrate, seed config + synthetic. Refuses to run with `NODE_ENV=production`                     |
 | `pnpm db:dictionary`                | Regenerate `docs/data-dictionary.md` from the schema comments (a unit test fails if it is stale)      |
 | `pnpm db:sf-fixture`                | Regenerate the `SF_MODE=fake` Salesforce fixture from the synthetic data (a unit test fails if stale) |

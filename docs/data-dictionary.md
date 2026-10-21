@@ -495,8 +495,14 @@ Engineering Review fields (stage 2).
 | `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Preliminary capital estimate (USD). Commercial: stripped for roles without quote.read.commercialFields. | Engineering (EngLead / Engineer) |
 | `downstream_equipment_notes` | text | yes |  |  | Downstream equipment: air, water, electric, inspection / leak detection (DF-37). | Engineering (EngLead / Engineer) |
 | `technical_concept_notes` | text | yes |  |  | Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
+| `equipment_bom_notes` | text | yes |  |  | B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection). | Engineering (EngLead / Engineer) |
+| `supply_chain_notes` | text | yes |  |  | B-26: Supply Chain network and freight view. | Engineering (EngLead / Engineer) |
+| `capacity_signoff_status` | text | yes |  |  | B-26: approved \| blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved). | Engineering (EngLead / Engineer) |
+| `capacity_signoff_by` | uuid | yes |  | app_user.id | B-26: who signed off capacity. | Engineering (EngLead / Engineer) |
+| `capacity_signoff_at` | timestamp with time zone | yes |  |  | B-26: when capacity was signed off. | Engineering (EngLead / Engineer) |
+| `capacity_signoff_note` | text | yes |  |  | B-26: the capacity owner's note (required to block). | Engineering (EngLead / Engineer) |
 
-**Checks:** `eng_review_cavitation_check`
+**Checks:** `eng_review_cavitation_check`, `eng_review_capacity_signoff_status_check`
 
 ### gate_decision
 
@@ -527,7 +533,7 @@ Immutable record of each gate decision.
 
 ### handoff_record
 
-Minimal Awarded hand-off record (CR-41/42, B-13).
+Hand-off record (CR-41/42, B-13): opened by an award, completed in Commit & Hand Off (B-26 Stage 6).
 
 **Owner:** KAM
 
@@ -547,13 +553,15 @@ Minimal Awarded hand-off record (CR-41/42, B-13).
 | `accepted_on` | date | yes |  |  | B-13: the date the receiving team accepted the hand-off (accepted-by date). | KAM |
 | `accepted_by_name` | text | yes |  |  | Customer contact who accepted (business contact only). Unused by the B-13 form. | KAM |
 | `cer_id` | text | yes |  |  | CER id (Apex). A reference only, no integration. | KAM |
-| `bpr_id` | text | yes |  |  | BPR (price implementation) id. A reference only, no integration. | KAM |
+| `cer_status` | text | no | "pending" |  | B-26 (G6a): pending \| approved \| not_approved \| not_required, per the official CER matrix (TBD). | KAM |
+| `cer_approved_on` | date | yes |  |  | B-26: the date the CER was approved (required when cer_status = approved). | KAM |
+| `bpr_id` | text | yes |  |  | Deprecated (B-26): BPR is outside CCQ. Kept for history; no longer written. | KAM |
 | `notes` | text | yes |  |  | Notes. | KAM |
-| `completed_at` | timestamp with time zone | yes |  |  | B-13: when someone ticked "Hand-off complete"; null while open. | KAM |
+| `completed_at` | timestamp with time zone | yes |  |  | B-13: when someone ticked "Hand-off complete" (B-26: "Hand-off accepted", G6b); null while open. | KAM |
 | `completed_by` | uuid | yes |  | app_user.id | B-13: who confirmed the hand-off complete. | KAM |
 | `updated_by` | uuid | yes |  | app_user.id | B-13: who last edited the record. | KAM |
 
-**Checks:** `handoff_record_acceptance_evidence_check`, `handoff_record_completed_consistency_check`
+**Checks:** `handoff_record_acceptance_evidence_check`, `handoff_record_cer_status_check`, `handoff_record_completed_consistency_check`
 
 ### override
 
@@ -671,12 +679,32 @@ The CCQ quote: the workflow record CCQ owns.
 | `queue_position_overridden` | boolean | no | false |  | True when an applied override (EngLead pin) set the queue position. | Engineering (EngLead / Engineer) |
 | `assigned_engineer_id` | uuid | yes |  | app_user.id | Engineer assigned in Engineering Review. | Engineering (EngLead / Engineer) |
 | `assigned_at` | timestamp with time zone | yes |  |  | When the current engineer was assigned (B-10 "time since assignment"); reset on reassign. | Engineering (EngLead / Engineer) |
-| `erf_number` | text | yes |  |  | ERF number in the pricing app. | Pricing |
+| `assigned_pricer_id` | uuid | yes |  | app_user.id | B-26: the pricer the pricing lead assigned the Quoting work to. | Pricing |
+| `pricer_assigned_at` | timestamp with time zone | yes |  |  | B-26: when the current pricer was assigned; reset on reassign. | Pricing |
+| `capital_likely` | boolean | no | false |  | B-26: significant capital is likely (set at Stage 1 by Sales or upfront Engineering, or by the capital_likely_notice threshold). When set, G3 needs capital readiness confirmed. | KAM |
+| `capital_likely_set_by` | uuid | yes |  | app_user.id | B-26: who last set or cleared capital_likely (null when set by the threshold). | KAM |
+| `capital_likely_set_at` | timestamp with time zone | yes |  |  | B-26: when capital_likely last changed. | KAM |
+| `capital_notice_sent_at` | timestamp with time zone | yes |  |  | B-26: when Capital Management was given early notice (awareness, not approval). Once per quote. | CCQ (system) |
+| `market_dev_notice_sent_at` | timestamp with time zone | yes |  |  | B-26: when Market Development was told the quote is above the value threshold. Once per quote. | CCQ (system) |
+| `tooling_funding_model` | text | yes |  |  | B-26: value_list tooling_funding_model code (company-funded, customer-funded, $0 CER, amortized). | KAM |
+| `terms_tooling_commitment` | boolean | yes |  |  | B-26: the offer carries a tooling commitment (a Legal review trigger). | KAM |
+| `terms_moq` | text | yes |  |  | B-26: minimum order quantity terms. | KAM |
+| `terms_payment_terms` | text | yes |  |  | B-26: payment terms. | KAM |
+| `terms_nonstandard` | boolean | no | false |  | B-26: the terms are nonstandard (a Legal review trigger). | KAM |
+| `terms_notes` | text | yes |  |  | B-26: notes on the terms check. | KAM |
+| `terms_checked_at` | timestamp with time zone | yes |  |  | B-26: when the terms check was recorded (G4 Advance needs it). Cleared when the terms change. | KAM |
+| `terms_checked_by` | uuid | yes |  | app_user.id | B-26: who recorded the terms check. | KAM |
+| `legal_reviewed_on` | date | yes |  |  | B-26: the date Legal reviewed the offer (needed at G4 when a legal_review_triggers trigger applies). | KAM |
+| `legal_reviewer_name` | text | yes |  |  | B-26: who in Legal reviewed it (Legal is not a CCQ role). | KAM |
+| `legal_review_note` | text | yes |  |  | B-26: Legal review notes. | KAM |
+| `legal_recorded_by` | uuid | yes |  | app_user.id | B-26: the CCQ user who recorded the Legal review. | KAM |
+| `erf_number` | text | yes |  |  | B-26: legacy ERF number, a transition-only field for requests that started in the ERF application. ERFs are being retired; nothing new is created there. | Pricing |
 | `cer_id` | text | yes |  |  | Capital expenditure request id (Apex). | Pricing |
-| `bpr_id` | text | yes |  |  | BPR (price implementation) id. | Pricing |
+| `bpr_id` | text | yes |  |  | Deprecated (B-26): BPR is outside CCQ. Kept for history; no longer written. | Pricing |
 | `proposal_issued_at` | timestamp with time zone | yes |  |  | When the proposal went to the customer. | KAM |
 | `validity_until` | date | yes |  |  | Proposal validity date (default from validity_days_default). | KAM |
 | `review_date` | date | yes |  |  | Date to revisit a quote on customer hold. | KAM |
+| `hold_owner_id` | uuid | yes |  | app_user.id | B-26: who owns the current hold (deck slide 16: reason, owner and review date). | CCQ (system) |
 | `validity_expired_flagged_at` | timestamp with time zone | yes |  |  | B-13: when the daily expiry job flagged that validity_until had passed (the KAM is told to revalidate or record the outcome; nothing auto-closes, D-12). Cleared when a new validity date is set. | CCQ (system) |
 | `outcome` | text | yes |  |  | Closure type (transition_rule.close_as): awarded \| lost \| expired (customer outcomes, G5) \| declined \| redirected (internal no-go). | KAM |
 | `outcome_reason_code` | text | yes |  |  | reason_code.code for the closure (for awarded: the acceptance evidence). Mandatory to close (CR-39). | KAM |
@@ -730,6 +758,7 @@ Hold intervals, tracked separately so cycle time can exclude holds (CR-57).
 | `started_at` | timestamp with time zone | no |  |  | Hold start. | CCQ (system) |
 | `ended_at` | timestamp with time zone | yes |  |  | Hold end; null while on hold. | CCQ (system) |
 | `reason_code` | text | yes |  |  | reason_code (context hold). | KAM |
+| `owner_id` | uuid | yes |  | app_user.id | B-26: who owns the hold (follows up by the review date). | CCQ (system) |
 
 **Checks:** `quote_hold_end_after_start_check`
 
