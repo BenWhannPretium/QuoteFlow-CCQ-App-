@@ -3,6 +3,7 @@ import {
   GateQueueResponse,
   IntakeDraft,
   IntakeDraftListResponse,
+  MeResponse,
   QuoteDetail,
   SfOpportunityDetail,
   SubmitIntakeResponse,
@@ -36,6 +37,9 @@ const nextFree = () => {
 };
 
 const kam = () => asRole(app, 'KAM');
+/** B-26: a persona's user id (e.g. a hold owner). */
+const userIdOf = async (role: Role) =>
+  MeResponse.parse((await asRole(app, role).get('/api/v1/me')).json()).user.id;
 const leader = () => asRole(app, 'SalesLeader');
 
 async function prefill(
@@ -302,12 +306,15 @@ describe('G1 decisions through the generic route', () => {
     const q = await submitted();
     const bad = await decide(q.quoteNumber, { outcomeKey: 'hold' });
     expect(bad.statusCode).toBe(422);
-    expect(errorCodes(bad)).toEqual(['MISSING_FIELD', 'REASON_REQUIRED']);
+    // B-26: the review date, the reason and the hold owner.
+    expect(errorCodes(bad)).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'REASON_REQUIRED']);
+    const owner = await userIdOf('SalesLeader');
 
     const res = await decide(q.quoteNumber, {
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
       holdUntil: '2026-11-09',
+      holdOwnerId: owner,
     });
     expect(res.statusCode, res.body).toBe(201);
     const body = GateDecisionResponse.parse(res.json());
@@ -316,16 +323,32 @@ describe('G1 decisions through the generic route', () => {
       status: 'on_hold',
       reviewDate: '2026-11-09',
     });
+    expect(body.quote.commercial.hold.ownerId).toBe(owner);
     const holds = await db.db
       .select()
       .from(schema.quoteHold)
       .where(eq(schema.quoteHold.quoteId, q.quoteId));
     expect(holds).toHaveLength(1);
+    expect(holds[0]!.ownerId).toBe(owner);
     // Still in the queue (on hold), and the next decision resumes it.
     const queue = GateQueueResponse.parse((await leader().get('/api/v1/gates/G1/queue')).json());
     expect(queue.items.find((i) => i.quoteNumber === q.quoteNumber)?.status).toBe('on_hold');
     const resume = await decide(q.quoteNumber, { outcomeKey: 'advance' });
     expect(resume.statusCode, resume.body).toBe(201);
+    // Resuming ends the hold and clears its owner.
+    expect(GateDecisionResponse.parse(resume.json()).quote.commercial.hold.ownerId).toBeNull();
+  });
+
+  it('B-26: the hold owner must be an active CCQ user', async () => {
+    const q = await submitted();
+    const res = await decide(q.quoteNumber, {
+      outcomeKey: 'hold',
+      reasonCode: 'awaiting_customer_info',
+      holdUntil: '2026-11-09',
+      holdOwnerId: '019a0000-0000-7000-8000-0000000000e1',
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatch(/hold owner must be an active/);
   });
 
   it('Redirect needs a reason and closes as REDIRECTED', async () => {
@@ -517,9 +540,10 @@ describe('qualification warnings (D-06: warn, never block)', () => {
 describe('redaction', () => {
   it("kam_can_see_peer_scores=false hides other KAMs' scores server-side", async () => {
     const own = await submitted();
+    const kamId = await userIdOf('KAM');
     const [peer] = await db.db.execute<{ quote_number: string }>(sql`
-      select q.quote_number from quote q join app_user u on u.id = q.kam_user_id
-      where u.upn not like 'kam@%' and q.stage_key = 'INTAKE' and q.submitted_at is not null limit 1`);
+      select q.quote_number from quote q
+      where q.kam_user_id <> ${kamId} and q.stage_key = 'INTAKE' and q.submitted_at is not null limit 1`);
     await setSetting('kam_can_see_peer_scores', false);
     try {
       const peerView = await detail(peer!.quote_number, 'KAM');

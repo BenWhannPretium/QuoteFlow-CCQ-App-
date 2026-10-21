@@ -182,3 +182,11 @@ describe('prd5 preset', () => {
     ]);
   });
 });
+
+describe('B-26: decision definitions', () => {
+  it('every hybrid outcome has a definition (help text) the decision dialog shows', () => {
+    for (const o of hybridConfig.outcomes) {
+      expect(o.helpText?.length ?? 0, `${o.gateKey}/${o.key}`).toBeGreaterThan(20);
+    }
+  });
+});

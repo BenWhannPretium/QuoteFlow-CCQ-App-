@@ -88,7 +88,7 @@ export async function loadQuoteStates(
       .orderBy(desc(gateDecision.decidedAt), desc(gateDecision.id)),
     customerIds.length
       ? db
-          .select({ id: customer.id, sfAccountId: customer.sfAccountId })
+          .select({ id: customer.id, sfAccountId: customer.sfAccountId, status: customer.status })
           .from(customer)
           .where(inArray(customer.id, customerIds))
       : Promise.resolve([]),
@@ -110,6 +110,7 @@ export async function loadQuoteStates(
   const holdsBy = byQuote(holds);
   const decisionsBy = byQuote(decisions);
   const accountBy = new Map(customers.map((c) => [c.id, c.sfAccountId]));
+  const customerStatusBy = new Map(customers.map((c) => [c.id, c.status]));
   const handoffBy = new Map(handoffs.map((h) => [h.quoteId, h]));
 
   for (const row of rows) {
@@ -129,6 +130,8 @@ export async function loadQuoteStates(
       capacity_evidence: (capacityBy.get(row.id) ?? []).map(snake),
       pricing_record: pricingRow ? snake(pricingRow) : null,
       handoff_record: handoffBy.has(row.id) ? snake(handoffBy.get(row.id)!) : null,
+      // B-26: the customer's status (a Legal review trigger for a new customer).
+      customer_status: row.customerId ? (customerStatusBy.get(row.customerId) ?? null) : null,
       // B-11: Engineering's latest feasibility outcome (e.g. capital_required) for the Quoting rules.
       g2_outcome: quoteDecisions.find((d) => d.gateKey === 'G2')?.outcomeKey ?? null,
     };

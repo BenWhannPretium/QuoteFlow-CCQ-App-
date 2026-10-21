@@ -22,6 +22,7 @@ import {
   StageBadge,
 } from '@/components';
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
+import { CommercialPanel } from '@/components/commercial/CommercialPanel';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
 import {
@@ -73,7 +74,7 @@ function QuotePage() {
     queryFn: () => api.quote(quoteNumber),
   });
   const [deciding, setDeciding] = useState<{ gate: string; outcome?: string } | null>(null);
-  /** B-13: right after recording Awarded, the hand-off form opens with focus. */
+  /** B-13/B-26: right after recording Awarded (into Commit & Hand Off), the hand-off form opens with focus. */
   const [handoffFocus, setHandoffFocus] = useState(false);
   const canReadFinalReview = useCan('finalReview.read');
 
@@ -132,7 +133,9 @@ function QuotePage() {
           {q.status !== 'active' && (
             <span className="text-muted-foreground text-sm" data-testid="quote-status">
               {q.status === 'on_hold'
-                ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
+                ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}${
+                    q.commercial.hold.ownerName ? ` · owner ${q.commercial.hold.ownerName}` : ''
+                  }`
                 : `Closed${q.outcome ? ` (${q.outcome})` : ''}`}
             </span>
           )}
@@ -173,6 +176,7 @@ function QuotePage() {
         <Tabs.Content value="overview" className="grid gap-6">
           <HandoffCard quote={q} autoFocus={handoffFocus} />
           <ClosureCard closure={q.customerDecision.closure} />
+          <CommercialPanel quote={q} />
           <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
             <IntakeCard quote={q} />
             <div className="grid content-start gap-6">
@@ -227,7 +231,7 @@ function QuotePage() {
           quoteNumber={q.quoteNumber}
           {...(deciding.outcome ? { initialOutcomeKey: deciding.outcome } : {})}
           onDecided={(result) => {
-            if (result.quote.stageKey === 'AWARDED') {
+            if (result.quote.stageKey === 'COMMIT_HANDOFF' && q.stageKey === 'CUSTOMER_DECISION') {
               setHandoffFocus(true);
               void navigate({ search: {}, replace: true });
             }

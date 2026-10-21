@@ -18,8 +18,10 @@ import {
 } from '@ccq/db/repos';
 import {
   ACCEPTANCE_EVIDENCE_TYPES,
-  AWARDED_STAGE_KEY,
+  CUSTOMER_DECISION_STAGE_KEY,
   HANDOFF_RECEIVING_ROLES_SEED,
+  HANDOFF_STAGE_KEYS,
+  NEGOTIATING_OUTCOME,
   VALIDITY_WARNING_DAYS_SEED,
   can,
   compareSfStage,
@@ -126,7 +128,8 @@ export function handoffValues(row: HandoffRecordRow | null | undefined): Handoff
     acceptanceDate: row.acceptanceDate,
     acceptanceDocumentUrl: row.acceptanceDocumentUrl,
     cerId: row.cerId,
-    bprId: row.bprId,
+    cerStatus: row.cerStatus as HandoffValues['cerStatus'],
+    cerApprovedOn: row.cerApprovedOn,
     receivingRole: row.receivingRole,
     receivingRoleOther: row.receivingRoleOther,
     receivingContactName: row.receivingContactName,
@@ -200,7 +203,8 @@ function handoffDto(
     acceptanceDate: row.acceptanceDate,
     acceptanceDocumentUrl: row.acceptanceDocumentUrl,
     cerId: row.cerId,
-    bprId: row.bprId,
+    cerStatus: row.cerStatus as HandoffValues['cerStatus'],
+    cerApprovedOn: row.cerApprovedOn,
     receivingRole: row.receivingRole,
     receivingRoleLabel: row.receivingRole
       ? (settings.receivingRoles.find((r) => r.code === row.receivingRole)?.label ??
@@ -238,7 +242,12 @@ export async function customerDecisionView(
   },
 ): Promise<CustomerDecisionDetail> {
   const { actor, workflow, settings, now, quote: q, state } = input;
-  const handoff = q.stageKey === AWARDED_STAGE_KEY ? await getHandoffRecord(db, q.id) : undefined;
+  const handoffStage = HANDOFF_STAGE_KEYS.includes(q.stageKey);
+  const handoff = handoffStage ? await getHandoffRecord(db, q.id) : undefined;
+  // B-26: the latest customer response, when it is a counter within range.
+  const latestG5 = [...input.decisions]
+    .filter((d) => d.decision.gateKey === 'G5')
+    .sort((a, b) => b.decision.decidedAt.getTime() - a.decision.decidedAt.getTime())[0];
   const people = await listUsersByIds(
     db,
     [q.closureOwnerId, handoff?.completedBy, handoff?.updatedBy, handoff?.createdBy].filter(
@@ -258,7 +267,11 @@ export async function customerDecisionView(
       q.closureOwnerId ? (names.get(q.closureOwnerId) ?? null) : null,
     ),
     handoff: handoff ? handoffDto(handoff, settings, workflow, names) : null,
-    canEditHandoff: q.stageKey === AWARDED_STAGE_KEY && can(actor, 'handoff.edit', state),
+    canEditHandoff: handoffStage && can(actor, 'handoff.edit', state),
+    inNegotiation:
+      q.stageKey === CUSTOMER_DECISION_STAGE_KEY &&
+      q.status !== 'closed' &&
+      latestG5?.decision.outcomeKey === NEGOTIATING_OUTCOME,
     canAssignClosureOwner: can(actor, 'outcome.assignOwner', state),
     receivingRoles: settings.receivingRoles,
     acceptanceEvidenceOptions: acceptanceEvidenceOptions(workflow),

@@ -118,7 +118,7 @@ const PRICING_FIELDS = [
   'priceApprovedAt',
   'pricingBasisNote',
   'pricingRefs',
-  'noPricingAppRecordNote',
+  // B-26: `noPricingAppRecordNote` is no longer written (kept for history).
   'approvedRangeNote',
   'costingCompleted',
   'costingAttestedBy',

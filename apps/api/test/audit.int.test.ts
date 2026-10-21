@@ -49,7 +49,9 @@ beforeAll(async () => {
   app = await buildApp(testConfig({ DATABASE_URL: fresh.url }), { db, now: () => clock });
   await app.ready();
   const [row] = await db.db.execute<{ quote_number: string; id: string }>(sql`
-    select quote_number, id from quote where status = 'active' order by quote_number limit 1`);
+    select quote_number, id from quote q where status = 'active'
+      and not exists (select 1 from audit_event a where a.quote_id = q.id and a.action = 'view')
+    order by quote_number limit 1`);
   qn = row!.quote_number;
   quoteId = row!.id;
 }, 120_000);

@@ -1,10 +1,4 @@
-import type {
-  PricingContext,
-  PricingContextBpr,
-  PricingErf,
-  PricingErfStatus,
-  QuotingDetail,
-} from '@ccq/contracts';
+import type { PricingContext, PricingErf, PricingErfStatus, QuotingDetail } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { DatabaseIcon, PlusIcon, TriangleAlertIcon, UnplugIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -22,7 +16,8 @@ import { SkeletonRows } from '../Skeletons';
 export const pricingContextQueryKey = (quoteNumber: string) =>
   ['pricing-context', quoteNumber] as const;
 
-export type ReferenceKind = 'erf' | 'bpr';
+/** B-26: legacy ERF numbers only (BPR dropped). */
+export type ReferenceKind = 'erf';
 
 /** YYYY-MM-DD as a short local date (the pricing app's dates carry no time). */
 const day = (d: string | null) =>
@@ -96,7 +91,7 @@ function UseButton({
   use: UseRef;
 }) {
   if (!context.canUseAsReference || !use.onUse) return null;
-  const refs = kind === 'erf' ? context.refs.erfRefs : context.refs.bprRefs;
+  const refs = context.refs.erfRefs;
   if (refs.some((r) => r.toLowerCase() === value.toLowerCase())) {
     return <Chip>Referenced</Chip>;
   }
@@ -173,56 +168,6 @@ function ErfCard({ erf, context, use }: { erf: PricingErf; context: PricingConte
   );
 }
 
-function BprList({
-  bprs,
-  context,
-  use,
-}: {
-  bprs: PricingContextBpr[];
-  context: PricingContext;
-  use: UseRef;
-}) {
-  return (
-    <section className="grid gap-2" aria-labelledby="pricing-context-bprs">
-      <h3 id="pricing-context-bprs" className="text-sm font-semibold">
-        Linked BPRs ({bprs.length})
-      </h3>
-      {bprs.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No BPR in the pricing app for these ERFs.</p>
-      ) : (
-        <ul className="grid gap-2" data-testid="pricing-context-bprs">
-          {bprs.map((b) => (
-            <li
-              key={b.bprNumber}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-            >
-              <span className="grid gap-0.5">
-                <span className="flex flex-wrap items-center gap-2 font-medium">
-                  {b.bprNumber}
-                  {b.status && <Chip>{b.status}</Chip>}
-                  <span className="text-muted-foreground text-xs font-normal">
-                    {b.via === 'reference' ? 'on the pricing record' : `follows ERF ${b.erfNumber}`}
-                  </span>
-                </span>
-                <span className="text-foreground-2">
-                  {[
-                    b.itemDescription,
-                    b.requestedOn && `requested ${day(b.requestedOn)}`,
-                    b.effectiveOn && `effective ${day(b.effectiveOn)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || '–'}
-                </span>
-              </span>
-              <UseButton kind="bpr" value={b.bprNumber} context={context} use={use} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
 function SprHistory({ context }: { context: PricingContext }) {
   return (
     <details className="rounded-md border px-3 py-2" data-testid="pricing-context-spr">
@@ -267,9 +212,10 @@ export function PricingAppUnavailable({ detail }: { detail?: string | null | und
 
 /**
  * B-15 (F-11): the quote's read-only "Pricing context" from the legacy pricing app: the ERF summary
- * (dates, decision, elapsed days, estimated figures with blanks as "Unknown"), the BPRs that follow it,
- * and the customer's SPR history (collapsed: SPR retired Nov 2025). Pricing, in Quoting, can add an
- * ERF/BPR to the pricing record with "Use as reference". Nothing here edits a pricing-app figure.
+ * (dates, decision, elapsed days, estimated figures with blanks as "Unknown") and the customer's SPR
+ * history (collapsed: SPR retired Nov 2025). Pricing, in Quoting, can add a legacy ERF number to the
+ * pricing record with "Use as reference" (B-26: transition only; no BPR). Nothing here edits a
+ * pricing-app figure.
  *
  * Rendered only for roles with `quote.read.commercialFields`; the API answers 403 to anyone else, so
  * hiding it is cosmetic, not the control. Any failure shows the manual-reference fallback.
@@ -332,8 +278,8 @@ function ReferenceSummary({ context }: { context: PricingContext }) {
         { label: 'Quote ERF', value: context.refs.quoteErfNumber },
         { label: 'SF ERF', value: context.refs.sfErfNumber },
         {
-          label: 'Record references',
-          value: [...context.refs.erfRefs, ...context.refs.bprRefs].join(', '),
+          label: 'Legacy ERF references',
+          value: context.refs.erfRefs.join(', '),
         },
       ]}
     />
@@ -341,11 +287,7 @@ function ReferenceSummary({ context }: { context: PricingContext }) {
 }
 
 function Body({ context, use }: { context: PricingContext; use: UseRef }) {
-  const nothing =
-    context.erfRecords.length === 0 &&
-    context.bprRecords.length === 0 &&
-    context.notFound.erf.length === 0 &&
-    context.notFound.bpr.length === 0;
+  const nothing = context.erfRecords.length === 0 && context.notFound.erf.length === 0;
   return (
     <>
       {context.linkage.mismatch && (
@@ -362,24 +304,17 @@ function Body({ context, use }: { context: PricingContext; use: UseRef }) {
       )}
       {nothing && (
         <p className="text-muted-foreground text-sm" data-testid="pricing-context-empty">
-          No ERF or BPR reference yet. Record one on the price approval below, or note that the
-          pricing app has no record yet.
+          No legacy ERF reference. That is fine: the ERF number is optional during the transition
+          (B-26) and no gate needs it.
         </p>
       )}
       {context.erfRecords.map((erf) => (
         <ErfCard key={erf.erfNumber} erf={erf} context={context} use={use} />
       ))}
-      {(context.notFound.erf.length > 0 || context.notFound.bpr.length > 0) && (
+      {context.notFound.erf.length > 0 && (
         <p className="text-muted-foreground text-sm" data-testid="pricing-context-not-found">
-          Not in the pricing app:{' '}
-          {[
-            ...context.notFound.erf.map((n) => `ERF ${n}`),
-            ...context.notFound.bpr.map((n) => `BPR ${n}`),
-          ].join(', ')}
+          Not in the pricing app: {context.notFound.erf.map((n) => `ERF ${n}`).join(', ')}
         </p>
-      )}
-      {(context.erfRecords.length > 0 || context.bprRecords.length > 0) && (
-        <BprList bprs={context.bprRecords} context={context} use={use} />
       )}
       <SprHistory context={context} />
       <p className="text-muted-foreground text-xs">

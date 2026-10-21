@@ -1,5 +1,9 @@
 import {
+  BulkReassignBody,
+  BulkReassignResponse,
   CapitalReadinessBody,
+  PricerAssignmentBody,
+  PricerAssignmentResponse,
   PricingQueueQuery,
   PricingQueueResponse,
   PricingRecordBody,
@@ -48,6 +52,51 @@ export const pricingRoutes: FastifyPluginAsyncZod<{ service: PricingService }> =
       handleProblems(req, reply, () => service.queue(withTx(req), requireActor(req), req.query)),
   );
 
+  app.post(
+    '/quotes/:quoteNumber/pricing-assignment',
+    {
+      config: { permission: 'pricingQueue.assign' },
+      schema: {
+        tags: ['pricing'],
+        summary:
+          'B-26: assign or reassign the pricer on a quote in Quoting (the pricing lead, Admin). Recorded on the timeline, audited, and the pricer is notified. The same pricer again changes nothing',
+        security,
+        params: QuoteNumberParams,
+        body: PricerAssignmentBody,
+        response: { 200: PricerAssignmentResponse },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.assignPricer(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body.pricerId,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  app.post(
+    '/queue/pricing/reassign',
+    {
+      config: { permission: 'pricingQueue.assign' },
+      schema: {
+        tags: ['pricing'],
+        summary:
+          "B-26: move a pricer's open Quoting work (all, or the listed quotes) to another pricer in one go, e.g. when someone leaves. Each move is recorded and announced like a single assignment",
+        security,
+        body: BulkReassignBody,
+        response: { 200: BulkReassignResponse },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.bulkReassign(withTx(req), requireActor(req), req.body, auditMeta(req)),
+      ),
+  );
+
   app.put(
     '/quotes/:quoteNumber/pricing-record',
     {
@@ -55,7 +104,7 @@ export const pricingRoutes: FastifyPluginAsyncZod<{ service: PricingService }> =
       schema: {
         tags: ['pricing'],
         summary:
-          'Record the price approval for the current version (only the keys sent change): approver (a Pricing user), time, basis and range notes, ERF/BPR references (format-checked), costing attestation. No price figures',
+          'Record the price approval for the current version (only the keys sent change): approver (a Pricing user), time, basis and range notes, legacy ERF numbers (transition only, format-checked), costing attestation. No price figures',
         security,
         params: QuoteNumberParams,
         body: PricingRecordBody,

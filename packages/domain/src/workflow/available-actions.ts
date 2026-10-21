@@ -22,6 +22,8 @@ export interface AvailableAction {
   nextStatus: 'active' | 'on_hold' | 'closed';
   /** B-12: the outcome releases the proposition (Final Review → Customer Decision), so it sets the issue and validity dates. */
   releasesProposal: boolean;
+  /** B-26: the outcome's definition (help text), so nobody guesses what Hold or Stop does. */
+  helpText: string | null;
 }
 
 /**
@@ -72,6 +74,7 @@ export function availableActions(
         requiredFields: [...gate.requiredFields, ...outcome.requiredFields],
         nextStatus: transition.nextStatus,
         releasesProposal: releasesProposal(config, gate.key, outcome.key),
+        helpText: outcome.helpText,
       });
     }
   }

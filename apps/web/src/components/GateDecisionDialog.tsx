@@ -1,7 +1,7 @@
 import type { AvailableGateAction, GateDecisionBody, GateDecisionResponse } from '@ccq/contracts';
 import { EXPIRED_OUTCOME, LOST_OUTCOME, proposalCalendarDate, validityUntil } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2Icon, CircleAlertIcon } from 'lucide-react';
+import { CheckCircle2Icon, CircleAlertIcon, InfoIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
@@ -24,15 +24,25 @@ import { cn } from '@/lib/utils';
 import { finalReviewQueueKey, reviewSummaryKey } from './final-review/keys';
 import { QualificationWarnings, ScoreBreakdownTable } from './Priority';
 
-/** Plain words for the G3 (Quoting) rules' field paths (B-11); other gates show the rule's message. */
+/** Plain words for the rules' field paths (B-11, B-26); other rules show their message. */
 const MISSING_LABELS: Record<string, string> = {
   'pricing_record.price_approved_by': 'Price approver',
   'pricing_record.price_approved_at': 'Price approval date',
-  'pricing_record.pricing_refs.erf,pricing_record.pricing_refs.bpr,pricing_record.no_pricing_app_record_note':
-    'An ERF or BPR reference, or a "no pricing-app record yet" note',
+  'pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible':
+    'The price approval (approver and date), unless the quote is below the pass-through threshold',
+  'pricing_record.costing_completed': 'Costing attested as complete (before the price)',
   'pricing_record.capital_readiness': 'Capital readiness',
   'pricing_record.capital_readiness,pricing_record.capital_pending_justification':
     'Capital readiness other than pending, or a pending-capital justification (D-11)',
+  'capital_likely,pricing_record.capital_readiness':
+    'Capital is flagged likely: confirm capital readiness (not required or pre-approved)',
+  capacity_signoff_status: 'Capacity sign-off by the capacity owner',
+  terms_checked_at: 'The terms check (tooling commitment, MOQ, payment terms)',
+  'legal_review_required,legal_reviewed_on': 'The Legal review (a Legal trigger applies)',
+  'handoff_record.cer_status': 'The CER approved, or marked not required',
+  'handoff_record.completed_at': 'The receiving team accepted the hand-off',
+  review_date: 'A review date',
+  hold_owner_id: 'A hold owner',
 };
 
 export const quoteQueryKey = (quoteNumber: string) => ['quote', quoteNumber] as const;
@@ -91,6 +101,8 @@ export function GateDecisionDialog({
   const [competitor, setCompetitor] = useState('');
   const [ownerChoice, setOwnerChoice] = useState<'' | 'me'>('');
   const me = useCurrentUser();
+  /** B-26: every hold names an owner (default: me). */
+  const [holdOwner, setHoldOwner] = useState<{ id: string; displayName: string } | null>(null);
   const [openedAt] = useState(() => Date.now());
   const [submitted, setSubmitted] = useState(false);
   const [serverErrors, setServerErrors] = useState<ServerError[]>([]);
@@ -104,6 +116,7 @@ export function GateDecisionDialog({
     doc: useId(),
     competitor: useId(),
     owner: useId(),
+    holdOwner: useId(),
     errors: useId(),
   };
 
@@ -126,6 +139,8 @@ export function GateDecisionDialog({
   const defaultOwnerIsMe =
     action?.closureOwnerDefault === 'decider' || quote.data?.kamUserId === me.user.id;
   const needsDate = !!action?.requiresReviewDate;
+  const needsHoldOwner = !!action?.requiresHoldOwner;
+  const holdOwnerChoice = holdOwner ?? { id: me.user.id, displayName: me.user.displayName };
   const needsTarget = !!action && action.targetStageKeys.length > 1;
   // B-12: an outcome that releases the proposition asks for the actual send date and shows the validity.
   const releases = !!action?.releasesProposal;
@@ -171,6 +186,7 @@ export function GateDecisionDialog({
     setDocUrl('');
     setCompetitor('');
     setOwnerChoice('');
+    setHoldOwner(null);
     setSubmitted(false);
     setServerErrors([]);
   };
@@ -287,6 +303,7 @@ export function GateDecisionDialog({
                     ...(reason ? { reasonCode: reason.code } : {}),
                     ...(note.trim() ? { note: note.trim() } : {}),
                     ...(needsDate && holdUntil ? { holdUntil } : {}),
+                    ...(needsHoldOwner ? { holdOwnerId: holdOwnerChoice.id } : {}),
                     ...(needsTarget && target ? { targetStageKey: target } : {}),
                     ...(releases && issuedAt ? { proposalIssuedAt: issuedAt.toISOString() } : {}),
                     ...(needsAcceptance && acceptedAt ? { acceptedAt } : {}),
@@ -306,7 +323,7 @@ export function GateDecisionDialog({
                     <label
                       key={a.outcomeKey}
                       className={cn(
-                        'flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3',
+                        'flex min-h-11 cursor-pointer flex-wrap items-center gap-x-3 rounded-md border px-3 py-1',
                         outcomeKey === a.outcomeKey && 'border-primary bg-secondary',
                       )}
                     >
@@ -329,8 +346,17 @@ export function GateDecisionDialog({
                         className="size-4 accent-[var(--primary)]"
                       />
                       <span className="text-sm">{a.outcomeLabel}</span>
+                      {a.helpText && <OutcomeDefinition label={a.outcomeLabel} text={a.helpText} />}
                       {a.nextStatus === 'closed' && (
                         <span className="text-foreground-2 ml-auto text-xs">Closes the quote</span>
+                      )}
+                      {a.helpText && outcomeKey === a.outcomeKey && (
+                        <span
+                          className="text-muted-foreground basis-full pb-1 pl-7 text-xs"
+                          data-testid="outcome-definition"
+                        >
+                          {a.helpText}
+                        </span>
                       )}
                     </label>
                   ))}
@@ -371,6 +397,20 @@ export function GateDecisionDialog({
                       aria-invalid={submitted && !holdUntil}
                     />
                   </div>
+                )}
+
+                {needsHoldOwner && (
+                  <HoldOwnerPicker
+                    id={ids.holdOwner}
+                    value={holdOwnerChoice}
+                    me={{ id: me.user.id, displayName: me.user.displayName }}
+                    kam={
+                      quote.data?.kamUserId && quote.data.kamUserId !== me.user.id
+                        ? { id: quote.data.kamUserId, displayName: quote.data.kamName ?? 'The KAM' }
+                        : null
+                    }
+                    onChange={setHoldOwner}
+                  />
                 )}
 
                 {needsTarget && (
@@ -447,8 +487,9 @@ export function GateDecisionDialog({
                       />
                     </div>
                     <p className="text-muted-foreground text-xs sm:col-span-2">
-                      The reason above is the acceptance evidence. Next: the hand-off record (CER
-                      and BPR IDs, who receives it).
+                      The reason above is the acceptance evidence. Acceptance is not spend
+                      authority: the quote moves to Commit &amp; Hand Off (the CER and who receives
+                      it) before it closes Won.
                     </p>
                   </div>
                 )}
@@ -548,5 +589,104 @@ export function GateDecisionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** B-26 (A3): the outcome's definition (config help text) behind an ⓘ, on hover and on focus. */
+function OutcomeDefinition({ label, text }: { label: string; text: string }) {
+  const id = useId();
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-6 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
+        aria-label={`What “${label}” means`}
+        aria-describedby={id}
+        onClick={(e) => e.preventDefault()}
+      >
+        <InfoIcon className="size-4" aria-hidden="true" />
+      </button>
+      <span
+        id={id}
+        role="tooltip"
+        className="bg-popover text-popover-foreground pointer-events-none invisible absolute top-full left-0 z-50 mt-1 w-72 rounded-md border p-2 text-xs shadow-md group-focus-within:visible group-hover:visible"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+/** B-26 (deck slide 16): who owns the hold. Me by default, the KAM, or anyone found by name. */
+function HoldOwnerPicker({
+  id,
+  value,
+  me,
+  kam,
+  onChange,
+}: {
+  id: string;
+  value: { id: string; displayName: string };
+  me: { id: string; displayName: string };
+  kam: { id: string; displayName: string } | null;
+  onChange: (owner: { id: string; displayName: string }) => void;
+}) {
+  const [q, setQ] = useState('');
+  const search = useQuery({
+    queryKey: ['user-search', q],
+    queryFn: () => api.searchUsers(q),
+    enabled: q.trim().length >= 2,
+  });
+  return (
+    <div className="grid gap-1.5" data-testid="hold-owner">
+      <label htmlFor={id} className="text-sm font-medium">
+        Hold owner (required)
+      </label>
+      <p className="text-muted-foreground text-xs">
+        Owns getting it moving again by the review date.{' '}
+        <span data-testid="hold-owner-choice">
+          Now: {value.displayName}
+          {value.id === me.id ? ' (me)' : ''}
+        </span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {value.id !== me.id && (
+          <Button type="button" size="sm" variant="outline" onClick={() => onChange(me)}>
+            Me
+          </Button>
+        )}
+        {kam && value.id !== kam.id && (
+          <Button type="button" size="sm" variant="outline" onClick={() => onChange(kam)}>
+            The KAM ({kam.displayName})
+          </Button>
+        )}
+      </div>
+      <Input
+        id={id}
+        type="search"
+        placeholder="Find someone else by name…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      {(search.data?.items.length ?? 0) > 0 && (
+        <ul className="grid gap-1" aria-label="People">
+          {search.data!.items.map((u) => (
+            <li key={u.id}>
+              <Button
+                type="button"
+                size="sm"
+                variant={u.id === value.id ? 'secondary' : 'ghost'}
+                onClick={() => {
+                  onChange({ id: u.id, displayName: u.displayName });
+                  setQ('');
+                }}
+              >
+                {u.displayName} <span className="text-muted-foreground">{u.upn}</span>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

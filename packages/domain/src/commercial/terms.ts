@@ -106,7 +106,7 @@ export interface TermsInput {
 }
 
 export type TermsPlan =
-  | { ok: true; values: TermsValues; changed: string[]; checkCleared: boolean }
+  | { ok: true; values: TermsValues; changed: (keyof TermsValues)[]; checkCleared: boolean }
   | { ok: false; errors: DomainError[] };
 
 /** The fields whose change invalidates an earlier terms check. */

@@ -39,6 +39,8 @@ test('tier override: the KAM requests, the SalesLeader approves, then reverts fr
   const request_ = page.locator('[data-testid="override-request"]', { hasText: quoteNumber });
   await expect(request_).toContainText('Strategic launch with the national account');
   expect(await seriousViolations(page)).toEqual([]);
+  // B-26 (A2): approving needs a note too.
+  await request_.getByRole('textbox').fill('Agreed with the account plan');
   await request_.getByRole('button', { name: 'Approve' }).click();
   await expect(page.getByText('Override approved and applied', { exact: true })).toBeVisible();
   await expect(request_).toHaveCount(0);

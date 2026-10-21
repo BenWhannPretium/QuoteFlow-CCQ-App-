@@ -20,6 +20,7 @@ import {
   type FilterValue,
 } from '@/components';
 import { AssignDialog, engQueueQueryKey } from '@/components/engineering/AssignDialog';
+import { BulkReassignDialog } from '@/components/engineering/BulkReassignDialog';
 import { businessDays } from '@/components/engineering/format';
 import { Button } from '@/components/ui/button';
 import {
@@ -332,7 +333,8 @@ function AgingCell({ item }: { item: EngQueueItem }) {
 type Dialog =
   | { kind: 'assign'; quoteNumbers: string[]; current?: string | null }
   | { kind: 'return'; quoteNumber: string }
-  | { kind: 'pin'; item: EngQueueItem };
+  | { kind: 'pin'; item: EngQueueItem }
+  | { kind: 'reassign'; quoteNumbers?: string[] };
 
 function QueueTable({ data }: { data: EngQueueResponse }) {
   const { data: config } = usePublicConfig();
@@ -599,6 +601,18 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
 
   return (
     <div className="grid gap-3">
+      {data.canAssign && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setDialog({ kind: 'reassign' })}
+            data-testid="reassign-work"
+          >
+            Reassign work…
+          </Button>
+        </div>
+      )}
       {data.canAssign && chosen.length > 0 && (
         <div
           className="bg-secondary flex flex-wrap items-center gap-3 rounded-md px-3 py-2 text-sm"
@@ -608,6 +622,13 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
           <span>{chosen.length} selected</span>
           <Button size="sm" onClick={() => setDialog({ kind: 'assign', quoteNumbers: chosen })}>
             Assign selected…
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setDialog({ kind: 'reassign', quoteNumbers: chosen })}
+          >
+            Move selected from one engineer…
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
             Clear
@@ -638,6 +659,19 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
           quoteNumbers={dialog.quoteNumbers}
           engineers={data.engineers}
           currentEngineerId={dialog.current ?? null}
+          onDone={() => setSelected([])}
+        />
+      )}
+      {dialog?.kind === 'reassign' && (
+        <BulkReassignDialog
+          open
+          onOpenChange={(open) => !open && setDialog(null)}
+          title="Reassign an engineer's work"
+          noun="engineer"
+          people={data.engineers}
+          quoteNumbers={dialog.quoteNumbers}
+          queryKey={engQueueQueryKey}
+          reassign={api.bulkReassignEngineering}
           onDone={() => setSelected([])}
         />
       )}

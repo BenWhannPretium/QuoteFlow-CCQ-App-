@@ -200,7 +200,6 @@ export class FinalReviewService {
             row.kamName,
             approverName,
             ...(record?.erfRefs ?? []),
-            ...(record?.bprRefs ?? []),
           ]
             .filter(Boolean)
             .join(' ')

@@ -12,11 +12,11 @@ export interface DerivedFieldSettings {
  * B-26: fields the server derives for the gate rules from config, never typed by a user (like B-13's
  * `validity_lapsed`): whether a Legal review is required at G4, and whether a price falls below the
  * pass-through threshold at G3. Added to the quote's fields before any rule is evaluated, so the
- * decision dialog's "missing" list and the decision itself agree.
+ * decision dialog's "missing" list and the decision itself agree. The customer's status
+ * (`customer_status`: existing | not_yet_established) comes with the quote's state.
  */
 export function derivedDecisionFields(
   fields: QuoteState['fields'],
-  customerStatus: string | null,
   settings: DerivedFieldSettings,
 ): {
   legal_review_required: boolean;
@@ -24,7 +24,7 @@ export function derivedDecisionFields(
   pass_through_eligible: boolean;
 } {
   const reasons = legalReviewReasons(settings.legalReviewTriggers, {
-    customerStatus,
+    customerStatus: (fields.customer_status as string | null | undefined) ?? null,
     termsNonstandard: (fields.terms_nonstandard as boolean | null | undefined) ?? null,
     termsToolingCommitment: (fields.terms_tooling_commitment as boolean | null | undefined) ?? null,
   });
@@ -39,13 +39,9 @@ export function derivedDecisionFields(
 }
 
 /** `state` with its derived fields filled in. */
-export function withDerivedFields(
-  state: QuoteState,
-  customerStatus: string | null,
-  settings: DerivedFieldSettings,
-): QuoteState {
+export function withDerivedFields(state: QuoteState, settings: DerivedFieldSettings): QuoteState {
   return {
     ...state,
-    fields: { ...state.fields, ...derivedDecisionFields(state.fields, customerStatus, settings) },
+    fields: { ...state.fields, ...derivedDecisionFields(state.fields, settings) },
   };
 }

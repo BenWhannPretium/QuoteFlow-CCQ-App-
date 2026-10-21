@@ -4,10 +4,11 @@ import { seriousViolations } from './axe';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
-// B-13: a KAM works "My open proposals": records one quote as Awarded (acceptance evidence + date),
-// fills in the hand-off record (CER / BPR IDs, receiving role) and ticks it complete; then records
-// another as Lost with a reason. Both close with outcome + reason + owner + date. The quotes are taken
-// to Customer Decision through the API (the earlier stages have their own specs).
+// B-13 / B-26: a KAM works "My open proposals": records one quote as Awarded (acceptance evidence +
+// date), which moves it to Stage 6 (Commit & Hand Off); fills in the hand-off record (CER status and
+// ID, receiving role), marks the hand-off accepted and closes it Won at G6; then records another as
+// Lost with a reason. Both close with outcome + reason + owner + date. The quotes are taken to Customer
+// Decision through the API (the earlier stages have their own specs).
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
 
@@ -58,6 +59,7 @@ async function quoteInCustomerDecision(
       },
     ],
   });
+  await put('capacity-signoff', 'eng-lead', { status: 'approved' });
   await post('gates/G2/decisions', 'eng-lead', { outcomeKey: 'proceed' });
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
@@ -66,6 +68,11 @@ async function quoteInCustomerDecision(
   });
   await put('capital-readiness', 'pricing', { capitalReadiness: 'pre_approved' });
   await post('gates/G3/decisions', 'pricing', { outcomeKey: 'submit' });
+  await put('terms', 'kam', {
+    termsPaymentTerms: 'Net 45',
+    termsToolingCommitment: false,
+    checked: true,
+  });
   await post('gates/G4/decisions', 'approver', { outcomeKey: 'approve' });
   return quoteNumber;
 }
@@ -79,11 +86,11 @@ const quote = async (request: APIRequestContext, quoteNumber: string) =>
     closedAt: string | null;
     customerDecision: {
       closure: { closureOwnerName: string | null; reasonLabel: string | null } | null;
-      handoff: { cerId: string | null; bprId: string | null; completed: boolean } | null;
+      handoff: { cerId: string | null; cerStatus: string; completed: boolean } | null;
     };
   };
 
-test('a KAM records Awarded with the hand-off, and Lost with a reason', async ({
+test('a KAM records Awarded, hands off and closes Won at G6, and records Lost with a reason', async ({
   page,
   request,
 }) => {
@@ -135,23 +142,39 @@ test('a KAM records Awarded with the hand-off, and Lost with a reason', async ({
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText('Awarded recorded')).toBeVisible();
 
+  // Acceptance is not spend authority: the quote is in Commit & Hand Off, not closed.
+  await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'COMMIT_HANDOFF');
+  await expect(page.getByTestId('closure-card')).toHaveCount(0);
+
   // The hand-off record opens, with the evidence from the decision; the CER field has focus.
   const handoff = page.getByTestId('handoff-card');
   await expect(handoff).toBeVisible();
+  await expect(handoff.getByTestId('cer-status')).toContainText('Pending');
   await expect(handoff.getByLabel('Acceptance evidence')).toHaveValue('po');
   await expect(handoff.getByLabel('CER ID (Apex)')).toBeFocused();
   await handoff.getByLabel('CER ID (Apex)').fill('CER-2026-0412');
-  await handoff.getByLabel('BPR ID (price implementation)').fill('BPR-55120');
+  await handoff.getByLabel('CER status').selectOption({ label: 'Approved' });
+  await handoff.getByLabel('CER approved on').fill(today);
   await handoff
     .getByLabel('Receiving role', { exact: true })
     .selectOption({ label: 'Commercial Activation' });
   await handoff.getByLabel('Receiving contact', { exact: true }).fill('Amanda Cronkhite');
   await handoff.getByLabel('Accepted-by date', { exact: true }).fill(today);
-  await handoff.getByRole('checkbox', { name: /Hand-off complete/ }).check();
+  await handoff.getByRole('checkbox', { name: /Hand-off accepted/ }).check();
   await handoff.getByRole('button', { name: 'Save hand-off' }).click();
-  await expect(page.getByText('Hand-off complete').first()).toBeVisible();
+  await expect(page.getByText('Hand-off accepted').first()).toBeVisible();
   await expect(handoff.getByTestId('handoff-completed-by')).toContainText('Confirmed by');
-  await expect(page.getByTestId('closure-card')).toContainText('Closed: Awarded');
+
+  // ── G6: commit and close Won ──
+  await page.getByRole('button', { name: 'Commit & hand off' }).click();
+  const g6 = page.getByRole('dialog');
+  await g6.getByRole('radio', { name: 'Advance (close Won)' }).check();
+  await expect(g6.getByTestId('outcome-definition')).toBeVisible();
+  await expect(g6.getByTestId('completeness')).toContainText('Nothing missing');
+  await g6.getByLabel(/^Reason/).selectOption({ label: 'Purchase order (PO)' });
+  await g6.getByRole('button', { name: 'Record decision' }).click();
+  await expect(g6).toHaveCount(0);
+  await expect(page.getByTestId('closure-card')).toContainText('Closed: Closed – Won');
   await expect(page.getByTestId('closure-card')).toContainText('Purchase order (PO)');
   expect(await seriousViolations(page)).toEqual([]);
 
@@ -166,7 +189,7 @@ test('a KAM records Awarded with the hand-off, and Lost with a reason', async ({
   expect(won.customerDecision.closure?.closureOwnerName).toBeTruthy();
   expect(won.customerDecision.handoff).toMatchObject({
     cerId: 'CER-2026-0412',
-    bprId: 'BPR-55120',
+    cerStatus: 'approved',
     completed: true,
   });
 

@@ -54,7 +54,7 @@ export const personaOid = (index: number) =>
   `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
 
 /** How many personas existed before B-26 (they keep drawing from the main stream). */
-const ORIGINAL_PERSONAS = 12;
+export const ORIGINAL_PERSONAS = 12;
 
 export function buildPersonas(main: Rng, anchor: Date): Persona[] {
   const created = new Date(anchor.getTime() - 400 * 86_400_000);

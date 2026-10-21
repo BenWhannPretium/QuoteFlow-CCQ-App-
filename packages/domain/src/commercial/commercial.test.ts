@@ -93,8 +93,7 @@ describe('derived decision fields', () => {
   it('derives legal_review_required and pass_through_eligible from config', () => {
     expect(
       derivedDecisionFields(
-        { terms_nonstandard: true, est_annual_revenue: 90_000 },
-        'existing',
+        { terms_nonstandard: true, est_annual_revenue: 90_000, customer_status: 'existing' },
         settings,
       ),
     ).toEqual({
@@ -109,7 +108,10 @@ describe('derived decision fields', () => {
     const decide = (fields: Record<string, unknown>, customerStatus: string | null) =>
       evaluateTransition(
         hybridConfig,
-        withDerivedFields(makeQuote('FINAL_REVIEW', { fields }), customerStatus, settings),
+        withDerivedFields(
+          makeQuote('FINAL_REVIEW', { fields: { ...fields, customer_status: customerStatus } }),
+          settings,
+        ),
         makeActor('Approver'),
         c.request,
         NOW,

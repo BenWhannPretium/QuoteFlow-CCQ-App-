@@ -28,6 +28,7 @@ import {
   isValidityLapsed,
   validityStatus,
   PRICING_QUEUE_STAGE_KEY,
+  RECOST_OUTCOME,
   RELEASE_GATE_KEY,
   can,
   evaluateTransition,
@@ -37,6 +38,7 @@ import {
   quotingWarnings,
   releasesProposal,
   reviewWarnings,
+  withDerivedFields,
   type Actor,
   type DomainError,
   type ProposalReleasePlan,
@@ -143,8 +145,12 @@ export class GateService {
       }
       const row = await getQuoteSummaryByNumber(tx, quoteNumber);
       if (!row) throw new GateError(404, GATE_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
-      const state = (await loadQuoteState(tx, row.quote.id))!;
       const ctx = await this.opts.quotes.context(tx, actor, now);
+      // B-26: the rules also read the server-derived fields (Legal review required, pass-through).
+      const state = withDerivedFields(
+        (await loadQuoteState(tx, row.quote.id))!,
+        ctx.commercial.derived,
+      );
       const before = summaryDto(row, ctx);
 
       const request: TransitionRequest = {
@@ -153,7 +159,15 @@ export class GateService {
         ...(body.note !== undefined ? { note: body.note } : {}),
         ...(body.reasonCode !== undefined ? { reasonCode: body.reasonCode } : {}),
         ...(body.targetStageKey !== undefined ? { targetStageKey: body.targetStageKey } : {}),
-        ...(body.holdUntil !== undefined ? { payload: { review_date: body.holdUntil } } : {}),
+        ...(body.holdUntil !== undefined || body.holdOwnerId !== undefined
+          ? {
+              payload: {
+                ...(body.holdUntil !== undefined ? { review_date: body.holdUntil } : {}),
+                // B-26: every hold names its owner.
+                ...(body.holdOwnerId !== undefined ? { hold_owner_id: body.holdOwnerId } : {}),
+              },
+            }
+          : {}),
         ...(body.closureOwnerId !== undefined
           ? { closureOwnerId: asUserId(body.closureOwnerId) }
           : {}),
@@ -225,6 +239,19 @@ export class GateService {
               ),
             );
           }
+        }
+      }
+      // B-26: a named hold owner must be an active user.
+      if (body.holdOwnerId !== undefined) {
+        const [owner] = await listUsersByIds(tx, [body.holdOwnerId]);
+        if (!owner?.active) {
+          extraErrors.push(
+            new DomainErrorClass(
+              'INVALID_VALUE',
+              'The hold owner must be an active CCQ user',
+              'holdOwnerId',
+            ),
+          );
         }
       }
       // B-13 (CR-39): a named closure owner must be an active user.
@@ -351,6 +378,25 @@ export class GateService {
       });
       if (body.holdUntil && effects.nextStatus === 'on_hold') {
         await updateQuote(tx, row.quote.id, { reviewDate: body.holdUntil });
+      }
+      // B-26 (slide 12): "Rework (re-cost)" keeps the quote in Quoting and clears the costing
+      // attestation, so the cost sheet is redone before the price can advance.
+      if (gateKey === 'G3' && body.outcomeKey === RECOST_OUTCOME) {
+        const pricing = await getPricingRecord(tx, row.quote.id);
+        const current = recordValues(pricing);
+        if (current?.costingCompleted) {
+          await upsertPricingRecord(tx, {
+            ...recordColumns({
+              ...current,
+              costingCompleted: false,
+              costingAttestedBy: null,
+              costingAttestedAt: null,
+            }),
+            quoteId: row.quote.id,
+            quoteVersion: effects.nextVersion,
+            createdBy: pricing?.createdBy ?? actor.userId,
+          });
+        }
       }
       if (proposal) {
         await updateQuote(tx, row.quote.id, {
@@ -520,7 +566,7 @@ function pricingEvidence(state: QuoteState): PricingRecordValues | null {
   if (!r) return null;
   const text = (key: string) => (typeof r[key] === 'string' ? r[key] : null);
   const date = (key: string) => (r[key] instanceof Date ? r[key] : null);
-  const refs = (r.pricing_refs ?? {}) as { erf?: unknown; bpr?: unknown };
+  const refs = (r.pricing_refs ?? {}) as { erf?: unknown };
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
   return {
     priceApprovedBy: text('price_approved_by'),
@@ -528,8 +574,6 @@ function pricingEvidence(state: QuoteState): PricingRecordValues | null {
     pricingBasisNote: text('pricing_basis_note'),
     approvedRangeNote: text('approved_range_note'),
     erfRefs: list(refs.erf),
-    bprRefs: list(refs.bpr),
-    noPricingAppRecordNote: text('no_pricing_app_record_note'),
     costingCompleted: r.costing_completed === true,
     costingAttestedBy: text('costing_attested_by'),
     costingAttestedAt: date('costing_attested_at'),

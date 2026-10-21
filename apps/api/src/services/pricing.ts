@@ -1,6 +1,9 @@
 import {
   PRICING_PROBLEM_CODES,
+  type BulkReassignBody,
+  type BulkReassignResponse,
   type CapitalReadinessBody,
+  type PricerAssignmentResponse,
   type PricingQueueFilters,
   type PricingQueueItem,
   type PricingQueueResponse,
@@ -11,6 +14,7 @@ import type { Tx } from '@ccq/db';
 import {
   getPricingRecord,
   getQuoteByNumber,
+  getUserWithRoles,
   insertActivityEvent,
   listActiveUsersWithRoles,
   listHoldsForQuotes,
@@ -26,6 +30,7 @@ import {
 import {
   EMPTY_PRICING_RECORD,
   FLAGGED_G2_OUTCOMES,
+  PRICING_ASSIGNABLE_ROLES,
   PRICING_QUEUE_STAGE_KEY,
   asUserId,
   can,
@@ -34,20 +39,24 @@ import {
   filterPricingQueue,
   parseWorkflowConfig,
   planCapitalReadiness,
+  planPricerAssignment,
   planPricingRecord,
   priceApprovalStatus,
   redact,
   sortPricingQueue,
   type Actor,
+  DomainError as DomainErrorClass,
   type DomainError,
   type PricingQueueEntry,
   type PricingRecordPlan,
   type PricingRecordValues,
   type QuoteState,
+  type Role,
   type WorkflowConfig,
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { persistNotifications } from './notificationService';
 import {
   loadPricingRefFormats,
   pricingRoles,
@@ -106,9 +115,7 @@ const TIMELINE_FIELDS: Record<keyof PricingRecordValues, string | null> = {
   priceApprovedAt: 'approval time',
   pricingBasisNote: 'pricing basis',
   approvedRangeNote: 'approved range',
-  erfRefs: 'ERF references',
-  bprRefs: 'BPR references',
-  noPricingAppRecordNote: 'no pricing-app record note',
+  erfRefs: 'legacy ERF numbers',
   costingCompleted: 'costing attestation',
   costingAttestedBy: null,
   costingAttestedAt: null,
@@ -150,6 +157,14 @@ export class PricingService {
         tx,
         rows.map((r) => r.quote.id),
       );
+      // B-26: who each quote is assigned to (the pricing lead triages the queue).
+      const pricerIds = [
+        ...new Set(rows.map((r) => r.quote.assignedPricerId).filter((id): id is string => !!id)),
+      ];
+      const pricerNames = new Map(
+        (await listUsersByIds(tx, pricerIds)).map((u) => [u.id, u.displayName]),
+      );
+      const canAssign = can(actor, 'pricingQueue.assign');
       const g2Label = (key: string | null) =>
         key
           ? (workflow.outcomes.find((o) => o.gateKey === 'G2' && o.key === key)?.label ?? key)
@@ -186,6 +201,11 @@ export class PricingService {
           priceApprovedAt: iso(status.approvedAt),
           assignedEngineerId: q.assignedEngineerId,
           assignedEngineerName: row.assignedEngineerName ?? null,
+          assignedPricerId: q.assignedPricerId,
+          assignedPricerName: q.assignedPricerId
+            ? (pricerNames.get(q.assignedPricerId) ?? null)
+            : null,
+          pricerAssignedAt: iso(q.pricerAssignedAt),
           canEdit: canEditQuoting(actor, state),
         };
         const entry: PricingQueueEntry = {
@@ -198,6 +218,7 @@ export class PricingService {
           priceApproved: status.approved,
           productFamily: q.productFamily,
           kamUserId: q.kamUserId,
+          assignedPricerId: q.assignedPricerId,
           searchText: [
             q.quoteNumber,
             q.sfOpportunityId,
@@ -205,8 +226,8 @@ export class PricingService {
             row.opportunityName,
             row.kamName,
             row.assignedEngineerName,
+            item.assignedPricerName,
             ...(values?.erfRefs ?? []),
-            ...(values?.bprRefs ?? []),
           ]
             .filter(Boolean)
             .join(' ')
@@ -223,6 +244,7 @@ export class PricingService {
         ...(query.approved ? { priceApproved: query.approved === 'yes' } : {}),
         ...(query.productFamily ? { productFamilies: query.productFamily } : {}),
         ...(query.kam ? { kamUserId: query.kam === 'me' ? actor.userId : query.kam } : {}),
+        ...(query.pricer ? { pricerId: query.pricer === 'me' ? actor.userId : query.pricer } : {}),
         ...(query.q ? { q: query.q } : {}),
       });
 
@@ -241,12 +263,151 @@ export class PricingService {
         },
         canEdit: can(actor, 'quoting.edit'),
         canDecide: can(actor, 'gate.G3.submit'),
+        canAssign,
+        pricers: canAssign
+          ? (await listActiveUsersWithRoles(tx, PRICING_ASSIGNABLE_ROLES)).map((u) => ({
+              ...u,
+              openAssigned: all.filter((e) => e.assignedPricerId === u.id).length,
+            }))
+          : [],
         g2Outcomes: workflow.outcomes
           .filter((o) => o.gateKey === 'G2')
           .map((o) => ({ key: o.key, label: o.label })),
         // Belt and braces: everyone on this route reads commercial fields, but redact anyway.
         items: filtered.map((e) => redact(e.item, actor)),
       };
+    });
+  }
+
+  /**
+   * B-26: POST /quotes/:qn/pricing-assignment. The pricing lead (or Admin) assigns the Quoting work to a
+   * pricer; recorded on the timeline, audited, and the pricer is told (in-app + email).
+   */
+  async assignPricer(
+    withTx: PricingWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    pricerId: string,
+    meta: AuditMeta,
+  ): Promise<PricerAssignmentResponse> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      const q = await getQuoteByNumber(tx, quoteNumber);
+      if (!q)
+        throw new PricingError(404, PRICING_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
+      return this.assignOne(tx, actor, q, pricerId, meta, now);
+    });
+  }
+
+  private async assignOne(
+    tx: Tx,
+    actor: Actor,
+    q: Quote,
+    pricerId: string,
+    meta: AuditMeta,
+    now: Date,
+  ): Promise<PricerAssignmentResponse> {
+    const state = (await loadQuoteState(tx, q.id))!;
+    const user = await getUserWithRoles(tx, pricerId);
+    const plan = planPricerAssignment(
+      actor,
+      { ...state, assignedPricerId: q.assignedPricerId },
+      user ? { id: user.id, roles: user.roles as Role[], active: user.active } : undefined,
+    );
+    if (!plan.ok) fail(plan.errors);
+    if (!plan.changed) {
+      return {
+        quoteNumber: q.quoteNumber,
+        assignedPricerId: plan.to,
+        assignedPricerName: user!.displayName,
+        pricerAssignedAt: iso(q.pricerAssignedAt),
+        changed: false,
+      };
+    }
+    const names = await listUsersByIds(
+      tx,
+      [plan.from, plan.to].filter((x): x is string => !!x),
+    );
+    const nameOf = (id: string | null) => names.find((u) => u.id === id)?.displayName ?? null;
+    await updateQuote(tx, q.id, { assignedPricerId: plan.to, pricerAssignedAt: now });
+    await insertActivityEvent(tx, {
+      quoteId: q.id,
+      type: 'pricer_assigned',
+      actorId: actor.userId,
+      at: now,
+      payload: {
+        from: plan.from,
+        fromName: nameOf(plan.from),
+        to: plan.to,
+        toName: nameOf(plan.to),
+      },
+      createdBy: actor.userId,
+    });
+    await recordAudit(tx, actor, meta, {
+      action: 'update',
+      entity: 'quote',
+      entityId: q.id,
+      quoteId: q.id,
+      before: { assignedPricerId: plan.from, pricerAssignedAt: iso(q.pricerAssignedAt) },
+      after: { assignedPricerId: plan.to, pricerAssignedAt: now.toISOString() },
+      at: now,
+    });
+    await persistNotifications(
+      tx,
+      [{ type: 'quote.pricing_assigned', recipient: { kind: 'user', userId: asUserId(plan.to) } }],
+      {
+        quoteId: q.id,
+        title: `${q.quoteNumber} is assigned to you for pricing`,
+        body: plan.from
+          ? 'The Quoting work was reassigned to you.'
+          : 'You have a new quote to price. Open the pricing queue.',
+        excludeUserId: actor.userId,
+        payload: { reassigned: plan.from ? 'yes' : 'no' },
+      },
+      this.opts.log,
+    );
+    return {
+      quoteNumber: q.quoteNumber,
+      assignedPricerId: plan.to,
+      assignedPricerName: nameOf(plan.to),
+      pricerAssignedAt: now.toISOString(),
+      changed: true,
+    };
+  }
+
+  /**
+   * B-26: POST /queue/pricing/reassign. Move a pricer's open Quoting work (all of it, or the listed
+   * quotes) to another pricer in one transaction: each move is recorded, audited and announced like a
+   * single assignment. Listed quotes not in Quoting or not assigned to `fromUserId` are skipped.
+   */
+  async bulkReassign(
+    withTx: PricingWithTx,
+    actor: Actor,
+    body: BulkReassignBody,
+    meta: AuditMeta,
+  ): Promise<BulkReassignResponse> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      if (!can(actor, 'pricingQueue.assign')) {
+        fail([new DomainErrorClass('NOT_PERMITTED', 'Requires pricingQueue.assign')]);
+      }
+      const rows = await listPricingQueueRows(tx, PRICING_QUEUE_STAGE_KEY);
+      const held = rows.filter((r) => r.quote.assignedPricerId === body.fromUserId);
+      const wanted = body.quoteNumbers ? new Set(body.quoteNumbers) : null;
+      const skipped: BulkReassignResponse['skipped'] = [];
+      for (const n of wanted ?? []) {
+        if (!held.some((r) => r.quote.quoteNumber === n)) {
+          skipped.push({ quoteNumber: n, reason: 'Not in Quoting with this pricer' });
+        }
+      }
+      const reassigned: string[] = [];
+      for (const row of held) {
+        if (wanted && !wanted.has(row.quote.quoteNumber)) continue;
+        const r = await this.assignOne(tx, actor, row.quote, body.toUserId, meta, now);
+        if (r.changed) reassigned.push(r.quoteNumber);
+      }
+      const [to] = await listUsersByIds(tx, [body.toUserId]);
+      return { reassigned, skipped, toUserName: to?.displayName ?? null };
     });
   }
 
@@ -371,8 +532,6 @@ export class PricingService {
           pricingBasisNote: body.pricingBasisNote,
           approvedRangeNote: body.approvedRangeNote,
           erfRefs: body.erfRefs,
-          bprRefs: body.bprRefs,
-          noPricingAppRecordNote: body.noPricingAppRecordNote,
           costingCompleted: body.costingCompleted,
         },
         { formats, pricingUserIds: new Set(team.map((u) => u.id)), now },

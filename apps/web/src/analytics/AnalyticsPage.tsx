@@ -13,10 +13,10 @@ import {
   type PipelineResponse,
   type PriorityResponse,
 } from '@ccq/contracts';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { FilterXIcon } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 
 import { canFromMe, useCurrentUser } from '@/auth';
 import {
@@ -35,13 +35,10 @@ import {
   weekLabel,
   type Series,
 } from '@/components/charts';
-import { ErrorState } from '@/components/ErrorState';
 import { PageHeader } from '@/components/PageHeader';
-import { SkeletonCard } from '@/components/Skeletons';
 import { Button } from '@/components/ui/button';
 import {
   activeFilterCount,
-  analyticsApiQuery,
   drillDown,
   lastDays,
   type AnalyticsSearch,
@@ -50,61 +47,12 @@ import { api } from '@/lib/api';
 import type { PipelineSearch } from '@/lib/pipeline-search';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
+import { EngineeringLens } from './EngineeringLens';
 import { RatePair } from './RatePair';
+import { Boundary, Section, useChart } from './shared';
 
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
-
-/** Every chart's data is fetched server-side: the page only draws it. */
-function useChart<T>(
-  name: string,
-  search: AnalyticsSearch,
-  fn: (q: ReturnType<typeof analyticsApiQuery>) => Promise<T>,
-  enabled = true,
-): UseQueryResult<T> {
-  return useQuery({
-    queryKey: ['analytics', name, search],
-    queryFn: () => fn(analyticsApiQuery(search)),
-    enabled,
-    staleTime: 60_000,
-  });
-}
-
-function Boundary<T>({
-  query,
-  children,
-}: {
-  query: UseQueryResult<T>;
-  children: (data: T) => ReactNode;
-}) {
-  if (query.isPending) return <SkeletonCard />;
-  if (query.error) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
-  return <>{children(query.data)}</>;
-}
-
-function Section({
-  id,
-  title,
-  description,
-  children,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section aria-labelledby={`${id}-h`} id={id} className="grid scroll-mt-20 gap-4">
-      <div className="grid gap-1">
-        <h2 id={`${id}-h`} className="font-display text-xl">
-          {title}
-        </h2>
-        <p className="text-muted-foreground max-w-prose text-sm">{description}</p>
-      </div>
-      {children}
-    </section>
-  );
-}
 
 const quotesLink = (search: PipelineSearch) => (
   <Link
@@ -647,6 +595,13 @@ function OutcomesSection({ search }: { search: AnalyticsSearch }) {
             captureInfo={o.captureInfo}
             lowCaptureBelow={o.lowCaptureBelow}
           />
+          <Stat
+            testId="stat-commitment-pending"
+            label="Awarded, commitment pending"
+            value={fmtCount(o.commitmentPending.count)}
+            hint="Awarded by the customer and waiting in Commit & Hand Off (CER and hand-off). Counted as won once G6 closes them."
+            info={o.commitmentPending.info}
+          />
           <p className="text-muted-foreground text-xs">
             Amounts are the {o.amountLabel}, not price or booked revenue. Window:{' '}
             {dayRange(o.window.from, o.window.to)}.
@@ -675,6 +630,23 @@ function OutcomesSection({ search }: { search: AnalyticsSearch }) {
             dimension="kam"
             amountLabel={o.amountLabel}
           />
+        </div>
+      )}
+    </Boundary>
+  );
+}
+
+/**
+ * B-26 (A5): the reason codes in one place, after the numbers they explain: why quotes are lost (G5)
+ * and why work goes back to the KAM (G1/G2 rework).
+ */
+function ReasonsSection({ search }: { search: AnalyticsSearch }) {
+  const q = useChart('outcomes', search, api.analyticsOutcomes);
+  const fp = useChart('first-pass', search, api.analyticsFirstPass);
+  return (
+    <div className="grid gap-4">
+      <Boundary query={q}>
+        {(o: OutcomesResponse) => (
           <ChartCard
             testId="chart-loss-reasons"
             title="Why quotes are lost"
@@ -724,9 +696,46 @@ function OutcomesSection({ search }: { search: AnalyticsSearch }) {
               </div>
             </SmallMultiples>
           </ChartCard>
-        </div>
-      )}
-    </Boundary>
+        )}
+      </Boundary>
+      <Boundary query={fp}>
+        {(d: FirstPassResponse) => (
+          <ChartCard
+            testId="chart-rework-reasons"
+            title="Why work is sent back to the KAM"
+            info={d.reworkReasonsInfo}
+            summary="Top reasons for G1 and G2 rework."
+            empty={d.reworkReasons.length === 0}
+            emptyHint="No rework decisions in this window."
+            table={{
+              caption: 'Top rework reasons',
+              columns: [
+                { key: 'label', label: 'Reason' },
+                { key: 'gate', label: 'Gate' },
+                { key: 'count', label: 'Decisions', numeric: true },
+              ],
+              rows: d.reworkReasons.map((r) => ({
+                label: r.label,
+                gate: r.gateKey,
+                count: fmtCount(r.count),
+              })),
+            }}
+          >
+            <Bars
+              data={d.reworkReasons.map((r) => ({
+                label: `${r.label} (${r.gateKey})`,
+                count: r.count,
+              }))}
+              xKey="label"
+              orientation="horizontal"
+              series={[{ key: 'count', label: 'Decisions', color: COLORS.emphasis }]}
+              labels
+              categoryWidth={130}
+            />
+          </ChartCard>
+        )}
+      </Boundary>
+    </div>
   );
 }
 
@@ -812,43 +821,6 @@ function QualitySection({ search }: { search: AnalyticsSearch }) {
                 format={fmtPct}
                 unit
                 labels
-              />
-            </ChartCard>
-          )}
-        </Boundary>
-        <Boundary query={fp}>
-          {(d: FirstPassResponse) => (
-            <ChartCard
-              testId="chart-rework-reasons"
-              title="Why work is sent back to the KAM"
-              info={d.reworkReasonsInfo}
-              summary="Top reasons for G1 and G2 rework."
-              empty={d.reworkReasons.length === 0}
-              emptyHint="No rework decisions in this window."
-              table={{
-                caption: 'Top rework reasons',
-                columns: [
-                  { key: 'label', label: 'Reason' },
-                  { key: 'gate', label: 'Gate' },
-                  { key: 'count', label: 'Decisions', numeric: true },
-                ],
-                rows: d.reworkReasons.map((r) => ({
-                  label: r.label,
-                  gate: r.gateKey,
-                  count: fmtCount(r.count),
-                })),
-              }}
-            >
-              <Bars
-                data={d.reworkReasons.map((r) => ({
-                  label: `${r.label} (${r.gateKey})`,
-                  count: r.count,
-                }))}
-                xKey="label"
-                orientation="horizontal"
-                series={[{ key: 'count', label: 'Decisions', color: COLORS.emphasis }]}
-                labels
-                categoryWidth={130}
               />
             </ChartCard>
           )}
@@ -1118,20 +1090,34 @@ function AdoptionSection({ search }: { search: AnalyticsSearch }) {
   );
 }
 
+/** B-26 (A5): the leadership report reads pipeline → outcomes → time → reasons → governance. */
 const NAV = [
   ['pipeline', 'Pipeline'],
+  ['outcomes', 'Outcomes'],
   ['cycle', 'Cycle time'],
   ['flow', 'Flow'],
-  ['outcomes', 'Outcomes'],
+  ['reasons', 'Reasons'],
   ['quality', 'Quality and governance'],
   ['priority', 'Priority'],
   ['adoption', 'Adoption'],
 ] as const;
 
+export type Lens = 'leadership' | 'engineering';
+
+const LENS_LABEL: Record<Lens, string> = {
+  leadership: 'Leadership report',
+  engineering: 'Engineering',
+};
+
 /**
- * F-17 operational analytics (B-17): pipeline, cycle time, flow, outcomes with capture rate, quality
- * and governance, priority and adoption. Everything is computed on the server from the analytics
- * views; this page draws it. Each chart states its definition and window, and has a table view.
+ * F-17 operational analytics (B-17): pipeline, outcomes with capture rate, cycle time, flow, reasons,
+ * quality and governance, priority and adoption. Everything is computed on the server from the
+ * analytics views; this page draws it. Each chart states its definition and window, and has a table
+ * view.
+ *
+ * B-26 (A5): one page per lens rather than the same page for every role. The leadership report is
+ * what the quoting process reports out; the Engineering lens (engQueue.read) is what helps the
+ * engineering lead run the queue. An engineering lead lands on the Engineering lens and can switch.
  */
 export function AnalyticsPage({
   search,
@@ -1148,80 +1134,118 @@ export function AnalyticsPage({
     staleTime: 5 * 60_000,
   });
   const showAdoption = canFromMe(me, 'audit.read');
+  const lenses: Lens[] = canFromMe(me, 'engQueue.read')
+    ? ['leadership', 'engineering']
+    : ['leadership'];
+  const [lens, setLens] = useState<Lens>(() => defaultLens(me.roles, lenses));
   const nav = useMemo(
     () => NAV.filter(([id]) => id !== 'adoption' || showAdoption),
     [showAdoption],
   );
   return (
-    <div className="grid gap-8" data-testid="analytics-page">
+    <div className="grid gap-8" data-testid="analytics-page" data-lens={lens}>
       <PageHeader
         className="mb-0"
         eyebrow="Insights"
         title="Analytics"
-        description="Where quotes are, how long each step takes, what happens to the proposals, and how well intake and governance are working. Every chart says how it is defined and what period it covers."
+        description={
+          lens === 'engineering'
+            ? 'How the engineering queue is running: who has what, how long it has waited, what is blocked on capacity, and how G2 is landing. Every chart says how it is defined and what period it covers.'
+            : 'What the quoting process reports out: where quotes are, what happens to the proposals, how long each step takes, why work is lost or sent back, and how well governance is working. Every chart says how it is defined and what period it covers.'
+        }
       />
+      {lenses.length > 1 && (
+        <div role="tablist" aria-label="Analytics view" className="flex gap-1 border-b">
+          {lenses.map((l) => (
+            <button
+              key={l}
+              type="button"
+              role="tab"
+              aria-selected={lens === l}
+              data-testid={`lens-${l}`}
+              onClick={() => setLens(l)}
+              className="text-foreground-2 aria-selected:border-action aria-selected:text-foreground hover:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-3 text-sm font-medium transition-colors sm:px-4"
+            >
+              {LENS_LABEL[l]}
+            </button>
+          ))}
+        </div>
+      )}
       <FilterBar search={search} filters={filters.data} onChange={onSearchChange} />
-      <nav aria-label="Sections" className="flex flex-wrap gap-2">
-        {nav.map(([id, label]) => (
-          <a
-            key={id}
-            href={`#${id}`}
-            className="rounded-pill bg-card text-foreground-2 hover:bg-accent inline-flex min-h-11 items-center border px-4 text-sm font-medium sm:min-h-9"
+      {lens === 'engineering' ? (
+        <EngineeringLens search={search} />
+      ) : (
+        <>
+          <nav aria-label="Sections" className="flex flex-wrap gap-2">
+            {nav.map(([id, label]) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                className="rounded-pill bg-card text-foreground-2 hover:bg-accent inline-flex min-h-11 items-center border px-4 text-sm font-medium sm:min-h-9"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+          <Section
+            id="pipeline"
+            title="Pipeline"
+            description="Open quotes right now. The amount is the Salesforce opportunity amount as entered, so read it as size of opportunity, not price."
           >
-            {label}
-          </a>
-        ))}
-      </nav>
-      <Section
-        id="pipeline"
-        title="Pipeline"
-        description="Open quotes right now. The amount is the Salesforce opportunity amount as entered, so read it as size of opportunity, not price."
-      >
-        <PipelineSection search={search} />
-      </Section>
-      <Section
-        id="cycle"
-        title="Cycle time"
-        description="How many days a quote spends in each stage and from intake to release. Time on a recorded customer or internal hold is taken out."
-      >
-        <CycleSection search={search} />
-      </Section>
-      <Section
-        id="flow"
-        title="Flow"
-        description="Whether work is arriving faster than it is being closed, and where it is sitting."
-      >
-        <FlowSection search={search} />
-      </Section>
-      <Section
-        id="outcomes"
-        title="Outcomes"
-        description="What happens to the proposals we issue. The win rate only counts decided quotes, so it always sits next to how many outcomes were actually recorded."
-      >
-        <OutcomesSection search={search} />
-      </Section>
-      <Section
-        id="quality"
-        title="Quality and governance"
-        description="How complete intake is, how G1 qualification lands, how often defaults are overridden, and whether every issued proposal went through every gate."
-      >
-        <QualitySection search={search} />
-      </Section>
-      <Section
-        id="priority"
-        title="Priority"
-        description="How quotes spread across tiers, and whether the manual engineering queue treats higher tiers first."
-      >
-        <PrioritySection search={search} />
-      </Section>
-      {showAdoption && (
-        <Section
-          id="adoption"
-          title="Adoption"
-          description="Who is using QuoteFlow each week, from the audit log."
-        >
-          <AdoptionSection search={search} />
-        </Section>
+            <PipelineSection search={search} />
+          </Section>
+          <Section
+            id="outcomes"
+            title="Outcomes"
+            description="What happens to the proposals we issue. The win rate only counts decided quotes, so it always sits next to how many outcomes were actually recorded. Awards still in Commit & Hand Off are shown beside it."
+          >
+            <OutcomesSection search={search} />
+          </Section>
+          <Section
+            id="cycle"
+            title="Cycle time"
+            description="How many days a quote spends in each stage and from intake to release. Time on a recorded customer or internal hold is taken out."
+          >
+            <CycleSection search={search} />
+          </Section>
+          <Section
+            id="flow"
+            title="Flow"
+            description="Whether work is arriving faster than it is being closed, and where it is sitting."
+          >
+            <FlowSection search={search} />
+          </Section>
+          <Section
+            id="reasons"
+            title="Reasons"
+            description="The reason codes behind the numbers above: why quotes are lost, and why work is sent back to the KAM."
+          >
+            <ReasonsSection search={search} />
+          </Section>
+          <Section
+            id="quality"
+            title="Quality and governance"
+            description="How complete intake is, how G1 qualification lands, how often defaults are overridden, and whether every issued proposal went through every gate."
+          >
+            <QualitySection search={search} />
+          </Section>
+          <Section
+            id="priority"
+            title="Priority"
+            description="How quotes spread across tiers, and whether the manual engineering queue treats higher tiers first."
+          >
+            <PrioritySection search={search} />
+          </Section>
+          {showAdoption && (
+            <Section
+              id="adoption"
+              title="Adoption"
+              description="Who is using QuoteFlow each week, from the audit log."
+            >
+              <AdoptionSection search={search} />
+            </Section>
+          )}
+        </>
       )}
       <footer
         className="text-muted-foreground border-t pt-4 text-sm"
@@ -1231,4 +1255,17 @@ export function AnalyticsPage({
       </footer>
     </div>
   );
+}
+
+/**
+ * The lens a user lands on: Engineering for an engineering lead (or engineer) who is not also a
+ * reader of the leadership report by role (Leadership, Sales leader, Admin); the leadership report
+ * for everyone else.
+ */
+export function defaultLens(roles: readonly string[], available: readonly Lens[]): Lens {
+  const engineering = roles.includes('EngLead') || roles.includes('Engineer');
+  const reportReader = ['Leadership', 'SalesLeader', 'Admin'].some((r) => roles.includes(r));
+  return engineering && !reportReader && available.includes('engineering')
+    ? 'engineering'
+    : 'leadership';
 }

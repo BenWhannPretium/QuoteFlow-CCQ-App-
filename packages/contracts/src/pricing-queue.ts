@@ -27,6 +27,8 @@ export const PricingQueueQuery = z.object({
   productFamily: csv.optional(),
   /** A KAM's user id. */
   kam: z.string().max(64).optional(),
+  /** B-26: a pricer's user id, `me`, or `unassigned`. */
+  pricer: z.string().max(64).optional(),
   q: z.string().max(200).optional(),
 });
 export type PricingQueueQuery = z.input<typeof PricingQueueQuery>;
@@ -49,6 +51,10 @@ export const PricingQueueItem = QuoteSummary.extend({
   priceApprovedAt: z.string().nullable(),
   assignedEngineerId: z.string().nullable(),
   assignedEngineerName: z.string().nullable(),
+  /** B-26: the pricer the pricing lead assigned it to. */
+  assignedPricerId: z.string().nullable(),
+  assignedPricerName: z.string().nullable(),
+  pricerAssignedAt: z.string().nullable(),
   /** The caller may edit this quote's Quoting tab. */
   canEdit: z.boolean(),
 });
@@ -68,8 +74,28 @@ export const PricingQueueResponse = z.object({
   canEdit: z.boolean(),
   /** Decide G3 (gate.G3.submit). */
   canDecide: z.boolean(),
+  /** B-26: assign / reassign pricers (pricingQueue.assign: the pricing lead, Admin). */
+  canAssign: z.boolean(),
+  /** B-26: the pricer picker with each pricer's open Quoting load (empty unless canAssign). */
+  pricers: z.array(
+    z.object({ id: z.string(), displayName: z.string(), openAssigned: z.number().int() }),
+  ),
   /** G2 outcome keys and labels for the filter. */
   g2Outcomes: z.array(z.object({ key: z.string(), label: z.string() })),
   items: z.array(PricingQueueItem),
 });
 export type PricingQueueResponse = z.infer<typeof PricingQueueResponse>;
+
+/** B-26: POST /quotes/:quoteNumber/pricing-assignment. */
+export const PricerAssignmentBody = z.object({ pricerId: z.uuid() }).strict();
+export type PricerAssignmentBody = z.infer<typeof PricerAssignmentBody>;
+
+export const PricerAssignmentResponse = z.object({
+  quoteNumber: z.string(),
+  assignedPricerId: z.string(),
+  assignedPricerName: z.string().nullable(),
+  pricerAssignedAt: z.string().nullable(),
+  /** False when the pricer was already assigned (nothing recorded). */
+  changed: z.boolean(),
+});
+export type PricerAssignmentResponse = z.infer<typeof PricerAssignmentResponse>;

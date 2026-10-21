@@ -13,6 +13,9 @@ import type { Role } from '../types/roles';
 /** The stage the pricing queue lists (hybrid seed: Quoting). */
 export const PRICING_QUEUE_STAGE_KEY = 'QUOTING';
 
+/** B-26: the G3 outcome that keeps the quote in Quoting and redoes the cost (clears the attestation). */
+export const RECOST_OUTCOME = 'recost';
+
 /** The G2 outcomes the queue flags for Pricing. */
 export const FLAGGED_G2_OUTCOMES = ['capital_required', 'proceed_with_risk'] as const;
 

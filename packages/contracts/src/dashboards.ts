@@ -14,6 +14,7 @@ export const DASHBOARD_ROLES = [
   'EngLead',
   'Engineer',
   'Pricing',
+  'PricingLead',
   'Approver',
   'Leadership',
 ] as const;
@@ -164,9 +165,20 @@ export const EngineeringDashboard = z.object({
 });
 export type EngineeringDashboard = z.infer<typeof EngineeringDashboard>;
 
+/** Pricing and the pricing lead (B-26) share one dashboard; `load` is the pricing lead's triage view. */
 export const PricingDashboard = z.object({
-  role: z.literal('Pricing'),
+  role: z.enum(['Pricing', 'PricingLead']),
+  /** `unassigned` counts Quoting quotes with no pricer (the pricing lead's view; null for Pricing). */
   queue: QueueHealth,
+  /** B-26: open Quoting quotes per assigned pricer, and those with none (PricingLead only). */
+  load: z
+    .object({
+      info: MetricInfo,
+      items: z.array(
+        z.object({ pricerId: z.string().nullable(), name: z.string(), open: z.number() }),
+      ),
+    })
+    .nullable(),
   capitalPending: Count,
   medianInQuoting: Median,
 });

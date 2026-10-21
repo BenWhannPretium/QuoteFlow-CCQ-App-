@@ -116,6 +116,8 @@ export const outcomeDefinitionSchema = z
     reasonContext: z.string().min(1).optional(),
     requiredFields: z.array(requiredRuleSchema).default([]),
     notify: z.array(z.object({ type: key, to: notificationTargetSchema }).strict()).default([]),
+    /** B-26: the outcome's definition shown next to it in the decision dialog (admin-editable). */
+    helpText: z.string().nullable().default(null),
     provisional: z.boolean().default(true),
   })
   .strict();

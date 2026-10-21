@@ -1,4 +1,5 @@
 import type {
+  CerStatus,
   CustomerDecisionDetail,
   HandoffBody,
   QuoteDetail,
@@ -23,7 +24,16 @@ import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
 
 // B-13: the Customer Decision header (validity countdown, SF stage side by side), the closure record
-// and the minimal Awarded hand-off record.
+// and the hand-off record. B-26: the hand-off belongs to Stage 6 (Commit & Hand Off), where the CER is
+// recorded as a reference (status, ID, approval date) and the receiving team accepts the hand-off.
+
+/** B-26: CER status labels (the CER itself stays in Apex: a reference only). */
+export const CER_STATUS_LABELS: Record<CerStatus, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  not_approved: 'Not approved',
+  not_required: 'Not required',
+};
 
 /** "12 days left" / "Last day" / "Expired 3 days ago", amber at ≤ the warning window, red once expired. */
 export function ValidityChip({
@@ -98,6 +108,16 @@ export function CustomerDecisionHeader({ quote }: { quote: QuoteDetail }) {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-base font-semibold">Customer decision</h2>
         {waiting && <ValidityChip validity={cd.validity} />}
+        {cd.inNegotiation && (
+          <span
+            data-testid="negotiating-chip"
+            title="The customer countered within the approved range (G5 In negotiation)."
+            className="bg-secondary text-foreground rounded-pill inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold"
+          >
+            <HandshakeIcon className="size-3.5" aria-hidden="true" />
+            In negotiation
+          </span>
+        )}
       </div>
       <KeyValueGrid
         columns={3}
@@ -170,7 +190,8 @@ export function ClosureCard({ closure }: { closure: CustomerDecisionDetail['clos
 type HandoffForm = {
   acceptanceEvidence: string;
   cerId: string;
-  bprId: string;
+  cerStatus: CerStatus;
+  cerApprovedOn: string;
   receivingRole: string;
   receivingRoleOther: string;
   receivingContactName: string;
@@ -184,7 +205,8 @@ function formFrom(cd: CustomerDecisionDetail): HandoffForm {
   return {
     acceptanceEvidence: h?.acceptanceEvidence ?? '',
     cerId: h?.cerId ?? '',
-    bprId: h?.bprId ?? '',
+    cerStatus: h?.cerStatus ?? 'pending',
+    cerApprovedOn: h?.cerApprovedOn ?? '',
     receivingRole: h?.receivingRole ?? '',
     receivingRoleOther: h?.receivingRoleOther ?? '',
     receivingContactName: h?.receivingContactName ?? '',
@@ -194,9 +216,14 @@ function formFrom(cd: CustomerDecisionDetail): HandoffForm {
   };
 }
 
+/** Stage 6 and the Closed – Won stage show the hand-off record. */
+const HANDOFF_STAGES = new Set(['COMMIT_HANDOFF', 'AWARDED']);
+
 /**
- * The minimal hand-off record (Stage 6) on an AWARDED quote. CER and BPR are references only; there is
- * no integration in MVP. Editable by the KAM (own), a SalesLeader and Admin; read-only for everyone else.
+ * The hand-off record (Stage 6, Commit & Hand Off; B-26). The CER is a reference only (no integration in
+ * MVP): its status, ID and approval date. G6 Advance (close Won) needs the CER approved or not required
+ * and the hand-off accepted by the receiving team. Editable by the KAM (own), a SalesLeader and Admin;
+ * read-only for everyone else.
  */
 export function HandoffCard({
   quote,
@@ -206,7 +233,7 @@ export function HandoffCard({
   /** Open with focus on the form (right after recording Awarded). */
   autoFocus?: boolean;
 }) {
-  if (quote.stageKey !== 'AWARDED') return null;
+  if (!HANDOFF_STAGES.has(quote.stageKey)) return null;
   // A new saved version (or the record the award just opened) starts the form from what is stored.
   return (
     <HandoffEditor
@@ -242,13 +269,15 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
     mutationFn: () => {
       const body: HandoffBody = {};
       const changed = (k: keyof HandoffForm) => form[k] !== stored[k];
-      const text = (k: Exclude<keyof HandoffForm, 'complete' | 'acceptanceEvidence'>) =>
-        form[k].trim() === '' ? null : form[k];
+      const text = (
+        k: Exclude<keyof HandoffForm, 'complete' | 'acceptanceEvidence' | 'cerStatus'>,
+      ) => (form[k].trim() === '' ? null : form[k]);
       if (changed('acceptanceEvidence') && form.acceptanceEvidence)
         body.acceptanceEvidence = form.acceptanceEvidence as HandoffBody['acceptanceEvidence'];
+      if (changed('cerStatus')) body.cerStatus = form.cerStatus;
       for (const k of [
         'cerId',
-        'bprId',
+        'cerApprovedOn',
         'receivingRole',
         'receivingRoleOther',
         'receivingContactName',
@@ -268,7 +297,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
       });
       await queryClient.invalidateQueries({ queryKey: timelineQueryKey(quote.quoteNumber) });
       toast.success({
-        title: res.customerDecision.handoff?.completed ? 'Hand-off complete' : 'Hand-off saved',
+        title: res.customerDecision.handoff?.completed ? 'Hand-off accepted' : 'Hand-off saved',
       });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -284,10 +313,18 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
         <CardTitle>
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <HandshakeIcon className="size-4" aria-hidden="true" />
-            Hand-off
+            Commit &amp; hand off
+            {h && (
+              <span
+                data-testid="cer-status"
+                className="bg-secondary text-foreground rounded-pill px-2 py-0.5 text-xs font-semibold"
+              >
+                CER: {CER_STATUS_LABELS[h.cerStatus]}
+              </span>
+            )}
             {h?.completed && (
               <span className="bg-success/15 text-success rounded-pill px-2 py-0.5 text-xs font-semibold">
-                Complete
+                Hand-off accepted
               </span>
             )}
           </h2>
@@ -295,16 +332,22 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
       </CardHeader>
       <CardContent className="grid gap-4">
         <p className="text-muted-foreground text-sm">
-          Minimal hand-off for MVP: who receives the award and the CER / BPR references (links only;
-          no integration).
+          The customer said yes; commitment comes next. Record the CER (a reference to Apex: status,
+          ID, approval date) and the receiving team that accepted the hand-off. Closing Won (G6
+          Advance) needs the CER approved or not required and the hand-off accepted.
         </p>
         {!editable ? (
           <KeyValueGrid
             items={[
               { id: 'evidence', label: 'Acceptance evidence', value: h?.acceptanceEvidenceLabel },
               { id: 'acc-date', label: 'Accepted by the customer', value: h?.acceptanceDate },
+              {
+                id: 'cer-status',
+                label: 'CER status',
+                value: h ? CER_STATUS_LABELS[h.cerStatus] : null,
+              },
               { id: 'cer', label: 'CER ID (Apex)', value: h?.cerId },
-              { id: 'bpr', label: 'BPR ID', value: h?.bprId },
+              { id: 'cer-on', label: 'CER approved on', value: h?.cerApprovedOn },
               {
                 id: 'role',
                 label: 'Receiving role',
@@ -359,7 +402,30 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
                   )}
                 </span>
               </div>
-              <Field label="CER ID (Apex)" hint="Reference only." error={errorFor(errors, 'cerId')}>
+              <Field
+                label="CER status"
+                hint="Per the official CER approval matrix (provisional, D-26)."
+                error={errorFor(errors, 'cerStatus')}
+              >
+                {(id) => (
+                  <NativeSelect
+                    id={id}
+                    value={form.cerStatus}
+                    onChange={(e) => set('cerStatus')(e.target.value as CerStatus)}
+                  >
+                    {(Object.keys(CER_STATUS_LABELS) as CerStatus[]).map((k) => (
+                      <option key={k} value={k}>
+                        {CER_STATUS_LABELS[k]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
+              </Field>
+              <Field
+                label="CER ID (Apex)"
+                hint={form.cerStatus === 'approved' ? 'Required when approved.' : 'Reference only.'}
+                error={errorFor(errors, 'cerId')}
+              >
                 {(id) => (
                   <Input
                     id={id}
@@ -370,15 +436,16 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
                 )}
               </Field>
               <Field
-                label="BPR ID (price implementation)"
-                hint="Reference only."
-                error={errorFor(errors, 'bprId')}
+                label="CER approved on"
+                hint={form.cerStatus === 'approved' ? 'Required when approved.' : undefined}
+                error={errorFor(errors, 'cerApprovedOn')}
               >
                 {(id) => (
                   <Input
                     id={id}
-                    value={form.bprId}
-                    onChange={(e) => set('bprId')(e.target.value)}
+                    type="date"
+                    value={form.cerApprovedOn}
+                    onChange={(e) => set('cerApprovedOn')(e.target.value)}
                   />
                 )}
               </Field>
@@ -445,7 +512,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
                 checked={form.complete}
                 onChange={(e) => set('complete')(e.target.checked)}
               />
-              Hand-off complete
+              Hand-off accepted by the receiving team
               <span className="text-muted-foreground text-xs">
                 Needs the receiving role, contact and accepted-by date.
               </span>

@@ -226,7 +226,7 @@ describe('priority tier: request → approve → applied → revert', () => {
     expect(toApprovers.map((n) => n.userId)).toContain(await userId('EngLead'));
     expect(toApprovers.map((n) => n.userId)).not.toContain(kamId);
 
-    await as('EngLead').post(`/api/v1/overrides/${override.id}/approve`, {});
+    await as('EngLead').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' });
     const toRequester = await db.db
       .select()
       .from(schema.notification)
@@ -248,7 +248,9 @@ describe('priority tier: request → approve → applied → revert', () => {
       .update(schema.quote)
       .set({ priorityTier: 'CRITICAL' })
       .where(eq(schema.quote.quoteNumber, qn));
-    const res = await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, {});
+    const res = await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, {
+      note: 'ok',
+    });
     expect(res.statusCode, res.body).toBe(409);
     expect(res.json()).toMatchObject({ code: 'override_conflict' });
     const [stored] = await db.db
@@ -262,7 +264,7 @@ describe('priority tier: request → approve → applied → revert', () => {
   it('a revert fails with 409 when a later change replaced the value', async () => {
     const qn = await freshQuote();
     const { override } = await requestTier(qn);
-    await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, {});
+    await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' });
     await db.db
       .update(schema.quote)
       .set({ priorityTier: 'LOW' })
@@ -316,7 +318,8 @@ describe('priority tier: request → approve → applied → revert', () => {
     expect((await quoteRow(qn)).priorityTier).toBe(original);
     // Already decided: a second decision is a conflict.
     expect(
-      (await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, {})).statusCode,
+      (await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
     ).toBe(409);
   });
 });
@@ -327,18 +330,22 @@ describe('who approves is config (blueprint gap, R1)', () => {
     const { override } = await requestTier(qn, 'SalesLeader');
     // Segregation: the SalesLeader who asked cannot approve their own request.
     expect(
-      (await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, {})).statusCode,
+      (await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
     ).toBe(403);
     // Admin holds override.approve in the matrix but is not a configured tier approver.
     expect(
-      (await as('Admin').post(`/api/v1/overrides/${override.id}/approve`, {})).statusCode,
+      (await as('Admin').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
     ).toBe(403);
     // Pricing has no override.approve at all (route floor).
     expect(
-      (await as('Pricing').post(`/api/v1/overrides/${override.id}/approve`, {})).statusCode,
+      (await as('Pricing').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
     ).toBe(403);
     expect(
-      (await as('EngLead').post(`/api/v1/overrides/${override.id}/approve`, {})).statusCode,
+      (await as('EngLead').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
     ).toBe(200);
   });
 
@@ -351,12 +358,14 @@ describe('who approves is config (blueprint gap, R1)', () => {
     const qn = await freshQuote();
     const { override } = await requestTier(qn);
     expect(
-      (await as('EngLead').post(`/api/v1/overrides/${override.id}/approve`, {})).statusCode,
+      (await as('EngLead').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
     ).toBe(403);
     const inbox = OverrideListResponse.parse((await as('EngLead').get('/api/v1/overrides')).json());
     expect(inbox.items.map((i) => i.id)).not.toContain(override.id);
     expect(
-      (await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, {})).statusCode,
+      (await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
     ).toBe(200);
   });
 

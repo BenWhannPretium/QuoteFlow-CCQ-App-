@@ -45,6 +45,8 @@ import {
   type OutcomeRow,
 } from '@ccq/db/repos';
 
+import { COMMIT_STAGE_KEY } from '@ccq/domain';
+
 import { REPORT_TIME_ZONE, dayIn, startOfDay } from './auditAdmin';
 import { ServiceProblem } from './problem';
 
@@ -270,8 +272,8 @@ export class AnalyticsService {
 
   async outcomes(withTx: AnalyticsWithTx, params: AnalyticsParams): Promise<OutcomesResponse> {
     const r = this.resolve(params);
-    const [total, byMarket, byFamily, byKam, losses, marketLabels, familyLabels] = await withTx(
-      (tx) =>
+    const [total, byMarket, byFamily, byKam, losses, marketLabels, familyLabels, open] =
+      await withTx((tx) =>
         Promise.all([
           outcomeCohort(tx, r.filters, 'total', r.asOf),
           outcomeCohort(tx, r.filters, 'market', r.asOf),
@@ -280,8 +282,9 @@ export class AnalyticsService {
           lossReasons(tx, r.filters),
           valueLabels(tx, 'market'),
           valueLabels(tx, 'product_family'),
+          pipelineByStage(tx, r.filters),
         ]),
-    );
+      );
     const split = (rows: OutcomeRow[], labels: Record<string, string> = {}): OutcomeSplitRow[] =>
       rows.map((row) => ({
         ...outcomeRates(row),
@@ -300,6 +303,13 @@ export class AnalyticsService {
       byMarket: split(byMarket, marketLabels),
       byProductFamily: split(byFamily, familyLabels),
       byKam: split(byKam),
+      commitmentPending: {
+        info: info(
+          'Quotes the customer awarded (G5) that are still in Commit & Hand Off: the CER and the receiving team’s acceptance are not recorded yet. They join the awarded count and the win rate when G6 closes them Won.',
+          'Open quotes right now; the date range does not apply',
+        ),
+        count: open.find((s) => s.stage_key === COMMIT_STAGE_KEY)?.count ?? 0,
+      },
       lossReasonsInfo: info(
         'Lost quotes by the reason the KAM recorded, biggest first, with the running share of all losses (Pareto). Expired proposals are not losses and are not here.',
         `Proposals issued ${range(r.window)} that are recorded as lost`,

@@ -465,7 +465,7 @@ describe('workflow labels and rules', () => {
 
   it('refuses to make a closing outcome skip its reason code', async () => {
     const wf = await workflow();
-    const closing = wf.outcomes.find((o) => o.requiresReasonCode && o.gateKey === 'G5')!;
+    const closing = wf.outcomes.find((o) => o.gateKey === 'G5' && o.key === 'lost')!;
     const res = await admin().patch(
       `/api/v1/admin/config/gates/${closing.gateKey}/outcomes/${closing.key}`,
       { version: closing.version, changeReason: WHY, requiresReasonCode: false },

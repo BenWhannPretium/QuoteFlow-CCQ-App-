@@ -67,6 +67,7 @@ import { FinalReviewService } from './services/final-review';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
 import { NotificationService } from './services/notificationService';
+import { CommercialService } from './services/commercial';
 import { OutcomeService } from './services/outcome';
 import { OverrideService } from './services/overrideService';
 import { PipelineService } from './services/pipeline';
@@ -479,6 +480,12 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     log: app.log.child({ component: 'outcome' }),
     ...now,
   });
+  // B-26: capital flag, commercial terms + Legal review, escalations.
+  const commercialService = new CommercialService({
+    quotes: quoteReads,
+    log: app.log.child({ component: 'commercial' }),
+    ...now,
+  });
   // B-14 pipeline views: the quote list / prioritization view, the board and the CSV export.
   const pipelineService = new PipelineService({ quotes: quoteReads, ...now });
 
@@ -539,6 +546,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     pricingAppService,
     finalReviewService,
     outcomeService,
+    commercialService,
     pipelineService,
     attachmentService,
     adminConfig,

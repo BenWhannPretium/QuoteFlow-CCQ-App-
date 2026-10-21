@@ -63,7 +63,7 @@ test('filter, then sort, then open a quote (URL holds the view)', async ({ page,
   await expect(page.getByRole('heading', { level: 1 })).toContainText(quoteNumber);
 });
 
-test('EngLead drags ENG_REVIEW → QUOTING: the G2 dialog opens on Proceed; cancel snaps back', async ({
+test('EngLead drags ENG_REVIEW → QUOTING: the G2 dialog opens on Advance; cancel snaps back', async ({
   page,
   request,
 }) => {
@@ -89,7 +89,7 @@ test('EngLead drags ENG_REVIEW → QUOTING: the G2 dialog opens on Proceed; canc
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Feasible solution?' })).toBeVisible();
-  await expect(dialog.getByRole('radio', { name: 'Proceed', exact: true })).toBeChecked();
+  await expect(dialog.getByRole('radio', { name: 'Advance', exact: true })).toBeChecked();
   await expect(page.locator('[data-column="QUOTING"]')).toContainText(quoteNumber);
 
   // Cancel: nothing was decided, the card is back in Engineering Review.

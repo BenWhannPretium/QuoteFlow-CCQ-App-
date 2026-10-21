@@ -53,14 +53,22 @@ export type AcceptanceEvidence = z.infer<typeof AcceptanceEvidence>;
 export const CodeLabel = z.object({ code: z.string(), label: z.string() });
 export type CodeLabel = z.infer<typeof CodeLabel>;
 
-/** The minimal Awarded hand-off record (Stage 6). CER / BPR are references only (no integration). */
+/** B-26 (G6a): the CER status, per the official CER matrix (TBD). */
+export const CerStatus = z.enum(['pending', 'approved', 'not_approved', 'not_required']);
+export type CerStatus = z.infer<typeof CerStatus>;
+
+/**
+ * The hand-off record (Stage 6, Commit & Hand Off). The CER is a reference only (no integration);
+ * B-26: no BPR (it is outside CCQ).
+ */
 export const HandoffRecord = z.object({
   acceptanceEvidence: AcceptanceEvidence,
   acceptanceEvidenceLabel: z.string(),
   acceptanceDate: z.string().nullable(),
   acceptanceDocumentUrl: z.string().nullable(),
   cerId: z.string().nullable(),
-  bprId: z.string().nullable(),
+  cerStatus: CerStatus,
+  cerApprovedOn: z.string().nullable(),
   receivingRole: z.string().nullable(),
   receivingRoleLabel: z.string().nullable(),
   receivingRoleOther: z.string().nullable(),
@@ -83,10 +91,12 @@ export const CustomerDecisionDetail = z.object({
   validityExpiredFlaggedAt: z.string().nullable(),
   sf: SfStageComparison,
   closure: ClosureSummary.nullable(),
-  /** Only on AWARDED quotes; null before anyone records it. */
+  /** In Commit & Hand Off and on Closed – Won quotes; null before anyone records it. */
   handoff: HandoffRecord.nullable(),
-  /** The quote is AWARDED and the caller holds handoff.edit on it. */
+  /** The quote is in Commit & Hand Off (or Closed – Won) and the caller holds handoff.edit on it. */
   canEditHandoff: z.boolean(),
+  /** B-26: the latest customer response is a counter within range ("In negotiation"). */
+  inNegotiation: z.boolean(),
   /** The caller may name a closure owner other than the default (outcome.assignOwner). */
   canAssignClosureOwner: z.boolean(),
   receivingRoles: z.array(CodeLabel),
@@ -104,13 +114,14 @@ export const HandoffBody = z
     acceptanceDate: optionalDate,
     acceptanceDocumentUrl: optionalText(2000),
     cerId: optionalText(64),
-    bprId: optionalText(64),
+    cerStatus: CerStatus.optional(),
+    cerApprovedOn: optionalDate,
     receivingRole: optionalText(80),
     receivingRoleOther: optionalText(200),
     receivingContactName: optionalText(200),
     acceptedOn: optionalDate,
     notes: optionalText(4000),
-    /** The "Hand-off complete" checkbox. */
+    /** The "Hand-off accepted" checkbox (G6b: the receiving team accepted it). */
     complete: z.boolean().optional(),
   })
   .strict();
@@ -138,6 +149,8 @@ export const OutcomesReport = z.object({
     awarded: z.number().int(),
     lost: z.number().int(),
     expired: z.number().int(),
+    /** B-26: awarded, still in Commit & Hand Off (included in `awarded`). */
+    commitmentPending: z.number().int(),
     winRate: z.number().nullable(),
   }),
   capture: z.object({

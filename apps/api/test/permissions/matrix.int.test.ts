@@ -7,13 +7,14 @@ import { ROUTE_REGISTRY, type RegisteredRoute } from './registry';
 import { buildApp } from '../../src/app';
 import { testConfig } from '../../src/test-utils';
 
-/** The eight MVP roles (PostAward is P2 and has no persona yet). */
+/** The nine MVP roles (B-26 added PricingLead; PostAward is P2 and has no persona yet). */
 const ROLES: Role[] = [
   'KAM',
   'SalesLeader',
   'EngLead',
   'Engineer',
   'Pricing',
+  'PricingLead',
   'Approver',
   'Leadership',
   'Admin',

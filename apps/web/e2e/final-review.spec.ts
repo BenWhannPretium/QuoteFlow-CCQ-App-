@@ -58,6 +58,8 @@ async function quoteInFinalReview(
       },
     ],
   });
+  // B-26: the capacity owner signs off before G2.
+  await put('capacity-signoff', 'eng-lead', { status: 'approved' });
   await post('gates/G2/decisions', 'eng-lead', { outcomeKey: g2 });
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
@@ -73,6 +75,12 @@ async function quoteInFinalReview(
       : {}),
   });
   await post('gates/G3/decisions', 'pricing', { outcomeKey: 'submit' });
+  // B-26: the KAM checks the terms before the offer can be released at G4.
+  await put('terms', 'kam', {
+    termsPaymentTerms: 'Net 45',
+    termsToolingCommitment: false,
+    checked: true,
+  });
   return quoteNumber;
 }
 
@@ -143,7 +151,7 @@ test('an Approver approves one quote and declines another from a phone', async (
   await page.getByLabel('Search Final Review').fill(approveMe);
   const card = page.locator(`[data-testid="final-review-item"][data-quote="${approveMe}"]`);
   await expect(card).toHaveCount(1);
-  await expect(card.getByTestId('g2-outcome')).toHaveText('Proceed');
+  await expect(card.getByTestId('g2-outcome')).toHaveText('Advance');
   await expect(card.getByTestId('capital-readiness')).toHaveText('Pre-approved');
 
   // ── The review: one page, the decision bar stays in reach ──
@@ -169,14 +177,19 @@ test('an Approver approves one quote and declines another from a phone', async (
   await expect(bar).toBeInViewport({ ratio: 1 });
   await page.mouse.wheel(0, 4000);
   await expect(bar).toBeInViewport({ ratio: 1 });
-  for (const name of ['Approve', 'Decline', 'Return']) {
+  for (const name of [
+    'Advance (release the offer)',
+    'Hold',
+    'Stop (withdraw)',
+    'Rework (back to the affected gate)',
+  ]) {
     const box = (await bar.getByRole('button', { name, exact: true }).boundingBox())!;
     expect(box.height, `${name} tap target height`).toBeGreaterThanOrEqual(44);
     expect(box.width, `${name} tap target width`).toBeGreaterThanOrEqual(44);
   }
 
   // ── Approve ──
-  await bar.getByRole('button', { name: 'Approve', exact: true }).click();
+  await bar.getByRole('button', { name: 'Advance (release the offer)', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByTestId('release-dates')).toContainText('does not award the quote');
   await expect(dialog.getByTestId('validity-preview')).toContainText(
@@ -185,7 +198,7 @@ test('an Approver approves one quote and declines another from a phone', async (
   expect(await seriousViolations(page)).toEqual([]);
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText('Approve recorded')).toBeVisible();
+  await expect(page.getByText('Advance (release the offer) recorded')).toBeVisible();
   await expect(page).toHaveURL(/\/approvals\?tab=final-review/);
 
   // Customer Decision, with the proposal dates; not Awarded, not Lost, still open.
@@ -218,10 +231,10 @@ test('an Approver approves one quote and declines another from a phone', async (
   await expect(page.getByTestId('review-warnings')).toContainText('Capital is still pending');
   await page
     .getByTestId('decision-bar')
-    .getByRole('button', { name: 'Decline', exact: true })
+    .getByRole('button', { name: 'Stop (withdraw)', exact: true })
     .click();
   const decline = page.getByRole('dialog');
-  await expect(decline.getByRole('radio', { name: 'Decline' })).toBeChecked();
+  await expect(decline.getByRole('radio', { name: 'Stop (withdraw)' })).toBeChecked();
   // Declining closes the quote: say so, and no release dates are offered.
   await expect(decline.getByText('Closes the quote')).toBeVisible();
   await expect(decline.getByTestId('release-dates')).toHaveCount(0);
@@ -235,7 +248,7 @@ test('an Approver approves one quote and declines another from a phone', async (
   expect(await seriousViolations(page)).toEqual([]);
   await decline.getByRole('button', { name: 'Record decision' }).click();
   await expect(decline).toHaveCount(0);
-  await expect(page.getByText('Decline recorded')).toBeVisible();
+  await expect(page.getByText('Stop (withdraw) recorded')).toBeVisible();
 
   const declined = await quote(request, declineMe);
   expect(declined).toMatchObject({ stageKey: 'DECLINED', status: 'closed', outcome: 'declined' });
@@ -252,7 +265,9 @@ test('an Approver approves one quote and declines another from a phone', async (
   await page.goto(`/quotes/${declineMe}/review`);
   await expect(page.getByTestId('not-in-final-review')).toBeVisible();
   await expect(page.getByTestId('decision-unavailable')).toContainText('No decision is waiting');
-  await expect(page.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Advance (release the offer)', exact: true }),
+  ).toHaveCount(0);
 });
 
 test('a KAM cannot reach the approvals queue, and a reader of the review cannot decide', async ({

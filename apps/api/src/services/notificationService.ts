@@ -166,6 +166,12 @@ export interface NotificationContent {
   body: string;
   /** Never notify the person who caused the event. */
   excludeUserId?: string;
+  /**
+   * B-26 (CCQ demo, 10/20): a queue-arrival alert still reaches the person who caused it when they get
+   * it through a role they hold. One person can hold several roles (a KAM who is also the engineering
+   * lead): their own submit is new work in the other queue, so they need the alert.
+   */
+  notifyActorViaRole?: boolean;
   payload?: Record<string, string>;
   dedupeKey?: string;
   at?: Date;
@@ -196,7 +202,8 @@ export async function persistNotifications(
     const ids =
       p.recipient.kind === 'user' ? [p.recipient.userId] : usersByRole.get(p.recipient.role)!;
     for (const userId of ids) {
-      if (userId === content.excludeUserId) continue;
+      const viaRole = p.recipient.kind === 'role' && content.notifyActorViaRole === true;
+      if (userId === content.excludeUserId && !viaRole) continue;
       const key = `${userId}|${p.type}`;
       if (recipients.has(key)) continue;
       recipients.set(key, userId);

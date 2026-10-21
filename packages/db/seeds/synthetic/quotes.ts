@@ -9,7 +9,7 @@ import {
 import type { Actor, ScoringModel, TransitionRequest, WorkflowConfig } from '@ccq/domain';
 
 import type { SyntheticOpportunity } from './opportunities';
-import type { Persona, PersonaKey } from './personas';
+import { ORIGINAL_PERSONAS, type Persona, type PersonaKey } from './personas';
 import type { Rng } from './rng';
 import { DAY_MS } from './rng';
 import type { DbOrTx } from '../../src/client';
@@ -693,7 +693,6 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             });
             state!.fields = withDerivedFields(
               (await loadQuoteState(db, quoteId))!,
-              opp.customer.status,
               SEED_DERIVED_SETTINGS,
             ).fields;
           }
@@ -930,7 +929,8 @@ async function addExtras(
   }
 
   if (rng.chance(0.5)) {
-    const viewer = rng.pick([...personas.values()]);
+    // The original personas only, so a later persona does not shift who viewed what.
+    const viewer = rng.pick([...personas.values()].slice(0, ORIGINAL_PERSONAS));
     await insertAuditEvent(db, {
       at: to,
       actorId: viewer.id,

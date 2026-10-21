@@ -4,6 +4,7 @@ import type {
   WorkflowConfigInput,
 } from '../../types/workflow-config';
 import { parseWorkflowConfig } from '../validate-config';
+import { OUTCOME_HELP } from './outcome-help';
 import { SEED_REASON_CODES } from './reason-codes';
 
 type OutcomeInput = WorkflowConfigInput['outcomes'][number];
@@ -141,7 +142,14 @@ function outcome(
   label: string,
   extra: Partial<OutcomeInput> = {},
 ): OutcomeInput {
-  return { gateKey, key, label, provisional: true, ...extra };
+  return {
+    gateKey,
+    key,
+    label,
+    helpText: OUTCOME_HELP[`${gateKey}/${key}`] ?? null,
+    provisional: true,
+    ...extra,
+  };
 }
 function transition(
   gateKey: string,

@@ -45,7 +45,7 @@ const splitRefs = (text: string) =>
 
 /**
  * The quote's "Quoting" tab (B-11, CR-25/26, DEC-19/20/23). Pricing records the price APPROVAL as a
- * decision (who, when, on what basis, pricing-app references) and the capital readiness, then submits
+ * decision (who, when, on what basis, an optional legacy ERF #), the costing attestation and the capital readiness, then submits
  * to Final Review (G3). There is no price figure to edit anywhere (PRD §9). Everything here except
  * the approval status is commercial: the API strips it for KAMs, Engineers and SalesLeaders.
  */
@@ -61,7 +61,7 @@ export function QuotingTab({
   const record = quoting.pricingRecord ?? null;
   return (
     <div className="grid gap-6" data-testid="quoting-tab">
-      <ApprovalStatus quoting={quoting} />
+      <ApprovalStatus quoting={quoting} passThrough={quote.commercial.passThroughEligible} />
       {quoting.commercialRedacted ? (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -96,7 +96,13 @@ export function QuotingTab({
   );
 }
 
-function ApprovalStatus({ quoting }: { quoting: QuotingDetail }) {
+function ApprovalStatus({
+  quoting,
+  passThrough,
+}: {
+  quoting: QuotingDetail;
+  passThrough: boolean;
+}) {
   const a = quoting.approval;
   return (
     <section
@@ -119,8 +125,16 @@ function ApprovalStatus({ quoting }: { quoting: QuotingDetail }) {
         <>
           <CircleAlertIcon className="text-muted-foreground size-5" aria-hidden="true" />
           <span>
-            Price approval not recorded yet
-            {a.quoteVersion > 1 ? ` for version ${a.quoteVersion}` : ''}.
+            {passThrough ? (
+              <span data-testid="price-approval-not-required">
+                Price approval not required: below the pass-through threshold (D-24).
+              </span>
+            ) : (
+              <>
+                Price approval not recorded yet
+                {a.quoteVersion > 1 ? ` for version ${a.quoteVersion}` : ''}.
+              </>
+            )}
           </span>
         </>
       )}
@@ -160,7 +174,7 @@ function useRefresh(quoteNumber: string) {
 }
 
 /**
- * B-15: the read-only pricing-app panel. "Use as reference" adds the ERF/BPR to the current version's
+ * B-15: the read-only pricing-app panel. "Use as reference" adds the legacy ERF to the current version's
  * pricing record through the B-11 route (format-checked there); the server then sets the quote's ERF
  * number if it has none. Unsaved edits in the approval form below are reloaded from the server.
  */
@@ -168,16 +182,13 @@ function PricingContextForQuote({ quote }: { quote: QuoteDetail }) {
   const refresh = useRefresh(quote.quoteNumber);
   const record = quote.quoting.pricingRecord ?? null;
   const add = useMutation({
-    mutationFn: ({ kind, value }: { kind: ReferenceKind; value: string }) =>
-      api.updatePricingRecord(
-        quote.quoteNumber,
-        kind === 'erf'
-          ? { erfRefs: [...(record?.erfRefs ?? []), value] }
-          : { bprRefs: [...(record?.bprRefs ?? []), value] },
-      ),
-    onSuccess: async (detail, { kind, value }) => {
+    mutationFn: ({ value }: { kind: ReferenceKind; value: string }) =>
+      api.updatePricingRecord(quote.quoteNumber, {
+        erfRefs: [...(record?.erfRefs ?? []), value],
+      }),
+    onSuccess: async (detail, { value }) => {
       await refresh(detail);
-      toast.success({ title: `Added ${value} to the ${kind.toUpperCase()} references` });
+      toast.success({ title: `Added ${value} to the legacy ERF references` });
     },
     onError: (err) => {
       const [first] = problemErrors(err);
@@ -276,8 +287,6 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     pricingBasisNote: record?.pricingBasisNote ?? '',
     approvedRangeNote: record?.approvedRangeNote ?? '',
     erfRefs: (record?.erfRefs ?? []).join(', '),
-    bprRefs: (record?.bprRefs ?? []).join(', '),
-    noPricingAppRecordNote: record?.noPricingAppRecordNote ?? '',
     costingCompleted: record?.costingCompleted ?? false,
   };
   // What is stored: the defaulted approver (the caller) and time are a change until saved.
@@ -305,9 +314,6 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
       if (changed('pricingBasisNote')) body.pricingBasisNote = form.pricingBasisNote;
       if (changed('approvedRangeNote')) body.approvedRangeNote = form.approvedRangeNote;
       if (changed('erfRefs')) body.erfRefs = splitRefs(form.erfRefs);
-      if (changed('bprRefs')) body.bprRefs = splitRefs(form.bprRefs);
-      if (changed('noPricingAppRecordNote'))
-        body.noPricingAppRecordNote = form.noPricingAppRecordNote;
       if (changed('costingCompleted')) body.costingCompleted = form.costingCompleted;
       return api.updatePricingRecord(quote.quoteNumber, body);
     },
@@ -320,8 +326,10 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
-  const refError = (kind: 'erfRefs' | 'bprRefs') =>
-    errors.find((e) => e.path === `/${kind}` || e.path.startsWith(`/${kind}/`))?.message;
+  const refError = errors.find(
+    (e) => e.path === '/erfRefs' || e.path.startsWith('/erfRefs/'),
+  )?.message;
+  const passThrough = quote.commercial.passThroughEligible;
 
   if (!quoting.canEdit) {
     return (
@@ -360,56 +368,57 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
           }}
         >
           <fieldset className="grid gap-4">
-            <legend className="mb-2 text-sm font-semibold">Pricing context</legend>
-            <p className="text-muted-foreground text-sm" data-testid="pricing-app-hint">
-              Pick references with &ldquo;Use as reference&rdquo; in the Pricing context above, or
-              type them (checked by format only), e.g. while the pricing app is unavailable.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="ERF number(s)"
-                hint={`Separate with commas, e.g. ${quoting.refFormats.erf.example}`}
-                error={refError('erfRefs')}
-              >
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={form.erfRefs}
-                    onChange={(e) => set('erfRefs')(e.target.value)}
-                  />
-                )}
-              </Field>
-              <Field
-                label="BPR number(s)"
-                hint={`Separate with commas, e.g. ${quoting.refFormats.bpr.example}`}
-                error={refError('bprRefs')}
-              >
-                {(id) => (
-                  <Input
-                    id={id}
-                    value={form.bprRefs}
-                    onChange={(e) => set('bprRefs')(e.target.value)}
-                  />
-                )}
-              </Field>
-            </div>
+            <legend className="mb-2 text-sm font-semibold">Legacy reference</legend>
             <Field
-              label="No pricing-app record yet"
-              hint="Only if there is no ERF or BPR yet: say why. It stands in for a reference at G3."
-              error={errorFor(errors, 'noPricingAppRecordNote')}
+              label="Legacy ERF #"
+              hint={`Optional, transition only (B-26): the ${quoting.refFormats.erf.label}, if the opportunity started in the legacy ERF app. Separate with commas, e.g. ${quoting.refFormats.erf.example}. No gate needs it.`}
+              error={refError}
             >
               {(id) => (
                 <Input
                   id={id}
-                  value={form.noPricingAppRecordNote}
-                  onChange={(e) => set('noPricingAppRecordNote')(e.target.value)}
+                  value={form.erfRefs}
+                  onChange={(e) => set('erfRefs')(e.target.value)}
                 />
               )}
             </Field>
           </fieldset>
 
           <fieldset className="grid gap-4">
+            <legend className="mb-2 text-sm font-semibold">Costing (required before price)</legend>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 accent-[var(--primary)]"
+                checked={form.costingCompleted}
+                onChange={(e) => set('costingCompleted')(e.target.checked)}
+                data-testid="costing-completed"
+              />
+              Costing completed (Cost-to-Serve)
+              <span className="text-muted-foreground text-xs">
+                Required to submit to Final Review (G3). Attestation only (CR-25); costing stays in
+                Excel and the pricing app.
+              </span>
+            </label>
+            {record?.costingAttestedByName && record.costingCompleted && (
+              <p className="text-muted-foreground text-xs">
+                Ticked by {record.costingAttestedByName}
+                {record.costingAttestedAt ? ` on ${absoluteTime(record.costingAttestedAt)}` : ''}.
+              </p>
+            )}
+          </fieldset>
+
+          <fieldset className="grid gap-4">
             <legend className="mb-2 text-sm font-semibold">Approval</legend>
+            {passThrough && (
+              <p
+                className="bg-secondary rounded-md px-3 py-2 text-sm"
+                data-testid="pass-through-notice"
+              >
+                This quote is below the pricing pass-through threshold (D-24): a price approval is
+                not required at G3. Costing must still be attested.
+              </p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Approved by" error={errorFor(errors, 'approvedBy')}>
                 {(id) => (
@@ -465,31 +474,10 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
                 />
               )}
             </Field>
-            <label className="flex min-h-11 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 accent-[var(--primary)]"
-                checked={form.costingCompleted}
-                onChange={(e) => set('costingCompleted')(e.target.checked)}
-              />
-              Costing completed (Cost-to-Serve)
-              <span className="text-muted-foreground text-xs">
-                Attestation only (CR-25); costing stays in Excel.
-              </span>
-            </label>
-            {record?.costingAttestedByName && record.costingCompleted && (
-              <p className="text-muted-foreground text-xs">
-                Ticked by {record.costingAttestedByName}
-                {record.costingAttestedAt ? ` on ${absoluteTime(record.costingAttestedAt)}` : ''}.
-              </p>
-            )}
           </fieldset>
           <FormErrors
             errors={errors.filter(
-              (e) =>
-                !e.path.match(/^\/\w+$/) &&
-                !e.path.startsWith('/erfRefs') &&
-                !e.path.startsWith('/bprRefs'),
+              (e) => !e.path.match(/^\/\w+$/) && !e.path.startsWith('/erfRefs'),
             )}
           />
           <div>
@@ -672,9 +660,7 @@ function RecordView({ record }: { record: PricingRecordView }) {
         },
         { id: 'basis', label: 'Pricing basis', value: record.pricingBasisNote },
         { id: 'range', label: 'Approved range', value: record.approvedRangeNote },
-        { label: 'ERF', value: record.erfRefs.join(', ') || null },
-        { label: 'BPR', value: record.bprRefs.join(', ') || null },
-        { id: 'no-record', label: 'No pricing-app record', value: record.noPricingAppRecordNote },
+        { label: 'Legacy ERF #', value: record.erfRefs.join(', ') || null },
         { label: 'Costing completed', value: record.costingCompleted ? 'Yes' : 'No' },
         {
           label: 'Capital readiness',

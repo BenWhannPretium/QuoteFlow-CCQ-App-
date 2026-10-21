@@ -1,6 +1,4 @@
 import {
-  PricingBprParams,
-  PricingBprResponse,
   PricingContext,
   PricingErfParams,
   PricingErfResponse,
@@ -63,29 +61,13 @@ export const pricingAppRoutes: FastifyPluginAsyncZod<{ service: PricingAppServic
   );
 
   app.get(
-    '/pricing/bpr/:bprNumber',
-    {
-      config: { permission },
-      schema: {
-        tags: ['pricing-app'],
-        summary: 'One BPR from the pricing app (read-only, cached 5 min). 404 when unknown',
-        security,
-        params: PricingBprParams,
-        response: { 200: PricingBprResponse },
-      },
-    },
-    async (req, reply) =>
-      handleProblems(req, reply, () => service.bpr(requireActor(req), req.params.bprNumber)),
-  );
-
-  app.get(
     '/quotes/:quoteNumber/pricing-context',
     {
       config: { permission },
       schema: {
         tags: ['pricing-app'],
         summary:
-          "The quote's pricing-app context: quote.erf_number, the pricing record's ERF/BPR references and the SF ERF number resolved to ERF/BPR records, the customer's SPR history, and the CCQ vs SF ERF linkage",
+          "The quote's legacy pricing-app context (B-26: transition only, no BPR): quote.erf_number, the pricing record's legacy ERF numbers and the SF ERF number resolved to ERF records, the customer's SPR history, and the CCQ vs SF ERF linkage",
         security,
         params: QuoteNumberParams,
         response: { 200: PricingContext },

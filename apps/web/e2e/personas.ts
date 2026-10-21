@@ -33,6 +33,12 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
     landing: 'Pricing',
     nav: ['home', 'queue-pricing', 'pipeline', 'analytics'],
   },
+  // B-26: the pricing lead triages the same queue.
+  {
+    persona: 'pricing-lead',
+    landing: 'PricingLead',
+    nav: ['home', 'queue-pricing', 'pipeline', 'analytics'],
+  },
   { persona: 'approver', landing: 'Approver', nav: ['home', 'pipeline', 'approvals', 'analytics'] },
   {
     persona: 'leadership',

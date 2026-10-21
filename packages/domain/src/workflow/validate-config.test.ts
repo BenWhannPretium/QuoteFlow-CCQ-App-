@@ -54,6 +54,7 @@ describe('validateWorkflowConfig', () => {
       requiresReasonCode: false,
       requiredFields: [],
       notify: [],
+      helpText: null,
       provisional: true,
     });
     c.transitions.push({

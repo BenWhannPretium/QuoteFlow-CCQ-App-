@@ -43,7 +43,8 @@ const item = (
  *
  * "My queue" is labelled per role: the EngLead owns the engineering queue (queue.assign), an
  * Engineer works their assignments (engReview.edit, assigned), Leadership reads the queue
- * (engQueue.read), Pricing works the pricing queue (Leadership and Admin read it, pricingQueue.read).
+ * (engQueue.read), Pricing and the pricing lead (B-26) work the pricing queue (Leadership and Admin
+ * read it, pricingQueue.read).
  * The Approver's queue is Approvals: Final Review (B-12), plus the override requests an approver
  * decides (B-09). Leadership reads the Final Review queue (finalReview.read).
  * Leadership reads the usage audit log (audit.read) without the rest of Admin.

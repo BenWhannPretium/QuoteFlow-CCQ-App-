@@ -41,7 +41,6 @@ describe('PricingAppService', () => {
     await expect(
       service.searchErfs(pricing, { customer: CUSTOMER, limit: 10 }),
     ).rejects.toMatchObject({ status: 503, code: 'pricing_app_unavailable' });
-    await expect(service.bpr(pricing, 'BPR-410001')).rejects.toMatchObject({ status: 503 });
     reader.failWith = null;
     await service.erf(pricing, ERF);
 
@@ -52,7 +51,6 @@ describe('PricingAppService', () => {
     expect(lines).toEqual([
       [{ op: 'erf', code: 'EREQUEST' }, 'pricing app read failed'],
       [{ op: 'searchErfs', code: 'EREQUEST' }, 'pricing app read failed'],
-      [{ op: 'bpr', code: 'EREQUEST' }, 'pricing app read failed'],
     ]);
   });
 
@@ -62,18 +60,18 @@ describe('PricingAppService', () => {
     const err = (await service.erf(pricing, ERF).catch((e: unknown) => e)) as ServiceProblem;
     expect(err.status).toBe(503);
     expect(err.message).toBe(
-      'Pricing app unavailable (ESOCKET). Enter ERF/BPR references manually.',
+      'Pricing app unavailable (ESOCKET). Enter legacy ERF numbers manually.',
     );
   });
 
   it('counts requests, reader calls, cache hits, rows and failures by hour', async () => {
     let now = new Date('2026-11-04T15:10:00Z');
     const { reader, usage, service } = setup(() => now);
-    await service.erf(pricing, ERF); // getErf + findBprsForErf
+    await service.erf(pricing, ERF); // getErf (B-26: no BPR lookups)
     await service.erf(pricing, ERF); // cached
     reader.failWith = new Error('x');
-    await service.bpr(pricing, 'BPR-1').catch(() => {});
-    expect(usage.pending()).toMatchObject({ requests: 3, calls: 3, cacheHits: 2, failed: 1 });
+    await service.searchErfs(pricing, { customer: 'x', limit: 5 }).catch(() => {});
+    expect(usage.pending()).toMatchObject({ requests: 3, calls: 2, cacheHits: 1, failed: 1 });
     expect(usage.pending().rows).toBeGreaterThanOrEqual(1);
     now = new Date('2026-11-04T16:01:00Z');
     expect(PricingUsage.hourOf(now).toISOString()).toBe('2026-11-04T16:00:00.000Z');

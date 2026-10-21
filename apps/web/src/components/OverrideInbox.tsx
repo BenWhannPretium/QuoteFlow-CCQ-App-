@@ -60,7 +60,8 @@ function InboxItem({ override: o }: { override: OverrideDto }) {
   const queryClient = useQueryClient();
   const noteId = useId();
   const [note, setNote] = useState('');
-  const [rejecting, setRejecting] = useState(false);
+  /** B-26 (A2): both decisions need a note; it shows as required once either is tried. */
+  const [attempted, setAttempted] = useState(false);
   const decide = useMutation({
     mutationFn: (decision: 'approve' | 'reject') =>
       decision === 'approve'
@@ -121,28 +122,40 @@ function InboxItem({ override: o }: { override: OverrideDto }) {
       <p className="text-foreground-2 text-sm whitespace-pre-line">{o.justification}</p>
       <div className="grid gap-1.5">
         <label htmlFor={noteId} className="text-xs font-medium">
-          Note {rejecting ? '(required to reject)' : '(optional)'}
+          Note (required to approve or reject)
         </label>
         <Textarea
           id={noteId}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           className="min-h-16"
-          aria-invalid={rejecting && !note.trim()}
+          aria-invalid={attempted && !note.trim()}
+          aria-describedby={attempted && !note.trim() ? `${noteId}-error` : undefined}
         />
+        {attempted && !note.trim() && (
+          <p id={`${noteId}-error`} className="text-destructive text-xs" role="alert">
+            Add a note saying why.
+          </p>
+        )}
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           variant="outline"
           disabled={decide.isPending}
           onClick={() => {
-            setRejecting(true);
+            setAttempted(true);
             if (note.trim()) decide.mutate('reject');
           }}
         >
           Reject
         </Button>
-        <Button disabled={decide.isPending} onClick={() => decide.mutate('approve')}>
+        <Button
+          disabled={decide.isPending}
+          onClick={() => {
+            setAttempted(true);
+            if (note.trim()) decide.mutate('approve');
+          }}
+        >
           Approve
         </Button>
       </div>

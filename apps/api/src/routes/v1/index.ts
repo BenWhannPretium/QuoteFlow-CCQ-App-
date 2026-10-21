@@ -15,6 +15,7 @@ import { healthRoutes } from './health';
 import { intakeRoutes } from './intake';
 import { meRoutes } from './me';
 import { notificationRoutes } from './notifications';
+import { commercialRoutes } from './commercial';
 import { outcomeRoutes } from './outcome';
 import { overrideRoutes } from './overrides';
 import { pipelineRoutes } from './pipeline';
@@ -36,6 +37,7 @@ import type { FinalReviewService } from '../../services/final-review';
 import type { GateService } from '../../services/gateService';
 import type { IntakeService } from '../../services/intake';
 import type { NotificationService } from '../../services/notificationService';
+import type { CommercialService } from '../../services/commercial';
 import type { OutcomeService } from '../../services/outcome';
 import type { OverrideService } from '../../services/overrideService';
 import type { PipelineService } from '../../services/pipeline';
@@ -62,6 +64,7 @@ export interface V1Options {
   pricingAppService: PricingAppService;
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
+  commercialService: CommercialService;
   pipelineService: PipelineService;
   attachmentService: AttachmentService;
   adminConfig: AdminConfigService;
@@ -96,6 +99,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     pricingAppService,
     finalReviewService,
     outcomeService,
+    commercialService,
     pipelineService,
     attachmentService,
     adminConfig,
@@ -125,6 +129,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(pricingAppRoutes, { service: pricingAppService });
   await app.register(finalReviewRoutes, { service: finalReviewService });
   await app.register(outcomeRoutes, { service: outcomeService });
+  await app.register(commercialRoutes, { service: commercialService });
   await app.register(pipelineRoutes, { service: pipelineService });
   await app.register(attachmentRoutes, {
     service: attachmentService,

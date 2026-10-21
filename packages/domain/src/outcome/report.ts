@@ -23,6 +23,8 @@ import type { WorkflowConfig } from '../types/workflow-config';
 export const AWARDED_OUTCOME = 'awarded';
 export const LOST_OUTCOME = 'lost';
 export const EXPIRED_OUTCOME = 'expired';
+/** B-26: the G5 outcome key for a counter within the approved range (the quote stays open). */
+export const NEGOTIATING_OUTCOME = 'negotiating';
 /** The terminal stage an award lands in (Closed – Won). */
 export const AWARDED_STAGE_KEY = 'AWARDED';
 /** B-26: Stage 6, where an awarded quote waits for the CER and the hand-off (the hand-off record lives here). */

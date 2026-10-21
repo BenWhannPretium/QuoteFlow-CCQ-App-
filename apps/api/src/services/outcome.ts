@@ -20,7 +20,7 @@ import {
   upsertHandoffRecord,
 } from '@ccq/db/repos';
 import {
-  AWARDED_STAGE_KEY,
+  COMMIT_STAGE_KEY,
   CUSTOMER_DECISION_STAGE_KEY,
   assertCan,
   handoffFromAward,
@@ -61,7 +61,8 @@ function handoffColumns(v: HandoffValues) {
     acceptanceDate: v.acceptanceDate,
     acceptanceDocumentUrl: v.acceptanceDocumentUrl,
     cerId: v.cerId,
-    bprId: v.bprId,
+    cerStatus: v.cerStatus,
+    cerApprovedOn: v.cerApprovedOn,
     receivingRole: v.receivingRole,
     receivingRoleOther: v.receivingRoleOther,
     receivingContactName: v.receivingContactName,
@@ -188,9 +189,9 @@ export class OutcomeService {
         updatedAt: now,
         createdBy: current?.createdBy ?? actor.userId,
       });
-      // The quote carries the CER / BPR references too (architecture §5 "Links"), so lists can show them.
-      if (plan.changed.includes('cerId') || plan.changed.includes('bprId')) {
-        await updateQuote(tx, q.id, { cerId: plan.values.cerId, bprId: plan.values.bprId });
+      // The quote carries the CER reference too (architecture §5 "Links"), so lists can show it.
+      if (plan.changed.includes('cerId')) {
+        await updateQuote(tx, q.id, { cerId: plan.values.cerId });
       }
       if (plan.changed.length > 0 || plan.completion) {
         await insertActivityEvent(tx, {
@@ -260,9 +261,10 @@ export class OutcomeService {
 }
 
 /**
- * After a Customer Decision (G5) closes a quote, in the decision's transaction: an award opens the
- * hand-off record with the evidence (the reason code), the acceptance date and the document link, so
- * the KAM only adds who receives it. Returns whether a record was opened.
+ * After a Customer Decision (G5), in the decision's transaction: an award opens the hand-off record
+ * with the evidence (the reason code), the acceptance date and the document link, so the KAM only adds
+ * the CER and who receives it. B-26: the award moves the quote to Commit & Hand Off (it no longer
+ * closes it); G6 closes it Won. Returns whether a record was opened.
  */
 export async function onCustomerOutcome(
   tx: DbOrTx,
@@ -276,9 +278,9 @@ export async function onCustomerOutcome(
   },
 ): Promise<boolean> {
   const { effects } = input;
-  if (effects.nextStageKey !== AWARDED_STAGE_KEY || !effects.closure) return false;
+  if (effects.stageHistory.enter?.stageKey !== COMMIT_STAGE_KEY) return false;
   const values = handoffFromAward({
-    reasonCode: effects.closure.outcomeReasonCode,
+    reasonCode: effects.gateDecisionRecord.reasonCode,
     acceptedAt: input.acceptedAt,
     acceptanceDocumentUrl: input.acceptanceDocumentUrl,
   });

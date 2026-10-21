@@ -24,8 +24,10 @@ import {
   type FilterGroup,
   type FilterValue,
 } from '@/components';
+import { BulkReassignDialog } from '@/components/engineering/BulkReassignDialog';
 import { formatDuration } from '@/components/engineering/format';
 import { CapitalChip } from '@/components/pricing/CapitalChip';
+import { PricerAssignDialog } from '@/components/pricing/PricerAssignDialog';
 import { CAPITAL_LABELS, pricingQueueQueryKey } from '@/components/pricing/QuotingTab';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,7 +49,9 @@ export const Route = createFileRoute('/queue/pricing')({
 
 /**
  * The pricing queue (B-11, DEC-19/20): every quote in Quoting, highest priority first, then the
- * longest waiting. Pricing records the approval and submits to Final Review; Leadership reads. The
+ * longest waiting. B-26 (A6): the pricing lead assigns each quote to a pricer (and can move a pricer's
+ * work in bulk); everyone can filter to their own. Pricing records the approval and submits to Final
+ * Review; Leadership reads. The
  * API decides who may do what, and no price figure is shown or edited here (DEC-23, PRD §9).
  */
 function PricingQueuePage() {
@@ -56,12 +60,14 @@ function PricingQueuePage() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterValue>({});
   const [approved, setApproved] = useState<'' | 'yes' | 'no'>('');
+  const [pricer, setPricer] = useState('');
   const params: PricingQueueParams = {
     ...(filters.tier?.length ? { tier: filters.tier.join(',') } : {}),
     ...(filters.g2?.length ? { g2: filters.g2.join(',') } : {}),
     ...(filters.capital?.length ? { capital: filters.capital.join(',') } : {}),
     ...(filters.productFamily?.length ? { productFamily: filters.productFamily.join(',') } : {}),
     ...(approved ? { approved } : {}),
+    ...(pricer ? { pricer } : {}),
     ...(search.trim() ? { q: search.trim() } : {}),
   };
   const queue = useQuery({
@@ -107,6 +113,8 @@ function PricingQueuePage() {
                 onFilters={setFilters}
                 approved={approved}
                 onApproved={setApproved}
+                pricer={pricer}
+                onPricer={setPricer}
               />
             </div>
             <QueueTable data={data} />
@@ -146,6 +154,8 @@ function Toolbar({
   onFilters,
   approved,
   onApproved,
+  pricer,
+  onPricer,
 }: {
   data: PricingQueueResponse;
   search: string;
@@ -154,9 +164,12 @@ function Toolbar({
   onFilters: (v: FilterValue) => void;
   approved: '' | 'yes' | 'no';
   onApproved: (v: '' | 'yes' | 'no') => void;
+  pricer: string;
+  onPricer: (v: string) => void;
 }) {
   const { data: config } = usePublicConfig();
-  const ids = { search: useId(), approved: useId() };
+  const ids = { search: useId(), approved: useId(), pricer: useId() };
+  const [reassigning, setReassigning] = useState(false);
   const groups: FilterGroup[] = [
     {
       key: 'tier',
@@ -217,7 +230,51 @@ function Toolbar({
         <option value="no">Awaiting approval</option>
         <option value="yes">Price approved</option>
       </NativeSelect>
+      <label htmlFor={ids.pricer} className="sr-only">
+        Pricer
+      </label>
+      <NativeSelect
+        id={ids.pricer}
+        className="h-9 w-auto"
+        value={pricer}
+        onChange={(e) => onPricer(e.target.value)}
+        data-testid="pricer-filter"
+      >
+        <option value="">Any pricer</option>
+        <option value="me">Assigned to me</option>
+        <option value="unassigned">Unassigned</option>
+        {data.pricers.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.displayName}
+          </option>
+        ))}
+      </NativeSelect>
       <FiltersPopover groups={groups} value={filters} onChange={onFilters} />
+      {data.canAssign && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setReassigning(true)}
+          data-testid="reassign-pricing-work"
+        >
+          Reassign work…
+        </Button>
+      )}
+      {reassigning && (
+        <BulkReassignDialog
+          open
+          onOpenChange={setReassigning}
+          title="Reassign a pricer's work"
+          noun="pricer"
+          people={data.pricers.map((p) => ({
+            id: p.id,
+            displayName: p.displayName,
+            openCount: p.openAssigned,
+          }))}
+          queryKey={pricingQueueQueryKey}
+          reassign={api.bulkReassignPricing}
+        />
+      )}
     </div>
   );
 }
@@ -226,6 +283,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
   const { data: config } = usePublicConfig();
   const navigate = useNavigate();
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState<PricingQueueItem | null>(null);
   const label = (list: string, code: string | null) =>
     code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
 
@@ -347,6 +405,17 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
       },
       { id: 'kam', header: 'KAM', accessorFn: (q) => q.kamName ?? '' },
       {
+        id: 'pricer',
+        header: 'Pricer',
+        accessorFn: (q) => q.assignedPricerName ?? '',
+        cell: ({ row }) =>
+          row.original.assignedPricerName ? (
+            <span data-testid="assigned-pricer">{row.original.assignedPricerName}</span>
+          ) : (
+            <span className="text-muted-foreground">Unassigned</span>
+          ),
+      },
+      {
         id: 'engineer',
         header: 'Engineer',
         accessorFn: (q) => q.assignedEngineerName ?? '',
@@ -384,6 +453,11 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
               >
                 {q.canEdit ? 'Record price approval' : 'Open Quoting'}
               </DropdownMenuItem>
+              {data.canAssign && (
+                <DropdownMenuItem onSelect={() => setAssigning(q)}>
+                  {q.assignedPricerId ? 'Reassign pricer…' : 'Assign pricer…'}
+                </DropdownMenuItem>
+              )}
               {data.canDecide && q.canEdit && (
                 <DropdownMenuItem onSelect={() => setDeciding(q.quoteNumber)}>
                   Decide G3…
@@ -420,6 +494,15 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
           />
         }
       />
+      {assigning && (
+        <PricerAssignDialog
+          open
+          onOpenChange={(open) => !open && setAssigning(null)}
+          quoteNumber={assigning.quoteNumber}
+          currentPricerId={assigning.assignedPricerId}
+          pricers={data.pricers}
+        />
+      )}
       {deciding && (
         <GateDecisionDialog
           open

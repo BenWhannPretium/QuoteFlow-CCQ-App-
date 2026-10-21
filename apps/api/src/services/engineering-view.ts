@@ -10,6 +10,7 @@ import {
 import {
   ENG_QUEUE_SETTINGS_SEED,
   ENG_QUEUE_STAGE_KEY,
+  can,
   canAssignEngQueue,
   canEditEngReview,
   canSeeCommercialFields,
@@ -54,7 +55,9 @@ export async function engineeringView(
   ]);
   const people = await listUsersByIds(
     db,
-    [q.assignedEngineerId, eng?.acceptedBy].filter((id): id is string => !!id),
+    [q.assignedEngineerId, eng?.acceptedBy, eng?.capacitySignoffBy].filter(
+      (id): id is string => !!id,
+    ),
   );
   const name = (id: string | null | undefined) =>
     (id && people.find((p) => p.id === id)?.displayName) ?? null;
@@ -71,6 +74,8 @@ export async function engineeringView(
         downstreamEquipmentNotes: eng?.downstreamEquipmentNotes ?? null,
         prelimCapitalUsd: eng?.prelimCapitalUsd ?? null,
         technicalConceptNotes: eng?.technicalConceptNotes ?? null,
+        equipmentBomNotes: eng?.equipmentBomNotes ?? null,
+        supplyChainNotes: eng?.supplyChainNotes ?? null,
         updatedAt: iso(eng?.updatedAt),
       },
       capacityEvidence: capacity.map(({ row, analystName }) => ({
@@ -100,6 +105,13 @@ export async function engineeringView(
     acceptedByName: name(eng?.acceptedBy),
     review: visible.review,
     capacityEvidence: visible.capacityEvidence,
+    capacitySignoff: {
+      status: (eng?.capacitySignoffStatus as 'approved' | 'blocked' | null | undefined) ?? null,
+      byName: name(eng?.capacitySignoffBy),
+      at: iso(eng?.capacitySignoffAt),
+      note: eng?.capacitySignoffNote ?? null,
+    },
+    canSignOffCapacity: inQueue && can(actor, 'capacity.signoff', state),
     commercialRedacted: !canSeeCommercialFields(actor),
     canEdit: canEditEngReview(actor, state),
     canAccept: planAccept(actor, state, eng?.acceptedAt ?? null).ok,
