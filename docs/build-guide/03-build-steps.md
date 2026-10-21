@@ -95,7 +95,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why:** everything after this assumes a known user, roles and scope.
 - **People:** **M2 (Mon Oct 19)**, Vincent Brown / IT identity. They provide the app registrations, app roles and groups. Until then, `AUTH_MODE=dev`.
 - **Done when:**
-  - [ ] MSAL sign-in works against Entra (test tenant config). **Blocked on M2:** the MSAL code path is built and the signed-out page is covered by the Playwright smoke; flip `AUTH_MODE=entra` and fill the `ENTRA_*` values when IT delivers the app registrations.
+  - [x] MSAL sign-in works against Entra. **Done 2026-10-21** on the test URL, Pretium tenant `c99a7bb3-6a70-46a9-8a73-d46790d6cd5b`: Ben signed in, every assigned `CCQ.*` role showed as a tab, and Admin loaded. Negative test passed the same day: a user in no `SG-CCQ-*` group was refused at Microsoft sign-in.
   - [x] the API validates JWTs, maps `roles` to permissions, and upserts `app_user` on first call
   - [x] the request context sets the Postgres `app.user_id` / `app.roles` per transaction
   - [x] the permission-matrix test harness exists
@@ -150,10 +150,20 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - Tim Webb / Chris O'Brien (IT infra) to run or approve the deployment
 - **Done when:**
   - [ ] Bicep for App Service (+ staging slot in prod), PostgreSQL Flexible (private endpoint, Entra auth), Key Vault, App Insights, VNet, managed identity
-  - [ ] `deploy.yml` deploys `main` to test via OIDC
-  - [ ] the DB migrates on deploy
-  - [ ] smoke test passes against the test URL
+  - [x] `deploy.yml` deploys `main` to test via OIDC
+  - [x] the DB migrates on deploy
+  - [x] smoke test passes against the test URL. First green run: Deploy (test) #6 on 2026-10-21, triggered by the merge of PR 25.
 - **Prompt:** `prompts/B-20-azure-iac-cd.md`
+- **First deploy 2026-10-21 (runbook `06`). Values (identifiers, not secrets):**
+  - Test URL: `https://quoteflow-test.azurewebsites.net` · resource group `rg-ccq-test` · web app `quoteflow-test`
+  - Tenant: `c99a7bb3-6a70-46a9-8a73-d46790d6cd5b`
+  - QuoteFlow-API client id: `ad1e0bca-1df0-476d-84a2-1af5840b9569` · QuoteFlow-SPA client id: `033b5ed1-f56f-48c7-9c74-83089f6b311f` <!-- gitleaks:allow (public Entra client ids, also served by /api/v1/auth/config) -->
+  - Deploy identity `id-quoteflow-deploy` client id: `398c0717-2b19-46b5-8b55-60dfb9236b2f`
+- **Notes and deviations:**
+  - **Bicep is still open.** The test environment was built with the CLI runbook (`06`). Bicep for prod (private endpoint, VNet, staging slot) is still to do before B-22. Other deviations: `06` §6.
+  - **OIDC subject:** GitHub sends this repo's subject in the immutable format (`repo:BenWhannPretium@343131032/QuoteFlow-CCQ-App-@1421100339:environment:test`), so a second federated credential `github-test-env-v2` was added. `06` B8 now creates both.
+  - **The `ccq` database was missing** after M2, and startup stopped with `3D000`. It was created in the portal; `06` B2 now warns about it.
+  - **Azure's start tracker misfired once.** Right after the `3D000` fix, the Deploy step reported "site failed to start within 10 mins" while the Log stream showed the new container serving 4½ minutes in. The next deploy (#6) passed with the tracker on, so it stays on. The smoke test is now stricter: the package carries its commit (`apps/api/dist/GIT_SHA`, read by `azureStart.ts`), and the job waits up to 10 minutes for `/api/v1/health` to report that commit with `"db":"up"`, so the old container answering no longer counts as a pass.
 
 ---
 

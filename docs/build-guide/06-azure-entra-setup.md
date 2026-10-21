@@ -457,7 +457,7 @@ Use **Variables**, not **Secrets**: the workflow reads `vars.*`. The GitHub envi
    - `[quoteflow-start] migrations applied`
    - `[quoteflow-start] config seeded (+ synthetic data)`
    - `Server listening at …`
-4. **Check:** the job ends green with `healthy: {"status":"ok",…,"db":"up"}`.
+4. **Check:** the job ends green with `healthy on <commit>: {"status":"ok","version":"<commit>",…,"db":"up"}`. The smoke test waits for **this** commit, because the old container keeps serving until the new one starts.
 
 ### C3. [Dev] Sign in
 
@@ -553,7 +553,8 @@ Notes:
 | Deploy job skipped | GitHub variables missing | C1 (the job runs only once `AZURE_WEBAPP_NAME` exists) |
 | Health check times out but the logs look fine | First start of a cold B1 plan | Re-run the workflow. Check **Log stream** for `Server listening`. |
 | Log stream: `Cannot find module '/home/site/wwwroot/apps/api/dist/azureStart.js'` | Normal **before the first deploy**: the site is empty | Ignore lines older than the deploy. After a deploy, it means the package didn't land: re-run the workflow. |
-| Deploy step runs for about 10 minutes though `/api/v1/health` already answers | Azure is slow to report the new start back to `az webapp deploy` (each start spends about 1½ minutes on certificates and unpacking `node_modules`) | Wait for the step. The site is fine if `/api/v1/health` shows `"db":"up"`. |
+| Smoke test keeps printing `waiting for <sha>` while `/api/v1/health` answers with another `version` | The old container is still serving: the new one hasn't started yet (each start spends about 1½ minutes on certificates and unpacking `node_modules`) or it crashed | Read **Log stream** for the new start. It needs `Server listening`; a `refusing to start` line names the problem. |
+| Deploy step: "site failed to start within 10 mins", but **Log stream** shows the new container `Server listening` | Azure's start tracker misread a site that was crash-looping before the deploy (seen once, 2026-10-21, right after the `3D000` fix) | Re-run the workflow once the site is stable. |
 
 ---
 

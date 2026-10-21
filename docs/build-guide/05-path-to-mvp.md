@@ -54,11 +54,11 @@ Each step: **who**, **what the meeting must produce** (your checklist for the me
 - **Who:** Darren Miller, Oliver Kade (VP IT), Brennan Paul (D&A). Optional: Chris O'Brien, Tre Curry.
 - **Why first:** IT won't provision without approval, and production data can't load without D&A sign-off. Both have the longest lead time.
 - **Leave the meeting with:**
-  - [ ] Azure hosting approved (App Service + PostgreSQL + Key Vault + App Insights, test and prod resource groups)
-  - [ ] a named IT person who provisions it, and a date
-  - [ ] the path to production-data approval, including what to do with the **~205 live Salesforce records in Bailey's prototype** (purge or approve)
-  - [ ] agreement in principle on support: "EI builds, IT hosts and supports"
-  - [ ] the access pattern: internal only, or phone access without VPN
+  - [x] Azure hosting approved (App Service + PostgreSQL + Key Vault + App Insights, test and prod resource groups). Oliver Kade.
+  - [x] a named IT person who provisions it, and a date. Vincent Brown; test environment provisioned at M2, first deploy 2026-10-21.
+  - [ ] the path to production-data approval, including what to do with the **~205 live Salesforce records in Bailey's prototype** (purge or approve). 2026-10-21: the Salesforce production integration is being set up with Rachel Dew. Production data still needs IT and D&A approval before it loads into CCQ.
+  - [x] support: **EI supports** (Ben, 2026-10-21). This replaces the proposed "EI builds, IT hosts and supports".
+  - [x] the access pattern for **test**: the public `*.azurewebsites.net` URL with Entra sign-in is fine (Ben, 2026-10-21). The production pattern is decided at M8.
 - **Bring:** the 1-page hosting proposal (`01-architecture.md` §1, §7, §8) and a cost estimate.
 - **After:** file or update the IT tickets (`02` §4).
 
@@ -67,12 +67,13 @@ Each step: **who**, **what the meeting must produce** (your checklist for the me
 - **Who:** Vincent Brown (Entra / app permissions), Tim Webb (IT infra), Alicia Avellaneda-Cruz (IT PM). Optional: Tre.
 - **Why now:** sign-in, roles and the test environment all hang off this. It also creates the Graph permissions SharePoint and email need later.
 - **Leave the meeting with:**
-  - [ ] two app registrations (SPA + API) with the settings in `03` B-04 notes (v2 tokens, `access_as_user` scope, redirect URIs)
-  - [ ] the 8 `CCQ.*` app roles and the `SG-CCQ-*` security groups
-  - [ ] the test resource group, and Ben's access to it
-  - [ ] GitHub → Azure OIDC trust for deployments
-  - [ ] the Graph permissions requested (`Sites.Selected`, `Mail.Send` limited to the CCQ mailbox)
+  - [x] two app registrations (SPA + API) with the settings in `03` B-04 notes (v2 tokens, `access_as_user` scope, redirect URIs)
+  - [x] the 8 `CCQ.*` app roles and the `SG-CCQ-*` security groups
+  - [x] the test resource group, and Ben's access to it
+  - [x] GitHub → Azure OIDC trust for deployments (plus a second credential for GitHub's immutable subject format, `06` B8)
+  - [ ] the Graph permissions requested (`Sites.Selected`, `Mail.Send` limited to the CCQ mailbox). **Not done at M2** (checked 2026-10-21: QuoteFlow-SPA has only the sign-in permissions, QuoteFlow-API has none). Moved to **M7**. Not blocking: attachments go to Blob and email is off until then.
 - **After (build):** **B-20** (Bicep + deploy pipeline, first deploy to test), then switch sign-in to Entra. From here on, every review uses the test URL.
+- **Done 2026-10-21:** first deploy to `https://quoteflow-test.azurewebsites.net` with Entra sign-in. Bicep is still open (`03` B-20).
 
 ### Phase 2: Connect real data
 
