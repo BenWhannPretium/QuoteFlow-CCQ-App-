@@ -589,10 +589,10 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
     - [x] **A2** approving an override needs a note, like declining (`NOTE_REQUIRED`)
     - [x] **A3** every gate outcome has a definition (`outcome_definition.help_text`, seeded from `packages/domain/src/workflow/seeds/outcome-help.ts`; stage help from `packages/db/seeds/config/workflow-help.ts`), shown as an ⓘ in the decision dialog and editable in the admin console
     - [x] **A4** BPR removed everywhere (fields, pricing-app lookups, the `/pricing/bpr/:bprNumber` route, the "no pricing-app record" note). ERF stays only as an optional **Legacy ERF #** for the transition. G3 needs only the price approval (or pass-through, B7), costing attested (B6) and capital readiness
-    - [x] **A5** role-specific analytics: a focused Engineering Lead view and a reorganized Leadership view
+    - [x] **A5** role-specific analytics: a focused Engineering Lead view (`GET /analytics/engineering`, `engQueue.read`: queue and load per engineer, aging, capacity sign-offs, G2 outcomes, time in Engineering Review, time to assign, rework reasons; no commercial figures) and a reorganized Leadership view (Pipeline → Outcomes → Cycle time → Flow → Reasons → Quality → Priority → Adoption). PricingLead gets a "Pricing triage" landing with the open load per pricer
     - [x] **A6** pricing-lead triage: new role **PricingLead** (`CCQ.PricingLead`), permission `pricingQueue.assign`, pricer assignment per quote and bulk reassignment, assignee column and filter on the pricing queue, `quote.pricing_assigned` notification
     - [x] **A7** missing Engineering Lead notification fixed. Root cause: the actor was always excluded from role notifications, so a KAM who is also an EngLead never heard about their own submission. `notifyActorViaRole` now keeps the actor when they hold the receiving role
-    - [x] **A8** sidebar footer replaced with the Pretium wordmark
+    - [x] **A8** sidebar footer replaced with the official white horizontal Pretium logo (`apps/web/src/assets/brand/`, from the Pretium brand kit)
     - [x] **A9** "Take a photo" → "Add photo"
   - Future-state deck (B):
     - [x] **B1** capital-likely flag (`PUT /quotes/:qn/capital-flag`, `capitalFlag.edit`). The first time it is set, Capital Management is told (`capital_management_notice`, `quote.capital_likely`). G3 needs capital readiness `not_required` or `pre_approved` while the flag is set
@@ -614,6 +614,8 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **Server-derived decision fields:** `legal_review_required`, `legal_review_reasons` and `pass_through_eligible` are computed from config (`withDerivedFields`) before any gate rule runs, so nobody can type them. The customer's status (`existing` / `not_yet_established`) drives the new-customer Legal trigger.
   - **Defaults are off or empty** where the deck leaves a number open: pass-through (D-24), the Market Development threshold (D-27), notice recipients and the Process Owner (D-28). Every value is `provisional`.
   - **Legacy columns kept:** `quote.bpr_id`, `handoff_record.bpr_id` and `pricing_record.bpr_refs` stay in the schema, marked deprecated and no longer written, so old rows and audits keep their values. `pricing_ref_formats` keeps a `bpr` key only for backward compatibility.
+  - **Analytics:** a quote awarded at G5 and waiting in Stage 6 counts as **awarded** in the win and capture rates (`analytics_quote.customer_outcome`): the customer said yes. It is also shown as "Awarded, commitment pending".
+  - **Not built here:** a capital-likely checkbox in the intake wizard (the flag is set on the quote after intake); Playwright specs were updated for the new labels and steps but are to be run in CI.
   - **Synthetic data:** 13 personas (the pricing lead is new, drawn from its own random stream so the other 12 and the SF fixture do not change). 19 quotes close Won through G6 and 3 wait in Stage 6.
   - **Not built (parked, see `04` §2):** Salesforce write-back and the new-item flow / Apex, knowledge-base chat, the Ranger hand-off, governed proposal templates, tiered or same-sitting G3 + G4 approvals, and migrating legacy ERF records.
 

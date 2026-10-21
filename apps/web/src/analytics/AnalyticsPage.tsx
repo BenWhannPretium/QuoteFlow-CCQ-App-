@@ -599,7 +599,7 @@ function OutcomesSection({ search }: { search: AnalyticsSearch }) {
             testId="stat-commitment-pending"
             label="Awarded, commitment pending"
             value={fmtCount(o.commitmentPending.count)}
-            hint="Awarded by the customer and waiting in Commit & Hand Off (CER and hand-off). Counted as won once G6 closes them."
+            hint="Awarded by the customer and waiting in Commit & Hand Off (CER and hand-off). Already in the awarded count and win rate."
             info={o.commitmentPending.info}
           />
           <p className="text-muted-foreground text-xs">

@@ -44,7 +44,6 @@ import {
   type AnalyticsFilters,
   type OutcomeRow,
 } from '@ccq/db/repos';
-
 import { COMMIT_STAGE_KEY } from '@ccq/domain';
 
 import { REPORT_TIME_ZONE, dayIn, startOfDay } from './auditAdmin';
@@ -305,7 +304,7 @@ export class AnalyticsService {
       byKam: split(byKam),
       commitmentPending: {
         info: info(
-          'Quotes the customer awarded (G5) that are still in Commit & Hand Off: the CER and the receiving team’s acceptance are not recorded yet. They join the awarded count and the win rate when G6 closes them Won.',
+          'Quotes the customer awarded (G5) that are still in Commit & Hand Off: the CER and the receiving team’s acceptance are not recorded yet. The customer said yes, so they already count as awarded in the win rate; G6 closes them Won or Not authorized.',
           'Open quotes right now; the date range does not apply',
         ),
         count: open.find((s) => s.stage_key === COMMIT_STAGE_KEY)?.count ?? 0,

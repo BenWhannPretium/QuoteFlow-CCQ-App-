@@ -181,7 +181,8 @@ export const OutcomesResponse = z.object({
   byKam: z.array(OutcomeSplitRow),
   /**
    * B-26: quotes the customer awarded (G5) that are still in Commit & Hand Off: not yet Closed – Won,
-   * so not in the win rate until G6 closes them. A snapshot of open quotes; the dimension filters apply.
+   * but already counted as awarded (the customer's answer). A snapshot of open quotes; the dimension
+   * filters apply.
    */
   commitmentPending: z.object({ info: MetricInfo, count: z.number() }),
   lossReasonsInfo: MetricInfo,
