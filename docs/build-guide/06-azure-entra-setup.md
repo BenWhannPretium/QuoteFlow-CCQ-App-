@@ -283,7 +283,7 @@ az postgres flexible-server parameter set --resource-group $RG --server-name $PG
 az postgres flexible-server db create --resource-group $RG --server-name $PG --name ccq
 ```
 - **Why:** QuoteFlow's migrations need the `pg_trgm` (search) and `pgcrypto` extensions, and Azure only allows extensions on its allow-list.
-- **Check:** portal → the server → **Server parameters** → `azure.extensions` shows both. **Databases** lists `ccq`. **Networking** shows "Allow public access from any Azure service" ticked.
+- **Check:** portal → the server → **Server parameters** → `azure.extensions` shows both. **Databases** lists `ccq`. **Don't skip the `db create` line:** without it the app starts, signs in to Postgres and then stops with `database preparation failed (3D000)` (this happened on the first deploy). **Networking** shows "Allow public access from any Azure service" ticked.
 - The admin login is **not** a superuser on Azure. The app handles this itself when it starts (it grants its login the `ccq_app` and `ccq_migrator` roles). Nobody needs to run SQL by hand.
 
 ### B3. [IT] Monitoring
@@ -397,14 +397,20 @@ az identity federated-credential create --name github-test-env --identity-name i
   --issuer "https://token.actions.githubusercontent.com" \
   --subject "repo:$GH_REPO:environment:test" \
   --audiences "api://AzureADTokenExchange"
+# GitHub's immutable subject format (owner and repo ids). This repo presents this one; see the note below.
+az identity federated-credential create --name github-test-env-v2 --identity-name id-quoteflow-deploy --resource-group $RG \
+  --issuer "https://token.actions.githubusercontent.com" \
+  --subject "repo:BenWhannPretium@343131032/QuoteFlow-CCQ-App-@1421100339:environment:test" \
+  --audiences "api://AzureADTokenExchange"
 WEBAPP_ID=$(az webapp show --name $WEBAPP --resource-group $RG --query id -o tsv)
 az role assignment create --role "Website Contributor" --assignee-object-id $DEPLOY_PRINCIPAL \
   --assignee-principal-type ServicePrincipal --scope $WEBAPP_ID -o none
 ```
 - **How it works:** GitHub proves to Azure that "this job runs in repo `BenWhannPretium/QuoteFlow-CCQ-App-`, environment `test`". Azure then lets that job, and only that job, deploy to **this one web app**.
 - The **subject must match exactly**: owner and repo name with the same capitals, and no trailing slash on the issuer.
-- **If the repo moves to the Pretium GitHub org** (B-00), add a second credential with the new name.
-- **Check:** **Managed Identities → id-quoteflow-deploy → Federated credentials** shows `repo:BenWhannPretium/QuoteFlow-CCQ-App-:environment:test`.
+- **GitHub may send the immutable subject format** `repo:<owner>@<owner id>/<repo>@<repo id>:environment:test` instead of `repo:<owner>/<repo>:environment:test`. This repo does (found on the first deploy, 2026-10-21), so B8 creates both. For any other repo, run the first deploy, and if `azure/login` fails with AADSTS700213, copy the subject from the error message into a new credential.
+- **If the repo moves to the Pretium GitHub org** (B-00), add a credential with the new name **and** the new ids (take the subject from the AADSTS700213 error).
+- **Check:** **Managed Identities → id-quoteflow-deploy → Federated credentials** shows `github-test-env` and `github-test-env-v2`.
 
 ### B9. [IT] Ben's Azure access
 
@@ -539,12 +545,15 @@ Notes:
 | Log stream: `refusing to start … Invalid configuration` | A missing or invalid app setting; the message names it | Fix that setting in **Environment variables** |
 | Log stream: `DATABASE_URL is not a postgres:// URL`, or the setting shows a red cross | The Key Vault reference didn't resolve | B7 role assignment, wait 2 minutes, restart. Check the secret name `database-url`. |
 | Log stream: `database preparation failed (28P01)` | Wrong password in the secret | Reset the password (B2 note) and update the secret (B4), then restart |
+| Log stream: `database preparation failed (3D000)` | The `ccq` database doesn't exist (the B2 `db create` line was skipped) | Portal → the Postgres server → **Databases → + Add** → `ccq`. The app retries on its own every few minutes, or restart it. |
 | Log stream: `database preparation failed (…)` with another code, before `migrations applied` | Usually `azure.extensions` not set (B2), the `ccq` database missing, or the server not reachable | Check B2 (parameter + database) and **Networking → Allow Azure services**, then restart |
 | Log stream: TLS / certificate error to Postgres | The certificate check failed | Temporarily change `sslmode=verify-full` to `sslmode=require` in the secret and tell Ben (it's still encrypted) |
-| Deploy job: `azure/login` fails with **AADSTS700213 / No matching federated identity record** | The subject doesn't match | B8 subject must be `repo:BenWhannPretium/QuoteFlow-CCQ-App-:environment:test` (same case) |
+| Deploy job: `azure/login` fails with **AADSTS700213 / No matching federated identity record** | The subject doesn't match | The error shows the subject GitHub sent. Add a federated credential with exactly that subject (B8). For this repo it is `repo:BenWhannPretium@343131032/QuoteFlow-CCQ-App-@1421100339:environment:test` |
 | Deploy job: `AuthorizationFailed` on deploy | The deploy identity lacks the role | B8 Website Contributor on the **web app**. Allow 2 minutes after granting. |
 | Deploy job skipped | GitHub variables missing | C1 (the job runs only once `AZURE_WEBAPP_NAME` exists) |
 | Health check times out but the logs look fine | First start of a cold B1 plan | Re-run the workflow. Check **Log stream** for `Server listening`. |
+| Log stream: `Cannot find module '/home/site/wwwroot/apps/api/dist/azureStart.js'` | Normal **before the first deploy**: the site is empty | Ignore lines older than the deploy. After a deploy, it means the package didn't land: re-run the workflow. |
+| Deploy step runs for about 10 minutes though `/api/v1/health` already answers | Azure is slow to report the new start back to `az webapp deploy` (each start spends about 1½ minutes on certificates and unpacking `node_modules`) | Wait for the step. The site is fine if `/api/v1/health` shows `"db":"up"`. |
 
 ---
 
