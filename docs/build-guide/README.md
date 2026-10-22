@@ -25,7 +25,7 @@ QuoteFlow replaces the legacy ERF application for new-business quotes that need 
 | 0 | Oct 15–16 | B-00 repo + guide, B-01 scaffold, B-02 domain | **M1 hosting/Gate 2** (Darren, Oliver Kade, Brennan Paul) |
 | 1 | Oct 19–23 | B-02 domain, B-03 DB, B-04 auth, B-05 shell, B-06 Salesforce, B-07 intake, B-20 Azure, B-25 design refresh, B-26 demo feedback (Oct 21) | **M2** Entra/Azure (IT) · **M3** Salesforce (Rachel Dew, Zac, Graham) · **M4** intake validation (Jim Zweifel, Danielle Leu, sales leader, KAM) · **M5** pricing data (Cory McGahan, Gemma Cebolla, Brennan Paul) · ⚑ **Azure go/no-go Oct 21** · M6 data dictionary (D&A) · **R1** intake review |
 | 2 | Oct 26–30 | B-08 scoring + G1, B-09 overrides/audit, B-10 engineering queue, B-11 quoting, B-12 Final Review | M7 SharePoint/mail · ⚑ approver + taxonomy decisions Oct 28 · **R2** engineering review (Jim, Faron, Jeff Pitrak) · **M8** security → Gate 3 |
-| 3 | Nov 2–6 | B-13 outcomes, B-14 board, B-15 pricing reader, B-16 attachments, B-17 dashboards, B-18 notifications, B-19 admin, B-21 hardening, B-22 prod load | **M9** support model + prod data (Oliver) · **R3** quoting/final review (Gemma, approver) · ⚑ feature freeze Nov 6 |
+| 3 | Nov 2–6 | B-13 outcomes, B-14 board, B-15 pricing history (import), B-16 attachments, B-17 dashboards, B-18 notifications, B-19 admin, B-21 hardening, B-22 prod load | **M9** support model + prod data (Oliver) · **R3** quoting/final review (Gemma, approver) · ⚑ feature freeze Nov 6 |
 | 4 | Nov 9–13 | B-23 UAT + fixes, B-24 gate package | U0–U5 UAT sessions · **U6 sign-off Fri Nov 13** |
 
 ## Three things that decide whether Nov 13 holds

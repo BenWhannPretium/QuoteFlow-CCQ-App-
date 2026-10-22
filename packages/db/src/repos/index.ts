@@ -16,6 +16,7 @@ export * from './outcome';
 export * from './overrides';
 export * from './pipeline';
 export * from './pricing';
+export * from './pricing-history';
 export * from './quote-read';
 export * from './quotes';
 export * from './records';

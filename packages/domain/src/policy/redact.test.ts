@@ -153,4 +153,23 @@ describe('redact', () => {
     }
     expect(redact({ pricingContext: { x: 1 }, keep: 1 }, makeActor('KAM'))).toEqual({ keep: 1 });
   });
+
+  it('B-15 (revised): strips the imported pricing history shapes and their prices', () => {
+    const history = {
+      source: { imported: true, counts: { erf: 1 } },
+      customerMatch: 'Acme (synthetic)',
+      customerErfs: [{ requestNumber: 'ERF25-123' }],
+      historyRecords: [{ kind: 'bpr', priceAgreedTo: 0.41 }],
+      sprHistory: [{ currentPrice: 0.4 }],
+      loose: { currentPrice: 0.4, targetPrice: 0.38, priceAgreedTo: 0.41, keep: 1 },
+    };
+    for (const role of ['KAM', 'Engineer', 'SalesLeader'] as const) {
+      expect(redact(history, makeActor(role))).toEqual({
+        source: { imported: true, counts: { erf: 1 } },
+        customerMatch: 'Acme (synthetic)',
+        loose: { keep: 1 },
+      });
+    }
+    expect(redact(history, makeActor('PricingLead'))).toEqual(history);
+  });
 });

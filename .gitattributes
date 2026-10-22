@@ -6,3 +6,4 @@
 pnpm-lock.yaml linguist-generated=true -diff
 apps/web/src/routeTree.gen.ts linguist-generated=true
 packages/db/migrations/meta/*.json linguist-generated=true
+*.xlsx binary

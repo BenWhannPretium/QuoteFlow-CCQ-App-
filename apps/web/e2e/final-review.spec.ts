@@ -65,7 +65,7 @@ async function quoteInFinalReview(
     approvedBy: pricingId,
     pricingBasisNote: 'March CDI, FOB Chicago',
     approvedRangeNote: 'Hold the list price; floor per Gemma',
-    erfRefs: ['48213'],
+    erfRefs: ['ERF26-213'],
     costingCompleted: true,
   });
   await put('capital-readiness', 'pricing', {

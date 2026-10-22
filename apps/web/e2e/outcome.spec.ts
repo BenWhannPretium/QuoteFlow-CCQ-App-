@@ -63,7 +63,7 @@ async function quoteInCustomerDecision(
   await post('gates/G2/decisions', 'eng-lead', { outcomeKey: 'proceed' });
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
-    erfRefs: ['48213'],
+    erfRefs: ['ERF26-213'],
     costingCompleted: true,
   });
   await put('capital-readiness', 'pricing', { capitalReadiness: 'pre_approved' });

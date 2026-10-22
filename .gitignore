@@ -32,3 +32,8 @@ Thumbs.db
 # B-16 local attachment store (FILESTORE_MODE=local)
 .data/
 .azure-deploy/
+
+# B-15: exports (e.g. the pricing-app export) hold real data and never enter the repo (CLAUDE.md rule 8).
+# Only synthetic test fixtures named *.synthetic.xlsx are allowed.
+*.xlsx
+!*.synthetic.xlsx

@@ -190,7 +190,7 @@ async function recordPrice(qn: string) {
     await persona('pricing').put(`/api/v1/quotes/${qn}/pricing-record`, {
       approvedBy: await userId('pricing'),
       approvedAt: new Date(clock.getTime() - HOUR).toISOString(),
-      erfRefs: ['48213'],
+      erfRefs: ['ERF26-213'],
       costingCompleted: true,
     }),
     200,

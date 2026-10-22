@@ -22,17 +22,17 @@
                                │  (private endpoint, RLS)  (secrets,    (SharePoint      (logs, traces,         │
                                │                            SF cert)     files, mail)    availability tests)    │
                                └──────────────┬──────────────────────────────┬───────────────────────────────────┘
-                                              │ read-only                    │ read-only
-                                              ▼                              ▼
-                                   Salesforce (Opportunity,       Pricing application DB (ERF / BPR;
-                                   Account, Opp Product Spec)      SPR historical) or its Fabric copy
-                                   via integration user (JWT)      via read-only SQL login
+                                              │ read-only                    ▲ Admin upload (.xlsx)
+                                              ▼                              │
+                                   Salesforce (Opportunity,       Pricing-app export (ERF / BPR /
+                                   Account, Opp Product Spec)      SPR history; the app is retired:
+                                   via integration user (JWT)      no live connection, B-15)
 ```
 
 **Principles**
 
 1. Systems of record stay where they are. CCQ owns only the workflow record: stages, gate decisions, overrides, outcomes and audit.
-2. CCQ reads Salesforce and the pricing app. It never writes back in MVP.
+2. CCQ reads Salesforce. It never writes back in MVP. The legacy pricing app is being retired as QuoteFlow takes over its job: its history is an imported, read-only copy (B-15).
 3. Business logic lives in one pure package (`packages/domain`) and is enforced on the server.
 4. Anything not yet decided by the business is **config**, not code.
 5. Build for portability (Darren, 10/14). The domain logic has no Azure or Fastify imports, so it can move later.
@@ -108,7 +108,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 - capacity and capital evidence numbers
 - margin
 - B-11: the whole Quoting tab (pricing record and its version history, references, notes, capital readiness). Other roles get only the approval status: "Price approved ✓ on <date> by <name>".
-- B-15: every pricing-app record (ERF and SPR history; B-26 removed the BPR lookups) as a whole, including its estimated revenue, volume and net capital. The pricing-app routes need `quote.read.commercialFields` (403 otherwise). Provisional until Gemma Cebolla confirms the labels at M5.
+- B-15: every imported pricing-history record (ERF, BPR, SPR) as a whole, including its estimates, agreed / current / target prices and the legacy free text. The history routes need `quote.read.commercialFields` (403 otherwise) and RLS limits `pricing_history_record` to the same roles. Provisional until Gemma Cebolla confirms the labels.
 
 `packages/domain/policy/redact.ts` does the stripping, and every quote-read route has a test for it.
 
@@ -304,7 +304,8 @@ The full column list, with each column's meaning and owner, is generated into [`
 - `audit_event` (append-only; UPDATE/DELETE revoked from the app role): at, actor_id, actor_roles, action (view | create | update | stage_change | gate_decision | override_* | upload | download | export | config_change | sign_in), entity, entity_id, quote_id, before jsonb, after jsonb, change_reason (B-19: required on config_change; the F-21 decision log reads these rows), ip, user_agent, request_id
 - `notification`: user_id, type, quote_id, title, body, read_at, channel (in_app | email), sent_at, error. B-18 adds `dedupe_key` (once per state: unique per user and channel), `payload` (the non-commercial facts an email is built from), and the outbox state `attempts`, `next_attempt_at`, `failed_at`. An `email` row is the outbox entry the dispatcher sends; an `in_app` row is the bell's item.
 - `user_preference`: user_id, key, value jsonb; unique (user_id, key). B-18: `email.<notification type>` = false opts out of that email (a missing row = on). Any request context may read them (the actor of an event must know who opted out); only the user or Admin writes.
-- `integration_run`: source (salesforce | pricing | sharepoint), started_at, finished_at, status, counts jsonb, error
+- `integration_run`: source (salesforce | pricing | sharepoint), started_at, finished_at, status, counts jsonb, error (`pricing`: one row per pricing-history import, B-15)
+- `pricing_history_record` *(commercial)*: kind (erf | bpr | spr), request_id (unique per kind), request_number (+ upper-cased key; not unique in the export), fiscal_year, status (derived: open | on_hold | accepted | rejected | abandoned | completed), display_status, customer (+ normalised customer_key for matching), product, item, sales person, market, process, resin, plant, submitted_on, est_revenue_usd / est_volume (0 = unknown → null), comments, `fields` jsonb (every export column, free text included), import_run_id. B-15, revised 2026-10-22: imported from the retired pricing app's export; RLS: the commercial roles read, Admin writes, nobody deletes.
 
 **Indexes (minimum)**
 - quote(stage_key, priority_score desc)
@@ -325,7 +326,7 @@ The full column list, with each column's meaning and owner, is generated into [`
 | System | Direction | Mechanism (MVP) | Credential / owner | Fallback until access lands |
 |---|---|---|---|---|
 | **Salesforce** (Unlimited Edition, `pretiumpkg.my.salesforce.com`) | Read-only | `jsforce` with the OAuth 2.0 **JWT bearer** flow, as a dedicated **read-only integration user** on a connected app. SOQL on `Opportunity`, `Account` and the custom `Opportunity Product Specification` object. Delta sync every 15 min (`SystemModstamp`), plus a live lookup on intake search. Start against the **UAT org** (`integration@pretiumpkg.com.uat`), then production. | Private key in Key Vault. **Rachel Dew** (SF admin) creates the connected app, integration user and permission set. **Zac Cairns / Graham Parle** own the field crosswalk. | `FakeSalesforceReader` loaded from a masked fixture JSON. Shaped like the "New Last Week" report (102 rows; fields: name, account, amount, close date, stage, owner alias). |
-| **Pricing application** (legacy .NET; ERF, BPR, SPR tables) | Read-only | `PricingReader` interface (B-15: `packages/integrations/src/pricing/`, `PRICING_MODE` = fake \| sqlserver \| fabric; column names only in `columnMap.ts`). Route decided at M5: **(A)** read-only SQL login on a replica/view (`mssql`), or **(B)** the D&A-landed copy in Fabric via its SQL analytics endpoint. Lookup by ERF number, BPR number and customer. SPR read for history only. | **Cory McGahan** (IT: DB access and schema), **Gemma Cebolla** (Pricing: scope and sensitivity), **Brennan Paul** (D&A: Fabric route) | Reference fields typed manually (ERF #, BPR #) and validated by format only. |
+| **Pricing application** (legacy .NET; retired as QuoteFlow replaces it) | Imported, read-only history | **No live connection** (decided 2026-10-22: the unsupported app has no way to expose its data). Cory McGahan's back-end export (ERF, BPR, SPR sheets; approved) is uploaded by an Admin (Admin → Integrations → Pricing history; `POST /admin/pricing-history/import`, check then apply) into `pricing_history_record`, upserted by kind + request id, every column kept in `fields`. Read by ERF number, customer and text; a quote shows its Legacy ERF #s, the customer's other ERFs and SPR history (matched by customer name: no SF id in the export; BPR only on the Pricing history page, B-26). | **Cory McGahan** (IT: the export), **Gemma Cebolla** (Pricing: scope and sensitivity) | The Legacy ERF # is typed and format-checked; before an import the panel says so. |
 | **SharePoint** (ERF/drawing folders) | Read/write files only | Microsoft Graph, **app-only, `Sites.Selected`** scoped to one site. Folder per quote: `/CCQ/{quote_number}/` (`attachment_settings`). Upload via a resumable upload session in 5 MB ranges; the API streams the bytes. B-16: `FileStore` in `packages/integrations/src/graph/`, `FILESTORE_MODE` = sharepoint \| blob \| local. | IT grants Sites.Selected. **Bailey / BT** confirms the folder structure being prepared for Ranger. | Store files in a private Azure Blob container behind the same interface. |
 | **Email / Teams** (P0: alert the engineering lead; P1: digest) | Outbound | B-18: `MailTransport` in `packages/integrations/src/mail/` (`MAIL_MODE` = graph \| smtp \| fake). Graph `sendMail` as MIME from the shared mailbox (`MAIL_FROM`, e.g. `ccq-noreply@pretiumpkg.com`), app-only `Mail.Send` restricted to that one mailbox by an Exchange application access policy; credentials as for SharePoint. smtp = mailpit locally. Production allows `graph` only. Teams digest is P1. | IT: mailbox + application access policy (M7) | In-app notifications only (set `email_notifications_enabled` to false). |
 | **Entra ID** | Auth | SPA app registration (MSAL, auth code + PKCE) and API app registration (exposes the `access_as_user` scope and app roles). API validates JWTs with `jose`. Graph via the App Service managed identity or a client secret in Key Vault. | IT identity team | `AUTH_MODE=dev` locally only |

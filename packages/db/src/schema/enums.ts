@@ -22,6 +22,16 @@ export { CAPACITY_SIGNOFF_STATUSES, CER_STATUSES } from '@ccq/domain';
 export const NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
 export const INTEGRATION_SOURCES = ['salesforce', 'pricing', 'sharepoint'] as const;
 export const INTEGRATION_STATUSES = ['running', 'succeeded', 'failed', 'partial'] as const;
+/** B-15 (revised): the legacy pricing-app export's record kinds and derived statuses. */
+export const PRICING_HISTORY_KINDS = ['erf', 'bpr', 'spr'] as const;
+export const PRICING_HISTORY_STATUSES = [
+  'open',
+  'on_hold',
+  'accepted',
+  'rejected',
+  'abandoned',
+  'completed',
+] as const;
 /** Why a CCQ-linked opportunity needs attention: it was closed or deleted in Salesforce. */
 export const SF_STATUS_FLAGS = ['closed_won', 'closed_lost', 'deleted'] as const;
 export { CLOSURE_OWNER_DEFAULTS, SEGREGATION_DENY } from '@ccq/domain';

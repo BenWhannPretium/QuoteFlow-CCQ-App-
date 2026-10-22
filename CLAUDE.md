@@ -40,7 +40,7 @@ Sources of truth for requirements (read the relevant one before building a featu
 - **`packages/domain`:** pure TypeScript business logic with **no I/O**: the stage/gate engine, the scoring engine, overrides, the permission policy and validation. It must be 100% unit-testable.
 - **`packages/db`:** Drizzle ORM, drizzle-kit migrations, seed scripts. PostgreSQL 16.
 - **`packages/contracts`:** zod schemas and DTO types shared by web and api.
-- **`packages/integrations`:** Salesforce (jsforce), pricing app reader, Microsoft Graph (SharePoint, mail). Each sits behind an interface with a fake implementation for tests and local dev.
+- **`packages/integrations`:** Salesforce (jsforce), Microsoft Graph (SharePoint, mail), and the pricing-history export reader (B-15: the retired pricing app's .xlsx export, imported by an Admin; no live connection). Each connector sits behind an interface with a fake implementation for tests and local dev.
 - **Tests:**
   - Vitest for unit and integration tests.
   - Integration tests use a real Postgres (docker compose locally, service container in CI).

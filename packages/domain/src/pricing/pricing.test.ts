@@ -90,7 +90,7 @@ describe('price approval record', () => {
         approvedAt: at,
         pricingBasisNote: '  March CDI, FOB Chicago ',
         approvedRangeNote: 'Within the approved range',
-        erfRefs: ['26367', ' 26367', '31061'],
+        erfRefs: ['ERF25-367', ' ERF25-367', 'ERF24-061'],
         costingCompleted: true,
       },
       ctx,
@@ -101,7 +101,7 @@ describe('price approval record', () => {
       priceApprovedBy: PRICER_2,
       priceApprovedAt: at,
       pricingBasisNote: 'March CDI, FOB Chicago',
-      erfRefs: ['26367', '31061'],
+      erfRefs: ['ERF25-367', 'ERF24-061'],
       costingCompleted: true,
       costingAttestedBy: PRICER,
       costingAttestedAt: NOW,
@@ -131,7 +131,7 @@ describe('price approval record', () => {
       ...EMPTY_PRICING_RECORD,
       priceApprovedBy: PRICER,
       priceApprovedAt: NOW,
-      erfRefs: ['26367'],
+      erfRefs: ['ERF25-367'],
       costingCompleted: true,
       costingAttestedBy: PRICER_2,
       costingAttestedAt: NOW,
@@ -140,7 +140,7 @@ describe('price approval record', () => {
     expect(cleared.ok && cleared.next).toMatchObject({
       priceApprovedBy: null,
       priceApprovedAt: null,
-      erfRefs: ['26367'],
+      erfRefs: ['ERF25-367'],
       costingAttestedBy: PRICER_2,
     });
     const same = planPricingRecord(pricing, quoting, current, { costingCompleted: true }, ctx);
@@ -182,7 +182,7 @@ describe('price approval record', () => {
       pricing,
       quoting,
       EMPTY_PRICING_RECORD,
-      { erfRefs: Array.from({ length: MAX_PRICING_REFS + 1 }, (_, i) => String(10000 + i)) },
+      { erfRefs: Array.from({ length: MAX_PRICING_REFS + 1 }, (_, i) => `ERF25-${10000 + i}`) },
       ctx,
     );
     expect(!many.ok && many.errors[0]!.field).toBe('erfRefs');
@@ -193,14 +193,14 @@ describe('price approval record', () => {
       ...EMPTY_PRICING_RECORD,
       priceApprovedBy: PRICER,
       priceApprovedAt: NOW,
-      erfRefs: ['26367'],
+      erfRefs: ['ERF25-367'],
       cerReference: 'CER-9',
       capitalReadiness: 'pre_approved',
       approvedRangeNote: 'x',
     };
     expect(carryForwardPricingRecord(prior)).toEqual({
       ...EMPTY_PRICING_RECORD,
-      erfRefs: ['26367'],
+      erfRefs: ['ERF25-367'],
       cerReference: 'CER-9',
     });
     expect(carryForwardPricingRecord(null)).toEqual(EMPTY_PRICING_RECORD);
@@ -399,7 +399,7 @@ describe('G3 (hybrid seed)', () => {
       'capital_likely,pricing_record.capital_readiness',
     ]);
     expect(submit(approved).ok).toBe(true);
-    expect(submit({ ...approved, pricing_refs: { erf: ['26367'] } }).ok).toBe(true);
+    expect(submit({ ...approved, pricing_refs: { erf: ['ERF25-367'] } }).ok).toBe(true);
   });
 
   it('B-26: cost before price: an unattested cost sheet blocks Advance', () => {

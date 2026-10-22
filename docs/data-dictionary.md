@@ -13,7 +13,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
 - **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`notification`](#notification)
-- **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run)
+- **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
 ## Identity and access (`schema/identity.ts`)
 
@@ -926,7 +926,7 @@ In-app notifications (channel in_app) and the email outbox (channel email, sent 
 
 ### integration_run
 
-One row per sync job (Salesforce), or per hour of on-demand reads (pricing app, B-15); failures alert owners.
+One row per sync job (Salesforce) or pricing-history import (B-15); failures alert owners.
 
 **Owner:** CCQ (system)
 
@@ -945,4 +945,45 @@ One row per sync job (Salesforce), or per hour of on-demand reads (pricing app, 
 
 **Checks:** `integration_run_source_check`, `integration_run_status_check`
 
-**Indexes:** `integration_run_source_started_idx`, `integration_run_pricing_hour_uq`
+**Indexes:** `integration_run_source_started_idx`
+
+### pricing_history_record
+
+B-15: read-only history from the retired pricing app (ERF, BPR, SPR), imported by an Admin from the export. Commercial.
+
+**Owner:** Pricing (Gemma Cebolla); export from IT (Cory McGahan)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `kind` | text | no |  |  | erf \| bpr \| spr (the export sheet). | Pricing (legacy pricing-app export) |
+| `request_id` | integer | no |  |  | Request_ID in the legacy app: unique per kind (request numbers are not). | Pricing (legacy pricing-app export) |
+| `request_number` | text | no |  |  | Request_Number, e.g. ERF25-123 (EP… for older ERFs). | Pricing (legacy pricing-app export) |
+| `request_number_key` | text | no |  |  | Request number upper-cased without spaces, for lookups. | Pricing (legacy pricing-app export) |
+| `fiscal_year` | integer | no |  |  | Fiscal_Year. | Pricing (legacy pricing-app export) |
+| `status` | text | no |  |  | Derived from the flags: open \| on_hold \| accepted \| rejected \| abandoned \| completed. | Pricing (legacy pricing-app export) |
+| `display_status` | text | yes |  |  | The legacy app's own status label. | Pricing (legacy pricing-app export) |
+| `is_open` | boolean | no | false |  | Is_Open. | Pricing (legacy pricing-app export) |
+| `customer` | text | yes |  |  | Customer as typed in the legacy app. | Pricing (legacy pricing-app export) |
+| `customer_key` | text | yes |  |  | Customer normalised for matching (case, punctuation, legal suffix): the export has no SF id. | Pricing (legacy pricing-app export) |
+| `product_description` | text | yes |  |  | Product_Description. | Pricing (legacy pricing-app export) |
+| `item_number` | text | yes |  |  | Item_Number (BPR, SPR). | Pricing (legacy pricing-app export) |
+| `sales_person` | text | yes |  |  | Sales_Person. | Pricing (legacy pricing-app export) |
+| `market` | text | yes |  |  | Market. | Pricing (legacy pricing-app export) |
+| `process` | text | yes |  |  | Process. | Pricing (legacy pricing-app export) |
+| `resin` | text | yes |  |  | Resin. | Pricing (legacy pricing-app export) |
+| `plant_code` | text | yes |  |  | Plant_Code. | Pricing (legacy pricing-app export) |
+| `plant_name` | text | yes |  |  | Plant_Name. | Pricing (legacy pricing-app export) |
+| `submitted_on` | date | yes |  |  | Sales_Submitted_Date, else Created_Date. | Pricing (legacy pricing-app export) |
+| `est_revenue_usd` | numeric | yes |  |  | Est_Revenue / Est_Annual_Revenue; null when blank or 0 (the legacy app wrote 0 for blank). Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
+| `est_volume` | numeric | yes |  |  | Est_Volume / Est_Annual_Unit_Volume; null when blank or 0. Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
+| `comments` | text | yes |  |  | Comments (free text, kept for context). | Pricing (legacy pricing-app export) |
+| `fields` | jsonb | no | {} |  | Every non-empty column of the export row, free text included (decision 2026-10-22). Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
+| `import_run_id` | uuid | yes |  | integration_run.id | The integration_run of the import that last wrote the row. | CCQ (system) |
+
+**Checks:** `pricing_history_record_kind_check`, `pricing_history_record_status_check`
+
+**Indexes:** `pricing_history_record_kind_request_uq`, `pricing_history_record_number_idx`, `pricing_history_record_customer_idx`, `pricing_history_record_customer_trgm_idx`, `pricing_history_record_description_trgm_idx`

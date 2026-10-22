@@ -15,6 +15,7 @@ import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PricingHistoryRouteImport } from './routes/pricing-history'
 import { Route as ProposalsRouteImport } from './routes/proposals'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminSplatRouteImport } from './routes/admin/$'
@@ -68,6 +69,11 @@ const BoardRoute = BoardRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingHistoryRoute = PricingHistoryRouteImport.update({
+  id: '/pricing-history',
+  path: '/pricing-history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProposalsRoute = ProposalsRouteImport.update({
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/notifications': typeof NotificationsRoute
+  '/pricing-history': typeof PricingHistoryRoute
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -229,6 +236,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/notifications': typeof NotificationsRoute
+  '/pricing-history': typeof PricingHistoryRoute
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/approvals': typeof ApprovalsRoute
   '/board': typeof BoardRoute
   '/notifications': typeof NotificationsRoute
+  '/pricing-history': typeof PricingHistoryRoute
   '/proposals': typeof ProposalsRoute
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/notifications'
+    | '/pricing-history'
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/notifications'
+    | '/pricing-history'
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/board'
     | '/notifications'
+    | '/pricing-history'
     | '/proposals'
     | '/admin/$'
     | '/admin/audit'
@@ -392,6 +404,7 @@ export interface RootRouteChildren {
   ApprovalsRoute: typeof ApprovalsRoute
   BoardRoute: typeof BoardRoute
   NotificationsRoute: typeof NotificationsRoute
+  PricingHistoryRoute: typeof PricingHistoryRoute
   ProposalsRoute: typeof ProposalsRoute
   IntakeNewRoute: typeof IntakeNewRoute
   MePreferencesRoute: typeof MePreferencesRoute
@@ -444,6 +457,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing-history': {
+      id: '/pricing-history'
+      path: '/pricing-history'
+      fullPath: '/pricing-history'
+      preLoaderRoute: typeof PricingHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proposals': {
@@ -666,6 +686,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApprovalsRoute: ApprovalsRoute,
   BoardRoute: BoardRoute,
   NotificationsRoute: NotificationsRoute,
+  PricingHistoryRoute: PricingHistoryRoute,
   ProposalsRoute: ProposalsRoute,
   IntakeNewRoute: IntakeNewRoute,
   MePreferencesRoute: MePreferencesRoute,

@@ -174,9 +174,10 @@ function useRefresh(quoteNumber: string) {
 }
 
 /**
- * B-15: the read-only pricing-app panel. "Use as reference" adds the legacy ERF to the current version's
- * pricing record through the B-11 route (format-checked there); the server then sets the quote's ERF
- * number if it has none. Unsaved edits in the approval form below are reloaded from the server.
+ * B-15: the pricing history panel (the retired pricing app's export, imported). "Use as reference"
+ * adds the legacy ERF to the current version's pricing record through the B-11 route (format-checked
+ * there); the server then sets the quote's ERF number if it has none. Unsaved edits in the approval
+ * form below are reloaded from the server.
  */
 function PricingContextForQuote({ quote }: { quote: QuoteDetail }) {
   const refresh = useRefresh(quote.quoteNumber);

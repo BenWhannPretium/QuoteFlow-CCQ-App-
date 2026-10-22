@@ -204,7 +204,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'pricing_ref_formats',
     value: PRICING_REF_FORMATS_SEED,
     description:
-      'B-11: format-only check for the legacy ERF numbers on the Quoting tab ({erf: {label, pattern, example}}). B-26: ERF is a transition-only reference and BPR is outside CCQ (a stored bpr entry is ignored). Guess until Cory McGahan confirms the real format at M5 (D-PR).',
+      'B-11: format-only check for the legacy ERF numbers on the Quoting tab ({erf: {label, pattern, example}}). B-26: ERF is a transition-only reference and BPR is outside CCQ (a stored bpr entry is ignored). B-15 (2026-10-22): the format of the pricing-app export, ERF<yy>-<n> or EP<yy>-<n>.',
   },
   // ── B-26 demo feedback and the future-state deck. All provisional.
   {

@@ -131,7 +131,7 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
       <PrioritySection s={s} />
       <EngineeringSection s={s} />
       <PricingSection s={s} />
-      {/* B-15: read-only pricing-app context; renders nothing for roles without commercial access. */}
+      {/* B-15: read-only pricing history (imported export); renders nothing for roles without commercial access. */}
       <PricingContextPanel quoteNumber={quoteNumber} />
       <AttachmentsSection s={s} />
       <DecisionsSection s={s} />
