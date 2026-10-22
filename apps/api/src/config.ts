@@ -49,21 +49,6 @@ const EnvSchema = z
     /** Delta sync interval in minutes; 0 disables the in-process schedule (manual trigger still works). */
     SF_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(1440).default(15),
     /**
-     * Pricing application (B-15, read-only). fake = synthetic fixture; sqlserver = Route A (read-only SQL
-     * login to views on a replica); fabric = Route B (the D&A Fabric copy, Entra managed identity).
-     * The route is the M5 decision (D-PR).
-     */
-    PRICING_MODE: z.enum(['fake', 'sqlserver', 'fabric']).default('fake'),
-    PRICING_SQL_SERVER: nonEmpty.optional(),
-    PRICING_SQL_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
-    PRICING_SQL_DATABASE: nonEmpty.optional(),
-    /** Route A: the read-only login scoped to the views. */
-    PRICING_SQL_USER: nonEmpty.optional(),
-    /** Route A: in Azure a Key Vault reference. Never logged. */
-    PRICING_SQL_PASSWORD: nonEmpty.optional(),
-    /** Route B: a user-assigned managed identity's client id (blank = system-assigned). */
-    PRICING_SQL_MI_CLIENT_ID: nonEmpty.optional(),
-    /**
      * B-13: hours between proposal-validity expiry runs (daily); 0 disables the schedule. The job only
      * flags and notifies; nothing auto-closes (D-12).
      */
@@ -133,26 +118,6 @@ const EnvSchema = z
             message: `${key} is required when SF_MODE=live`,
           });
         }
-      }
-    }
-    const pricingRequired =
-      env.PRICING_MODE === 'sqlserver'
-        ? ([
-            'PRICING_SQL_SERVER',
-            'PRICING_SQL_DATABASE',
-            'PRICING_SQL_USER',
-            'PRICING_SQL_PASSWORD',
-          ] as const)
-        : env.PRICING_MODE === 'fabric'
-          ? (['PRICING_SQL_SERVER', 'PRICING_SQL_DATABASE'] as const)
-          : [];
-    for (const key of pricingRequired) {
-      if (!env[key]) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [key],
-          message: `${key} is required when PRICING_MODE=${env.PRICING_MODE}`,
-        });
       }
     }
     const storeRequired =

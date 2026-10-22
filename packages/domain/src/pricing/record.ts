@@ -57,7 +57,8 @@ const refFormat = z
   );
 
 /**
- * app_setting `pricing_ref_formats`. Format-only validation: CCQ cannot look a reference up yet (B-15).
+ * app_setting `pricing_ref_formats`. Format check for the Legacy ERF #; the Quoting tab looks the number
+ * up in the imported pricing history (B-15), but an unknown number is still allowed.
  * B-26: only the legacy ERF format is used; a stored `bpr` entry is accepted and ignored.
  */
 export const pricingRefFormatsSchema = z
@@ -68,11 +69,12 @@ export type PricingRefFormats = z.output<typeof pricingRefFormatsSchema>;
 export type PricingRefKind = keyof PricingRefFormats;
 
 /**
- * Provisional seed: ERF numbers in the Salesforce fixture are 5-digit numbers. Ask Cory McGahan for
- * the real format at M5 (D-PR) and change the setting, not the code.
+ * Provisional seed, taken from the pricing-app export (B-15 revised, 2026-10-22): every ERF number is
+ * ERF<yy>-<n> (n of 2–4 digits) or, for the older records, EP<yy>-<n>. Pricing can change the setting.
  */
 export const PRICING_REF_FORMATS_SEED: PricingRefFormats = {
-  erf: { label: 'Legacy ERF number', pattern: '^\\d{4,7}$', example: '26367' },
+  // The export's real formats (2026-10-22): ERF<yy>-<n> and, before FY2010, EP<yy>-<n>.
+  erf: { label: 'Legacy ERF number', pattern: '^(ERF|EP)\\d{2}-\\d{2,5}$', example: 'ERF25-123' },
 };
 
 export function parsePricingRefFormats(input: unknown): PricingRefFormats {

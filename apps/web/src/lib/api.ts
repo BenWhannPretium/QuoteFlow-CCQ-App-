@@ -49,6 +49,10 @@ import {
   FinalReviewQueueResponse,
   PricingQueueResponse,
   PricingContext,
+  PricingHistoryImportResponse,
+  PricingHistorySearchResponse,
+  PricingHistoryStatusResponse,
+  type PricingHistorySearchQuery,
   QuotingDetail,
   ReviewSummary,
   type CapitalReadinessBody,
@@ -374,6 +378,11 @@ export const api = {
   // B-15 pricing-app context (read-only; commercial roles only, 403 otherwise)
   pricingContext: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/pricing-context`, PricingContext),
+  // B-15 (revised): the imported legacy pricing history (commercial roles) and its Admin import
+  pricingHistory: (q: Partial<PricingHistorySearchQuery>) =>
+    getJson(`/api/v1/pricing/history${queryString({ ...q })}`, PricingHistorySearchResponse),
+  pricingHistoryStatus: () =>
+    getJson('/api/v1/admin/pricing-history', PricingHistoryStatusResponse),
 
   // B-12 Final Review: the approvals queue and the one-page review summary (decisions: decideGate, G4)
   finalReviewQueue: (q: FinalReviewQueueParams = {}) =>
@@ -611,6 +620,39 @@ export function uploadAttachment(
       xhr?.abort();
     },
   };
+}
+
+/**
+ * B-15: send the pricing-app export to the Admin import. `apply` false checks the file and reports;
+ * true writes it. One request, no progress (the file is ~30 MB; the server answers in under a minute).
+ */
+export async function importPricingHistory(
+  file: File,
+  apply: boolean,
+): Promise<PricingHistoryImportResponse> {
+  const send = async (forceRefresh: boolean) => {
+    const session = getAuthSession();
+    if (!session) throw new Error('Not signed in');
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return fetch(`/api/v1/admin/pricing-history/import?apply=${apply}`, {
+      method: 'POST',
+      headers: { accept: 'application/json', ...(await session.headers({ forceRefresh })) },
+      body: form,
+    });
+  };
+  let res = await send(false);
+  if (res.status === 401) res = await send(true);
+  const payload: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const parsed = ProblemDetails.safeParse(payload);
+    throw new ApiError(
+      parsed.success
+        ? parsed.data
+        : { type: 'about:blank', title: 'Import failed', status: res.status },
+    );
+  }
+  return PricingHistoryImportResponse.parse(payload);
 }
 
 async function getCsv(path: string): Promise<Blob> {

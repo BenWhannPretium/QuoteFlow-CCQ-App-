@@ -401,20 +401,21 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'quoting.edit',
     sampleBody: { capitalReadiness: 'pending' },
   },
-  // B-15 pricing-app reader (PRICING_MODE=fake in tests). Every route is commercial
-  // (quote.read.commercialFields: Pricing, EngLead, Approver, Leadership, Admin); KAM, Engineer and
-  // SalesLeader get 403. The sample numbers are unknown to the fake (no synthesizing for numbers
-  // ending in 0), so allowed roles get 404. Context, cache, fallback and redaction: pricing-app.int.test.ts.
+  // B-15 pricing history (revised: the imported legacy export, no live connection). Reads are
+  // commercial (quote.read.commercialFields); KAM, Engineer and SalesLeader get 403. The sample ERF
+  // number is unknown, so allowed roles get 404. The import and its status are config.manage (Admin);
+  // the allowed POST sends no file, so it gets 422. Context, search, import and redaction:
+  // pricing-history.int.test.ts.
   {
     method: 'GET',
     route: '/api/v1/pricing/erf/:erfNumber',
-    url: '/api/v1/pricing/erf/9999990',
+    url: '/api/v1/pricing/erf/ERF99-999',
     permission: 'quote.read.commercialFields',
   },
   {
     method: 'GET',
-    route: '/api/v1/pricing/erf',
-    url: '/api/v1/pricing/erf?customer=synthetic&q=bottle',
+    route: '/api/v1/pricing/history',
+    url: '/api/v1/pricing/history?kind=bpr&customer=synthetic',
     permission: 'quote.read.commercialFields',
   },
   {
@@ -422,6 +423,13 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/quotes/:quoteNumber/pricing-context',
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/pricing-context`,
     permission: 'quote.read.commercialFields',
+  },
+  { method: 'GET', route: '/api/v1/admin/pricing-history', permission: 'config.manage' },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/pricing-history/import',
+    permission: 'config.manage',
+    sampleBody: {},
   },
   // B-12 Final Review. The queue is finalReview.read (Approver, Leadership, Admin); the summary is the
   // quote.read floor (commercial parts are redacted per role: final-review.int.test.ts). G4 decisions

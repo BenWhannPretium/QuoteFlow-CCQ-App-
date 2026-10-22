@@ -98,47 +98,6 @@ describe('Salesforce config', () => {
   });
 });
 
-describe('Pricing app config (B-15)', () => {
-  const base = {
-    NODE_ENV: 'development',
-    DATABASE_URL: 'postgres://ccq:ccq@localhost:5432/ccq',
-    AUTH_MODE: 'dev',
-    APP_BASE_URL: 'http://localhost:5173',
-  };
-
-  it('defaults to the fake reader', () => {
-    expect(loadConfig(base).PRICING_MODE).toBe('fake');
-  });
-
-  it('Route A (sqlserver) needs server, database and the read-only login', () => {
-    expect(() => loadConfig({ ...base, PRICING_MODE: 'sqlserver' })).toThrow(
-      /PRICING_SQL_SERVER is required[\s\S]*PRICING_SQL_DATABASE[\s\S]*PRICING_SQL_USER[\s\S]*PRICING_SQL_PASSWORD/,
-    );
-    const config = loadConfig({
-      ...base,
-      PRICING_MODE: 'sqlserver',
-      PRICING_SQL_SERVER: 'pricing-replica.pretium.local',
-      PRICING_SQL_DATABASE: 'Pricing',
-      PRICING_SQL_USER: 'ccq_reader',
-      PRICING_SQL_PASSWORD: 'from-key-vault',
-      PRICING_SQL_PORT: '1433',
-    });
-    expect(config.PRICING_SQL_PORT).toBe(1433);
-  });
-
-  it('Route B (fabric) needs only the endpoint and database (managed identity)', () => {
-    expect(() => loadConfig({ ...base, PRICING_MODE: 'fabric' })).toThrow(/PRICING_SQL_SERVER/);
-    expect(
-      loadConfig({
-        ...base,
-        PRICING_MODE: 'fabric',
-        PRICING_SQL_SERVER: 'x.datawarehouse.fabric.microsoft.com',
-        PRICING_SQL_DATABASE: 'pricing_lakehouse',
-      }).PRICING_MODE,
-    ).toBe('fabric');
-  });
-});
-
 describe('Attachment store config (B-16)', () => {
   const dev = { ...base, NODE_ENV: 'development', AUTH_MODE: 'dev' };
   const prod = {

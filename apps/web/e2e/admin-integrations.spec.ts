@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { expect, test } from '@playwright/test';
 
 import { seriousViolations } from './axe';
@@ -14,6 +16,27 @@ test('Admin runs the Salesforce sync and sees the run listed', async ({ page }) 
   await expect(page.getByText(/Salesforce sync (succeeded|is already running)/)).toBeVisible();
   await expect(page.getByText('salesforce', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/fetched \d+/).first()).toBeVisible();
+});
+
+// B-15 (revised): the legacy pricing app's export is imported here (no live connection).
+test('Admin checks, then imports, the pricing-history export', async ({ page }) => {
+  await signInAs(page, 'admin');
+  await page.goto('/admin/integrations');
+  const card = page.getByTestId('pricing-history-import');
+  await expect(card.getByRole('button', { name: 'Import' })).toBeDisabled();
+  await card
+    .getByLabel('Export file')
+    .setInputFiles(
+      fileURLToPath(new URL('./fixtures/pricing-history.synthetic.xlsx', import.meta.url)),
+    );
+  await card.getByRole('button', { name: 'Check file' }).click();
+  const summary = card.getByTestId('pricing-import-summary');
+  await expect(summary).toContainText('Nothing was written');
+  await expect(summary.getByTestId('pricing-import-erf')).toContainText('2009–2026');
+  await card.getByRole('button', { name: 'Import' }).click();
+  await expect(summary).toContainText(/Imported pricing-history\.synthetic\.xlsx/);
+  await expect(card.getByTestId('pricing-history-loaded')).toContainText('Loaded:');
+  expect(await seriousViolations(page)).toEqual([]);
 });
 
 for (const theme of ['light', 'dark'] as const) {

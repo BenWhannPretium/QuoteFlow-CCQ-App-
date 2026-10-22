@@ -2,6 +2,12 @@
 
 **Paste into Claude Code from the repo root.**
 
+> **Superseded 2026-10-22.** There is no live connection to the pricing app: it is an unsupported .NET
+> application being retired as QuoteFlow takes over its job. Its history is Cory McGahan's export,
+> imported by an Admin into `pricing_history_record`. What was built is in `03-build-steps.md` (B-15) and
+> the open points in `04-decisions-and-risks.md` ("B-15 revised"). The Route A / Route B connector below
+> was built on 2026-10-16 and removed. Kept for the record.
+
 ---
 
 Read `CLAUDE.md` rules 2 and 5 and `01-architecture.md` §6 (pricing row). PRD F-11: "Read ERF/BPR records to show pricing context on the quote. [Confirm with Pricing]." Read-only. No editing of figures, no write-back, and no rebuild of the pricing engine.

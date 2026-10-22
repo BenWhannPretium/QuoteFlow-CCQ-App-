@@ -20,7 +20,7 @@ import { outcomeRoutes } from './outcome';
 import { overrideRoutes } from './overrides';
 import { pipelineRoutes } from './pipeline';
 import { pricingRoutes } from './pricing';
-import { pricingAppRoutes } from './pricing-app';
+import { pricingHistoryRoutes } from './pricing-history';
 import { salesforceRoutes } from './salesforce';
 import { timelineRoutes } from './timeline';
 import type { AppDeps } from '../../app';
@@ -42,7 +42,7 @@ import type { OutcomeService } from '../../services/outcome';
 import type { OverrideService } from '../../services/overrideService';
 import type { PipelineService } from '../../services/pipeline';
 import type { PricingService } from '../../services/pricing';
-import type { PricingAppService } from '../../services/pricing-app';
+import type { PricingHistoryService } from '../../services/pricing-history';
 import type { SalesforceService } from '../../services/salesforce';
 import type { TimelineService } from '../../services/timeline';
 
@@ -61,7 +61,7 @@ export interface V1Options {
   engineeringService: EngineeringService;
   notificationService: NotificationService;
   pricingService: PricingService;
-  pricingAppService: PricingAppService;
+  pricingHistoryService: PricingHistoryService;
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
   commercialService: CommercialService;
@@ -96,7 +96,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     engineeringService,
     notificationService,
     pricingService,
-    pricingAppService,
+    pricingHistoryService,
     finalReviewService,
     outcomeService,
     commercialService,
@@ -126,7 +126,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(engineeringRoutes, { service: engineeringService });
   await app.register(notificationRoutes, { service: notificationService });
   await app.register(pricingRoutes, { service: pricingService });
-  await app.register(pricingAppRoutes, { service: pricingAppService });
+  await app.register(pricingHistoryRoutes, { service: pricingHistoryService });
   await app.register(finalReviewRoutes, { service: finalReviewService });
   await app.register(outcomeRoutes, { service: outcomeService });
   await app.register(commercialRoutes, { service: commercialService });

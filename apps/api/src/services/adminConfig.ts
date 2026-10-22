@@ -140,7 +140,7 @@ export interface AdminConfigServiceOptions {
   onConfigChange?: () => void;
   /** After a scope change: drop cached identities so the new scope applies. */
   onScopeChange?: () => void;
-  /** Connector modes for the health panel (SF_MODE, PRICING_MODE, FILESTORE_MODE, MAIL_MODE). */
+  /** Connector modes for the health panel (SF_MODE, pricing = import, FILESTORE_MODE, MAIL_MODE). */
   connectorModes: Record<string, string>;
 }
 

@@ -17,14 +17,13 @@
     "@azure/identity": "4.13.3",
     "@azure/storage-blob": "12.34.0",
     "@ccq/contracts": "workspace:*",
+    "exceljs": "4.4.0",
     "jsforce": "3.10.28",
-    "mssql": "12.7.2",
     "nodemailer": "10.0.16",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@ccq/config": "workspace:*",
-    "@types/mssql": "9.1.11",
     "@types/node": "22.20.5",
     "typescript": "5.9.3",
     "vitest": "4.1.12"

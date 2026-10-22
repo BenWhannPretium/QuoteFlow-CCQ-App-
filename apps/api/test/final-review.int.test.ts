@@ -132,7 +132,7 @@ const SECRETS = {
   capitalNotes: 'Apex CER in finance review',
   cer: 'CER-77731',
   justification: 'Board signs the CER on Nov 10',
-  erf: '48213',
+  erf: 'ERF26-213',
 };
 
 interface Opts {

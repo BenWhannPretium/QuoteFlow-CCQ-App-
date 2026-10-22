@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   CheckIcon,
+  HistoryIcon,
   InboxIcon,
   MoreHorizontalIcon,
   SearchIcon,
@@ -29,7 +30,7 @@ import { formatDuration } from '@/components/engineering/format';
 import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { PricerAssignDialog } from '@/components/pricing/PricerAssignDialog';
 import { CAPITAL_LABELS, pricingQueueQueryKey } from '@/components/pricing/QuotingTab';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +88,18 @@ function PricingQueuePage() {
         title="Pricing queue"
         eyebrow="Pricing"
         description="Every quote in Quoting, highest priority first, then the longest waiting. Record the price approval and capital readiness, then submit to Final Review."
+        actions={
+          // B-15: the retired pricing app's history (ERF, BPR, SPR), imported into CCQ.
+          <Link
+            to="/pricing-history"
+            search={{ kind: 'erf' }}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            data-testid="pricing-history-nav"
+          >
+            <HistoryIcon className="size-4" aria-hidden="true" />
+            Pricing history
+          </Link>
+        }
       />
       {queue.isPending && <SkeletonRows rows={6} />}
       {queue.error && <ErrorState error={queue.error} onRetry={() => void queue.refetch()} />}

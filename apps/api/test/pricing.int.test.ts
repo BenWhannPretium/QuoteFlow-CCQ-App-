@@ -187,7 +187,7 @@ const SECRETS = {
   capitalNotes: 'Apex CER in finance review',
   cer: 'CER-77731',
   justification: 'Board signs the CER on Nov 10',
-  erf: '48213',
+  erf: 'ERF26-213',
 };
 
 /** A full approval: references, basis, range, costing. */
@@ -343,7 +343,7 @@ describe('the price approval record', () => {
     expect(quoting.pricingUsers.map((u) => u.id).sort()).toEqual(
       [pricer, await userId('PricingLead')].sort(),
     );
-    expect(quoting.refFormats.erf.example).toBe('26367');
+    expect(quoting.refFormats.erf.example).toBe('ERF25-123');
 
     const timeline = await db.db
       .select()
@@ -383,7 +383,7 @@ describe('the price approval record', () => {
     // B-26: BPR references and the "no record yet" note are gone from the body.
     expect((await putRecord(qn, { bprRefs: ['BPR-1'] })).statusCode).toBe(400);
     expect((await putRecord(qn, { noPricingAppRecordNote: 'x' })).statusCode).toBe(400);
-    // The formats are config (ask Cory at M5): change the setting, not the code.
+    // The formats are config: change the setting, not the code.
     const formats = (erf: object) =>
       db.db.execute(sql`
         update app_setting set value = jsonb_set(value, '{erf}', ${JSON.stringify(erf)}::jsonb)
@@ -391,7 +391,11 @@ describe('the price approval record', () => {
     await formats({ label: 'ERF number', pattern: '^ERF-\\d+$', example: 'ERF-1' });
     expect((await putRecord(qn, { erfRefs: ['erf-99'] })).statusCode).toBe(200);
     expect((await putRecord(qn, { erfRefs: ['26367'] })).statusCode).toBe(422);
-    await formats({ label: 'ERF number', pattern: '^\\d{4,7}$', example: '26367' });
+    await formats({
+      label: 'Legacy ERF number',
+      pattern: '^(ERF|EP)\\d{2}-\\d{2,5}$',
+      example: 'ERF25-123',
+    });
   });
 
   it('only Pricing edits, and only while the quote is in Quoting', async () => {
