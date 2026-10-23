@@ -5,10 +5,11 @@ import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 // B-10: the EngLead is alerted and assigns from the engineering queue; the Engineer accepts and
-// completes the Engineering Review with capacity evidence; the EngLead decides G2 Proceed.
+// completes the Engineering Review with capacity evidence (B-26: plus the Equipment BOM and Supply
+// Chain view); the EngLead signs off capacity (B-26) and decides G2 Advance.
 // The quote is created and qualified through the API (intake and G1 have their own specs).
 
-test('EngLead assigns → Engineer completes the review with capacity evidence → Proceed', async ({
+test('EngLead assigns → Engineer completes the review with capacity evidence → Advance', async ({
   browser,
   request,
 }) => {
@@ -90,6 +91,8 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await solution.getByLabel('Cycle time (s)').fill('14.5');
   await solution.getByLabel('Preliminary capital (USD)').fill('350000');
   await solution.getByLabel('Downstream equipment').fill('Leak tester, compressed air drop');
+  await solution.getByLabel('Equipment BOM').fill('EBM shuttle, 8-cavity mold, leak tester');
+  await solution.getByLabel('Supply Chain').fill('Resin from the Midwest hub; freight OK');
   await solution.getByRole('button', { name: 'Save solution' }).click();
   await expect(eng.getByText('Engineering review saved')).toBeVisible();
   // Commercial: the engineer wrote the capital but can't read it back.
@@ -109,14 +112,18 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(eng.getByText('Capacity evidence saved')).toBeVisible();
   expect(await seriousViolations(eng)).toEqual([]);
 
-  // ── EngLead: decides G2 Proceed ──
+  // ── EngLead: signs off capacity (B-26), then decides G2 Advance ──
   await lead.goto(`/quotes/${quoteNumber}?tab=engineering`);
   const leadTab = lead.getByTestId('engineering-tab');
   await expect(leadTab.getByLabel('Preliminary capital (USD)')).toHaveValue('350000');
+  const signoff = leadTab.getByTestId('capacity-signoff');
+  await expect(signoff.getByTestId('capacity-signoff-status')).toContainText('Not signed off yet');
+  await signoff.getByRole('button', { name: 'Approve capacity' }).click();
+  await expect(signoff.getByTestId('capacity-signoff-status')).toContainText('Capacity approved');
   await leadTab.getByRole('button', { name: 'Decide G2…' }).click();
   const g2 = lead.getByRole('dialog');
   await expect(g2.getByTestId('completeness')).toContainText('Nothing missing for this decision');
-  await g2.getByRole('radio', { name: 'Proceed', exact: true }).check();
+  await g2.getByRole('radio', { name: 'Advance', exact: true }).check();
   await g2.getByRole('button', { name: 'Record decision' }).click();
   await expect(g2).toHaveCount(0);
   await expect(lead.getByText(`${quoteNumber} is now in Quoting`)).toBeVisible();

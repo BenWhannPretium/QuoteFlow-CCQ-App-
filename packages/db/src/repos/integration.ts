@@ -2,7 +2,6 @@ import { and, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { excludedSet, first } from './_util';
-import { uuidv7 } from '../ids';
 import {
   appUser,
   customer,
@@ -275,47 +274,6 @@ export const listIntegrationRuns = (
     .where(source ? eq(integrationRun.source, source) : undefined)
     .orderBy(desc(integrationRun.startedAt))
     .limit(limit);
-
-/**
- * B-15: add `counts` to the pricing app's row for the hour starting at `hour` (created on first use),
- * so on-demand reads leave one `integration_run` row per hour, not one per call. Counts are summed
- * key by key. Status follows the hour's totals: no `failed` → succeeded, every call failed → failed,
- * otherwise partial. `error` is a data-free code (the latest one is kept).
- */
-export async function addPricingUsage(
-  db: DbOrTx,
-  hour: Date,
-  counts: Record<string, number>,
-  at: Date,
-  error: string | null,
-): Promise<void> {
-  const hourIso = hour.toISOString();
-  const atIso = at.toISOString();
-  const json = JSON.stringify(counts);
-  const sum = (key: string) =>
-    sql`coalesce((${integrationRun}.counts->>${key})::numeric, 0) + coalesce((excluded.counts->>${key})::numeric, 0)`;
-  await db.execute(sql`
-    insert into ${integrationRun} (id, source, started_at, finished_at, status, counts, error)
-    values (${uuidv7(at.getTime())}::uuid, 'pricing', ${hourIso}::timestamptz, ${atIso}::timestamptz,
-      case when coalesce((${json}::jsonb->>'failed')::numeric, 0) = 0 then 'succeeded'
-           when (${json}::jsonb->>'failed')::numeric >= coalesce((${json}::jsonb->>'calls')::numeric, 0) then 'failed'
-           else 'partial' end,
-      ${json}::jsonb, ${error})
-    on conflict (source, started_at) where source = 'pricing' do update set
-      counts = (
-        select coalesce(jsonb_object_agg(k,
-          coalesce((${integrationRun}.counts->>k)::numeric, 0) + coalesce((excluded.counts->>k)::numeric, 0)
-        ), '{}'::jsonb)
-        from (select jsonb_object_keys(${integrationRun}.counts) as k
-              union select jsonb_object_keys(excluded.counts)) as keys
-      ),
-      finished_at = excluded.finished_at,
-      status = case when ${sum('failed')} = 0 then 'succeeded'
-                    when ${sum('failed')} >= ${sum('calls')} then 'failed'
-                    else 'partial' end,
-      error = coalesce(excluded.error, ${integrationRun}.error),
-      updated_at = excluded.finished_at`);
-}
 
 /** Start time of the latest succeeded run for `source`: the delta sync's watermark. */
 export async function lastSucceededRunStart(db: DbOrTx, source: string): Promise<Date | null> {

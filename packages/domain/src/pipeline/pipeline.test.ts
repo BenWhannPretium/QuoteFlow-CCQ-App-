@@ -91,22 +91,33 @@ describe('board: availableActions → droppable columns', () => {
       outcomeKey: null,
       targetStageKey: null,
     });
-    expect(planDrop(g5, TERMINAL, 'AWARDED')?.outcomeKey).toBe('awarded');
+    // B-26: an award moves to Commit & Hand Off (an open stage); G6 closes it Won.
+    expect(planDrop(g5, TERMINAL, 'COMMIT_HANDOFF')?.outcomeKey).toBe('awarded');
+    const g6 = boardMoves(
+      availableActions(
+        hybridConfig,
+        makeQuote('COMMIT_HANDOFF', { kamUserId: KAM_ID }),
+        makeActor('KAM', { userId: KAM_ID }),
+      ),
+      'COMMIT_HANDOFF',
+    );
+    expect(planDrop(g6, TERMINAL, 'AWARDED')?.outcomeKey).toBe('advance');
   });
 
   it.each(ROLES)('%s may drag only from the stage whose gate it decides', (role) => {
-    // SalesLeader decides G1 and records customer outcomes (outcome.record) at G5.
+    // SalesLeader decides G1, records customer outcomes (outcome.record) at G5 and G6 (B-26).
     const expected: Partial<Record<Role, string[]>> = {
-      SalesLeader: ['INTAKE', 'CUSTOMER_DECISION'],
+      SalesLeader: ['INTAKE', 'CUSTOMER_DECISION', 'COMMIT_HANDOFF'],
       EngLead: ['ENG_REVIEW'],
       Pricing: ['QUOTING'],
+      PricingLead: ['QUOTING'],
       Approver: ['FINAL_REVIEW'],
     };
     for (const stage of OPEN_STAGES) {
       const cols = droppable(role, stage);
       if (expected[role]?.includes(stage))
         expect(cols.length, `${role} ${stage}`).toBeGreaterThan(0);
-      else if (role === 'KAM' && stage === 'CUSTOMER_DECISION')
+      else if (role === 'KAM' && (stage === 'CUSTOMER_DECISION' || stage === 'COMMIT_HANDOFF'))
         continue; // own quotes: next test
       else expect(cols, `${role} ${stage}`).toEqual([]);
     }
@@ -124,7 +135,7 @@ describe('board: availableActions → droppable columns', () => {
         ).keys(),
       ].sort();
     expect(cols(own)).toEqual(
-      ['AWARDED', 'CLOSED_LOST', 'ENG_REVIEW', 'EXPIRED', 'QUOTING', CLOSED_LANE_KEY].sort(),
+      ['COMMIT_HANDOFF', 'CLOSED_LOST', 'ENG_REVIEW', 'EXPIRED', 'QUOTING', CLOSED_LANE_KEY].sort(),
     );
     expect(cols(peer)).toEqual([]);
   });

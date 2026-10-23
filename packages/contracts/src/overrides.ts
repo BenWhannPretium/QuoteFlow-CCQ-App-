@@ -75,7 +75,7 @@ export const CreateOverrideBody = z.object({
 });
 export type CreateOverrideBody = z.infer<typeof CreateOverrideBody>;
 
-/** POST /api/v1/overrides/:id/approve (note optional) and /reject (note required by the domain). */
+/** POST /api/v1/overrides/:id/approve and /reject: a note is required for both (the domain; B-26). */
 export const OverrideDecisionBody = z.object({
   note: z.string().max(OVERRIDE_JUSTIFICATION_MAX).optional(),
 });

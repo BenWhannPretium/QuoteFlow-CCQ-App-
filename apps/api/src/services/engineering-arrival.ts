@@ -3,6 +3,7 @@ import { listUsersByIds, resetEngReviewAcceptance } from '@ccq/db/repos';
 import { asUserId, type PlannedNotification } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { onMarketDevCheck } from './commercial';
 import { loadEngQueueSettings } from './engineering-view';
 import { persistNotifications } from './notificationService';
 
@@ -33,6 +34,8 @@ export async function onEngQueueArrival(
       recipient: { kind: 'user', userId: asUserId(u.id) },
     })),
   ];
+  // B-26: a qualified quote above the Market Development threshold tells Market Development (once).
+  await onMarketDevCheck(tx, quote, actorId, new Date(), log);
   return persistNotifications(
     tx,
     planned,
@@ -48,6 +51,7 @@ export async function onEngQueueArrival(
             ? 'Final Review returned it for another look. Open the engineering queue to assign it.'
             : 'A quote is waiting for an engineer. Open the engineering queue to assign it.',
       excludeUserId: actorId,
+      notifyActorViaRole: true,
       ...(returnedFrom ? { payload: { returnedFrom } } : {}),
     },
     log,

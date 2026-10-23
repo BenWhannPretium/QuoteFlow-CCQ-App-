@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
@@ -6,8 +8,10 @@ import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 // B-11: Pricing finds an engineering-cleared quote in the pricing queue, records the price approval
 // (references, basis, range, costing attestation) and capital readiness, and submits to Final Review
-// (G3). B-15: the read-only pricing-app panel resolves the ERF and its BPRs, "Use as reference" adds a
-// BPR, and the manual fallback works when the pricing app is down. The KAM sees only "Price approved
+// (G3). B-15: an Admin imports the pricing history (a synthetic export with the real headers); the
+// panel resolves the Legacy ERF #, the Pricing history page searches ERF / BPR / SPR, and the ERF #
+// still saves when the history can't be loaded (B-26: the ERF # is optional; no BPR on a quote).
+// B-26 (A6): the queue shows who the pricing lead assigned it to. The KAM sees only "Price approved
 // ✓" and no panel (403 from the API); the Approver is notified. The quote is created, qualified
 // and engineered through the API (those stages have their own specs).
 
@@ -23,6 +27,21 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await request.get('/api/v1/me', { headers: as('pricing') });
   const engineer = await request.get('/api/v1/me', { headers: as('engineer') });
   const engineerId = ((await engineer.json()) as { user: { id: string } }).user.id;
+
+  // B-15: the legacy pricing history (idempotent: re-importing the same file changes nothing).
+  const imported = await request.post('/api/v1/admin/pricing-history/import?apply=true', {
+    headers: as('admin'),
+    multipart: {
+      file: {
+        name: 'pricing-history.synthetic.xlsx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        buffer: await readFile(
+          new URL('./fixtures/pricing-history.synthetic.xlsx', import.meta.url),
+        ),
+      },
+    },
+  });
+  expect(imported.status(), await imported.text()).toBe(200);
 
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
   const ok = async (res: Promise<APIResponse>, status = 200) => {
@@ -66,6 +85,13 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
       },
     }),
   );
+  // B-26: the capacity owner signs off before G2 can advance.
+  await ok(
+    request.put(`/api/v1/quotes/${quoteNumber}/capacity-signoff`, {
+      headers: as('eng-lead'),
+      data: { status: 'approved' },
+    }),
+  );
   await ok(
     request.post(`/api/v1/quotes/${quoteNumber}/gates/G2/decisions`, {
       headers: as('eng-lead'),
@@ -92,9 +118,10 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await pricing.getByLabel('Search the pricing queue').fill(quoteNumber);
   const row = pricing.getByRole('row').filter({ hasText: quoteNumber });
   await expect(row).toHaveCount(1);
-  await expect(row.getByTestId('g2-outcome')).toHaveText('Capital required');
+  await expect(row.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
   await expect(row.getByTestId('capital-readiness')).toHaveText('Pending');
   await expect(row.getByTestId('approval-status')).toHaveText('Awaiting approval');
+  await expect(row).toContainText('Unassigned');
   expect(await seriousViolations(pricing)).toEqual([]);
 
   await row.getByRole('link', { name: quoteNumber }).click();
@@ -102,59 +129,69 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   const tab = pricing.getByTestId('quoting-tab');
   await expect(tab.getByTestId('price-approval-status')).toContainText('not recorded');
   // Pricing reads the engineering summary, commercial numbers included.
-  await expect(tab.getByTestId('quoting-g2')).toContainText('Capital required');
+  await expect(tab.getByTestId('quoting-g2')).toContainText('Advance – capital required');
   await expect(tab).toContainText('$420,000');
-  // B-15: the read-only pricing-app panel (PRICING_MODE=fake) sits above the approval form.
+  // B-15: the pricing history panel sits above the approval form (the history was imported above).
   const panel = tab.getByTestId('pricing-context');
-  await expect(panel.getByRole('heading', { name: 'Pricing context' })).toBeVisible();
-  await expect(panel.getByTestId('pricing-context-spr')).toContainText(
-    'Historical (SPR retired Nov 2025)',
-  );
+  await expect(panel.getByRole('heading', { name: 'Pricing history' })).toBeVisible();
 
-  // ── The price approval: a bad reference is caught by format ──
+  // ── The price approval: a bad reference is caught by format (the export's ERF<yy>-<n>) ──
   const form = tab.getByTestId('pricing-record-form');
   await expect(form.getByLabel('Approved by')).not.toHaveValue(''); // defaults to the caller
-  await form.getByLabel('ERF number(s)').fill('ERF twelve');
+  await form.getByLabel('Legacy ERF #').fill('48211');
   await form.getByLabel('Pricing basis').fill('March CDI, FOB Chicago');
   await form.getByLabel('Approved negotiation range').fill('Hold the list price; floor per Gemma');
   await form.getByLabel('Costing completed (Cost-to-Serve)').check();
   await form.getByRole('button', { name: 'Save price approval' }).click();
-  await expect(form.getByRole('alert').first()).toContainText('is not a valid ERF number');
-  await form.getByLabel('ERF number(s)').fill('48211');
+  await expect(form.getByRole('alert').first()).toContainText('is not a valid Legacy ERF number');
+  await form.getByLabel('Legacy ERF #').fill('erf26-211, ERF99-999');
   await form.getByRole('button', { name: 'Save price approval' }).click();
   await expect(pricing.getByText('Price approval recorded')).toBeVisible();
   await expect(tab.getByTestId('price-approval-status')).toContainText('Price approved ✓');
 
-  // ── B-15: the referenced ERF resolves in the pricing app, with the BPR that follows it ──
-  const erf = panel.getByTestId('pricing-context-erf').filter({ hasText: 'ERF 48211' });
+  // ── B-15: the Legacy ERF # resolves in the imported history (no BPR on a quote: B-26) ──
+  const erf = panel.getByTestId('pricing-context-erf').filter({ hasText: 'ERF26-211' });
   await expect(erf).toContainText('Abandoned');
-  await expect(erf).toContainText('Est. net capital');
-  await expect(erf).toContainText('To price confirmed');
+  await expect(erf).toContainText('E2E Bottling Co (synthetic)');
+  await expect(erf).toContainText('$450,000'); // est. revenue
+  await expect(erf.getByText('Unknown').first()).toBeVisible(); // volume written as 0 = unknown
+  await expect(erf).toContainText('Customer paused the launch (synthetic note).'); // free text
   await expect(erf.getByText('Referenced')).toBeVisible();
-  const bprs = panel.getByTestId('pricing-context-bprs');
-  await expect(bprs).toContainText('follows ERF 48211');
-  // The SF opportunity's own ERF can bring another BPR into the list; use the one asserted below.
-  await bprs.getByTestId('use-bpr-BPR-482111').click();
-  await expect(pricing.getByText('Added BPR-482111 to the BPR references')).toBeVisible();
-  await expect(form.getByLabel('BPR number(s)')).toHaveValue('BPR-482111');
-  await expect(bprs.getByText('Referenced')).toBeVisible();
+  await expect(panel.getByTestId('pricing-context-not-found')).toContainText('ERF99-999');
   expect(await seriousViolations(pricing)).toEqual([]);
 
-  // ── Pricing app down: the panel says so and manual references still save ──
+  // ── The history page: every kind for the customer, BPR prices included ──
+  await panel.getByTestId('pricing-history-link').click();
+  await expect(pricing.getByRole('heading', { level: 1, name: 'Pricing history' })).toBeVisible();
+  await pricing.getByLabel('Customer').fill('E2E Bottling');
+  await pricing.getByRole('button', { name: 'Search' }).click();
+  const results = pricing.getByTestId('history-results');
+  await expect(results.getByTestId('history-erf')).toHaveCount(3);
+  await expect(results).toContainText('EP09-045');
+  await pricing.getByTestId('history-kind-bpr').click();
+  const bpr = results.getByTestId('history-bpr');
+  await expect(bpr).toHaveCount(1);
+  await bpr.locator('summary').click();
+  await expect(bpr).toContainText('$0.4125');
+  expect(await seriousViolations(pricing)).toEqual([]);
+  await pricing.goBack(); // the search replaces its own history entry
+  await expect(tab.getByTestId('price-approval-status')).toContainText('Price approved ✓');
+
+  // ── History unavailable: the panel says so and the Legacy ERF # still saves ──
   await pricing.route('**/api/v1/quotes/*/pricing-context', (route) =>
-    route.fulfill({ status: 503, contentType: 'application/problem+json', body: '{}' }),
+    route.fulfill({ status: 500, contentType: 'application/problem+json', body: '{}' }),
   );
   await pricing.reload();
   await expect(pricing.getByTestId('pricing-context-unavailable')).toContainText(
-    'Pricing app unavailable; enter references manually.',
+    'you can still type a Legacy ERF #',
   );
-  await form.getByLabel('BPR number(s)').fill('BPR-482111, BPR-55120');
+  await form.getByLabel('Legacy ERF #').fill('ERF26-211, ERF25-340');
   const saved = pricing.waitForResponse(
     (r) => r.url().endsWith('/pricing-record') && r.request().method() === 'PUT',
   );
   await form.getByRole('button', { name: 'Save price approval' }).click();
   expect((await saved).status()).toBe(200);
-  await expect(form.getByLabel('BPR number(s)')).toHaveValue('BPR-482111, BPR-55120');
+  await expect(form.getByLabel('Legacy ERF #')).toHaveValue('ERF26-211, ERF25-340');
   await pricing.unroute('**/api/v1/quotes/*/pricing-context');
   // No price figure can be typed anywhere on the tab.
   await expect(tab.locator('input[type="number"]')).toHaveCount(0);
@@ -169,11 +206,11 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await expect(tab.getByTestId('quoting-warnings')).toContainText('Capital is still pending');
   expect(await seriousViolations(pricing)).toEqual([]);
 
-  // ── G3 Submit to Final Review ──
-  await tab.getByRole('button', { name: 'Submit to Final Review…' }).click();
+  // ── G3 Advance to Final Review ──
+  await tab.getByRole('button', { name: 'Advance to Final Review…' }).click();
   const g3 = pricing.getByRole('dialog');
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
-  await expect(g3.getByRole('radio', { name: 'Submit to Final Review' })).toBeChecked();
+  await expect(g3.getByRole('radio', { name: 'Advance to Final Review' })).toBeChecked();
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(g3).toHaveCount(0);
   await expect(pricing.getByText(`${quoteNumber} is now in Final Review`)).toBeVisible();
@@ -187,17 +224,23 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
     /Price approved ✓ on .+ by /,
   );
   await expect(kamTab.getByTestId('quoting-redacted')).toBeVisible();
-  for (const secret of ['March CDI', 'Hold the list price', '48211', 'CER-4410', 'board Nov 10']) {
+  for (const secret of [
+    'March CDI',
+    'Hold the list price',
+    'ERF26-211',
+    'CER-4410',
+    'board Nov 10',
+  ]) {
     await expect(kam.getByTestId('quote-detail')).not.toContainText(secret);
   }
-  // B-15: no pricing-app panel for the KAM, and the API refuses (server-enforced, not just hidden).
+  // B-15: no pricing history for the KAM, and the API refuses (server-enforced, not just hidden).
   await expect(kam.getByTestId('pricing-context')).toHaveCount(0);
   for (const persona of ['kam', 'engineer']) {
     const denied = await request.get(`/api/v1/quotes/${quoteNumber}/pricing-context`, {
       headers: as(persona),
     });
     expect(denied.status()).toBe(403);
-    const lookup = await request.get('/api/v1/pricing/erf/48211', { headers: as(persona) });
+    const lookup = await request.get('/api/v1/pricing/erf/ERF26-211', { headers: as(persona) });
     expect(lookup.status()).toBe(403);
   }
   expect(await seriousViolations(kam)).toEqual([]);

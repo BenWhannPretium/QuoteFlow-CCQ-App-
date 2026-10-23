@@ -5,6 +5,7 @@ import {
   CycleTimeResponse,
   DashboardParams,
   DashboardResponse,
+  EngineeringAnalyticsResponse,
   FirstPassResponse,
   FlowResponse,
   G1YieldResponse,
@@ -20,6 +21,7 @@ import type { ZodType } from 'zod';
 
 import { requireActor } from '../../plugins/auth';
 import type { AnalyticsService, AnalyticsWithTx } from '../../services/analytics';
+import { engineeringAnalytics } from '../../services/analytics-engineering';
 import type { DashboardService } from '../../services/dashboards';
 import { handleProblems } from '../../services/problem';
 
@@ -30,7 +32,9 @@ const security = [{ bearerAuth: [] }];
  *
  * - `/analytics/*`: one endpoint per chart, each over the `analytics_*` views. `analytics.read`
  *   (SalesLeader, EngLead, Pricing, Approver, Leadership, Admin); the adoption chart reads the audit
- *   log, so it needs `audit.read` (Leadership, Admin) like the usage report.
+ *   log, so it needs `audit.read` (Leadership, Admin) like the usage report. B-26 (A5): the
+ *   Engineering lens (`/analytics/engineering`) is `engQueue.read` (EngLead, Engineer, Leadership,
+ *   Admin), the same people who read the engineering queue it summarizes.
  * - `/dashboards/:role`: summary blocks for one role's landing page. The route floor is `quote.read`;
  *   the service then checks the permission that opens that role's dashboard (`DASHBOARD_PERMISSION`),
  *   and row-level security scopes every list to what the caller may see.
@@ -51,7 +55,7 @@ export const analyticsRoutes: FastifyPluginAsyncZod<{
     summary: string,
     response: ZodType<unknown>,
     run: (w: AnalyticsWithTx, q: ReturnType<typeof AnalyticsQuery.parse>) => Promise<unknown>,
-    permission: 'analytics.read' | 'audit.read' = 'analytics.read',
+    permission: 'analytics.read' | 'audit.read' | 'engQueue.read' = 'analytics.read',
   ) =>
     app.get(
       `/analytics/${path}`,
@@ -138,6 +142,14 @@ export const analyticsRoutes: FastifyPluginAsyncZod<{
     AdoptionResponse,
     (w, q) => analytics.adoption(w, q),
     'audit.read',
+  );
+
+  chart(
+    'engineering',
+    'The Engineering lens (B-26): queue load per engineer, aging, capacity sign-offs, G2 outcomes and time in Engineering Review',
+    EngineeringAnalyticsResponse,
+    (w, q) => engineeringAnalytics(w, analytics.resolve(q)),
+    'engQueue.read',
   );
 
   app.get(

@@ -5,7 +5,6 @@ import { ATTACHMENT_MAX_BYTES } from '@ccq/domain';
 import {
   createFileStore,
   createMailTransport,
-  createPricingReader,
   createSalesforceReader,
   type FileStore,
   type FileStoreConfig,
@@ -13,8 +12,6 @@ import {
   type GraphCredentialConfig,
   type MailConfig,
   type MailTransport,
-  type PricingLogger,
-  type PricingReader,
   type SalesforceReader,
   type SfLogger,
 } from '@ccq/integrations';
@@ -60,6 +57,7 @@ import { AdminConfigService } from './services/adminConfig';
 import { AnalyticsService } from './services/analytics';
 import { AttachmentService, LocalLinkSigner } from './services/attachments';
 import { AuditAdminService } from './services/auditAdmin';
+import { CommercialService } from './services/commercial';
 import { DashboardService } from './services/dashboards';
 import { EmailContentBuilder } from './services/emailContent';
 import { EngineeringService } from './services/engineering';
@@ -71,7 +69,7 @@ import { OutcomeService } from './services/outcome';
 import { OverrideService } from './services/overrideService';
 import { PipelineService } from './services/pipeline';
 import { PricingService } from './services/pricing';
-import { PricingAppService, PricingUsage } from './services/pricing-app';
+import { PricingHistoryService } from './services/pricing-history';
 import { QuoteReadService } from './services/quotes';
 import { SalesforceService } from './services/salesforce';
 import { ScoringService } from './services/scoring';
@@ -88,8 +86,6 @@ export interface AppDeps {
   };
   /** Test seam: the Salesforce reader (defaults to SF_MODE: the synthetic fake or jsforce). */
   salesforce?: SalesforceReader;
-  /** Test seam: the pricing-app reader (defaults to PRICING_MODE: the synthetic fake, Route A or B). */
-  pricing?: PricingReader;
   /** Test seam: the attachment store (defaults to FILESTORE_MODE: SharePoint, Blob or local). */
   fileStore?: FileStore;
   /** Test seam: replaces the Postgres-backed user directory. */
@@ -114,8 +110,6 @@ declare module 'fastify' {
     validityExpiry: ValidityExpiryScheduler | null;
     /** B-18: the email dispatcher (and the 7:00 AM Central to-qualify digest); null without a database. server.ts starts it. */
     notificationDispatch: NotificationDispatchScheduler | null;
-    /** B-15: hourly pricing-app usage counts (flushed to integration_run about once a minute). */
-    pricingUsage: PricingUsage;
     /** B-19: the admin configuration console (tests await `adminConfig.rescore.flush()`). */
     adminConfig: AdminConfigService;
   }
@@ -142,35 +136,6 @@ function salesforceReaderFor(config: AppConfig, logger: SfLogger): SalesforceRea
     { mode: 'live', ...login, apiVersion: config.SF_API_VERSION },
     { logger },
   );
-}
-
-function pricingReaderFor(config: AppConfig, logger: PricingLogger): PricingReader {
-  switch (config.PRICING_MODE) {
-    case 'fake':
-      return createPricingReader({ mode: 'fake' }, { logger });
-    case 'sqlserver':
-      return createPricingReader(
-        {
-          mode: 'sqlserver',
-          server: config.PRICING_SQL_SERVER!,
-          port: config.PRICING_SQL_PORT,
-          database: config.PRICING_SQL_DATABASE!,
-          user: config.PRICING_SQL_USER!,
-          password: config.PRICING_SQL_PASSWORD!,
-        },
-        { logger },
-      );
-    case 'fabric':
-      return createPricingReader(
-        {
-          mode: 'fabric',
-          server: config.PRICING_SQL_SERVER!,
-          database: config.PRICING_SQL_DATABASE!,
-          managedIdentityClientId: config.PRICING_SQL_MI_CLIENT_ID,
-        },
-        { logger },
-      );
-  }
 }
 
 /** App-only Graph credentials: the managed identity, or (a developer, test site only) a client secret. */
@@ -453,29 +418,13 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...now,
   });
 
-  // B-15 pricing-app reader (F-11): read-only ERF/BPR lookups and the quote's pricing context.
-  // Logs carry operations, counts and error codes only, never row contents.
-  const pricingLog = app.log.child({ component: 'pricing-app' });
-  const pricingLogger: PricingLogger = {
-    info: (obj, msg) => pricingLog.info(obj, msg),
-    warn: (obj, msg) => pricingLog.warn(obj, msg),
-    error: (obj, msg) => pricingLog.error(obj, msg),
-  };
-  if (config.PRICING_MODE === 'fake' && isProd) {
-    app.log.warn('PRICING_MODE=fake in production: pricing-app data is the synthetic fixture');
-  }
-  const pricingUsage = new PricingUsage({
+  // B-15 pricing history (F-11, revised): the legacy pricing app's export, imported by an Admin and
+  // read from CCQ's own database. No live connection. Logs carry counts and codes only.
+  const pricingHistoryService = new PricingHistoryService({
+    log: app.log.child({ component: 'pricing-history' }),
     database: deps.db.db,
-    now: deps.now ?? (() => new Date()),
-    logger: pricingLogger,
-  });
-  const pricingAppService = new PricingAppService({
-    reader: deps.pricing ?? pricingReaderFor(config, pricingLogger),
-    usage: pricingUsage,
-    logger: pricingLogger,
     ...now,
   });
-  app.decorate('pricingUsage', pricingUsage);
 
   // B-12 Final Review: the approvals queue and the one-page review summary (decisions are G4 via the gate route).
   const finalReviewService = new FinalReviewService({ quotes: quoteReads, ...now });
@@ -485,6 +434,12 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   const outcomeService = new OutcomeService({
     quotes: quoteReads,
     log: app.log.child({ component: 'outcome' }),
+    ...now,
+  });
+  // B-26: capital flag, commercial terms + Legal review, escalations.
+  const commercialService = new CommercialService({
+    quotes: quoteReads,
+    log: app.log.child({ component: 'commercial' }),
     ...now,
   });
   // B-14 pipeline views: the quote list / prioritization view, the board and the CSV export.
@@ -519,7 +474,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     onScopeChange: () => identity.clear(),
     connectorModes: {
       salesforce: config.SF_MODE,
-      pricing: config.PRICING_MODE,
+      pricing: 'import',
       sharepoint: config.FILESTORE_MODE,
       mail: config.MAIL_MODE,
     },
@@ -544,9 +499,10 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     engineeringService,
     notificationService,
     pricingService,
-    pricingAppService,
+    pricingHistoryService,
     finalReviewService,
     outcomeService,
+    commercialService,
     pipelineService,
     attachmentService,
     adminConfig,
@@ -565,7 +521,6 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     await sfSync?.stop();
     await validityExpiry?.stop();
     await notificationDispatch?.stop();
-    await pricingUsage.stop();
     await app.audit.flush();
     await deps.db.close();
   });

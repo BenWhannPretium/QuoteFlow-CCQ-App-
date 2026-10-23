@@ -1,4 +1,10 @@
 import {
+  CAPITAL_NOTICE_SEED,
+  ESCALATION_ROUTES_SEED,
+  LEGAL_REVIEW_TRIGGERS_SEED,
+  MARKET_DEV_NOTICE_SEED,
+  PASS_THROUGH_SEED,
+  PROCESS_OWNER_SEED,
   ATTACHMENT_SETTINGS_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   HANDOFF_RECEIVING_ROLES_SEED,
@@ -198,7 +204,44 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'pricing_ref_formats',
     value: PRICING_REF_FORMATS_SEED,
     description:
-      'B-11: format-only checks for the pricing-app references on the Quoting tab ({erf|bpr: {label, pattern, example}}). Guesses until Cory McGahan confirms the real formats at M5 (D-PR).',
+      'B-11: format-only check for the legacy ERF numbers on the Quoting tab ({erf: {label, pattern, example}}). B-26: ERF is a transition-only reference and BPR is outside CCQ (a stored bpr entry is ignored). B-15 (2026-10-22): the format of the pricing-app export, ERF<yy>-<n> or EP<yy>-<n>.',
+  },
+  // ── B-26 demo feedback and the future-state deck. All provisional.
+  {
+    key: 'pricing_pass_through',
+    value: PASS_THROUGH_SEED,
+    description:
+      'D-24: below this estimated annual revenue (USD) a price proceeds without formal Pricing approval, so the pricing gate does not become a bottleneck. null = off (Pricing has not set the amount): every price needs its approval.',
+  },
+  {
+    key: 'legal_review_triggers',
+    value: LEGAL_REVIEW_TRIGGERS_SEED,
+    description:
+      'D-25: when any switched-on trigger applies (new customer, nonstandard terms, tooling commitment), G4 Advance needs the Legal review recorded.',
+  },
+  {
+    key: 'capital_management_notice',
+    value: CAPITAL_NOTICE_SEED,
+    description:
+      'D-27: app_user ids told (awareness, not approval) the first time a quote is flagged "capital likely". Capital Management is not a CCQ role, so name the people. Empty = nobody yet.',
+  },
+  {
+    key: 'market_development_notice',
+    value: MARKET_DEV_NOTICE_SEED,
+    description:
+      'D-27: Market Development is told when a quote at or above minAnnualRevenueUsd enters Engineering Review (once per quote). null threshold = off; recipientUserIds = app_user ids.',
+  },
+  {
+    key: 'process_owner',
+    value: PROCESS_OWNER_SEED,
+    description:
+      'D-28: the CCQ Process Owner (net-new Commercial role, TBD; Oleg Yarovinski is interim). Set userId to the CCQ user; escalation routes with processOwner=true go to them.',
+  },
+  {
+    key: 'escalation_routes',
+    value: ESCALATION_ROUTES_SEED,
+    description:
+      'D-28: escalation types (the paths on the future-state stage maps) and who receives each: CCQ roles, named app_user ids (Operations / Supply Chain leadership, Market Development) and/or the Process Owner.',
   },
   // ── B-19 admin console.
   {
@@ -245,8 +288,9 @@ export const SF_STAGES: [sfStage: string, hint: string | null][] = [
   ['Quoting', 'QUOTING'],
   ['Negotiating', 'CUSTOMER_DECISION'],
   ['Final Review', 'FINAL_REVIEW'],
-  ['Verbal Award', 'AWARDED'],
-  ['PO(s) in hand', 'AWARDED'],
+  // B-26: an award waits in Commit & Hand Off until the CER and hand-off close it Won.
+  ['Verbal Award', 'COMMIT_HANDOFF'],
+  ['PO(s) in hand', 'COMMIT_HANDOFF'],
   ['Closed Won – Product Shipping', 'AWARDED'],
   ['Closed Lost', 'CLOSED_LOST'],
 ];

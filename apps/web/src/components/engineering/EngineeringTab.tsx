@@ -63,6 +63,10 @@ export function EngineeringTab({
       )}
       <SolutionCard quote={quote} />
       <CapacityCard key={eng.capacityEvidence.map((r) => r.id).join()} quote={quote} />
+      <CapacitySignoffCard
+        key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
+        quote={quote}
+      />
     </div>
   );
 }
@@ -266,6 +270,8 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                 value: review.downstreamEquipmentNotes,
               },
               { id: 'concept', label: 'Technical concept', value: review.technicalConceptNotes },
+              { id: 'bom', label: 'Equipment BOM', value: review.equipmentBomNotes },
+              { id: 'supply-chain', label: 'Supply Chain', value: review.supplyChainNotes },
             ]}
           />
         </CardContent>
@@ -410,6 +416,32 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
               />
             )}
           </Field>
+          <Field
+            label="Equipment BOM"
+            hint="Equipment list for the capital estimate: machine, mold, downstream, auxiliaries (B-26)"
+            error={errorFor(errors, 'equipmentBomNotes')}
+          >
+            {(id) => (
+              <Textarea
+                id={id}
+                value={form.equipmentBomNotes}
+                onChange={(e) => set('equipmentBomNotes')(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field
+            label="Supply Chain"
+            hint="Supply Chain's network, resin and freight view on the chosen plant (B-26)"
+            error={errorFor(errors, 'supplyChainNotes')}
+          >
+            {(id) => (
+              <Textarea
+                id={id}
+                value={form.supplyChainNotes}
+                onChange={(e) => set('supplyChainNotes')(e.target.value)}
+              />
+            )}
+          </Field>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
           <div>
             <Button type="submit" disabled={!changed || save.isPending}>
@@ -433,7 +465,106 @@ function solutionForm(review: EngineeringDetail['review']): Record<SolutionKey, 
     downstreamEquipmentNotes: review.downstreamEquipmentNotes ?? '',
     prelimCapitalUsd: review.prelimCapitalUsd?.toString() ?? '',
     technicalConceptNotes: review.technicalConceptNotes ?? '',
+    equipmentBomNotes: review.equipmentBomNotes ?? '',
+    supplyChainNotes: review.supplyChainNotes ?? '',
   };
+}
+
+// ── Capacity sign-off (B-26, B5) ─────────────────────────────────────────────────────────────────
+
+const SIGNOFF_LABEL = { approved: 'Capacity approved', blocked: 'Capacity blocked' } as const;
+
+/**
+ * The capacity owner's sign-off (B-26, deck slide 9): G2 "Advance" needs capacity approved, not just
+ * the evidence rows. Recorded by the EngLead (capacity.signoff) while the quote is in Engineering
+ * Review; blocking needs a note. Changing the solution clears it on the server.
+ */
+function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
+  const eng = quote.engineering;
+  const signoff = eng.capacitySignoff;
+  const refresh = useRefresh(quote.quoteNumber);
+  const [note, setNote] = useState(signoff.note ?? '');
+  const [errors, setErrors] = useState<ServerError[]>([]);
+  const save = useMutation({
+    mutationFn: (status: 'approved' | 'blocked' | null) =>
+      api.updateCapacitySignoff(quote.quoteNumber, {
+        status,
+        note: note.trim() === '' ? null : note.trim(),
+      }),
+    onSuccess: async (detail, status) => {
+      setErrors([]);
+      await refresh(detail);
+      toast.success({
+        title: status ? SIGNOFF_LABEL[status] : 'Capacity sign-off cleared',
+      });
+    },
+    onError: (err) => setErrors(problemErrors(err)),
+  });
+  return (
+    <Card data-testid="capacity-signoff">
+      <CardHeader>
+        <CardTitle>
+          <h2 className="text-base font-semibold">Capacity sign-off</h2>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <p className="text-sm" role="status" data-testid="capacity-signoff-status">
+          {signoff.status ? (
+            <>
+              <span className="font-medium">{SIGNOFF_LABEL[signoff.status]}</span>
+              {signoff.byName ? ` by ${signoff.byName}` : ''}
+              {signoff.at ? ` on ${absoluteTime(signoff.at)}` : ''}
+              {signoff.note ? `: ${signoff.note}` : ''}
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              Not signed off yet. G2 &ldquo;Advance&rdquo; needs the capacity owner to approve
+              capacity.
+            </span>
+          )}
+        </p>
+        {eng.canSignOffCapacity && (
+          <div className="grid gap-3">
+            <Field
+              label="Sign-off note"
+              hint="Required to block capacity"
+              error={errorFor(errors, 'note')}
+            >
+              {(id) => <Textarea id={id} value={note} onChange={(e) => setNote(e.target.value)} />}
+            </Field>
+            <FormErrors errors={errors.filter((e) => e.path !== '/note')} />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={save.isPending}
+                onClick={() => save.mutate('approved')}
+              >
+                Approve capacity
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={save.isPending || note.trim() === ''}
+                onClick={() => save.mutate('blocked')}
+              >
+                Block capacity
+              </Button>
+              {signoff.status && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={save.isPending}
+                  onClick={() => save.mutate(null)}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 // ── Capacity evidence ────────────────────────────────────────────────────────────────────────────

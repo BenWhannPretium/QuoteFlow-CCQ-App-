@@ -13,12 +13,13 @@ const ALLOWED: Record<string, Role[]> = {
   G1: ['SalesLeader'],
   SUBMIT: ['KAM', 'SalesLeader', 'Admin'],
   G2: ['EngLead'],
-  G3: ['Pricing'],
+  G3: ['Pricing', 'PricingLead'],
   G4: ['Approver'],
   G5: ['SalesLeader'], // KAM only on their own quote: see "KAM records the outcome on own quote"
+  G6: ['SalesLeader'], // B-26: likewise, KAM only on their own quote
   P_INTAKE: ['KAM', 'SalesLeader', 'Admin'],
   P_ENG: ['EngLead'],
-  P_QUOTE: ['Pricing'],
+  P_QUOTE: ['Pricing', 'PricingLead'],
   P_FINAL: ['Approver'],
 };
 
@@ -94,9 +95,11 @@ describe('hybrid: routing', () => {
     ['G3', 'submit', 'Pricing', 'FINAL_REVIEW'],
     ['G4', 'approve', 'Approver', 'CUSTOMER_DECISION'],
     ['G4', 'decline', 'Approver', 'DECLINED'],
-    ['G5', 'awarded', 'SalesLeader', 'AWARDED'],
+    ['G5', 'awarded', 'SalesLeader', 'COMMIT_HANDOFF'],
     ['G5', 'lost', 'SalesLeader', 'CLOSED_LOST'],
     ['G5', 'expired', 'SalesLeader', 'EXPIRED'],
+    ['G6', 'advance', 'SalesLeader', 'AWARDED'],
+    ['G6', 'stop', 'SalesLeader', 'NOT_AUTHORIZED'],
   ])('%s/%s lands on %s', (gate, outcome, role, stage) => {
     const result = run(gate, outcome, role as Role);
     expect(result.ok && result.effects.nextStageKey).toBe(stage);
@@ -207,13 +210,13 @@ describe('hybrid: routing', () => {
 
   it('stageOwner with an ownerless stage yields no notification', () => {
     const config = structuredClone(hybridConfig);
-    config.outcomes.find((o) => o.gateKey === 'G5' && o.key === 'awarded')!.notify = [
+    config.outcomes.find((o) => o.gateKey === 'G6' && o.key === 'advance')!.notify = [
       { type: 'x', to: { stageOwner: true } },
     ];
-    const c = validCase(config, 'G5', 'awarded');
+    const c = validCase(config, 'G6', 'advance');
     const result = evaluateTransition(
       config,
-      makeQuote('CUSTOMER_DECISION', { fields: c.fields }),
+      makeQuote('COMMIT_HANDOFF', { fields: c.fields }),
       makeActor('SalesLeader'),
       c.request,
       NOW,
@@ -327,10 +330,11 @@ describe('validation: all errors, in order', () => {
       ['MISSING_FIELD', 'cavitation'],
       ['MISSING_FIELD', 'cycle_time_s'],
       ['MISSING_FIELD', 'capacity_evidence'],
+      ['MISSING_FIELD', 'capacity_signoff_status'],
     ]);
   });
 
-  it('G2 "Capital required" needs only the preliminary capital figure (B-10)', () => {
+  it('G2 "Capital required" needs the preliminary capital figure (B-10) and the capacity sign-off (B-26)', () => {
     const run = (fields: Record<string, unknown>) =>
       evaluateTransition(
         hybridConfig,
@@ -342,12 +346,15 @@ describe('validation: all errors, in order', () => {
     const missing = run({});
     expect(!missing.ok && missing.errors.map((e) => [e.code, e.field])).toEqual([
       ['MISSING_FIELD', 'prelim_capital_usd'],
+      ['MISSING_FIELD', 'capacity_signoff_status'],
     ]);
-    const ok = run({ prelim_capital_usd: 250_000 });
+    const blocked = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'blocked' });
+    expect(!blocked.ok && blocked.errors.map((e) => e.field)).toEqual(['capacity_signoff_status']);
+    const ok = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'approved' });
     expect(ok.ok && ok.effects.nextStageKey).toBe('QUOTING');
   });
 
-  it('G2 Stop closes as DECLINED; Hold needs a reason and a review date (B-10)', () => {
+  it('G2 Stop closes as DECLINED; Hold needs a reason, a review date (B-10) and an owner (B-26)', () => {
     const stop = evaluateTransition(
       hybridConfig,
       makeQuote('ENG_REVIEW'),
@@ -367,6 +374,7 @@ describe('validation: all errors, in order', () => {
       NOW,
     );
     expect(!hold.ok && hold.errors.map((e) => e.code).sort()).toEqual([
+      'MISSING_FIELD',
       'MISSING_FIELD',
       'REASON_REQUIRED',
     ]);
@@ -417,18 +425,19 @@ describe('validation: all errors, in order', () => {
     );
     expect(!missing.ok && missing.errors).toMatchObject([
       { code: 'MISSING_FIELD', field: 'review_date' },
+      { code: 'MISSING_FIELD', field: 'hold_owner_id' },
     ]);
     const ok = evaluateTransition(
       hybridConfig,
       quote,
       makeActor('SalesLeader'),
-      { ...c.request, payload: { review_date: '2026-11-30' } },
+      { ...c.request, payload: { review_date: '2026-11-30', hold_owner_id: OTHER_ID } },
       NOW,
     );
     expect(ok.ok).toBe(true);
     expect(ok.ok && ok.effects.gateDecisionRecord).toMatchObject({
-      payload: { review_date: '2026-11-30' },
-      evidence: { fields: { review_date: '2026-11-30' } },
+      payload: { review_date: '2026-11-30', hold_owner_id: OTHER_ID },
+      evidence: { fields: { review_date: '2026-11-30', hold_owner_id: OTHER_ID } },
     });
   });
 
@@ -492,9 +501,10 @@ describe('validation: all errors, in order', () => {
   });
 
   it('a reason code on an outcome with no reason context is invalid', () => {
+    const c = validCase(hybridConfig, 'G4', 'approve');
     const result = evaluateTransition(
       hybridConfig,
-      makeQuote('FINAL_REVIEW'),
+      makeQuote('FINAL_REVIEW', { fields: c.fields }),
       makeActor('Approver'),
       { gateKey: 'G4', outcomeKey: 'approve', reasonCode: 'price' },
       NOW,
@@ -548,9 +558,10 @@ describe('validation: all errors, in order', () => {
     config.gates.find((g) => g.key === 'G4')!.requiredFields = [
       { field: 'legal_signoff', op: 'present' },
     ];
+    const c = validCase(hybridConfig, 'G4', 'approve');
     const result = evaluateTransition(
       config,
-      makeQuote('FINAL_REVIEW'),
+      makeQuote('FINAL_REVIEW', { fields: c.fields }),
       makeActor('Approver'),
       { gateKey: 'G4', outcomeKey: 'approve' },
       NOW,

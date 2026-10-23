@@ -1,7 +1,10 @@
 import {
   AssignmentBody,
   AssignmentResponse,
+  BulkReassignBody,
+  BulkReassignResponse,
   CapacityEvidenceBody,
+  CapacitySignoffBody,
   EngineeringDetail,
   EngQueueQuery,
   EngQueueResponse,
@@ -74,6 +77,51 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
           requireActor(req),
           req.params.quoteNumber,
           req.body.engineerId,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  app.post(
+    '/queue/engineering/reassign',
+    {
+      config: { permission: 'queue.assign' },
+      schema: {
+        tags: ['engineering'],
+        summary:
+          "B-26: move an engineer's open Engineering Review work (all, or the listed quotes) to another engineer in one go, e.g. when someone leaves. Each move is recorded and announced like a single assignment",
+        security,
+        body: BulkReassignBody,
+        response: { 200: BulkReassignResponse },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.bulkReassign(withTx(req), requireActor(req), req.body, auditMeta(req)),
+      ),
+  );
+
+  app.put(
+    '/quotes/:quoteNumber/capacity-signoff',
+    {
+      config: { permission: 'capacity.signoff' },
+      schema: {
+        tags: ['engineering'],
+        summary:
+          "B-26: the capacity owner's G2 sign-off (approved / blocked; a block needs a note). G2 Advance needs it approved. Recorded and audited",
+        security,
+        params: QuoteNumberParams,
+        body: CapacitySignoffBody,
+        response: { 200: EngineeringDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.signOffCapacity(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
           auditMeta(req),
         ),
       ),

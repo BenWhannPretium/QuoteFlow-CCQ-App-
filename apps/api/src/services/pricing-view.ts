@@ -43,7 +43,7 @@ export async function loadPricingRefFormats(db: DbOrTx): Promise<PricingRefForma
   );
 }
 
-const refs = (value: unknown, kind: 'erf' | 'bpr'): string[] => {
+const refs = (value: unknown, kind: 'erf'): string[] => {
   const v = (value as Record<string, unknown> | null)?.[kind];
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 };
@@ -57,8 +57,6 @@ export function recordValues(row: PricingRow | null | undefined): PricingRecordV
     pricingBasisNote: row.pricingBasisNote,
     approvedRangeNote: row.approvedRangeNote,
     erfRefs: refs(row.pricingRefs, 'erf'),
-    bprRefs: refs(row.pricingRefs, 'bpr'),
-    noPricingAppRecordNote: row.noPricingAppRecordNote,
     costingCompleted: row.costingCompleted,
     costingAttestedBy: row.costingAttestedBy,
     costingAttestedAt: row.costingAttestedAt,
@@ -76,8 +74,8 @@ export function recordColumns(v: PricingRecordValues) {
     priceApprovedAt: v.priceApprovedAt,
     pricingBasisNote: v.pricingBasisNote,
     approvedRangeNote: v.approvedRangeNote,
-    pricingRefs: { erf: v.erfRefs, bpr: v.bprRefs },
-    noPricingAppRecordNote: v.noPricingAppRecordNote,
+    // B-26: no BPR refs; the old `bpr` list and "no record" note columns are left as they are.
+    pricingRefs: { erf: v.erfRefs },
     costingCompleted: v.costingCompleted,
     costingAttestedBy: v.costingAttestedBy,
     costingAttestedAt: v.costingAttestedAt,
@@ -101,8 +99,6 @@ function recordView(
     pricingBasisNote: v.pricingBasisNote,
     approvedRangeNote: v.approvedRangeNote,
     erfRefs: v.erfRefs,
-    bprRefs: v.bprRefs,
-    noPricingAppRecordNote: v.noPricingAppRecordNote,
     costingCompleted: v.costingCompleted,
     costingAttestedByName: name(v.costingAttestedBy),
     costingAttestedAt: iso(v.costingAttestedAt),
@@ -228,6 +224,7 @@ export async function onPricingArrival(
             ? 'Final Review returned it for another look. Open the pricing queue to record the price approval again.'
             : 'Engineering has cleared it. Open the pricing queue to record the price approval.',
       excludeUserId: actorId,
+      notifyActorViaRole: true,
     },
     log,
   );

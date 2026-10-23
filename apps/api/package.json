@@ -24,12 +24,12 @@
     "@fastify/static": "10.1.6",
     "@fastify/swagger": "9.9.2",
     "@fastify/swagger-ui": "6.1.2",
+    "exceljs": "4.4.0",
     "fastify": "5.12.7",
     "fastify-plugin": "6.0.1",
     "fastify-type-provider-zod": "7.0.0",
     "jose": "6.2.12",
     "jsforce": "3.10.28",
-    "mssql": "12.7.2",
     "nodemailer": "10.0.16",
     "pino": "10.4.0",
     "zod": "4.6.7"

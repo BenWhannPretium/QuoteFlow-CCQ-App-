@@ -1,11 +1,13 @@
 import type { Role, Scope } from '@ccq/domain';
 
-import type { Rng } from './rng';
+import { createRng, DEFAULT_SEED, type Rng } from './rng';
 
 /**
- * The 12 synthetic users. B-04's dev-mode persona switcher (`x-dev-user: <key>`) uses these keys:
+ * The 13 synthetic users. B-04's dev-mode persona switcher (`x-dev-user: <key>`) uses these keys:
  * one per role, a multi-role user, an owner-scoped KAM, a region-scoped KAM and an owner-scoped Engineer.
  * Names come from faker with a fixed seed; emails use the reserved example.com domain.
+ * B-26 added the pricing lead (13th). Personas after the first 12 draw their names and ids from their
+ * own seeded stream, so every row generated before B-26 stays identical.
  */
 export const PERSONA_DEFS = [
   { key: 'kam', roles: ['KAM'], scope: { type: 'all' }, region: 'Central' },
@@ -25,6 +27,7 @@ export const PERSONA_DEFS = [
   { key: 'leadership', roles: ['Leadership'], scope: { type: 'all' }, region: null },
   { key: 'admin', roles: ['Admin'], scope: { type: 'all' }, region: null },
   { key: 'multi-role', roles: ['SalesLeader', 'Approver'], scope: { type: 'all' }, region: 'East' },
+  { key: 'pricing-lead', roles: ['PricingLead'], scope: { type: 'all' }, region: null },
 ] as const satisfies readonly {
   key: string;
   roles: readonly Role[];
@@ -50,9 +53,14 @@ export interface Persona {
 export const personaOid = (index: number) =>
   `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
 
-export function buildPersonas(rng: Rng, anchor: Date): Persona[] {
+/** How many personas existed before B-26 (they keep drawing from the main stream). */
+export const ORIGINAL_PERSONAS = 12;
+
+export function buildPersonas(main: Rng, anchor: Date): Persona[] {
   const created = new Date(anchor.getTime() - 400 * 86_400_000);
+  const later = createRng(DEFAULT_SEED + 26);
   return PERSONA_DEFS.map((def, i) => {
+    const rng = i < ORIGINAL_PERSONAS ? main : later;
     const first = rng.faker.person.firstName();
     const last = rng.faker.person.lastName();
     const email = `${first}.${last}`.toLowerCase().replace(/[^a-z.]/g, '') + '@example.com';

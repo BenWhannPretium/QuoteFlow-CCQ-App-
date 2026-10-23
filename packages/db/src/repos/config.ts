@@ -58,6 +58,7 @@ export async function loadWorkflowConfigInput(db: DbOrTx): Promise<WorkflowConfi
       ...(o.reasonContext ? { reasonContext: o.reasonContext } : {}),
       requiredFields: o.requiredFields as Input['outcomes'][number]['requiredFields'],
       notify: o.notify as Input['outcomes'][number]['notify'],
+      helpText: o.helpText,
       provisional: o.provisional,
     })),
     transitions: transitions.map((t) => ({

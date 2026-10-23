@@ -1,8 +1,15 @@
-import { asUserId, evaluateTransition, score } from '@ccq/domain';
+import {
+  LEGAL_REVIEW_TRIGGERS_SEED,
+  PASS_THROUGH_SEED,
+  asUserId,
+  evaluateTransition,
+  score,
+  withDerivedFields,
+} from '@ccq/domain';
 import type { Actor, ScoringModel, TransitionRequest, WorkflowConfig } from '@ccq/domain';
 
 import type { SyntheticOpportunity } from './opportunities';
-import type { Persona, PersonaKey } from './personas';
+import { ORIGINAL_PERSONAS, type Persona, type PersonaKey } from './personas';
 import type { Rng } from './rng';
 import { DAY_MS } from './rng';
 import type { DbOrTx } from '../../src/client';
@@ -38,7 +45,10 @@ export const QUOTE_STAGE_TARGETS: [stage: string, count: number][] = [
   ['QUOTING', 18],
   ['FINAL_REVIEW', 10],
   ['CUSTOMER_DECISION', 18],
-  ['AWARDED', 22],
+  ['AWARDED', 19],
+  // B-26: awarded, waiting in Commit & Hand Off (CER pending). Placed right after AWARDED and walked
+  // like its last three, so the shuffle and every random draw stay exactly as before.
+  ['COMMIT_HANDOFF', 3],
   ['CLOSED_LOST', 18],
   ['DECLINED', 8],
   ['EXPIRED', 12],
@@ -47,6 +57,9 @@ export const QUOTE_STAGE_TARGETS: [stage: string, count: number][] = [
 
 /** Stages whose quotes end the seed closed (terminal). */
 const CLOSED_STAGES = new Set(['AWARDED', 'CLOSED_LOST', 'DECLINED', 'EXPIRED', 'REDIRECTED']);
+/** B-26: awarded stages (they take the closed-won SF opportunities). */
+const AWARD_STAGES = new Set(['AWARDED', 'COMMIT_HANDOFF']);
+const AWARDED_TARGET = QUOTE_STAGE_TARGETS.find(([stage]) => stage === 'AWARDED')![1];
 
 type Who = PersonaKey | 'kam' | 'g1' | 'g4';
 
@@ -66,7 +79,7 @@ type Step =
   | { kind: 'engineering'; capital?: boolean }
   | { kind: 'pricing' }
   | { kind: 'proposal' }
-  | { kind: 'handoff' };
+  | { kind: 'handoff'; evidence: string; complete: boolean };
 
 const d = (
   gate: string,
@@ -86,6 +99,7 @@ const g2 = (outcome = 'proceed', extra = {}) => d('G2', outcome, 'eng-lead', ext
 const g3 = (outcome = 'submit', extra = {}) => d('G3', outcome, 'pricing', extra);
 const g4 = (outcome = 'approve', extra = {}) => d('G4', outcome, 'g4', extra);
 const g5 = (outcome: string, extra = {}) => d('G5', outcome, 'kam', extra);
+const g6 = (outcome: string, extra = {}) => d('G6', outcome, 'kam', extra);
 
 /** The decision paths that bring a quote to its final stage, with holds and returns sprinkled in. */
 function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete: boolean } {
@@ -192,16 +206,24 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         complete: true,
       };
     case 'AWARDED':
+    case 'COMMIT_HANDOFF': {
+      // B-26: Commit & Hand Off quotes are walked as the awards after the 19 closed ones.
+      const n = stage === 'AWARDED' ? i : AWARDED_TARGET + i;
+      // B-13: the acceptance evidence is the Awarded reason code (no random draw: same data set).
+      const evidence = (['po', 'verbal', 'po', 'loi', 'contract'] as const)[n % 5]!;
+      const closes = stage === 'AWARDED';
       return {
         steps: [
           ...toCustomer,
-          ...(i % 5 === 0 ? [hold('G5')] : []),
-          // B-13: the acceptance evidence is the Awarded reason code (no random draw: same data set).
-          g5('awarded', { reason: (['po', 'verbal', 'po', 'loi', 'contract'] as const)[i % 5] }),
-          { kind: 'handoff' },
+          ...(n % 5 === 0 ? [hold('G5')] : []),
+          g5('awarded', { reason: evidence }),
+          { kind: 'handoff', evidence, complete: closes },
+          // B-26: G6 closes Won once the CER and the hand-off are recorded.
+          ...(closes ? [g6('advance', { reason: evidence })] : []),
         ],
         complete: true,
       };
+    }
     case 'CLOSED_LOST':
       // A G2 Stop closes as DECLINED since B-10, so every seeded loss is a customer decision.
       if (i < 4)
@@ -363,6 +385,8 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
   };
   // Closed quotes pass through active states while they are walked, so they only reuse the open
   // opportunities no active quote takes (each closes before the next one starts).
+  // B-26: Commit & Hand Off quotes stay open, so they count here even when a closed-won opportunity
+  // is left for them (there are only a few).
   const activeTotal = QUOTE_STAGE_TARGETS.filter(([stage]) => !CLOSED_STAGES.has(stage)).reduce(
     (n, [, count]) => n + count,
     0,
@@ -382,7 +406,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
     )
     .map(({ stage, i }) => {
       const opp =
-        stage === 'AWARDED' && won.length > 0
+        AWARD_STAGES.has(stage) && won.length > 0
           ? won.shift()!
           : stage === 'CLOSED_LOST' && lost.length > 0
             ? lost.shift()!
@@ -540,6 +564,10 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
               : null,
             prelimCapitalUsd: step.capital || rng.chance(0.4) ? rng.int(40, 900) * 1_000 : null,
             downstreamEquipmentNotes: rng.chance(0.3) ? 'Needs leak tester and flamer.' : null,
+            // B-26: the capacity owner's sign-off (G2 Advance needs it). No draw.
+            capacitySignoffStatus: 'approved',
+            capacitySignoffBy: persona('eng-lead').id,
+            capacitySignoffAt: at,
           });
           const evidenceCount = rng.chance(0.25) ? 2 : 1;
           for (let k = 0; k < evidenceCount; k++) {
@@ -563,10 +591,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
         case 'pricing': {
           const pricing = persona('pricing');
           // Same draws in the same order as before B-11, so the rest of the data set is unchanged.
-          const pricingRefs = {
-            erf: [String(rng.int(10_000, 99_999))],
-            bpr: rng.chance(0.3) ? [`BPR-${rng.int(1_000, 9_999)}`] : [],
-          };
+          // B-26: no BPR; the legacy ERF number stays (the BPR draw is kept for the stream).
+          const pricingRefs = { erf: [String(rng.int(10_000, 99_999))] };
+          if (rng.chance(0.3)) discard(rng.int(1_000, 9_999));
           const capitalReadiness = rng.pick([
             'not_required',
             'pending',
@@ -609,20 +636,24 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
           // The evidence is the Awarded decision's reason code (B-13); the draw is kept so the rows
           // generated after it stay the same.
           discard(rng.pick(['verbal', 'po', 'po', 'loi', 'contract']));
-          const awardedRow = await getQuoteById(db, quoteId);
           const contact = rng.faker.person.fullName();
+          // B-26: no BPR (the draw is kept). A closing award has its CER approved (or not required)
+          // and the hand-off accepted; one still in Commit & Hand Off waits on its CER.
+          if (rng.chance(0.5)) discard(rng.int(1_000, 9_999));
+          const day = at.toISOString().slice(0, 10);
           await insertHandoffRecord(db, {
             quoteId,
-            acceptanceEvidence: awardedRow!.outcomeReasonCode!,
-            acceptanceDate: at.toISOString().slice(0, 10),
+            acceptanceEvidence: step.evidence,
+            acceptanceDate: day,
             receivingRole: cer ? 'commercial_activation' : 'npi_post_award_pm',
             receivingContactName: contact,
-            acceptedOn: at.toISOString().slice(0, 10),
+            acceptedOn: step.complete ? day : null,
             cerId: cer,
-            bprId: rng.chance(0.5) ? `BPR-${rng.int(1_000, 9_999)}` : null,
+            cerStatus: step.complete ? (cer ? 'approved' : 'not_required') : 'pending',
+            cerApprovedOn: step.complete && cer ? day : null,
             notes: 'Synthetic hand-off.',
-            completedAt: cer ? at : null,
-            completedBy: cer ? kam.id : null,
+            completedAt: step.complete ? at : null,
+            completedBy: step.complete ? kam.id : null,
             createdAt: at,
             createdBy: kam.id,
           });
@@ -644,10 +675,34 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             await updateQuote(db, quoteId, { submittedAt: at });
             state!.fields = { ...state!.fields, submitted_at: at };
           }
+          // B-26: G4 Advance needs the terms check (and the Legal review for a new customer). No draws.
+          if (step.gate === 'G4' && step.outcome === 'approve') {
+            const newCustomer = opp.customer.status === 'not_yet_established';
+            await updateQuote(db, quoteId, {
+              termsToolingCommitment: false,
+              termsPaymentTerms: 'Net 45',
+              termsCheckedAt: at,
+              termsCheckedBy: kam.id,
+              ...(newCustomer
+                ? {
+                    legalReviewedOn: at.toISOString().slice(0, 10),
+                    legalReviewerName: 'Legal (synthetic)',
+                    legalRecordedBy: kam.id,
+                  }
+                : {}),
+            });
+            state!.fields = withDerivedFields(
+              (await loadQuoteState(db, quoteId))!,
+              SEED_DERIVED_SETTINGS,
+            ).fields;
+          }
           const payload =
             step.payload ??
             (step.hold
-              ? { review_date: new Date(at.getTime() + 21 * DAY_MS).toISOString().slice(0, 10) }
+              ? {
+                  review_date: new Date(at.getTime() + 21 * DAY_MS).toISOString().slice(0, 10),
+                  hold_owner_id: decider.id,
+                }
               : step.gate === 'G5' && step.outcome === 'awarded'
                 ? { accepted_at: at.toISOString().slice(0, 10) }
                 : undefined);
@@ -685,6 +740,12 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
   }
   return { quotes: plan.length, byStage };
 }
+
+/** B-26: the derived decision fields as the seeded settings define them. */
+const SEED_DERIVED_SETTINGS = {
+  legalReviewTriggers: LEGAL_REVIEW_TRIGGERS_SEED,
+  passThrough: PASS_THROUGH_SEED,
+};
 
 /** Consume a random draw without using it, so the rows generated after it stay the same. */
 const discard = (_draw: unknown): false => false;
@@ -868,7 +929,8 @@ async function addExtras(
   }
 
   if (rng.chance(0.5)) {
-    const viewer = rng.pick([...personas.values()]);
+    // The original personas only, so a later persona does not shift who viewed what.
+    const viewer = rng.pick([...personas.values()].slice(0, ORIGINAL_PERSONAS));
     await insertAuditEvent(db, {
       at: to,
       actorId: viewer.id,

@@ -78,6 +78,33 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     description: 'KAMs: revalidate the proposal or record the outcome.',
     email: 'immediate',
   },
+  // B-26
+  {
+    type: 'quote.pricing_assigned',
+    label: 'Quoting work is assigned or reassigned to you',
+    description: 'Pricers: the pricing lead assigned you a quote to price.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.escalated',
+    label: 'A quote is escalated to you',
+    description:
+      'Escalation recipients (by type) and the CCQ Process Owner: someone raised a concern on a quote.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.capital_likely',
+    label: 'A quote is flagged "capital likely"',
+    description:
+      'Capital Management: early notice (awareness, not approval) of significant capital.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.market_dev',
+    label: 'A qualified quote is above the Market Development threshold',
+    description: 'Market Development: a large opportunity has entered engineering.',
+    email: 'immediate',
+  },
   // In-app only (P0): listed so every type the app writes has a home in the catalogue.
   {
     type: 'quote.ready_for_quoting',

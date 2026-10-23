@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
 import { parseAttachmentSettings } from '../attachments/rules';
+import {
+  parseCapitalNotice,
+  parseEscalationRoutes,
+  parseLegalReviewTriggers,
+  parseMarketDevNotice,
+  parsePassThrough,
+  parseProcessOwner,
+} from '../commercial';
 import { engQueueSettingsSchema } from '../engineering/queue';
 import { DomainError } from '../errors';
 import { parseValidityDays } from '../final-review/release';
@@ -28,7 +36,10 @@ export const SETTING_GROUPS = [
   'qualification',
   'intake',
   'engineering',
+  // B-26
+  'pricing',
   'final_review',
+  'escalation',
   'overrides',
   'scoring',
   'notifications',
@@ -241,7 +252,52 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'json',
     z_('capital_readiness_on_outcome', z.record(gateOutcomePair, z.enum(CAPITAL_READINESS_VALUES))),
   ),
+  // Pricing (B-26, D-24)
+  spec(
+    'pricing_pass_through',
+    'pricing',
+    'Price proceeds without formal approval below this annual revenue (not set = every price is approved)',
+    'json',
+    notNull('pricing_pass_through', parsePassThrough),
+  ),
+  // Capital and Market Development notices (B-26, D-27)
+  spec(
+    'capital_management_notice',
+    'notifications',
+    'Capital Management early notice: who hears when a quote is flagged "capital likely"',
+    'json',
+    notNull('capital_management_notice', parseCapitalNotice),
+  ),
+  spec(
+    'market_development_notice',
+    'notifications',
+    'Market Development notice: value threshold and who hears',
+    'json',
+    notNull('market_development_notice', parseMarketDevNotice),
+  ),
+  // Escalations and the Process Owner (B-26, D-28)
+  spec(
+    'process_owner',
+    'escalation',
+    'CCQ Process Owner (owns the process, not the work)',
+    'json',
+    notNull('process_owner', parseProcessOwner),
+  ),
+  spec(
+    'escalation_routes',
+    'escalation',
+    'Escalation types and who receives each',
+    'json',
+    notNull('escalation_routes', parseEscalationRoutes),
+  ),
   // Final Review (D-10)
+  spec(
+    'legal_review_triggers',
+    'final_review',
+    'Legal review triggers before G4 releases the offer (D-25)',
+    'json',
+    notNull('legal_review_triggers', parseLegalReviewTriggers),
+  ),
   spec(
     'g4_tier_rules',
     'final_review',
@@ -281,7 +337,7 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   spec(
     'pricing_ref_formats',
     'integrations',
-    'Pricing-app reference formats (ERF / BPR)',
+    'Legacy ERF number format (transition only)',
     'json',
     notNull('pricing_ref_formats', parsePricingRefFormats),
   ),

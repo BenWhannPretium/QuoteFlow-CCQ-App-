@@ -14,7 +14,7 @@ import type {
   StagePipeline,
 } from '@ccq/contracts';
 import { SF_AMOUNT_LABEL, LOW_CAPTURE_BELOW } from '@ccq/contracts';
-import type { Tx } from '@ccq/db';
+import { schema, type Tx } from '@ccq/db';
 import {
   awaitingG1,
   capitalPendingCount,
@@ -43,6 +43,7 @@ import {
   type EngQueueSettings,
   type Permission,
 } from '@ccq/domain';
+import { and, eq, ne, sql } from 'drizzle-orm';
 
 import { AnalyticsService, outcomeRates, secondsToDays } from './analytics';
 import { REPORT_TIME_ZONE, dayIn } from './auditAdmin';
@@ -62,6 +63,8 @@ export const DASHBOARD_PERMISSION: Record<DashboardRole, Permission> = {
   EngLead: 'engQueue.read',
   Engineer: 'engQueue.read',
   Pricing: 'pricingQueue.read',
+  // B-26: the pricing lead's triage view (who has which Quoting quote).
+  PricingLead: 'pricingQueue.assign',
   Approver: 'finalReview.read',
   Leadership: 'analytics.read',
 };
@@ -132,7 +135,7 @@ function expiring(rows: DashboardQuoteRow[], now: Date): ExpiringProposal[] {
 }
 
 /** Business-day aging buckets (the engineering queue's buckets, from `eng_queue_aging_days`). */
-function queueHealth(
+export function queueHealth(
   rows: DashboardQuoteRow[],
   edges: EngQueueSettings['agingDays'],
   now: Date,
@@ -189,7 +192,8 @@ export class DashboardService {
       case 'Engineer':
         return withTx((tx) => this.engineering(tx, actor, role, now));
       case 'Pricing':
-        return withTx((tx) => this.pricing(tx, now));
+      case 'PricingLead':
+        return withTx((tx) => this.pricing(tx, role, now));
       case 'Approver':
         return withTx((tx) => this.approver(tx, actor, now));
       case 'Leadership':
@@ -418,24 +422,39 @@ export class DashboardService {
     };
   }
 
-  private async pricing(tx: Tx, now: Date): Promise<PricingDashboard> {
+  private async pricing(
+    tx: Tx,
+    role: 'Pricing' | 'PricingLead',
+    now: Date,
+  ): Promise<PricingDashboard> {
     const since = new Date(now.getTime() - WINDOWS.quotingDays * DAY_MS);
-    const [settings, rows, pending, median] = await Promise.all([
+    const [settings, rows, pending, median, load] = await Promise.all([
       loadEngQueueSettings(tx),
       openInStage(tx, 'QUOTING'),
       capitalPendingCount(tx),
       medianStageTime(tx, 'QUOTING', since),
+      role === 'PricingLead' ? pricerLoad(tx) : Promise.resolve(null),
     ]);
+    const queue = queueHealth(
+      rows,
+      settings.agingDays,
+      now,
+      `Quotes sitting in Quoting: the total${role === 'PricingLead' ? ', how many have no pricer yet,' : ''} and how long they have waited. ${AGING_NOTE} Pricing has no queue-specific buckets yet, so it borrows the engineering queue's.`,
+      'Open quotes right now',
+      false,
+    );
     return {
-      role: 'Pricing',
-      queue: queueHealth(
-        rows,
-        settings.agingDays,
-        now,
-        `Quotes sitting in Quoting: the total and how long they have waited. ${AGING_NOTE} Pricing has no queue-specific buckets yet, so it borrows the engineering queue's.`,
-        'Open quotes right now',
-        false,
-      ),
+      role,
+      queue: load
+        ? { ...queue, unassigned: load.find((l) => l.pricerId === null)?.open ?? 0 }
+        : queue,
+      load: load && {
+        info: info(
+          'Open Quoting quotes per assigned pricer (quotes on hold included), and the quotes with no pricer. Assign from the pricing queue.',
+          'Open quotes right now',
+        ),
+        items: load,
+      },
       capitalPending: {
         info: info(
           'Open Quoting quotes whose pricing record still has capital readiness "pending". They can be submitted only with a written justification.',
@@ -538,4 +557,28 @@ async function openAll(tx: Tx): Promise<DashboardQuoteRow[]> {
   const stages = await openStages(tx);
   const rows = await Promise.all(stages.map((s) => openInStage(tx, s.key)));
   return rows.flat();
+}
+
+/** B-26: open Quoting quotes per assigned pricer (null = unassigned), biggest load first. */
+async function pricerLoad(
+  tx: Tx,
+): Promise<{ pricerId: string | null; name: string; open: number }[]> {
+  const q = schema.quote;
+  const rows = await tx
+    .select({
+      pricerId: q.assignedPricerId,
+      name: schema.appUser.displayName,
+      open: sql<number>`count(*)::int`,
+    })
+    .from(q)
+    .leftJoin(schema.appUser, eq(schema.appUser.id, q.assignedPricerId))
+    .where(and(eq(q.stageKey, 'QUOTING'), ne(q.status, 'closed')))
+    .groupBy(q.assignedPricerId, schema.appUser.displayName);
+  return rows
+    .map((r) => ({
+      pricerId: r.pricerId,
+      name: r.pricerId ? (r.name ?? 'Unknown') : 'Unassigned',
+      open: Number(r.open),
+    }))
+    .sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
 }

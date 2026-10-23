@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import { RefreshCwIcon } from 'lucide-react';
 
+import { PricingHistoryImport } from '@/admin/PricingHistoryImport';
 import { adminKey, BackToAdmin, useCanEditConfig } from '@/admin/shared';
 import { DataTable } from '@/components/DataTable';
 import { EmptyState } from '@/components/EmptyState';
@@ -141,7 +142,7 @@ const columns = [
   }),
 ];
 
-/** Admin → Integrations: connector health (B-19), recent integration_run rows and a manual Salesforce sync (B-06). */
+/** Admin → Integrations: connector health (B-19), the pricing-history import (B-15), recent integration_run rows and a manual Salesforce sync (B-06). */
 function IntegrationsPage() {
   useDocumentTitle('Integrations');
   const canSync = useCanEditConfig();
@@ -174,7 +175,7 @@ function IntegrationsPage() {
       <PageHeader
         eyebrow="Configuration"
         title="Integrations"
-        description="Salesforce is read every 15 minutes (read-only). Failures alert admins; the app keeps working from the last snapshot."
+        description="Salesforce is read every 15 minutes (read-only). Failures alert admins; the app keeps working from the last snapshot. Pricing history is the retired pricing app's export, imported here."
         actions={
           canSync && (
             <Button onClick={() => sync.mutate()} disabled={sync.isPending}>
@@ -188,6 +189,7 @@ function IntegrationsPage() {
         }
       />
       <ConnectorHealthPanel />
+      {canSync && <PricingHistoryImport />}
       {runs.isError ? (
         <ErrorState error={runs.error} onRetry={() => void runs.refetch()} />
       ) : (

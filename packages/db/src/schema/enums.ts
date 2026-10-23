@@ -17,9 +17,21 @@ export { ATTACHMENT_KINDS } from '@ccq/domain';
 /** B-16: where an attachment's bytes are (FILESTORE_MODE). */
 export const ATTACHMENT_STORAGES = ['sharepoint', 'blob', 'local'] as const;
 export const ACCEPTANCE_EVIDENCE = ['verbal', 'po', 'loi', 'contract'] as const;
+/** B-26: the CER status on the hand-off (G6a) and the capacity owner's G2 sign-off. */
+export { CAPACITY_SIGNOFF_STATUSES, CER_STATUSES } from '@ccq/domain';
 export const NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
 export const INTEGRATION_SOURCES = ['salesforce', 'pricing', 'sharepoint'] as const;
 export const INTEGRATION_STATUSES = ['running', 'succeeded', 'failed', 'partial'] as const;
+/** B-15 (revised): the legacy pricing-app export's record kinds and derived statuses. */
+export const PRICING_HISTORY_KINDS = ['erf', 'bpr', 'spr'] as const;
+export const PRICING_HISTORY_STATUSES = [
+  'open',
+  'on_hold',
+  'accepted',
+  'rejected',
+  'abandoned',
+  'completed',
+] as const;
 /** Why a CCQ-linked opportunity needs attention: it was closed or deleted in Salesforce. */
 export const SF_STATUS_FLAGS = ['closed_won', 'closed_lost', 'deleted'] as const;
 export { CLOSURE_OWNER_DEFAULTS, SEGREGATION_DENY } from '@ccq/domain';
@@ -54,6 +66,8 @@ export const VALUE_LIST_KEYS = [
   'drawing_status',
   'neck_finish',
   'packaging_type',
+  // B-26: the Stage 3 tooling funding model (deck slide 12).
+  'tooling_funding_model',
 ] as const;
 
 export const REASON_CONTEXTS = [
@@ -68,6 +82,8 @@ export const REASON_CONTEXTS = [
   'override',
   // B-13: G5 Awarded's acceptance evidence.
   'awarded',
+  // B-26: G6 Stop, commitment not authorized.
+  'not_authorized',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

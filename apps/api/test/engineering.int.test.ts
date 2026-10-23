@@ -1,5 +1,6 @@
 import {
   AssignmentResponse,
+  BulkReassignResponse,
   EngineeringDetail,
   EngQueueResponse,
   GateDecisionResponse,
@@ -651,7 +652,7 @@ describe('Engineering Review and capacity evidence', () => {
 });
 
 describe('G2 Feasible solution? (generic gate route)', () => {
-  async function ready(over: { capacity?: boolean; solution?: boolean } = {}) {
+  async function ready(over: { capacity?: boolean; solution?: boolean; signoff?: boolean } = {}) {
     const qn = await inQueue();
     if (over.solution !== false)
       await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION);
@@ -659,6 +660,10 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
         rows: [await capacityRow()],
       });
+    }
+    // B-26: the capacity owner's sign-off (seeded to the EngLead).
+    if (over.signoff !== false && over.capacity !== false) {
+      await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
     }
     return qn;
   }
@@ -672,8 +677,11 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       'capital_required',
       'hold',
       'rework',
+      'redirect',
       'stop',
     ]);
+    // B-26: every option carries its definition.
+    expect(d.availableActions.every((a) => (a.helpText ?? '').length > 20)).toBe(true);
     expect(
       d.availableActions.find((a) => a.outcomeKey === 'proceed')!.missing.map((m) => m.field),
     ).toEqual([
@@ -683,11 +691,13 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       'cavitation',
       'cycle_time_s',
       'capacity_evidence',
+      'capacity_signoff_status',
     ]);
     const rejected = await decide(qn, 'G2', { outcomeKey: 'proceed' });
     expect(rejected.statusCode).toBe(422);
     expect(errorPaths(rejected)).toEqual([
       '/capacity_evidence',
+      '/capacity_signoff_status',
       '/cavitation',
       '/cycle_time_s',
       '/machine_type',
@@ -697,10 +707,15 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION);
     expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'proceed' }))).toEqual([
       '/capacity_evidence',
+      '/capacity_signoff_status',
     ]);
     await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
       rows: [await capacityRow()],
     });
+    expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'proceed' }))).toEqual([
+      '/capacity_signoff_status',
+    ]);
+    await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
     for (const role of ['Engineer', 'KAM', 'SalesLeader', 'Admin'] as Role[]) {
       expect((await decide(qn, 'G2', { outcomeKey: 'proceed' }, role)).statusCode, role).toBe(403);
     }
@@ -755,9 +770,11 @@ describe('G2 Feasible solution? (generic gate route)', () => {
   it('Capital required needs the capital figure and sets capital readiness to pending', async () => {
     const qn = await ready({ solution: false, capacity: false });
     expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'capital_required' }))).toEqual([
+      '/capacity_signoff_status',
       '/prelim_capital_usd',
     ]);
     await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { prelimCapitalUsd: 650_000 });
+    await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
     const ok = await decide(qn, 'G2', { outcomeKey: 'capital_required' });
     expect(ok.statusCode, ok.body).toBe(201);
     const quote = GateDecisionResponse.parse(ok.json()).quote;
@@ -769,9 +786,10 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     expect(pricing!.capitalReadiness).toBe('pending');
   });
 
-  it('Hold needs a reason and a review date', async () => {
+  it('Hold needs a reason, a review date and an owner (B-26)', async () => {
     const qn = await ready();
     expect(errorCodes(await decide(qn, 'G2', { outcomeKey: 'hold' }))).toEqual([
+      'MISSING_FIELD',
       'MISSING_FIELD',
       'REASON_REQUIRED',
     ]);
@@ -779,6 +797,7 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
       holdUntil: '2026-12-01',
+      holdOwnerId: await userId('EngLead'),
     });
     expect(GateDecisionResponse.parse(ok.json()).quote).toMatchObject({
       stageKey: 'ENG_REVIEW',
@@ -851,6 +870,113 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     const d = await detail(qn);
     expect(d.engineering).toMatchObject({ acceptedAt: null, inQueue: true });
     expect(d.engineering.review.processType).toBe('EBM'); // review kept
+    // B-26: the capacity owner looks again on every stay in the queue.
+    expect(d.engineering.capacitySignoff).toMatchObject({ status: null, byName: null });
+  });
+
+  it('B-26: Redirect (alternative platform / site) needs a note and keeps the quote in the queue', async () => {
+    const qn = await ready();
+    expect(errorCodes(await decide(qn, 'G2', { outcomeKey: 'redirect' }))).toEqual([
+      'NOTE_REQUIRED',
+    ]);
+    const ok = await decide(qn, 'G2', { outcomeKey: 'redirect', note: 'Try the IBM line' });
+    expect(ok.statusCode, ok.body).toBe(201);
+    expect(GateDecisionResponse.parse(ok.json()).quote).toMatchObject({
+      stageKey: 'ENG_REVIEW',
+      status: 'active',
+    });
+  });
+});
+
+describe('B-26: capacity sign-off (deck slide 11)', () => {
+  it('the capacity owner approves or blocks; a block needs a note and stops G2 Advance', async () => {
+    const qn = await inQueue();
+    await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION);
+    await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
+      rows: [await capacityRow()],
+    });
+    const url = `/api/v1/quotes/${qn}/capacity-signoff`;
+    expect((await as('EngLead').put(url, { status: 'blocked' })).statusCode).toBe(422);
+    const blocked = await as('EngLead').put(url, { status: 'blocked', note: 'Line 4 is full' });
+    expect(blocked.statusCode, blocked.body).toBe(200);
+    expect(EngineeringDetail.parse(blocked.json()).capacitySignoff).toMatchObject({
+      status: 'blocked',
+      note: 'Line 4 is full',
+    });
+    expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'proceed' }))).toEqual([
+      '/capacity_signoff_status',
+    ]);
+    for (const role of ['Engineer', 'KAM', 'Pricing', 'Admin'] as Role[]) {
+      expect((await as(role).put(url, { status: 'approved' })).statusCode, role).toBe(403);
+    }
+    const approved = EngineeringDetail.parse(
+      (await as('EngLead').put(url, { status: 'approved' })).json(),
+    );
+    expect(approved.capacitySignoff.status).toBe('approved');
+    expect(approved.capacitySignoff.byName).not.toBeNull();
+    expect((await decide(qn, 'G2', { outcomeKey: 'proceed' })).statusCode).toBe(201);
+    // Out of the queue: 409.
+    expect((await as('EngLead').put(url, { status: null })).statusCode).toBe(409);
+  });
+
+  it('the equipment BOM and Supply Chain view are kept with the review', async () => {
+    const qn = await inQueue();
+    const res = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
+      equipmentBomNotes: 'Chiller + leak tester',
+      supplyChainNotes: 'Ship from PLANT_02 saves 300 mi',
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(EngineeringDetail.parse(res.json()).review).toMatchObject({
+      equipmentBomNotes: 'Chiller + leak tester',
+      supplyChainNotes: 'Ship from PLANT_02 saves 300 mi',
+    });
+  });
+});
+
+describe("B-26: move an engineer's open work in one go (CCQ demo, Bailey)", () => {
+  it('reassigns all, or the listed quotes, and tells the new engineer', async () => {
+    const from = await userId('Engineer', 'owner');
+    const to = await userId('Engineer');
+    const a = await inQueue();
+    const b = await inQueue();
+    const c = await inQueue();
+    for (const qn of [a, b, c]) expect((await assign(qn, from)).statusCode).toBe(200);
+
+    const partial = await as('EngLead').post('/api/v1/queue/engineering/reassign', {
+      fromUserId: from,
+      toUserId: to,
+      quoteNumbers: [a, 'CCQ-2099-99999'],
+    });
+    expect(partial.statusCode, partial.body).toBe(200);
+    expect(BulkReassignResponse.parse(partial.json())).toMatchObject({
+      reassigned: [a],
+      skipped: [{ quoteNumber: 'CCQ-2099-99999' }],
+    });
+
+    const rest = BulkReassignResponse.parse(
+      (
+        await as('EngLead').post('/api/v1/queue/engineering/reassign', {
+          fromUserId: from,
+          toUserId: to,
+        })
+      ).json(),
+    );
+    expect(rest.reassigned).toEqual(expect.arrayContaining([b, c]));
+    for (const qn of [a, b, c]) expect((await detail(qn)).engineering.assignedEngineerId).toBe(to);
+    const told = await db.db.execute<{ n: number }>(
+      sql`select count(*)::int as n from notification n join quote q on q.id = n.quote_id
+          where n.user_id = ${to} and n.type = 'quote.assigned' and q.quote_number in (${a}, ${b}, ${c})
+          and n.channel = 'in_app'`,
+    );
+    expect(told[0]!.n).toBe(3);
+    // Only queue.assign (EngLead, Admin).
+    for (const role of ['Engineer', 'KAM', 'Pricing'] as Role[]) {
+      const res = await as(role).post('/api/v1/queue/engineering/reassign', {
+        fromUserId: to,
+        toUserId: from,
+      });
+      expect(res.statusCode, role).toBe(403);
+    }
   });
 });
 
@@ -862,6 +988,7 @@ describe('time in stage', () => {
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
       holdUntil: '2027-01-04',
+      holdOwnerId: await userId('EngLead'),
     });
     clock = new Date(clock.getTime() + 2 * DAY);
     const res = await as('KAM').get(`/api/v1/quotes/${qn}/stage-times`);

@@ -127,6 +127,20 @@
       "when": 1792431567768,
       "tag": "0017_b19_admin_config",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792601440572,
+      "tag": "0018_b26_demo_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792698092925,
+      "tag": "0019_b15_pricing_history",
+      "breakpoints": true
     }
   ]
 }

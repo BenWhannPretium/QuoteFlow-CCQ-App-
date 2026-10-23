@@ -387,7 +387,7 @@ export type UpdateUserScopeBody = z.input<typeof UpdateUserScopeBody>;
 
 export const ConnectorHealth = z.object({
   source: z.string(),
-  /** How the connector is configured (SF_MODE, PRICING_MODE, FILESTORE_MODE, MAIL_MODE). */
+  /** How the connector is configured (SF_MODE, pricing = import (B-15: no live connection), FILESTORE_MODE, MAIL_MODE). */
   mode: z.string(),
   /** ok: last run succeeded · degraded: partial, or failures in 24 h · down: last run failed · unknown: no runs. */
   health: z.enum(['ok', 'degraded', 'down', 'unknown']),

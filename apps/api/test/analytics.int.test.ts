@@ -5,6 +5,7 @@ import {
   CycleTimeResponse,
   DEV_USER_HEADER,
   DashboardResponse,
+  EngineeringAnalyticsResponse,
   FirstPassResponse,
   FlowResponse,
   G1YieldResponse,
@@ -70,6 +71,7 @@ beforeAll(async () => {
     'eng-lead',
     'engineer',
     'pricing',
+    'pricing-lead',
     'approver',
     'leadership',
     'admin',
@@ -131,6 +133,15 @@ describe('analytics authorization', () => {
     }
   });
 
+  it('B-26: the Engineering lens is for the people who read the engineering queue', async () => {
+    for (const persona of ['eng-lead', 'engineer', 'leadership', 'admin']) {
+      expect((await get(persona, '/api/v1/analytics/engineering')).statusCode, persona).toBe(200);
+    }
+    for (const persona of ['kam', 'sales-leader', 'pricing', 'pricing-lead', 'approver']) {
+      expect((await get(persona, '/api/v1/analytics/engineering')).statusCode, persona).toBe(403);
+    }
+  });
+
   it('the leadership dashboard is closed to a KAM (403, nothing returned)', async () => {
     const res = await get('kam', '/api/v1/dashboards/Leadership');
     expect(res.statusCode).toBe(403);
@@ -152,6 +163,11 @@ describe('analytics authorization', () => {
       ['engineer', 'Leadership', 403],
       ['pricing', 'Pricing', 200],
       ['pricing', 'EngLead', 403],
+      // B-26: the pricing lead's triage dashboard needs pricingQueue.assign.
+      ['pricing', 'PricingLead', 403],
+      ['pricing-lead', 'PricingLead', 200],
+      ['pricing-lead', 'Pricing', 200],
+      ['admin', 'PricingLead', 200],
       ['approver', 'Approver', 200],
       ['approver', 'Pricing', 403],
       ['leadership', 'Leadership', 200],
@@ -442,6 +458,7 @@ describe('role dashboards', () => {
     );
     expect(d.queue.total).toBe(open);
     expect(d.queue.unassigned).toBeNull();
+    expect(d.load).toBeNull();
     expect(d.queue.buckets.reduce((n, b) => n + b.count, 0)).toBe(open);
     expect(d.capitalPending.count).toBe(
       await count(sql`
@@ -449,6 +466,62 @@ describe('role dashboards', () => {
         where q.stage_key = 'QUOTING' and q.status <> 'closed' and p.capital_readiness = 'pending'`),
     );
     expect(d.medianInQuoting.info.window).toMatch(/90 days/);
+  });
+
+  it('B-26 PricingLead: the pricing dashboard plus each pricer’s load and the unassigned count', async () => {
+    const d = await dashboard('pricing-lead', 'PricingLead');
+    if (d.role !== 'PricingLead') throw new Error('wrong dashboard');
+    const open = await count(
+      sql`select count(*)::int as n from quote where stage_key = 'QUOTING' and status <> 'closed'`,
+    );
+    const unassigned = await count(
+      sql`select count(*)::int as n from quote where stage_key = 'QUOTING' and status <> 'closed' and assigned_pricer_id is null`,
+    );
+    expect(d.queue.total).toBe(open);
+    expect(d.queue.unassigned).toBe(unassigned);
+    expect(d.load!.items.reduce((n, l) => n + l.open, 0)).toBe(open);
+    expect(d.load!.items.find((l) => l.pricerId === null)?.open ?? 0).toBe(unassigned);
+  });
+
+  it('B-26 Engineering lens: snapshot blocks add up to the queue; G2 outcomes match the window', async () => {
+    const res = await get(
+      'eng-lead',
+      '/api/v1/analytics/engineering?from=2026-08-01&to=2026-11-03',
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    const e = EngineeringAnalyticsResponse.parse(res.json());
+    const open = await count(
+      sql`select count(*)::int as n from quote where stage_key = 'ENG_REVIEW' and status <> 'closed'`,
+    );
+    expect(e.queue.total).toBe(open);
+    expect(e.load.items.reduce((n, l) => n + l.open, 0)).toBe(open);
+    expect(e.capacity.pending + e.capacity.approved + e.capacity.blocked).toBe(open);
+    expect(e.capacity.approved).toBe(
+      await count(sql`
+        select count(*)::int as n from quote q join eng_review r on r.quote_id = q.id
+        where q.stage_key = 'ENG_REVIEW' and q.status <> 'closed' and r.capacity_signoff_status = 'approved'`),
+    );
+    const g2 = await count(sql`
+      select count(*)::int as n from gate_decision
+      where gate_key = 'G2' and decided_at >= '2026-08-01T05:00:00Z' and decided_at < '2026-11-04T06:00:00Z'`);
+    expect(e.g2Outcomes.total).toBe(g2);
+    expect(e.g2Outcomes.byOutcome.reduce((n, o) => n + o.count, 0)).toBe(g2);
+    expect(e.returned.reasons.length).toBeLessThanOrEqual(5);
+    if (e.stageTime.n === 0) expect(e.stageTime.medianDays).toBeNull();
+    // Nothing commercial in the lens.
+    expect(res.body).not.toMatch(/capital_usd|prelimCapital|sfAmount|price/i);
+  });
+
+  it('B-26 outcomes: awards waiting in Commit & Hand Off are reported beside the win rate', async () => {
+    const o = OutcomesResponse.parse(
+      (await get('leadership', '/api/v1/analytics/outcomes')).json(),
+    );
+    expect(o.commitmentPending.count).toBe(
+      await count(
+        sql`select count(*)::int as n from quote where stage_key = 'COMMIT_HANDOFF' and status <> 'closed'`,
+      ),
+    );
+    expect(o.commitmentPending.count).toBeGreaterThan(0);
   });
 
   it('Approver: pending G4 with age, decided in the last 30 days', async () => {
@@ -494,6 +567,7 @@ describe('role dashboards', () => {
       ['sales-leader', 'SalesLeader'],
       ['eng-lead', 'EngLead'],
       ['pricing', 'Pricing'],
+      ['pricing-lead', 'PricingLead'],
       ['approver', 'Approver'],
       ['leadership', 'Leadership'],
     ];

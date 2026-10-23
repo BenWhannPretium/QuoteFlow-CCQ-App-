@@ -132,8 +132,7 @@ const SECRETS = {
   capitalNotes: 'Apex CER in finance review',
   cer: 'CER-77731',
   justification: 'Board signs the CER on Nov 10',
-  erf: '48213',
-  bpr: 'BPR-55120',
+  erf: 'ERF26-213',
 };
 
 interface Opts {
@@ -144,6 +143,8 @@ interface Opts {
   /** Who is recorded as the price approver (default: the Pricing persona). */
   priceApprover?: 'pricing' | 'multi-role';
   prelimCapitalUsd?: number;
+  /** B-26: record the KAM's terms check (G4 Advance needs it). Default true. */
+  terms?: boolean;
 }
 
 /** A quote that Pricing has submitted to Final Review. Returns its number. */
@@ -186,6 +187,8 @@ async function inFinalReview(o: Opts = {}) {
     }),
     200,
   );
+  // B-26: the capacity owner's sign-off before G2.
+  ok(await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' }), 200);
   const g2 = o.g2 ?? 'proceed';
   ok(
     await decide(
@@ -213,7 +216,6 @@ async function inFinalReview(o: Opts = {}) {
       pricingBasisNote: SECRETS.basis,
       approvedRangeNote: SECRETS.range,
       erfRefs: [SECRETS.erf],
-      bprRefs: [SECRETS.bpr.toLowerCase()],
       costingCompleted: true,
     }),
     200,
@@ -228,6 +230,17 @@ async function inFinalReview(o: Opts = {}) {
     200,
   );
   ok(await decide(qn, { outcomeKey: 'submit' }, 'Pricing', 'G3'));
+  if (o.terms !== false) {
+    // B-26: the KAM checks the terms before the offer is released.
+    ok(
+      await persona(kam).put(`/api/v1/quotes/${qn}/terms`, {
+        termsPaymentTerms: 'Net 45',
+        termsToolingCommitment: false,
+        checked: true,
+      }),
+      200,
+    );
+  }
   tick();
   return qn;
 }
@@ -336,7 +349,7 @@ describe('the approvals queue (GET /approvals?gate=G4)', () => {
     expect(item).toMatchObject({
       stageKey: 'FINAL_REVIEW',
       g2Outcome: 'capital_required',
-      g2OutcomeLabel: 'Capital required',
+      g2OutcomeLabel: 'Advance – capital required',
       g2Flag: true,
       capitalReadiness: 'pending',
       priceApproved: true,
@@ -491,7 +504,12 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     expect(dto.canDecide).toBe(true);
     expect(dto.blockedBy).toEqual([]);
     expect(dto.requirement).toBeNull(); // the tier hook is disabled in the seed
-    expect(dto.availableActions.map((a) => a.outcomeKey)).toEqual(['approve', 'decline', 'return']);
+    expect(dto.availableActions.map((a) => a.outcomeKey)).toEqual([
+      'approve',
+      'hold',
+      'return',
+      'decline',
+    ]);
     expect(dto.availableActions.find((a) => a.outcomeKey === 'approve')).toMatchObject({
       releasesProposal: true,
       validityDays: 30,
@@ -522,7 +540,6 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
         SECRETS.cer,
         SECRETS.justification,
         SECRETS.erf,
-        SECRETS.bpr,
         '250000',
       ]) {
         expect(raw, `${role} must not see ${secret}`).not.toContain(secret);
@@ -995,7 +1012,7 @@ describe('approver tiers (D-10): a hook, disabled by default', () => {
         tierLabel: 'Sales leader within delegation',
         satisfied: false,
       });
-      expect(s.availableActions.map((a) => a.outcomeKey)).toEqual(['decline', 'return']);
+      expect(s.availableActions.map((a) => a.outcomeKey)).toEqual(['hold', 'return', 'decline']);
       expect(s.warnings.map((w) => w.code)).toContain('TIER_APPROVER_REQUIRED');
       const item = (await queue('Approver', `&q=${big}`)).items[0]!;
       expect(item.canDecide).toBe(true); // can still decline or return
@@ -1008,8 +1025,9 @@ describe('approver tiers (D-10): a hook, disabled by default', () => {
       expect(meets.requirement).toMatchObject({ satisfied: true });
       expect(meets.availableActions.map((a) => a.outcomeKey)).toEqual([
         'approve',
-        'decline',
+        'hold',
         'return',
+        'decline',
       ]);
       ok(await decide(big, { outcomeKey: 'approve' }, 'multi-role'));
     } finally {
@@ -1065,5 +1083,62 @@ describe('Final Review and the customer outcome stay separate', () => {
       expect(['AWARDED', 'CLOSED_LOST']).not.toContain(r.stageKey);
       expect(['awarded', 'lost']).not.toContain(r.outcome);
     }
+  });
+});
+
+describe('B-26: the offer is ready before it is released (deck slide 13)', () => {
+  it('G4 Advance needs the terms check; a new customer also needs the Legal review', async () => {
+    const qn = await inFinalReview({ terms: false });
+    const blocked = await decide(qn, { outcomeKey: 'approve' });
+    expect(blocked.statusCode).toBe(422);
+    expect(errorPaths(blocked)).toContain('/terms_checked_at');
+
+    // A KAM cannot check the terms on someone else's quote; Engineering cannot at all.
+    const terms = { termsPaymentTerms: 'Net 30', termsToolingCommitment: true, checked: true };
+    expect((await as('Engineer').put(`/api/v1/quotes/${qn}/terms`, terms)).statusCode).toBe(403);
+    const res = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, terms);
+    expect(res.statusCode, res.body).toBe(200);
+    const commercial = QuoteDetail.parse(res.json()).commercial;
+    expect(commercial.terms.checkedAt).not.toBeNull();
+    // A tooling commitment is a Legal trigger (seed: all three on).
+    expect(commercial.legal).toMatchObject({
+      required: true,
+      reasons: [{ code: 'tooling_commitment' }],
+    });
+    expect(errorPaths(await decide(qn, { outcomeKey: 'approve' }))).toEqual([
+      '/legal_review_required,legal_reviewed_on',
+    ]);
+    const legal = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, {
+      legal: { reviewedOn: '2026-10-26', reviewerName: 'Pat Counsel' },
+    });
+    expect(legal.statusCode, legal.body).toBe(200);
+    ok(await decide(qn, { outcomeKey: 'approve' }));
+  });
+
+  it('changing a term after the check clears it (no silent edits)', async () => {
+    const qn = await inFinalReview();
+    const res = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, { termsMoq: '20k' });
+    expect(QuoteDetail.parse(res.json()).commercial.terms.checkedAt).toBeNull();
+    expect(errorPaths(await decide(qn, { outcomeKey: 'approve' }))).toContain('/terms_checked_at');
+  });
+
+  it('G4 Hold needs a reason, a review date and an owner', async () => {
+    const qn = await inFinalReview();
+    expect(errorCodes(await decide(qn, { outcomeKey: 'hold' }))).toEqual([
+      'MISSING_FIELD',
+      'MISSING_FIELD',
+      'REASON_REQUIRED',
+    ]);
+    const held = await decide(qn, {
+      outcomeKey: 'hold',
+      reasonCode: 'awaiting_internal_input',
+      holdUntil: '2026-11-30',
+      holdOwnerId: await userId('approver'),
+    });
+    ok(held);
+    expect(GateDecisionResponse.parse(held.json()).quote).toMatchObject({
+      stageKey: 'FINAL_REVIEW',
+      status: 'on_hold',
+    });
   });
 });

@@ -7,7 +7,14 @@ export const COMMERCIAL_FIELDS = {
    * Exact keys, at any depth. B-15: the pricing app's estimated revenue / volume / net capital
    * (`PricingErf`), wherever they appear.
    */
-  keys: ['prelim_capital_usd', 'est_revenue_usd', 'est_volume', 'est_net_capital_usd'],
+  keys: [
+    'prelim_capital_usd',
+    'est_revenue_usd',
+    'est_volume',
+    'est_net_capital_usd',
+    'current_price',
+    'target_price',
+  ],
   /** Any key starting with one of these (price_approved_by, priceRange, margin_pct, …). */
   keyPrefixes: ['price', 'margin'],
   /**
@@ -31,6 +38,8 @@ export const COMMERCIAL_FIELDS = {
     'bpr_records',
     'spr_history',
     'pricing_context',
+    'customer_erfs',
+    'history_records',
   ],
   /** Keys that are commercial only beneath an ancestor: the capacity-evidence numbers. */
   scopedKeys: {

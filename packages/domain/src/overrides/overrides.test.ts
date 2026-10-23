@@ -315,9 +315,14 @@ describe('planOverrideDecision', () => {
     decision: 'approve' | 'reject' = 'approve',
     current: unknown = 'STANDARD',
     rec = record(),
-    note?: string | null,
+    note: string | null = 'Confirmed with the account plan',
     q = quote(),
   ) => planOverrideDecision(settings, actor, q, rec, decision, current, note);
+
+  it('B-26: approving needs a note too (overrides should be rare)', () => {
+    expect(codes(decide(leader, 'approve', 'STANDARD', record(), ' '))).toEqual(['NOTE_REQUIRED']);
+    expect(codes(decide(leader, 'approve', 'STANDARD', record(), null))).toEqual(['NOTE_REQUIRED']);
+  });
 
   it('approve applies at once and tells the requester', () => {
     const r = decide(leader, 'approve', 'STANDARD', record(), '  fine  ');
@@ -369,7 +374,7 @@ describe('planOverrideDecision', () => {
       'INVALID_STATE',
     ]);
     expect(
-      codes(decide(leader, 'approve', 'STANDARD', record(), null, quote({ status: 'closed' }))),
+      codes(decide(leader, 'approve', 'STANDARD', record(), 'ok', quote({ status: 'closed' }))),
     ).toEqual(['QUOTE_CLOSED']);
   });
 

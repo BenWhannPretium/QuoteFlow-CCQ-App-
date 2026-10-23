@@ -15,26 +15,27 @@ describe('availableActions', () => {
     ).toEqual(['G1/advance', 'G1/hold', 'G1/rework', 'G1/redirect', 'G1/stop']);
   });
 
-  it('G2 offers six outcomes to the EngLead, none to a KAM', () => {
+  it('G2 offers seven outcomes to the EngLead (B-26 adds Redirect), none to a KAM', () => {
     expect(
       availableActions(hybridConfig, makeQuote('ENG_REVIEW'), makeActor('EngLead')),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
     expect(availableActions(hybridConfig, makeQuote('ENG_REVIEW'), makeActor('KAM'))).toEqual([]);
   });
 
-  it('G4 offers approve/decline/return to an Approver, with return needing a target choice', () => {
+  it('G4 offers approve/hold/return/decline to an Approver, with return needing a target choice', () => {
     const actions = availableActions(
       hybridConfig,
       makeQuote('FINAL_REVIEW'),
       makeActor('Approver'),
     );
-    expect(labels(actions)).toEqual(['G4/approve', 'G4/decline', 'G4/return']);
-    expect(actions[1]).toMatchObject({
+    expect(labels(actions)).toEqual(['G4/approve', 'G4/hold', 'G4/return', 'G4/decline']);
+    expect(actions[3]).toMatchObject({
       requiresNote: true,
       requiresReasonCode: true,
       nextStatus: 'closed',
     });
-    expect(actions[1]!.reasonCodes.map((r) => r.code)).toContain('margin_below_floor');
+    expect(actions[3]!.reasonCodes.map((r) => r.code)).toContain('margin_below_floor');
+    expect(actions[1]).toMatchObject({ nextStatus: 'on_hold', requiresReasonCode: true });
     expect(actions[2]).toMatchObject({
       targetStageKeys: ['QUOTING', 'ENG_REVIEW'],
       requiresNote: true,
@@ -55,18 +56,36 @@ describe('availableActions', () => {
         makeQuote('FINAL_REVIEW'),
         makeActor('Approver', { userId: OTHER_ID }),
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(4);
   });
 
   it('G5 is offered to the quote’s own KAM and to SalesLeaders, not to another KAM', () => {
     const quote = makeQuote('CUSTOMER_DECISION');
     expect(
       labels(availableActions(hybridConfig, quote, makeActor('KAM', { userId: KAM_ID }))),
-    ).toEqual(['G5/awarded', 'G5/lost', 'G5/expired', 'G5/on_hold', 'G5/requote']);
+    ).toEqual([
+      'G5/awarded',
+      'G5/negotiating',
+      'G5/lost',
+      'G5/expired',
+      'G5/on_hold',
+      'G5/requote',
+    ]);
     expect(availableActions(hybridConfig, quote, makeActor('KAM', { userId: OTHER_ID }))).toEqual(
       [],
     );
-    expect(availableActions(hybridConfig, quote, makeActor('SalesLeader'))).toHaveLength(5);
+    expect(availableActions(hybridConfig, quote, makeActor('SalesLeader'))).toHaveLength(6);
+  });
+
+  it('B-26: G6 (Commit & Hand Off) is offered to the own KAM and SalesLeaders', () => {
+    const quote = makeQuote('COMMIT_HANDOFF');
+    expect(
+      labels(availableActions(hybridConfig, quote, makeActor('KAM', { userId: KAM_ID }))),
+    ).toEqual(['G6/advance', 'G6/hold', 'G6/requote', 'G6/stop']);
+    expect(availableActions(hybridConfig, quote, makeActor('KAM', { userId: OTHER_ID }))).toEqual(
+      [],
+    );
+    expect(availableActions(hybridConfig, quote, makeActor('Approver'))).toEqual([]);
   });
 
   it('exposes required-field rules so forms can mark them up front', () => {
@@ -108,7 +127,7 @@ describe('availableActions', () => {
   it('only decider roles ever see actions at a gate', () => {
     for (const role of ROLES) {
       const seen = availableActions(hybridConfig, makeQuote('QUOTING'), makeActor(role)).length > 0;
-      expect(seen, role).toBe(role === 'Pricing');
+      expect(seen, role).toBe(role === 'Pricing' || role === 'PricingLead');
     }
   });
 });

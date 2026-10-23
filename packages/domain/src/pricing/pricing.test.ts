@@ -4,6 +4,7 @@ import {
   NO_CAPITAL_READINESS,
   PRICING_QUEUE_STAGE_KEY,
   filterPricingQueue,
+  planPricerAssignment,
   sortPricingQueue,
   type PricingQueueEntry,
 } from './queue';
@@ -89,8 +90,7 @@ describe('price approval record', () => {
         approvedAt: at,
         pricingBasisNote: '  March CDI, FOB Chicago ',
         approvedRangeNote: 'Within the approved range',
-        erfRefs: ['26367', ' 26367', '31061'],
-        bprRefs: ['bpr-10432'],
+        erfRefs: ['ERF25-367', ' ERF25-367', 'ERF24-061'],
         costingCompleted: true,
       },
       ctx,
@@ -101,8 +101,7 @@ describe('price approval record', () => {
       priceApprovedBy: PRICER_2,
       priceApprovedAt: at,
       pricingBasisNote: 'March CDI, FOB Chicago',
-      erfRefs: ['26367', '31061'],
-      bprRefs: ['BPR-10432'],
+      erfRefs: ['ERF25-367', 'ERF24-061'],
       costingCompleted: true,
       costingAttestedBy: PRICER,
       costingAttestedAt: NOW,
@@ -114,7 +113,6 @@ describe('price approval record', () => {
         'pricingBasisNote',
         'approvedRangeNote',
         'erfRefs',
-        'bprRefs',
         'costingCompleted',
       ]),
     );
@@ -133,7 +131,7 @@ describe('price approval record', () => {
       ...EMPTY_PRICING_RECORD,
       priceApprovedBy: PRICER,
       priceApprovedAt: NOW,
-      erfRefs: ['26367'],
+      erfRefs: ['ERF25-367'],
       costingCompleted: true,
       costingAttestedBy: PRICER_2,
       costingAttestedAt: NOW,
@@ -142,7 +140,7 @@ describe('price approval record', () => {
     expect(cleared.ok && cleared.next).toMatchObject({
       priceApprovedBy: null,
       priceApprovedAt: null,
-      erfRefs: ['26367'],
+      erfRefs: ['ERF25-367'],
       costingAttestedBy: PRICER_2,
     });
     const same = planPricingRecord(pricing, quoting, current, { costingCompleted: true }, ctx);
@@ -164,7 +162,6 @@ describe('price approval record', () => {
         approvedBy: KAM_ID,
         approvedAt: new Date(NOW.getTime() + 60 * 60_000),
         erfRefs: ['ERF 12', ''],
-        bprRefs: ['nope'],
       },
       ctx,
     );
@@ -172,7 +169,6 @@ describe('price approval record', () => {
       ['INVALID_VALUE', 'approvedBy'],
       ['INVALID_VALUE', 'approvedAt'],
       ['INVALID_VALUE', 'erfRefs/0'],
-      ['INVALID_VALUE', 'bprRefs/0'],
     ]);
     const skew = planPricingRecord(
       pricing,
@@ -186,7 +182,7 @@ describe('price approval record', () => {
       pricing,
       quoting,
       EMPTY_PRICING_RECORD,
-      { erfRefs: Array.from({ length: MAX_PRICING_REFS + 1 }, (_, i) => String(10000 + i)) },
+      { erfRefs: Array.from({ length: MAX_PRICING_REFS + 1 }, (_, i) => `ERF25-${10000 + i}`) },
       ctx,
     );
     expect(!many.ok && many.errors[0]!.field).toBe('erfRefs');
@@ -197,16 +193,14 @@ describe('price approval record', () => {
       ...EMPTY_PRICING_RECORD,
       priceApprovedBy: PRICER,
       priceApprovedAt: NOW,
-      erfRefs: ['26367'],
-      bprRefs: ['BPR-1001'],
+      erfRefs: ['ERF25-367'],
       cerReference: 'CER-9',
       capitalReadiness: 'pre_approved',
       approvedRangeNote: 'x',
     };
     expect(carryForwardPricingRecord(prior)).toEqual({
       ...EMPTY_PRICING_RECORD,
-      erfRefs: ['26367'],
-      bprRefs: ['BPR-1001'],
+      erfRefs: ['ERF25-367'],
       cerReference: 'CER-9',
     });
     expect(carryForwardPricingRecord(null)).toEqual(EMPTY_PRICING_RECORD);
@@ -288,7 +282,7 @@ describe('what other roles see', () => {
     expect(redact(dto, makeActor('Pricing'))).toEqual(dto);
   });
 
-  it('warnings: pending capital, capital not approved, costing not attested, no pricing-app record', () => {
+  it('warnings: pending capital, capital not approved, costing not attested (B-26: no BPR / no-record note)', () => {
     expect(quotingWarnings(null)).toEqual([]);
     const codes = (r: Partial<PricingRecordValues>) =>
       quotingWarnings({ ...EMPTY_PRICING_RECORD, costingCompleted: true, ...r }).map((w) => w.code);
@@ -303,10 +297,7 @@ describe('what other roles see', () => {
     ).toContain('board date');
     expect(codes({ capitalReadiness: 'not_approved' })).toEqual(['CAPITAL_NOT_APPROVED']);
     expect(codes({ costingCompleted: false })).toEqual(['COSTING_NOT_ATTESTED']);
-    expect(codes({ noPricingAppRecordNote: 'new item, no ERF yet' })).toEqual([
-      'NO_PRICING_APP_RECORD',
-    ]);
-    expect(codes({ noPricingAppRecordNote: 'n', erfRefs: ['26367'] })).toEqual([]);
+    expect(codes({ erfRefs: [] })).toEqual([]);
   });
 });
 
@@ -321,6 +312,7 @@ describe('pricing queue', () => {
     priceApproved: false,
     productFamily: 'BOTTLE',
     kamUserId: KAM_ID,
+    assignedPricerId: null,
     searchText: '',
     ...overrides,
   });
@@ -380,13 +372,17 @@ describe('G3 (hybrid seed)', () => {
   const approved = {
     price_approved_by: PRICER,
     price_approved_at: NOW,
-    pricing_refs: { erf: [], bpr: [] },
+    costing_completed: true,
     capital_readiness: 'not_required',
   };
-  const submit = (record: Record<string, unknown>, actor = pricing) =>
+  const submit = (
+    record: Record<string, unknown>,
+    actor = pricing,
+    fields: Record<string, unknown> = {},
+  ) =>
     evaluateTransition(
       hybridConfig,
-      makeQuote('QUOTING', { fields: { pricing_record: record } }),
+      makeQuote('QUOTING', { fields: { pricing_record: record, ...fields } }),
       actor,
       { gateKey: 'G3', outcomeKey: 'submit' },
       NOW,
@@ -394,39 +390,73 @@ describe('G3 (hybrid seed)', () => {
   const missing = (r: ReturnType<typeof submit>) =>
     r.ok ? [] : r.errors.map((e) => e.field ?? e.code);
 
-  it('Submit needs the approval, a reference or the "no record yet" note, and a capital status', () => {
+  it('Advance needs the approval, the costing attestation and a capital status (B-26: no ERF / BPR)', () => {
     expect(missing(submit({}))).toEqual([
-      'pricing_record.price_approved_by',
-      'pricing_record.price_approved_at',
-      'pricing_record.pricing_refs.erf,pricing_record.pricing_refs.bpr,pricing_record.no_pricing_app_record_note',
+      'pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible',
+      'pricing_record.costing_completed',
       'pricing_record.capital_readiness',
       'pricing_record.capital_readiness,pricing_record.capital_pending_justification',
+      'capital_likely,pricing_record.capital_readiness',
     ]);
-    expect(submit({ ...approved, pricing_refs: { erf: ['26367'], bpr: [] } }).ok).toBe(true);
-    expect(submit({ ...approved, pricing_refs: { erf: [], bpr: ['BPR-1'] } }).ok).toBe(true);
-    expect(submit({ ...approved, no_pricing_app_record_note: 'New item' }).ok).toBe(true);
+    expect(submit(approved).ok).toBe(true);
+    expect(submit({ ...approved, pricing_refs: { erf: ['ERF25-367'] } }).ok).toBe(true);
+  });
+
+  it('B-26: cost before price: an unattested cost sheet blocks Advance', () => {
+    expect(missing(submit({ ...approved, costing_completed: false }))).toEqual([
+      'pricing_record.costing_completed',
+    ]);
+  });
+
+  it('B-26: below the pass-through threshold the price needs no formal approval', () => {
+    const noApproval = { ...approved, price_approved_by: null, price_approved_at: null };
+    expect(submit(noApproval).ok).toBe(false);
+    expect(submit(noApproval, pricing, { pass_through_eligible: true }).ok).toBe(true);
+  });
+
+  it('B-26: a "capital likely" quote needs capital readiness confirmed, not pending', () => {
+    const pending = {
+      ...approved,
+      capital_readiness: 'pending',
+      capital_pending_justification: 'board Nov 10',
+    };
+    expect(submit(pending, pricing, { capital_likely: false }).ok).toBe(true);
+    expect(missing(submit(pending, pricing, { capital_likely: true }))).toEqual([
+      'capital_likely,pricing_record.capital_readiness',
+    ]);
+    expect(
+      submit({ ...approved, capital_readiness: 'pre_approved' }, pricing, { capital_likely: true })
+        .ok,
+    ).toBe(true);
   });
 
   it('pending capital needs a justification (D-11: warned, not blocked)', () => {
-    const base = { ...approved, no_pricing_app_record_note: 'n', capital_readiness: 'pending' };
-    expect(missing(submit(base))).toEqual([
+    const base = { ...approved, capital_readiness: 'pending' };
+    expect(missing(submit(base, pricing, { capital_likely: false }))).toEqual([
       'pricing_record.capital_readiness,pricing_record.capital_pending_justification',
     ]);
-    expect(submit({ ...base, capital_pending_justification: 'board Nov 10' }).ok).toBe(true);
-    expect(submit({ ...base, capital_readiness: 'not_approved' }).ok).toBe(true);
+    expect(
+      submit({ ...base, capital_pending_justification: 'board Nov 10' }, pricing, {
+        capital_likely: false,
+      }).ok,
+    ).toBe(true);
+    expect(
+      submit({ ...base, capital_readiness: 'not_approved' }, pricing, { capital_likely: false }).ok,
+    ).toBe(true);
   });
 
-  it('only Pricing decides G3; Submit goes to FINAL_REVIEW and tells the Approvers', () => {
-    const ok = submit({ ...approved, no_pricing_app_record_note: 'n' });
+  it('only Pricing (and the pricing lead) decides G3; Advance goes to FINAL_REVIEW and tells the Approvers', () => {
+    const ok = submit(approved);
     expect(ok.ok && ok.effects.nextStageKey).toBe('FINAL_REVIEW');
     expect(ok.ok && ok.effects.notifications).toEqual([
       { type: 'quote.ready_for_final_review', recipient: { kind: 'role', role: 'Approver' } },
     ]);
-    const eng = submit({ ...approved, no_pricing_app_record_note: 'n' }, makeActor('EngLead'));
+    expect(submit(approved, makeActor('PricingLead')).ok).toBe(true);
+    const eng = submit(approved, makeActor('EngLead'));
     expect(!eng.ok && eng.errors[0]!.code).toBe('NOT_PERMITTED');
   });
 
-  it('Hold needs a reason + review date; Rework a reason and bumps the version; Stop declines', () => {
+  it('Hold needs a reason + review date + owner; Rework a reason and bumps the version; Stop declines', () => {
     const run = (outcomeKey: string, extra: object = {}) =>
       evaluateTransition(
         hybridConfig,
@@ -437,7 +467,7 @@ describe('G3 (hybrid seed)', () => {
       );
     expect(
       !run('hold').ok && (run('hold') as { errors: { code: string }[] }).errors.map((e) => e.code),
-    ).toEqual(['MISSING_FIELD', 'REASON_REQUIRED']);
+    ).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'REASON_REQUIRED']);
     const hold = validCase(hybridConfig, 'G3', 'hold');
     expect(
       evaluateTransition(
@@ -454,6 +484,15 @@ describe('G3 (hybrid seed)', () => {
     const r = evaluateTransition(hybridConfig, makeQuote('QUOTING'), pricing, rework.request, NOW);
     expect(r.ok && [r.effects.nextStageKey, r.effects.nextVersion]).toEqual(['ENG_REVIEW', 2]);
     expect(run('rework').ok).toBe(false);
+
+    // B-26: re-cost stays in Quoting (no version bump); Redirect keeps the quote in Quoting too.
+    const recost = validCase(hybridConfig, 'G3', 'recost');
+    const rc = evaluateTransition(hybridConfig, makeQuote('QUOTING'), pricing, recost.request, NOW);
+    expect(
+      rc.ok && [rc.effects.nextStageKey, rc.effects.nextVersion, rc.effects.nextStatus],
+    ).toEqual(['QUOTING', 1, 'active']);
+    expect(run('redirect').ok).toBe(false);
+    expect(run('redirect', { note: 'Customer-funded tooling' }).ok).toBe(true);
 
     const stop = validCase(hybridConfig, 'G3', 'stop');
     expect(stop.request.note).toBeDefined();
@@ -483,5 +522,67 @@ describe('G3 (hybrid seed)', () => {
     expect(!denied.ok && denied.errors.map((e) => e.code)).toEqual(['SEGREGATION']);
     expect(run([PRICER_2]).ok).toBe(true);
     expect(run([]).ok).toBe(true);
+  });
+});
+
+describe('B-26: Quoting assignment (the pricing lead triages)', () => {
+  const quote = makeQuote('QUOTING');
+  const pricer = { id: 'user-pricer', roles: ['Pricing'] as const, active: true };
+  const plan = (
+    actor = makeActor('PricingLead'),
+    q = { ...quote, assignedPricerId: null as string | null },
+    a: typeof pricer | undefined = pricer,
+  ) => planPricerAssignment(actor, q, a ? { ...a, roles: [...a.roles] } : undefined);
+
+  it('the pricing lead and Admin assign; Pricing and others cannot', () => {
+    expect(plan()).toEqual({ ok: true, changed: true, from: null, to: 'user-pricer' });
+    expect(plan(makeActor('Admin')).ok).toBe(true);
+    for (const role of ['Pricing', 'EngLead', 'KAM', 'Approver'] as const) {
+      const r = plan(makeActor(role));
+      expect(!r.ok && r.errors.map((e) => e.code), role).toEqual(['NOT_PERMITTED']);
+    }
+  });
+
+  it('only in Quoting, to an active Pricing / PricingLead user; the same pricer is a no-op', () => {
+    const wrong = plan(makeActor('PricingLead'), {
+      ...makeQuote('FINAL_REVIEW'),
+      assignedPricerId: null,
+    });
+    expect(!wrong.ok && wrong.errors.map((e) => e.code)).toEqual(['WRONG_STAGE']);
+    const engineer = plan(makeActor('PricingLead'), undefined, {
+      ...pricer,
+      roles: ['Engineer'] as never,
+    });
+    expect(!engineer.ok && engineer.errors.map((e) => e.field)).toEqual(['pricerId']);
+    const inactive = plan(makeActor('PricingLead'), undefined, { ...pricer, active: false });
+    expect(inactive.ok).toBe(false);
+    expect(
+      plan(makeActor('PricingLead'), { ...quote, assignedPricerId: 'user-pricer' }),
+    ).toMatchObject({
+      ok: true,
+      changed: false,
+      from: 'user-pricer',
+    });
+  });
+
+  it('the queue filters by pricer, including unassigned', () => {
+    const e = (n: string, assignedPricerId: string | null): PricingQueueEntry => ({
+      quoteNumber: n,
+      tier: null,
+      score: null,
+      activeMsInStage: 0,
+      g2Outcome: null,
+      capitalReadiness: null,
+      priceApproved: false,
+      productFamily: null,
+      kamUserId: KAM_ID,
+      assignedPricerId,
+      searchText: '',
+    });
+    const all = [e('A', 'p1'), e('B', null), e('C', 'p2')];
+    expect(filterPricingQueue(all, { pricerId: 'p1' }).map((x) => x.quoteNumber)).toEqual(['A']);
+    expect(filterPricingQueue(all, { pricerId: 'unassigned' }).map((x) => x.quoteNumber)).toEqual([
+      'B',
+    ]);
   });
 });

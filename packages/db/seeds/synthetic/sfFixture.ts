@@ -65,7 +65,13 @@ export function buildSfFixture({
     prefix + 'SYN' + extra.faker.string.alphanumeric({ length: 12, casing: 'mixed' });
 
   const byKey = new Map<string, Persona>(personas.map((p) => [p.key, p]));
-  const ownerIds = new Map(personas.map((p) => [p.key, sfId('005')]));
+  // B-26 personas (after the first 12) get their SF user ids from their own stream, so the rest of
+  // the fixture stays identical.
+  const later = createRng(seed + 626);
+  const laterId = () => '005SYN' + later.faker.string.alphanumeric({ length: 12, casing: 'mixed' });
+  const ownerIds = new Map(
+    personas.map((p, i) => [p.key, i < 12 ? sfId('005') : laterId()] as const),
+  );
 
   const accountRaw = (c: SyntheticCustomer): Raw => {
     const raw: Raw = {};

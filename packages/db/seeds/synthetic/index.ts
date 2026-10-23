@@ -3,6 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 
 import { buildCustomers, buildOpportunities } from './opportunities';
 import { buildPersonas } from './personas';
+import { seedPricingHistory } from './pricingHistory';
 import { KAM_BY_REGION, generateQuotes } from './quotes';
 import type { QuoteGenResult } from './quotes';
 import { DEFAULT_ANCHOR, DEFAULT_SEED, createRng } from './rng';
@@ -36,6 +37,8 @@ export interface SyntheticResult {
   customers: number;
   opportunities: number;
   quotes: QuoteGenResult | 'already-present';
+  /** B-15: synthetic pricing-app history records (ERF, BPR, SPR). */
+  pricingHistory: number;
 }
 
 /**
@@ -179,10 +182,12 @@ export async function seedSynthetic(
     });
   }
 
+  const pricingHistory = await seedPricingHistory(db);
   return {
     users: personas.length,
     customers: customers.length,
     opportunities: opportunities.length,
     quotes,
+    pricingHistory,
   };
 }

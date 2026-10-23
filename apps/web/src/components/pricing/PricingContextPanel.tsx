@@ -1,106 +1,53 @@
-import type {
-  PricingContext,
-  PricingContextBpr,
-  PricingErf,
-  PricingErfStatus,
-  QuotingDetail,
-} from '@ccq/contracts';
+import type { PricingContext, PricingErf, QuotingDetail } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { DatabaseIcon, PlusIcon, TriangleAlertIcon, UnplugIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Link } from '@tanstack/react-router';
+import { HistoryIcon, PlusIcon, SearchIcon, TriangleAlertIcon, UnplugIcon } from 'lucide-react';
 
 import { useCan } from '@/auth';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
-import { relativeTime } from '@/lib/time';
+import { absoluteTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
 
-import { KeyValueGrid } from '../KeyValueGrid';
+import { Chip, ErfDetails, RecordHeading, RecordRow } from './history';
 import { SkeletonRows } from '../Skeletons';
 
 export const pricingContextQueryKey = (quoteNumber: string) =>
   ['pricing-context', quoteNumber] as const;
 
-export type ReferenceKind = 'erf' | 'bpr';
-
-/** YYYY-MM-DD as a short local date (the pricing app's dates carry no time). */
-const day = (d: string | null) =>
-  d
-    ? new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, {
-        timeZone: 'UTC',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })
-    : null;
-
-/** A pricing-app figure: blank in the pricing app is "Unknown", never 0. */
-function Figure({ value, money }: { value: number | null; money?: boolean }) {
-  if (value === null) {
-    return (
-      <span className="text-muted-foreground" title="Blank in the pricing app">
-        Unknown
-      </span>
-    );
-  }
-  return <>{`${money ? '$' : ''}${value.toLocaleString('en-US')}`}</>;
-}
-
-const days = (n: number | null) => (n === null ? null : `${n} day${n === 1 ? '' : 's'}`);
-
-const STATUS_LABEL: Record<PricingErfStatus, string> = {
-  open: 'Open',
-  accepted: 'Accepted',
-  rejected: 'Rejected',
-  abandoned: 'Abandoned',
-};
-
-function Chip({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'warn' }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        tone === 'warn' ? 'bg-warning text-warning-foreground' : 'bg-secondary',
-      )}
-    >
-      {children}
-    </span>
-  );
-}
+/** B-26: legacy ERF numbers only (BPR dropped). */
+export type ReferenceKind = 'erf';
 
 const matches = (pattern: string, value: string) => {
   try {
-    return new RegExp(pattern).test(value);
+    return new RegExp(pattern).test(value.trim().toUpperCase());
   } catch {
     return true; // a bad setting is the server's to report
   }
 };
 
 interface UseRef {
-  /** Adds the number to the current pricing record's references (Pricing, in Quoting). */
+  /** Adds the number as a Legacy ERF # on the current pricing record (Pricing, in Quoting). */
   onUse?: ((kind: ReferenceKind, value: string) => void) | undefined;
   pending?: string | null | undefined;
   formats?: QuotingDetail['refFormats'] | undefined;
 }
 
 function UseButton({
-  kind,
   value,
   context,
   use,
 }: {
-  kind: ReferenceKind;
   value: string;
   context: PricingContext;
   use: UseRef;
 }) {
   if (!context.canUseAsReference || !use.onUse) return null;
-  const refs = kind === 'erf' ? context.refs.erfRefs : context.refs.bprRefs;
-  if (refs.some((r) => r.toLowerCase() === value.toLowerCase())) {
+  if (context.refs.erfRefs.some((r) => r.toUpperCase() === value.toUpperCase())) {
     return <Chip>Referenced</Chip>;
   }
-  const format = use.formats?.[kind];
+  const format = use.formats?.erf;
   const valid = !format || matches(format.pattern, value);
   return (
     <Button
@@ -111,10 +58,10 @@ function UseButton({
       title={
         valid
           ? undefined
-          : `Not in the ${format.label} format (e.g. ${format.example}): type the reference instead`
+          : `Not in the ${format.label} format (e.g. ${format.example}): type it instead`
       }
-      onClick={() => use.onUse!(kind, value)}
-      data-testid={`use-${kind}-${value}`}
+      onClick={() => use.onUse!('erf', value)}
+      data-testid={`use-erf-${value}`}
     >
       <PlusIcon className="size-3.5" aria-hidden="true" />
       Use as reference
@@ -122,157 +69,59 @@ function UseButton({
   );
 }
 
-function ErfCard({ erf, context, use }: { erf: PricingErf; context: PricingContext; use: UseRef }) {
-  const isQuoteErf =
-    context.refs.quoteErfNumber?.replace(/\D/g, '') === erf.erfNumber.replace(/\D/g, '');
+function ReferencedErf({
+  erf,
+  context,
+  use,
+}: {
+  erf: PricingErf;
+  context: PricingContext;
+  use: UseRef;
+}) {
+  const quoteErf = context.refs.quoteErfNumber?.toUpperCase() === erf.requestNumber.toUpperCase();
   return (
-    <article
-      className="grid gap-3 rounded-md border p-3"
-      aria-labelledby={`erf-${erf.erfNumber}`}
-      data-testid="pricing-context-erf"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={`erf-${erf.erfNumber}`} className="flex flex-wrap items-center gap-2 font-medium">
-          ERF {erf.erfNumber}
-          <Chip>{STATUS_LABEL[erf.status]}</Chip>
-          {isQuoteErf && <Chip>Quote ERF</Chip>}
-        </h3>
-        <UseButton kind="erf" value={erf.erfNumber} context={context} use={use} />
+    <article className="grid gap-3 rounded-md border p-3" data-testid="pricing-context-erf">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <RecordHeading record={erf} extra={quoteErf ? <Chip>Quote ERF</Chip> : undefined} />
+        <UseButton value={erf.requestNumber} context={context} use={use} />
       </div>
-      <p className="text-foreground-2 text-sm">
-        {[erf.customerName, erf.title].filter(Boolean).join(' · ') || '–'}
-      </p>
-      <KeyValueGrid
-        columns={3}
-        items={[
-          { label: 'Submitted', value: day(erf.submittedOn) },
-          { label: 'Priority', value: erf.priority },
-          { label: 'Product class', value: erf.productClass },
-          { label: 'Channel', value: erf.channel },
-          { label: 'Plant', value: erf.plant },
-          { label: 'Machine', value: erf.machine },
-          { label: 'Est. revenue', value: <Figure value={erf.estRevenueUsd} money /> },
-          { label: 'Est. volume', value: <Figure value={erf.estVolume} /> },
-          { label: 'Est. net capital', value: <Figure value={erf.estNetCapitalUsd} money /> },
-          {
-            id: 'decision',
-            label: 'Decision',
-            value:
-              [erf.decision.type, erf.decision.by, day(erf.decision.on)]
-                .filter(Boolean)
-                .join(' · ') || null,
-          },
-          { label: 'Decision reason', value: erf.decision.reason },
-          { label: 'Attachments', value: erf.attachmentCount?.toString() },
-          { label: 'To engineer assigned', value: days(erf.elapsedDays.engineerAssigned) },
-          { label: 'To ECE approved', value: days(erf.elapsedDays.eceApproved) },
-          { label: 'To price confirmed', value: days(erf.elapsedDays.priceConfirmed) },
-        ]}
-      />
+      <ErfDetails erf={erf} />
     </article>
   );
 }
 
-function BprList({
-  bprs,
-  context,
-  use,
-}: {
-  bprs: PricingContextBpr[];
-  context: PricingContext;
-  use: UseRef;
-}) {
-  return (
-    <section className="grid gap-2" aria-labelledby="pricing-context-bprs">
-      <h3 id="pricing-context-bprs" className="text-sm font-semibold">
-        Linked BPRs ({bprs.length})
-      </h3>
-      {bprs.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No BPR in the pricing app for these ERFs.</p>
-      ) : (
-        <ul className="grid gap-2" data-testid="pricing-context-bprs">
-          {bprs.map((b) => (
-            <li
-              key={b.bprNumber}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-            >
-              <span className="grid gap-0.5">
-                <span className="flex flex-wrap items-center gap-2 font-medium">
-                  {b.bprNumber}
-                  {b.status && <Chip>{b.status}</Chip>}
-                  <span className="text-muted-foreground text-xs font-normal">
-                    {b.via === 'reference' ? 'on the pricing record' : `follows ERF ${b.erfNumber}`}
-                  </span>
-                </span>
-                <span className="text-foreground-2">
-                  {[
-                    b.itemDescription,
-                    b.requestedOn && `requested ${day(b.requestedOn)}`,
-                    b.effectiveOn && `effective ${day(b.effectiveOn)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || '–'}
-                </span>
-              </span>
-              <UseButton kind="bpr" value={b.bprNumber} context={context} use={use} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function SprHistory({ context }: { context: PricingContext }) {
-  return (
-    <details className="rounded-md border px-3 py-2" data-testid="pricing-context-spr">
-      <summary className="cursor-pointer text-sm font-semibold">
-        Historical (SPR retired Nov 2025) · {context.sprHistory.length}
-      </summary>
-      {context.sprHistory.length === 0 ? (
-        <p className="text-muted-foreground mt-2 text-sm">No SPR history for this customer.</p>
-      ) : (
-        <ul className="mt-2 grid gap-1 text-sm">
-          {context.sprHistory.map((s) => (
-            <li key={s.sprNumber} className="text-foreground-2">
-              <span className="text-foreground font-medium">{s.sprNumber}</span>
-              {[s.itemDescription, s.status, day(s.requestedOn)]
-                .filter(Boolean)
-                .map((part) => ` · ${part}`)
-                .join('')}
-            </li>
-          ))}
-        </ul>
-      )}
-    </details>
-  );
-}
-
-/** Shown when the pricing app can't be read: the manual references keep working. */
-export function PricingAppUnavailable({ detail }: { detail?: string | null | undefined }) {
+/** No history to show: not imported yet, or it could not be loaded. Manual entry keeps working. */
+export function PricingHistoryUnavailable({ notImported }: { notImported?: boolean }) {
   return (
     <p
       role="status"
       className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
-      data-testid="pricing-context-unavailable"
+      data-testid={notImported ? 'pricing-context-not-imported' : 'pricing-context-unavailable'}
     >
       <UnplugIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <span>
-        <span className="font-medium">Pricing app unavailable; enter references manually.</span>
-        {detail ? <span className="text-muted-foreground"> ({detail})</span> : null}
-      </span>
+      {notImported ? (
+        <span>
+          <span className="font-medium">Pricing history not imported yet.</span> An Admin imports
+          the pricing-app export from Admin → Integrations. You can still type a Legacy ERF #.
+        </span>
+      ) : (
+        <span className="font-medium">
+          Pricing history could not be loaded; you can still type a Legacy ERF #.
+        </span>
+      )}
     </p>
   );
 }
 
 /**
- * B-15 (F-11): the quote's read-only "Pricing context" from the legacy pricing app: the ERF summary
- * (dates, decision, elapsed days, estimated figures with blanks as "Unknown"), the BPRs that follow it,
- * and the customer's SPR history (collapsed: SPR retired Nov 2025). Pricing, in Quoting, can add an
- * ERF/BPR to the pricing record with "Use as reference". Nothing here edits a pricing-app figure.
+ * B-15 (F-11), revised: the quote's **pricing history**, from the retired pricing app's export
+ * (imported into CCQ; no live connection). The referenced legacy ERFs in full (estimates of 0 or
+ * blank shown as "Unknown", decision, milestones, elapsed days, the legacy free text), the customer's
+ * other ERFs (Pricing can "Use as reference" while the quote is in Quoting) and SPR history
+ * (collapsed). No BPR on a quote (B-26): BPRs are on the Pricing history page.
  *
  * Rendered only for roles with `quote.read.commercialFields`; the API answers 403 to anyone else, so
- * hiding it is cosmetic, not the control. Any failure shows the manual-reference fallback.
+ * hiding it is cosmetic, not the control.
  */
 export function PricingContextPanel({
   quoteNumber,
@@ -301,51 +150,43 @@ export function PricingContextPanel({
     <Card data-testid="pricing-context">
       <CardHeader>
         <CardTitle>
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <DatabaseIcon className="size-4" aria-hidden="true" />
-            Pricing context
-          </h2>
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-base font-semibold">
+              <HistoryIcon className="size-4" aria-hidden="true" />
+              Pricing history
+            </h2>
+            <Link
+              to="/pricing-history"
+              search={{
+                kind: 'erf',
+                ...(context?.customerMatch ? { customer: context.customerMatch } : {}),
+              }}
+              className={cn(buttonVariants({ variant: 'link', size: 'sm' }), 'px-0')}
+              data-testid="pricing-history-link"
+            >
+              <SearchIcon className="size-3.5" aria-hidden="true" />
+              Search all pricing history
+            </Link>
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
         {query.isPending ? (
           <SkeletonRows rows={3} />
         ) : query.isError ? (
-          <PricingAppUnavailable />
-        ) : !context!.source.available ? (
-          <PricingAppUnavailable detail={context!.source.error} />
+          <PricingHistoryUnavailable />
+        ) : !context!.source.imported ? (
+          <PricingHistoryUnavailable notImported />
         ) : (
           <Body context={context!} use={use} />
         )}
-        {context && !context.source.available && <ReferenceSummary context={context} />}
       </CardContent>
     </Card>
   );
 }
 
-/** The references CCQ holds, shown even when the pricing app is down. */
-function ReferenceSummary({ context }: { context: PricingContext }) {
-  return (
-    <KeyValueGrid
-      columns={3}
-      items={[
-        { label: 'Quote ERF', value: context.refs.quoteErfNumber },
-        { label: 'SF ERF', value: context.refs.sfErfNumber },
-        {
-          label: 'Record references',
-          value: [...context.refs.erfRefs, ...context.refs.bprRefs].join(', '),
-        },
-      ]}
-    />
-  );
-}
-
 function Body({ context, use }: { context: PricingContext; use: UseRef }) {
-  const nothing =
-    context.erfRecords.length === 0 &&
-    context.bprRecords.length === 0 &&
-    context.notFound.erf.length === 0 &&
-    context.notFound.bpr.length === 0;
+  const noRefs = context.erfRecords.length === 0 && context.notFound.erf.length === 0;
   return (
     <>
       {context.linkage.mismatch && (
@@ -360,33 +201,64 @@ function Body({ context, use }: { context: PricingContext; use: UseRef }) {
           to Salesforce.
         </p>
       )}
-      {nothing && (
+      {noRefs && (
         <p className="text-muted-foreground text-sm" data-testid="pricing-context-empty">
-          No ERF or BPR reference yet. Record one on the price approval below, or note that the
-          pricing app has no record yet.
+          No Legacy ERF # on this quote. That is fine: it is optional during the transition and no
+          gate needs it.
         </p>
       )}
       {context.erfRecords.map((erf) => (
-        <ErfCard key={erf.erfNumber} erf={erf} context={context} use={use} />
+        <ReferencedErf key={erf.requestNumber} erf={erf} context={context} use={use} />
       ))}
-      {(context.notFound.erf.length > 0 || context.notFound.bpr.length > 0) && (
+      {context.notFound.erf.length > 0 && (
         <p className="text-muted-foreground text-sm" data-testid="pricing-context-not-found">
-          Not in the pricing app:{' '}
-          {[
-            ...context.notFound.erf.map((n) => `ERF ${n}`),
-            ...context.notFound.bpr.map((n) => `BPR ${n}`),
-          ].join(', ')}
+          Not in the pricing history: {context.notFound.erf.join(', ')}
         </p>
       )}
-      {(context.erfRecords.length > 0 || context.bprRecords.length > 0) && (
-        <BprList bprs={context.bprRecords} context={context} use={use} />
+
+      {context.customerMatch && (
+        <section className="grid gap-2" aria-labelledby="pricing-context-customer-erfs">
+          <h3 id="pricing-context-customer-erfs" className="text-sm font-semibold">
+            Other ERFs for {context.customerMatch} ({context.customerErfs.length})
+          </h3>
+          {context.customerErfs.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No other ERF under this customer name. The export has no Salesforce id, so a customer
+              spelled differently in the old app won&apos;t match: search the pricing history.
+            </p>
+          ) : (
+            <ul className="grid gap-2" data-testid="pricing-context-customer-erfs">
+              {context.customerErfs.map((erf) => (
+                <RecordRow
+                  key={`${erf.requestNumber}-${erf.submittedOn ?? ''}`}
+                  record={erf}
+                  action={<UseButton value={erf.requestNumber} context={context} use={use} />}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
       )}
-      <SprHistory context={context} />
+
+      <details className="rounded-md border px-3 py-2" data-testid="pricing-context-spr">
+        <summary className="cursor-pointer text-sm font-semibold">
+          Historical (SPR retired Nov 2025) · {context.sprHistory.length}
+        </summary>
+        {context.sprHistory.length === 0 ? (
+          <p className="text-muted-foreground mt-2 text-sm">No SPR history for this customer.</p>
+        ) : (
+          <ul className="mt-2 grid gap-2">
+            {context.sprHistory.map((s) => (
+              <RecordRow key={`${s.requestNumber}-${s.submittedOn ?? ''}`} record={s} />
+            ))}
+          </ul>
+        )}
+      </details>
+
       <p className="text-muted-foreground text-xs">
-        Read-only from the pricing app
-        {context.source.readAt ? `, read ${relativeTime(context.source.readAt)}` : ''}
-        {context.source.mode === 'fake' ? ' (synthetic data)' : ''}. Figures are edited in the
-        pricing app, never in CCQ.
+        Read-only history from the retired pricing app
+        {context.source.importedAt ? `, imported ${absoluteTime(context.source.importedAt)}` : ''}.
+        Matched on the customer name; nothing here can be edited in CCQ.
       </p>
     </>
   );

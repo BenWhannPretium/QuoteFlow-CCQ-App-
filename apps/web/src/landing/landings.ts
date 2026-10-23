@@ -10,6 +10,7 @@ export type LandingRole =
   | 'EngLead'
   | 'Engineer'
   | 'Pricing'
+  | 'PricingLead'
   | 'Approver'
   | 'Leadership'
   | 'Admin'
@@ -67,6 +68,14 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     description: 'Quotes ready to price and proposals coming up for renewal.',
     action: { label: 'Open the queue', to: '/queue/pricing', permission: 'quoting.edit' },
   },
+  // B-26: the pricing lead triages Quoting work to the pricers (pricingQueue.assign).
+  PricingLead: {
+    role: 'PricingLead',
+    roleLabel: 'Pricing lead',
+    title: 'Pricing triage',
+    description: 'Assign Quoting work to the pricers and keep the pricing queue balanced.',
+    action: { label: 'Open the queue', to: '/queue/pricing', permission: 'pricingQueue.assign' },
+  },
   Approver: {
     role: 'Approver',
     roleLabel: 'Approver',
@@ -108,6 +117,7 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
 export const LANDING_PRECEDENCE: readonly LandingRole[] = [
   'Approver',
   'EngLead',
+  'PricingLead',
   'Pricing',
   'Engineer',
   'SalesLeader',

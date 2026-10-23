@@ -288,6 +288,8 @@ export function planOverrideDecision(
       ),
     );
   }
+  // B-26 (CCQ demo, 10/20): overrides should be rare, so approving one needs a note too.
+  if (!trimmed) return fail(new DomainError('NOTE_REQUIRED', 'Say why it is approved', 'note'));
   return {
     ok: true,
     plan: {

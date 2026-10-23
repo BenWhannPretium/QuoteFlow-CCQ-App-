@@ -40,7 +40,7 @@ Sources of truth for requirements (read the relevant one before building a featu
 - **`packages/domain`:** pure TypeScript business logic with **no I/O**: the stage/gate engine, the scoring engine, overrides, the permission policy and validation. It must be 100% unit-testable.
 - **`packages/db`:** Drizzle ORM, drizzle-kit migrations, seed scripts. PostgreSQL 16.
 - **`packages/contracts`:** zod schemas and DTO types shared by web and api.
-- **`packages/integrations`:** Salesforce (jsforce), pricing app reader, Microsoft Graph (SharePoint, mail). Each sits behind an interface with a fake implementation for tests and local dev.
+- **`packages/integrations`:** Salesforce (jsforce), Microsoft Graph (SharePoint, mail), and the pricing-history export reader (B-15: the retired pricing app's .xlsx export, imported by an Admin; no live connection). Each connector sits behind an interface with a fake implementation for tests and local dev.
 - **Tests:**
   - Vitest for unit and integration tests.
   - Integration tests use a real Postgres (docker compose locally, service container in CI).
@@ -54,7 +54,7 @@ Sources of truth for requirements (read the relevant one before building a featu
    - Data scope is also enforced in SQL (Postgres row-level security, RLS) as a second layer.
    - The UI may hide things, but it is never the control.
 2. **Field-level sensitivity.** Pricing, margin and capital figures are returned only to the roles in the policy matrix:
-   - Pricing
+   - Pricing and the Pricing lead
    - Engineering leads
    - Approver
    - Leadership
@@ -87,9 +87,10 @@ Sources of truth for requirements (read the relevant one before building a featu
 - **Naming:**
   - Domain terms follow the glossary in `01-architecture.md`.
   - Use "ERF" (never "ERS").
+  - Stage 6 is **Commit & Hand Off** (G6). "Closed – Won" (`AWARDED`) is reached only from G6; G5 Awarded records the customer's acceptance.
   - SPR is historical only and gets no stage.
   - NPI/NPD means **pre-award** upfront engineering unless the text says post-award.
-- **IDs:** UUID v7 primary keys. Business keys: `quote_number`, `sf_opportunity_id`, `erf_number`.
+- **IDs:** UUID v7 primary keys. Business keys: `quote_number`, `sf_opportunity_id`. `erf_number` is a **legacy ERF reference for the transition only** (B-26); BPR is retired and gets no field.
 - **Time:** store UTC `timestamptz`. Display in the user's locale; Pretium HQ is US Central.
 - **API:** REST under `/api/v1`. Errors are RFC 9457 problem+json. Every route has a zod schema and appears in OpenAPI.
 - **Commits:** Conventional Commits (`feat(intake): …`). Small PRs. CI must pass: lint, typecheck, unit, integration, build.

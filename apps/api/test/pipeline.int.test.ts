@@ -246,7 +246,7 @@ describe('GET /quotes/board', () => {
     ];
     expect(b.columns.map((c) => c.stageKey)).toEqual(stages.map((s) => s.key));
     expect(b.columns.reduce((n, c) => n + c.count, 0)).toBe(150);
-    expect(b.closed.count).toBe(70);
+    expect(b.closed.count).toBe(67);
     expect(b.columns.filter((c) => c.terminal).every((c) => c.cards.length === 0)).toBe(true);
     expect(b.columns.filter((c) => !c.terminal).every((c) => c.cards.length === c.count)).toBe(
       true,

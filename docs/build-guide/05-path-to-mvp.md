@@ -90,16 +90,14 @@ Request all four of these as soon as Step 1 is done. They can run in any order; 
   - [ ] which SF stages count as "won" / "lost" (for the stage-mismatch flag)
 - **After (build):** fill in `fieldMap.ts`, run the live contract test, switch `SF_MODE=live` in test.
 
-#### Step 4. Pricing application · *M5*
-- **Who:** Cory McGahan (IT, pricing-app data), Gemma Cebolla (Sr Dir Pricing) plus the "James" from the PRD, Brennan Paul. Optional: Bailey.
-- **Why:** gives Pricing their ERF/BPR context inside the quote. If it slips, the app falls back to typed-in reference numbers, so it's important but not blocking.
-- **Leave the meeting with:**
-  - [ ] the route: read-only SQL login (A) or a D&A copy in Fabric (B)
-  - [ ] the view names and every column needed (most are guesses today), and how a BPR links to an ERF
-  - [ ] the real ERF and BPR number formats
-  - [ ] Gemma's confirmation of **who may see pricing, margin and capital** (today: Pricing, Eng leads, Approver, Leadership, Admin)
-  - [ ] who "James" is
-- **After (build):** column map, live contract test, switch `PRICING_MODE`.
+#### Step 4. Pricing history · *done differently (2026-10-22)*
+- **Who:** Cory McGahan (the export), Gemma Cebolla (Sr Dir Pricing).
+- **What changed:** no live connection. The pricing app is unsupported and being retired as QuoteFlow takes over its job, so its history is Cory's export (approved), imported by an Admin (Admin → Integrations → Pricing history). The route question (A/B), the view names and the formats are settled by the export itself.
+- **Still to do:**
+  - [x] the real ERF format (ERF<yy>-<n>, EP<yy>-<n> for older ERFs): in `pricing_ref_formats`
+  - [ ] import the export in test (Admin), then in prod at B-22
+  - [ ] Gemma's confirmation of **who may see pricing history, pricing, margin and capital** (today: Pricing, PricingLead, Eng leads, Approver, Leadership, Admin) and the B-15 open points (net capital 0, BPRs on the history page only)
+  - [ ] whether Cory takes a final export when the old app is switched off, and what happens to in-flight ERFs (D-30)
 
 #### Step 5. SharePoint and email · *M7*
 - **Who:** the IT SharePoint / M365 admin, Bailey (folder structure), Tre.
@@ -253,7 +251,7 @@ Use this as the agenda for Steps 7 to 10. "Today" is what the app does now (prov
 | **IT M365 / SharePoint admin** | 5 | SharePoint site permission, mailbox |
 | **Brennan Paul** (D&A) | 1, 4, 6, 14 | Prod-data approval, data definitions, Fabric |
 | **Rachel Dew, Zac Cairns, Graham Parle** (Salesforce) | 3, 6, 14, 16 | SF access, field names, tie-out |
-| **Cory McGahan** (IT, pricing data) | 4 | Pricing-app read access and columns |
+| **Cory McGahan** (IT, pricing data) | 4 | The pricing-app export (done; a final one at switch-off?) |
 | **Gemma Cebolla** (Pricing) + pricing analyst | 4, 10, 16, 17 | Who sees pricing, G3 rules, pricing UAT |
 | **Jim Zweifel** (upfront engineering lead) | 7, 9, 16, 17 | Intake fields, queue, G2, engineering UAT |
 | **Danielle Leu** (Product Commercialization) | 7, 8, 9 | Intake and stage definitions |
