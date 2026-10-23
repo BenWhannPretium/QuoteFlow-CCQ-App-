@@ -91,6 +91,33 @@ describe('Salesforce config', () => {
     ).toBe('live');
   });
 
+  it('SF_AUTH_FLOW=client_credentials requires the secret and a My Domain login URL', () => {
+    const cc = {
+      ...base,
+      SF_MODE: 'live',
+      SF_AUTH_FLOW: 'client_credentials',
+      SF_CLIENT_ID: 'key',
+    };
+    expect(() =>
+      loadConfig({ ...cc, SF_LOGIN_URL: 'https://pretiumpkg.my.salesforce.com' }),
+    ).toThrow(/SF_CLIENT_SECRET is required/);
+    expect(() =>
+      loadConfig({
+        ...cc,
+        SF_CLIENT_SECRET: 'secret',
+        SF_LOGIN_URL: 'https://login.salesforce.com',
+      }),
+    ).toThrow(/My Domain/);
+    const config = loadConfig({
+      ...cc,
+      SF_CLIENT_SECRET: 'secret',
+      SF_LOGIN_URL: 'https://pretiumpkg.my.salesforce.com',
+    });
+    // No username or private key needed: the session runs as the app's Run As user.
+    expect(config.SF_AUTH_FLOW).toBe('client_credentials');
+    expect(config.SF_USERNAME).toBeUndefined();
+  });
+
   it('the login URL must be https', () => {
     expect(() => loadConfig({ ...base, SF_LOGIN_URL: 'http://test.salesforce.com' })).toThrow(
       /SF_LOGIN_URL/,

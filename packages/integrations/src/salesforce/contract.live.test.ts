@@ -1,30 +1,44 @@
 import { SfOpportunity } from '@ccq/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { JsforceSalesforceReader, jwtApiFactory } from './jsforce';
+import { JsforceSalesforceReader, sfApiFactory } from './jsforce';
 import { LOGIN_URLS } from './jwt';
 
 /**
- * Live contract test against the Salesforce UAT org. Read-only (SOQL, describe). Skipped unless
- * `SF_LIVE_TEST=1`, with the connected-app credentials in the environment:
+ * Live contract test against a Salesforce org. Read-only (SOQL, describe). Skipped unless
+ * `SF_LIVE_TEST=1`, with the External Client App credentials in the environment. JWT bearer:
  *
  *   SF_LIVE_TEST=1 SF_CLIENT_ID=… SF_USERNAME=integration@pretiumpkg.com.uat \
  *   SF_PRIVATE_KEY="$(cat sf-uat.key)" pnpm --filter @ccq/integrations test
+ *
+ * Client credentials (the production setup):
+ *
+ *   SF_LIVE_TEST=1 SF_AUTH_FLOW=client_credentials SF_CLIENT_ID=… SF_CLIENT_SECRET=… \
+ *   SF_LOGIN_URL=https://pretiumpkg.my.salesforce.com pnpm --filter @ccq/integrations test
  *
  * It asserts every field in fieldMap.ts resolves in the org: run it after the M3 crosswalk changes.
  * It prints counts and field names only, never record contents.
  */
 const live = process.env.SF_LIVE_TEST === '1';
 
-describe.skipIf(!live)('Salesforce UAT contract (SF_LIVE_TEST=1)', () => {
+describe.skipIf(!live)('Salesforce contract (SF_LIVE_TEST=1)', () => {
   const reader = () =>
     new JsforceSalesforceReader(
-      jwtApiFactory({
-        clientId: process.env.SF_CLIENT_ID ?? '',
-        username: process.env.SF_USERNAME ?? 'integration@pretiumpkg.com.uat',
-        privateKey: process.env.SF_PRIVATE_KEY ?? '',
-        loginUrl: process.env.SF_LOGIN_URL ?? LOGIN_URLS.uat,
-      }),
+      sfApiFactory(
+        process.env.SF_AUTH_FLOW === 'client_credentials'
+          ? {
+              flow: 'client_credentials',
+              clientId: process.env.SF_CLIENT_ID ?? '',
+              clientSecret: process.env.SF_CLIENT_SECRET ?? '',
+              loginUrl: process.env.SF_LOGIN_URL ?? '',
+            }
+          : {
+              clientId: process.env.SF_CLIENT_ID ?? '',
+              username: process.env.SF_USERNAME ?? 'integration@pretiumpkg.com.uat',
+              privateKey: process.env.SF_PRIVATE_KEY ?? '',
+              loginUrl: process.env.SF_LOGIN_URL ?? LOGIN_URLS.uat,
+            },
+      ),
     );
 
   it('every mapped object and field resolves (fieldMap.ts)', async () => {

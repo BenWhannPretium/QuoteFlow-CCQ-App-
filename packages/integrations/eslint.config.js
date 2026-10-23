@@ -36,7 +36,7 @@ const noWriteCalls = {
 };
 const noWriteHttp = {
   selector: `Property[key.name='method'][value.value=/^(POST|PUT|PATCH|DELETE)$/i]`,
-  message: `${message} Only the OAuth token request in jwt.ts may POST.`,
+  message: `${message} Only the OAuth token request in oauth.ts may POST.`,
 };
 
 export default [
@@ -46,8 +46,9 @@ export default [
     rules: { 'no-restricted-syntax': ['error', noWriteCalls, noWriteHttp] },
   },
   {
-    // The JWT token exchange is the one POST, to the OAuth endpoint rather than the data API.
-    files: ['src/salesforce/jwt.ts'],
+    // The OAuth token request (JWT bearer and client credentials) is the one POST, to the OAuth
+    // endpoint rather than the data API.
+    files: ['src/salesforce/oauth.ts'],
     rules: { 'no-restricted-syntax': ['error', noWriteCalls] },
   },
 ];
