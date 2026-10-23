@@ -2,7 +2,7 @@ import type { SfAccount, SfOpportunity, SfProductSpec } from '@ccq/contracts';
 import { Connection } from 'jsforce';
 
 import { MAPPED_OBJECTS, OPPORTUNITY_OBJECT, PRODUCT_SPEC_OBJECT, type FieldRef } from './fieldMap';
-import { jwtLogin, type JwtLoginConfig, type SfSession } from './jwt';
+import { jwtLogin, type JwtLoginConfig } from './jwt';
 import {
   mapAccount,
   mapAll,
@@ -10,6 +10,7 @@ import {
   mapProductSpec,
   type MapOptions,
 } from './mapper';
+import { clientCredentialsLogin, type ClientCredentialsConfig, type SfSession } from './oauth';
 import {
   searchTerms,
   silentLogger,
@@ -48,7 +49,7 @@ export interface SfApi {
   deleted(objectName: string, start: Date, end: Date): Promise<{ id: string }[]>;
 }
 
-/** Logs in (JWT bearer) and returns an SfApi bound to the session. */
+/** Logs in (JWT bearer or client credentials) and returns an SfApi bound to the session. */
 export type SfApiFactory = () => Promise<SfApi>;
 
 export const DEFAULT_SF_API_VERSION = '62.0';
@@ -84,15 +85,37 @@ export function jsforceApi(session: SfSession, version: string = DEFAULT_SF_API_
   };
 }
 
-export interface JsforceReaderConfig extends JwtLoginConfig {
-  apiVersion?: string;
-}
+/** The login for `SF_AUTH_FLOW`. `flow` may be omitted for JWT (the original setup). */
+export type JsforceReaderConfig = (
+  ({ flow?: 'jwt' } & JwtLoginConfig) | ({ flow: 'client_credentials' } & ClientCredentialsConfig)
+) & { apiVersion?: string };
 
-/** The production factory: JWT bearer login, then a jsforce connection. */
+/** JWT bearer login, then a jsforce connection. */
 export const jwtApiFactory =
-  (config: JsforceReaderConfig, fetchImpl: typeof fetch = fetch): SfApiFactory =>
+  (
+    config: JwtLoginConfig & { apiVersion?: string },
+    fetchImpl: typeof fetch = fetch,
+  ): SfApiFactory =>
   async () =>
     jsforceApi(await jwtLogin(config, fetchImpl), config.apiVersion);
+
+/** Client credentials login (the app's "Run As" user), then a jsforce connection. */
+export const clientCredentialsApiFactory =
+  (
+    config: ClientCredentialsConfig & { apiVersion?: string },
+    fetchImpl: typeof fetch = fetch,
+  ): SfApiFactory =>
+  async () =>
+    jsforceApi(await clientCredentialsLogin(config, fetchImpl), config.apiVersion);
+
+/** The production factory for the configured login flow. */
+export const sfApiFactory = (
+  config: JsforceReaderConfig,
+  fetchImpl: typeof fetch = fetch,
+): SfApiFactory =>
+  config.flow === 'client_credentials'
+    ? clientCredentialsApiFactory(config, fetchImpl)
+    : jwtApiFactory(config, fetchImpl);
 
 export interface JsforceReaderOptions extends MapOptions {
   logger?: SfLogger;

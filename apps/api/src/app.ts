@@ -123,15 +123,23 @@ declare module 'fastify' {
 
 function salesforceReaderFor(config: AppConfig, logger: SfLogger): SalesforceReader {
   if (config.SF_MODE === 'fake') return createSalesforceReader({ mode: 'fake' }, { logger });
+  const login =
+    config.SF_AUTH_FLOW === 'client_credentials'
+      ? {
+          flow: 'client_credentials' as const,
+          loginUrl: config.SF_LOGIN_URL,
+          clientId: config.SF_CLIENT_ID!,
+          clientSecret: config.SF_CLIENT_SECRET!,
+        }
+      : {
+          flow: 'jwt' as const,
+          loginUrl: config.SF_LOGIN_URL,
+          clientId: config.SF_CLIENT_ID!,
+          username: config.SF_USERNAME!,
+          privateKey: config.SF_PRIVATE_KEY!,
+        };
   return createSalesforceReader(
-    {
-      mode: 'live',
-      loginUrl: config.SF_LOGIN_URL,
-      clientId: config.SF_CLIENT_ID!,
-      username: config.SF_USERNAME!,
-      privateKey: config.SF_PRIVATE_KEY!,
-      apiVersion: config.SF_API_VERSION,
-    },
+    { mode: 'live', ...login, apiVersion: config.SF_API_VERSION },
     { logger },
   );
 }

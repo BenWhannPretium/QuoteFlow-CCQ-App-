@@ -6,10 +6,12 @@ import { MAPPED_OBJECTS, OPPORTUNITY_OBJECT, PRODUCT_SPEC_OBJECT, type FieldRef 
 import {
   JsforceSalesforceReader,
   describedFieldFor,
+  sfApiFactory,
   type SfApi,
   type SfQueryResult,
 } from './jsforce';
-import { SfAuthError, jwtAssertion, jwtLogin } from './jwt';
+import { jwtAssertion, jwtLogin } from './jwt';
+import { SfAuthError, clientCredentialsLogin } from './oauth';
 import type { SfLogger } from './reader';
 import { isRetryable, sfErrorCode, withRetry, withTimeout } from './retry';
 
@@ -261,5 +263,70 @@ describe('JWT bearer login', () => {
     const err = await jwtLogin(config, fetchImpl as typeof fetch).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(SfAuthError);
     expect((err as Error).message).toBe('Salesforce JWT login failed: invalid_grant (HTTP 400)');
+  });
+});
+
+describe('client credentials login', () => {
+  const config = {
+    clientId: 'consumer-key',
+    clientSecret: 'consumer-secret',
+    loginUrl: 'https://pretiumpkg.my.salesforce.com/',
+  };
+  const ok = () =>
+    vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            access_token: 'tok',
+            instance_url: 'https://pretiumpkg.my.salesforce.com',
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+  it('posts the client credentials grant to the My Domain token endpoint', async () => {
+    const fetchImpl = ok();
+    const session = await clientCredentialsLogin(config, fetchImpl);
+    expect(session).toEqual({
+      accessToken: 'tok',
+      instanceUrl: 'https://pretiumpkg.my.salesforce.com',
+    });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://pretiumpkg.my.salesforce.com/services/oauth2/token');
+    expect(init.method).toBe('POST');
+    const body = init.body as URLSearchParams;
+    expect(body.get('grant_type')).toBe('client_credentials');
+    expect(body.get('client_id')).toBe('consumer-key');
+    expect(body.get('client_secret')).toBe('consumer-secret');
+  });
+
+  it('reports the SF error code only, never the secret', async () => {
+    const fetchImpl = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: 'invalid_client',
+            error_description: 'invalid client credentials',
+          }),
+          { status: 400 },
+        ),
+      );
+    const err = await clientCredentialsLogin(config, fetchImpl as typeof fetch).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(SfAuthError);
+    expect((err as Error).message).toBe(
+      'Salesforce client credentials login failed: invalid_client (HTTP 400)',
+    );
+    expect((err as Error).message).not.toContain('consumer-secret');
+  });
+
+  it('sfApiFactory logs in with the configured flow', async () => {
+    const fetchImpl = ok();
+    await sfApiFactory({ flow: 'client_credentials', ...config }, fetchImpl)();
+    const body = (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1]
+      .body as URLSearchParams;
+    expect(body.get('grant_type')).toBe('client_credentials');
   });
 });

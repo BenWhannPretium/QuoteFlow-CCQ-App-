@@ -1,6 +1,6 @@
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
-import { SF_TIMEOUT_MS } from './retry';
+import { requestToken, type SfSession } from './oauth';
 
 /**
  * OAuth 2.0 JWT bearer flow (RFC 7523) for the connected app's integration user.
@@ -24,11 +24,6 @@ export interface JwtLoginConfig {
   privateKey: string;
   /** test.salesforce.com (UAT/sandbox) or login.salesforce.com (prod). Also the JWT audience. */
   loginUrl: string;
-}
-
-export interface SfSession {
-  accessToken: string;
-  instanceUrl: string;
 }
 
 const base64url = (input: string | Buffer) => Buffer.from(input).toString('base64url');
@@ -57,17 +52,6 @@ export function jwtAssertion(config: JwtLoginConfig, now: Date = new Date()): st
   return `${header}.${claims}.${signature}`;
 }
 
-export class SfAuthError extends Error {
-  constructor(
-    readonly errorCode: string,
-    readonly status: number,
-  ) {
-    // The SF error code only (e.g. invalid_grant); the description can echo the username.
-    super(`Salesforce JWT login failed: ${errorCode} (HTTP ${status})`);
-    this.name = 'SfAuthError';
-  }
-}
-
 /** Exchange the assertion for an access token. Fetch is injectable for tests. */
 export async function jwtLogin(
   config: JwtLoginConfig,
@@ -78,16 +62,5 @@ export async function jwtLogin(
     grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
     assertion: jwtAssertion(config, now),
   });
-  const res = await fetchImpl(`${config.loginUrl.replace(/\/+$/, '')}/services/oauth2/token`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
-    body,
-    signal: AbortSignal.timeout(SF_TIMEOUT_MS),
-  });
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok || typeof json.access_token !== 'string' || typeof json.instance_url !== 'string') {
-    const code = typeof json.error === 'string' ? json.error : 'login_failed';
-    throw new SfAuthError(code, res.status);
-  }
-  return { accessToken: json.access_token, instanceUrl: json.instance_url };
+  return await requestToken(config.loginUrl, body, 'JWT', fetchImpl);
 }

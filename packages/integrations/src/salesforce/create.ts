@@ -1,6 +1,6 @@
 import { FakeSalesforceReader } from './fake';
 import { loadSyntheticFixture } from './fixtures/index';
-import { JsforceSalesforceReader, jwtApiFactory, type JsforceReaderConfig } from './jsforce';
+import { JsforceSalesforceReader, sfApiFactory, type JsforceReaderConfig } from './jsforce';
 import type { MapOptions } from './mapper';
 import type { SalesforceReader, SfLogger } from './reader';
 
@@ -12,5 +12,5 @@ export function createSalesforceReader(
   options: MapOptions & { logger?: SfLogger } = {},
 ): SalesforceReader {
   if (config.mode === 'fake') return new FakeSalesforceReader(loadSyntheticFixture(), options);
-  return new JsforceSalesforceReader(jwtApiFactory(config), options);
+  return new JsforceSalesforceReader(sfApiFactory(config), options);
 }

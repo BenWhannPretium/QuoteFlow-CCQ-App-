@@ -505,7 +505,8 @@ Web app URL, resource group, tenant id, the API and SPA client ids, the deploy i
 | Re-deploy without a code change | **Actions → Deploy (test) → Run workflow**. |
 | Roll back | Revert the bad commit on `main` (a revert PR). CI then deploys the reverted code. Migrations don't roll back automatically, so write a new migration if a schema change has to be undone. |
 | See logs | Portal → web app → **Log stream**, or locally `az webapp log tail -n <webapp> -g rg-ccq-test`. |
-| Change a setting (e.g. switch Salesforce live) | Portal → web app → **Environment variables** → edit → **Apply** (the app restarts). Put secrets such as `SF_PRIVATE_KEY` in Key Vault and reference them as in B6. |
+| Change a setting (e.g. switch Salesforce live) | Portal → web app → **Environment variables** → edit → **Apply** (the app restarts). Put secrets such as `SF_CLIENT_SECRET` in Key Vault and reference them as in B6. |
+| Connect Salesforce (client credentials) | In Cloud Shell: `read -rsp "Secret: " S; az keyvault secret set --vault-name $KV --name sf-client-secret --value "$S" -o none; unset S`. Then set `SF_MODE=live`, `SF_AUTH_FLOW=client_credentials`, `SF_LOGIN_URL=https://pretiumpkg.my.salesforce.com`, `SF_CLIENT_ID=<consumer key>` and `SF_CLIENT_SECRET=@Microsoft.KeyVault(SecretUri=https://$KV.vault.azure.net/secrets/sf-client-secret/)`. Check the green tick, then **Admin → Integrations → Sync now**. |
 | Restart | Portal → web app → **Restart**, or `az webapp restart -n <webapp> -g rg-ccq-test`. |
 | Add a sign-in URL (e.g. a prod or custom domain) | **App registrations → QuoteFlow-SPA → Authentication → Add Redirect URI → Single-page application**. Ben can do this as owner. |
 | Give a tester a role | Add them to the right `SG-CCQ-*` group (IT, or the group's owner). They sign out and back in to pick it up. |

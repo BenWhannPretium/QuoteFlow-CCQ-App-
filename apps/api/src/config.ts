@@ -32,16 +32,27 @@ const EnvSchema = z
     /** Built SPA to serve in production. Defaults to apps/web/dist relative to this bundle. */
     WEB_DIST_DIR: nonEmpty.optional(),
 
-    /** Salesforce (B-06, read-only). fake = synthetic fixture (local, CI); live = jsforce + JWT bearer. */
+    /** Salesforce (B-06, read-only). fake = synthetic fixture (local, CI); live = jsforce. */
     SF_MODE: z.enum(['fake', 'live']).default('fake'),
-    /** https://test.salesforce.com for the UAT org (sandbox), https://login.salesforce.com for prod. */
+    /**
+     * How the live connector logs in. jwt = OAuth JWT bearer (certificate; SF_USERNAME + SF_PRIVATE_KEY).
+     * client_credentials = OAuth client credentials (SF_CLIENT_SECRET; the session runs as the External
+     * Client App's "Run As" user, and SF_LOGIN_URL must be the org's My Domain URL).
+     */
+    SF_AUTH_FLOW: z.enum(['jwt', 'client_credentials']).default('jwt'),
+    /**
+     * jwt: https://test.salesforce.com for a sandbox, https://login.salesforce.com for prod (also the JWT
+     * audience). client_credentials: the My Domain URL, e.g. https://pretiumpkg.my.salesforce.com.
+     */
     SF_LOGIN_URL: z.url({ protocol: /^https$/ }).default('https://test.salesforce.com'),
-    /** Connected app consumer key (Rachel Dew). Not a secret. */
+    /** External Client App consumer key (Rachel Dew). Not a secret. */
     SF_CLIENT_ID: nonEmpty.optional(),
-    /** Read-only integration user, e.g. integration@pretiumpkg.com.uat. */
+    /** jwt: the read-only integration user, e.g. integrations@pretiumpkg.com. */
     SF_USERNAME: nonEmpty.optional(),
-    /** PEM private key for the JWT bearer flow. In Azure: a Key Vault reference. Never logged. */
+    /** jwt: PEM private key. In Azure: a Key Vault reference. Never logged. */
     SF_PRIVATE_KEY: nonEmpty.optional(),
+    /** client_credentials: the consumer secret. In Azure: a Key Vault reference. Never logged. */
+    SF_CLIENT_SECRET: nonEmpty.optional(),
     SF_API_VERSION: z
       .string()
       .regex(/^\d{2,3}\.0$/)
@@ -125,14 +136,30 @@ const EnvSchema = z
       });
     }
     if (env.SF_MODE === 'live') {
-      for (const key of ['SF_CLIENT_ID', 'SF_USERNAME', 'SF_PRIVATE_KEY'] as const) {
+      const clientCredentials = env.SF_AUTH_FLOW === 'client_credentials';
+      const required = clientCredentials
+        ? (['SF_CLIENT_ID', 'SF_CLIENT_SECRET'] as const)
+        : (['SF_CLIENT_ID', 'SF_USERNAME', 'SF_PRIVATE_KEY'] as const);
+      for (const key of required) {
         if (!env[key]) {
           ctx.addIssue({
             code: 'custom',
             path: [key],
-            message: `${key} is required when SF_MODE=live`,
+            message: `${key} is required when SF_MODE=live and SF_AUTH_FLOW=${env.SF_AUTH_FLOW}`,
           });
         }
+      }
+      const host = new URL(env.SF_LOGIN_URL).hostname;
+      if (
+        clientCredentials &&
+        (host === 'login.salesforce.com' || host === 'test.salesforce.com')
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SF_LOGIN_URL'],
+          message:
+            'SF_AUTH_FLOW=client_credentials needs the org My Domain URL (e.g. https://pretiumpkg.my.salesforce.com), not login/test.salesforce.com',
+        });
       }
     }
     const pricingRequired =
