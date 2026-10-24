@@ -137,6 +137,33 @@ export function searchSfOpportunitySnapshots(db: DbOrTx, p: SnapshotSearch) {
     .limit(p.limit);
 }
 
+/** An opportunity as far as visibility needs it (L-6). */
+export interface OpportunityVisibilityKey {
+  id: string;
+  ownerEmail: string | null;
+  accountId: string | null;
+}
+
+/**
+ * Which of these opportunities the caller may see, by the same rule as the snapshot's RLS policy
+ * (`app_opportunity_visible`, migration 0021). For live Salesforce records that RLS never touches:
+ * live search results and a live detail read.
+ */
+export async function visibleOpportunityIds(
+  db: DbOrTx,
+  items: OpportunityVisibilityKey[],
+): Promise<Set<string>> {
+  if (items.length === 0) return new Set();
+  const values = sql.join(
+    items.map((i) => sql`(${i.id}::text, ${i.ownerEmail}::text, ${i.accountId}::text)`),
+    sql`, `,
+  );
+  const rows = await db.execute<{ id: string }>(sql`
+    select v.id from (values ${values}) as v(id, owner_email, account_id)
+    where app_opportunity_visible(v.id, v.owner_email, v.account_id)`);
+  return new Set([...rows].map((r) => r.id));
+}
+
 export const getCustomer = async (db: DbOrTx, id: string) =>
   first(await db.select().from(customer).where(eq(customer.id, id)));
 

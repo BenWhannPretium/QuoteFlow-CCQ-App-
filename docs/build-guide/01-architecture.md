@@ -98,6 +98,7 @@ Data scope is stored in `user_scope`: `{ scope_type: all | region | owner | acco
 - Scope is enforced twice:
   1. by the policy function in `packages/domain/policy`
   2. by Postgres RLS, using `current_setting('app.user_id')` and `app.roles`, which the API sets per transaction
+- **Salesforce opportunities follow the same scope (L-6).** CCQ reads Salesforce as one integration user, so Salesforce's own sharing doesn't apply per person. RLS on `sf_opportunity_snapshot` (`app_opportunity_visible`, migration 0021) shows an opportunity to: the roles that see every quote; a KAM or Engineer whose scope covers it (`all`; `region` = the Salesforce owner's CCQ region; `account_list` = its account); a KAM who owns it in Salesforce; and anyone who can see a quote linked to it. Live Salesforce results (search fallback, detail) pass the same SQL function before they are returned or stored.
 
 ### 3.3 Field sensitivity
 
@@ -356,7 +357,7 @@ Every integration call writes an `integration_run` row, and failures alert the o
 
 **Database**
 - Postgres private endpoint, Entra authentication for the app's managed identity, TLS required.
-- RLS policies on `quote` and child tables.
+- RLS policies on `quote` and child tables, and on `sf_opportunity_snapshot` (L-6).
 - `audit_event` is insert-only for the app role.
 
 **App hardening**

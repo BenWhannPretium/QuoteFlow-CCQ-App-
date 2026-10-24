@@ -148,6 +148,13 @@
       "when": 1792848563363,
       "tag": "0020_sf_stage_names",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792849825296,
+      "tag": "0021_sf_opportunity_rls",
+      "breakpoints": true
     }
   ]
 }

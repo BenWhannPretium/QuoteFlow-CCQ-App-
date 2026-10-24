@@ -8,6 +8,7 @@ import {
 } from '@ccq/contracts';
 import type { DbClient } from '@ccq/db';
 import { FakeSalesforceReader, loadSyntheticFixture, type SfFixture } from '@ccq/integrations';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { asRole } from './permissions/asRole';
@@ -238,5 +239,79 @@ describe('admin', () => {
     const body = SfSyncTriggerResponse.parse(res.json());
     expect(body.outcome).toBe('succeeded');
     expect(body.runId).not.toBeNull();
+  });
+});
+
+describe('opportunity visibility follows CCQ data scope (L-6)', () => {
+  const emailOf = async (scope: 'owner' | 'region') =>
+    MeResponse.parse((await asRole(app, 'KAM', scope).get('/api/v1/me')).json()).user.email!;
+  /** Opportunities an owner-scoped KAM may see: owned in SF, or linked to one of their quotes. */
+  const ownerVisible = async (email: string) => {
+    const rows = await db.db.execute<{ id: string }>(sql`
+      select s.sf_opportunity_id as id from sf_opportunity_snapshot s
+      where lower(s.owner_email) = lower(${email})
+         or exists (select 1 from quote q join app_user u on u.id = q.kam_user_id
+                    where q.sf_opportunity_id = s.sf_opportunity_id and lower(u.email) = lower(${email}))`);
+    return new Set([...rows].map((r) => r.id));
+  };
+
+  it('search: an owner-scoped KAM sees only their own; a KAM with scope all sees more', async () => {
+    const allowed = await ownerVisible(await emailOf('owner'));
+    const own = await asRole(app, 'KAM', 'owner').get(
+      '/api/v1/salesforce/opportunities?q=&openOnly=false&limit=50',
+    );
+    expect(own.statusCode, own.body).toBe(200);
+    const ownItems = SfOpportunitySearchResponse.parse(own.json()).items;
+    expect(ownItems.length).toBeGreaterThan(0);
+    expect(ownItems.every((i) => allowed.has(i.id))).toBe(true);
+    const all = await search('KAM', 'q=&openOnly=false&limit=50');
+    expect(all.items.length).toBeGreaterThan(ownItems.length);
+  });
+
+  it('detail: 404 for an opportunity outside the caller’s scope, 200 for Admin', async () => {
+    const allowed = await ownerVisible(await emailOf('owner'));
+    const hidden = fixture.opportunities.find((o) => !allowed.has(o.Id as string))!;
+    clock = new Date(clock.getTime() + DETAIL_CACHE_MS + 1);
+    const res = await asRole(app, 'KAM', 'owner').get(
+      `/api/v1/salesforce/opportunities/${hidden.Id as string}`,
+    );
+    expect(res.statusCode).toBe(404);
+    expect((await detail(hidden.Id as string, 'Admin')).statusCode).toBe(200);
+  });
+
+  it('live search results pass the same rule: another KAM’s new opportunity is left out', async () => {
+    const mine = await emailOf('owner');
+    const theirs = await emailOf('region');
+    const base = {
+      AccountId: null,
+      Account: null,
+      Amount: 25_000,
+      StageName: 'Qualifying',
+      IsClosed: false,
+      IsWon: false,
+      SystemModstamp: '2026-10-16T11:30:00.000+0000',
+    };
+    reader.put({
+      ...base,
+      Id: '006SYNscopeMine01',
+      Name: 'Wombatique Foods / Scoped Live Mine (synthetic)',
+      Owner: { Email: mine, Name: 'Me', Alias: 'me' },
+    });
+    reader.put({
+      ...base,
+      Id: '006SYNscopeTheirs',
+      Name: 'Wombatique Foods / Scoped Live Theirs (synthetic)',
+      Owner: { Email: theirs, Name: 'Them', Alias: 'them' },
+    });
+    const res = await asRole(app, 'KAM', 'owner').get(
+      '/api/v1/salesforce/opportunities?q=wombatique%20scoped&openOnly=false',
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    const body = SfOpportunitySearchResponse.parse(res.json());
+    expect(body.liveSearched).toBe(true);
+    expect(body.items.map((i) => i.id)).toEqual(['006SYNscopeMine01']);
+    // The region KAM (and Admin) see the other one.
+    const admin = await search('Admin', 'q=wombatique%20scoped&openOnly=false');
+    expect(admin.items.map((i) => i.id).sort()).toEqual(['006SYNscopeMine01', '006SYNscopeTheirs']);
   });
 });
