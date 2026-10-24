@@ -203,6 +203,7 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 | BR-10 | Pricing becomes the next bottleneck (Op Model R-05) | Medium / Medium | Time in Quoting visible on the dashboard | Time at G3 rising | Gemma Cebolla |
 | BR-11 | Legacy pricing data is messy (0 written for blank, repeated request numbers, no ERF↔BPR link, no SF id) | High / Low (MVP) | Imported read-only history; 0 estimates = unknown; match by Legacy ERF # and customer name; the search page as fallback (B-15 revised) | — | Cory McGahan |
 | BR-12 | Ranger scope creeps into the MVP | Medium / Medium | Ranger assist is P1 and advisory only | New AI asks before Nov 13 | Darren |
+| BR-13 | **Audit exception: GHSA-xcx6-jx8p-x3h5** (High; `@azure/msal-node` < 7.1.0 can leak parameters in the authorization code flow, `acquireTokenByCode`). Pulled in by `@azure/identity`, which up to 4.15.0-beta.1 still requires msal-node 6.x. | Low / Low | Not exploitable here: the API uses only `ManagedIdentityCredential` and `ClientSecretCredential` (Graph, Blob), never the auth code flow; browser sign-in uses `msal-browser`. Ignored by that one id in `package.json` → `pnpm.auditConfig.ignoreGhsas` (added 2026-10-24), so every other advisory still fails CI. Forcing msal-node 7 under identity was rejected: an untested major version on the managed-identity login. | An `@azure/identity` release that allows msal-node ≥ 7.1: upgrade and **remove the exception** | Ben |
 
 ---
 
