@@ -23,7 +23,7 @@
 | **Rachel Dew** | Salesforce admin/owner (set up the read-only SF MCP) | Connected app, read-only integration user, UAT org | M3 |
 | **Zac Cairns** | Sr Mgr, BT. Knows the SF objects (Opportunity, Opportunity Product Specification). | SF field crosswalk, ERF↔Opportunity link, Ranger | M3, M6 |
 | **Graham Parle** | Sales Ops / Sales Intelligence | SF field mapping, stage usage, reporting needs | M3, M6 |
-| **Brennan Paul** | Sr Dir, Data & Analytics | Production-data approval, certified data model, Fabric route for pricing data | M1, M5, M6 |
+| **Brennan Paul** | Sr Dir, Data & Analytics | Production-data approval, certified data model, **Fabric data landing (L-8, with Oleg)**: workspace, capacity, Fabric security | M1, M5, M6, MF |
 | **Jim Zweifel** | Upfront product engineering lead (NPI/NPD pre-award). Initial owner of the MVP queue. | Validate intake fields and routing; Engineering Review design; UAT | M4, R2 |
 | **Danielle Leu** | Director, Product Commercialization (former ERF admin) | Intake fields, stage definitions, ERF link | M4, R1, R2 |
 | **Faron Ipox** | Corporate production planning / capacity analyst | Capacity evidence fields (CR-19) | R2 |
@@ -35,7 +35,7 @@
 | **Jack Gordon / Matt Graden** | SVP Sales / sales leader | G1 qualification owner (interim), Final Review candidate | M4, R3 |
 | **Jordan Albin** (+ 1–2 KAMs, e.g. Linda Vinegar, Josh Edmonson) | KAMs, the end-user voice | Intake usability; UAT | R1, UAT |
 | **Sarah Brennan** | CCO, Executive Champion | Final Review approver, outcome taxonomy (via Bailey's decision package) | Async via Bailey |
-| **Oleg Yarovinski** | VP Business Optimization, Capital Mgmt. CCQ sponsor. | Stage-model sign-off (D-03), CER link | Async via Bailey |
+| **Oleg Yarovinski** | VP Business Optimization, Capital Mgmt. CCQ sponsor. | Stage-model sign-off (D-03), CER link, Fabric data landing (L-8, with Brennan; D-FB1) | Async via Bailey; MF (optional) |
 | **Nicole Donnelly, Anne DeSmet** | NPI Project Engineers (post-award) | P2 hand-off view; optional UAT viewer | R3 (optional) |
 | **Amanda Cronkhite** | Commercial Activation (owns post-award hand-off from 10/26) | Awarded hand-off record fields | R3 (optional) |
 
@@ -74,6 +74,7 @@ Legend:
 | **M7** | **Tue Oct 27** | 30 min | Ben | SharePoint/M365 admin (IT), Bailey (folder restructure for Ranger), Tre | **Attachments + mail.** Grant `Sites.Selected` on the target site; agree the `/CCQ/{quote_number}/` folder convention vs the ERF restructure; shared mailbox `ccq-noreply@` + application access policy. | — | B-16, B-18 |
 | **⚑** | **Wed Oct 28** | — | Bailey | — | **Decision deadline:** D-10, D-12, D-15 loaded as config (otherwise ship with provisional seeds, flagged). | — | B-12, B-13 |
 | **R2** | **Thu Oct 29** | 60 min | Bailey | Jim Zweifel, Faron Ipox, Jeffrey Pitrak, Danielle Leu; optional Paul Slomkowski | **Stakeholder review #2: Engineering Review.** Queue, assign/return, Eng Review fields, **capacity evidence** fields and G2 outcomes (Proceed / Proceed with risk / Capital required / Stop) from the 9/15 interim one-pager. Confirm the alert to Jim (P0) and who backs Jim up as assigner (R-04). | Queue + review demo | B-10 polish |
+| **MF** | **Tue Oct 27 or Wed Oct 28** | 45 min | Ben | Brennan Paul (+ the D&A engineer who'll own the workspace), Oliver Kade or Tim Webb (IT); optional Oleg Yarovinski | **Fabric data landing (L-8).** Decide D-FB1 to D-FB5: (1) a continuous copy by mirroring is enough, Postgres stays the app's store; (2) which tables (SF snapshot, pricing history?); (3) test Postgres Burstable → General Purpose (cost); (4) workspace per env, running F-SKU capacity, item owner = D&A service principal, tenant settings, who may read commercial columns, latency target; (5) is a running prod mirror part of the Nov 13 bar. IT: server restart window, VNet data gateway subnet for prod. | `01-architecture.md` §6.1 + B-27 prompt | B-27, B-22 |
 | **M8** | **Fri Oct 30** | 45 min | Ben | Oliver Kade (or IT security delegate), Chris O'Brien; Tre | **Security + access review → Gate 3 design sign-off input.** Threat model, permission matrix + automated tests, RLS, audit, secrets, exposure pattern, pen-test-lite plan for UAT week. | `01-architecture.md` + test report | B-21, Gate 3 |
 
 ### Week 3: Nov 2–6 (integrations, insight, hardening)
@@ -94,7 +95,7 @@ Legend:
 | **U2** | Tue Nov 10 | 2 h | Bailey | Jim's team, Faron | UAT: queue, Eng Review, capacity evidence, G2 |
 | **U3** | Wed Nov 11 | 2 h | Bailey | Pricing, approver, leadership | UAT: quoting, G4, dashboards, override log |
 | **U4** | Wed Nov 11 | 60 min | Ben | IT security delegate | Security / access test (Gate 5 component) |
-| **U5** | Thu Nov 12 | 45 min | Ben | Zac, Graham, D&A | **Tie-out**: CCQ ↔ Salesforce ↔ pricing-app spot checks (Gate 5 requirement) |
+| **U5** | Thu Nov 12 | 45 min | Ben | Zac, Graham, D&A | **Tie-out**: CCQ ↔ Salesforce ↔ pricing-app spot checks (Gate 5 requirement), plus **CCQ ↔ Fabric** row counts and sample quotes (B-27) |
 | **U6** | **Fri Nov 13, 10:00** | 45 min | Bailey | Darren, Bailey, Tre, Ben, gate-owner candidates (Jim, Gemma, approver), Oliver/IT | **UAT sign-off → Gate 4/5 package. MVP done.** |
 
 ### Recurring

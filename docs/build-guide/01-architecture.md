@@ -331,10 +331,48 @@ The full column list, with each column's meaning and owner, is generated into [`
 | **SharePoint** (ERF/drawing folders) | Read/write files only | Microsoft Graph, **app-only, `Sites.Selected`** scoped to one site. Folder per quote: `/CCQ/{quote_number}/` (`attachment_settings`). Upload via a resumable upload session in 5 MB ranges; the API streams the bytes. B-16: `FileStore` in `packages/integrations/src/graph/`, `FILESTORE_MODE` = sharepoint \| blob \| local. | IT grants Sites.Selected. **Bailey / BT** confirms the folder structure being prepared for Ranger. | Store files in a private Azure Blob container behind the same interface. |
 | **Email / Teams** (P0: alert the engineering lead; P1: digest) | Outbound | B-18: `MailTransport` in `packages/integrations/src/mail/` (`MAIL_MODE` = graph \| smtp \| fake). Graph `sendMail` as MIME from the shared mailbox (`MAIL_FROM`, e.g. `ccq-noreply@pretiumpkg.com`), app-only `Mail.Send` restricted to that one mailbox by an Exchange application access policy; credentials as for SharePoint. smtp = mailpit locally. Production allows `graph` only. Teams digest is P1. | IT: mailbox + application access policy (M7) | In-app notifications only (set `email_notifications_enabled` to false). |
 | **Entra ID** | Auth | SPA app registration (MSAL, auth code + PKCE) and API app registration (exposes the `access_as_user` scope and app roles). API validates JWTs with `jose`. Graph via the App Service managed identity or a client secret in Key Vault. | IT identity team | `AUTH_MODE=dev` locally only |
-| **Fabric** (D&A) | Out (later) | **Not MVP.** Post-MVP, mirror the CCQ Postgres to Fabric for D&A-certified analytics. MVP dashboards are labelled "operational; not D&A-certified". | Brennan Paul | — |
+| **Fabric** (D&A) | Out (continuous copy) | **Required by L-8** (Oleg Yarovinski + Brennan Paul): all new data QuoteFlow creates is stored in Pretium's Fabric tenant. **Fabric mirroring** of the CCQ Postgres database into a D&A-owned workspace (§6.1, B-27). No app code on the data path; the deploy pipeline stops/starts mirroring around migrations. Certified analytics are built on the mirror by D&A; MVP dashboards stay labelled "operational; not D&A-certified". | Brennan Paul (workspace, capacity, Fabric security); IT (Postgres settings, VNet data gateway) | Data stays in Azure Postgres only; mirroring starts when the workspace is ready (D-FB5) |
 | **Ranger AI** | — | P1. Advisory only, via an API when its contract and PoC conclude. | Bailey / Zac | — |
 
 Every integration call writes an `integration_run` row, and failures alert the owners only (PRD).
+
+### 6.1 Fabric data landing (L-8, B-27)
+
+**Requirement.** Every piece of new data QuoteFlow creates is stored in Pretium's Fabric tenant (decided by Oleg Yarovinski and Brennan Paul, recorded 2026-10-24).
+
+**Design: Postgres stays the app's store; Fabric mirroring keeps a live copy in OneLake.**
+
+```
+App Service (API) ──read/write──▶ Azure Database for PostgreSQL (system of record for the app; RLS, audit)
+                                        │  logical replication (azure_cdc), near real time
+                                        ▼
+                     Fabric workspace "QuoteFlow (CCQ) - <env>" (D&A-owned, F-SKU capacity)
+                       Mirrored database (Delta in OneLake) ─▶ SQL analytics endpoint ─▶ curated views / semantic model ─▶ Power BI (Phoenix)
+```
+
+Why mirroring and not the alternatives:
+- **Fabric SQL database as the app's database:** rejected for MVP. It's the SQL Server engine, so the Drizzle schema, 20+ migrations, RLS policies, advisory locks and analytics SQL would all be rewritten three weeks before UAT. Revisit only if D-FB1 says Fabric must be the *only* store.
+- **App-written export (open mirroring / landing-zone Parquet):** more code to own, and every write path would need it. Kept as the fallback if a mirroring limit below can't be worked around.
+- **Mirroring:** GA, no ETL code, near real time, the mirroring compute is included in the Fabric capacity, and it picks up new tables on its own.
+
+**Constraints we design for** (Microsoft Learn, *Limitations in Fabric mirrored databases from Azure Database for PostgreSQL*):
+
+| Limit | What we do |
+|---|---|
+| Burstable servers not supported | Test Postgres moves from B1ms to General Purpose (D-FB3). Prod is already General Purpose. |
+| `json`/`jsonb`, `inet`, `interval`, ranges, `tsvector` and other types are not mirrored; `numeric` > 38 digits lands as NULL | A trigger-maintained `<column>_json text` companion for every `jsonb` column D&A needs. A CI guard test fails any new unsupported column without one (CLAUDE.md rule 10). No such other types today (`audit_event.ip` is `text`). |
+| Views and materialized views are not mirrored | The B-17 analytics views get T-SQL twins (`packages/db/sql/fabric/`) for the SQL analytics endpoint; D&A runs them. |
+| DDL on a mirrored table (add/alter column) is not supported | `deploy.yml` calls the Fabric REST API to stop mirroring, migrate, start mirroring (full reseed, minutes at our volume). |
+| Source permissions are not propagated | Fabric security is rebuilt: workspace limited to D&A + CCQ Admin; commercial columns (§3.3) only through the commercial `SG-CCQ-*` groups; KAM scope as semantic-model RLS. |
+| The mirroring role must own the tables; RLS is `FORCE`d | A dedicated `ccq_fabric_mirror` Entra role; the spike proves the snapshot copies every row (count tie-out). |
+| Private endpoint needs a gateway | Prod: VNet data gateway on a delegated subnet. Test: public access + "Allow Azure services", direct. |
+| Server needs SAMI, `wal_level=logical`, `azure_cdc`, `max_worker_processes` + 3 (restart) | Set in Bicep and runbook `06`. |
+| PITR restore or major-version upgrade breaks mirroring; the mirrored item's owner can't be changed | Runbook steps; the item is created by a D&A service principal, not a person. |
+| Mirroring stops if the capacity is paused | D&A keeps the capacity running; an hourly status check writes `integration_run` (source `fabric`) and alerts. |
+
+**What's in scope.** All base tables in `public` except `__drizzle_migrations`. `sf_opportunity_snapshot` (a Salesforce copy) and `pricing_history_record` (an import) aren't *new* data; D&A decides whether to include them (D-FB2). Attachments stay in SharePoint (already in the Microsoft 365 tenant); their metadata rows are mirrored (D-FB2).
+
+**What doesn't change.** The app never reads from Fabric. Authorization, RLS, redaction and `audit_event` stay in Postgres. Reads in Fabric are audited by Fabric/Purview, not `audit_event` (accepted at M8).
 
 ---
 
@@ -372,6 +410,7 @@ Every integration call writes an `integration_run` row, and failures alert the o
 **Data**
 - Synthetic or masked data until IT and D&A approve production access. The 205 live SF records already loaded into Bailey's prototype are a governance issue to close (D-23).
 - Production data loads only into Azure, never onto laptops.
+- All data QuoteFlow creates is also stored in Pretium's Fabric tenant by mirroring (L-8, §6.1). The Fabric copy carries the same sensitivity: commercial columns are restricted there too.
 
 ---
 
@@ -380,8 +419,8 @@ Every integration call writes an `integration_run` row, and failures alert the o
 | Env | Where | Data | Deploys |
 |---|---|---|---|
 | local | Laptop: docker Postgres, `AUTH_MODE=dev` | Synthetic | — |
-| test | Azure RG `rg-ccq-test` (App Service B2/P0v3, Postgres Burstable B1ms, KV, AI) | Masked SF fixture, then SF **UAT org** | Auto on merge to `main` |
-| prod | Azure RG `rg-ccq-prod` (App Service P1v3 + staging slot, Postgres General Purpose D2ds_v5 with HA off for MVP, PITR 7–35 days) | Approved production SF + pricing | Manual approval in GitHub Actions; slot swap |
+| test | Azure RG `rg-ccq-test` (App Service B2/P0v3, Postgres Burstable B1ms → **General Purpose for Fabric mirroring**, D-FB3; KV, AI). Mirrors to Fabric workspace `QuoteFlow (CCQ) - test` | Masked SF fixture, then SF **UAT org** | Auto on merge to `main` |
+| prod | Azure RG `rg-ccq-prod` (App Service P1v3 + staging slot, Postgres General Purpose D2ds_v5 with HA off for MVP, PITR 7–35 days; VNet data gateway subnet). Mirrors to Fabric workspace `QuoteFlow (CCQ) - prod` | Approved production SF + pricing | Manual approval in GitHub Actions; slot swap |
 
 **CI** (every PR):
 - install
