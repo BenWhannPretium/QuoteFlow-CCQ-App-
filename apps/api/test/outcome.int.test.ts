@@ -404,10 +404,10 @@ describe('the Customer Decision header', () => {
       ccqStageHint: 'CUSTOMER_DECISION',
       mismatch: false,
     });
-    await setSfStage(qn, 'Closed Won – Product Shipping');
+    await setSfStage(qn, 'Closed Won - Product Shipping');
     const sf = (await detail(qn)).customerDecision.sf;
     expect(sf).toMatchObject({
-      sfStage: 'Closed Won – Product Shipping',
+      sfStage: 'Closed Won - Product Shipping',
       ccqStageHint: 'AWARDED',
       mismatch: true,
     });
@@ -781,7 +781,7 @@ describe('B-26: G6 Commit & Hand Off (deck slide 15)', () => {
 
   it('SF "Closed Won" agrees with a quote waiting in Commit & Hand Off', async () => {
     const qn = await inCommit();
-    await setSfStage(qn, 'Closed Won – Product Shipping');
+    await setSfStage(qn, 'Closed Won - Product Shipping');
     expect((await detail(qn)).customerDecision.sf.mismatch).toBe(false);
   });
 });

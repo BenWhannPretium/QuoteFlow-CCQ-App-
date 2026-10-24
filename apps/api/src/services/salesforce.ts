@@ -18,6 +18,7 @@ import {
   listSfStageMap,
   searchSfOpportunitySnapshots,
   upsertSfOpportunities,
+  visibleOpportunityIds,
   type SfOpportunitySnapshot,
 } from '@ccq/db/repos';
 import {
@@ -202,9 +203,11 @@ export class SalesforceService {
         limit: p.limit,
       });
       const seen = new Set(items.map((i) => i.id));
+      // L-6: live rows bypass the snapshot's RLS, so they pass the same visibility rule here.
+      const visible = await withTx((tx) => visibleOpportunityIds(tx, live));
       for (const o of live) {
         if (items.length >= p.limit) break;
-        if (!seen.has(o.id)) items.push(summary(o, 'live', threshold));
+        if (!seen.has(o.id) && visible.has(o.id)) items.push(summary(o, 'live', threshold));
       }
       return withActiveQuotes(withTx, { items, liveSearched: true, liveError: null });
     } catch (err) {
@@ -240,7 +243,10 @@ export class SalesforceService {
     return { ...entry, cached: false };
   }
 
-  /** Snapshot + live refresh. Null when neither the snapshot nor SF knows the id. */
+  /**
+   * Snapshot + live refresh. Null when neither the snapshot nor SF knows the id, or when the caller may
+   * not see the opportunity (L-6: the snapshot is under RLS, and a live record passes the same rule).
+   */
   async detail(withTx: WithTx, id: string): Promise<SfOpportunityDetail | null> {
     let live: Awaited<ReturnType<SalesforceService['live']>> | null = null;
     let liveError: string | null = null;
@@ -254,9 +260,14 @@ export class SalesforceService {
 
     return withTx(async (tx) => {
       const threshold = await suspectThreshold(tx);
-      // A fresh live read refreshes the local copy (skipped when SystemModstamp is unchanged).
-      if (live?.record && !live.cached) {
-        await upsertSfOpportunities(tx, [snapshotRow(live.record, this.now(), threshold)]);
+      if (live?.record) {
+        const o = live.record.opportunity;
+        const visible = await visibleOpportunityIds(tx, [o]);
+        if (!visible.has(o.id)) return null;
+        // A fresh live read refreshes the local copy (skipped when SystemModstamp is unchanged).
+        if (!live.cached) {
+          await upsertSfOpportunities(tx, [snapshotRow(live.record, this.now(), threshold)]);
+        }
       }
       const snapshot = await getSfOpportunity(tx, id);
       const opportunity = live?.record

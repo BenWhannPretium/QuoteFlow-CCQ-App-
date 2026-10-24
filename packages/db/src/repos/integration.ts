@@ -49,11 +49,13 @@ const wasInserted = sql<boolean>`(xmax = 0)`;
 /**
  * Insert or refresh snapshots by `sf_opportunity_id`. A row whose SystemModstamp hasn't changed is
  * skipped (so re-running a sync window is idempotent), unless it was marked deleted and SF returned it
- * again (undeleted from the recycle bin).
+ * again (undeleted from the recycle bin). `force` rewrites unchanged rows too: a full re-sync after a
+ * field-map change, when SF hasn't touched the records.
  */
 export async function upsertSfOpportunities(
   db: DbOrTx,
   rows: NewSfOpportunitySnapshot[],
+  opts: { force?: boolean } = {},
 ): Promise<UpsertCounts> {
   if (rows.length === 0) return { inserted: 0, updated: 0, unchanged: 0 };
   const s = sfOpportunitySnapshot;
@@ -63,8 +65,12 @@ export async function upsertSfOpportunities(
     .onConflictDoUpdate({
       target: s.sfOpportunityId,
       set: { ...excludedSet(s, SNAPSHOT_FIELDS), updatedAt: new Date() },
-      setWhere: sql`${s.systemModstamp} is distinct from excluded.system_modstamp
+      ...(opts.force
+        ? {}
+        : {
+            setWhere: sql`${s.systemModstamp} is distinct from excluded.system_modstamp
         or ${s.deletedInSfAt} is not null`,
+          }),
     })
     .returning({ inserted: wasInserted });
   const inserted = written.filter((r) => r.inserted).length;
@@ -135,6 +141,33 @@ export function searchSfOpportunitySnapshots(db: DbOrTx, p: SnapshotSearch) {
     .where(and(...where))
     .orderBy(sql`${rank} ${s.systemModstamp} desc nulls last, ${s.name} asc`)
     .limit(p.limit);
+}
+
+/** An opportunity as far as visibility needs it (L-6). */
+export interface OpportunityVisibilityKey {
+  id: string;
+  ownerEmail: string | null;
+  accountId: string | null;
+}
+
+/**
+ * Which of these opportunities the caller may see, by the same rule as the snapshot's RLS policy
+ * (`app_opportunity_visible`, migration 0021). For live Salesforce records that RLS never touches:
+ * live search results and a live detail read.
+ */
+export async function visibleOpportunityIds(
+  db: DbOrTx,
+  items: OpportunityVisibilityKey[],
+): Promise<Set<string>> {
+  if (items.length === 0) return new Set();
+  const values = sql.join(
+    items.map((i) => sql`(${i.id}::text, ${i.ownerEmail}::text, ${i.accountId}::text)`),
+    sql`, `,
+  );
+  const rows = await db.execute<{ id: string }>(sql`
+    select v.id from (values ${values}) as v(id, owner_email, account_id)
+    where app_opportunity_visible(v.id, v.owner_email, v.account_id)`);
+  return new Set([...rows].map((r) => r.id));
 }
 
 export const getCustomer = async (db: DbOrTx, id: string) =>

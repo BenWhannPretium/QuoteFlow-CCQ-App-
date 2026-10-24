@@ -2,6 +2,7 @@ import {
   ErfLinkageResponse,
   IntegrationRunsQuery,
   IntegrationRunsResponse,
+  SfSyncTriggerQuery,
   SfSyncTriggerResponse,
   type IntegrationRun,
 } from '@ccq/contracts';
@@ -27,8 +28,9 @@ export const adminRoutes: FastifyPluginAsyncZod<{ sfSync: SfSyncScheduler | null
       schema: {
         tags: ['admin'],
         summary:
-          'Run the Salesforce delta sync now. 200 with the result, or 202 if it is still running after 25 s',
+          'Run the Salesforce delta sync now (full=true: re-read and rewrite every opportunity). 200 with the result, or 202 if it is still running after 25 s',
         security: [{ bearerAuth: [] }],
+        querystring: SfSyncTriggerQuery,
         response: { 200: SfSyncTriggerResponse, 202: SfSyncTriggerResponse },
       },
     },
@@ -41,7 +43,7 @@ export const adminRoutes: FastifyPluginAsyncZod<{ sfSync: SfSyncScheduler | null
       }
       let timer: NodeJS.Timeout | undefined;
       const waited = await Promise.race([
-        sfSync.runNow(),
+        sfSync.runNow({ full: req.query.full }),
         new Promise<null>((resolve) => {
           timer = setTimeout(() => resolve(null), SYNC_WAIT_MS);
         }),

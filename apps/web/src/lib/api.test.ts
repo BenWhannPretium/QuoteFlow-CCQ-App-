@@ -116,7 +116,9 @@ describe('api client auth', () => {
     setAuthSession(session());
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(json(202, { outcome: 'running', runId: null, counts: {} }));
+      .mockImplementation(() =>
+        Promise.resolve(json(202, { outcome: 'running', runId: null, counts: {} })),
+      );
     vi.stubGlobal('fetch', fetchMock);
     await expect(api.syncSalesforce()).resolves.toEqual({
       outcome: 'running',
@@ -126,6 +128,10 @@ describe('api client auth', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/v1/admin/salesforce/sync');
     expect(init.method).toBe('POST');
+    await api.syncSalesforce(true);
+    expect((fetchMock.mock.calls[1] as [string])[0]).toBe(
+      '/api/v1/admin/salesforce/sync?full=true',
+    );
   });
 
   it('authenticated calls fail fast with no session', async () => {

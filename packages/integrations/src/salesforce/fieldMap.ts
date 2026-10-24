@@ -1,10 +1,14 @@
 /**
  * Salesforce field mapping: the ONLY place SF object and field API names live.
  *
- * Standard fields are fixed by Salesforce. Custom fields (`__c`) are placeholders until Zac Cairns and
- * Graham Parle confirm the crosswalk at M3. Each one carries a `TODO(M3)` marker. When a name is
- * confirmed, change it here, note it in docs/build-guide/03-build-steps.md (B-06), and run the live
- * contract test (`SF_LIVE_TEST=1`), which checks every mapped field resolves in the UAT org.
+ * Standard fields are fixed by Salesforce. Custom field (`__c`) names were read from the production
+ * org with describe() on 2026-10-24 (counts in docs/build-guide/03-build-steps.md, B-06). What a field
+ * *means* still needs Zac Cairns / Graham Parle (`TODO(M3)`). When a name changes, change it here and
+ * run the live contract test (`SF_LIVE_TEST=1`), which checks every mapped field resolves in the org.
+ *
+ * Never map a price, cost, margin, revenue or capital field: the org has many (e.g. Gross Margin,
+ * Piece Part Price, Capital Estimate) and the integration user can read them. fieldMap.test.ts fails
+ * on one; CCQ's field-sensitivity rules (CLAUDE.md rule 2) would have to cover it first.
  *
  * The live reader describes each object once per session and drops any mapped custom field the org
  * doesn't have (logging the field name, never data), so a wrong placeholder degrades to `null`
@@ -14,11 +18,8 @@
 export const OPPORTUNITY_OBJECT = 'Opportunity';
 export const ACCOUNT_OBJECT = 'Account';
 
-/**
- * TODO(M3): API name of the custom "Opportunity Product Specification" object (Zac / Graham).
- * Placeholder follows the SF convention for the label.
- */
-export const PRODUCT_SPEC_OBJECT = 'Opportunity_Product_Specification__c';
+/** The custom "Opportunity Product Specifications" object (plural; 17,919 records on 2026-10-24). */
+export const PRODUCT_SPEC_OBJECT = 'Opportunity_Product_Specifications__c';
 
 /** A mapped field. `custom` fields are optional: missing in the org → mapped as null. */
 export interface FieldRef {
@@ -45,15 +46,19 @@ export const OPPORTUNITY_FIELDS = {
   isClosed: std('IsClosed'),
   isWon: std('IsWon'),
   systemModstamp: std('SystemModstamp'),
-  /** TODO(M3): ERF number field on Opportunity ("used inconsistently"; capture, don't trust). */
+  /**
+   * "ERF Number" (its label is the format hint "ERF17-001/SPRxx-xxx/STOCK/CBM/PATRICK"): filled on
+   * 47 %, and holds SPR numbers, STOCK and initials too. Capture, don't trust.
+   */
   erfNumber: custom('ERF_Number__c'),
-  /** TODO(M3): quote source field on Opportunity ("used inconsistently"). */
-  quoteSource: custom('Quote_Source__c'),
+  /** Labelled "Quote Source": a picklist (SPR, ERF, Stock Bottle Price List, Price List); 17 % filled. */
+  quoteSource: custom('Quote_Type__c'),
 } as const satisfies Record<string, FieldRef>;
 
 /**
- * TODO(M3): ship-to source. Seeded as the standard Account shipping address; confirm whether Pretium
- * keeps ship-to on the Account, on a custom ship-to object, or per opportunity.
+ * TODO(M3, D-18): ship-to source. The standard Account shipping address, the MVP default, is filled on
+ * only 1,714 of 6,199 accounts (28 %). The org also has a free-text Opportunity `Ship_to_Locations__c`
+ * (55 % filled) and `Ship_To_City__c` / `Ship_To_State__c` on each product spec. Not mapped yet.
  */
 export const ACCOUNT_FIELDS = {
   id: std('Id'),
@@ -65,18 +70,21 @@ export const ACCOUNT_FIELDS = {
   shipToCountry: std('ShippingCountry'),
 } as const satisfies Record<string, FieldRef>;
 
-/** TODO(M3): every field on the Opportunity Product Specification object is a placeholder. */
+/**
+ * Opportunity Product Specifications fields (names from describe(); TODO(M3): Zac / Graham confirm the
+ * meaning, e.g. Resin Type vs Resin Group, and Capacity text vs Capacity (Volume) + (Measure)).
+ */
 export const PRODUCT_SPEC_FIELDS = {
   id: std('Id'),
   name: std('Name'),
-  /** TODO(M3): lookup from the spec to its Opportunity. */
+  /** Lookup to the Opportunity. */
   opportunityId: custom('Opportunity__c'),
   productType: custom('Product_Type__c'),
-  resin: custom('Resin__c'),
+  resin: custom('Resin_Type__c'),
   capacity: custom('Capacity__c'),
   neckFinish: custom('Neck_Finish__c'),
   color: custom('Color__c'),
-  annualVolume: custom('Annual_Volume__c'),
+  annualVolume: custom('Line_Annual_Volume__c'),
 } as const satisfies Record<string, FieldRef>;
 
 export type OpportunityField = keyof typeof OPPORTUNITY_FIELDS;

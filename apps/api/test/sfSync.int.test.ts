@@ -298,4 +298,43 @@ describe('sfSync against the fake reader', () => {
     const next = await runSfSync(deps());
     expect(next.outcome).toBe('succeeded');
   });
+
+  it('a full re-sync rewrites snapshots SF has not changed (a backfill after a field-map change)', async () => {
+    const s = sfOpportunitySnapshot;
+    const filled = async () =>
+      (
+        await db.db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(s)
+          .where(isNotNull(s.quoteSourceSf))
+      )[0]!.n;
+    // As if quote source had been mapped to the wrong field: blank on every snapshot.
+    await db.db.update(s).set({ quoteSourceSf: null });
+
+    clock = hours(8);
+    const delta = await runSfSync(deps());
+    expect(delta.outcome).toBe('succeeded');
+    expect(delta.counts.updated).toBe(0);
+    expect(await filled()).toBe(0);
+
+    clock = hours(9);
+    const full = await runSfSync(deps(), { full: true });
+    expect(full.outcome).toBe('succeeded');
+    expect(full.counts.fetched).toBeGreaterThanOrEqual(100);
+    expect(full.counts.updated! + full.counts.inserted!).toBe(full.counts.fetched);
+    expect(await filled()).toBeGreaterThan(0);
+  });
+
+  it('the scheduler queues a full re-sync behind a running delta instead of folding it in', async () => {
+    clock = hours(10);
+    const scheduler = createSfSyncScheduler(deps(), 0);
+    const delta = scheduler.runNow();
+    const full = scheduler.runNow({ full: true });
+    expect(full).not.toBe(delta);
+    const [d, f] = await Promise.all([delta, full]);
+    expect([d.outcome, f.outcome]).toEqual(['succeeded', 'succeeded']);
+    expect(f.runId).not.toBe(d.runId);
+    expect(f.counts.updated).toBe(f.counts.fetched);
+    await scheduler.stop();
+  });
 });

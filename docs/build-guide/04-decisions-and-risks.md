@@ -19,6 +19,9 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 | DEC-23 | Pricing method is out of scope; Pricing's final say is in | Darren, 10/6 | Evidence base |
 | DEC-26 | MVP engineering routing = manual prioritized queue to the upfront eng lead; rules-based routing is P1 | Darren, 10/14 | Requirements Sync |
 | DEC-27 | No customer-account setup at intake; existing vs not-yet-established | Darren, 10/14 | Requirements Sync |
+| L-5 | CCQ reads Salesforce as **one read-only integration user** for every CCQ user (External Client App, OAuth client credentials). Nobody gets their own Salesforce access through CCQ. | Ben, 2026-10-24 | B-06; the 15-minute sync has no signed-in user |
+| L-6 | **CCQ is the access control for Salesforce data.** Salesforce sharing doesn't apply per user, so CCQ scopes what each user sees: a KAM sees the opportunities they own in Salesforce plus their region / account scope; `all`-scope roles see everything (adjust with feedback). Price, cost, margin, revenue and capital fields are never read. | Ben, 2026-10-24 | Built: RLS on `sf_opportunity_snapshot` (migration 0021) + the same check on live Salesforce rows |
+| L-7 | The Salesforce sync keeps **every opportunity**, closed history included (31,947 on 2026-10-24); no cut-off for now. | Ben, 2026-10-24 | Revisit with feedback |
 | PRD §9 | Out of MVP scope: editing pricing, write-back, pricing-engine rebuild, post-award PM features, AI auto-prioritization, customer portal | PRD v1 | — |
 
 ---
@@ -29,7 +32,7 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 |---|---|---|---|---|---|---|
 | **D-16h** | Approve Azure hosting + resource groups + IT provisioning owner | Approve; test RG by Oct 21 | Darren + **Oliver Kade** (Brennan Paul consulted) | **M1** | **Oct 21** | ⚠ No fallback. UAT date slips day for day. |
 | **D-H2** | Exposure: "internal only, no public domain" vs "phone access without VPN" | Private endpoint + Entra Application Proxy / Private Access; interim Easy Auth + CA in test | Oliver Kade | M1 / M2 | Oct 23 (test), Nov 6 (prod) | Easy Auth + Conditional Access |
-| **D-23** | Production-data approval. **The 205 live SF records already in Bailey's prototype** conflict with the PRD's own sample-data rule. | Get IT + D&A approval now; purge or approve the prototype copy | Darren; approvers **Oliver Kade + Brennan Paul** | M1, confirm at M9 | Nov 2 | UAT on the SF UAT org + masked data ("UAT-ready on masked data") |
+| **D-23** | Production-data approval. **The 205 live SF records already in Bailey's prototype** conflict with the PRD's own sample-data rule. | Get IT + D&A approval now; purge or approve the prototype copy | Darren; approvers **Oliver Kade + Brennan Paul** | M1, confirm at M9 | Nov 2 | UAT on the SF UAT org + masked data ("UAT-ready on masked data"). **2026-10-23:** Ben reports IT + D&A approved production data; the test environment now runs on it (B-06). Record the approvers and date here when the written approval arrives; the Bailey prototype copy is still open. |
 | **D-17** | Application support model ("if you build it, you support it") | IT hosts/patches/monitors; EI fixes app defects for 90 days of hypercare; named on-call | Darren + Oliver Kade | M1 (principle), M9 (detail) | Nov 2 | Ben + Tre as interim support; risk logged |
 | **D-05** | Minimum intake set + "stop vs enrich" | PRD F-03 ∪ 10/14 demo list ∪ Jim's list + **neck finish + packaging**; blocking = SF opp, customer, ship-to, product family, resin, volume | Jim Zweifel + sales leadership | **M4** | Oct 20 | Seed list (provisional) |
 | **D-06** | G1: who qualifies; min value/volume screens (3M IBM vs 300k resin; $18k example) | Sales leader decides; screens as **warnings** in MVP | Sales leadership (Jack Gordon) | M4 | Oct 23 | `SG-CCQ-SalesLeader` = provisional; warnings off |
@@ -200,6 +203,7 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 | BR-10 | Pricing becomes the next bottleneck (Op Model R-05) | Medium / Medium | Time in Quoting visible on the dashboard | Time at G3 rising | Gemma Cebolla |
 | BR-11 | Legacy pricing data is messy (0 written for blank, repeated request numbers, no ERF↔BPR link, no SF id) | High / Low (MVP) | Imported read-only history; 0 estimates = unknown; match by Legacy ERF # and customer name; the search page as fallback (B-15 revised) | — | Cory McGahan |
 | BR-12 | Ranger scope creeps into the MVP | Medium / Medium | Ranger assist is P1 and advisory only | New AI asks before Nov 13 | Darren |
+| BR-13 | **Audit exception: GHSA-xcx6-jx8p-x3h5** (High; `@azure/msal-node` < 7.1.0 can leak parameters in the authorization code flow, `acquireTokenByCode`). Pulled in by `@azure/identity`, which up to 4.15.0-beta.1 still requires msal-node 6.x. | Low / Low | Not exploitable here: the API uses only `ManagedIdentityCredential` and `ClientSecretCredential` (Graph, Blob), never the auth code flow; browser sign-in uses `msal-browser`. Ignored by that one id in `package.json` → `pnpm.auditConfig.ignoreGhsas` (added 2026-10-24), so every other advisory still fails CI. Forcing msal-node 7 under identity was rejected: an untested major version on the managed-identity login. | An `@azure/identity` release that allows msal-node ≥ 7.1: upgrade and **remove the exception** | Ben |
 
 ---
 

@@ -123,7 +123,8 @@ export function buildSfFixture({
     const closed = o.sfStage.startsWith('Closed');
     setPath(raw, f.isClosed.path, closed);
     setPath(raw, f.isWon.path, o.sfStage.startsWith('Closed Won'));
-    // ERF number on ~40 %, in four formats; quote source on ~60 %, inconsistent labels.
+    // ERF number on ~40 %, in four formats; quote source on some, from the org's picklist
+    // (Quote_Type__c, read 2026-10-24; filled on ~17 % in production).
     setPath(
       raw,
       f.erfNumber.path,
@@ -133,7 +134,7 @@ export function buildSfFixture({
       raw,
       f.quoteSource.path,
       extra.chance(0.6)
-        ? extra.pick(['CCQ', 'ERF App', 'Email', 'erf', 'Customer RFQ', ' '])
+        ? extra.pick(['SPR', 'ERF', 'Stock Bottle Price List', 'Price List'])
         : null,
     );
     const modified = new Date(anchor.getTime() - extra.int(1, 60 * 24 * 21) * 60_000);
