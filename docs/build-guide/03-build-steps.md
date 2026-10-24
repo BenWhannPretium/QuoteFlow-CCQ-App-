@@ -22,6 +22,7 @@ Foundations           Intake & record         Stages                     Integra
 B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 → B-09 → B-10 → B-11 → B-12 → B-13 → B-14 → B-15 → B-16 → B-17 → B-18 → B-19 → B-26 → B-21 → B-22 → B-23 → B-24
                                    └─ B-20 (Azure IaC + CD) runs in parallel from Oct 21, first deploy Oct 23
                                    └─ B-25 (design refresh, Oct 20) and B-26 (demo feedback + future-state deck, Oct 21) were added after the plan
+                                   └─ B-27 (Fabric data landing, L-8; added Oct 24) runs alongside: schema prep Oct 29, test mirror by Nov 4, prod mirror with B-22
 ```
 
 - **Domain and data first.** The stage engine, permissions and audit are the spine. Every screen after that is a thin view on top.
@@ -151,6 +152,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - Tim Webb / Chris O'Brien (IT infra) to run or approve the deployment
 - **Done when:**
   - [ ] Bicep for App Service (+ staging slot in prod), PostgreSQL Flexible (private endpoint, Entra auth), Key Vault, App Insights, VNet, managed identity
+  - [ ] Bicep carries the Fabric mirroring prerequisites (B-27): General Purpose tier in **both** envs, server system-assigned identity, `wal_level=logical`, `azure_cdc` preloaded, `max_worker_processes` + 3, and a delegated subnet for the prod VNet data gateway
   - [x] `deploy.yml` deploys `main` to test via OIDC
   - [x] the DB migrates on deploy
   - [x] smoke test passes against the test URL. First green run: Deploy (test) #6 on 2026-10-21, triggered by the merge of PR 25.
@@ -633,6 +635,25 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **Synthetic data:** 13 personas (the pricing lead is new, drawn from its own random stream so the other 12 and the SF fixture do not change). 19 quotes close Won through G6 and 3 wait in Stage 6.
   - **Not built (parked, see `04` §2):** Salesforce write-back and the new-item flow / Apex, knowledge-base chat, the Ranger hand-off, governed proposal templates, tiered or same-sitting G3 + G4 approvals, and migrating legacy ERF records.
 
+### B-27: Land QuoteFlow data in the Fabric tenant (L-8; added step) · **Thu Oct 29 (schema) → Wed Nov 4 (test mirror) → Fri Nov 6 (prod, with B-22)** · Ben + D&A + IT
+- **Why:** Oleg Yarovinski and Brennan Paul decided (L-8) that all new data QuoteFlow creates must be stored in Pretium's Fabric tenant. **Fabric mirroring** keeps a live copy of the CCQ Postgres database in a D&A-owned workspace; Postgres stays the app's store (D-FB1). Most of the work is on the Azure and Fabric side; the code side is making the schema mirror-safe and keeping mirroring alive through deploys. Design: `01-architecture.md` §6.1.
+- **Why now, not post-MVP:** each migration that alters a mirrored table needs a stop/start once mirroring is on, and `jsonb` data doesn't mirror at all. Fixing the schema before the remaining migrations (B-21 to B-23) is cheaper than after.
+- **People:**
+  - **MF (Tue Oct 27 or Wed Oct 28)** with Brennan Paul (D&A), Oliver Kade or Tim Webb (IT): D-FB1 to D-FB5, the workspace and capacity, the Burstable → General Purpose approval
+  - D&A engineer to create the mirrored item and the Fabric security
+  - IT to restart Postgres with the mirroring parameters and (prod) build the VNet data gateway
+- **Done when:**
+  - [ ] MF held; D-FB1 to D-FB5 recorded in `04`
+  - [ ] `jsonb` columns have trigger-maintained `_json` text companions (backfilled); a CI guard test blocks unsupported column types
+  - [ ] test Postgres on General Purpose with the mirroring parameters (Bicep + runbook `06`)
+  - [ ] test mirror `Running`; every table ties out by row count; latency measured
+  - [ ] commercial columns hidden from non-commercial readers in Fabric (tested both ways)
+  - [ ] `deploy.yml` stops/starts mirroring around migrations (Fabric REST, OIDC deploy identity); exercised once on test
+  - [ ] hourly status check writes `integration_run` (`fabric`) and alerts on failure; shown in Admin → Integrations
+  - [ ] T-SQL twins of the analytics views handed to D&A
+  - [ ] prod mirror running via the VNet data gateway (or deferred per D-FB5); CCQ ↔ Fabric tie-out added to **U5**
+- **Prompt:** `prompts/B-27-fabric-data-landing.md`
+
 ---
 
 ## Phase 4: Harden, load, UAT, sign-off (Nov 6–13)
@@ -659,6 +680,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [ ] value lists approved, or flagged provisional
   - [ ] UAT users can sign in with the correct roles
   - [ ] synthetic data purged from prod
+  - [ ] prod Fabric mirror `Running` after the purge and the SF load (B-27; or deferred to hypercare under D-FB5)
 - **Prompt:** `prompts/B-22-prod-data-uat-env.md`
 
 ### B-23: UAT pack, in-app feedback, training aids · **Mon Nov 9 – Thu Nov 12** · Ben + Bailey
@@ -694,7 +716,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 | Rules-based engineering routing | P1 | Pilot learning; D-19 |
 | Ranger AI assist (suggested score, missing fields, drawing inference, similar quotes) | P1 | Contract execution (X-86); D-22 |
 | Guided onboarding walkthrough per role | P1 | — |
-| Fabric mirroring + D&A-certified analytics | P1 | Brennan Paul |
+| D&A-certified analytics on the Fabric mirror (the mirror itself moved into MVP as B-27, L-8) | P1 | Brennan Paul |
 | MCP / API for Copilot and Cowork agents, user-scoped | P2 | IT agent-identity pattern |
 | Full decision log and corrections ledger | P2 | Knowledge Steward |
 | Post-award hand-off view (Nicole, Anne) | P2 | D-14 |

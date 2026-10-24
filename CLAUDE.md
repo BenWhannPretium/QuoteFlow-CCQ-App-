@@ -30,6 +30,7 @@ Sources of truth for requirements (read the relevant one before building a featu
 | Identity | Microsoft Entra ID only (MSAL in the browser, JWT validation in the API). No local accounts. |
 | Stage model | **Configurable**, data-driven stage/gate engine seeded with the "hybrid" model (PRD v1 stages + G1 qualify, capacity evidence, Final Review separate from customer outcome, reason-coded outcomes) |
 | Build method | Code-first, Claude Code, Git (GitHub), CI on every push |
+| Data landing (L-8, 2026-10-24) | **All new data QuoteFlow creates is stored in Pretium's Fabric tenant** (Oleg Yarovinski + Brennan Paul). Met by Fabric mirroring of the CCQ Postgres database; Postgres stays the app's store. See `01-architecture.md` §6.1, B-27 |
 | MVP bar for 2026-11-13 | Deployed to Azure, Entra-secured, Salesforce read live on **approved** data, all P0 features passing UAT with gate-owner candidates |
 
 ## Stack (do not swap without updating the architecture doc)
@@ -80,7 +81,8 @@ Sources of truth for requirements (read the relevant one before building a featu
 7. **No customer-account creation at intake** (DEC-27). Customers are flagged as `existing` or `not_yet_established`.
 8. **Use sample or masked data until IT and D&A approve production data.** Never commit real customer data, secrets or tokens. `.env` files are git-ignored. Locally, use the synthetic data generator.
 9. **AI never decides.** Any assist feature (Ranger, P1) is advisory, with a human decision recorded.
-10. Keep `docs/build-guide/` current. When a step finishes, tick its acceptance checklist in `03-build-steps.md` and note any deviations.
+10. **Keep the schema mirror-safe for Fabric** (L-8). Fabric mirroring drops `json`/`jsonb`, `inet`, `interval`, range, `tsvector` and geometric columns, and `numeric` over 38 digits. A new `jsonb` column gets a trigger-maintained `<column>_json text` companion. Don't use the other types; use `text`. Don't partition tables. Don't `TRUNCATE` app tables. Analytics views also need a T-SQL twin in `packages/db/sql/fabric/`. The CI guard test (B-27) enforces the column rules.
+11. Keep `docs/build-guide/` current. When a step finishes, tick its acceptance checklist in `03-build-steps.md` and note any deviations.
 
 ## Conventions
 
