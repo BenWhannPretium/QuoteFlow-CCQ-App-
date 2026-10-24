@@ -236,9 +236,9 @@ export const api = {
       `/api/v1/admin/integrations${source ? `?source=${encodeURIComponent(source)}` : ''}`,
       IntegrationRunsResponse,
     ),
-  // 202 = still running after 25 s; the body is still a valid result.
-  syncSalesforce: () =>
-    getJson('/api/v1/admin/salesforce/sync', SfSyncTriggerResponse, {
+  // 202 = still running after 25 s; the body is still a valid result. `full` re-reads every opportunity.
+  syncSalesforce: (full = false) =>
+    getJson(`/api/v1/admin/salesforce/sync${full ? '?full=true' : ''}`, SfSyncTriggerResponse, {
       method: 'POST',
       okStatuses: [202],
     }),

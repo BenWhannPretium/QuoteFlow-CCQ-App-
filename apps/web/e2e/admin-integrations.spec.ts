@@ -18,6 +18,20 @@ test('Admin runs the Salesforce sync and sees the run listed', async ({ page }) 
   await expect(page.getByText(/fetched \d+/).first()).toBeVisible();
 });
 
+test('Admin runs a full Salesforce re-sync after confirming', async ({ page }) => {
+  await signInAs(page, 'admin');
+  await page.goto('/admin/integrations');
+  await page.getByRole('button', { name: 'Full re-sync' }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Re-read every Salesforce opportunity?');
+  await dialog.getByRole('button', { name: 'Run full re-sync' }).click();
+  await expect(
+    page.getByText(/Salesforce full re-sync (succeeded|is still running)|already running/),
+  ).toBeVisible();
+  await expect(dialog).toBeHidden();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
 // B-15 (revised): the legacy pricing app's export is imported here (no live connection).
 test('Admin checks, then imports, the pricing-history export', async ({ page }) => {
   await signInAs(page, 'admin');

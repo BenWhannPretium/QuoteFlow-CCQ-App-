@@ -175,6 +175,15 @@ export const IntegrationRunsQuery = z.object({
 export const IntegrationRunsResponse = z.object({ items: z.array(IntegrationRun) });
 export type IntegrationRunsResponse = z.infer<typeof IntegrationRunsResponse>;
 
+/** POST /admin/salesforce/sync. `full`: ignore the watermark and rewrite every snapshot (after a field-map change). */
+export const SfSyncTriggerQuery = z.object({
+  full: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+});
+export type SfSyncTriggerQuery = z.input<typeof SfSyncTriggerQuery>;
+
 export const SfSyncTriggerResponse = z.object({
   /** `skipped`: another instance holds the sync lock. `running`: still going after 25 s (see the runs list). */
   outcome: z.enum(['succeeded', 'partial', 'failed', 'skipped', 'running']),

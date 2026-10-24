@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import { RefreshCwIcon } from 'lucide-react';
+import { useState } from 'react';
 
 import { PricingHistoryImport } from '@/admin/PricingHistoryImport';
 import { adminKey, BackToAdmin, useCanEditConfig } from '@/admin/shared';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable } from '@/components/DataTable';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -148,20 +150,24 @@ function IntegrationsPage() {
   const canSync = useCanEditConfig();
   const queryClient = useQueryClient();
   const runs = useQuery({ queryKey: runsKey, queryFn: () => api.integrationRuns() });
+  const [confirmFull, setConfirmFull] = useState(false);
   const sync = useMutation({
-    mutationFn: api.syncSalesforce,
-    onSuccess: (result) => {
+    mutationFn: (full: boolean) => api.syncSalesforce(full),
+    onSuccess: (result, full) => {
+      setConfirmFull(false);
+      const what = full ? 'Salesforce full re-sync' : 'Salesforce sync';
       const show = result.outcome === 'failed' ? toast.error : toast.success;
       show({
         title:
           result.outcome === 'running'
-            ? 'Salesforce sync is still running'
+            ? `${what} is still running`
             : result.outcome === 'skipped'
               ? 'A Salesforce sync is already running'
-              : `Salesforce sync ${result.outcome}`,
+              : `${what} ${result.outcome}`,
         description: countsSummary(result.counts),
       });
     },
+    onError: () => setConfirmFull(false),
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: runsKey }),
@@ -178,15 +184,33 @@ function IntegrationsPage() {
         description="Salesforce is read every 15 minutes (read-only). Failures alert admins; the app keeps working from the last snapshot. Pricing history is the retired pricing app's export, imported here."
         actions={
           canSync && (
-            <Button onClick={() => sync.mutate()} disabled={sync.isPending}>
-              <RefreshCwIcon
-                className={cn('size-4', sync.isPending && 'animate-spin')}
-                aria-hidden
-              />
-              {sync.isPending ? 'Syncing…' : 'Sync Salesforce now'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmFull(true)}
+                disabled={sync.isPending}
+              >
+                Full re-sync
+              </Button>
+              <Button onClick={() => sync.mutate(false)} disabled={sync.isPending}>
+                <RefreshCwIcon
+                  className={cn('size-4', sync.isPending && 'animate-spin')}
+                  aria-hidden
+                />
+                {sync.isPending ? 'Syncing…' : 'Sync Salesforce now'}
+              </Button>
+            </div>
           )
         }
+      />
+      <ConfirmDialog
+        open={confirmFull}
+        onOpenChange={setConfirmFull}
+        title="Re-read every Salesforce opportunity?"
+        description="Use this after a field mapping changes. It re-reads and rewrites every opportunity, not only the ones changed since the last sync, so it takes a few minutes. It's read-only toward Salesforce."
+        confirmLabel="Run full re-sync"
+        busy={sync.isPending}
+        onConfirm={() => sync.mutate(true)}
       />
       <ConnectorHealthPanel />
       {canSync && <PricingHistoryImport />}

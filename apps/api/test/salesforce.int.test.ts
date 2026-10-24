@@ -233,6 +233,18 @@ describe('admin', () => {
     }
   });
 
+  it('POST /admin/salesforce/sync?full=true re-reads and rewrites every opportunity', async () => {
+    const res = await asRole(app, 'Admin').post('/api/v1/admin/salesforce/sync?full=true');
+    expect(res.statusCode, res.body).toBe(200);
+    const body = SfSyncTriggerResponse.parse(res.json());
+    expect(body.outcome).toBe('succeeded');
+    expect(body.counts.fetched).toBeGreaterThanOrEqual(102);
+    expect(body.counts.updated! + body.counts.inserted!).toBe(body.counts.fetched);
+    expect(
+      (await asRole(app, 'KAM').post('/api/v1/admin/salesforce/sync?full=true')).statusCode,
+    ).toBe(403);
+  });
+
   it('POST /admin/salesforce/sync runs a delta and reports counts', async () => {
     const res = await asRole(app, 'Admin').post('/api/v1/admin/salesforce/sync');
     expect(res.statusCode, res.body).toBe(200);

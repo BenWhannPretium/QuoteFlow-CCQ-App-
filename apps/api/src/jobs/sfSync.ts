@@ -58,6 +58,14 @@ export interface SfSyncDeps {
   now?: () => Date;
 }
 
+export interface SfSyncOptions {
+  /**
+   * Ignore the watermark and rewrite every snapshot, even ones SF hasn't changed: after a field-map
+   * change (a newly mapped field stays null on unchanged records otherwise). No deletion check.
+   */
+  full?: boolean;
+}
+
 export interface SfSyncCounts {
   fetched: number;
   inserted: number;
@@ -160,7 +168,7 @@ async function alertOwners(deps: SfSyncDeps, runId: string, code: string, at: Da
   }
 }
 
-async function syncLocked(deps: SfSyncDeps): Promise<SfSyncResult> {
+async function syncLocked(deps: SfSyncDeps, opts: SfSyncOptions): Promise<SfSyncResult> {
   const now = deps.now ?? (() => new Date());
   const startedAt = now();
   const { database, reader, logger } = deps;
@@ -170,10 +178,11 @@ async function syncLocked(deps: SfSyncDeps): Promise<SfSyncResult> {
     since: await lastSucceededRunStart(tx, SF_SYNC_SOURCE),
     threshold: await suspectThreshold(tx),
   }));
-  const window = since ? new Date(since.getTime() - SF_SYNC_OVERLAP_MS) : null;
+  const full = opts.full === true;
+  const window = since && !full ? new Date(since.getTime() - SF_SYNC_OVERLAP_MS) : null;
   const counts = emptyCounts();
   logger.info(
-    { runId: run.id, mode: reader.mode, since: window?.toISOString() ?? null },
+    { runId: run.id, mode: reader.mode, full, since: window?.toISOString() ?? null },
     'sf sync started',
   );
 
@@ -186,6 +195,7 @@ async function syncLocked(deps: SfSyncDeps): Promise<SfSyncResult> {
           const opp = await upsertSfOpportunities(
             tx,
             page.map((rec) => snapshotRow(rec, syncedAt, threshold)),
+            { force: full },
           );
           const cust = await upsertSfCustomers(tx, customerRows(page), syncedAt);
           counts.inserted += opp.inserted;
@@ -257,9 +267,11 @@ async function syncLocked(deps: SfSyncDeps): Promise<SfSyncResult> {
 }
 
 /** One sync run, if no other instance is running one. Never throws. */
-export async function runSfSync(deps: SfSyncDeps): Promise<SfSyncResult> {
+export async function runSfSync(deps: SfSyncDeps, opts: SfSyncOptions = {}): Promise<SfSyncResult> {
   try {
-    const lock = await withAdvisoryLock(deps.sql, ADVISORY_LOCKS.sfSync, () => syncLocked(deps));
+    const lock = await withAdvisoryLock(deps.sql, ADVISORY_LOCKS.sfSync, () =>
+      syncLocked(deps, opts),
+    );
     if (!lock.acquired) {
       deps.logger.info({}, 'sf sync skipped: another instance holds the lock');
       return { outcome: 'skipped', runId: null, counts: {} };
@@ -273,8 +285,8 @@ export async function runSfSync(deps: SfSyncDeps): Promise<SfSyncResult> {
 }
 
 export interface SfSyncScheduler {
-  /** Run now (also used by POST /admin/salesforce/sync). */
-  runNow(): Promise<SfSyncResult>;
+  /** Run now (also used by POST /admin/salesforce/sync; `full` from Admin → Integrations). */
+  runNow(opts?: SfSyncOptions): Promise<SfSyncResult>;
   start(): void;
   stop(): Promise<void>;
 }
@@ -284,12 +296,18 @@ export function createSfSyncScheduler(deps: SfSyncDeps, intervalMinutes: number)
   let timer: NodeJS.Timeout | undefined;
   let first: NodeJS.Timeout | undefined;
   let inFlight: Promise<SfSyncResult> | null = null;
-  const runNow = () => {
-    // Coalesce overlapping triggers in this process; the advisory lock covers other instances.
-    inFlight ??= runSfSync(deps).finally(() => {
-      inFlight = null;
-    });
-    return inFlight;
+  const runNow = (opts: SfSyncOptions = {}) => {
+    // Coalesce overlapping delta triggers in this process; the advisory lock covers other instances.
+    // A full re-sync never folds into a delta already running: it queues behind it.
+    if (inFlight && !opts.full) return inFlight;
+    const run: Promise<SfSyncResult> = (inFlight ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => runSfSync(deps, opts))
+      .finally(() => {
+        if (inFlight === run) inFlight = null;
+      });
+    inFlight = run;
+    return run;
   };
   return {
     runNow,

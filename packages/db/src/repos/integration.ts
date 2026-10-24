@@ -49,11 +49,13 @@ const wasInserted = sql<boolean>`(xmax = 0)`;
 /**
  * Insert or refresh snapshots by `sf_opportunity_id`. A row whose SystemModstamp hasn't changed is
  * skipped (so re-running a sync window is idempotent), unless it was marked deleted and SF returned it
- * again (undeleted from the recycle bin).
+ * again (undeleted from the recycle bin). `force` rewrites unchanged rows too: a full re-sync after a
+ * field-map change, when SF hasn't touched the records.
  */
 export async function upsertSfOpportunities(
   db: DbOrTx,
   rows: NewSfOpportunitySnapshot[],
+  opts: { force?: boolean } = {},
 ): Promise<UpsertCounts> {
   if (rows.length === 0) return { inserted: 0, updated: 0, unchanged: 0 };
   const s = sfOpportunitySnapshot;
@@ -63,8 +65,12 @@ export async function upsertSfOpportunities(
     .onConflictDoUpdate({
       target: s.sfOpportunityId,
       set: { ...excludedSet(s, SNAPSHOT_FIELDS), updatedAt: new Date() },
-      setWhere: sql`${s.systemModstamp} is distinct from excluded.system_modstamp
+      ...(opts.force
+        ? {}
+        : {
+            setWhere: sql`${s.systemModstamp} is distinct from excluded.system_modstamp
         or ${s.deletedInSfAt} is not null`,
+          }),
     })
     .returning({ inserted: wasInserted });
   const inserted = written.filter((r) => r.inserted).length;
