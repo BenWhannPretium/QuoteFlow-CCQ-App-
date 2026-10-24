@@ -142,7 +142,7 @@ describe('JsforceSalesforceReader', () => {
     const reader = new JsforceSalesforceReader(() => Promise.resolve(api), { logger });
     await reader.getOpportunity('006000000000001AAA');
     expect(soql[0]).not.toContain('ERF_Number__c');
-    expect(soql[0]).toContain('Quote_Source__c');
+    expect(soql[0]).toContain('Quote_Type__c');
     expect(lines.find((l) => l.obj.object === OPPORTUNITY_OBJECT)?.obj.missingFields).toEqual([
       'ERF_Number__c',
     ]);

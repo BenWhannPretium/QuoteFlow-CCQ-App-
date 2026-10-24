@@ -282,16 +282,27 @@ export const SCORING_MODEL_V1 = scoringModelRow(SCORING_MODEL_V1_INPUT, {
 export const seedScoringModel = (db: DbOrTx) =>
   upsertConfig(db, scoringModel, [{ ...SCORING_MODEL_V1, provisional: true }], ['modelVersion']);
 
-/** Salesforce stages (architecture §4.2) with the CCQ stage they usually line up with. */
+/**
+ * Salesforce stages (architecture §4.2) with the CCQ stage they usually line up with. The names and
+ * order are the org's active OpportunityStage rows (read 2026-10-24): both the older and the newer
+ * stage sets are active. Won = "Closed Won - Product Shipping" (a hyphen), lost = "Closed Lost". The
+ * hints are provisional.
+ */
 export const SF_STAGES: [sfStage: string, hint: string | null][] = [
+  ['Prospecting', 'INTAKE'],
+  ['Qualification / Needs Analysis', 'INTAKE'],
   ['Qualifying', 'INTAKE'],
+  ['RFP / Quote Entry - In Process', 'QUOTING'],
+  ['Quoted', 'CUSTOMER_DECISION'],
   ['Quoting', 'QUOTING'],
   ['Negotiating', 'CUSTOMER_DECISION'],
+  ['Negotiation / Customer Testing', 'CUSTOMER_DECISION'],
   ['Final Review', 'FINAL_REVIEW'],
   // B-26: an award waits in Commit & Hand Off until the CER and hand-off close it Won.
   ['Verbal Award', 'COMMIT_HANDOFF'],
+  ['Verbal Award / Tool PO in Hand', 'COMMIT_HANDOFF'],
   ['PO(s) in hand', 'COMMIT_HANDOFF'],
-  ['Closed Won – Product Shipping', 'AWARDED'],
+  ['Closed Won - Product Shipping', 'AWARDED'],
   ['Closed Lost', 'CLOSED_LOST'],
 ];
 

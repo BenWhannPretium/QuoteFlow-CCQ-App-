@@ -30,7 +30,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-29T21:31:00.000+0000"
     },
     {
@@ -57,7 +57,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-14T19:53:00.000+0000"
     },
     {
@@ -84,7 +84,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-08T15:14:00.000+0000"
     },
     {
@@ -111,7 +111,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "78071",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-03T08:07:00.000+0000"
     },
     {
@@ -138,7 +138,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-04T23:58:00.000+0000"
     },
     {
@@ -165,7 +165,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-30T03:45:00.000+0000"
     },
     {
@@ -185,7 +185,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-10-12T22:34:00.000+0000"
     },
     {
@@ -212,7 +212,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-01T01:20:00.000+0000"
     },
     {
@@ -239,7 +239,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-14T22:11:00.000+0000"
     },
     {
@@ -266,7 +266,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-32710",
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-09T07:10:00.000+0000"
     },
     {
@@ -293,7 +293,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-79607",
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-01T09:59:00.000+0000"
     },
     {
@@ -320,7 +320,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "35370",
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-09-26T12:44:00.000+0000"
     },
     {
@@ -347,7 +347,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-25T05:49:00.000+0000"
     },
     {
@@ -367,7 +367,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF 78851",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-15T01:27:00.000+0000"
     },
     {
@@ -394,7 +394,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "90464",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-10T23:51:00.000+0000"
     },
     {
@@ -421,7 +421,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-09-28T07:08:00.000+0000"
     },
     {
@@ -448,7 +448,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#22863",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-05T05:31:00.000+0000"
     },
     {
@@ -475,7 +475,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "erf",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-09-25T10:17:00.000+0000"
     },
     {
@@ -502,7 +502,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-05T02:59:00.000+0000"
     },
     {
@@ -529,7 +529,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "57141",
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-14T14:45:00.000+0000"
     },
     {
@@ -549,7 +549,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-28372",
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-09-28T17:54:00.000+0000"
     },
     {
@@ -576,7 +576,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-04T19:15:00.000+0000"
     },
     {
@@ -603,7 +603,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-10T23:33:00.000+0000"
     },
     {
@@ -630,7 +630,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-14T02:30:00.000+0000"
     },
     {
@@ -657,7 +657,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-39844",
-      "Quote_Source__c": "erf",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-10-08T09:27:00.000+0000"
     },
     {
@@ -684,7 +684,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-25T01:37:00.000+0000"
     },
     {
@@ -711,7 +711,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-10T06:11:00.000+0000"
     },
     {
@@ -727,11 +727,11 @@
       },
       "Amount": 229300,
       "CloseDate": "2027-01-21",
-      "StageName": "Closed Won – Product Shipping",
+      "StageName": "Closed Won - Product Shipping",
       "IsClosed": true,
       "IsWon": true,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-01T07:28:00.000+0000"
     },
     {
@@ -758,7 +758,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "erf",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-10-09T01:04:00.000+0000"
     },
     {
@@ -785,7 +785,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-28T10:06:00.000+0000"
     },
     {
@@ -812,7 +812,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-03T16:23:00.000+0000"
     },
     {
@@ -839,7 +839,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "31061",
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-10T22:45:00.000+0000"
     },
     {
@@ -866,7 +866,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-04T00:56:00.000+0000"
     },
     {
@@ -893,7 +893,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-09-29T13:51:00.000+0000"
     },
     {
@@ -913,7 +913,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-04T10:06:00.000+0000"
     },
     {
@@ -940,7 +940,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-08T20:47:00.000+0000"
     },
     {
@@ -967,7 +967,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-09-29T12:44:00.000+0000"
     },
     {
@@ -994,7 +994,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF 82750",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-12T21:44:00.000+0000"
     },
     {
@@ -1021,7 +1021,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-56999",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-10T23:23:00.000+0000"
     },
     {
@@ -1048,7 +1048,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-06T00:49:00.000+0000"
     },
     {
@@ -1075,7 +1075,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-02T16:55:00.000+0000"
     },
     {
@@ -1095,7 +1095,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#71635",
-      "Quote_Source__c": "erf",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-09-26T01:46:00.000+0000"
     },
     {
@@ -1122,7 +1122,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-22150",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-29T04:20:00.000+0000"
     },
     {
@@ -1149,7 +1149,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#32433",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-10T13:17:00.000+0000"
     },
     {
@@ -1176,7 +1176,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-10T03:57:00.000+0000"
     },
     {
@@ -1203,7 +1203,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#63508",
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-11T08:24:00.000+0000"
     },
     {
@@ -1230,7 +1230,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-09-27T05:28:00.000+0000"
     },
     {
@@ -1257,7 +1257,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-09-25T16:47:00.000+0000"
     },
     {
@@ -1277,7 +1277,7 @@
       "IsClosed": true,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-03T08:41:00.000+0000"
     },
     {
@@ -1304,7 +1304,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-04T06:56:00.000+0000"
     },
     {
@@ -1331,7 +1331,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-10T16:28:00.000+0000"
     },
     {
@@ -1358,7 +1358,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "49312",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-14T00:24:00.000+0000"
     },
     {
@@ -1385,7 +1385,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#88478",
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-09-27T20:51:00.000+0000"
     },
     {
@@ -1412,7 +1412,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-05T23:13:00.000+0000"
     },
     {
@@ -1439,7 +1439,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "59961",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-03T20:25:00.000+0000"
     },
     {
@@ -1459,7 +1459,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-07T06:26:00.000+0000"
     },
     {
@@ -1486,7 +1486,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-30T06:04:00.000+0000"
     },
     {
@@ -1513,7 +1513,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-12T15:25:00.000+0000"
     },
     {
@@ -1540,7 +1540,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-11T06:51:00.000+0000"
     },
     {
@@ -1567,7 +1567,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-80878",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-07T21:35:00.000+0000"
     },
     {
@@ -1594,7 +1594,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-23424",
-      "Quote_Source__c": "erf",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-09-26T21:28:00.000+0000"
     },
     {
@@ -1621,7 +1621,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-10T14:59:00.000+0000"
     },
     {
@@ -1641,7 +1641,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#43365",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-12T10:05:00.000+0000"
     },
     {
@@ -1668,7 +1668,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-27T23:48:00.000+0000"
     },
     {
@@ -1695,7 +1695,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-93400",
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-05T22:16:00.000+0000"
     },
     {
@@ -1722,7 +1722,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-02T10:10:00.000+0000"
     },
     {
@@ -1749,7 +1749,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF 18249",
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-10T12:44:00.000+0000"
     },
     {
@@ -1776,7 +1776,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "26367",
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-05T12:18:00.000+0000"
     },
     {
@@ -1803,7 +1803,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-06T18:05:00.000+0000"
     },
     {
@@ -1823,7 +1823,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-04T15:45:00.000+0000"
     },
     {
@@ -1850,7 +1850,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#44765",
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-09T18:59:00.000+0000"
     },
     {
@@ -1877,7 +1877,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF 89747",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-06T04:02:00.000+0000"
     },
     {
@@ -1904,7 +1904,7 @@
       "IsClosed": true,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "erf",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-09-25T06:37:00.000+0000"
     },
     {
@@ -1931,7 +1931,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-09-29T06:23:00.000+0000"
     },
     {
@@ -1958,7 +1958,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-09-25T02:17:00.000+0000"
     },
     {
@@ -1985,7 +1985,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-10-04T12:30:00.000+0000"
     },
     {
@@ -2005,7 +2005,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#22718",
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-10-09T18:07:00.000+0000"
     },
     {
@@ -2032,7 +2032,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-05T15:45:00.000+0000"
     },
     {
@@ -2059,7 +2059,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-12T02:22:00.000+0000"
     },
     {
@@ -2086,7 +2086,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-09-28T05:02:00.000+0000"
     },
     {
@@ -2113,7 +2113,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#39766",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-01T15:41:00.000+0000"
     },
     {
@@ -2140,7 +2140,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-12T01:41:00.000+0000"
     },
     {
@@ -2167,7 +2167,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-09T00:08:00.000+0000"
     },
     {
@@ -2187,7 +2187,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-09-27T07:12:00.000+0000"
     },
     {
@@ -2214,7 +2214,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-10-02T07:25:00.000+0000"
     },
     {
@@ -2241,7 +2241,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-06T13:12:00.000+0000"
     },
     {
@@ -2268,7 +2268,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF 37556",
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-09-25T19:17:00.000+0000"
     },
     {
@@ -2295,7 +2295,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-02T17:25:00.000+0000"
     },
     {
@@ -2322,7 +2322,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-02T16:12:00.000+0000"
     },
     {
@@ -2349,7 +2349,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-10T04:08:00.000+0000"
     },
     {
@@ -2369,7 +2369,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "erf",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-09-27T09:31:00.000+0000"
     },
     {
@@ -2396,7 +2396,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Customer RFQ",
+      "Quote_Type__c": "Stock Bottle Price List",
       "SystemModstamp": "2026-10-10T02:48:00.000+0000"
     },
     {
@@ -2423,7 +2423,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-28646",
-      "Quote_Source__c": "ERF App",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-09-25T16:29:00.000+0000"
     },
     {
@@ -2450,7 +2450,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "erf#38839",
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-06T19:57:00.000+0000"
     },
     {
@@ -2477,7 +2477,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF 57762",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-02T22:30:00.000+0000"
     },
     {
@@ -2504,7 +2504,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": "Email",
+      "Quote_Type__c": "ERF",
       "SystemModstamp": "2026-09-26T21:07:00.000+0000"
     },
     {
@@ -2531,7 +2531,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": " ",
+      "Quote_Type__c": "Price List",
       "SystemModstamp": "2026-10-05T08:38:00.000+0000"
     },
     {
@@ -2551,7 +2551,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "67900",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-10T22:59:00.000+0000"
     },
     {
@@ -2578,7 +2578,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-06T10:33:00.000+0000"
     },
     {
@@ -2605,7 +2605,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "ERF-2026-89802",
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-09-29T13:51:00.000+0000"
     },
     {
@@ -2632,7 +2632,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": "38364",
-      "Quote_Source__c": "CCQ",
+      "Quote_Type__c": "SPR",
       "SystemModstamp": "2026-10-03T06:07:00.000+0000"
     },
     {
@@ -2659,7 +2659,7 @@
       "IsClosed": false,
       "IsWon": false,
       "ERF_Number__c": null,
-      "Quote_Source__c": null,
+      "Quote_Type__c": null,
       "SystemModstamp": "2026-10-04T19:49:00.000+0000"
     }
   ],
@@ -3211,1100 +3211,1100 @@
       "Name": "PS-000001",
       "Opportunity__c": "006SYNZh11RVinfpfX",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "White",
-      "Annual_Volume__c": 917000
+      "Line_Annual_Volume__c": 917000
     },
     {
       "Id": "a0PSYN12dnDLgkCDIL",
       "Name": "PS-000002",
       "Opportunity__c": "006SYNB5eRFqj8Jb3c",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": 1235000
+      "Line_Annual_Volume__c": 1235000
     },
     {
       "Id": "a0PSYNtiREoBOqZH4Q",
       "Name": "PS-000003",
       "Opportunity__c": "006SYNB5eRFqj8Jb3c",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "White",
-      "Annual_Volume__c": 1691000
+      "Line_Annual_Volume__c": 1691000
     },
     {
       "Id": "a0PSYNH2xfMF1XxBT6",
       "Name": "PS-000004",
       "Opportunity__c": "006SYNu39EMckLrBPJ",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNK7dlYc96y73t",
       "Name": "PS-000005",
       "Opportunity__c": "006SYNu39EMckLrBPJ",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 3886000
+      "Line_Annual_Volume__c": 3886000
     },
     {
       "Id": "a0PSYNZIMzY6vc98gm",
       "Name": "PS-000006",
       "Opportunity__c": "006SYNDWYT7HChUyky",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNLS1UKP0En5o2",
       "Name": "PS-000007",
       "Opportunity__c": "006SYNDWYT7HChUyky",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNWcRN7lve8riw",
       "Name": "PS-000008",
       "Opportunity__c": "006SYNHMKOQl3cXfjK",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": null,
-      "Annual_Volume__c": 3782000
+      "Line_Annual_Volume__c": 3782000
     },
     {
       "Id": "a0PSYNZUfnX1rOUypX",
       "Name": "PS-000009",
       "Opportunity__c": "006SYNtnNIhgvn5dLX",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": null,
-      "Annual_Volume__c": 2340000
+      "Line_Annual_Volume__c": 2340000
     },
     {
       "Id": "a0PSYNSRErT2oxP3pJ",
       "Name": "PS-000010",
       "Opportunity__c": "006SYNtnNIhgvn5dLX",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Natural",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYN4xD5JhgRol5t",
       "Name": "PS-000011",
       "Opportunity__c": "006SYNuqRCFKOYyo6r",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": 1224000
+      "Line_Annual_Volume__c": 1224000
     },
     {
       "Id": "a0PSYNKCbA8AF4nDvf",
       "Name": "PS-000012",
       "Opportunity__c": "006SYNsrHSxoUaQRmn",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Natural",
-      "Annual_Volume__c": 4000000
+      "Line_Annual_Volume__c": 4000000
     },
     {
       "Id": "a0PSYN0BR56J2rrBXe",
       "Name": "PS-000013",
       "Opportunity__c": "006SYNJuiYLvHuv16O",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 2983000
+      "Line_Annual_Volume__c": 2983000
     },
     {
       "Id": "a0PSYNXqPDzecSHMHh",
       "Name": "PS-000014",
       "Opportunity__c": "006SYNEB6wN5zgSXLb",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "White",
-      "Annual_Volume__c": 1284000
+      "Line_Annual_Volume__c": 1284000
     },
     {
       "Id": "a0PSYNwLzPB71SXzgb",
       "Name": "PS-000015",
       "Opportunity__c": "006SYNEB6wN5zgSXLb",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 2477000
+      "Line_Annual_Volume__c": 2477000
     },
     {
       "Id": "a0PSYNDjY5emmDbCUF",
       "Name": "PS-000016",
       "Opportunity__c": "006SYNKVHHBYf1phLm",
       "Product_Type__c": "JAR",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNGQpOf1t1VTtK",
       "Name": "PS-000017",
       "Opportunity__c": "006SYNKVHHBYf1phLm",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Natural",
-      "Annual_Volume__c": 3043000
+      "Line_Annual_Volume__c": 3043000
     },
     {
       "Id": "a0PSYNViqKf2N197xJ",
       "Name": "PS-000018",
       "Opportunity__c": "006SYN6irPM7YVMkro",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Natural",
-      "Annual_Volume__c": 1576000
+      "Line_Annual_Volume__c": 1576000
     },
     {
       "Id": "a0PSYNqbkgvxQiF0vt",
       "Name": "PS-000019",
       "Opportunity__c": "006SYNHgE17daL1pgU",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 3014000
+      "Line_Annual_Volume__c": 3014000
     },
     {
       "Id": "a0PSYNBvcQqVJBVueb",
       "Name": "PS-000020",
       "Opportunity__c": "006SYNzKMAPl5n315Z",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": 3716000
+      "Line_Annual_Volume__c": 3716000
     },
     {
       "Id": "a0PSYNojbUTtNbpIYf",
       "Name": "PS-000021",
       "Opportunity__c": "006SYNzKMAPl5n315Z",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNqKfUgsNUZghM",
       "Name": "PS-000022",
       "Opportunity__c": "006SYNFyHZEgOdaFDR",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": 3270000
+      "Line_Annual_Volume__c": 3270000
     },
     {
       "Id": "a0PSYNuGF3iv24FudG",
       "Name": "PS-000023",
       "Opportunity__c": "006SYNqyHpFzcGQJDb",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "White",
-      "Annual_Volume__c": 1712000
+      "Line_Annual_Volume__c": 1712000
     },
     {
       "Id": "a0PSYNIxfXhTRZJAzZ",
       "Name": "PS-000024",
       "Opportunity__c": "006SYNqyHpFzcGQJDb",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": null,
-      "Annual_Volume__c": 439000
+      "Line_Annual_Volume__c": 439000
     },
     {
       "Id": "a0PSYN5biCtkjP72l0",
       "Name": "PS-000025",
       "Opportunity__c": "006SYNGZnpbUJY3vn5",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": null,
-      "Annual_Volume__c": 3836000
+      "Line_Annual_Volume__c": 3836000
     },
     {
       "Id": "a0PSYN0eaPFBWWe7Ur",
       "Name": "PS-000026",
       "Opportunity__c": "006SYN7OgQS205F1Ix",
       "Product_Type__c": "JAR",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": null,
-      "Annual_Volume__c": 1883000
+      "Line_Annual_Volume__c": 1883000
     },
     {
       "Id": "a0PSYN9aOgg9LvzGTF",
       "Name": "PS-000027",
       "Opportunity__c": "006SYN7OgQS205F1Ix",
       "Product_Type__c": "JAR",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Amber",
-      "Annual_Volume__c": 2875000
+      "Line_Annual_Volume__c": 2875000
     },
     {
       "Id": "a0PSYNM5b5YHi5hLAg",
       "Name": "PS-000028",
       "Opportunity__c": "006SYNc7X3VHUih1h9",
       "Product_Type__c": "JAR",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": 2168000
+      "Line_Annual_Volume__c": 2168000
     },
     {
       "Id": "a0PSYN3B9QJxosAsrI",
       "Name": "PS-000029",
       "Opportunity__c": "006SYNc7X3VHUih1h9",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 3122000
+      "Line_Annual_Volume__c": 3122000
     },
     {
       "Id": "a0PSYNvppcFOGX6UNI",
       "Name": "PS-000030",
       "Opportunity__c": "006SYN8q6hm71m96QK",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "4 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Amber",
-      "Annual_Volume__c": 1477000
+      "Line_Annual_Volume__c": 1477000
     },
     {
       "Id": "a0PSYN9ciqCdH757bC",
       "Name": "PS-000031",
       "Opportunity__c": "006SYNzkRrwSFB4rzp",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Natural",
-      "Annual_Volume__c": 1525000
+      "Line_Annual_Volume__c": 1525000
     },
     {
       "Id": "a0PSYNgbwqyKvv0V4T",
       "Name": "PS-000032",
       "Opportunity__c": "006SYNGVanGLXipNAX",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": 658000
+      "Line_Annual_Volume__c": 658000
     },
     {
       "Id": "a0PSYN2zFq3DcmdR6t",
       "Name": "PS-000033",
       "Opportunity__c": "006SYNJUCsEXejcY5y",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "4 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNnwig9g8GqE3B",
       "Name": "PS-000034",
       "Opportunity__c": "006SYNJUCsEXejcY5y",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "4 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNf6HCdWE2jn5S",
       "Name": "PS-000035",
       "Opportunity__c": "006SYNk7tFC80KEIfg",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Amber",
-      "Annual_Volume__c": 3625000
+      "Line_Annual_Volume__c": 3625000
     },
     {
       "Id": "a0PSYNGrDoW8TpvsZc",
       "Name": "PS-000036",
       "Opportunity__c": "006SYNZJ7OHKyWchhH",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": 2283000
+      "Line_Annual_Volume__c": 2283000
     },
     {
       "Id": "a0PSYNoGGtSTMg9dNT",
       "Name": "PS-000037",
       "Opportunity__c": "006SYNZJ7OHKyWchhH",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": null,
-      "Annual_Volume__c": 1109000
+      "Line_Annual_Volume__c": 1109000
     },
     {
       "Id": "a0PSYNiOtqSYl8QUVK",
       "Name": "PS-000038",
       "Opportunity__c": "006SYNCC1exfUI91T9",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNsx5kch6MahIO",
       "Name": "PS-000039",
       "Opportunity__c": "006SYNCC1exfUI91T9",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "White",
-      "Annual_Volume__c": 519000
+      "Line_Annual_Volume__c": 519000
     },
     {
       "Id": "a0PSYNXFBEsvW3rwgI",
       "Name": "PS-000040",
       "Opportunity__c": "006SYNzxo2AseJQY78",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "White",
-      "Annual_Volume__c": 396000
+      "Line_Annual_Volume__c": 396000
     },
     {
       "Id": "a0PSYNToyjQpdcgvuK",
       "Name": "PS-000041",
       "Opportunity__c": "006SYNzxo2AseJQY78",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": null,
-      "Annual_Volume__c": 1183000
+      "Line_Annual_Volume__c": 1183000
     },
     {
       "Id": "a0PSYNqwnX8LPCcGj1",
       "Name": "PS-000042",
       "Opportunity__c": "006SYN4hICHTSLQMS2",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Amber",
-      "Annual_Volume__c": 347000
+      "Line_Annual_Volume__c": 347000
     },
     {
       "Id": "a0PSYNdEiItRwZyOBz",
       "Name": "PS-000043",
       "Opportunity__c": "006SYN4hICHTSLQMS2",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Amber",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYN1VpORd6aSmAg",
       "Name": "PS-000044",
       "Opportunity__c": "006SYNNrk9769CIr5x",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNHun8srBQ53Cd",
       "Name": "PS-000045",
       "Opportunity__c": "006SYN2XlHgaP6LTua",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PCR-PET",
+      "Resin_Type__c": "PCR-PET",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNDi643Wsw0OVG",
       "Name": "PS-000046",
       "Opportunity__c": "006SYNuDYepICbCOgW",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "4 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "White",
-      "Annual_Volume__c": 1259000
+      "Line_Annual_Volume__c": 1259000
     },
     {
       "Id": "a0PSYNKqzigyQEIwYS",
       "Name": "PS-000047",
       "Opportunity__c": "006SYNuDYepICbCOgW",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "4 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "White",
-      "Annual_Volume__c": 1682000
+      "Line_Annual_Volume__c": 1682000
     },
     {
       "Id": "a0PSYNxI6QSyi9Sf63",
       "Name": "PS-000048",
       "Opportunity__c": "006SYN3KA4FZGw5eXJ",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": null,
-      "Annual_Volume__c": 1744000
+      "Line_Annual_Volume__c": 1744000
     },
     {
       "Id": "a0PSYNhBLAjWl1TzNo",
       "Name": "PS-000049",
       "Opportunity__c": "006SYNm1TgZz1hd3We",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": null,
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNX0MNuKKCOgQi",
       "Name": "PS-000050",
       "Opportunity__c": "006SYNm1TgZz1hd3We",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 1355000
+      "Line_Annual_Volume__c": 1355000
     },
     {
       "Id": "a0PSYNDcLwd500Kgok",
       "Name": "PS-000051",
       "Opportunity__c": "006SYNzi9QNUnRTBDP",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNCtotrpil8srb",
       "Name": "PS-000052",
       "Opportunity__c": "006SYNUMVXhnrcauZC",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 3654000
+      "Line_Annual_Volume__c": 3654000
     },
     {
       "Id": "a0PSYN0ZKaRXOytCzx",
       "Name": "PS-000053",
       "Opportunity__c": "006SYNUMVXhnrcauZC",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Amber",
-      "Annual_Volume__c": 2877000
+      "Line_Annual_Volume__c": 2877000
     },
     {
       "Id": "a0PSYNpf1SBUC9hyno",
       "Name": "PS-000054",
       "Opportunity__c": "006SYNdXZRccRjhdur",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "LDPE",
+      "Resin_Type__c": "LDPE",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNioZPPOZyo9Gt",
       "Name": "PS-000055",
       "Opportunity__c": "006SYNnfttZu3bKAKX",
       "Product_Type__c": "JAR",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": null,
-      "Annual_Volume__c": 2454000
+      "Line_Annual_Volume__c": 2454000
     },
     {
       "Id": "a0PSYNrHcMi9cucAAw",
       "Name": "PS-000056",
       "Opportunity__c": "006SYNnfttZu3bKAKX",
       "Product_Type__c": "JAR",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNNEDcvUFF0ivM",
       "Name": "PS-000057",
       "Opportunity__c": "006SYNSRQaKUJlPjSg",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 699000
+      "Line_Annual_Volume__c": 699000
     },
     {
       "Id": "a0PSYNRoAKaxaNYOtG",
       "Name": "PS-000058",
       "Opportunity__c": "006SYNMS0MjI2EoYgj",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": null,
-      "Annual_Volume__c": 2271000
+      "Line_Annual_Volume__c": 2271000
     },
     {
       "Id": "a0PSYNbkFinsePQgSB",
       "Name": "PS-000059",
       "Opportunity__c": "006SYNMS0MjI2EoYgj",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNcAT353MLjGOk",
       "Name": "PS-000060",
       "Opportunity__c": "006SYNtTIXDdUAqKqz",
       "Product_Type__c": "JAR",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "4 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYN4Hh1wBpFywKx",
       "Name": "PS-000061",
       "Opportunity__c": "006SYNtTIXDdUAqKqz",
       "Product_Type__c": "JAR",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "4 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": 2720000
+      "Line_Annual_Volume__c": 2720000
     },
     {
       "Id": "a0PSYNgh76r1S6HSPb",
       "Name": "PS-000062",
       "Opportunity__c": "006SYNhweI1yA11mIB",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNabQXGPENQbN2",
       "Name": "PS-000063",
       "Opportunity__c": "006SYNXgaiTiZ3M2H7",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 651000
+      "Line_Annual_Volume__c": 651000
     },
     {
       "Id": "a0PSYNlHZdPdyaalcy",
       "Name": "PS-000064",
       "Opportunity__c": "006SYNXgaiTiZ3M2H7",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": null,
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNjaLAQKyY7ENi",
       "Name": "PS-000065",
       "Opportunity__c": "006SYNzKnX8CCsOsjY",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 3906000
+      "Line_Annual_Volume__c": 3906000
     },
     {
       "Id": "a0PSYNBggzL7TKZgEb",
       "Name": "PS-000066",
       "Opportunity__c": "006SYNBmw7HNIc5Tvh",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": 2750000
+      "Line_Annual_Volume__c": 2750000
     },
     {
       "Id": "a0PSYNEPsIkcNAvrpS",
       "Name": "PS-000067",
       "Opportunity__c": "006SYN5GPOO0F16ceb",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNF7hOPRs3XbNP",
       "Name": "PS-000068",
       "Opportunity__c": "006SYN5GPOO0F16ceb",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Amber",
-      "Annual_Volume__c": 1045000
+      "Line_Annual_Volume__c": 1045000
     },
     {
       "Id": "a0PSYN4hVIoy3zkJew",
       "Name": "PS-000069",
       "Opportunity__c": "006SYNl4yZnugQrZFK",
       "Product_Type__c": "JAR",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": null,
-      "Annual_Volume__c": 1851000
+      "Line_Annual_Volume__c": 1851000
     },
     {
       "Id": "a0PSYNYO28F0p231Lf",
       "Name": "PS-000070",
       "Opportunity__c": "006SYNl4yZnugQrZFK",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNiPE5dpob9gUs",
       "Name": "PS-000071",
       "Opportunity__c": "006SYNgSN6PT7xveVe",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 3923000
+      "Line_Annual_Volume__c": 3923000
     },
     {
       "Id": "a0PSYNCEIA05epCffF",
       "Name": "PS-000072",
       "Opportunity__c": "006SYNgSN6PT7xveVe",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Amber",
-      "Annual_Volume__c": 3786000
+      "Line_Annual_Volume__c": 3786000
     },
     {
       "Id": "a0PSYNpBF0p806iqZQ",
       "Name": "PS-000073",
       "Opportunity__c": "006SYN1DufrWVJeF7O",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "White",
-      "Annual_Volume__c": 2682000
+      "Line_Annual_Volume__c": 2682000
     },
     {
       "Id": "a0PSYNz8Oq97g9OOqx",
       "Name": "PS-000074",
       "Opportunity__c": "006SYN1DufrWVJeF7O",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNJKxYR0FkapI3",
       "Name": "PS-000075",
       "Opportunity__c": "006SYNAVRijH51Mimv",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "128 oz",
       "Neck_Finish__c": "110-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 1123000
+      "Line_Annual_Volume__c": 1123000
     },
     {
       "Id": "a0PSYN6jhepcozBdKP",
       "Name": "PS-000076",
       "Opportunity__c": "006SYNLGTr4levezNA",
       "Product_Type__c": "PREFORM",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Clear",
-      "Annual_Volume__c": 2073000
+      "Line_Annual_Volume__c": 2073000
     },
     {
       "Id": "a0PSYNI0cG6IveQNsM",
       "Name": "PS-000077",
       "Opportunity__c": "006SYN763jpO6pBYmF",
       "Product_Type__c": "JAR",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Natural",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNDnpfdaHOiYox",
       "Name": "PS-000078",
       "Opportunity__c": "006SYNaDJFulUs6rO3",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 3375000
+      "Line_Annual_Volume__c": 3375000
     },
     {
       "Id": "a0PSYNB1r8dmNmnRfB",
       "Name": "PS-000079",
       "Opportunity__c": "006SYNaDJFulUs6rO3",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 1124000
+      "Line_Annual_Volume__c": 1124000
     },
     {
       "Id": "a0PSYN3IeQHrpu8C6O",
       "Name": "PS-000080",
       "Opportunity__c": "006SYN0LjOJW15wE4z",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": null,
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNmd02g744logy",
       "Name": "PS-000081",
       "Opportunity__c": "006SYNesF9d7eqJPAa",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": 368000
+      "Line_Annual_Volume__c": 368000
     },
     {
       "Id": "a0PSYN2cCHCuEQNZc7",
       "Name": "PS-000082",
       "Opportunity__c": "006SYNesF9d7eqJPAa",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": null,
-      "Annual_Volume__c": 1647000
+      "Line_Annual_Volume__c": 1647000
     },
     {
       "Id": "a0PSYNgESfFjBxOltP",
       "Name": "PS-000083",
       "Opportunity__c": "006SYNZi2zhGPdfAhI",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": 2194000
+      "Line_Annual_Volume__c": 2194000
     },
     {
       "Id": "a0PSYNFTUlKokffcQl",
       "Name": "PS-000084",
       "Opportunity__c": "006SYNZi2zhGPdfAhI",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYN54DfWI9W2X2Z",
       "Name": "PS-000085",
       "Opportunity__c": "006SYN3A6n5Sx40Bpd",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "24 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "White",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNhzYzFcNwAJij",
       "Name": "PS-000086",
       "Opportunity__c": "006SYNgGxL69hnz3Ph",
       "Product_Type__c": "JAR",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "White",
-      "Annual_Volume__c": 536000
+      "Line_Annual_Volume__c": 536000
     },
     {
       "Id": "a0PSYN9LUpiRAKeFZz",
       "Name": "PS-000087",
       "Opportunity__c": "006SYNzkA5nj3VAcnX",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Amber",
-      "Annual_Volume__c": 1368000
+      "Line_Annual_Volume__c": 1368000
     },
     {
       "Id": "a0PSYN2eY8WmHHUNFt",
       "Name": "PS-000088",
       "Opportunity__c": "006SYNzkA5nj3VAcnX",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "16 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Natural",
-      "Annual_Volume__c": 368000
+      "Line_Annual_Volume__c": 368000
     },
     {
       "Id": "a0PSYNioojFht4sIMa",
       "Name": "PS-000089",
       "Opportunity__c": "006SYNUmMgPZJl7aZu",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "White",
-      "Annual_Volume__c": 1853000
+      "Line_Annual_Volume__c": 1853000
     },
     {
       "Id": "a0PSYNbfstUiOB80VB",
       "Name": "PS-000090",
       "Opportunity__c": "006SYNUmMgPZJl7aZu",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": null,
-      "Annual_Volume__c": 799000
+      "Line_Annual_Volume__c": 799000
     },
     {
       "Id": "a0PSYNTeb7XVJgHA3z",
       "Name": "PS-000091",
       "Opportunity__c": "006SYNfMonLTM55hMl",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PCR-HDPE",
+      "Resin_Type__c": "PCR-HDPE",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNkTNaj7JYKT3M",
       "Name": "PS-000092",
       "Opportunity__c": "006SYNfMonLTM55hMl",
       "Product_Type__c": "BOTTLE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": null,
-      "Annual_Volume__c": 1018000
+      "Line_Annual_Volume__c": 1018000
     },
     {
       "Id": "a0PSYNes8Xo0eCxRka",
       "Name": "PS-000093",
       "Opportunity__c": "006SYNAk9Jd0yf9OdK",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 1188000
+      "Line_Annual_Volume__c": 1188000
     },
     {
       "Id": "a0PSYNFrAWO95OdKW0",
       "Name": "PS-000094",
       "Opportunity__c": "006SYNAk9Jd0yf9OdK",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "32 oz",
       "Neck_Finish__c": "28-410",
       "Color__c": "Clear",
-      "Annual_Volume__c": 2400000
+      "Line_Annual_Volume__c": 2400000
     },
     {
       "Id": "a0PSYNpM6x1znBFfNM",
       "Name": "PS-000095",
       "Opportunity__c": "006SYNPuYufB9zWoHM",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNvbjBIYrbI0Qz",
       "Name": "PS-000096",
       "Opportunity__c": "006SYNPuYufB9zWoHM",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "2 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": null,
-      "Annual_Volume__c": 2461000
+      "Line_Annual_Volume__c": 2461000
     },
     {
       "Id": "a0PSYNoFzZDX7hV0Kd",
       "Name": "PS-000097",
       "Opportunity__c": "006SYNGmle9IbO5yUO",
       "Product_Type__c": "HANDLEWARE",
-      "Resin__c": "PETG",
+      "Resin_Type__c": "PETG",
       "Capacity__c": "8 oz",
       "Neck_Finish__c": "38-400",
       "Color__c": "Amber",
-      "Annual_Volume__c": 826000
+      "Line_Annual_Volume__c": 826000
     },
     {
       "Id": "a0PSYNePOjXtYugsOH",
       "Name": "PS-000098",
       "Opportunity__c": "006SYN5q8tlEBdezvL",
       "Product_Type__c": "CANISTER_TUB",
-      "Resin__c": "PET",
+      "Resin_Type__c": "PET",
       "Capacity__c": "64 oz",
       "Neck_Finish__c": "89-400",
       "Color__c": "White",
-      "Annual_Volume__c": 1298000
+      "Line_Annual_Volume__c": 1298000
     },
     {
       "Id": "a0PSYNNoqqUR0Jk2kh",
       "Name": "PS-000099",
       "Opportunity__c": "006SYNDYLtJ2QYGpe2",
       "Product_Type__c": "JAR",
-      "Resin__c": "HDPE",
+      "Resin_Type__c": "HDPE",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Clear",
-      "Annual_Volume__c": null
+      "Line_Annual_Volume__c": null
     },
     {
       "Id": "a0PSYNI3Ni2AWosRhi",
       "Name": "PS-000100",
       "Opportunity__c": "006SYNDYLtJ2QYGpe2",
       "Product_Type__c": "JAR",
-      "Resin__c": "PP",
+      "Resin_Type__c": "PP",
       "Capacity__c": "12 oz",
       "Neck_Finish__c": "120 DC",
       "Color__c": "Amber",
-      "Annual_Volume__c": 3427000
+      "Line_Annual_Volume__c": 3427000
     }
   ],
   "deleted": [

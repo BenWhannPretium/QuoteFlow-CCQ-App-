@@ -141,6 +141,13 @@
       "when": 1792698092925,
       "tag": "0019_b15_pricing_history",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792848563363,
+      "tag": "0020_sf_stage_names",
+      "breakpoints": true
     }
   ]
 }

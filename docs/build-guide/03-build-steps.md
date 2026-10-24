@@ -181,13 +181,16 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] live search endpoint for the intake picker
   - [x] ERF number + quote source captured
   - [x] `integration_run` logged
-  - [ ] works against the org: **not yet verified.** 2026-10-23: going straight to the **production** org (IT + D&A approved production data, per Ben; approval to be recorded under D-23). Rachel Dew set up an External Client App with the client credentials flow. Next: store the consumer secret in Key Vault, set `SF_AUTH_FLOW=client_credentials` and the My Domain `SF_LOGIN_URL`, then run **Sync now** (06 §Operate).
+  - [x] works against the org: **verified 2026-10-24 on the production org** (IT + D&A approved production data, per Ben; written approval to be recorded under D-23). Client credentials flow (External Client App by Rachel Dew). The test database was recreated empty (synthetic data gone, `SEED_SYNTHETIC_DATA=false`), then the first sync fetched and inserted **31,947** opportunities with 0 errors in 51 s; the 15-minute schedule is on. Every opportunity is kept, closed history included (L-7).
 - **Prompt:** `prompts/B-06-salesforce-reader.md`
 - **Built 2026-10-15. Notes and deviations:**
-  - **Custom-field API names confirmed at M3: none yet.** Every custom name in `packages/integrations/src/salesforce/fieldMap.ts` is a placeholder marked `TODO(M3)`, for Zac Cairns / Graham Parle to confirm:
-    - Opportunity: `ERF_Number__c`, `Quote_Source__c`
-    - the product spec object `Opportunity_Product_Specification__c`, with the fields `Opportunity__c`, `Product_Type__c`, `Resin__c`, `Capacity__c`, `Neck_Finish__c`, `Color__c` and `Annual_Volume__c`
-    - ship-to: the standard Account `Shipping*` address for now
+  - **Custom-field API names (2026-10-24):** read from the production org with `describe()`, so the names are confirmed; what each field *means* is still for Zac Cairns / Graham Parle (`TODO(M3)` in `fieldMap.ts`). Fill rates are of 31,947 opportunities (3,608 open):
+    - Opportunity: `ERF_Number__c` (47 % filled; mixed ERF/SPR/STOCK values, as its label "ERF17-001/SPRxx-xxx/STOCK/CBM/PATRICK" suggests) and **`Quote_Type__c`**, labelled "Quote Source" (was the placeholder `Quote_Source__c`; picklist SPR, ERF, Stock Bottle Price List, Price List; 17 % filled).
+    - The product spec object is **`Opportunity_Product_Specifications__c`** (plural; 17,919 records). Fields: `Opportunity__c`, `Product_Type__c`, `Capacity__c`, `Neck_Finish__c`, `Color__c` as placeholdered, plus **`Resin_Type__c`** (was `Resin__c`) and **`Line_Annual_Volume__c`** (was `Annual_Volume__c`).
+    - Ship-to (D-18): the Account `Shipping*` address stays the source, but only 1,714 of 6,199 accounts have one. The org also has the free-text `Ship_to_Locations__c` on Opportunity (55 %) and `Ship_To_City__c` / `Ship_To_State__c` on each spec. Not mapped yet.
+    - Candidates for intake pre-fill later: Opportunity `Neck_Finish__c` (39 %), `Container_Capacity__c` (39 %), `Material__c` (59 %), `Annual_Volume__c` (99 %), `ParentMarket__c` "End Use Market" (96 %).
+    - **Never mapped:** the org's price, cost, margin, revenue and capital fields (Gross Margin, Piece Part Price, Capital Estimate, Cost/Margin $/M on specs, …). The integration user can read them; `fieldMap.test.ts` fails if one is mapped (L-6).
+    - **Stages:** the org has 14 active stages (older and newer sets). Won = "Closed Won - Product Shipping" (a hyphen; the seed had an en dash, so the mismatch flag never matched a win), lost = "Closed Lost". `sf_stage_map` is reseeded with all 14 (hints provisional); migration 0020 renames the en-dash row.
   - The live reader describes each object once per session. If a mapped custom field is missing from the org, it drops the field from the SOQL and logs its name (never data), so a wrong placeholder maps to `null` instead of breaking every query. The live contract test (`contract.live.test.ts`, skipped unless `SF_LIVE_TEST=1`) fails until every mapped field resolves. Run it after the crosswalk lands.
   - **Read-only is enforced three ways:**
     - the reader interface has no write methods

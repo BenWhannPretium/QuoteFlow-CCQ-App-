@@ -9,7 +9,7 @@ export const SF_STAGE_COUNTS: [stage: string, count: number][] = [
   ['Final Review', 2],
   ['PO(s) in hand', 5],
   ['Verbal Award', 1],
-  ['Closed Won – Product Shipping', 1],
+  ['Closed Won - Product Shipping', 1],
   ['Closed Lost', 2],
 ];
 

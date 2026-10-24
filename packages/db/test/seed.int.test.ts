@@ -96,7 +96,8 @@ describe('config seeds', () => {
     // Provisional PRD weights (D-19) that sum to 1; the row parses back into the domain model.
     expect(model!.attributes.reduce((n, a) => n + a.weight, 0)).toBeCloseTo(1, 6);
     expect(await getSetting(db, 'qualification_exception_note_outcomes')).toEqual(['G1:advance']);
-    expect(await count('sf_stage_map')).toBe(8);
+    // The org's 14 active OpportunityStage rows (read 2026-10-24).
+    expect(await count('sf_stage_map')).toBe(14);
     const [lostOther] = await q<{ requires_note: boolean }>(
       sql`select requires_note from reason_code where context = 'lost' and code = 'other'`,
     );
