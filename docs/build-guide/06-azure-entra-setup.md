@@ -586,6 +586,7 @@ Notes:
 ## 6. Deviations from the plan (record in `03` under B-20)
 
 1. **The test environment is built with this CLI runbook, not Bicep.** It's faster to do live with IT. Bicep for production (private endpoint, VNet, staging slot) is still open in B-20.
+   **Update 2026-10-26:** the Bicep now exists in [`infra/`](../../infra/README.md) (both envs, including the Fabric mirroring prerequisites). It is not yet applied: its first run against `rg-ccq-test` is a what-if reviewed with IT for drift against what this runbook built. Read `infra/README.md` before changing test by hand, because an apply replaces the app settings with the parameter file's.
 2. **Postgres uses public access with "Allow Azure services"** in test. Production uses a private endpoint (M8 decision).
 3. **The app connects as the Postgres admin login.** It switches to the `ccq_app` role for every request (RLS applies), but a separate low-privilege login is a B-21 hardening item.
 4. **Attachments go to Blob storage, and email dispatch is off**, until SharePoint and the mailbox are granted (M7).

@@ -365,8 +365,8 @@ Why mirroring and not the alternatives:
 | DDL on a mirrored table (add/alter column) is not supported | `deploy.yml` calls the Fabric REST API to stop mirroring, migrate, start mirroring (full reseed, minutes at our volume). |
 | Source permissions are not propagated | Fabric security is rebuilt: workspace limited to D&A + CCQ Admin; commercial columns (§3.3) only through the commercial `SG-CCQ-*` groups; KAM scope as semantic-model RLS. |
 | The mirroring role must own the tables; RLS is `FORCE`d | A dedicated `ccq_fabric_mirror` Entra role; the spike proves the snapshot copies every row (count tie-out). |
-| Private endpoint needs a gateway | Prod: VNet data gateway on a delegated subnet. Test: public access + "Allow Azure services", direct. |
-| Server needs SAMI, `wal_level=logical`, `azure_cdc`, `max_worker_processes` + 3 (restart) | Set in Bicep and runbook `06`. |
+| Private endpoint needs a gateway | Prod: VNet data gateway on a delegated subnet (`snet-fabric-gw` in `infra/modules/network.bicep`). Test: public access + "Allow Azure services", direct. |
+| Server needs SAMI, `wal_level=logical`, `azure_cdc`, `max_worker_processes` + 3 (restart) | Set in Bicep (`infra/modules/postgres.bicep`; `max_worker_processes = 16`, as `azure_cdc` checks for at least 13; written 2026-10-26, not yet applied) and runbook `06`. The restart is scheduled with IT. |
 | PITR restore or major-version upgrade breaks mirroring; the mirrored item's owner can't be changed | Runbook steps; the item is created by a D&A service principal, not a person. |
 | Mirroring stops if the capacity is paused | D&A keeps the capacity running; an hourly status check writes `integration_run` (source `fabric`) and alerts. |
 
