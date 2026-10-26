@@ -1,0 +1,13 @@
+# Gitleaks config for the "Secret scan (gitleaks)" CI job. Keeps every default rule.
+[extend]
+useDefault = true
+
+# Azure built-in role definition ids are fixed, public GUIDs (the same in every tenant), not secrets.
+# generic-api-key flags the ones whose names contain "Secrets" (infra/modules/rbac.bicep).
+# Scoped to Bicep under infra/ AND a `Name: '<guid>'` line, so a real secret elsewhere still fails.
+[[allowlists]]
+description = "Azure built-in role definition ids in Bicep"
+condition = "AND"
+paths = ['''^infra/.+\.bicep$''']
+regexTarget = "line"
+regexes = ['''\b[A-Za-z]+:\s*'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'\s*$''']
