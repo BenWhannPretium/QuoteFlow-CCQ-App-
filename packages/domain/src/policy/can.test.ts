@@ -87,6 +87,18 @@ const EXPECTED: Record<string, Role[]> = {
   ],
   'config.read': ['Leadership', 'Admin'],
   'config.manage': ['Admin'],
+  'feedback.submit': [
+    'KAM',
+    'SalesLeader',
+    'EngLead',
+    'Engineer',
+    'Pricing',
+    'PricingLead',
+    'Approver',
+    'Leadership',
+    'Admin',
+  ],
+  'feedback.triage': ['Admin'],
 };
 
 describe('permission matrix', () => {

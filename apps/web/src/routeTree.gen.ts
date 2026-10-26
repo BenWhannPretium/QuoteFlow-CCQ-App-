@@ -21,6 +21,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminSplatRouteImport } from './routes/admin/$'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminDecisionLogRouteImport } from './routes/admin/decision-log'
+import { Route as AdminFeedbackRouteImport } from './routes/admin/feedback'
 import { Route as AdminIntegrationsRouteImport } from './routes/admin/integrations'
 import { Route as AdminOverrideLogRouteImport } from './routes/admin/override-log'
 import { Route as AdminReasonCodesRouteImport } from './routes/admin/reason-codes'
@@ -99,6 +100,11 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
 const AdminDecisionLogRoute = AdminDecisionLogRouteImport.update({
   id: '/decision-log',
   path: '/decision-log',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminFeedbackRoute = AdminFeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/decision-log': typeof AdminDecisionLogRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/reason-codes': typeof AdminReasonCodesRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByTo {
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/decision-log': typeof AdminDecisionLogRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/reason-codes': typeof AdminReasonCodesRoute
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/admin/$': typeof AdminSplatRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/decision-log': typeof AdminDecisionLogRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/integrations': typeof AdminIntegrationsRoute
   '/admin/override-log': typeof AdminOverrideLogRoute
   '/admin/reason-codes': typeof AdminReasonCodesRoute
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
     | '/admin/$'
     | '/admin/audit'
     | '/admin/decision-log'
+    | '/admin/feedback'
     | '/admin/integrations'
     | '/admin/override-log'
     | '/admin/reason-codes'
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
     | '/admin/$'
     | '/admin/audit'
     | '/admin/decision-log'
+    | '/admin/feedback'
     | '/admin/integrations'
     | '/admin/override-log'
     | '/admin/reason-codes'
@@ -375,6 +386,7 @@ export interface FileRouteTypes {
     | '/admin/$'
     | '/admin/audit'
     | '/admin/decision-log'
+    | '/admin/feedback'
     | '/admin/integrations'
     | '/admin/override-log'
     | '/admin/reason-codes'
@@ -499,6 +511,13 @@ declare module '@tanstack/react-router' {
       path: '/decision-log'
       fullPath: '/admin/decision-log'
       preLoaderRoute: typeof AdminDecisionLogRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/feedback': {
+      id: '/admin/feedback'
+      path: '/feedback'
+      fullPath: '/admin/feedback'
+      preLoaderRoute: typeof AdminFeedbackRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/integrations': {
@@ -641,6 +660,7 @@ interface AdminRouteRouteChildren {
   AdminSplatRoute: typeof AdminSplatRoute
   AdminAuditRoute: typeof AdminAuditRoute
   AdminDecisionLogRoute: typeof AdminDecisionLogRoute
+  AdminFeedbackRoute: typeof AdminFeedbackRoute
   AdminIntegrationsRoute: typeof AdminIntegrationsRoute
   AdminOverrideLogRoute: typeof AdminOverrideLogRoute
   AdminReasonCodesRoute: typeof AdminReasonCodesRoute
@@ -660,6 +680,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSplatRoute: AdminSplatRoute,
   AdminAuditRoute: AdminAuditRoute,
   AdminDecisionLogRoute: AdminDecisionLogRoute,
+  AdminFeedbackRoute: AdminFeedbackRoute,
   AdminIntegrationsRoute: AdminIntegrationsRoute,
   AdminOverrideLogRoute: AdminOverrideLogRoute,
   AdminReasonCodesRoute: AdminReasonCodesRoute,

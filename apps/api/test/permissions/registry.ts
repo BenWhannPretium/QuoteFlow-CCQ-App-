@@ -18,6 +18,8 @@ const SAMPLE_NOTIFICATION = '019a0000-0000-7000-8000-0000000000b8';
 const SAMPLE_ATTACHMENT = '019a0000-0000-7000-8000-0000000000a7';
 /** A config row / user id nothing uses, so allowed roles get 404 (not 403). */
 const SAMPLE_CONFIG_ID = '019a0000-0000-7000-8000-0000000000c0';
+/** A feedback id nothing uses, so Admin gets 404 (not 403). */
+const SAMPLE_FEEDBACK = '019a0000-0000-7000-8000-0000000000f0';
 
 export interface RegisteredRoute {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -562,5 +564,26 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: '/api/v1/dashboards/Leadership',
     permission: 'quote.read',
     requires: 'analytics.read',
+  },
+  // B-23 "Report an issue" (every MVP role files a real report here) and Admin → Feedback triage.
+  {
+    method: 'POST',
+    route: '/api/v1/feedback',
+    permission: 'feedback.submit',
+    sampleBody: { type: 'bug', severity: 3, description: 'Permission matrix sample', route: '/' },
+  },
+  { method: 'GET', route: '/api/v1/admin/feedback', permission: 'feedback.triage' },
+  {
+    method: 'GET',
+    route: '/api/v1/admin/feedback/:id/screenshot',
+    url: `/api/v1/admin/feedback/${SAMPLE_FEEDBACK}/screenshot`,
+    permission: 'feedback.triage',
+  },
+  {
+    method: 'PATCH',
+    route: '/api/v1/admin/feedback/:id',
+    url: `/api/v1/admin/feedback/${SAMPLE_FEEDBACK}`,
+    permission: 'feedback.triage',
+    sampleBody: { status: 'triaged' },
   },
 ];

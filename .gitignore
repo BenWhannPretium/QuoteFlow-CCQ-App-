@@ -37,3 +37,6 @@ Thumbs.db
 # Only synthetic test fixtures named *.synthetic.xlsx are allowed.
 *.xlsx
 !*.synthetic.xlsx
+
+# B-23: generated from the feedback table; report text can name customers (rule 8). Share on SharePoint.
+docs/uat/defect-log.md

@@ -12,7 +12,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
 - **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history)
-- **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`notification`](#notification)
+- **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`feedback`](#feedback), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
 ## Identity and access (`schema/identity.ts`)
@@ -903,6 +903,39 @@ B-27: Fabric-mirrorable JSON text copies of audit_event’s array and jsonb colu
 | `actor_roles_json` | text | yes |  |  | audit_event.actor_roles as a JSON array. | CCQ (system) |
 | `before_json` | text | yes |  |  | audit_event.before as JSON text. | CCQ (system) |
 | `after_json` | text | yes |  |  | audit_event.after as JSON text. | CCQ (system) |
+
+### feedback
+
+B-23 in-app feedback and UAT defects ("Report an issue").
+
+**Owner:** Reporter (UAT cohort); triage by Admin
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `reporter_id` | uuid | no |  | app_user.id | Who reported it. | Reporter (UAT cohort); triage by Admin |
+| `reporter_roles` | text | no |  |  | Their CCQ roles at the time, comma-separated (text, not an array: Fabric mirrors text). | Reporter (UAT cohort); triage by Admin |
+| `type` | text | no |  |  | bug \| confusing \| missing \| idea. | Reporter (UAT cohort); triage by Admin |
+| `severity` | integer | no |  |  | 1 blocks a core flow · 2 wrong data or permission · 3 usability · 4 cosmetic (as reported; Admin may change it). | Reporter (UAT cohort); triage by Admin |
+| `description` | text | no |  |  | What happened, in the reporter’s words. | Reporter (UAT cohort); triage by Admin |
+| `route` | text | no |  |  | App path the report was raised from (no query string). | Reporter (UAT cohort); triage by Admin |
+| `quote_number` | text | yes |  |  | CCQ quote number in context, if any. | Reporter (UAT cohort); triage by Admin |
+| `app_version` | text | yes |  |  | Build (git SHA) the reporter was running. | Reporter (UAT cohort); triage by Admin |
+| `user_agent` | text | yes |  |  | Browser user agent. | Reporter (UAT cohort); triage by Admin |
+| `viewport` | text | yes |  |  | Window size, e.g. 390x844. | Reporter (UAT cohort); triage by Admin |
+| `screenshot` | bytea | yes |  |  | Optional screenshot (≤ 2 MB). May show commercial figures: Admin-only, like the row. | Reporter (UAT cohort); triage by Admin |
+| `screenshot_type` | text | yes |  |  | image/png \| image/jpeg \| image/webp. | Reporter (UAT cohort); triage by Admin |
+| `status` | text | no | "new" |  | new \| triaged \| fixing \| fixed \| wont_fix. | Admin |
+| `owner_id` | uuid | yes |  | app_user.id | Who is fixing it. | Admin |
+| `github_issue_url` | text | yes |  |  | Linked GitHub issue, if one was raised. | Admin |
+| `triage_note` | text | yes |  |  | Triage notes. | Admin |
+
+**Checks:** `feedback_type_check`, `feedback_status_check`, `feedback_severity_check`, `feedback_screenshot_type_check`
+
+**Indexes:** `feedback_status_severity_idx`
 
 ### notification
 

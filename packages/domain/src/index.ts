@@ -11,6 +11,7 @@ export * from './comments';
 export * from './config-admin';
 export * from './engineering';
 export * from './errors';
+export * from './feedback';
 export * from './final-review';
 export * from './intake';
 export * from './notifications';

@@ -150,6 +150,8 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 | terms.edit (B-26: terms check, Legal review record) | ✔ (own) | ✔ | | | ✔ | ✔ | | | |
 | gate.G6.decide (B-26: Commit & Hand Off) | ✔ (own) | ✔ | | | | | | | |
 | quote.escalate (B-26: raise an escalation) | ✔ (own) | ✔ | ✔ | ✔ (assigned) | ✔ | ✔ | ✔ | | ✔ |
+| feedback.submit (B-23: "Report an issue") | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| feedback.triage (B-23: Admin → Feedback; reports can show commercial figures) | | | | | | | | | ✔ |
 
 > The G1 decider (D-06), the override approver (blueprint gap) and the Final Review approver (D-10) are **open decisions**. The matrix is config-backed (`role_permission` table seeded from `matrix.ts`), so changing who approves needs no code change.
 

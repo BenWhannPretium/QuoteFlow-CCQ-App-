@@ -24,3 +24,4 @@ export * from './scoring';
 export * from './timeline';
 export * from './transitions';
 export * from './users';
+export * from './feedback';
