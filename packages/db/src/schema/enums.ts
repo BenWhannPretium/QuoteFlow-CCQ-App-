@@ -20,7 +20,8 @@ export const ACCEPTANCE_EVIDENCE = ['verbal', 'po', 'loi', 'contract'] as const;
 /** B-26: the CER status on the hand-off (G6a) and the capacity owner's G2 sign-off. */
 export { CAPACITY_SIGNOFF_STATUSES, CER_STATUSES } from '@ccq/domain';
 export const NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
-export const INTEGRATION_SOURCES = ['salesforce', 'pricing', 'sharepoint'] as const;
+/** B-27: `fabric` is the hourly Fabric mirroring status check. */
+export const INTEGRATION_SOURCES = ['salesforce', 'pricing', 'sharepoint', 'fabric'] as const;
 export const INTEGRATION_STATUSES = ['running', 'succeeded', 'failed', 'partial'] as const;
 /** B-15 (revised): the legacy pricing-app export's record kinds and derived statuses. */
 export const PRICING_HISTORY_KINDS = ['erf', 'bpr', 'spr'] as const;

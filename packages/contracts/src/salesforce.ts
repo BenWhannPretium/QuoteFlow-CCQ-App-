@@ -168,7 +168,7 @@ export const IntegrationRun = z.object({
 export type IntegrationRun = z.infer<typeof IntegrationRun>;
 
 export const IntegrationRunsQuery = z.object({
-  source: z.enum(['salesforce', 'pricing', 'sharepoint']).optional(),
+  source: z.enum(['salesforce', 'pricing', 'sharepoint', 'fabric']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 

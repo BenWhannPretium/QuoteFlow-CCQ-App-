@@ -643,15 +643,22 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - D&A engineer to create the mirrored item and the Fabric security
   - IT to restart Postgres with the mirroring parameters and (prod) build the VNet data gateway
 - **Done when:**
-  - [ ] MF held; D-FB1 to D-FB5 recorded in `04`
-  - [ ] `jsonb` columns have trigger-maintained `_json` text companions (backfilled); a CI guard test blocks unsupported column types
+  - [ ] MF held; D-FB1 to D-FB5 recorded in `04` (D-FB1 ✅ 2026-10-26: Brennan Paul accepted mirroring)
+  - [x] `jsonb` columns have trigger-maintained `_json` text companions (backfilled); a CI guard test blocks unsupported column types (2026-10-26, migration 0022; see notes)
   - [ ] test Postgres on General Purpose with the mirroring parameters (Bicep + runbook `06`)
   - [ ] test mirror `Running`; every table ties out by row count; latency measured
   - [ ] commercial columns hidden from non-commercial readers in Fabric (tested both ways)
-  - [ ] `deploy.yml` stops/starts mirroring around migrations (Fabric REST, OIDC deploy identity); exercised once on test
-  - [ ] hourly status check writes `integration_run` (`fabric`) and alerts on failure; shown in Admin → Integrations
-  - [ ] T-SQL twins of the analytics views handed to D&A
+  - [ ] `deploy.yml` stops/starts mirroring around migrations (Fabric REST, OIDC deploy identity); exercised once on test (**built** 2026-10-26; exercise once the test mirror exists)
+  - [x] hourly status check writes `integration_run` (`fabric`) and alerts on failure; shown in Admin → Integrations (2026-10-26; turns on when the `FABRIC_*` ids are set)
+  - [ ] T-SQL twins of the analytics views handed to D&A (**written** 2026-10-26 in `packages/db/sql/fabric/`; untested until the test mirror exists)
   - [ ] prod mirror running via the VNet data gateway (or deferred per D-FB5); CCQ ↔ Fabric tie-out added to **U5**
+- **Notes (2026-10-26, code side done ahead of MF):**
+  - **Deviation: arrays too.** Microsoft's list of mirrored types is an allowlist, and Postgres arrays aren't on it. So the 8 `text[]`/`uuid[]` columns got companions as well as the 27 `jsonb` columns (JSON arrays, e.g. `["KAM","Admin"]`).
+  - **Deviation: companions are not in Drizzle.** The prompt suggested Drizzle columns with a comment. They're hand-written in migration 0022 instead, with `COMMENT ON COLUMN`. A `_json` string would carry keys that `redact` strips by name (e.g. the capacity-evidence numbers), so keeping them out of the app's selects is the safer default. The registry is `packages/db/src/fabric.ts`; the data dictionary doesn't list them.
+  - **Deviation: audit_event uses a side table.** Backfilling companion columns on `audit_event` would have updated audit rows (rule 3). Its copies live in the insert-only `audit_event_fabric` (AFTER INSERT trigger, append-only guard, RLS; the app role can only insert). D&A must mirror it (D-FB2).
+  - **Unbounded numerics.** Fabric turns an unbounded `numeric` into Decimal(38, 0). The `pricing_history_record` estimates are now `numeric(38, 4)`, and the importer drops values ≥ 1e30 (the raw value stays in `fields`).
+  - **Guards.** `fabricCompat.test.ts` covers the Drizzle schema (allowlist, registry, primary keys). `test/fabric.int.test.ts` covers the migrated database: every column is mirrorable or has a companion, every seeded companion is correct, triggers follow inserts and updates, and the audit side table is complete and append-only. `fabricTwins.test.ts` checks that every analytics view has its T-SQL twin.
+  - **Still open for the spike:** the `ccq_fabric_mirror` role and table ownership vs `FORCE` RLS; whether the `COMMENT ON` statements and view re-creation run at every start count as DDL to mirroring; Bicep (no `infra/` yet, B-20).
 - **Prompt:** `prompts/B-27-fabric-data-landing.md`
 
 ---

@@ -12,7 +12,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
 - **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history)
-- **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`notification`](#notification)
+- **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
 ## Identity and access (`schema/identity.ts`)
@@ -891,6 +891,19 @@ Append-only usage and change audit (F-12). UPDATE/DELETE revoked from ccq_app an
 
 **Indexes:** `audit_event_quote_at_idx`, `audit_event_actor_at_idx`, `audit_event_at_idx`
 
+### audit_event_fabric
+
+B-27: Fabric-mirrorable JSON text copies of audit_event’s array and jsonb columns, written by trigger. Append-only like audit_event; not read by the app.
+
+**Owner:** CCQ (system)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `audit_event_id` | uuid | no |  | audit_event.id | The audit_event row these copies belong to. | CCQ (system) |
+| `actor_roles_json` | text | yes |  |  | audit_event.actor_roles as a JSON array. | CCQ (system) |
+| `before_json` | text | yes |  |  | audit_event.before as JSON text. | CCQ (system) |
+| `after_json` | text | yes |  |  | audit_event.after as JSON text. | CCQ (system) |
+
 ### notification
 
 In-app notifications (channel in_app) and the email outbox (channel email, sent by the dispatcher with retries).
@@ -936,7 +949,7 @@ One row per sync job (Salesforce) or pricing-history import (B-15); failures ale
 | `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
-| `source` | text | no |  |  | salesforce \| pricing \| sharepoint. | CCQ (system) |
+| `source` | text | no |  |  | salesforce \| pricing \| sharepoint \| fabric (B-27 mirroring status). | CCQ (system) |
 | `started_at` | timestamp with time zone | no |  |  | Run start. | CCQ (system) |
 | `finished_at` | timestamp with time zone | yes |  |  | Run end; null while running. | CCQ (system) |
 | `status` | text | no | "running" |  | running \| succeeded \| failed \| partial. | CCQ (system) |
@@ -978,8 +991,8 @@ B-15: read-only history from the retired pricing app (ERF, BPR, SPR), imported b
 | `plant_code` | text | yes |  |  | Plant_Code. | Pricing (legacy pricing-app export) |
 | `plant_name` | text | yes |  |  | Plant_Name. | Pricing (legacy pricing-app export) |
 | `submitted_on` | date | yes |  |  | Sales_Submitted_Date, else Created_Date. | Pricing (legacy pricing-app export) |
-| `est_revenue_usd` | numeric | yes |  |  | Est_Revenue / Est_Annual_Revenue; null when blank or 0 (the legacy app wrote 0 for blank). Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
-| `est_volume` | numeric | yes |  |  | Est_Volume / Est_Annual_Unit_Volume; null when blank or 0. Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
+| `est_revenue_usd` | numeric(38, 4) | yes |  |  | Est_Revenue / Est_Annual_Revenue; null when blank or 0 (the legacy app wrote 0 for blank). Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
+| `est_volume` | numeric(38, 4) | yes |  |  | Est_Volume / Est_Annual_Unit_Volume; null when blank or 0. Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
 | `comments` | text | yes |  |  | Comments (free text, kept for context). | Pricing (legacy pricing-app export) |
 | `fields` | jsonb | no | {} |  | Every non-empty column of the export row, free text included (decision 2026-10-22). Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
 | `import_run_id` | uuid | yes |  | integration_run.id | The integration_run of the import that last wrote the row. | CCQ (system) |

@@ -81,7 +81,12 @@ Sources of truth for requirements (read the relevant one before building a featu
 7. **No customer-account creation at intake** (DEC-27). Customers are flagged as `existing` or `not_yet_established`.
 8. **Use sample or masked data until IT and D&A approve production data.** Never commit real customer data, secrets or tokens. `.env` files are git-ignored. Locally, use the synthetic data generator.
 9. **AI never decides.** Any assist feature (Ranger, P1) is advisory, with a human decision recorded.
-10. **Keep the schema mirror-safe for Fabric** (L-8). Fabric mirroring drops `json`/`jsonb`, `inet`, `interval`, range, `tsvector` and geometric columns, and `numeric` over 38 digits. A new `jsonb` column gets a trigger-maintained `<column>_json text` companion. Don't use the other types; use `text`. Don't partition tables. Don't `TRUNCATE` app tables. Analytics views also need a T-SQL twin in `packages/db/sql/fabric/`. The CI guard test (B-27) enforces the column rules.
+10. **Keep the schema mirror-safe for Fabric** (L-8). Fabric mirroring copies only an allowlist of types. It drops `json`/`jsonb`, **arrays**, `inet`, `interval`, range, `tsvector` and geometric columns, and an unbounded `numeric` loses its decimals. So:
+    - A new `jsonb` or array column gets a `<column>_json text` companion: register it in `packages/db/src/fabric.ts`, then add the column, the `zz_fabric_json` trigger argument and a backfill in the migration. Companions stay out of the Drizzle schema. Append-only tables use a side table (`audit_event_fabric`).
+    - Give every `numeric` a precision of 38 or less. Don't use the other types; use `text`.
+    - Don't partition tables. Don't `TRUNCATE` app tables.
+    - Every analytics view needs a T-SQL twin in `packages/db/sql/fabric/`.
+    - The guard tests (`fabricCompat.test.ts`, `fabricTwins.test.ts`, `test/fabric.int.test.ts`) enforce all of this in CI.
 11. Keep `docs/build-guide/` current. When a step finishes, tick its acceptance checklist in `03-build-steps.md` and note any deviations.
 
 ## Conventions
