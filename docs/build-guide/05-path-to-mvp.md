@@ -19,7 +19,7 @@
 | SharePoint attachments | 🟡 Built; Blob or local store until M7 | Site, library and `Sites.Selected` permission |
 | Email notifications | 🟡 Built; in-app works, email goes to a fake | Shared mailbox + `Mail.Send` permission |
 | Fabric data landing (L-8: all new QuoteFlow data stored in the Fabric tenant; B-27) | 🟡 Mirroring plan **accepted by Brennan Paul (2026-10-26)**. Code side built: mirror-safe schema + CI guards, analytics T-SQL twins, deploy stop/start, hourly health check | MF with Brennan Paul + IT: workspace, capacity, test Postgres off Burstable, mirroring role; then create the test mirror and tie out |
-| Security hardening (B-21) | 🟡 Route × role matrix over all 115 routes, RLS, redaction, axe and 390 px tests, CSP, upload limits and a per-user rate limit in place; health alerts in review; k6 load test built (local p95 298 ms) | Load test against test; M8 security review |
+| Security hardening (B-21) | 🟡 Route × role matrix over all 115 routes, RLS, redaction, axe and 390 px tests, CSP, upload limits and a per-user rate limit in place; health alerts in the Bicep (not yet applied); k6 load test built (local p95 298 ms) | Load test against test; M8 security review |
 | Prod data load (B-22) | 🔴 Not started | Prod environment from IT; written prod-data approval (D-23) |
 | UAT pack (B-23) | 🟡 **Built** 2026-10-26: "Report an issue", Admin → Feedback, `pnpm uat:defects`, 8 role scripts and quick-starts in `docs/uat/` | Bailey's review by Fri Nov 6; real opportunities in the scripts |
 | Gate package (B-24) | 🟡 Drafts in `docs/gate/` (runbook, traceability, release notes, backlog, test results) | Update at sign-off; Bailey reconciles traceability against PRD v1 |
