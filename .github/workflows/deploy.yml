@@ -10,6 +10,9 @@ name: Deploy (test)
 #   AZURE_SUBSCRIPTION_ID  subscription holding rg-ccq-test
 #   AZURE_WEBAPP_NAME      the test web app name
 #   AZURE_RESOURCE_GROUP   rg-ccq-test
+#   FABRIC_WORKSPACE_ID    B-27: D&A's Fabric workspace for test (empty = no mirror yet, steps skip)
+#   FABRIC_MIRRORED_DB_ID  B-27: the mirrored database item in it
+# B-27: the deploy identity must be a Contributor on that Fabric workspace (stop/start mirroring).
 # The identity's federated credential trusts subject repo:<owner>/<repo>:environment:test, so the job
 # must keep `environment: test`. If the repo moves to the Pretium org, add a credential for the new
 # name. Runbook: docs/build-guide/06-azure-entra-setup.md.
@@ -51,6 +54,8 @@ jobs:
         with:
           # workflow_run: the commit CI tested, not whatever main is now.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # B-27: the full history, to diff migrations against the commit test is running now.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -79,6 +84,24 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      # B-27 (L-8): Fabric mirroring doesn't survive DDL on a mirrored table, and the API migrates when
+      # it starts. If this deploy brings migrations, stop mirroring first; it restarts (and reseeds)
+      # after the smoke test, or in the always() step below if the deploy fails.
+      - name: Fabric mirroring (stop if migrations change)
+        id: fabric_stop
+        if: vars.FABRIC_WORKSPACE_ID != '' && vars.FABRIC_MIRRORED_DB_ID != ''
+        env:
+          FABRIC_WORKSPACE_ID: ${{ vars.FABRIC_WORKSPACE_ID }}
+          FABRIC_MIRRORED_DB_ID: ${{ vars.FABRIC_MIRRORED_DB_ID }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          url="https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/v1/health"
+          deployed="$(curl -fsS --max-time 10 "$url" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)"
+          if scripts/fabric-mirroring.sh migrations-changed "$deployed" "$SHA"; then
+            scripts/fabric-mirroring.sh stop
+            echo "stopped=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy
         run: |
           az webapp deploy \
@@ -104,3 +127,12 @@ jobs:
           done
           echo "the new build did not report healthy in 10 minutes: check Log stream in the portal" >&2
           exit 1
+
+      - name: Fabric mirroring (start and wait until Running)
+        if: always() && steps.fabric_stop.outputs.stopped == 'true'
+        env:
+          FABRIC_WORKSPACE_ID: ${{ vars.FABRIC_WORKSPACE_ID }}
+          FABRIC_MIRRORED_DB_ID: ${{ vars.FABRIC_MIRRORED_DB_ID }}
+        run: |
+          scripts/fabric-mirroring.sh start
+          scripts/fabric-mirroring.sh wait 900

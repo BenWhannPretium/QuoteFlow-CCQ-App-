@@ -18,7 +18,7 @@
 | Pricing app read | 🟡 Built against a fake; both routes (SQL / Fabric) ready | Route choice, view and column names, read access |
 | SharePoint attachments | 🟡 Built; stores files locally for now | Site, library and `Sites.Selected` permission |
 | Email notifications | 🟡 Built; in-app works, email goes to a fake | Shared mailbox + `Mail.Send` permission |
-| Fabric data landing (L-8: all new QuoteFlow data stored in the Fabric tenant; B-27) | 🔴 **New 2026-10-24**; planned (mirroring) | MF with Brennan Paul + IT: workspace, capacity, test Postgres off Burstable; then schema prep (code) |
+| Fabric data landing (L-8: all new QuoteFlow data stored in the Fabric tenant; B-27) | 🟡 Mirroring plan **accepted by Brennan Paul (2026-10-26)**. Code side built: mirror-safe schema + CI guards, analytics T-SQL twins, deploy stop/start, hourly health check | MF with Brennan Paul + IT: workspace, capacity, test Postgres off Burstable, mirroring role; then create the test mirror and tie out |
 | Security hardening, prod data load, UAT pack, gate package (B-21 to B-24) | 🔴 Not started | Mostly build work, plus the security review and prod-data approval |
 
 **Bottom line:** nothing a user sees is blocked on code. Every remaining item is blocked on a person, an access grant or a decision. That's why the order below is driven by **lead time**, not by how the app flows.
@@ -124,13 +124,14 @@ Request all four of these as soon as Step 1 is done. They can run in any order; 
 - **Who:** Brennan Paul + the D&A engineer who'll own the workspace; Oliver Kade or Tim Webb (IT); Oleg Yarovinski optional.
 - **Why:** L-8 (Oleg + Brennan): all new data QuoteFlow creates is stored in Pretium's Fabric tenant. The plan is Fabric mirroring of the CCQ Postgres database (`01-architecture.md` §6.1). It's mostly Azure and Fabric setup with long-ish lead times (capacity, tenant settings, a server restart, a VNet data gateway for prod), so ask early.
 - **Leave the meeting with:**
-  - [ ] D-FB1: a continuous mirror is enough; Postgres stays the app's store
+  - [x] D-FB1: a continuous mirror is enough; Postgres stays the app's store (Brennan Paul accepted the mirroring plan, 2026-10-26)
   - [ ] D-FB2: the table list (SF snapshot and pricing history in or out)
   - [ ] D-FB3: test Postgres moves off Burstable (cost approved)
   - [ ] D-FB4: workspace per env, capacity, item owner (service principal), tenant settings on, who reads commercial columns, latency target
   - [ ] D-FB5: whether a running prod mirror is part of the Nov 13 bar
   - [ ] IT: a restart window for the mirroring parameters; the prod gateway subnet
-- **After (build):** B-27: `_json` companions + CI guard, Bicep changes, deploy-time stop/start, status check, test mirror tie-out; prod with B-22.
+- **After (build):** B-27. Built 2026-10-26: `_json` companions + CI guards, deploy-time stop/start, the status check and the T-SQL twins. Still to do: Bicep changes, set `FABRIC_WORKSPACE_ID` / `FABRIC_MIRRORED_DB_ID` (GitHub `test` environment variables + App Service settings), the test mirror tie-out; prod with B-22.
+- **Bring to MF:** D&A must mirror `audit_event_fabric` (audit JSON copies) and `sf_opportunity_snapshot` (the analytics twins read it). The deploy identity needs **Contributor** on the workspace; the app's managed identity needs **read** on the mirrored item.
 
 ### Phase 3: User feedback (run alongside Phase 2)
 

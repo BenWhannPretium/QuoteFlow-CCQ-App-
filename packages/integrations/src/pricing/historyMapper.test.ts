@@ -107,6 +107,27 @@ describe('mapExportRow', () => {
     expect(spr).toMatchObject({ currentPrice: 0.412, targetPrice: null, estVolume: 250_000 });
   });
 
+  it('drops an estimate too large for numeric(38, 4) (B-27); the raw value stays in fields', () => {
+    const { row } = mapExportRow('bpr', {
+      Request_ID: 3,
+      Request_Number: 'BPR24-0003',
+      Fiscal_Year: 2024,
+      Est_Revenue: '1e35',
+    });
+    expect(row!.estRevenueUsd).toBeNull();
+    expect(row!.fields.Est_Revenue).toBe('1e35');
+    expect(
+      toBpr(
+        mapExportRow('bpr', {
+          Request_ID: 4,
+          Request_Number: 'BPR24-0004',
+          Fiscal_Year: 2024,
+          Est_Revenue: '1000000000000',
+        }).row!,
+      ),
+    ).toMatchObject({ estRevenueUsd: 1e12 });
+  });
+
   it('skips rows without a request id, number or fiscal year', () => {
     expect(mapExportRow('erf', { ...erfRow, Request_ID: null }).row).toBeNull();
     expect(mapExportRow('erf', { ...erfRow, Request_ID: '12.5' }).row).toBeNull();

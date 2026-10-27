@@ -3,9 +3,12 @@ import { fileURLToPath } from 'node:url';
 import type { Database } from '@ccq/db';
 import { ATTACHMENT_MAX_BYTES } from '@ccq/domain';
 import {
+  FabricRestMirrorReader,
   createFileStore,
+  createGraphCredential,
   createMailTransport,
   createSalesforceReader,
+  type FabricMirrorReader,
   type FileStore,
   type FileStoreConfig,
   type FileStoreLogger,
@@ -39,6 +42,10 @@ import {
 } from './auth/directory';
 import { createEntraVerifier } from './auth/entra';
 import type { AppConfig } from './config';
+import {
+  createFabricMirrorCheckScheduler,
+  type FabricMirrorCheckScheduler,
+} from './jobs/fabricMirrorCheck';
 import {
   createNotificationDispatchScheduler,
   type NotificationDispatchScheduler,
@@ -98,6 +105,8 @@ export interface AppDeps {
   notify?: NotificationHook;
   /** Test seam: the mail transport (defaults to MAIL_MODE: Graph, mailpit SMTP or the in-memory fake). */
   mail?: MailTransport;
+  /** Test seam: the Fabric mirror reader (defaults to the REST API when FABRIC_* ids are set, B-27). */
+  fabric?: FabricMirrorReader;
 }
 
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -110,6 +119,8 @@ declare module 'fastify' {
     validityExpiry: ValidityExpiryScheduler | null;
     /** B-18: the email dispatcher (and the 7:00 AM Central to-qualify digest); null without a database. server.ts starts it. */
     notificationDispatch: NotificationDispatchScheduler | null;
+    /** B-27: the hourly Fabric mirror health check; null without a database or FABRIC_* ids. server.ts starts it. */
+    fabricMirrorCheck: FabricMirrorCheckScheduler | null;
     /** B-19: the admin configuration console (tests await `adminConfig.rescore.flush()`). */
     adminConfig: AdminConfigService;
   }
@@ -463,6 +474,38 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       : null;
   app.decorate('validityExpiry', validityExpiry);
 
+  // B-27 (L-8): the Fabric mirror health check, once D&A's mirror exists (both ids set).
+  const fabricLog = app.log.child({ component: 'fabric-mirror' });
+  const fabricReader =
+    deps.fabric ??
+    (config.FABRIC_WORKSPACE_ID && config.FABRIC_MIRRORED_DB_ID
+      ? new FabricRestMirrorReader({
+          credential: createGraphCredential({
+            kind: 'managed-identity',
+            clientId: config.GRAPH_MI_CLIENT_ID,
+          }),
+          workspaceId: config.FABRIC_WORKSPACE_ID,
+          mirroredDatabaseId: config.FABRIC_MIRRORED_DB_ID,
+        })
+      : null);
+  const fabricMirrorCheck =
+    deps.db.db && deps.db.sql && fabricReader
+      ? createFabricMirrorCheckScheduler(
+          {
+            database: deps.db.db,
+            sql: deps.db.sql,
+            reader: fabricReader,
+            logger: {
+              info: (obj, msg) => fabricLog.info(obj, msg),
+              error: (obj, msg) => fabricLog.error(obj, msg),
+            },
+            ...(deps.now ? { now: deps.now } : {}),
+          },
+          config.FABRIC_CHECK_INTERVAL_MINUTES,
+        )
+      : null;
+  app.decorate('fabricMirrorCheck', fabricMirrorCheck);
+
   // B-19 admin configuration console. A committed change clears this instance's /config/public cache
   // (others expire within CONFIG_CACHE_SECONDS); a scope change clears cached identities.
   const configCache = new PublicConfigCache(config.CONFIG_CACHE_SECONDS * 1000);
@@ -477,6 +520,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       pricing: 'import',
       sharepoint: config.FILESTORE_MODE,
       mail: config.MAIL_MODE,
+      // B-27: 'off' until D&A's mirror exists and its ids are set.
+      fabric: fabricReader ? fabricReader.mode : 'off',
     },
     ...now,
   });
@@ -521,6 +566,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     await sfSync?.stop();
     await validityExpiry?.stop();
     await notificationDispatch?.stop();
+    await fabricMirrorCheck?.stop();
     await app.audit.flush();
     await deps.db.close();
   });

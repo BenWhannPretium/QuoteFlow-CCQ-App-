@@ -26,7 +26,10 @@ export const integrationRun = documented(
     'integration_run',
     {
       ...baseColumns(),
-      source: c(text('source').notNull(), 'salesforce | pricing | sharepoint.'),
+      source: c(
+        text('source').notNull(),
+        'salesforce | pricing | sharepoint | fabric (B-27 mirroring status).',
+      ),
       startedAt: c(timestamptz('started_at').notNull(), 'Run start.'),
       finishedAt: c(timestamptz('finished_at'), 'Run end; null while running.'),
       status: c(
@@ -52,8 +55,10 @@ export const integrationRun = documented(
 
 const PRICING = 'Pricing (legacy pricing-app export)';
 const COMMERCIAL = ' Commercial: stripped for roles without quote.read.commercialFields.';
-// Unbounded: the export holds junk figures of $1T and more, kept as history (the raw value is in `fields`).
-const figure = (name: string) => numeric(name, { mode: 'number' });
+// The export holds junk figures of $1T and more, kept as history (the raw value is in `fields`). B-27:
+// bounded at precision 38 so Fabric mirroring keeps the decimals (an unbounded numeric lands as
+// Decimal(38, 0)); the mapper drops anything over 1e30 (`MAX_FIGURE`).
+const figure = (name: string) => numeric(name, { precision: 38, scale: 4, mode: 'number' });
 
 /**
  * B-15 (revised 2026-10-22): the legacy pricing application's records, imported from Cory McGahan's

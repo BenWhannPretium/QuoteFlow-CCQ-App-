@@ -11,6 +11,8 @@ export const ADVISORY_LOCKS = {
   validityExpiry: 1_301_001n,
   /** B-18: the email dispatcher (and the to-qualify digest). */
   notificationDispatch: 1_801_001n,
+  /** B-27: hourly Fabric mirror health check. */
+  fabricMirrorCheck: 2_701_001n,
 } as const;
 
 /**

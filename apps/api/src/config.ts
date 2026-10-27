@@ -110,6 +110,16 @@ const EnvSchema = z
      * the instance that made it; other instances serve the old config for at most this long. 0 = no cache.
      */
     CONFIG_CACHE_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
+
+    /**
+     * B-27 (L-8): the Fabric mirror of this database (D&A's workspace). Both ids set = an hourly health
+     * check writes `integration_run` (source fabric) and alerts Admins when the mirror stops; either
+     * unset = no check (local, CI, or before the mirror exists). Not secrets.
+     */
+    FABRIC_WORKSPACE_ID: z.uuid().optional(),
+    FABRIC_MIRRORED_DB_ID: z.uuid().optional(),
+    /** Minutes between mirror health checks; 0 disables the schedule. */
+    FABRIC_CHECK_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(1440).default(60),
   })
   .superRefine((env, ctx) => {
     if (env.AUTH_MODE === 'dev' && env.NODE_ENV === 'production') {

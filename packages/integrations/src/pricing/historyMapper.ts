@@ -107,6 +107,18 @@ export function number(fields: ExportFields, key: string): number | null {
   return n === 0 && ZERO_IS_UNKNOWN.has(key) ? null : n;
 }
 
+/**
+ * B-27: the largest estimate we store. The columns are `numeric(38, 4)` so Fabric mirroring keeps the
+ * decimals (an unbounded numeric lands as Decimal(38, 0)). Larger junk values become null; the raw
+ * value stays in `fields`.
+ */
+export const MAX_FIGURE = 1e30;
+
+/** An estimate within `MAX_FIGURE`, else null. */
+export function figure(n: number | null): number | null {
+  return n !== null && Math.abs(n) < MAX_FIGURE ? n : null;
+}
+
 /** A 0/1 flag (also true/false, Y/N, Yes/No). */
 export function flag(fields: ExportFields, key: string): boolean {
   const v = fields[key];
@@ -228,8 +240,8 @@ export function mapExportRow(kind: PricingHistoryKind, raw: Record<string, unkno
       plantCode: text(fields, 'Plant_Code'),
       plantName: text(fields, 'Plant_Name'),
       submittedOn: day(fields, 'Sales_Submitted_Date') ?? day(fields, 'Created_Date'),
-      estRevenueUsd: number(fields, REVENUE[kind]),
-      estVolume: number(fields, VOLUME[kind]),
+      estRevenueUsd: figure(number(fields, REVENUE[kind])),
+      estVolume: figure(number(fields, VOLUME[kind])),
       comments: text(fields, 'Comments'),
       fields,
     },

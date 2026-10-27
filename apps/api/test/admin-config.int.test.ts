@@ -686,7 +686,13 @@ describe('integrations and the decision log', () => {
     const res = await as('Leadership').get('/api/v1/admin/integrations/health');
     expect(res.statusCode, res.body).toBe(200);
     const { items } = ConnectorHealthResponse.parse(res.json());
-    expect(items.map((i) => i.source)).toEqual(['salesforce', 'pricing', 'sharepoint', 'mail']);
+    expect(items.map((i) => i.source)).toEqual([
+      'salesforce',
+      'pricing',
+      'sharepoint',
+      'mail',
+      'fabric',
+    ]);
     expect(items.find((i) => i.source === 'salesforce')!.mode).toBe('fake');
   });
 

@@ -1,0 +1,60 @@
+-- Fabric (T-SQL) twin of packages/db/sql/analytics/00_functions.sql. Keep both in step (CLAUDE.md rule 10; a test checks every view has a twin).
+-- UNTESTED against a live endpoint until the B-27 test mirror exists (B-27 §5): D&A, run it there and report any error.
+-- Target: the SQL analytics endpoint of the CCQ *mirrored database* (Azure Database for PostgreSQL -> Fabric).
+-- Mirrored tables keep the Postgres schema (public.<table>) and are read-only; views live in schema analytics
+-- (created by 00_functions.sql, so run the files in name order). Output column names and order match the
+-- Postgres view exactly. Postgres security_invoker and GRANT lines are dropped on purpose: OneLake does not
+-- carry Postgres RLS or grants, and Fabric permissions (incl. the commercial-column rule) are owned by D&A (B-27 §3).
+-- Batches are separated by GO (SSMS / sqlcmd / VS Code mssql style).
+--
+-- The Postgres file defines two SQL functions. They are NOT created here as T-SQL functions:
+--   * scalar UDFs are a preview feature in Fabric Data Warehouse / SQL analytics endpoint
+--     (https://learn.microsoft.com/fabric/data-warehouse/how-to-inline-udf);
+--   * an inline TVF would need typed parameters, and the T-SQL type Fabric gives a mirrored Postgres uuid
+--     column is not documented.
+-- So each view that uses a helper inlines the canonical expression below, verbatim. If you change one copy,
+-- change them all (and the Postgres function).
+--
+-- Conventions (same as Postgres)
+--   * Weeks start Monday, in US Central (Pretium HQ; CLAUDE.md "Time").
+--   * Durations are seconds (float). "active" time is wall-clock minus recorded customer holds (CR-57);
+--     "elapsed" is wall-clock.
+--   * Mirrored timestamptz columns arrive as UTC datetime2(6). now() -> SYSUTCDATETIME().
+--   * extract(epoch from (b - a)) -> CAST(DATEDIFF_BIG(microsecond, a, b) AS float) / 1000000.0
+--     (microsecond, not millisecond, so the result is exact to the same precision Postgres keeps).
+--   * Operational metrics from QuoteFlow; not yet D&A-certified.
+--
+-- ---------------------------------------------------------------------------------------------------------
+-- analytics_week(ts)
+-- BUSINESS DEFINITION: Monday (US Central) of the week containing the timestamp. Used to bucket every weekly trend.
+--
+-- Canonical T-SQL expression (independent of @@DATEFIRST / SET DATEFIRST: DATEDIFF(day, ...) between two
+-- dates counts days, and 1900-01-01 was a Monday). 'Central Standard Time' is the Windows zone id for
+-- America/Chicago, with daylight saving:
+--
+--   DATEADD(day,
+--           -(DATEDIFF(day, CAST('19000101' AS date), <local_date>) % 7),
+--           <local_date>)
+--   where <local_date> = CAST(<ts> AT TIME ZONE 'UTC' AT TIME ZONE 'Central Standard Time' AS date)
+--
+-- ---------------------------------------------------------------------------------------------------------
+-- analytics_held_seconds(p_quote, p_from, p_to)
+-- BUSINESS DEFINITION: Seconds the quote spent on recorded customer/internal hold (quote_hold) inside the window; an open hold runs to the window end. Cycle times subtract this (CR-57).
+-- Hold intervals are one-at-a-time by construction (a held quote cannot be held again), so they are summed;
+-- each overlap is clamped at 0; no holds -> 0.
+--
+-- Canonical T-SQL form (an OUTER APPLY in the calling view; <quote>, <from>, <to> are columns of the outer row):
+--
+--   OUTER APPLY (
+--     SELECT CAST(ISNULL(SUM(CASE
+--              WHEN DATEDIFF_BIG(microsecond, GREATEST(h.started_at, <from>), LEAST(ISNULL(h.ended_at, <to>), <to>)) > 0
+--              THEN DATEDIFF_BIG(microsecond, GREATEST(h.started_at, <from>), LEAST(ISNULL(h.ended_at, <to>), <to>))
+--              ELSE 0 END), 0) AS float) / 1000000.0 AS held_s
+--     FROM public.quote_hold h
+--     WHERE h.quote_id = <quote> AND h.started_at < <to> AND ISNULL(h.ended_at, <to>) > <from>
+--   ) hs
+-- ---------------------------------------------------------------------------------------------------------
+
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'analytics')
+  EXEC (N'CREATE SCHEMA analytics');
+GO

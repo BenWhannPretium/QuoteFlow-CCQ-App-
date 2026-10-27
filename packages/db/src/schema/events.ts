@@ -94,6 +94,31 @@ export const auditEvent = documented(
   },
 );
 
+/**
+ * B-27 (L-8): Fabric mirroring drops array and jsonb columns, and audit rows are never updated, so
+ * audit_event's JSON copies live here: one row per audit row, written by an AFTER INSERT trigger on
+ * audit_event (migration 0022). Insert-only; the app never reads it. See src/fabric.ts.
+ */
+export const auditEventFabric = documented(
+  pgTable('audit_event_fabric', {
+    auditEventId: c(
+      uuid('audit_event_id')
+        .primaryKey()
+        .references(() => auditEvent.id, { onDelete: 'restrict' }),
+      'The audit_event row these copies belong to.',
+    ),
+    actorRolesJson: c(text('actor_roles_json'), 'audit_event.actor_roles as a JSON array.'),
+    beforeJson: c(text('before_json'), 'audit_event.before as JSON text.'),
+    afterJson: c(text('after_json'), 'audit_event.after as JSON text.'),
+  }),
+  {
+    area: 'events',
+    owner: SYSTEM,
+    description:
+      'B-27: Fabric-mirrorable JSON text copies of audit_event’s array and jsonb columns, written by trigger. Append-only like audit_event; not read by the app.',
+  },
+);
+
 export const notification = documented(
   pgTable(
     'notification',
