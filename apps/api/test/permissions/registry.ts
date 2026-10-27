@@ -32,13 +32,35 @@ export interface RegisteredRoute {
    * without the route's permission.
    */
   requires?: Permission;
+  /**
+   * Required for `public` and `authenticated` routes (routeMatrix.test.ts enforces it): why the route
+   * needs no matrix permission. Every other route is gated by a permission in PERMISSION_MATRIX.
+   */
+  reason?: string;
   sampleBody?: unknown;
 }
 
 export const ROUTE_REGISTRY: RegisteredRoute[] = [
-  { method: 'GET', route: '/api/v1/health', permission: 'public' },
-  { method: 'GET', route: '/api/v1/auth/config', permission: 'public' },
-  { method: 'GET', route: '/api/v1/me', permission: 'authenticated' },
+  {
+    method: 'GET',
+    route: '/api/v1/health',
+    permission: 'public',
+    reason:
+      'Liveness/readiness probe for App Service and the availability alert: no data, no identity',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/auth/config',
+    permission: 'public',
+    reason:
+      'MSAL bootstrap (tenant, client id, auth mode): the SPA needs it before anyone can sign in',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/me',
+    permission: 'authenticated',
+    reason: "The caller's own profile, roles and permissions",
+  },
   { method: 'GET', route: '/api/v1/config/public', permission: 'quote.read' },
   // B-06 Salesforce (SF_MODE=fake in tests). The detail id is a syntactically valid id that
   // neither the snapshot nor the fake knows, so allowed roles get 404 (not 403).
@@ -356,19 +378,36 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   },
   // B-18 notifications and email preferences: everything is the caller's own, so every signed-in role
   // is allowed; notifications.int.test.ts proves one user can never read or mark another's.
-  { method: 'GET', route: '/api/v1/notifications', permission: 'authenticated' },
-  { method: 'POST', route: '/api/v1/notifications/read', permission: 'authenticated' },
+  {
+    method: 'GET',
+    route: '/api/v1/notifications',
+    permission: 'authenticated',
+    reason: "The caller's own notifications",
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/notifications/read',
+    permission: 'authenticated',
+    reason: "Marks the caller's own notifications read",
+  },
   {
     method: 'POST',
     route: '/api/v1/notifications/:id/read',
     url: `/api/v1/notifications/${SAMPLE_NOTIFICATION}/read`,
     permission: 'authenticated',
+    reason: "Marks one of the caller's own notifications read (another user's is 404)",
   },
-  { method: 'GET', route: '/api/v1/me/preferences', permission: 'authenticated' },
+  {
+    method: 'GET',
+    route: '/api/v1/me/preferences',
+    permission: 'authenticated',
+    reason: "The caller's own email preferences",
+  },
   {
     method: 'PUT',
     route: '/api/v1/me/preferences',
     permission: 'authenticated',
+    reason: "Updates the caller's own email preferences",
     sampleBody: { email: { 'quote.assigned': true } },
   },
   // B-11 pricing queue and Quoting tab. The queue needs pricingQueue.read (Pricing, Leadership,
@@ -540,6 +579,8 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/files/local',
     url: '/api/v1/files/local?t=not-a-signed-token',
     permission: 'public',
+    reason:
+      'FILESTORE_MODE=local only (dev/CI; not registered with SharePoint): the signed, short-lived token is the credential, standing in for a SharePoint pre-authenticated link',
   },
   // B-17 operational analytics: one endpoint per chart. analytics.read (SalesLeader, EngLead, Pricing,
   // Approver, Leadership, Admin); adoption reads the audit log, so it needs audit.read.
