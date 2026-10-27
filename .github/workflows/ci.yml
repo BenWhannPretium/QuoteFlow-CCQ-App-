@@ -21,8 +21,7 @@ env:
 jobs:
   verify:
     name: Lint, typecheck, test, build, e2e
-    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.56 cannot install browsers on.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     services:

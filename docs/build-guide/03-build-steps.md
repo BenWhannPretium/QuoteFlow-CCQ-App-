@@ -53,7 +53,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] `/api/v1/health` returns version + DB status
 - **Prompt:** `prompts/B-01-monorepo-scaffold.md`
 - **Done 2026-10-15. Notes and deviations:**
-  - Versions: TypeScript 5.9 (typescript-eslint doesn't support TS 7 yet), ESLint 9, Vite 7, Vitest 4, Tailwind v4, React 18.3, Fastify 5.12, zod 4, Playwright 1.56.
+  - Versions: TypeScript 5.9 (typescript-eslint doesn't support TS 7 yet), ESLint 9, Vite 7, Vitest 4, Tailwind v4, React 18.3, Fastify 5.12, zod 4, Playwright 1.56 (1.64 since 2026-10-27, for Ubuntu 26.04 on `ubuntu-latest` CI runners).
   - `docker compose up -d db` was confirmed on 2026-10-15: the container reports healthy, and `db:migrate`, the integration tests and `pnpm dev` health (`db: up`) all pass against it. The first local checks ran on a native Postgres 16 while Docker Hub was rate-limited. The `mailpit` service wasn't pulled yet (still rate-limited); B-18 is its first user.
   - Workspace packages export TypeScript source (`exports: ./src/index.ts`). The API build (tsup) bundles them, and each package's `build` runs `tsc` only to prove it compiles.
   - Health returns **503** with `status: degraded, db: down` when Postgres is unreachable, so App Service health checks fail over correctly.
