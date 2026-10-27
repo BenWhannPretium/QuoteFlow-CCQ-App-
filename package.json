@@ -17,6 +17,8 @@
     "test": "turbo run test",
     "test:integration": "turbo run test:integration",
     "e2e": "turbo run e2e --filter=@ccq/web",
+    "load": "k6 run tests/load/read-paths.js",
+    "load:smoke": "k6 run -e PROFILE=smoke tests/load/read-paths.js",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build",
     "db:migrate": "pnpm --filter @ccq/db db:migrate",
     "db:seed": "pnpm --filter @ccq/db db:seed",

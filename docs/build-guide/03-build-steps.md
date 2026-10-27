@@ -676,7 +676,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 ### B-21: Security, access and quality hardening · **Fri Nov 6** · Ben
 - **People:** **M8 (Oct 30)**; IT security for U4 (Nov 11).
 - **Done when:**
-  - [ ] permission-matrix tests cover **every** route × role (allowed and denied)
+  - [x] permission-matrix tests cover **every** route × role (allowed and denied). **Done 2026-10-26.**
   - [ ] RLS tests
   - [ ] redaction tests
   - [ ] CSP/helmet, rate limits, upload limits
@@ -686,6 +686,9 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [ ] load test (k6): 50 users, p95 < 400 ms
   - [ ] runbook draft
 - **Prompt:** `prompts/B-21-hardening.md`
+- **Notes (2026-10-26):**
+  - **Permission matrix.** `apps/api/test/permissions/matrix.int.test.ts` sends all 111 `/api` routes as each of the nine MVP roles and anonymously (1,111 cases). Allowed: not 401/403 and not 5xx. Denied: 403 problem+json that names the permission the gate checked. Anonymous: 401 problem+json unless public. Every request must reach the route under test. It runs on its own seeded database (`<TEST_DATABASE_URL>_matrix`). A static twin, `apps/api/src/routes/v1/routeMatrix.test.ts` (no DB, part of `pnpm test`), checks that the registry equals what Fastify registers. It also checks that every declared permission exists in the matrix and is held by a role, that the public routes match a reviewed allow-list (health, auth config, local-store file links) and that public and any-signed-in routes give a reason. Every matrix permission must be a route gate or appear in a named service check (G1–G6 deciders, `outcome.assignOwner`, `override.revert`, `attachment.removeAny`, each proved by its per-feature test). The test also keeps `docs/security/route-inventory.md` current. Qualified grants (own, assigned, fields, stages) and data scope pass the route gate by design; services (`assertCan`) and RLS enforce them, and the per-feature tests cover them. PostAward (P2) has no dev persona yet, so the matrix doesn't exercise it.
+  - **Load test scaffold.** `tests/load/read-paths.js` (k6) puts 50 VUs on dashboard, quote list, detail, queue and board, with thresholds p95 < 400 ms (overall and per screen) and failed < 1%. `pnpm load` / `pnpm load:smoke`; see `tests/load/README.md`. Validated locally only (dev mode, 150 synthetic quotes, 1-minute hold at 50 VUs: p95 298 ms, 0% failed). **Not yet run against the Azure test environment**, so the k6 box stays open. Finding: the rate limiter keys on client IP, not on the user, so one load generator (or one office NAT) shares 300 req/min. Raise `RATE_LIMIT_MAX` for the run, or key the limiter on the user (the B-21 target is 300/min per user).
 
 ### B-22: Production data load and UAT environment prep · **Fri Nov 6** · Ben + IT/D&A
 - **People:** **M9 (Nov 2)** confirms production-data approval (Oliver Kade, Brennan Paul); Rachel Dew switches the integration user to production; Bailey confirms the UAT cohort and IT adds them to groups.
