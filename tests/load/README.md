@@ -36,7 +36,7 @@ k6 is a standalone binary, not an npm package. Install it from
 ```bash
 docker compose up -d db
 pnpm db:migrate && pnpm db:seed --synthetic
-# Raise the per-client rate limit for the run: all 50 VUs come from one IP (see "Rate limit" below).
+# Only needed if every VU uses one persona (the limit is per user; see "Rate limit" below).
 RATE_LIMIT_MAX=100000 pnpm --filter @ccq/api dev
 
 pnpm load:smoke                       # 2 VUs for 30 s: checks the script and the environment
@@ -80,11 +80,11 @@ run. Never commit tokens; pass them through the environment only.
 
 ## Rate limit
 
-`@fastify/rate-limit` allows `RATE_LIMIT_MAX` (300) requests per minute **per client IP**. One load
-generator sends roughly 900 requests/min at 50 VUs, so against an environment with the default limit
-the run fails on 429s. For the test run either raise `RATE_LIMIT_MAX` on the test App Service for
-the duration, or run k6 from several machines. (The B-21 target is 300/min **per user**; keying the
-limiter on the signed-in user is tracked as a B-21 finding.)
+`@fastify/rate-limit` allows `RATE_LIMIT_MAX` (300) requests per minute **per signed-in user**
+(per client IP only for public routes; B-21, 2026-10-27). At 50 VUs one generator sends roughly 900
+requests/min; spread over the default personas (one per MVP role) or several bearer `TOKENS`, each
+user stays well under 300. If you run every VU as one persona or one token, raise `RATE_LIMIT_MAX`
+for the run, since that is one user by design.
 
 ## Status
 

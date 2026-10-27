@@ -228,7 +228,15 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       },
     },
   });
-  await app.register(rateLimit, { max: config.RATE_LIMIT_MAX, timeWindow: '1 minute' });
+  // B-21: RATE_LIMIT_MAX requests per minute per signed-in user, not per IP: everyone behind one
+  // office NAT would otherwise share one budget. preHandler runs after the auth hook has set
+  // req.actor; requests without one (public routes) are keyed by client IP.
+  await app.register(rateLimit, {
+    max: config.RATE_LIMIT_MAX,
+    timeWindow: '1 minute',
+    hook: 'preHandler',
+    keyGenerator: (req) => (req.actor ? `user:${req.actor.userId}` : `ip:${req.ip}`),
+  });
   // B-16 uploads: one file per request, streamed. The limit is one byte over the 100 MB cap, so a
   // body that runs past its declared size is caught by the store (413) before the parser cuts it.
   await app.register(multipart, {
