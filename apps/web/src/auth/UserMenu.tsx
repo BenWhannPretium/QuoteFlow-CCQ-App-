@@ -1,6 +1,14 @@
 import { Link } from '@tanstack/react-router';
-import { BellIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import {
+  BellIcon,
+  LogOutIcon,
+  MessageSquareWarningIcon,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+} from 'lucide-react';
 
+import { openReportIssue } from '@/components/feedback/ReportIssue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +23,7 @@ import { isThemePreference } from '@/theme/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { useAuth } from './context';
-import { useCurrentUser } from './hooks';
+import { useCan, useCurrentUser } from './hooks';
 
 const initials = (name: string) =>
   name
@@ -30,6 +38,7 @@ export function UserMenu() {
   const me = useCurrentUser();
   const { session } = useAuth();
   const { preference, setPreference } = useTheme();
+  const canReport = useCan('feedback.submit');
   return (
     // Non-modal: the page behind stays in the accessibility tree (no aria-hidden over focusables).
     <DropdownMenu modal={false}>
@@ -71,6 +80,15 @@ export function UserMenu() {
             <BellIcon aria-hidden="true" /> Email preferences
           </Link>
         </DropdownMenuItem>
+        {canReport && (
+          // Opens after the menu closes (the shell owns the dialog), so focus lands in the dialog.
+          <DropdownMenuItem
+            onSelect={() => setTimeout(openReportIssue, 0)}
+            data-testid="report-issue-menu"
+          >
+            <MessageSquareWarningIcon aria-hidden="true" /> Report an issue
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup

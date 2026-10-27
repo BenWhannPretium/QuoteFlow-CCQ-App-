@@ -24,6 +24,11 @@ import {
   type UpdateUserScopeBody,
   type UpdateValueListEntryBody,
   AdoptionResponse,
+  CreateFeedbackResponse,
+  FeedbackItem,
+  FeedbackListResponse,
+  type CreateFeedbackBody,
+  type UpdateFeedbackBody,
   EngineeringAnalyticsResponse,
   AnalyticsFiltersResponse,
   CycleTimeResponse,
@@ -230,6 +235,9 @@ export const api = {
   health: () => getJson('/api/v1/health', HealthResponse, { okStatuses: [503], auth: false }),
   authConfig: () => getJson('/api/v1/auth/config', AuthConfigResponse, { auth: false }),
   me: () => getJson('/api/v1/me', MeResponse),
+  /** B-23: the "Report an issue" button. */
+  reportIssue: (body: CreateFeedbackBody) =>
+    getJson('/api/v1/feedback', CreateFeedbackResponse, { method: 'POST', body }),
   publicConfig: () => getJson('/api/v1/config/public', PublicConfigResponse),
   integrationRuns: (source?: string) =>
     getJson(
@@ -488,6 +496,8 @@ export const api = {
         method: 'PATCH',
         body,
       }),
+    feedbackScreenshot: (id: string) =>
+      getCsv(`/api/v1/admin/feedback/${encodeURIComponent(id)}/screenshot`, 'image/*'),
     updateGate: (key: string, body: UpdateGateBody) =>
       getJson(`/api/v1/admin/config/gates/${encodeURIComponent(key)}`, Saved, {
         method: 'PATCH',
@@ -530,6 +540,14 @@ export const api = {
     updateUserScope: (id: string, body: UpdateUserScopeBody) =>
       getJson(`/api/v1/admin/users/${id}/scope`, Ok, { method: 'PUT', body }),
     connectorHealth: () => getJson('/api/v1/admin/integrations/health', ConnectorHealthResponse),
+    // B-23 Admin → Feedback triage.
+    feedback: (status?: string) =>
+      getJson(`/api/v1/admin/feedback${queryString({ status })}`, FeedbackListResponse),
+    updateFeedback: (id: string, body: UpdateFeedbackBody) =>
+      getJson(`/api/v1/admin/feedback/${encodeURIComponent(id)}`, FeedbackItem, {
+        method: 'PATCH',
+        body,
+      }),
     decisionLog: (q: Partial<DecisionLogQuery>) =>
       getJson(`/api/v1/admin/config/decision-log${queryString(q)}`, DecisionLogResponse),
     decisionLogExport: (q: Partial<DecisionLogQuery>): Promise<Blob> =>
@@ -655,11 +673,12 @@ export async function importPricingHistory(
   return PricingHistoryImportResponse.parse(payload);
 }
 
-async function getCsv(path: string): Promise<Blob> {
+/** A signed-in GET of a file (CSV exports; B-23 feedback screenshots). */
+async function getCsv(path: string, accept = 'text/csv'): Promise<Blob> {
   const session = getAuthSession();
   if (!session) throw new Error('Not signed in');
   const res = await fetch(path, {
-    headers: { accept: 'text/csv', ...(await session.headers({ forceRefresh: false })) },
+    headers: { accept, ...(await session.headers({ forceRefresh: false })) },
   });
   if (!res.ok) {
     const parsed = ProblemDetails.safeParse(await res.json().catch(() => null));

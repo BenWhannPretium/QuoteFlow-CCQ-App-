@@ -1,6 +1,8 @@
+import { FEEDBACK_STATUSES, FEEDBACK_TYPES } from '@ccq/domain';
 import { sql } from 'drizzle-orm';
 import {
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -186,5 +188,81 @@ export const notification = documented(
     owner: SYSTEM,
     description:
       'In-app notifications (channel in_app) and the email outbox (channel email, sent by the dispatcher with retries).',
+  },
+);
+
+/** Raw bytes (`bytea`); Fabric mirrors it. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
+
+const FEEDBACK = 'Reporter (UAT cohort); triage by Admin';
+
+/**
+ * B-23: the in-app "Report an issue" button. One row per report, with the page and quote it came
+ * from. Triage (status, owner, GitHub issue) on Admin → Feedback; `pnpm uat:defects` renders the UAT
+ * defect log from it. RLS: a user inserts their own; only Admin (feedback.triage) reads or updates.
+ */
+export const feedback = documented(
+  pgTable(
+    'feedback',
+    {
+      ...baseColumns(),
+      reporterId: c(
+        uuid('reporter_id')
+          .notNull()
+          .references(() => appUser.id, { onDelete: 'restrict' }),
+        'Who reported it.',
+      ),
+      reporterRoles: c(
+        text('reporter_roles').notNull(),
+        'Their CCQ roles at the time, comma-separated (text, not an array: Fabric mirrors text).',
+      ),
+      type: c(text('type').notNull(), 'bug | confusing | missing | idea.'),
+      severity: c(
+        integer('severity').notNull(),
+        '1 blocks a core flow · 2 wrong data or permission · 3 usability · 4 cosmetic (as reported; Admin may change it).',
+      ),
+      description: c(text('description').notNull(), 'What happened, in the reporter’s words.'),
+      route: c(text('route').notNull(), 'App path the report was raised from (no query string).'),
+      quoteNumber: c(text('quote_number'), 'CCQ quote number in context, if any.'),
+      appVersion: c(text('app_version'), 'Build (git SHA) the reporter was running.'),
+      userAgent: c(text('user_agent'), 'Browser user agent.'),
+      viewport: c(text('viewport'), 'Window size, e.g. 390x844.'),
+      screenshot: c(
+        bytea('screenshot'),
+        'Optional screenshot (≤ 2 MB). May show commercial figures: Admin-only, like the row.',
+      ),
+      screenshotType: c(text('screenshot_type'), 'image/png | image/jpeg | image/webp.'),
+      status: c(
+        text('status').notNull().default('new'),
+        'new | triaged | fixing | fixed | wont_fix.',
+        'Admin',
+      ),
+      ownerId: c(
+        uuid('owner_id').references(() => appUser.id, { onDelete: 'set null' }),
+        'Who is fixing it.',
+        'Admin',
+      ),
+      githubIssueUrl: c(
+        text('github_issue_url'),
+        'Linked GitHub issue, if one was raised.',
+        'Admin',
+      ),
+      triageNote: c(text('triage_note'), 'Triage notes.', 'Admin'),
+    },
+    (t) => [
+      check('feedback_type_check', inList(t.type, FEEDBACK_TYPES)),
+      check('feedback_status_check', inList(t.status, FEEDBACK_STATUSES)),
+      check('feedback_severity_check', sql`${t.severity} between 1 and 4`),
+      check(
+        'feedback_screenshot_type_check',
+        sql`(${t.screenshot} is null) = (${t.screenshotType} is null) and (${t.screenshotType} is null or ${t.screenshotType} in ('image/png', 'image/jpeg', 'image/webp'))`,
+      ),
+      index('feedback_status_severity_idx').on(t.status, t.severity, t.createdAt),
+    ],
+  ),
+  {
+    area: 'events',
+    owner: FEEDBACK,
+    description: 'B-23 in-app feedback and UAT defects ("Report an issue").',
   },
 );

@@ -8,6 +8,7 @@ export * from './commercial';
 export * from './config';
 export * from './dashboards';
 export * from './engineering';
+export * from './feedback';
 export * from './final-review';
 export * from './health';
 export * from './intake';

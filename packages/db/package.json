@@ -22,7 +22,8 @@
     "db:reset": "tsx --env-file-if-exists=../../.env src/cli/reset.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:dictionary": "tsx src/cli/dictionary.ts",
-    "db:sf-fixture": "tsx src/cli/sf-fixture.ts"
+    "db:sf-fixture": "tsx src/cli/sf-fixture.ts",
+    "uat:defects": "tsx --env-file-if-exists=../../.env src/cli/defect-log.ts"
   },
   "dependencies": {
     "@ccq/domain": "workspace:*",

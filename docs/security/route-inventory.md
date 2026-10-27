@@ -5,7 +5,7 @@
 > `routeMatrix.test.ts` fails if this file is stale, and `test/permissions/matrix.int.test.ts` sends
 > every route below as every role (allowed: not 401/403; denied: 403 problem+json) and anonymously (401).
 
-111 routes: 3 public, 6 for any signed-in role, 102 gated by a matrix permission.
+115 routes: 3 public, 6 for any signed-in role, 106 gated by a matrix permission.
 
 Qualified grants (own, assigned, fields, stages) pass the route gate; the service then checks the
 quote with `assertCan`, and Postgres RLS enforces the data scope as the second layer.
@@ -36,6 +36,9 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | PATCH | `/api/v1/admin/config/value-lists/:id` | `config.manage` | Admin |  |
 | PUT | `/api/v1/admin/config/value-lists/:listKey/order` | `config.manage` | Admin |  |
 | GET | `/api/v1/admin/config/workflow` | `config.read` | Leadership, Admin |  |
+| GET | `/api/v1/admin/feedback` | `feedback.triage` | Admin |  |
+| PATCH | `/api/v1/admin/feedback/:id` | `feedback.triage` | Admin |  |
+| GET | `/api/v1/admin/feedback/:id/screenshot` | `feedback.triage` | Admin |  |
 | GET | `/api/v1/admin/integrations` | `config.read` | Leadership, Admin |  |
 | GET | `/api/v1/admin/integrations/health` | `config.read` | Leadership, Admin |  |
 | GET | `/api/v1/admin/override-log` | `overrideLog.read` | Leadership, Admin |  |
@@ -65,6 +68,7 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | GET | `/api/v1/auth/config` | `public` | anyone (no sign-in) | MSAL bootstrap (tenant, client id, auth mode): the SPA needs it before anyone can sign in |
 | GET | `/api/v1/config/public` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | GET | `/api/v1/dashboards/:role` | `quote.read` | SalesLeader, EngLead, Pricing, PricingLead, Approver, Leadership, Admin | also requires `analytics.read` |
+| POST | `/api/v1/feedback` | `feedback.submit` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin |  |
 | GET | `/api/v1/files/local` | `public` | anyone (no sign-in) | FILESTORE_MODE=local only (dev/CI; not registered with SharePoint): the signed, short-lived token is the credential, standing in for a SharePoint pre-authenticated link |
 | GET | `/api/v1/gates/:gateKey/queue` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | GET | `/api/v1/health` | `public` | anyone (no sign-in) | Liveness/readiness probe for App Service and the availability alert: no data, no identity |

@@ -6,6 +6,7 @@ import {
   GaugeIcon,
   LinkIcon,
   ListIcon,
+  MessageSquareWarningIcon,
   PaletteIcon,
   PlugIcon,
   ScrollTextIcon,
@@ -93,6 +94,13 @@ const CONFIG: Section[] = [
 ];
 
 const REPORTS: Section[] = [
+  {
+    to: '/admin/feedback',
+    title: 'Feedback',
+    description: 'UAT reports from “Report an issue”, for triage.',
+    icon: MessageSquareWarningIcon,
+    permission: 'feedback.triage',
+  },
   {
     to: '/admin/audit',
     title: 'Audit log',

@@ -16,6 +16,7 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 import { RoleDashboard } from './Dashboards';
 import { LANDINGS, landingFor, landingRolesFor, type LandingDefinition } from './landings';
+import { quickstartHref } from './quickstart';
 
 /**
  * F-02 role landing: the dashboard for the user's primary role (multi-role users get tabs). The blocks
@@ -56,6 +57,18 @@ export function LandingPage({ requestedRole }: { requestedRole: string | undefin
           )
         }
       />
+      <p className="text-muted-foreground -mt-2 mb-5 text-sm" data-testid="quickstart-link">
+        New here?{' '}
+        <a
+          href={quickstartHref(landing.role)}
+          target="_blank"
+          rel="noreferrer"
+          // 44 px tap target on phones (mobile.spec.ts).
+          className="text-emphasis inline-flex min-h-11 items-center font-medium underline-offset-4 hover:underline sm:min-h-0"
+        >
+          Read the one-page quick-start for {landing.roleLabel}
+        </a>
+      </p>
       {roles.length > 1 && <RoleTabs roles={roles} current={landing} />}
       <section aria-label="Dashboard" className="stagger grid gap-5 lg:grid-cols-2">
         {isDashboardRole(landing.role) ? (

@@ -49,6 +49,7 @@ export default defineConfig({
         'board-perf.spec.ts',
         'dashboards.spec.ts',
         'notifications.spec.ts',
+        'feedback.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },
