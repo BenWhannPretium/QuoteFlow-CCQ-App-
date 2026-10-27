@@ -12,16 +12,19 @@
 | Area | Status | What it's waiting on |
 |---|---|---|
 | Core app: intake, G1, engineering queue and review, quoting, Final Review, outcome, hand-off, board/lists, dashboards, notifications, admin console | ✅ **Built and tested on synthetic data** | User feedback and business decisions (all open rules ship as provisional config) |
-| Sign-in (Microsoft Entra) | 🟡 Code built; runs in dev mode | IT app registrations, roles and groups |
-| Azure hosting (test + prod) | 🔴 **Not started** (no `infra/`, no deploy pipeline) | Hosting approval and resource groups from IT |
-| Salesforce read | 🟡 Built against a fake; live code ready | Connected app + read-only user; real field names |
-| Pricing app read | 🟡 Built against a fake; both routes (SQL / Fabric) ready | Route choice, view and column names, read access |
-| SharePoint attachments | 🟡 Built; stores files locally for now | Site, library and `Sites.Selected` permission |
+| Sign-in (Microsoft Entra) | ✅ **Live on test** since 2026-10-21 (two app registrations, `CCQ.*` roles, `SG-CCQ-*` groups) | Confirm `CCQ.PricingLead` (B-26, the ninth role) exists in Entra with its group; real UAT users added to groups (B-22) |
+| Azure hosting (test + prod) | 🟡 **Test live** at `https://quoteflow-test.azurewebsites.net` since 2026-10-21, deployed from `main` on every merge. Bicep for both envs in `infra/` (2026-10-27), **not yet applied** | IT: real resource names, a reviewed what-if, D-FB3 (test off Burstable), a Postgres restart; prod resource group and approvals (B-22) |
+| Salesforce read | ✅ **Live on the production org** since 2026-10-24 (client credentials, read-only integration user; real field names; every opportunity kept, L-7; scoped per user, L-6) | Zac / Graham to confirm field meanings (`TODO(M3)` in `fieldMap.ts`) and D-18; prod sync reconciled to the SF report at B-22 |
+| Pricing history | 🟡 **Import built** (B-15, revised 2026-10-22): no live connection; Cory's export is imported by an Admin | Import the export in test, then prod (B-22); Gemma's sensitivity confirmation |
+| SharePoint attachments | 🟡 Built; Blob or local store until M7 | Site, library and `Sites.Selected` permission |
 | Email notifications | 🟡 Built; in-app works, email goes to a fake | Shared mailbox + `Mail.Send` permission |
 | Fabric data landing (L-8: all new QuoteFlow data stored in the Fabric tenant; B-27) | 🟡 Mirroring plan **accepted by Brennan Paul (2026-10-26)**. Code side built: mirror-safe schema + CI guards, analytics T-SQL twins, deploy stop/start, hourly health check | MF with Brennan Paul + IT: workspace, capacity, test Postgres off Burstable, mirroring role; then create the test mirror and tie out |
-| Security hardening, prod data load, UAT pack, gate package (B-21 to B-24) | 🔴 Not started | Mostly build work, plus the security review and prod-data approval |
+| Security hardening (B-21) | 🟡 Route × role matrix over all 115 routes, RLS, redaction, axe and 390 px tests, CSP, upload limits and a per-user rate limit in place; health alerts in the Bicep (not yet applied); k6 load test built (local p95 298 ms) | Load test against test; M8 security review |
+| Prod data load (B-22) | 🔴 Not started | Prod environment from IT; written prod-data approval (D-23) |
+| UAT pack (B-23) | 🟡 **Built** 2026-10-26: "Report an issue", Admin → Feedback, `pnpm uat:defects`, 8 role scripts and quick-starts in `docs/uat/` | Bailey's review by Fri Nov 6; real opportunities in the scripts |
+| Gate package (B-24) | 🟡 Drafts in `docs/gate/` (runbook, traceability, release notes, backlog, test results) | Update at sign-off; Bailey reconciles traceability against PRD v1 |
 
-**Bottom line:** nothing a user sees is blocked on code. Every remaining item is blocked on a person, an access grant or a decision. That's why the order below is driven by **lead time**, not by how the app flows.
+**Bottom line (updated 2026-10-27):** nothing a user sees is blocked on code. Test runs live on Azure with Entra sign-in and production Salesforce data. Every remaining item is blocked on a person, an access grant or a decision. That's why the order below is driven by **lead time**, not by how the app flows.
 
 ---
 
@@ -57,7 +60,7 @@ Each step: **who**, **what the meeting must produce** (your checklist for the me
 - **Leave the meeting with:**
   - [x] Azure hosting approved (App Service + PostgreSQL + Key Vault + App Insights, test and prod resource groups). Oliver Kade.
   - [x] a named IT person who provisions it, and a date. Vincent Brown; test environment provisioned at M2, first deploy 2026-10-21.
-  - [ ] the path to production-data approval, including what to do with the **~205 live Salesforce records in Bailey's prototype** (purge or approve). 2026-10-21: the Salesforce production integration is being set up with Rachel Dew. Production data still needs IT and D&A approval before it loads into CCQ.
+  - [ ] the path to production-data approval, including what to do with the **~205 live Salesforce records in Bailey's prototype** (purge or approve). 2026-10-23: Ben reports IT and D&A approved production data, and test has run on the production Salesforce org since 2026-10-24 (D-23). Still open: the written approval (approvers and date) and the prototype's copy.
   - [x] support: **EI supports** (Ben, 2026-10-21). This replaces the proposed "EI builds, IT hosts and supports".
   - [x] the access pattern for **test**: the public `*.azurewebsites.net` URL with Entra sign-in is fine (Ben, 2026-10-21). The production pattern is decided at M8.
 - **Bring:** the 1-page hosting proposal (`01-architecture.md` §1, §7, §8) and a cost estimate.
@@ -69,7 +72,7 @@ Each step: **who**, **what the meeting must produce** (your checklist for the me
 - **Why now:** sign-in, roles and the test environment all hang off this. It also creates the Graph permissions SharePoint and email need later.
 - **Leave the meeting with:**
   - [x] two app registrations (SPA + API) with the settings in `03` B-04 notes (v2 tokens, `access_as_user` scope, redirect URIs)
-  - [x] the 8 `CCQ.*` app roles and the `SG-CCQ-*` security groups
+  - [x] the 8 `CCQ.*` app roles and the `SG-CCQ-*` security groups (B-26 later added a ninth, `CCQ.PricingLead`: confirm IT created it and its group)
   - [x] the test resource group, and Ben's access to it
   - [x] GitHub → Azure OIDC trust for deployments (plus a second credential for GitHub's immutable subject format, `06` B8)
   - [ ] the Graph permissions requested (`Sites.Selected`, `Mail.Send` limited to the CCQ mailbox). **Not done at M2** (checked 2026-10-21: QuoteFlow-SPA has only the sign-in permissions, QuoteFlow-API has none). Moved to **M7**. Not blocking: attachments go to Blob and email is off until then.
@@ -84,12 +87,12 @@ Request all four of these as soon as Step 1 is done. They can run in any order; 
 - **Who:** Rachel Dew (Salesforce admin), Zac Cairns (knows the SF objects), Graham Parle (Sales Ops). Optional: Cory McGahan.
 - **Why first of the integrations:** every quote starts from a Salesforce opportunity. It's on the "never cut" list, and real opportunities make every later review more convincing.
 - **Leave the meeting with:**
-  - [ ] a connected app, certificate and **read-only** integration user on the **UAT org** (prod later, after data approval)
-  - [ ] the real API names for every custom field (today they're placeholders): ERF number, quote source, the Opportunity Product Specification object and its fields
-  - [ ] which field holds the ERF number, and how reliable it is
-  - [ ] the source of truth for customer and ship-to: SF Account or ERP (D-18)
-  - [ ] which SF stages count as "won" / "lost" (for the stage-mismatch flag)
-- **After (build):** fill in `fieldMap.ts`, run the live contract test, switch `SF_MODE=live` in test.
+  - [x] a **read-only** integration user. Done differently: an **External Client App** with the client credentials flow, straight on the **production org** (production data approved, D-23), live since 2026-10-24
+  - [x] the real API names for every custom field: read with `describe()` (`fieldMap.ts`, 2026-10-24). Zac / Graham still confirm what some fields *mean* (`TODO(M3)` in the file)
+  - [x] which field holds the ERF number: `ERF_Number__c` (free text; the ERF linkage report shows how reliable it is)
+  - [ ] the source of truth for customer and ship-to: SF Account or ERP (D-18). MVP default: SF Account
+  - [x] which SF stages count as "won" / "lost": all 14 stages mapped in `sf_stage_map` (migration 0020)
+- **After (build):** done 2026-10-24: `fieldMap.ts` filled in, `SF_MODE=live` on test. Still to do: reconcile the prod sync against the SF report (B-22).
 
 #### Step 4. Pricing history · *done differently (2026-10-22)*
 - **Who:** Cory McGahan (the export), Gemma Cebolla (Sr Dir Pricing).
@@ -176,6 +179,7 @@ Run these in the order a quote moves. Each session: a short live demo, then the 
 - **Who:** Ben.
 - **Why now:** on the version stakeholders have agreed, so the tests cover the final screens and rules.
 - **Work:** permission tests for every route and role, RLS and redaction tests, rate/upload limits, dependency and secret scans, accessibility and 390 px mobile pass, a 50-user load test, the runbook draft.
+- **Status (2026-10-27):** most of this is built; see `03-build-steps.md` B-21. Left: the load test against test, then M8. The runbook draft is `docs/gate/runbook.md`.
 
 #### Step 13. Security review · *M8*
 - **Who:** Oliver Kade (or an IT security delegate), Chris O'Brien. Optional: Tre.
@@ -244,10 +248,10 @@ Use this as the agenda for Steps 7 to 10. "Today" is what the app does now (prov
 
 | Integration | Who grants access | What we need from them | Fallback if it slips | Done when |
 |---|---|---|---|---|
-| **Azure hosting** | Oliver Kade, Tim Webb | Resource groups, OIDC trust | **None.** UAT moves day for day | [ ] app deployed to the test URL |
-| **Entra sign-in** | Vincent Brown | 2 app registrations, 8 roles, groups | Dev mode (not valid for UAT) | [ ] real users sign in with the right roles |
-| **Salesforce** | Rachel Dew (access), Zac / Graham (fields) | Read-only user on UAT then prod, field API names | **None for MVP** (never cut) | [ ] live test passes; prod sync reconciles to the SF report |
-| **Pricing app** | Cory McGahan, Gemma Cebolla | Route, views, columns, formats, read login | Typed-in ERF/BPR references | [ ] live test passes |
+| **Azure hosting** | Oliver Kade, Tim Webb | Resource groups, OIDC trust | **None.** UAT moves day for day | [x] app deployed to the test URL (2026-10-21) · [ ] prod (B-22) |
+| **Entra sign-in** | Vincent Brown | 2 app registrations, 9 roles (B-26 added `CCQ.PricingLead`), groups | Dev mode (not valid for UAT) | [x] real users sign in on test (2026-10-21) · [ ] UAT cohort in the right groups (B-22) |
+| **Salesforce** | Rachel Dew (access), Zac / Graham (fields) | Read-only integration user, field API names | **None for MVP** (never cut) | [x] live on the production org (2026-10-24) · [ ] prod sync reconciles to the SF report (B-22) |
+| **Pricing history** (B-15: import, no live connection) | Cory McGahan (export), Gemma Cebolla | The export; who may see it | Typed-in Legacy ERF # | [ ] export imported in test, then prod |
 | **SharePoint** | IT M365 admin | Site, library, `Sites.Selected` | Azure Blob storage | [ ] live test passes; folder convention agreed |
 | **Email** | IT M365 admin | Shared mailbox, `Mail.Send` policy | In-app alerts only | [ ] one real email sent from the mailbox |
 

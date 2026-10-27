@@ -36,7 +36,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **Why first:** every later prompt depends on `CLAUDE.md` and this guide being in the repo.
 - **People:** Tre (GitHub org), Raj Sharma / IT help desk (tickets in `02` §4).
 - **Done when:**
-  - [ ] `CLAUDE.md` and `docs/build-guide/` committed on a branch
+  - [x] `CLAUDE.md` and `docs/build-guide/` committed on a branch
   - [ ] IT tickets 1–7 filed
   - [ ] M1–M5 invites sent
   - [ ] repo transfer to the Pretium GitHub org requested
@@ -677,19 +677,19 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 - **People:** **M8 (Oct 30)**; IT security for U4 (Nov 11).
 - **Done when:**
   - [x] permission-matrix tests cover **every** route × role (allowed and denied). **Done 2026-10-26.**
-  - [ ] RLS tests
-  - [ ] redaction tests
-  - [ ] CSP/helmet, rate limits, upload limits
-  - [ ] `pnpm audit` and gitleaks clean
-  - [ ] a11y pass (axe) on the core flows
-  - [ ] mobile pass at 390 px
+  - [x] RLS tests: `packages/db/test/rls.int.test.ts`, `opportunity-rls.int.test.ts`, `fabric.int.test.ts` (audit side table), `apps/api/test/feedback.int.test.ts` (2026-10-27 review)
+  - [x] redaction tests: `packages/domain/src/policy/redact.test.ts` plus per-route checks in `apps/api/test/{pricing,gates,pipeline,timeline}.int.test.ts` (2026-10-27 review)
+  - [x] CSP/helmet, rate limits, upload limits: CSP and helmet (`apps/api/src/app.ts`), upload limits (B-16 multipart limits, the 2 MB feedback screenshot) and the per-user rate limit (PR 38, `apps/api/test/rate-limit.int.test.ts`)
+  - [x] `pnpm audit` and gitleaks clean: both CI jobs green on `main` (2026-10-27)
+  - [x] a11y pass (axe) on the core flows: axe runs in 17 Playwright specs, among them intake, G1, engineering, pricing, final review, outcome, overrides, pipeline, dashboards, attachments, notifications, admin and feedback
+  - [x] mobile pass at 390 px: `mobile.spec.ts`, `dashboards.mobile.spec.ts`, `final-review.spec.ts` (mobile project, 390 × 844)
   - [ ] load test (k6): 50 users, p95 < 400 ms
-  - [ ] runbook draft
+  - [x] runbook draft: `docs/gate/runbook.md` (PR 37). The final runbook is a B-24 item
 - **Prompt:** `prompts/B-21-hardening.md`
 - **Runbook draft (2026-10-27):** in [`docs/gate/runbook.md`](../gate/runbook.md) (not `docs/runbook.md` as the prompt says), for M9 review. Box stays open until M9 accepts it.
 - **Notes (2026-10-26):**
   - **Health alerts (2026-10-27, Bicep only, not yet applied).** `infra/modules/alerts.bicep`: a standard availability test on `https://<app>.azurewebsites.net/api/v1/health` (every 5 min, 5 US locations, 3 on test; expects 200 and `"status":"ok"`), alert when 2+ locations fail; metric alerts for web app HTTP 5xx, plan CPU, Postgres down / CPU / storage / failed connections, and logical replication lag (a stalled Fabric mirror slot, B-27). Thresholds are `main.bicep` parameters. Email receivers are `alertEmails` in the parameter files: empty (today) = no action group, rules fire into the portal only; IT to name the address. **Deviation:** no log alert on `fabric mirror unhealthy`, because API logs (pino, stdout) don't reach App Insights yet (no SDK or OpenTelemetry exporter); add a scheduled-query rule once they do. Details: `infra/README.md` "Alerts". `bicep build`/`lint`/`build-params` clean on 0.38.33.
-  - **Permission matrix.** `apps/api/test/permissions/matrix.int.test.ts` sends all 111 `/api` routes as each of the nine MVP roles and anonymously (1,111 cases). Allowed: not 401/403 and not 5xx. Denied: 403 problem+json that names the permission the gate checked. Anonymous: 401 problem+json unless public. Every request must reach the route under test. It runs on its own seeded database (`<TEST_DATABASE_URL>_matrix`). A static twin, `apps/api/src/routes/v1/routeMatrix.test.ts` (no DB, part of `pnpm test`), checks that the registry equals what Fastify registers. It also checks that every declared permission exists in the matrix and is held by a role, that the public routes match a reviewed allow-list (health, auth config, local-store file links) and that public and any-signed-in routes give a reason. Every matrix permission must be a route gate or appear in a named service check (G1–G6 deciders, `outcome.assignOwner`, `override.revert`, `attachment.removeAny`, each proved by its per-feature test). The test also keeps `docs/security/route-inventory.md` current. Qualified grants (own, assigned, fields, stages) and data scope pass the route gate by design; services (`assertCan`) and RLS enforce them, and the per-feature tests cover them. PostAward (P2) has no dev persona yet, so the matrix doesn't exercise it.
+  - **Permission matrix.** `apps/api/test/permissions/matrix.int.test.ts` sends every `/api` route (111 on 2026-10-26; 115 after B-23's feedback routes, see `docs/security/route-inventory.md`) as each of the nine MVP roles and anonymously (1,111 cases). Allowed: not 401/403 and not 5xx. Denied: 403 problem+json that names the permission the gate checked. Anonymous: 401 problem+json unless public. Every request must reach the route under test. It runs on its own seeded database (`<TEST_DATABASE_URL>_matrix`). A static twin, `apps/api/src/routes/v1/routeMatrix.test.ts` (no DB, part of `pnpm test`), checks that the registry equals what Fastify registers. It also checks that every declared permission exists in the matrix and is held by a role, that the public routes match a reviewed allow-list (health, auth config, local-store file links) and that public and any-signed-in routes give a reason. Every matrix permission must be a route gate or appear in a named service check (G1–G6 deciders, `outcome.assignOwner`, `override.revert`, `attachment.removeAny`, each proved by its per-feature test). The test also keeps `docs/security/route-inventory.md` current. Qualified grants (own, assigned, fields, stages) and data scope pass the route gate by design; services (`assertCan`) and RLS enforce them, and the per-feature tests cover them. PostAward (P2) has no dev persona yet, so the matrix doesn't exercise it.
   - **Load test scaffold.** `tests/load/read-paths.js` (k6) puts 50 VUs on dashboard, quote list, detail, queue and board, with thresholds p95 < 400 ms (overall and per screen) and failed < 1%. `pnpm load` / `pnpm load:smoke`; see `tests/load/README.md`. Validated locally only (dev mode, 150 synthetic quotes, 1-minute hold at 50 VUs: p95 298 ms, 0% failed). **Not yet run against the Azure test environment**, so the k6 box stays open. Finding: the rate limiter keyed on client IP, not on the user, so one load generator (or one office NAT) shared 300 req/min. **Fixed 2026-10-27:** it now keys on the signed-in user (`hook: 'preHandler'`, after auth), and on the IP only for public routes; health stays exempt (`apps/api/test/rate-limit.int.test.ts`).
 
 ### B-22: Production data load and UAT environment prep · **Fri Nov 6** · Ben + IT/D&A

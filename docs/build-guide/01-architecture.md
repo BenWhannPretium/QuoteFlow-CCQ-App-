@@ -14,7 +14,7 @@
   (desktop + phone, no VPN) ───┼──►│  QuoteFlow                                                          │      │
         │  MSAL sign-in        │   │   • React SPA (static, served by the API)                           │      │
         ▼                      │   │   • Fastify API  /api/v1  ── policy check ── domain engine          │      │
-   Entra ID (SSO, MFA, CA)     │   │   • Background jobs (SF sync, SLA timers) via pg advisory locks     │      │
+   Entra ID (SSO, MFA, CA)     │   │   • Background jobs (SF sync, expiry, mail, Fabric) via pg locks    │      │
    app roles ← security groups │   └──────┬───────────────┬──────────────┬──────────────┬────────────────┘      │
                                │          │ managed id     │ managed id   │ app-only     │ OTel                  │
                                │          ▼                ▼              ▼              ▼                       │
@@ -56,7 +56,7 @@ quoteflow-ccq-app-/
 │     ├─ src/plugins/            # auth (jose), request context, audit, problem+json, rate-limit, helmet
 │     ├─ src/routes/v1/          # quotes, intake, queue, gates, overrides, attachments, lookups, dashboards, admin, me
 │     ├─ src/services/           # orchestration: call domain + repositories + integrations in one transaction
-│     ├─ src/jobs/               # sfSync, slaTimers, notificationDispatch
+│     ├─ src/jobs/               # sfSync, validityExpiry, notificationDispatch, fabricMirrorCheck
 │     └─ test/                   # route + permission-matrix tests (fastify.inject + real Postgres)
 ├─ packages/
 │  ├─ domain/                    # NO I/O. stage engine, scoring, overrides, policy, validation, quote-number
@@ -153,7 +153,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 | feedback.submit (B-23: "Report an issue") | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | feedback.triage (B-23: Admin → Feedback; reports can show commercial figures) | | | | | | | | | ✔ |
 
-> The G1 decider (D-06), the override approver (blueprint gap) and the Final Review approver (D-10) are **open decisions**. The matrix is config-backed (`role_permission` table seeded from `matrix.ts`), so changing who approves needs no code change.
+> The G1 decider (D-06), the override approver (blueprint gap) and the Final Review approver (D-10) are **open decisions**. The matrix is seeded into the `role_permission` table, but **route checks read `matrix.ts`**, so changing who approves is a one-line `matrix.ts` change plus a re-seed (B-04 and B-19 notes in `03`). Making the table the control is a security change that needs a decision first (B-19).
 
 ---
 
@@ -396,7 +396,7 @@ Why mirroring and not the alternatives:
 - GitHub Actions deploys via OIDC federated credentials.
 
 **Database**
-- Postgres private endpoint, Entra authentication for the app's managed identity, TLS required.
+- Postgres: TLS required. **Target (prod):** private endpoint, Entra authentication for the app's managed identity. **Test today:** public access with "Allow Azure services" and the admin password login, read from Key Vault (`06` runbook); Entra auth is on alongside it for the Fabric mirroring role (`infra/modules/postgres.bicep`).
 - RLS policies on `quote` and child tables, and on `sf_opportunity_snapshot` (L-6).
 - `audit_event` is insert-only for the app role.
 
@@ -421,7 +421,7 @@ Why mirroring and not the alternatives:
 | Env | Where | Data | Deploys |
 |---|---|---|---|
 | local | Laptop: docker Postgres, `AUTH_MODE=dev` | Synthetic | — |
-| test | Azure RG `rg-ccq-test` (App Service B2/P0v3, Postgres Burstable B1ms → **General Purpose for Fabric mirroring**, D-FB3; KV, AI). Mirrors to Fabric workspace `QuoteFlow (CCQ) - test` | Masked SF fixture, then SF **UAT org** | Auto on merge to `main` |
+| test | Azure RG `rg-ccq-test`, live at `https://quoteflow-test.azurewebsites.net` since 2026-10-21 (App Service B1, Postgres Burstable B1ms → **General Purpose for Fabric mirroring**, D-FB3; KV, AI). Mirrors to Fabric workspace `QuoteFlow (CCQ) - test` once set up | SF **production org** since 2026-10-24 (production data approved, D-23) | Auto on merge to `main` |
 | prod | Azure RG `rg-ccq-prod` (App Service P1v3 + staging slot, Postgres General Purpose D2ds_v5 with HA off for MVP, PITR 7–35 days; VNet data gateway subnet). Mirrors to Fabric workspace `QuoteFlow (CCQ) - prod` | Approved production SF + pricing | Manual approval in GitHub Actions; slot swap |
 
 **CI** (every PR):
