@@ -152,6 +152,21 @@ export const PERMISSION_MATRIX: Readonly<
   // B-19: the admin configuration console. Leadership reads every screen; only Admin changes config.
   'config.read': { Leadership: true, Admin: true },
   'config.manage': { Admin: true },
+  // B-23: the in-app "Report an issue" button (every MVP role; PostAward is P2) and the
+  // Admin → Feedback triage page. Reports can hold screenshots of commercial figures, so triage is
+  // Admin only.
+  'feedback.submit': {
+    KAM: true,
+    SalesLeader: true,
+    EngLead: true,
+    Engineer: true,
+    Pricing: true,
+    PricingLead: true,
+    Approver: true,
+    Leadership: true,
+    Admin: true,
+  },
+  'feedback.triage': { Admin: true },
 };
 
 /** The roles that hold a permission, ignoring qualifiers. */

@@ -10,3 +10,4 @@ docs/
 LICENSE
 CLAUDE.md
 packages/integrations/src/salesforce/fixtures/*.json
+apps/web/public/help/

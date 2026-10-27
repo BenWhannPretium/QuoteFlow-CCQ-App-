@@ -2,6 +2,7 @@ import { useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 import { DevPersonaSwitcher, useCurrentUser } from '@/auth';
+import { ReportIssueDialog, ReportIssueFooter } from '@/components/feedback/ReportIssue';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { usePublicConfig } from '@/config/public-config';
 
@@ -41,10 +42,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="relative min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-8 sm:pt-8 sm:pb-12 lg:px-12"
             >
               <div className="mx-auto max-w-6xl">{children}</div>
+              <ReportIssueFooter />
             </main>
           </div>
         </div>
         <BottomNav items={items} pathname={pathname} search={search} />
+        <ReportIssueDialog />
       </div>
     </TooltipProvider>
   );

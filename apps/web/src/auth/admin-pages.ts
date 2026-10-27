@@ -11,6 +11,8 @@ export function adminPagePermission(pathname: string): PermissionName {
     return 'audit.read';
   }
   if (pathname.startsWith('/admin/override-log')) return 'overrideLog.read';
+  // B-23: feedback can show commercial figures (screenshots), so Admin only.
+  if (pathname.startsWith('/admin/feedback')) return 'feedback.triage';
   // B-13: the outcomes report is analytics (SalesLeader, Leadership, Admin and the other analytics roles).
   if (pathname.startsWith('/admin/reports/outcomes')) return 'analytics.read';
   if (pathname.startsWith('/admin/reports/erf-linkage') || pathname.startsWith('/admin/ui-kit')) {

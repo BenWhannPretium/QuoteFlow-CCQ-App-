@@ -10,6 +10,7 @@ import { authConfigRoutes } from './auth-config';
 import { commercialRoutes } from './commercial';
 import { configRoutes, type PublicConfigCache } from './config';
 import { engineeringRoutes } from './engineering';
+import { feedbackRoutes } from './feedback';
 import { finalReviewRoutes } from './final-review';
 import { gateRoutes } from './gates';
 import { healthRoutes } from './health';
@@ -34,6 +35,7 @@ import type { AuditAdminService } from '../../services/auditAdmin';
 import type { CommercialService } from '../../services/commercial';
 import type { DashboardService } from '../../services/dashboards';
 import type { EngineeringService } from '../../services/engineering';
+import { FeedbackService } from '../../services/feedback';
 import type { FinalReviewService } from '../../services/final-review';
 import type { GateService } from '../../services/gateService';
 import type { IntakeService } from '../../services/intake';
@@ -140,5 +142,9 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(analyticsRoutes, {
     analytics: analyticsService,
     dashboards: dashboardService,
+  });
+  // B-23 "Report an issue" and Admin → Feedback.
+  await app.register(feedbackRoutes, {
+    service: new FeedbackService(deps.now ? { now: deps.now } : {}),
   });
 };

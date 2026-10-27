@@ -33,6 +33,8 @@ export const PERMISSIONS = [
   'analytics.read',
   'config.read',
   'config.manage',
+  'feedback.submit',
+  'feedback.triage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

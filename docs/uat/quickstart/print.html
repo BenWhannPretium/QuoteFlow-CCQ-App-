@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuoteFlow Quick-starts</title>
+<!--
+  Printable copy of docs/uat/quickstart/*.md (B-23). The .md files are the source:
+  when one changes, change the matching <section> here the same way.
+  Self-contained: inline CSS, no scripts, no web fonts.
+-->
+<style>
+  :root {
+    --ink: #1b2a24;
+    --muted: #4f5f58;
+    --brand: #1f5c45;
+    --accent: #b0602d;
+    --line: #cdd8d2;
+    --paper: #ffffff;
+    --band: #eef4f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7eeea;
+      --muted: #b3c2bb;
+      --brand: #8fd1b2;
+      --accent: #f0a46c;
+      --line: #34463e;
+      --paper: #141c18;
+      --band: #1c2722;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  .intro { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 24px; }
+  .intro h1 { font-size: 1.5rem; margin: 0 0 4px; color: var(--brand); }
+  .intro p { margin: 4px 0; color: var(--muted); }
+  .intro ul { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0; list-style: none; margin: 8px 0 0; }
+  .intro a { color: var(--brand); }
+  .role {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 0 0 28px;
+  }
+  .role h1 {
+    font-size: 1.35rem;
+    margin: -20px -22px 14px;
+    padding: 14px 22px;
+    background: var(--band);
+    border-radius: 12px 12px 0 0;
+    border-bottom: 3px solid var(--brand);
+    color: var(--brand);
+  }
+  .role h2 {
+    font-size: 1.02rem;
+    margin: 16px 0 6px;
+    color: var(--accent);
+    text-transform: none;
+  }
+  .role p { margin: 6px 0; }
+  .role ol, .role ul { margin: 4px 0; padding-left: 1.3em; }
+  .role li { margin: 3px 0; }
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.92em;
+    background: var(--band);
+    padding: 0 3px;
+    border-radius: 3px;
+  }
+  .foot { color: var(--muted); font-size: 0.85rem; }
+
+  @page { size: letter; margin: 0.55in 0.6in; }
+  @media print {
+    :root { --ink: #000; --muted: #333; --brand: #1f5c45; --accent: #8a4a20; --line: #999; --paper: #fff; --band: #eef4f0; }
+    body { font-size: 10.5pt; line-height: 1.38; background: #fff; }
+    main { max-width: none; padding: 0; }
+    .intro { display: none; }
+    .role {
+      border: 0;
+      padding: 0;
+      margin: 0;
+      break-after: page;
+      page-break-after: always;
+      break-inside: avoid;
+    }
+    .role:last-of-type { break-after: auto; page-break-after: auto; }
+    .role h1 { margin: 0 0 10px; border-radius: 0; padding: 8px 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .role li, .role p { break-inside: avoid; }
+    .foot { display: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+<header class="intro">
+  <h1>QuoteFlow quick-starts</h1>
+  <p>One page per role. Print this page: each role starts on a new sheet.</p>
+  <p>Test URL: https://quoteflow-test.azurewebsites.net · Found a problem? Use <strong>Report an issue</strong>.</p>
+  <ul>
+    <li><a href="#kam">KAM</a></li>
+    <li><a href="#sales-leader">Sales leader</a></li>
+    <li><a href="#eng-lead">Engineering lead</a></li>
+    <li><a href="#engineer">Engineer</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#approver">Approver</a></li>
+    <li><a href="#leadership">Leadership</a></li>
+    <li><a href="#admin">Admin</a></li>
+  </ul>
+</header>
+
+<section class="role" id="kam">
+<h1>QuoteFlow quick-start: KAM</h1>
+<p><strong>What QuoteFlow is for you.</strong> One place to request a commercial capital quote and follow it to the customer's answer. You start from your Salesforce opportunity. Engineering, Pricing and Final Review do their part in QuoteFlow, and you see where it is at every step.</p>
+<p><strong>Your home screen: My quotes.</strong> It shows what is <strong>Returned to me</strong>, <strong>My drafts</strong>, <strong>My open quotes by stage</strong>, <strong>Proposals expiring soon</strong> and <strong>My outcome capture rate</strong>. Your menu: <strong>Home</strong>, <strong>New intake</strong>, <strong>My proposals</strong>, <strong>Pipeline</strong>.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Start an intake.</strong> Click <strong>New intake</strong>, find your Salesforce opportunity and click <strong>Use this opportunity</strong>. Four steps: Opportunity, Customer &amp; ship-to, Product &amp; volume, Drawing, notes &amp; review. Click <strong>Submit to CCQ</strong>. You get a quote number like <code>CCQ-2026-00042</code>.</li>
+<li><strong>Attach the drawing.</strong> On step 4, drag files onto <strong>Drawing and other files</strong>, or tap <strong>Add photo</strong> on your phone. A drawing gets the quote to Engineering fastest. It is requested, never required.</li>
+<li><strong>Fix a returned quote.</strong> If a sales leader or Engineering returns it, you get a notification. Open the quote and click <strong>Fix and resubmit</strong>. The quote keeps its number.</li>
+<li><strong>Record the customer's answer.</strong> Go to <strong>My proposals</strong> and click <strong>Record outcome</strong>: <strong>Awarded</strong>, <strong>In negotiation</strong>, <strong>Lost</strong>, <strong>No response / Expired</strong>, <strong>On hold</strong> or <strong>Re-quote</strong>. No response is not a loss.</li>
+<li><strong>Hand off a win.</strong> After <strong>Awarded</strong>, fill the <strong>Commit &amp; hand off</strong> card (CER and receiving team), then click <strong>Commit &amp; hand off</strong> → <strong>Advance (close Won)</strong>.</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>Every quote starts from a Salesforce opportunity. One quote per opportunity.</li>
+<li>You no longer pick the plant, the engineer or the priority. Engineering decides the plant and engineer. The priority score is calculated and advisory.</li>
+<li>You don't create customer accounts. A new customer is marked <strong>Not yet established</strong>.</li>
+<li>Awarded is the customer's yes. The quote closes Won only after Commit &amp; Hand Off.</li>
+<li>You see that the price is approved, by whom and when. Pricing figures stay with Pricing.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li><strong>Bailey Schmitt</strong>, product owner: how QuoteFlow should work.</li>
+<li><strong>Tre Curry</strong>, coordination: access, sessions, follow-ups.</li>
+<li><strong>Ben Whann</strong>, builder: anything broken.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<section class="role" id="sales-leader">
+<h1>QuoteFlow quick-start: Sales leader</h1>
+<p><strong>What QuoteFlow is for you.</strong> You decide which new opportunities are worth engineering time (gate G1, <strong>Qualify &amp; prioritize</strong>). You approve priority changes and see your team's pipeline and outcomes.</p>
+<p><strong>Your home screen: Sales pipeline.</strong> It shows <strong>To qualify (G1)</strong>, <strong>Pending override requests</strong>, <strong>Team pipeline by stage</strong> and <strong>Proposals with no outcome past validity</strong>. Your menu: <strong>Home</strong>, <strong>New intake</strong>, <strong>My proposals</strong>, <strong>To qualify</strong>, <strong>Pipeline</strong>, <strong>Approvals</strong>, <strong>Analytics</strong>.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Qualify new intakes.</strong> Click <strong>To qualify</strong>. The list is highest priority first. Click <strong>Decide</strong> and choose <strong>Advance</strong>, <strong>Hold</strong>, <strong>Rework (back to KAM)</strong>, <strong>Redirect (not CCQ work)</strong> or <strong>Stop</strong>. Click <strong>Record decision</strong>. The ⓘ next to each choice explains it.</li>
+<li><strong>Approve or reject priority overrides.</strong> <strong>Approvals</strong> → <strong>Overrides</strong>. Add a note and click <strong>Approve</strong> or <strong>Reject</strong>. To undo an override, open the quote's <strong>Timeline</strong> and click <strong>Revert</strong>.</li>
+<li><strong>Watch your team's pipeline.</strong> Use <strong>Pipeline</strong> (List, Prioritization, Board) and <strong>Analytics</strong>. Each chart has an ⓘ with its definition.</li>
+<li><strong>Chase missing outcomes.</strong> <strong>Proposals with no outcome past validity</strong> on your home screen. You can record an outcome for your team.</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>Qualification is a recorded decision with a reason, not an email.</li>
+<li>The priority score orders the list. You decide.</li>
+<li>You cannot qualify a deal where you are the KAM. Another sales leader decides it.</li>
+<li>You cannot approve your own override request.</li>
+<li>Pricing and capital figures are not shown to your role.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li><strong>Bailey Schmitt</strong>, product owner: rules and definitions.</li>
+<li><strong>Tre Curry</strong>, coordination: access and sessions.</li>
+<li><strong>Ben Whann</strong>, builder: anything broken.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<section class="role" id="eng-lead">
+<h1>QuoteFlow quick-start: Engineering lead</h1>
+<p><strong>What QuoteFlow is for you.</strong> One queue for all upfront engineering work on new business quotes. You assign it, sign off capacity and decide whether there is a feasible solution (gate G2, <strong>Feasible solution?</strong>).</p>
+<p><strong>Your home screen: Engineering queue.</strong> It shows <strong>Queue health</strong>, <strong>Open load per engineer</strong>, <strong>Time to assign and to G2</strong> and <strong>Returned to the KAM: top reasons</strong>. You are alerted (bell and email) when a quote arrives. Your menu: <strong>Home</strong>, <strong>Engineering queue</strong>, <strong>Pipeline</strong>, <strong>Approvals</strong>, <strong>Analytics</strong>.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Assign work.</strong> <strong>Engineering queue</strong> → row menu <strong>…</strong> → <strong>Assign…</strong> (or tick rows and <strong>Assign selected…</strong>). Use <strong>Reassign work…</strong> to move someone's open work.</li>
+<li><strong>Return incomplete intakes.</strong> Row menu → <strong>Return to KAM…</strong>. Say what is missing.</li>
+<li><strong>Sign off capacity.</strong> On the quote's <strong>Engineering</strong> tab click <strong>Approve capacity</strong>, or <strong>Block capacity</strong> with a note. G2 Advance needs capacity approved.</li>
+<li><strong>Decide G2.</strong> <strong>Engineering</strong> tab → <strong>Decide G2…</strong>: <strong>Advance</strong>, <strong>Advance with risk</strong>, <strong>Advance – capital required</strong>, <strong>Hold</strong>, <strong>Rework (back to KAM)</strong>, <strong>Redirect (alternative platform / site)</strong> or <strong>Stop</strong>.</li>
+<li><strong>Keep order.</strong> <strong>Pin to top…</strong> puts a quote first, with a reason. It is logged.</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>The queue is sorted by tier, score and age. You still assign by hand.</li>
+<li>You pick the engineer and the plant. The KAM no longer does.</li>
+<li>Capacity evidence and your sign-off are part of the G2 record.</li>
+<li>Returns go back to the KAM with a reason, and the quote keeps its number.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li><strong>Bailey Schmitt</strong>, product owner: rules and definitions.</li>
+<li><strong>Tre Curry</strong>, coordination: access and sessions.</li>
+<li><strong>Ben Whann</strong>, builder: anything broken.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<section class="role" id="engineer">
+<h1>QuoteFlow quick-start: Engineer</h1>
+<p><strong>What QuoteFlow is for you.</strong> The engineering reviews assigned to you, with the intake, the drawing and the KAM's notes in one place. You record the solution and the capacity evidence. Your lead decides G2.</p>
+<p><strong>Your home screen: My assignments.</strong> Your reviews are listed first, then the whole queue (read-only). You get a notification and an email when work is assigned to you. Your menu: <strong>Home</strong>, <strong>My assignments</strong>, <strong>Pipeline</strong>.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Accept the review.</strong> Open the quote → <strong>Engineering</strong> tab → <strong>Accept (start review)</strong>.</li>
+<li><strong>Record the solution.</strong> Fill <strong>Process type</strong>, <strong>Machine type</strong>, <strong>Plant / site</strong>, <strong>Cavitation</strong>, <strong>Cycle time (s)</strong>, <strong>Preliminary capital (USD)</strong> and the notes. Click <strong>Save solution</strong>.</li>
+<li><strong>Add capacity evidence.</strong> <strong>Add capacity row</strong>: site, line, assumed effectiveness, cycle time, utilization, buffer, analysis date, analyst. Click <strong>Save capacity evidence</strong>.</li>
+<li><strong>Attach files.</strong> <strong>Attachments</strong> tab: drag CAD files, PDFs or photos onto the drop area.</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>Work comes to you by assignment, with an alert, not by email.</li>
+<li>Capacity evidence is recorded with the quote, not in a separate file.</li>
+<li>Capital and capacity figures are commercial. You can enter them but not read them back: they show as <strong>Hidden</strong>. Leave a hidden field blank to keep what is saved.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li>Your engineering lead: what to work on next.</li>
+<li><strong>Bailey Schmitt</strong>, product owner: rules and definitions.</li>
+<li><strong>Tre Curry</strong>, coordination: access. <strong>Ben Whann</strong>, builder: anything broken.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<section class="role" id="pricing">
+<h1>QuoteFlow quick-start: Pricing and the pricing lead</h1>
+<p><strong>What QuoteFlow is for you.</strong> The quotes Engineering has cleared, ready to price. You record the price approval and capital readiness, then send the quote to Final Review (gate G3, <strong>Price approved &amp; capital ready</strong>). Costing stays in Excel and the pricing app.</p>
+<p><strong>Your home screen.</strong> Analysts see <strong>Pricing desk</strong>. The pricing lead sees <strong>Pricing triage</strong>. Both show <strong>Quoting queue</strong>, <strong>Capital readiness pending</strong> and <strong>Median time in Quoting</strong>. Your menu: <strong>Home</strong>, <strong>Pricing queue</strong>, <strong>Pipeline</strong>, <strong>Analytics</strong>.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Pricing lead: assign pricers.</strong> <strong>Pricing queue</strong> → row menu <strong>…</strong> → <strong>Assign pricer…</strong>. Use <strong>Reassign work…</strong> to balance the load.</li>
+<li><strong>Record the price approval.</strong> Row menu → <strong>Record price approval</strong>. On the <strong>Quoting</strong> tab, check the <strong>Engineering summary</strong> and <strong>Pricing history</strong>. Tick <strong>Costing completed (Cost-to-Serve)</strong>, set <strong>Approved by</strong> and <strong>Approved at</strong>, then <strong>Save price approval</strong>.</li>
+<li><strong>Record capital readiness.</strong> Pick a <strong>Status</strong> (a pending status needs a justification). Click <strong>Save capital readiness</strong>.</li>
+<li><strong>Check the terms.</strong> On <strong>Overview</strong> → <strong>Commercial terms</strong>, fill payment terms and tooling commitment, tick <strong>Terms checked</strong> and <strong>Save terms</strong>. Final Review needs it.</li>
+<li><strong>Decide G3.</strong> <strong>Advance to Final Review…</strong>, <strong>Return to Engineering…</strong>, or <strong>Hold or stop…</strong> (Hold, Rework (re-cost), Redirect, Stop).</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>No price figures are typed into QuoteFlow. You record who approved, when, the basis and the range.</li>
+<li>BPR is retired. The legacy ERF # is optional.</li>
+<li>Cost before price: the costing attestation is needed before G3.</li>
+<li>You never decide Final Review on a quote you priced.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li><strong>Gemma Cebolla</strong>, Sr Director Pricing: pricing rules.</li>
+<li><strong>Bailey Schmitt</strong>, product owner. <strong>Tre Curry</strong>, coordination. <strong>Ben Whann</strong>, builder.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<section class="role" id="approver">
+<h1>QuoteFlow quick-start: Final Review approver</h1>
+<p><strong>What QuoteFlow is for you.</strong> A one-page review of each quote Pricing submits, and a recorded decision to release the offer (gate G4, <strong>Release proposition</strong>). Approving is internal. It does not award the quote: only the customer's answer does.</p>
+<p><strong>Your home screen: Approvals.</strong> It shows <strong>Pending final review (G4)</strong> and <strong>Decided recently</strong>. You get an email when a quote needs you. Your menu: <strong>Home</strong>, <strong>Pipeline</strong>, <strong>Approvals</strong>, <strong>Analytics</strong>. It works on a phone.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Open the queue.</strong> <strong>Approvals</strong> → <strong>Final Review</strong>. Each card shows price approval, capital readiness, the G2 outcome, the KAM and the pricing approver.</li>
+<li><strong>Review.</strong> Click <strong>Review &amp; decide</strong>: the request, the priority, the engineering solution and capacity evidence, the price approval, capital readiness, files and decisions so far.</li>
+<li><strong>Decide.</strong> Use the bar at the bottom: <strong>Advance (release the offer)</strong>, <strong>Hold</strong>, <strong>Rework (back to the affected gate)</strong> or <strong>Stop (withdraw)</strong>. Stop needs a reason and a note. Rework needs a note and where it goes back to.</li>
+<li><strong>Check the validity.</strong> Advance sets the proposal issue date (now by default) and the valid-until date.</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>Final Review is separate from the customer outcome. Advance releases the offer; the KAM records Awarded or Lost later.</li>
+<li>The terms check must be done before you can release the offer.</li>
+<li>You cannot decide a quote where you are the KAM, or whose price you approved.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li><strong>Bailey Schmitt</strong>, product owner: rules and approver tiers.</li>
+<li><strong>Tre Curry</strong>, coordination. <strong>Ben Whann</strong>, builder.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<section class="role" id="leadership">
+<h1>QuoteFlow quick-start: Leadership</h1>
+<p><strong>What QuoteFlow is for you.</strong> A read-only view of every commercial capital quote: where it is, how long it takes, what we win and lose, and how the rules are followed. You see everything, including pricing and capital figures. You do not change them.</p>
+<p><strong>Your home screen: Leadership overview.</strong> It shows <strong>Open quotes</strong>, <strong>Median intake to G4</strong>, <strong>First-pass intake completeness</strong>, <strong>Win rate and outcome capture</strong> and <strong>Pipeline by stage</strong>. Your menu: <strong>Home</strong>, <strong>Engineering queue</strong>, <strong>Pricing queue</strong>, <strong>Pipeline</strong>, <strong>Approvals</strong>, <strong>Analytics</strong>, <strong>Admin</strong>.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Read the analytics.</strong> <strong>Analytics</strong> → <strong>Leadership report</strong>: Pipeline, Outcomes, Cycle time, Flow, Reasons, Quality and governance, Priority, Adoption. Click the ⓘ on any chart for its definition and time window. Click <strong>Table</strong> to see the numbers.</li>
+<li><strong>Review overrides.</strong> <strong>Admin</strong> → <strong>Override log</strong>: every override, the original value, the reason and who decided.</li>
+<li><strong>Check the audit trail.</strong> <strong>Admin</strong> → <strong>Audit log</strong>: every view, change, decision, export and sign-in.</li>
+<li><strong>Export.</strong> <strong>Pipeline</strong> → <strong>Export CSV</strong> (every export is audited).</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>Outcomes are reason-coded, so win and loss reasons are reportable.</li>
+<li>The win rate is shown next to the outcome capture rate.</li>
+<li>Overrides are logged with a justification and can be reverted.</li>
+<li>These numbers are operational, not D&amp;A-certified.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li><strong>Bailey Schmitt</strong>, product owner: definitions.</li>
+<li><strong>Tre Curry</strong>, coordination. <strong>Ben Whann</strong>, builder.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<section class="role" id="admin">
+<h1>QuoteFlow quick-start: Admin</h1>
+<p><strong>What QuoteFlow is for you.</strong> You keep the business rules as data: value lists, reason codes, workflow labels, settings, scoring and user scope. Each change needs a reason and goes to the decision log. Seed values stay <strong>Provisional</strong> until their owner approves them.</p>
+<p><strong>Your home screen: Administration.</strong> Click <strong>Open admin</strong>. Your menu also has <strong>New intake</strong>, both queues, <strong>Pipeline</strong>, <strong>Approvals</strong> and <strong>Analytics</strong>.</p>
+<h2>What you'll do</h2>
+<ol>
+<li><strong>Change configuration.</strong> <strong>Admin</strong> → <strong>Value lists</strong>, <strong>Reason codes</strong>, <strong>Workflow labels and rules</strong>, <strong>App settings</strong> or <strong>Scoring model</strong>. Say why in "Why are you making this change?" and click <strong>Save change</strong>. Once the owner signs off, set <strong>Approval</strong> to <strong>Mark approved by me</strong>.</li>
+<li><strong>Set user scope.</strong> <strong>Admin</strong> → <strong>Users and scope</strong> → <strong>Scope</strong>. Roles come from the <code>SG-CCQ-*</code> groups in Entra; ask IT to change those.</li>
+<li><strong>Watch the integrations.</strong> <strong>Admin</strong> → <strong>Integrations</strong>: Salesforce sync runs, the Fabric mirror check and the pricing-history import.</li>
+<li><strong>Triage UAT reports.</strong> <strong>Admin</strong> → <strong>Feedback</strong>: set status, owner and a GitHub issue link.</li>
+<li><strong>Read the audit.</strong> <strong>Admin</strong> → <strong>Audit log</strong>, <strong>Decision log</strong>, <strong>Usage report</strong>, <strong>ERF linkage</strong>.</li>
+</ol>
+<h2>What changed from the ERF</h2>
+<ul>
+<li>Rules are configuration, not code. No developer is needed to change a label, a reason code or a threshold.</li>
+<li>Every change is versioned with who, what, why and when.</li>
+<li>No local accounts. Access comes only from Entra groups.</li>
+</ul>
+<h2>Who to ask</h2>
+<ul>
+<li><strong>Bailey Schmitt</strong>, product owner and interim approver of config changes.</li>
+<li><strong>Tre Curry</strong>, coordination. <strong>Ben Whann</strong>, builder.</li>
+<li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
+</ul>
+</section>
+
+<p class="foot">Source: docs/uat/quickstart/*.md. Keep this file in step with them.</p>
+</main>
+</body>
+</html>

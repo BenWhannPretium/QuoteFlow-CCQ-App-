@@ -693,11 +693,20 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 ### B-23: UAT pack, in-app feedback, training aids · **Mon Nov 9 – Thu Nov 12** · Ben + Bailey
 - **People:** UAT cohort (U1–U3), Bailey runs the sessions.
 - **Done when:**
-  - [ ] UAT scripts per role (in `docs/uat/`)
-  - [ ] in-app "Report an issue" button that creates a feedback record with page + quote context
-  - [ ] a 1-page quick-start per role
-  - [ ] defect triage board
+  - [x] UAT scripts per role (in `docs/uat/`) (drafted 2026-10-26; Bailey to review by Fri Nov 6, real opportunities to replace the placeholders)
+  - [x] in-app "Report an issue" button that creates a feedback record with page + quote context (2026-10-26)
+  - [x] a 1-page quick-start per role (2026-10-26; Bailey to review)
+  - [x] defect triage board (Admin → Feedback + `pnpm uat:defects`, 2026-10-26)
   - [ ] all Sev-1/2 defects fixed by Thu Nov 12
+- **Built 2026-10-26 (ahead of the Nov 6 freeze):**
+  - **Feedback.** Migration 0023 adds the `feedback` table. Text columns only, so it mirrors to Fabric; the screenshot is `bytea` (≤ 2 MB, magic bytes checked).
+    - Permissions: `feedback.submit` for every MVP role, `feedback.triage` for Admin only, because screenshots can show commercial figures.
+    - RLS: a reporter inserts their own report; only Admin reads or updates; no deletes.
+    - API: `POST /feedback`, `GET /admin/feedback`, `GET /admin/feedback/:id/screenshot`, `PATCH /admin/feedback/:id`. All audited.
+    - UI: **Report an issue** in the user menu and every page footer (type, severity, description; screenshot by screen capture or upload; page, quote, build, viewport, roles and browser added automatically), and **Admin → Feedback** for triage, with a **Copy GitHub issue** action (the app holds no GitHub token).
+  - **Defect log.** `pnpm uat:defects` renders `docs/uat/defect-log.md` from the table. **Deviation:** the file is git-ignored, not committed, because report text can name customers (rule 8). It is shared on SharePoint.
+  - **Quick-starts.** Served as `/help/quickstart.html` (copied from `docs/uat/quickstart/print.html`, with the CSS split out to satisfy the CSP) and linked from every home screen ("New here?").
+  - **Wording.** The scripts use the app's wording, which differs from the guide in places, e.g. G2 "Advance…" and G4 "Advance (release the offer) / Stop / Rework / Hold". See `docs/uat/README.md` "Known gaps".
 - **Prompt:** `prompts/B-23-uat-pack.md`
 
 ### B-24: Gate package and hand-off documentation · **Thu Nov 12 – Fri Nov 13** · Ben + Bailey
