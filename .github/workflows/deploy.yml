@@ -50,16 +50,17 @@ jobs:
       url: https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # workflow_run: the commit CI tested, not whatever main is now.
+          # (checkout v7 refuses fork PR code under workflow_run; this job only runs for pushes here.)
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           # B-27: the full history, to diff migrations against the commit test is running now.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -78,7 +79,7 @@ jobs:
           (cd .azure-deploy && zip -qry ../quoteflow.zip .)
           ls -lh quoteflow.zip
 
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
