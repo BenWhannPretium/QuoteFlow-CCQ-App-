@@ -60,6 +60,9 @@ param sfClientSecretName = 'sf-client-secret'
 param fabricWorkspaceId = ''
 param fabricMirroredDbId = ''
 
+// B-21 health alerts (infra/README.md "Alerts"). Prod: IT's on-call or shared mailbox (confirm with IT). Empty = rules fire into the portal only.
+param alertEmails = []
+
 param githubSubjects = [
   {
     name: 'github-production-env'
