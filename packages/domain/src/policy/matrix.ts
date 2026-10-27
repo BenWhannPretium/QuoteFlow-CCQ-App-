@@ -20,7 +20,9 @@ const own: Qualifier = { kind: 'own' };
 const assigned: Qualifier = { kind: 'assigned' };
 
 /**
- * Architecture §3.4 as data. Seeded into `role_permission` (B-03), so who approves can change without code.
+ * Architecture §3.4 as data. Seeded into `role_permission` (B-03), but route checks read this file, so
+ * changing who approves is a one-line change here plus a re-seed (B-19 note: the table becomes the
+ * control only after a security decision).
  * The G1 decider (D-06), override approver and G4 approver (D-10) are open decisions: all provisional.
  *
  * Reading notes:

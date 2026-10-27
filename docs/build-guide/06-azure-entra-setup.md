@@ -500,13 +500,13 @@ Use **Variables**, not **Secrets**: the workflow reads `vars.*`. The GitHub envi
 In `05-path-to-mvp.md`:
 - **Step 2 (M2):** every box, and "B-20 first deploy".
 - **Step 1 (M1):** Oliver's approval covers **"Azure hosting approved"** and **"IT person who provisions it"**. The other three Step 1 items were not part of today's approval. Ask Oliver for each **by email today**; a one-line answer each is enough:
-  - [ ] **Production-data path** (D-23), including the ~205 live SF records in Bailey's prototype: purge, or approve?
-  - [ ] **Support model in principle** (D-17): "EI builds, IT hosts and supports"?
-  - [ ] **Access pattern** (D-H2): is a public `*.azurewebsites.net` URL with Entra sign-in OK for **test**? (Production pattern decided at M8.)
+  - [x] **Production-data path** (D-23): approved (Ben, 2026-10-23); test runs on production Salesforce data since 2026-10-24. Still open: the written approval and Bailey's prototype copy (~205 records).
+  - [x] **Support model in principle** (D-17): decided 2026-10-21, **EI supports** (not "EI builds, IT hosts and supports"). On-call and hypercare detail at M9.
+  - [x] **Access pattern** (D-H2) for **test**: the public `*.azurewebsites.net` URL with Entra sign-in is fine (Ben, 2026-10-21). Production pattern decided at M8.
 
 In `03-build-steps.md`:
 - **B-04:** tick "MSAL sign-in works against Entra". Note the tenant and the date.
-- **B-20:** tick "`deploy.yml` deploys `main` to test via OIDC", "the DB migrates on deploy" and "smoke test passes against the test URL". **Leave the Bicep box open** and note the deviation: the test environment was built with the CLI script in this runbook, and Bicep (for prod, with a private endpoint and VNet) is still to do before B-22.
+- **B-20:** tick "`deploy.yml` deploys `main` to test via OIDC", "the DB migrates on deploy" and "smoke test passes against the test URL". **Leave the Bicep box open** and note the deviation: the test environment was built with the CLI script in this runbook. Bicep for both environments is now in `infra/` (2026-10-27) but not yet applied; see `infra/README.md`.
 
 ### D2. Record the values (not secrets) in `03` under B-20
 
