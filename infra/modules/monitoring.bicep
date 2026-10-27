@@ -1,5 +1,5 @@
 // Log Analytics workspace + workspace-based Application Insights (runbook 06 B3).
-// Availability tests and alert rules are B-21 (telemetry from the code arrives then).
+// The availability test and alert rules are in alerts.bicep (B-21).
 
 param location string
 param tags object
@@ -29,4 +29,5 @@ resource appi 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 output logAnalyticsId string = law.id
+output appInsightsId string = appi.id
 output appInsightsConnectionString string = appi.properties.ConnectionString

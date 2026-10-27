@@ -110,6 +110,32 @@ param fabricMirroredDbId string = ''
 param extraAppSettings object = {}
 
 // ---------------------------------------------------------------------------------------------------
+// Health alerts (B-21): availability test, action group, metric alerts. See infra/README.md "Alerts".
+@description('Email addresses notified by every alert. Empty = no action group; the rules still fire into the portal.')
+param alertEmails array = []
+@description('Availability test agent locations (population tags). Default: five US locations.')
+param availabilityLocations array = [
+  'us-il-ch1-azr' // North Central US
+  'us-fl-mia-edge' // Central US
+  'us-tx-sn1-azr' // South Central US
+  'us-va-ash-azr' // East US
+  'us-ca-sjc-azr' // West US
+]
+@allowed([300, 600, 900])
+param availabilityFrequencySeconds int = 300
+@description('Alert when this many test locations fail in the same 5 minutes (2 = one flaky agent does not page).')
+param availabilityFailedLocations int = 2
+param alertCriticalSeverity int = 1
+param alertWarningSeverity int = 2
+param alertHttp5xxThreshold int = 10
+param alertAppServiceCpuPercent int = 85
+param alertPostgresCpuPercent int = 85
+param alertPostgresStoragePercent int = 85
+param alertPostgresFailedConnections int = 25
+@description('1 GiB of WAL held by a logical replication slot (the Fabric mirror).')
+param alertPostgresReplicationLagBytes int = 1073741824
+
+// ---------------------------------------------------------------------------------------------------
 // Identities and access
 @description('[{ name, subject }] federated credentials on the deploy identity.')
 param githubSubjects array
@@ -309,6 +335,35 @@ module peWebApp 'modules/privateEndpoint.bicep' = if (deployNetwork && exposure 
     targetResourceId: app.outputs.id
     groupId: 'sites'
     privateDnsZoneId: network!.outputs.webAppZoneId
+  }
+}
+
+module alerts 'modules/alerts.bicep' = {
+  name: 'alerts'
+  params: {
+    location: location
+    tags: allTags
+    namePrefix: webAppName
+    actionGroupShortName: 'qf-${environmentName}'
+    appInsightsId: monitoring.outputs.appInsightsId
+    webAppId: app.outputs.id
+    appServicePlanId: app.outputs.planId
+    postgresServerId: postgres.outputs.id
+    // Agents test from the internet: no test when the web app has no public endpoint (D-H2 option 2).
+    enableAvailabilityTest: exposure == 'public'
+    healthUrl: 'https://${app.outputs.defaultHostName}/api/v1/health'
+    availabilityLocations: availabilityLocations
+    availabilityFrequencySeconds: availabilityFrequencySeconds
+    availabilityFailedLocations: availabilityFailedLocations
+    alertEmails: alertEmails
+    criticalSeverity: alertCriticalSeverity
+    warningSeverity: alertWarningSeverity
+    http5xxThreshold: alertHttp5xxThreshold
+    appServiceCpuPercent: alertAppServiceCpuPercent
+    postgresCpuPercent: alertPostgresCpuPercent
+    postgresStoragePercent: alertPostgresStoragePercent
+    postgresFailedConnections: alertPostgresFailedConnections
+    postgresReplicationLagBytes: alertPostgresReplicationLagBytes
   }
 }
 
