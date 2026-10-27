@@ -30,7 +30,7 @@
 | 8 | On one chart click **Table**. Then **Chart**. | The same numbers as a table, then back. | | |
 | 9 | Click a **Drill down** link in a table. | The **Pipeline** list opens with the matching filter. | | |
 | 10 | Set **KAMs** to `<KAM-1 chosen by Bailey>` and **Last 90 days**. | All charts narrow to that KAM. | | |
-| 11 | Check whether the page says these numbers are operational and not D&A-certified. | Write what you see in Notes (see README "known gaps"). | | |
+| 11 | Scroll to the bottom of **Analytics**. | It says "Operational metrics from QuoteFlow; not yet D&A-certified." The same line sits under the dashboard on the home screen. | | |
 
 ## Part B: Override log and audit
 

@@ -39,7 +39,7 @@ Open the quote in CCQ (**Overview** tab and the **Customer decision** panel) and
 | Close date | **Intake** card → **Expected close** (and the **Close date** column) | Close Date |
 | SF stage | **Customer decision** → **Salesforce stage**, or **Pipeline** column **SF stage** | Stage |
 | ERF number | **Admin** → **ERF linkage** → **SF ERF #** and **CCQ ERF #** | ERF number field |
-| Opportunity id | **Admin** → **ERF linkage** → **SF opportunity** | Opportunity Id (URL) |
+| Opportunity id | Quote page → **SF opportunity ID** | Opportunity Id (URL) |
 
 | # | Quote | Opportunity / account / owner match | Amount and close date match | SF stage matches the last sync | CCQ ↔ SF stage mismatch flag is right | ERF # linkage right | Pass/Fail | Notes |
 |---|---|---|---|---|---|---|---|---|

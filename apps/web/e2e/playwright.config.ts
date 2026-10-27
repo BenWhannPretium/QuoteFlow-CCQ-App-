@@ -50,6 +50,7 @@ export default defineConfig({
         'dashboards.spec.ts',
         'notifications.spec.ts',
         'feedback.spec.ts',
+        'labels.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },
