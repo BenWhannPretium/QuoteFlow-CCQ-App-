@@ -56,6 +56,11 @@ param seedSyntheticData = false
 param fabricWorkspaceId = ''
 param fabricMirroredDbId = ''
 
+// B-21 health alerts (infra/README.md "Alerts"). Test: quiet defaults. Add an address to be emailed; empty = rules fire into the portal only.
+param alertEmails = []
+// Three locations (the minimum) to keep test's per-run cost down; prod uses main.bicep's five.
+param availabilityLocations = ['us-il-ch1-azr', 'us-fl-mia-edge', 'us-tx-sn1-azr']
+
 // 06 B8: both subject formats (GitHub sends the immutable one for this repo).
 param githubSubjects = [
   {

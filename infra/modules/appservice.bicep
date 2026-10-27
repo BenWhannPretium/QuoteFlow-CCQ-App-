@@ -105,6 +105,7 @@ resource slotSettings 'Microsoft.Web/sites/slots/config@2024-04-01' = if (enable
 }
 
 output id string = site.id
+output planId string = plan.id
 output name string = site.name
 output defaultHostName string = site.properties.defaultHostName
 output principalId string = site.identity.principalId
