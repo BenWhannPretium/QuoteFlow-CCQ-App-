@@ -307,6 +307,15 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
                 quote.customerStatus === 'not_yet_established' ? 'Not yet established' : 'Existing',
             },
             { label: 'Opportunity', value: quote.opportunityName },
+            // B-23: testers tie quotes out against Salesforce (U5) by this id.
+            {
+              label: 'SF opportunity ID',
+              value: (
+                <span className="font-mono" data-testid="sf-opportunity-id">
+                  {quote.sfOpportunityId}
+                </span>
+              ),
+            },
             { label: 'KAM', value: quote.kamName },
             { label: 'Request class', value: label('request_class', quote.requestClass) },
             { label: 'Market', value: label('market', quote.market) },

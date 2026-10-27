@@ -666,7 +666,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **Deviation: audit_event uses a side table.** Backfilling companion columns on `audit_event` would have updated audit rows (rule 3). Its copies live in the insert-only `audit_event_fabric` (AFTER INSERT trigger, append-only guard, RLS; the app role can only insert). D&A must mirror it (D-FB2).
   - **Unbounded numerics.** Fabric turns an unbounded `numeric` into Decimal(38, 0). The `pricing_history_record` estimates are now `numeric(38, 4)`, and the importer drops values ≥ 1e30 (the raw value stays in `fields`).
   - **Guards.** `fabricCompat.test.ts` covers the Drizzle schema (allowlist, registry, primary keys). `test/fabric.int.test.ts` covers the migrated database: every column is mirrorable or has a companion, every seeded companion is correct, triggers follow inserts and updates, and the audit side table is complete and append-only. `fabricTwins.test.ts` checks that every analytics view has its T-SQL twin.
-  - **Still open for the spike:** the `ccq_fabric_mirror` role and table ownership vs `FORCE` RLS; whether the `COMMENT ON` statements and view re-creation run at every start count as DDL to mirroring; Bicep (no `infra/` yet, B-20).
+  - **Still open for the spike:** the `ccq_fabric_mirror` role and table ownership vs `FORCE` RLS; ~~whether the `COMMENT ON` statements run at every start count as DDL to mirroring~~ (2026-10-27: start-up now applies only changed comments, `applyChangedComments`; views aren't mirrored); Bicep (no `infra/` yet, B-20).
 - **Prompt:** `prompts/B-27-fabric-data-landing.md`
 
 ---
@@ -679,16 +679,17 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] permission-matrix tests cover **every** route × role (allowed and denied). **Done 2026-10-26.**
   - [x] RLS tests: `packages/db/test/rls.int.test.ts`, `opportunity-rls.int.test.ts`, `fabric.int.test.ts` (audit side table), `apps/api/test/feedback.int.test.ts` (2026-10-27 review)
   - [x] redaction tests: `packages/domain/src/policy/redact.test.ts` plus per-route checks in `apps/api/test/{pricing,gates,pipeline,timeline}.int.test.ts` (2026-10-27 review)
-  - [ ] CSP/helmet, rate limits, upload limits: CSP and helmet (`apps/api/src/app.ts`) and upload limits (B-16 multipart limits, the 2 MB feedback screenshot) are in place; the per-user rate limit is in review (PR 38). Tick when it merges
+  - [x] CSP/helmet, rate limits, upload limits: CSP and helmet (`apps/api/src/app.ts`), upload limits (B-16 multipart limits, the 2 MB feedback screenshot) and the per-user rate limit (PR 38, `apps/api/test/rate-limit.int.test.ts`)
   - [x] `pnpm audit` and gitleaks clean: both CI jobs green on `main` (2026-10-27)
   - [x] a11y pass (axe) on the core flows: axe runs in 17 Playwright specs, among them intake, G1, engineering, pricing, final review, outcome, overrides, pipeline, dashboards, attachments, notifications, admin and feedback
   - [x] mobile pass at 390 px: `mobile.spec.ts`, `dashboards.mobile.spec.ts`, `final-review.spec.ts` (mobile project, 390 × 844)
   - [ ] load test (k6): 50 users, p95 < 400 ms
-  - [ ] runbook draft: drafted in `docs/gate/runbook.md` (PR 37). Tick when it merges
+  - [x] runbook draft: `docs/gate/runbook.md` (PR 37). The final runbook is a B-24 item
 - **Prompt:** `prompts/B-21-hardening.md`
+- **Runbook draft (2026-10-27):** in [`docs/gate/runbook.md`](../gate/runbook.md) (not `docs/runbook.md` as the prompt says), for M9 review. Box stays open until M9 accepts it.
 - **Notes (2026-10-26):**
   - **Permission matrix.** `apps/api/test/permissions/matrix.int.test.ts` sends every `/api` route (111 on 2026-10-26; 115 after B-23's feedback routes, see `docs/security/route-inventory.md`) as each of the nine MVP roles and anonymously (1,111 cases). Allowed: not 401/403 and not 5xx. Denied: 403 problem+json that names the permission the gate checked. Anonymous: 401 problem+json unless public. Every request must reach the route under test. It runs on its own seeded database (`<TEST_DATABASE_URL>_matrix`). A static twin, `apps/api/src/routes/v1/routeMatrix.test.ts` (no DB, part of `pnpm test`), checks that the registry equals what Fastify registers. It also checks that every declared permission exists in the matrix and is held by a role, that the public routes match a reviewed allow-list (health, auth config, local-store file links) and that public and any-signed-in routes give a reason. Every matrix permission must be a route gate or appear in a named service check (G1–G6 deciders, `outcome.assignOwner`, `override.revert`, `attachment.removeAny`, each proved by its per-feature test). The test also keeps `docs/security/route-inventory.md` current. Qualified grants (own, assigned, fields, stages) and data scope pass the route gate by design; services (`assertCan`) and RLS enforce them, and the per-feature tests cover them. PostAward (P2) has no dev persona yet, so the matrix doesn't exercise it.
-  - **Load test scaffold.** `tests/load/read-paths.js` (k6) puts 50 VUs on dashboard, quote list, detail, queue and board, with thresholds p95 < 400 ms (overall and per screen) and failed < 1%. `pnpm load` / `pnpm load:smoke`; see `tests/load/README.md`. Validated locally only (dev mode, 150 synthetic quotes, 1-minute hold at 50 VUs: p95 298 ms, 0% failed). **Not yet run against the Azure test environment**, so the k6 box stays open. Finding: the rate limiter keys on client IP, not on the user, so one load generator (or one office NAT) shares 300 req/min. Raise `RATE_LIMIT_MAX` for the run, or key the limiter on the user (the B-21 target is 300/min per user).
+  - **Load test scaffold.** `tests/load/read-paths.js` (k6) puts 50 VUs on dashboard, quote list, detail, queue and board, with thresholds p95 < 400 ms (overall and per screen) and failed < 1%. `pnpm load` / `pnpm load:smoke`; see `tests/load/README.md`. Validated locally only (dev mode, 150 synthetic quotes, 1-minute hold at 50 VUs: p95 298 ms, 0% failed). **Not yet run against the Azure test environment**, so the k6 box stays open. Finding: the rate limiter keyed on client IP, not on the user, so one load generator (or one office NAT) shared 300 req/min. **Fixed 2026-10-27:** it now keys on the signed-in user (`hook: 'preHandler'`, after auth), and on the IP only for public routes; health stays exempt (`apps/api/test/rate-limit.int.test.ts`).
 
 ### B-22: Production data load and UAT environment prep · **Fri Nov 6** · Ben + IT/D&A
 - **People:** **M9 (Nov 2)** confirms production-data approval (Oliver Kade, Brennan Paul); Rachel Dew switches the integration user to production; Bailey confirms the UAT cohort and IT adds them to groups.
@@ -732,6 +733,8 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [ ] P1/P2 backlog
   - [ ] signed UAT
 - **Prompt:** `prompts/B-24-gate-package.md`
+- **Notes:**
+  - **2026-10-27: drafts in `docs/gate/`** ([README](../gate/README.md)): runbook + support model, traceability (derived from repo citations; Bailey to reconcile against PRD v1), release notes, P1/P2 backlog, test-results template. The prompt names `docs/gates/`; pick one folder before U6. No boxes ticked: each draft is updated at sign-off. Contradictions between the build-guide docs are listed in the README.
 
 ---
 

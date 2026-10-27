@@ -97,13 +97,40 @@ export function buildDictionary(): DictionaryTable[] {
 
 const quoteLiteral = (text: string) => `'${text.replace(/'/g, "''")}'`;
 
+/** One table or column comment: where it goes, its text and the `COMMENT ON` statement. */
+export interface CommentTarget {
+  table: string;
+  /** Null for the table's own comment. */
+  column: string | null;
+  text: string;
+  sql: string;
+}
+
+/** Every table and column comment the schema documents. */
+export function commentTargets(tables: DictionaryTable[] = buildDictionary()): CommentTarget[] {
+  return tables.flatMap((t) => {
+    const tableText = `${t.description} [owner: ${t.owner}]`;
+    return [
+      {
+        table: t.name,
+        column: null,
+        text: tableText,
+        sql: `COMMENT ON TABLE "${t.name}" IS ${quoteLiteral(tableText)}`,
+      },
+      ...t.columns.map((col) => {
+        const text = `${col.meaning} [owner: ${col.owner}]`;
+        return {
+          table: t.name,
+          column: col.name,
+          text,
+          sql: `COMMENT ON COLUMN "${t.name}"."${col.name}" IS ${quoteLiteral(text)}`,
+        };
+      }),
+    ];
+  });
+}
+
 /** `COMMENT ON` statements so the meaning and owner also live in the database (for D&A, M6). */
 export function commentStatements(tables: DictionaryTable[] = buildDictionary()): string[] {
-  return tables.flatMap((t) => [
-    `COMMENT ON TABLE "${t.name}" IS ${quoteLiteral(`${t.description} [owner: ${t.owner}]`)}`,
-    ...t.columns.map(
-      (col) =>
-        `COMMENT ON COLUMN "${t.name}"."${col.name}" IS ${quoteLiteral(`${col.meaning} [owner: ${col.owner}]`)}`,
-    ),
-  ]);
+  return commentTargets(tables).map((c) => c.sql);
 }

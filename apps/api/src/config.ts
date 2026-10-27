@@ -27,7 +27,7 @@ const EnvSchema = z
     APP_BASE_URL: z.url(),
     GIT_SHA: nonEmpty.default('dev'),
 
-    /** Requests per minute per client before 429. */
+    /** Requests per minute per signed-in user (per IP for public routes) before 429 (B-21). */
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
     /** Built SPA to serve in production. Defaults to apps/web/dist relative to this bundle. */
     WEB_DIST_DIR: nonEmpty.optional(),

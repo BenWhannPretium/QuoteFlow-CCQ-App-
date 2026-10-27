@@ -1,4 +1,4 @@
-import { DASHBOARD_ROLES, type DashboardRole } from '@ccq/contracts';
+import { ANALYTICS_DISCLAIMER, DASHBOARD_ROLES, type DashboardRole } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
@@ -89,6 +89,12 @@ export function LandingPage({ requestedRole }: { requestedRole: string | undefin
           </>
         )}
       </section>
+      {isDashboardRole(landing.role) && (
+        // 05 §4 / M6: dashboard figures are labelled operational until D&A certifies them.
+        <p className="text-muted-foreground mt-6 text-sm" data-testid="dashboard-disclaimer">
+          {ANALYTICS_DISCLAIMER}
+        </p>
+      )}
     </div>
   );
 }

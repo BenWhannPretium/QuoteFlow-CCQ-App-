@@ -75,9 +75,7 @@ Admins triage reports at **Admin → Feedback** (`/admin/feedback`). Each report
 - Go through the new reports in **Admin → Feedback**. Set severity, owner and status.
 - Then run `pnpm uat:defects` (with `DATABASE_URL` pointing at the UAT database, as the migration login) to regenerate `docs/uat/defect-log.md`, and upload it to the QuoteFlow SharePoint folder. Don't commit it (rule 8: report text can name customers). The log is part of the Gate 5 package.
 
-## Known gaps found while writing the pack
+## Quick-start help page
 
 The quick-starts are linked from every home screen ("New here?"), served at `/help/quickstart.html#<role>` from `apps/web/public/help/`. After editing `quickstart/print.html`, run `UPDATE_QUICKSTART=1 pnpm --filter @ccq/web test` to republish it (a test fails until you do).
 
-- The **Analytics** page does not show the "operational, not certified" label. The Usage report and ERF linkage pages do. See `scripts/leadership.md` step 11.
-- The quote page does not show the Salesforce opportunity id. The tie-out reads it from **Admin → ERF linkage**.

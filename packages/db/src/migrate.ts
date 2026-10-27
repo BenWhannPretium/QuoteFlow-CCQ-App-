@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
-import { commentStatements } from './dictionary/model';
+import { commentTargets } from './dictionary/model';
 
 export const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations', import.meta.url));
 /** B-17: the analytics views. One definition of every operational metric; D&A reuses these files. */
@@ -62,9 +62,10 @@ export async function ensureRoleMembership(sql: postgres.Sql): Promise<void> {
 }
 
 /**
- * Apply all pending drizzle migrations, then (re)apply the schema's table and column comments and
- * the analytics views. Comments are derived from the Drizzle schema, and the views are `drop … create`
- * files, so both are refreshed on every run rather than frozen into a migration.
+ * Apply all pending drizzle migrations, then the schema's table and column comments that changed
+ * and the analytics views. Comments are derived from the Drizzle schema, and the views are
+ * `drop … create` files, so both are refreshed on every run rather than frozen into a migration.
+ * Views are not mirrored to Fabric (B-27), so re-creating them doesn't touch the mirror.
  */
 export async function runMigrations(
   databaseUrl: string,
@@ -74,9 +75,7 @@ export async function runMigrations(
   try {
     await ensureRoleMembership(sql);
     await migrate(drizzle(sql), { migrationsFolder: migrationsDir });
-    await sql.begin(async (tx) => {
-      for (const statement of commentStatements()) await tx.unsafe(statement);
-    });
+    await applyChangedComments(sql);
     // One transaction: a bad view file leaves the previous definitions in place.
     await sql.begin(async (tx) => {
       for (const file of analyticsSqlFiles(analyticsSqlDir)) await tx.unsafe(file.sql);
@@ -84,6 +83,30 @@ export async function runMigrations(
   } finally {
     await sql.end({ timeout: 5 });
   }
+}
+
+/**
+ * Apply only the table and column comments that differ from the database's. Migrations run on every
+ * start (azureStart.ts), and B-27: a `COMMENT ON` per column on each restart is needless DDL against
+ * tables Fabric mirrors. Returns how many were applied.
+ */
+export async function applyChangedComments(sql: postgres.Sql): Promise<number> {
+  const rows = await sql<{ table: string; column: string | null; text: string }[]>`
+    select c.relname as table, a.attname as column, d.description as text
+    from pg_description d
+    join pg_class c on c.oid = d.objoid and d.classoid = 'pg_class'::regclass
+    join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+    left join pg_attribute a on a.attrelid = c.oid and a.attnum = d.objsubid and d.objsubid > 0`;
+  const current = new Map(rows.map((r) => [`${r.table}.${r.column ?? ''}`, r.text]));
+  const changed = commentTargets().filter(
+    (t) => current.get(`${t.table}.${t.column ?? ''}`) !== t.text,
+  );
+  if (changed.length > 0) {
+    await sql.begin(async (tx) => {
+      for (const t of changed) await tx.unsafe(t.sql);
+    });
+  }
+  return changed.length;
 }
 
 /** Drop everything the app owns (public schema + drizzle bookkeeping). Local/test only. */

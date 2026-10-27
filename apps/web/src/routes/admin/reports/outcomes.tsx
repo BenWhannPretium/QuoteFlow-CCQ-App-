@@ -28,7 +28,7 @@ function OutcomesPage() {
         className="mb-0"
         title="Outcomes"
         eyebrow="Reports"
-        description="Every closed quote has an outcome, a reason, an owner and a date. Expired is counted apart from Lost."
+        description="Every closed quote has an outcome, a reason, an owner and a date. Expired is counted apart from Lost. Operational; not D&A-certified."
       />
       {report.isPending ? (
         <SkeletonCard />
