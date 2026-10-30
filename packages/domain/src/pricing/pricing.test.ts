@@ -429,8 +429,7 @@ describe('G3 (hybrid seed)', () => {
       'capital_likely,pricing_record.capital_readiness',
     ]);
     expect(
-      submit({ ...approved, capital_readiness: 'pre_approved' }, lead, { capital_likely: true })
-        .ok,
+      submit({ ...approved, capital_readiness: 'pre_approved' }, lead, { capital_likely: true }).ok,
     ).toBe(true);
   });
 
