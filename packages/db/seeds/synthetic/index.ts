@@ -3,6 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 
 import { buildCustomers, buildOpportunities } from './opportunities';
 import { buildPersonas } from './personas';
+import type { Persona } from './personas';
 import { seedPricingHistory } from './pricingHistory';
 import { KAM_BY_REGION, generateQuotes } from './quotes';
 import type { QuoteGenResult } from './quotes';
@@ -23,7 +24,9 @@ export { PERSONA_DEFS, buildPersonas, personaOid } from './personas';
 export type { Persona, PersonaKey } from './personas';
 export { SF_STAGE_COUNTS } from './opportunities';
 export { buildSfFixture, ownerAliasFor, renderSfFixture, SF_FIXTURE_PATH } from './sfFixture';
-export { QUOTE_STAGE_TARGETS } from './quotes';
+export { KAM_BY_REGION, QUOTE_STAGE_TARGETS, generateQuotes } from './quotes';
+export type { QuoteCase, QuoteGenResult } from './quotes';
+export type { SyntheticCustomer, SyntheticOpportunity } from './opportunities';
 export { DEFAULT_ANCHOR, DEFAULT_SEED } from './rng';
 
 export interface SyntheticOptions {
@@ -56,47 +59,7 @@ export async function seedSynthetic(
   const opportunities = buildOpportunities(rng, anchor, customers);
 
   const created = new Date(anchor.getTime() - 400 * 86_400_000);
-  await db
-    .insert(appUser)
-    .values(
-      personas.map((p) => ({
-        id: p.id,
-        entraOid: p.entraOid,
-        upn: p.upn,
-        displayName: p.displayName,
-        email: p.email,
-        region: p.region,
-        createdAt: created,
-        updatedAt: created,
-      })),
-    )
-    .onConflictDoNothing();
-  // A persona may already exist under another id: AUTH_MODE=dev provisions it by oid on first use.
-  // Adopt that row so roles, scope and quotes attach to it, and give it the seeded profile.
-  const personaRows = await db
-    .select({ id: appUser.id, entraOid: appUser.entraOid })
-    .from(appUser)
-    .where(
-      inArray(
-        appUser.entraOid,
-        personas.map((p) => p.entraOid),
-      ),
-    );
-  const idByOid = new Map(personaRows.map((u) => [u.entraOid, u.id]));
-  for (const p of personas) {
-    const id = idByOid.get(p.entraOid);
-    if (id && id !== p.id) {
-      p.id = id;
-      await db
-        .update(appUser)
-        .set({ upn: p.upn, displayName: p.displayName, email: p.email, region: p.region })
-        .where(eq(appUser.id, id));
-    }
-  }
-  for (const p of personas) {
-    await syncUserRoles(db, p.id, p.roles);
-    await setUserScope(db, p.id, p.scope);
-  }
+  await upsertPersonas(db, personas, created);
 
   await db
     .insert(customer)
@@ -190,4 +153,56 @@ export async function seedSynthetic(
     quotes,
     pricingHistory,
   };
+}
+
+/**
+ * Insert the personas (deterministic ids) and give them their roles and scope. Shared with the demo
+ * seed. Mutates `personas` when a persona already exists under another id (see below).
+ */
+export async function upsertPersonas(
+  db: DbOrTx,
+  personas: Persona[],
+  created: Date,
+): Promise<void> {
+  await db
+    .insert(appUser)
+    .values(
+      personas.map((p) => ({
+        id: p.id,
+        entraOid: p.entraOid,
+        upn: p.upn,
+        displayName: p.displayName,
+        email: p.email,
+        region: p.region,
+        createdAt: created,
+        updatedAt: created,
+      })),
+    )
+    .onConflictDoNothing();
+  // A persona may already exist under another id: AUTH_MODE=dev provisions it by oid on first use.
+  // Adopt that row so roles, scope and quotes attach to it, and give it the seeded profile.
+  const personaRows = await db
+    .select({ id: appUser.id, entraOid: appUser.entraOid })
+    .from(appUser)
+    .where(
+      inArray(
+        appUser.entraOid,
+        personas.map((p) => p.entraOid),
+      ),
+    );
+  const idByOid = new Map(personaRows.map((u) => [u.entraOid, u.id]));
+  for (const p of personas) {
+    const id = idByOid.get(p.entraOid);
+    if (id && id !== p.id) {
+      p.id = id;
+      await db
+        .update(appUser)
+        .set({ upn: p.upn, displayName: p.displayName, email: p.email, region: p.region })
+        .where(eq(appUser.id, id));
+    }
+  }
+  for (const p of personas) {
+    await syncUserRoles(db, p.id, p.roles);
+    await setUserScope(db, p.id, p.scope);
+  }
 }

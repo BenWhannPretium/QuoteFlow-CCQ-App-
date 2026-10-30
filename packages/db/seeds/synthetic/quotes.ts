@@ -56,7 +56,14 @@ export const QUOTE_STAGE_TARGETS: [stage: string, count: number][] = [
 ];
 
 /** Stages whose quotes end the seed closed (terminal). */
-const CLOSED_STAGES = new Set(['AWARDED', 'CLOSED_LOST', 'DECLINED', 'EXPIRED', 'REDIRECTED']);
+const CLOSED_STAGES = new Set([
+  'AWARDED',
+  'CLOSED_LOST',
+  'DECLINED',
+  'EXPIRED',
+  'REDIRECTED',
+  'NOT_AUTHORIZED',
+]);
 /** B-26: awarded stages (they take the closed-won SF opportunities). */
 const AWARD_STAGES = new Set(['AWARDED', 'COMMIT_HANDOFF']);
 const AWARDED_TARGET = QUOTE_STAGE_TARGETS.find(([stage]) => stage === 'AWARDED')![1];
@@ -319,6 +326,20 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         ],
         complete: true,
       };
+    case 'NOT_AUTHORIZED':
+      // Demo seed only (not in QUOTE_STAGE_TARGETS): awarded, then G6 Stop because the CER failed.
+      return {
+        steps: [
+          ...toCustomer,
+          g5('awarded', { reason: 'po' }),
+          { kind: 'handoff', evidence: 'po', complete: false },
+          g6('stop', {
+            reason: 'cer_not_approved',
+            note: 'Capital committee did not approve the CER at the quoted payback.',
+          }),
+        ],
+        complete: true,
+      };
     default:
       throw new Error(`no scenario for ${stage}`);
   }
@@ -350,6 +371,17 @@ export interface QuoteGenContext {
   personas: Map<PersonaKey, Persona>;
   opportunities: SyntheticOpportunity[];
   validityDays: number;
+  /**
+   * The quotes to generate, as (final stage, scenario variant). Defaults to QUOTE_STAGE_TARGETS
+   * (variants 0..n-1 per stage). The demo seed passes its own short list.
+   */
+  cases?: QuoteCase[];
+}
+
+export interface QuoteCase {
+  stage: string;
+  /** Picks the scenario variant (see `scenario`). */
+  i: number;
 }
 
 export interface QuoteGenResult {
@@ -387,10 +419,12 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
   // opportunities no active quote takes (each closes before the next one starts).
   // B-26: Commit & Hand Off quotes stay open, so they count here even when a closed-won opportunity
   // is left for them (there are only a few).
-  const activeTotal = QUOTE_STAGE_TARGETS.filter(([stage]) => !CLOSED_STAGES.has(stage)).reduce(
-    (n, [, count]) => n + count,
-    0,
-  );
+  const cases =
+    ctx.cases ??
+    QUOTE_STAGE_TARGETS.flatMap(([stage, n]) =>
+      Array.from({ length: n }, (_, i) => ({ stage, i })),
+    );
+  const activeTotal = cases.filter(({ stage }) => !CLOSED_STAGES.has(stage)).length;
   const spare = open.slice(activeTotal);
   if (spare.length === 0) throw new Error('synthetic seed: no spare open SF opportunities');
   let reuseCursor = 0;
@@ -399,11 +433,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
   // Plan every quote (scenario + timeline) first, then create them in time order so quote numbers
   // are chronological.
   const plan = rng
-    .shuffle(
-      QUOTE_STAGE_TARGETS.flatMap(([stage, n]) =>
-        Array.from({ length: n }, (_, i) => ({ stage, i })),
-      ),
-    )
+    .shuffle(cases)
     .map(({ stage, i }) => {
       const opp =
         AWARD_STAGES.has(stage) && won.length > 0
