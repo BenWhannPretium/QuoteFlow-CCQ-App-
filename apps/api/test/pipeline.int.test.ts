@@ -200,14 +200,8 @@ describe('GET /quotes: scope and redaction', () => {
     expect(r.items.every((i) => i.kamUserId === ids['kam-owner'])).toBe(true);
   });
 
-  it('commercial columns are null for KAM / Engineer and present for Pricing / EngLead', async () => {
-    for (const p of ['kam', 'engineer']) {
-      const r = await list(p, 'stage=QUOTING');
-      expect(r.commercialVisible).toBe(false);
-      expect(r.items.every((i) => i.commercial === null)).toBe(true);
-      expect(JSON.stringify(r)).not.toMatch(/prelimCapital|capitalReadiness"\s*:\s*"/);
-    }
-    for (const p of ['pricing', 'eng-lead']) {
+  it('commercial columns are present for every role (2026-10-30)', async () => {
+    for (const p of ['kam', 'engineer', 'sales-leader', 'pricing', 'eng-lead']) {
       const r = await list(p, 'stage=QUOTING');
       expect(r.commercialVisible).toBe(true);
       expect(r.items.every((i) => i.commercial !== null)).toBe(true);
@@ -335,12 +329,12 @@ describe('GET /quotes/export.csv', () => {
     });
   });
 
-  it('drops commercial columns for a KAM whatever is asked, and keeps to the KAM’s scope', async () => {
+  it('keeps the commercial columns a KAM asks for (2026-10-30), and keeps to the KAM’s scope', async () => {
     const { lines } = await csv(
       'kam-owner',
       'columns=quoteNumber,prelimCapitalUsd,capitalReadiness,kamName',
     );
-    expect(lines[0]).toBe('"Quote","KAM"');
+    expect(lines[0]).toBe('"Quote","Prelim capital (USD)","Capital readiness","KAM"');
     const own = await list('kam-owner');
     expect(lines).toHaveLength(own.total + 1);
   });

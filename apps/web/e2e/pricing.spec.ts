@@ -17,7 +17,7 @@ import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
 
-test('Pricing records the approval and submits to Final Review; the KAM sees only the status', async ({
+test('Pricing records the approval and submits to Final Review; the KAM reads the record', async ({
   browser,
   request,
 }) => {
@@ -216,32 +216,32 @@ test('Pricing records the approval and submits to Final Review; the KAM sees onl
   await expect(pricing.getByText(`${quoteNumber} is now in Final Review`)).toBeVisible();
   await expect(pricing.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'FINAL_REVIEW');
 
-  // ── The KAM: "Price approved ✓ on <date> by <name>", nothing else ──
+  // ── The KAM: "Price approved ✓ on <date> by <name>", and (2026-10-30) the record itself ──
   const kam = await open('kam');
   await kam.goto(`/quotes/${quoteNumber}?tab=quoting`);
   const kamTab = kam.getByTestId('quoting-tab');
   await expect(kamTab.getByTestId('price-approval-status')).toContainText(
     /Price approved ✓ on .+ by /,
   );
-  await expect(kamTab.getByTestId('quoting-redacted')).toBeVisible();
-  for (const secret of [
+  await expect(kamTab.getByTestId('quoting-redacted')).toHaveCount(0);
+  for (const figure of [
     'March CDI',
     'Hold the list price',
     'ERF26-211',
     'CER-4410',
     'board Nov 10',
   ]) {
-    await expect(kam.getByTestId('quote-detail')).not.toContainText(secret);
+    await expect(kam.getByTestId('quote-detail')).toContainText(figure);
   }
-  // B-15: no pricing history for the KAM, and the API refuses (server-enforced, not just hidden).
-  await expect(kam.getByTestId('pricing-context')).toHaveCount(0);
+  // B-15: the pricing history is open to every role too.
+  await expect(kam.getByTestId('pricing-context')).toBeVisible();
   for (const persona of ['kam', 'engineer']) {
-    const denied = await request.get(`/api/v1/quotes/${quoteNumber}/pricing-context`, {
+    const context = await request.get(`/api/v1/quotes/${quoteNumber}/pricing-context`, {
       headers: as(persona),
     });
-    expect(denied.status()).toBe(403);
+    expect(context.status()).toBe(200);
     const lookup = await request.get('/api/v1/pricing/erf/ERF26-211', { headers: as(persona) });
-    expect(lookup.status()).toBe(403);
+    expect(lookup.status()).not.toBe(403);
   }
   expect(await seriousViolations(kam)).toEqual([]);
 

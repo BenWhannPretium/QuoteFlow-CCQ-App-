@@ -435,7 +435,7 @@ describe('the price approval record', () => {
 });
 
 describe('commercial redaction (architecture §3.3)', () => {
-  it('a KAM, an Engineer and a SalesLeader see "approved on <date> by <name>" and nothing else', async () => {
+  it('a KAM, an Engineer and a SalesLeader read the pricing record too, but cannot edit it', async () => {
     const qn = await inQuoting('capital_required');
     await approve(qn);
     await putCapital(qn, {
@@ -451,25 +451,19 @@ describe('commercial redaction (architecture §3.3)', () => {
     });
 
     for (const role of ['KAM', 'Engineer', 'SalesLeader'] as Role[]) {
-      const { dto, raw } = await detail(qn, role);
+      const { dto } = await detail(qn, role);
       expect(dto.quoting.approval, role).toMatchObject({
         approved: true,
         approvedAt: pricing.approval.approvedAt,
         approvedByName: pricing.approval.approvedByName,
       });
-      expect(dto.quoting.commercialRedacted, role).toBe(true);
-      expect(dto.quoting, role).not.toHaveProperty('pricingRecord');
-      expect(dto.quoting, role).not.toHaveProperty('pricingRecords');
+      // 2026-10-30: every role reads the whole record; editing stays Pricing's.
+      expect(dto.quoting.commercialRedacted, role).toBe(false);
+      expect(dto.quoting.pricingRecord, role).toEqual(pricing.pricingRecord);
+      expect(dto.quoting.pricingRecords, role).toEqual(pricing.pricingRecords);
       expect(dto.quoting.canEdit, role).toBe(false);
-      expect(dto.quoting.pricingUsers, role).toEqual([]);
-      for (const secret of [...Object.values(SECRETS), 'capitalReadiness', 'prelimCapitalUsd']) {
-        expect(raw.includes(secret), `${role} must not read "${secret}"`).toBe(false);
-      }
-      // The timeline route too.
       const tl = await as(role).get(`/api/v1/quotes/${qn}/timeline`);
       expect(tl.statusCode).toBe(200);
-      for (const secret of Object.values(SECRETS))
-        expect(tl.body.includes(secret), role).toBe(false);
     }
     for (const role of ['Pricing', 'Approver', 'EngLead', 'Leadership', 'Admin'] as Role[]) {
       const { dto } = await detail(qn, role);

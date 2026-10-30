@@ -414,10 +414,10 @@ Capacity evidence with stated assumptions (CR-19).
 | `quote_id` | uuid | no |  | quote.id | Quote. | Engineering (EngLead / Engineer) |
 | `site` | text | no |  |  | Plant / site code. | Engineering (EngLead / Engineer) |
 | `line_asset` | text | yes |  |  | Line or machine asset. | Engineering (EngLead / Engineer) |
-| `assumed_effectiveness_pct` | numeric(5, 2) | no |  |  | Assumed effectiveness (OEE) %. Always entered, no default (D-08). Commercial: stripped for roles without quote.read.commercialFields. | Engineering (EngLead / Engineer) |
-| `cycle_time_s` | numeric(8, 2) | no |  |  | Cycle time (s). Commercial: stripped for roles without quote.read.commercialFields. | Engineering (EngLead / Engineer) |
-| `utilization_pct` | numeric(5, 2) | no |  |  | Current utilization %. Commercial: stripped for roles without quote.read.commercialFields. | Engineering (EngLead / Engineer) |
-| `buffer_pct` | numeric(5, 2) | yes |  |  | Capacity buffer %. Commercial: stripped for roles without quote.read.commercialFields. | Engineering (EngLead / Engineer) |
+| `assumed_effectiveness_pct` | numeric(5, 2) | no |  |  | Assumed effectiveness (OEE) %. Always entered, no default (D-08). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `cycle_time_s` | numeric(8, 2) | no |  |  | Cycle time (s). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `utilization_pct` | numeric(5, 2) | no |  |  | Current utilization %. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `buffer_pct` | numeric(5, 2) | yes |  |  | Capacity buffer %. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
 | `analysis_date` | date | no |  |  | Date of the analysis. | Engineering (EngLead / Engineer) |
 | `analyst_id` | uuid | no |  | app_user.id | Analyst who did it. | Engineering (EngLead / Engineer) |
 | `notes` | text | yes |  |  | Assumptions and notes. | Engineering (EngLead / Engineer) |
@@ -492,7 +492,7 @@ Engineering Review fields (stage 2).
 | `cavitation` | integer | yes |  |  | Mould cavitation. | Engineering (EngLead / Engineer) |
 | `cycle_time_s` | numeric(8, 2) | yes |  |  | Cycle time (seconds). | Engineering (EngLead / Engineer) |
 | `tooling_notes` | text | yes |  |  | Tooling notes (mold, hot runner). | Engineering (EngLead / Engineer) |
-| `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Preliminary capital estimate (USD). Commercial: stripped for roles without quote.read.commercialFields. | Engineering (EngLead / Engineer) |
+| `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Preliminary capital estimate (USD). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
 | `downstream_equipment_notes` | text | yes |  |  | Downstream equipment: air, water, electric, inspection / leak detection (DF-37). | Engineering (EngLead / Engineer) |
 | `technical_concept_notes` | text | yes |  |  | Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
 | `equipment_bom_notes` | text | yes |  |  | B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection). | Engineering (EngLead / Engineer) |
@@ -609,19 +609,19 @@ Price approval and capital readiness record (CR-25/26), one row per quote versio
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | no |  | quote.id | Quote. | Pricing |
 | `quote_version` | integer | no |  |  | Quote version the record belongs to. A Rework / Return bumps the version and starts a new record; prior versions are kept as history (CR-38). | Pricing |
-| `price_approved_by` | uuid | yes |  | app_user.id | Pricing approver. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `price_approved_at` | timestamp with time zone | yes |  |  | Price approval time. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `pricing_basis_note` | text | yes |  |  | Basis of the approved price (e.g. resin index month, FOB terms). No figures are edited in CCQ. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `pricing_refs` | jsonb | no | {} |  | Pricing-app references {erf: string[], bpr: string[]}, format-checked (app_setting pricing_ref_formats). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `no_pricing_app_record_note` | text | yes |  |  | Why there is no pricing-app record yet (stands in for a reference at G3). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `approved_range_note` | text | yes |  |  | Approved negotiation range, as a note (guardrails are D-10, open). No figures are edited in CCQ. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `costing_completed` | boolean | no | false |  | CR-25 costing-before-pricing checkpoint: attestation only (costing stays in Excel). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `price_approved_by` | uuid | yes |  | app_user.id | Pricing approver. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `price_approved_at` | timestamp with time zone | yes |  |  | Price approval time. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `pricing_basis_note` | text | yes |  |  | Basis of the approved price (e.g. resin index month, FOB terms). No figures are edited in CCQ. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `pricing_refs` | jsonb | no | {} |  | Pricing-app references {erf: string[], bpr: string[]}, format-checked (app_setting pricing_ref_formats). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `no_pricing_app_record_note` | text | yes |  |  | Why there is no pricing-app record yet (stands in for a reference at G3). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `approved_range_note` | text | yes |  |  | Approved negotiation range, as a note (guardrails are D-10, open). No figures are edited in CCQ. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `costing_completed` | boolean | no | false |  | CR-25 costing-before-pricing checkpoint: attestation only (costing stays in Excel). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
 | `costing_attested_by` | uuid | yes |  | app_user.id | Who ticked "Costing completed". | Pricing |
 | `costing_attested_at` | timestamp with time zone | yes |  |  | When it was ticked. | Pricing |
-| `capital_readiness` | text | yes |  |  | not_required \| pending \| pre_approved \| not_approved. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `cer_reference` | text | yes |  |  | Capital expenditure request (CER) id, optional. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `capital_notes` | text | yes |  |  | Capital notes. Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
-| `capital_pending_justification` | text | yes |  |  | Why G3 is submitted with capital still pending (D-11 open: a warning, not a block). Commercial: stripped for roles without quote.read.commercialFields. | Pricing |
+| `capital_readiness` | text | yes |  |  | not_required \| pending \| pre_approved \| not_approved. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `cer_reference` | text | yes |  |  | Capital expenditure request (CER) id, optional. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `capital_notes` | text | yes |  |  | Capital notes. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `capital_pending_justification` | text | yes |  |  | Why G3 is submitted with capital still pending (D-11 open: a warning, not a block). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
 
 **Checks:** `pricing_record_capital_readiness_check`
 
@@ -1024,10 +1024,10 @@ B-15: read-only history from the retired pricing app (ERF, BPR, SPR), imported b
 | `plant_code` | text | yes |  |  | Plant_Code. | Pricing (legacy pricing-app export) |
 | `plant_name` | text | yes |  |  | Plant_Name. | Pricing (legacy pricing-app export) |
 | `submitted_on` | date | yes |  |  | Sales_Submitted_Date, else Created_Date. | Pricing (legacy pricing-app export) |
-| `est_revenue_usd` | numeric(38, 4) | yes |  |  | Est_Revenue / Est_Annual_Revenue; null when blank or 0 (the legacy app wrote 0 for blank). Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
-| `est_volume` | numeric(38, 4) | yes |  |  | Est_Volume / Est_Annual_Unit_Volume; null when blank or 0. Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
+| `est_revenue_usd` | numeric(38, 4) | yes |  |  | Est_Revenue / Est_Annual_Revenue; null when blank or 0 (the legacy app wrote 0 for blank). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing (legacy pricing-app export) |
+| `est_volume` | numeric(38, 4) | yes |  |  | Est_Volume / Est_Annual_Unit_Volume; null when blank or 0. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing (legacy pricing-app export) |
 | `comments` | text | yes |  |  | Comments (free text, kept for context). | Pricing (legacy pricing-app export) |
-| `fields` | jsonb | no | {} |  | Every non-empty column of the export row, free text included (decision 2026-10-22). Commercial: stripped for roles without quote.read.commercialFields. | Pricing (legacy pricing-app export) |
+| `fields` | jsonb | no | {} |  | Every non-empty column of the export row, free text included (decision 2026-10-22). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing (legacy pricing-app export) |
 | `import_run_id` | uuid | yes |  | integration_run.id | The integration_run of the import that last wrote the row. | CCQ (system) |
 
 **Checks:** `pricing_history_record_kind_check`, `pricing_history_record_status_check`

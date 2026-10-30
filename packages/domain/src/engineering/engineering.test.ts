@@ -290,9 +290,10 @@ describe('capacity evidence (CR-19)', () => {
     ]);
   });
 
-  it('commercial numbers are write-only for an Engineer: omitted means keep', () => {
+  it('commercial numbers are write-only only for an actor who cannot see them: omitted means keep', () => {
+    // Since 2026-10-30 every role sees them; an actor with no role is the only one left.
     const plan = planCapacityEvidence(
-      engineer,
+      makeActor([]),
       [
         row({
           id: 'r1',
@@ -317,6 +318,9 @@ describe('capacity evidence (CR-19)', () => {
     // Someone who can see the numbers must send them: omitting one is an error, not "keep".
     const lead2 = planCapacityEvidence(lead, [row({ id: 'r1', cycleTimeS: undefined })], stored);
     expect(!lead2.ok && lead2.errors.map((e) => e.field)).toEqual(['rows/0/cycleTimeS']);
+    // The assigned Engineer sees the numbers they entered, so the same rule applies to them.
+    const eng2 = planCapacityEvidence(engineer, [row({ id: 'r1', cycleTimeS: undefined })], stored);
+    expect(!eng2.ok && eng2.errors.map((e) => e.field)).toEqual(['rows/0/cycleTimeS']);
   });
 
   it('rejects rows from another quote and duplicates', () => {

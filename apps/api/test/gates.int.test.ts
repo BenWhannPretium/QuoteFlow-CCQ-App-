@@ -563,20 +563,20 @@ describe('redaction', () => {
     }
   });
 
-  it('the capital figure behind capital exposure is stripped for roles without commercial access', async () => {
+  it('the capital figure behind capital exposure is shown to every role (2026-10-30)', async () => {
     const [row] = await db.db.execute<{ quote_number: string }>(sql`
       select q.quote_number from quote q join eng_review e on e.quote_id = q.id
       where e.prelim_capital_usd is not null and q.stage_key = 'QUOTING' limit 1`);
     const kamItem = (await detail(row!.quote_number, 'KAM')).priority.breakdown.find(
       (b) => b.key === 'capital_exposure',
     )!;
-    expect(kamItem).toMatchObject({ raw: null, sensitive: true, unknown: false });
-    expect(kamItem.explanation).toContain('restricted');
+    expect(kamItem).toMatchObject({ sensitive: true, unknown: false });
+    expect(typeof kamItem.raw).toBe('number');
+    expect(kamItem.explanation).not.toContain('restricted');
     const pricingItem = (await detail(row!.quote_number, 'Pricing')).priority.breakdown.find(
       (b) => b.key === 'capital_exposure',
     )!;
-    expect(pricingItem.raw).toEqual(expect.any(Number));
-    expect(pricingItem.points).toBe(kamItem.points);
+    expect(pricingItem).toEqual(kamItem);
   });
 });
 

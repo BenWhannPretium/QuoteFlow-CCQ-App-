@@ -36,7 +36,8 @@ const KAM = 'KAM';
 const ENG = 'Engineering (EngLead / Engineer)';
 const PRICING = 'Pricing';
 const SYSTEM = 'CCQ (system)';
-const COMMERCIAL = ' Commercial: stripped for roles without quote.read.commercialFields.';
+const COMMERCIAL =
+  ' Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30).';
 
 const money = (name: string) => numeric(name, { precision: 14, scale: 2, mode: 'number' });
 const userRef = (name: string) => uuid(name).references(() => appUser.id, { onDelete: 'restrict' });

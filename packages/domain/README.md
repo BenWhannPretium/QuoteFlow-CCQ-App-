@@ -163,7 +163,8 @@ const result = score(model, facts, now); // { total (0–100, 1 dp), tier, tierL
 Without a `resource`, only the role is checked and qualified grants do not apply.
 
 `redact(entity, actor)` removes fields tagged `commercial` (`policy/sensitivity.ts`) from nested objects and arrays for roles without
-`quote.read.commercialFields`. It matches keys in snake_case, so DB rows and camelCase DTOs are both covered.
+`quote.read.commercialFields`. Since 2026-10-30 every role holds that permission (no role is hidden from data it can enter), so
+it strips nothing in practice; it stays for a future restriction. It matches keys in snake_case, so DB rows and camelCase DTOs are both covered.
 
 ## Tests
 

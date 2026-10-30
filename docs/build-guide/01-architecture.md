@@ -102,16 +102,18 @@ Data scope is stored in `user_scope`: `{ scope_type: all | region | owner | acco
 
 ### 3.3 Field sensitivity
 
-Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role that isn't Pricing, PricingLead (B-26), EngLead, Approver, Leadership or Admin. They are:
+**2026-10-30 (Ben): every role sees these fields.** No role may be hidden from data it can enter (an assigned Engineer entered the preliminary capital and capacity numbers but couldn't read them back), so `quote.read.commercialFields` is now granted to every role, and migration 0024 opens `pricing_history_record` to every role. The tagging and the redaction code below stay, but strip nothing for any role; restricting a field again is a matrix change after a business decision. Editing and deciding are unchanged.
+
+Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future restriction) are:
 - price approval details
 - pricing-app figures
 - capital estimates
 - capacity and capital evidence numbers
 - margin
 - B-11: the whole Quoting tab (pricing record and its version history, references, notes, capital readiness). Other roles get only the approval status: "Price approved ✓ on <date> by <name>".
-- B-15: every imported pricing-history record (ERF, BPR, SPR) as a whole, including its estimates, agreed / current / target prices and the legacy free text. The history routes need `quote.read.commercialFields` (403 otherwise) and RLS limits `pricing_history_record` to the same roles. Provisional until Gemma Cebolla confirms the labels.
+- B-15: every imported pricing-history record (ERF, BPR, SPR) as a whole, including its estimates, agreed / current / target prices and the legacy free text. The history routes need `quote.read.commercialFields`, which every role now holds, and RLS on `pricing_history_record` admits every role (migration 0024).
 
-`packages/domain/policy/redact.ts` does the stripping, and every quote-read route has a test for it.
+`packages/domain/policy/redact.ts` does the stripping (only for an actor with no role, today), and the quote-read route tests assert that every role sees the figures.
 
 ### 3.4 Permission matrix (source of truth: `packages/domain/src/policy/matrix.ts`)
 
@@ -119,7 +121,7 @@ Fields tagged `sensitivity: 'commercial'` are stripped server-side for any role 
 |---|---|---|---|---|---|---|---|---|---|
 | quote.create (intake) | ✔ | ✔ | | | | | | | ✔ |
 | quote.read (in scope) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| quote.read.commercialFields | | | ✔ | | ✔ | ✔ | ✔ | ✔ | ✔ |
+| quote.read.commercialFields (every role since 2026-10-30, PostAward too) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | gate.G1.decide | | ✔ | | | | | | | |
 | engQueue.read (B-10: the engineering queue page) | | | ✔ | ✔ | | | | ✔ | ✔ |
 | queue.assign / reassign | | | ✔ | | | | | | ✔ |
@@ -308,7 +310,7 @@ The full column list, with each column's meaning and owner, is generated into [`
 - `notification`: user_id, type, quote_id, title, body, read_at, channel (in_app | email), sent_at, error. B-18 adds `dedupe_key` (once per state: unique per user and channel), `payload` (the non-commercial facts an email is built from), and the outbox state `attempts`, `next_attempt_at`, `failed_at`. An `email` row is the outbox entry the dispatcher sends; an `in_app` row is the bell's item.
 - `user_preference`: user_id, key, value jsonb; unique (user_id, key). B-18: `email.<notification type>` = false opts out of that email (a missing row = on). Any request context may read them (the actor of an event must know who opted out); only the user or Admin writes.
 - `integration_run`: source (salesforce | pricing | sharepoint), started_at, finished_at, status, counts jsonb, error (`pricing`: one row per pricing-history import, B-15)
-- `pricing_history_record` *(commercial)*: kind (erf | bpr | spr), request_id (unique per kind), request_number (+ upper-cased key; not unique in the export), fiscal_year, status (derived: open | on_hold | accepted | rejected | abandoned | completed), display_status, customer (+ normalised customer_key for matching), product, item, sales person, market, process, resin, plant, submitted_on, est_revenue_usd / est_volume (0 = unknown → null), comments, `fields` jsonb (every export column, free text included), import_run_id. B-15, revised 2026-10-22: imported from the retired pricing app's export; RLS: the commercial roles read, Admin writes, nobody deletes.
+- `pricing_history_record` *(commercial tag; readable by every role since 2026-10-30)*: kind (erf | bpr | spr), request_id (unique per kind), request_number (+ upper-cased key; not unique in the export), fiscal_year, status (derived: open | on_hold | accepted | rejected | abandoned | completed), display_status, customer (+ normalised customer_key for matching), product, item, sales person, market, process, resin, plant, submitted_on, est_revenue_usd / est_volume (0 = unknown → null), comments, `fields` jsonb (every export column, free text included), import_run_id. B-15, revised 2026-10-22: imported from the retired pricing app's export; RLS: every role reads (migration 0024), Admin writes, nobody deletes.
 
 **Indexes (minimum)**
 - quote(stage_key, priority_score desc)

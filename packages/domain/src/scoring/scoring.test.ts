@@ -419,8 +419,8 @@ describe('inputs', () => {
 describe('redactScore', () => {
   const after = score(scoringModelV1, FIXTURES['05 after G2: heavy capital']!, NOW);
 
-  it('hides the capital figure from roles without commercial access, keeping the points', () => {
-    const kamView = redactScore(after, makeActor('KAM'));
+  it('hides the capital figure from an actor without commercial access, keeping the points', () => {
+    const kamView = redactScore(after, makeActor([]));
     const capital = kamView.breakdown.find((b) => b.key === 'capital_exposure')!;
     expect(capital.raw).toBeNull();
     expect(capital.points).toBe(10);
@@ -432,8 +432,10 @@ describe('redactScore', () => {
     );
   });
 
-  it('leaves the result alone for commercial roles', () => {
+  it('leaves the result alone for every role (all see commercial fields since 2026-10-30)', () => {
     expect(redactScore(after, makeActor('Pricing'))).toBe(after);
+    expect(redactScore(after, makeActor('KAM'))).toBe(after);
+    expect(redactScore(after, makeActor('Engineer'))).toBe(after);
   });
 });
 

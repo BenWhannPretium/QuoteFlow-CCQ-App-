@@ -54,14 +54,9 @@ Sources of truth for requirements (read the relevant one before building a featu
    - Every API route declares the permission it needs. The check goes through `packages/domain/src/policy`.
    - Data scope is also enforced in SQL (Postgres row-level security, RLS) as a second layer.
    - The UI may hide things, but it is never the control.
-2. **Field-level sensitivity.** Pricing, margin and capital figures are returned only to the roles in the policy matrix:
-   - Pricing and the Pricing lead
-   - Engineering leads
-   - Approver
-   - Leadership
-   - Admin
-
-   Strip these fields from responses for every other role. Don't just hide them in the UI.
+2. **No role is hidden from data it can enter** (decided by Ben, 2026-10-30). Pricing, margin and capital figures are visible to **every** role that can read the quote: `quote.read.commercialFields` is granted to every role in `packages/domain/src/policy/matrix.ts`. Never add a rule that lets a role write a field it then can't read back.
+   - The redaction machinery (`packages/domain/src/policy/sensitivity.ts`, `redact.ts`) stays in place but strips nothing for any role. To restrict a field again, change the matrix (and the `pricing_history_record` RLS policy) after a business decision, and update this rule.
+   - Who may **edit** or **decide** is unchanged: seeing a figure is not permission to change it.
 3. **Everything is audited.** Every view of a quote, stage change, gate decision, override, upload and export writes an append-only `audit_event`. Never update or delete audit rows.
 4. **No hard-coded business rules that are still open.** All of the following live in config tables, with seed values:
    - stage names

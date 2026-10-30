@@ -46,13 +46,20 @@ export const PERMISSION_MATRIX: Readonly<
     Admin: true,
     PostAward: { kind: 'stages', stageKeys: ['AWARDED'] },
   },
+  // 2026-10-30 (Ben): every role that reads a quote sees its pricing, margin and capital figures.
+  // No role may enter data it then cannot see (an Engineer's preliminary capital and capacity
+  // figures were write-only). The redaction machinery stays, now a no-op for every role.
   'quote.read.commercialFields': {
+    KAM: true,
+    SalesLeader: true,
     EngLead: true,
+    Engineer: true,
     Pricing: true,
     PricingLead: true,
     Approver: true,
     Leadership: true,
     Admin: true,
+    PostAward: true,
   },
   'gate.G1.decide': { SalesLeader: true },
   // B-10: the engineering queue page. EngLead owns it, an Engineer sees it read-only next to their
