@@ -34,6 +34,10 @@ export const DOMAIN_ERROR_CODES = [
   'NOT_AWARDED',
   // B-26: an escalation type with nobody configured to receive it.
   'NO_RECIPIENTS',
+  // Lead review (2026-10-30): the assignee submits their part to the lead, who may send it back.
+  'ALREADY_SUBMITTED',
+  'NOT_SUBMITTED',
+  'LOCKED_FOR_REVIEW',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

@@ -9,6 +9,7 @@ import {
   PricingRecordBody,
   QuoteNumberParams,
   QuotingDetail,
+  SendBackBody,
 } from '@ccq/contracts';
 import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -144,6 +145,57 @@ export const pricingRoutes: FastifyPluginAsyncZod<{ service: PricingService }> =
           requireActor(req),
           req.params.quoteNumber,
           req.body,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  // Lead review (2026-10-30): the assigned pricer submits to the pricing lead, who may send it back.
+  app.post(
+    '/quotes/:quoteNumber/quoting/submit',
+    {
+      config: { permission: 'quoting.edit' },
+      schema: {
+        tags: ['pricing'],
+        summary:
+          "Lead review: the assigned pricer submits their part to the pricing lead, who is told. Checked against G3 Advance (less the lead's own steps); locked for the pricer until sent back",
+        security,
+        params: QuoteNumberParams,
+        response: { 200: QuotingDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.submitToLead(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  app.post(
+    '/quotes/:quoteNumber/quoting/send-back',
+    {
+      config: { permission: 'gate.G3.submit' },
+      schema: {
+        tags: ['pricing'],
+        summary:
+          'Lead review: the pricing lead sends a submitted part back to the pricer with a note (required); the pricer is told and can edit again',
+        security,
+        params: QuoteNumberParams,
+        body: SendBackBody,
+        response: { 200: QuotingDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.sendBack(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body.note,
           auditMeta(req),
         ),
       ),

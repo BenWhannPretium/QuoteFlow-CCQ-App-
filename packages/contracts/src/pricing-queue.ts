@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { LeadReviewFilter } from './lead-review';
 import { CapitalReadiness } from './pricing';
 import { QuoteSummary } from './quotes';
 
@@ -30,6 +31,8 @@ export const PricingQueueQuery = z.object({
   /** B-26: a pricer's user id, `me`, or `unassigned`. */
   pricer: z.string().max(64).optional(),
   q: z.string().max(200).optional(),
+  /** Lead review: `ready` = only what waits on the pricing lead's review. */
+  review: LeadReviewFilter.optional(),
 });
 export type PricingQueueQuery = z.input<typeof PricingQueueQuery>;
 export type PricingQueueFilters = z.output<typeof PricingQueueQuery>;
@@ -55,6 +58,10 @@ export const PricingQueueItem = QuoteSummary.extend({
   assignedPricerId: z.string().nullable(),
   assignedPricerName: z.string().nullable(),
   pricerAssignedAt: z.string().nullable(),
+  /** Lead review: submitted to the lead (waiting on them), sent back, or neither. */
+  leadReview: z.enum(['none', 'submitted', 'returned']),
+  /** When the assignee submitted it (null unless `submitted`). */
+  submittedAt: z.string().nullable(),
   /** The caller may edit this quote's Quoting tab. */
   canEdit: z.boolean(),
 });
@@ -74,6 +81,8 @@ export const PricingQueueResponse = z.object({
   canEdit: z.boolean(),
   /** Decide G3 (gate.G3.submit). */
   canDecide: z.boolean(),
+  /** Lead review: quotes waiting on the pricing lead's review (before filters), for the tab's count. */
+  readyForReview: z.number().int(),
   /** B-26: assign / reassign pricers (pricingQueue.assign: the pricing lead, Admin). */
   canAssign: z.boolean(),
   /** B-26: the pricer picker with each pricer's open Quoting load (empty unless canAssign). */

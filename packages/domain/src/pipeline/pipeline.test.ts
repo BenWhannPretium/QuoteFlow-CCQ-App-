@@ -109,7 +109,6 @@ describe('board: availableActions → droppable columns', () => {
     const expected: Partial<Record<Role, string[]>> = {
       SalesLeader: ['INTAKE', 'CUSTOMER_DECISION', 'COMMIT_HANDOFF'],
       EngLead: ['ENG_REVIEW'],
-      Pricing: ['QUOTING'],
       PricingLead: ['QUOTING'],
       Approver: ['FINAL_REVIEW'],
     };

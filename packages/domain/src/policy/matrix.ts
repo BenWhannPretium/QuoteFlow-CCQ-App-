@@ -74,7 +74,9 @@ export const PERMISSION_MATRIX: Readonly<
   // B-26: the pricing lead assigns Quoting work to a pricer, like `queue.assign` for engineering.
   'pricingQueue.assign': { PricingLead: true, Admin: true },
   'quoting.edit': { Pricing: true, PricingLead: true },
-  'gate.G3.submit': { Pricing: true, PricingLead: true },
+  // 2026-10-30 (Ben): mirrors G2. The pricer submits their part to the pricing lead (lead review),
+  // and the lead decides G3, as only the EngLead decides G2.
+  'gate.G3.submit': { PricingLead: true },
   // B-12: the Final Review queue (Approvals → Final Review). The Approver works it, Leadership reads
   // it, Admin reads it like the other queues. Everyone on it holds quote.read.commercialFields.
   'finalReview.read': { Approver: true, Leadership: true, Admin: true },

@@ -22,6 +22,7 @@ import {
 import { AssignDialog, engQueueQueryKey } from '@/components/engineering/AssignDialog';
 import { BulkReassignDialog } from '@/components/engineering/BulkReassignDialog';
 import { businessDays } from '@/components/engineering/format';
+import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -54,6 +55,14 @@ const STATUS_LABEL: Record<EngQueueItem['queueStatus'], string> = {
   accepted: 'In review',
 };
 
+/** Lead review overrides the assignment status while it is waiting on, or back from, the lead. */
+const statusLabel = (q: EngQueueItem) =>
+  q.leadReview === 'submitted'
+    ? 'Ready for lead review'
+    : q.leadReview === 'returned'
+      ? 'Sent back by lead'
+      : STATUS_LABEL[q.queueStatus];
+
 /**
  * The engineering queue (F-04, DEC-26): a manual, prioritized queue the upfront engineering lead
  * works by hand. EngLead (and Admin / a backup assigner) assign, accept, return and pin; an Engineer
@@ -70,7 +79,9 @@ function EngineeringQueuePage() {
   const [filters, setFilters] = useState<FilterValue>({});
   const [buckets, setBuckets] = useState<AgingBucket[]>([]);
   const [agedOver, setAgedOver] = useState('');
+  const [tab, setTab] = useState<ReviewTab>('all');
   const params: EngQueueParams = {
+    ...(tab === 'ready' ? { review: 'ready' as const } : {}),
     ...(filters.tier?.length ? { tier: filters.tier.join(',') } : {}),
     ...(filters.engineer?.length === 1 ? { engineer: filters.engineer[0] } : {}),
     ...(filters.productFamily?.length ? { productFamily: filters.productFamily.join(',') } : {}),
@@ -104,6 +115,9 @@ function EngineeringQueuePage() {
       {queue.error && <ErrorState error={queue.error} onRetry={() => void queue.refetch()} />}
       {data && (
         <>
+          {data.canDecide && (
+            <ReviewTabs value={tab} onChange={setTab} readyCount={data.readyForReview} />
+          )}
           <AgingChips data={data} selected={buckets} onChange={setBuckets} />
           {isEngineer && <MyAssignments data={data} />}
           <section className="grid gap-3" aria-labelledby="queue-heading">
@@ -304,7 +318,7 @@ function MyAssignments({ data }: { data: EngQueueResponse }) {
               </Link>
               <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} showWhy={false} />
               <span className="min-w-0 break-words">{q.customerName ?? 'Unknown customer'}</span>
-              <span className="text-muted-foreground">{STATUS_LABEL[q.queueStatus]}</span>
+              <span className="text-muted-foreground">{statusLabel(q)}</span>
               <AgingCell item={q} />
             </li>
           ))}
@@ -431,7 +445,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
               <span className="text-muted-foreground text-xs" data-testid="queue-status">
                 {q.status === 'on_hold'
                   ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
-                  : STATUS_LABEL[q.queueStatus]}
+                  : statusLabel(q)}
               </span>
             </span>
           );

@@ -10,6 +10,7 @@ import {
   EngQueueResponse,
   EngReviewBody,
   QuoteNumberParams,
+  SendBackBody,
   StageTimesResponse,
 } from '@ccq/contracts';
 import type { FastifyRequest } from 'fastify';
@@ -212,5 +213,56 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
     },
     async (req, reply) =>
       handleProblems(req, reply, () => service.stageTimes(withTx(req), req.params.quoteNumber)),
+  );
+
+  // Lead review (2026-10-30): the assigned engineer submits to the engineering lead, who may send it back.
+  app.post(
+    '/quotes/:quoteNumber/eng-review/submit',
+    {
+      config: { permission: 'engReview.edit' },
+      schema: {
+        tags: ['engineering'],
+        summary:
+          "Lead review: the assigned engineer submits their part to the engineering lead, who is told. Checked against G2 Advance (less the lead's own steps); locked for the engineer until sent back",
+        security,
+        params: QuoteNumberParams,
+        response: { 200: EngineeringDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.submitToLead(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  app.post(
+    '/quotes/:quoteNumber/eng-review/send-back',
+    {
+      config: { permission: 'gate.G2.decide' },
+      schema: {
+        tags: ['engineering'],
+        summary:
+          'Lead review: the engineering lead sends a submitted part back to the engineer with a note (required); the engineer is told and can edit again',
+        security,
+        params: QuoteNumberParams,
+        body: SendBackBody,
+        response: { 200: EngineeringDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.sendBack(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body.note,
+          auditMeta(req),
+        ),
+      ),
   );
 };

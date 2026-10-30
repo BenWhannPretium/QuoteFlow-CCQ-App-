@@ -21,6 +21,7 @@ import { toast } from '@/lib/toast';
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
+import { LeadReviewPanel } from '../LeadReviewPanel';
 import { timelineQueryKey } from '../Overrides';
 import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
 import {
@@ -64,6 +65,7 @@ export function QuotingTab({
     <div className="grid gap-6" data-testid="quoting-tab">
       <ApprovalStatus quoting={quoting} passThrough={quote.commercial.passThroughEligible} />
       <PricerAssignment quote={quote} />
+      <PricingLeadReview quote={quote} />
       {quoting.commercialRedacted ? (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -206,6 +208,20 @@ function Warnings({ record }: { record: PricingRecordView }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Lead review: the pricer submits to the pricing lead, who may send it back. */
+function PricingLeadReview({ quote }: { quote: QuoteDetail }) {
+  const refresh = useRefresh(quote.quoteNumber);
+  return (
+    <LeadReviewPanel
+      kind="pricing"
+      review={quote.quoting.leadReview}
+      submit={() => api.submitQuotingToLead(quote.quoteNumber)}
+      sendBack={(note) => api.sendBackQuoting(quote.quoteNumber, note)}
+      onDone={(detail) => refresh(detail)}
+    />
   );
 }
 

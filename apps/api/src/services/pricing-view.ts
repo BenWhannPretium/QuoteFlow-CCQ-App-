@@ -1,6 +1,7 @@
 import type { PricingRecordView, QuotingDetail } from '@ccq/contracts';
 import type { DbOrTx } from '@ccq/db';
 import {
+  clearLeadReview,
   getSetting,
   listActiveUsersWithRoles,
   listGateDecisionsWithNames,
@@ -31,6 +32,7 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { leadReviewView } from './lead-review';
 import { persistNotifications } from './notificationService';
 
 type PricingRow = Awaited<ReturnType<typeof listPricingRecords>>[number];
@@ -183,6 +185,7 @@ export async function quotingView(
     assignedPricerName: name(q.assignedPricerId),
     pricerAssignedAt: iso(q.pricerAssignedAt),
     canAssign: inQuoting && can(actor, 'pricingQueue.assign', state),
+    leadReview: await leadReviewView(db, actor, 'pricing', q, state),
     pricingUsers: canEdit ? await listActiveUsersWithRoles(db, pricingRoles()) : [],
     refFormats: formats,
   };
@@ -202,6 +205,8 @@ export async function onPricingArrival(
   /** B-12/B-13: set when Final Review returned the quote here, or the customer asked for a re-quote. */
   returnedFrom?: 'final_review' | 'customer_requote',
 ): Promise<void> {
+  // Lead review: a new stay in Quoting starts a new round (like engineering's acceptance).
+  await clearLeadReview(tx, quote.id, 'pricing');
   const rows = await listPricingRecords(tx, quote.id);
   if (!rows.some((r) => r.quoteVersion === quote.version)) {
     const prior = rows.find((r) => r.quoteVersion < quote.version);

@@ -47,6 +47,7 @@ import {
   can,
   canAssignEngQueue,
   canEditEngReview,
+  lockedFor,
   computeTimeInStage,
   countByAgingBucket,
   engineeringCompleteness,
@@ -71,6 +72,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { loadEngQueueSettings, engineeringView } from './engineering-view';
 import { loadIntakeConfig } from './intake';
+import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
 import { persistNotifications } from './notificationService';
 import { ServiceProblem } from './problem';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
@@ -86,7 +88,15 @@ export class EngineeringError extends ServiceProblem {
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
-const CONFLICT_CODES = new Set(['WRONG_STAGE', 'QUOTE_CLOSED', 'ALREADY_ACCEPTED']);
+const CONFLICT_CODES = new Set([
+  'WRONG_STAGE',
+  'QUOTE_CLOSED',
+  'ALREADY_ACCEPTED',
+  // Lead review
+  'ALREADY_SUBMITTED',
+  'NOT_SUBMITTED',
+  'LOCKED_FOR_REVIEW',
+]);
 
 /** Domain errors → 403 (not permitted), 409 (wrong state) or 422 (bad input, every error listed). */
 function fail(errors: readonly DomainError[]): never {
@@ -213,6 +223,7 @@ export class EngineeringService {
       status: q.status as QuoteState['status'],
       kamUserId: asUserId(q.kamUserId),
       assignedEngineerId: q.assignedEngineerId ? asUserId(q.assignedEngineerId) : null,
+      engSubmittedAt: q.engSubmittedAt,
       ...(q.region ? { region: q.region } : {}),
     };
     return {
@@ -226,6 +237,8 @@ export class EngineeringService {
       assignedAt: iso(q.assignedAt),
       acceptedAt: iso(row.acceptedAt),
       queueStatus: !q.assignedEngineerId ? 'unassigned' : row.acceptedAt ? 'accepted' : 'assigned',
+      leadReview: q.engSubmittedAt ? 'submitted' : q.engReturnedAt ? 'returned' : 'none',
+      submittedAt: iso(q.engSubmittedAt),
       pinned,
       queuePosition: pinned ? q.queuePosition : null,
       drawingStatus: q.drawingStatus,
@@ -284,7 +297,10 @@ export class EngineeringService {
         ...(query.bucket ? { agingBuckets: query.bucket } : {}),
         ...(query.productFamily ? { productFamilies: query.productFamily } : {}),
         ...(query.q ? { q: query.q } : {}),
-      }).map((e) => e.item);
+      })
+        .map((e) => e.item)
+        // Lead review: "Ready for my review" lists what waits on the lead.
+        .filter((i) => query.review !== 'ready' || i.leadReview === 'submitted');
 
       const strip = ({ entry: _e, ...item }: (typeof all)[number]): EngQueueItem => item;
       const canAssign = canAssignEngQueue(actor, qc.settings);
@@ -303,6 +319,7 @@ export class EngineeringService {
           !!pinField &&
           holdsPermission(actor, 'override.request') &&
           actor.roles.some((r) => pinField.requestRoles.includes(r)),
+        readyForReview: all.filter((i) => i.leadReview === 'submitted').length,
         engineers: canAssign
           ? (await listAssignableEngineers(tx, ASSIGNABLE_ROLES, ENG_QUEUE_STAGE_KEY)).map((e) => ({
               ...e,
@@ -545,10 +562,59 @@ export class EngineeringService {
     });
   }
 
+  private leadReviewDeps(): LeadReviewDeps {
+    return { quotes: this.opts.quotes, log: this.opts.log, fail, notFound };
+  }
+
+  /** POST /quotes/:qn/eng-review/submit: the assigned engineer hands the review to the lead. */
+  async submitToLead(
+    withTx: EngWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    meta: AuditMeta,
+  ): Promise<EngineeringDetail> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      await submitToLead(tx, this.leadReviewDeps(), actor, 'engineering', quoteNumber, meta, now);
+      return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /** POST /quotes/:qn/eng-review/send-back: the engineering lead returns it with a note. */
+  async sendBack(
+    withTx: EngWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    note: string,
+    meta: AuditMeta,
+  ): Promise<EngineeringDetail> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      await returnToAssignee(
+        tx,
+        this.leadReviewDeps(),
+        actor,
+        'engineering',
+        quoteNumber,
+        note,
+        meta,
+        now,
+      );
+      return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
   private async assertEditable(tx: Tx, actor: Actor, quoteNumber: string) {
     const loaded = await this.loadQuote(tx, quoteNumber);
     const { state } = loaded;
     if (!canEditEngReview(actor, state)) {
+      if (can(actor, 'engReview.edit', state) && lockedFor('engineering', actor, state)) {
+        throw new EngineeringError(
+          409,
+          ENGINEERING_PROBLEM_CODES.conflict,
+          'Submitted to the engineering lead: only the lead edits until it is sent back',
+        );
+      }
       if (can(actor, 'engReview.edit', state) && state.stageKey !== ENG_QUEUE_STAGE_KEY) {
         throw new EngineeringError(
           409,

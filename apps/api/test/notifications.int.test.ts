@@ -668,6 +668,8 @@ describe('email preferences', () => {
         'quote.ready_for_eng_review',
         'quote.ready_for_final_review',
         'quote.reworked',
+        'quote.returned_by_lead',
+        'quote.submitted_to_lead',
         'quote.to_qualify',
         'quote.validity_expired',
         'quote.validity_expiring',

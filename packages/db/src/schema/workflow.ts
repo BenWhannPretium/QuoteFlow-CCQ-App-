@@ -344,6 +344,54 @@ export const quote = documented(
         'B-26: when the current pricer was assigned; reset on reassign.',
         PRICING,
       ),
+      // Lead review (2026-10-30): the assigned engineer submits their part to the lead; the lead may send
+      // it back. The latest round only (the timeline and audit keep every one); cleared on a new stay
+      // in the stage and on reassignment.
+      engSubmittedAt: c(
+        timestamptz('eng_submitted_at'),
+        'Lead review: when the engineer submitted their part to the lead (null: not waiting on the lead).',
+        ENG,
+      ),
+      engSubmittedBy: c(userRef('eng_submitted_by'), 'Lead review: who submitted it.', ENG),
+      engReturnedAt: c(
+        timestamptz('eng_returned_at'),
+        'Lead review: when the lead last sent it back to the engineer.',
+        ENG,
+      ),
+      engReturnedBy: c(userRef('eng_returned_by'), 'Lead review: the lead who sent it back.', ENG),
+      engReturnNote: c(
+        text('eng_return_note'),
+        'Lead review: what the lead asked the engineer to change.',
+        ENG,
+      ),
+      // Lead review (2026-10-30): the assigned pricer submits their part to the lead; the lead may send
+      // it back. The latest round only (the timeline and audit keep every one); cleared on a new stay
+      // in the stage and on reassignment.
+      pricingSubmittedAt: c(
+        timestamptz('pricing_submitted_at'),
+        'Lead review: when the pricer submitted their part to the lead (null: not waiting on the lead).',
+        PRICING,
+      ),
+      pricingSubmittedBy: c(
+        userRef('pricing_submitted_by'),
+        'Lead review: who submitted it.',
+        PRICING,
+      ),
+      pricingReturnedAt: c(
+        timestamptz('pricing_returned_at'),
+        'Lead review: when the lead last sent it back to the pricer.',
+        PRICING,
+      ),
+      pricingReturnedBy: c(
+        userRef('pricing_returned_by'),
+        'Lead review: the lead who sent it back.',
+        PRICING,
+      ),
+      pricingReturnNote: c(
+        text('pricing_return_note'),
+        'Lead review: what the lead asked the pricer to change.',
+        PRICING,
+      ),
       // B-26: capital awareness (deck slide 9, "Aware")
       capitalLikely: c(
         boolean('capital_likely').notNull().default(false),

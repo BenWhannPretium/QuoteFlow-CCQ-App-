@@ -31,6 +31,7 @@ Sources of truth for requirements (read the relevant one before building a featu
 | Stage model | **Configurable**, data-driven stage/gate engine seeded with the "hybrid" model (PRD v1 stages + G1 qualify, capacity evidence, Final Review separate from customer outcome, reason-coded outcomes) |
 | Build method | Code-first, Claude Code, Git (GitHub), CI on every push |
 | Data landing (L-8, 2026-10-24) | **All new data QuoteFlow creates is stored in Pretium's Fabric tenant** (Oleg Yarovinski + Brennan Paul). Met by Fabric mirroring of the CCQ Postgres database; Postgres stays the app's store. See `01-architecture.md` §6.1, B-27 |
+| Lead review (L-9, 2026-10-30) | The assigned engineer / pricer **submits to their lead**, who is notified, reviews under "Ready for my review" and decides the gate or sends it back with a note. The assignee's part is locked while submitted; the lead may act at any time. **G3 is decided by the pricing lead only**, mirroring G2 (EngLead). See `01-architecture.md` §2, `packages/domain/src/lead-review` |
 | MVP bar for 2026-11-13 | Deployed to Azure, Entra-secured, Salesforce read live on **approved** data, all P0 features passing UAT with gate-owner candidates |
 
 ## Stack (do not swap without updating the architecture doc)

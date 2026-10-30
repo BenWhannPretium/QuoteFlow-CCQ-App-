@@ -371,6 +371,8 @@ describe('pricing queue', () => {
 });
 
 describe('G3 (hybrid seed)', () => {
+  // 2026-10-30: the pricing lead decides G3 (the pricer submits to them first).
+  const lead = makeActor('PricingLead');
   const approved = {
     price_approved_by: PRICER,
     price_approved_at: NOW,
@@ -379,7 +381,7 @@ describe('G3 (hybrid seed)', () => {
   };
   const submit = (
     record: Record<string, unknown>,
-    actor = pricing,
+    actor = lead,
     fields: Record<string, unknown> = {},
   ) =>
     evaluateTransition(
@@ -413,7 +415,7 @@ describe('G3 (hybrid seed)', () => {
   it('B-26: below the pass-through threshold the price needs no formal approval', () => {
     const noApproval = { ...approved, price_approved_by: null, price_approved_at: null };
     expect(submit(noApproval).ok).toBe(false);
-    expect(submit(noApproval, pricing, { pass_through_eligible: true }).ok).toBe(true);
+    expect(submit(noApproval, lead, { pass_through_eligible: true }).ok).toBe(true);
   });
 
   it('B-26: a "capital likely" quote needs capital readiness confirmed, not pending', () => {
@@ -422,38 +424,39 @@ describe('G3 (hybrid seed)', () => {
       capital_readiness: 'pending',
       capital_pending_justification: 'board Nov 10',
     };
-    expect(submit(pending, pricing, { capital_likely: false }).ok).toBe(true);
-    expect(missing(submit(pending, pricing, { capital_likely: true }))).toEqual([
+    expect(submit(pending, lead, { capital_likely: false }).ok).toBe(true);
+    expect(missing(submit(pending, lead, { capital_likely: true }))).toEqual([
       'capital_likely,pricing_record.capital_readiness',
     ]);
     expect(
-      submit({ ...approved, capital_readiness: 'pre_approved' }, pricing, { capital_likely: true })
+      submit({ ...approved, capital_readiness: 'pre_approved' }, lead, { capital_likely: true })
         .ok,
     ).toBe(true);
   });
 
   it('pending capital needs a justification (D-11: warned, not blocked)', () => {
     const base = { ...approved, capital_readiness: 'pending' };
-    expect(missing(submit(base, pricing, { capital_likely: false }))).toEqual([
+    expect(missing(submit(base, lead, { capital_likely: false }))).toEqual([
       'pricing_record.capital_readiness,pricing_record.capital_pending_justification',
     ]);
     expect(
-      submit({ ...base, capital_pending_justification: 'board Nov 10' }, pricing, {
+      submit({ ...base, capital_pending_justification: 'board Nov 10' }, lead, {
         capital_likely: false,
       }).ok,
     ).toBe(true);
     expect(
-      submit({ ...base, capital_readiness: 'not_approved' }, pricing, { capital_likely: false }).ok,
+      submit({ ...base, capital_readiness: 'not_approved' }, lead, { capital_likely: false }).ok,
     ).toBe(true);
   });
 
-  it('only Pricing (and the pricing lead) decides G3; Advance goes to FINAL_REVIEW and tells the Approvers', () => {
+  it('only the pricing lead decides G3; Advance goes to FINAL_REVIEW and tells the Approvers', () => {
     const ok = submit(approved);
     expect(ok.ok && ok.effects.nextStageKey).toBe('FINAL_REVIEW');
     expect(ok.ok && ok.effects.notifications).toEqual([
       { type: 'quote.ready_for_final_review', recipient: { kind: 'role', role: 'Approver' } },
     ]);
-    expect(submit(approved, makeActor('PricingLead')).ok).toBe(true);
+    const pricer = submit(approved, pricing);
+    expect(!pricer.ok && pricer.errors[0]!.code).toBe('NOT_PERMITTED');
     const eng = submit(approved, makeActor('EngLead'));
     expect(!eng.ok && eng.errors[0]!.code).toBe('NOT_PERMITTED');
   });
@@ -463,7 +466,7 @@ describe('G3 (hybrid seed)', () => {
       evaluateTransition(
         hybridConfig,
         makeQuote('QUOTING'),
-        pricing,
+        lead,
         { gateKey: 'G3', outcomeKey, ...extra },
         NOW,
       );
@@ -475,7 +478,7 @@ describe('G3 (hybrid seed)', () => {
       evaluateTransition(
         hybridConfig,
         makeQuote('QUOTING', { fields: hold.fields }),
-        pricing,
+        lead,
         hold.request,
         NOW,
       ).ok,
@@ -483,13 +486,13 @@ describe('G3 (hybrid seed)', () => {
 
     const rework = validCase(hybridConfig, 'G3', 'rework');
     expect(rework.request.note).toBeUndefined();
-    const r = evaluateTransition(hybridConfig, makeQuote('QUOTING'), pricing, rework.request, NOW);
+    const r = evaluateTransition(hybridConfig, makeQuote('QUOTING'), lead, rework.request, NOW);
     expect(r.ok && [r.effects.nextStageKey, r.effects.nextVersion]).toEqual(['ENG_REVIEW', 2]);
     expect(run('rework').ok).toBe(false);
 
     // B-26: re-cost stays in Quoting (no version bump); Redirect keeps the quote in Quoting too.
     const recost = validCase(hybridConfig, 'G3', 'recost');
-    const rc = evaluateTransition(hybridConfig, makeQuote('QUOTING'), pricing, recost.request, NOW);
+    const rc = evaluateTransition(hybridConfig, makeQuote('QUOTING'), lead, recost.request, NOW);
     expect(
       rc.ok && [rc.effects.nextStageKey, rc.effects.nextVersion, rc.effects.nextStatus],
     ).toEqual(['QUOTING', 1, 'active']);
@@ -498,7 +501,7 @@ describe('G3 (hybrid seed)', () => {
 
     const stop = validCase(hybridConfig, 'G3', 'stop');
     expect(stop.request.note).toBeDefined();
-    const s = evaluateTransition(hybridConfig, makeQuote('QUOTING'), pricing, stop.request, NOW);
+    const s = evaluateTransition(hybridConfig, makeQuote('QUOTING'), lead, stop.request, NOW);
     expect(s.ok && [s.effects.nextStageKey, s.effects.nextStatus, s.effects.closeAs]).toEqual([
       'DECLINED',
       'closed',

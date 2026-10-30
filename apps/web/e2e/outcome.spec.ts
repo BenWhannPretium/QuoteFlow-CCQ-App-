@@ -67,7 +67,8 @@ async function quoteInCustomerDecision(
     costingCompleted: true,
   });
   await put('capital-readiness', 'pricing', { capitalReadiness: 'pre_approved' });
-  await post('gates/G3/decisions', 'pricing', { outcomeKey: 'submit' });
+  // 2026-10-30: the pricing lead decides G3.
+  await post('gates/G3/decisions', 'pricing-lead', { outcomeKey: 'submit' });
   await put('terms', 'kam', {
     termsPaymentTerms: 'Net 45',
     termsToolingCommitment: false,

@@ -30,6 +30,7 @@ import { formatDuration } from '@/components/engineering/format';
 import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { PricerAssignDialog } from '@/components/pricing/PricerAssignDialog';
 import { CAPITAL_LABELS, pricingQueueQueryKey } from '@/components/pricing/QuotingTab';
+import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -62,7 +63,9 @@ function PricingQueuePage() {
   const [filters, setFilters] = useState<FilterValue>({});
   const [approved, setApproved] = useState<'' | 'yes' | 'no'>('');
   const [pricer, setPricer] = useState('');
+  const [tab, setTab] = useState<ReviewTab>('all');
   const params: PricingQueueParams = {
+    ...(tab === 'ready' ? { review: 'ready' as const } : {}),
     ...(filters.tier?.length ? { tier: filters.tier.join(',') } : {}),
     ...(filters.g2?.length ? { g2: filters.g2.join(',') } : {}),
     ...(filters.capital?.length ? { capital: filters.capital.join(',') } : {}),
@@ -105,6 +108,9 @@ function PricingQueuePage() {
       {queue.error && <ErrorState error={queue.error} onRetry={() => void queue.refetch()} />}
       {data && (
         <>
+          {data.canDecide && (
+            <ReviewTabs value={tab} onChange={setTab} readyCount={data.readyForReview} />
+          )}
           <Counts data={data} />
           <section className="grid gap-3" aria-labelledby="pricing-queue-heading">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -469,7 +475,16 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
         accessorFn: (q) => q.assignedPricerName ?? '',
         cell: ({ row }) =>
           row.original.assignedPricerName ? (
-            <span data-testid="assigned-pricer">{row.original.assignedPricerName}</span>
+            <span className="grid">
+              <span data-testid="assigned-pricer">{row.original.assignedPricerName}</span>
+              {row.original.leadReview !== 'none' && (
+                <span className="text-muted-foreground text-xs" data-testid="lead-review-status">
+                  {row.original.leadReview === 'submitted'
+                    ? 'Ready for lead review'
+                    : 'Sent back by lead'}
+                </span>
+              )}
+            </span>
           ) : (
             <span className="text-muted-foreground">Unassigned</span>
           ),

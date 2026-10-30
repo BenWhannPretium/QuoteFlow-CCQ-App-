@@ -24,8 +24,17 @@ import { cn } from '@/lib/utils';
 import { finalReviewQueueKey, reviewSummaryKey } from './final-review/keys';
 import { QualificationWarnings, ScoreBreakdownTable } from './Priority';
 
-/** Plain words for the rules' field paths (B-11, B-26); other rules show their message. */
-const MISSING_LABELS: Record<string, string> = {
+/**
+ * Plain words for the rules' field paths (B-11, B-26); other rules show their message. Shared with the
+ * lead-review "Not ready to submit yet" list.
+ */
+export const MISSING_LABELS: Record<string, string> = {
+  process_type: 'Process type',
+  machine_type: 'Machine type',
+  plant_code: 'Plant / site',
+  cavitation: 'Cavitation',
+  cycle_time_s: 'Cycle time',
+  capacity_evidence: 'At least one capacity evidence row',
   'pricing_record.price_approved_by': 'Price approver',
   'pricing_record.price_approved_at': 'Price approval date',
   'pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible':

@@ -169,6 +169,18 @@ export function describeEvent(
       };
     case 'eng_review_accepted':
       return { title: 'Engineering review accepted', kind: 'system' };
+    // Lead review (2026-10-30): the assignee submits to the lead; the lead may send it back.
+    case 'lead_review_submitted':
+      return {
+        title: `${p.kind === 'pricing' ? 'Pricing work' : 'Engineering review'} submitted to the ${p.kind === 'pricing' ? 'pricing' : 'engineering'} lead`,
+        kind: 'system',
+      };
+    case 'lead_review_returned':
+      return {
+        title: `Sent back to ${str(p.toName) ?? `the ${p.kind === 'pricing' ? 'pricer' : 'engineer'}`}`,
+        detail: note(str(p.note)),
+        kind: 'system',
+      };
     case 'eng_review_updated': {
       const fields = Array.isArray(p.fields)
         ? (p.fields as unknown[]).filter((f) => typeof f === 'string')

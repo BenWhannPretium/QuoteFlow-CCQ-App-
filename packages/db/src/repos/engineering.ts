@@ -3,6 +3,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
+import { clearLeadReview } from './lead-review';
 import {
   appUser,
   capacityEvidence,
@@ -156,6 +157,8 @@ export function listHoldsForQuotes(db: DbOrTx, quoteIds: string[]) {
  * per stay too, so the capacity owner looks again (the scope, volume or site may have changed).
  */
 export async function resetEngReviewAcceptance(db: DbOrTx, quoteId: string) {
+  // Lead review: a new stay (or a new engineer) starts a new round.
+  await clearLeadReview(db, quoteId, 'engineering');
   await db
     .update(engReview)
     .set({

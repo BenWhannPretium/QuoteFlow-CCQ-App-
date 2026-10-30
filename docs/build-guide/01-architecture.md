@@ -129,7 +129,7 @@ Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future res
 | gate.G2.decide | | | ✔ | | | | | | |
 | pricingQueue.read (B-11: the pricing queue page) | | | | | ✔ | ✔ | | ✔ | ✔ |
 | quoting.edit | | | | | ✔ | ✔ | | | |
-| gate.G3.submit | | | | | ✔ | ✔ | | | |
+| gate.G3.submit (2026-10-30: the pricing lead only, like G2) | | | | | | ✔ | | | |
 | finalReview.read (B-12: the Final Review queue, Approvals tab) | | | | | | | ✔ | ✔ | ✔ |
 | gate.G4.decide | | | | | | | ✔ | | |
 | outcome.record | ✔ (own) | ✔ | | | | | | | |
@@ -176,6 +176,8 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
 | T | `AWARDED` | Closed – Won | — | — | — | Terminal (B-26: reached from G6, not G5). The hand-off record stays readable. |
 | T | `NOT_AUTHORIZED` | Closed – Commitment not authorized (B-26) | — | — | — | Terminal, internal outcome. |
 | T | `CLOSED_LOST` · `DECLINED` · `EXPIRED` · `REDIRECTED` | Closed | — | — | — | Outcome + reason code + closure owner + date are mandatory on **every** terminal path (CR-39/40): `evaluateTransition` plans them (`TransitionEffects.closure`), refuses a closing decision without a reason, and the DB repeats it (`quote_closure_complete_check`). |
+
+**Lead review (Ben, 2026-10-30).** In Engineering Review and Quoting the assigned engineer or pricer does their part, then presses **Submit to lead** (`POST /quotes/:qn/eng-review/submit`, `/quoting/submit`). The submission is checked against the gate's Advance rules (G2 `proceed`, G3 `submit`) less the lead's own steps (G2's capacity sign-off), so the lead never gets half-finished work. The lead is notified (`quote.submitted_to_lead`) and finds it under **Ready for my review** on their queue (`?review=ready`). While it is submitted the assignee's part is **locked**: only the lead edits (409 `LOCKED_FOR_REVIEW` otherwise). The lead then decides the gate as usual, or **sends it back** with a required note (`…/send-back`, `quote.returned_by_lead`), which unlocks it. **The lead may decide the gate at any time, submitted or not.** A lead who is the assignee is never offered Submit. The round lives on the quote (`eng_submitted_*`, `eng_returned_*`, `pricing_*`; migration 0025) and is cleared on a new stay in the stage and on reassignment; every submit and send-back is on the timeline and in the audit log. Rules: `packages/domain/src/lead-review`. To mirror engineering, **G3 is decided by the pricing lead only** (`gate.G3.submit`: PricingLead), as only the EngLead decides G2.
 
 **Engine rules (all in `packages/domain/src/workflow`)**
 
@@ -241,6 +243,8 @@ Every notification is written **in the same transaction as the change** that cau
 | Awaiting Final Review (`quote.ready_for_final_review`) | holders of `gate.G4.decide` (`Approver`) | yes | yes |
 | G4 decided (`quote.approved_for_customer`, `quote.declined`) | the KAM, the pricing approver (who approved the price at G3), and on a decline the `Pricing` role | yes | yes |
 | Assigned to a pricer (`quote.pricing_assigned`, B-26) | the pricer | yes | yes |
+| Submitted for lead review (`quote.submitted_to_lead`, 2026-10-30) | holders of the gate's decider permission: `gate.G2.decide` (`EngLead`) or `gate.G3.submit` (`PricingLead`) | yes | yes |
+| Sent back by the lead (`quote.returned_by_lead`, 2026-10-30) | the assigned engineer or pricer, with the lead's note | yes | yes |
 | Capital likely flagged (`quote.capital_likely`, B-26) | `capital_management_notice.recipientUserIds` (once per quote) | yes | yes |
 | Market Development threshold reached (`quote.market_dev`, B-26) | `market_development_notice.recipientUserIds`, on arrival in Engineering Review (once per quote) | yes | yes |
 | Escalation raised (`quote.escalated`, B-26) | the route's roles and users in `escalation_routes`, plus the Process Owner where the route says so | yes | yes |

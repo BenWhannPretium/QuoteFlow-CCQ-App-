@@ -12,6 +12,7 @@ import {
 } from '@ccq/contracts';
 import type { Tx } from '@ccq/db';
 import {
+  clearLeadReview,
   getPricingRecord,
   getQuoteByNumber,
   getUserWithRoles,
@@ -56,6 +57,7 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
 import { persistNotifications } from './notificationService';
 import {
   loadPricingRefFormats,
@@ -77,7 +79,14 @@ export class PricingError extends ServiceProblem {
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
-const CONFLICT_CODES = new Set(['WRONG_STAGE', 'QUOTE_CLOSED']);
+const CONFLICT_CODES = new Set([
+  'WRONG_STAGE',
+  'QUOTE_CLOSED',
+  // Lead review
+  'ALREADY_SUBMITTED',
+  'NOT_SUBMITTED',
+  'LOCKED_FOR_REVIEW',
+]);
 
 /** Domain errors → 403 (not permitted), 409 (wrong state) or 422 (bad input, every error listed). */
 function fail(errors: readonly DomainError[]): never {
@@ -186,6 +195,8 @@ export class PricingService {
           status: q.status as QuoteState['status'],
           kamUserId: asUserId(q.kamUserId),
           assignedEngineerId: q.assignedEngineerId ? asUserId(q.assignedEngineerId) : null,
+          assignedPricerId: q.assignedPricerId ? asUserId(q.assignedPricerId) : null,
+          pricingSubmittedAt: q.pricingSubmittedAt,
           ...(q.region ? { region: q.region } : {}),
         };
         const item: PricingQueueItem = {
@@ -206,6 +217,12 @@ export class PricingService {
             ? (pricerNames.get(q.assignedPricerId) ?? null)
             : null,
           pricerAssignedAt: iso(q.pricerAssignedAt),
+          leadReview: q.pricingSubmittedAt
+            ? 'submitted'
+            : q.pricingReturnedAt
+              ? 'returned'
+              : 'none',
+          submittedAt: iso(q.pricingSubmittedAt),
           canEdit: canEditQuoting(actor, state),
         };
         const entry: PricingQueueEntry = {
@@ -246,7 +263,9 @@ export class PricingService {
         ...(query.kam ? { kamUserId: query.kam === 'me' ? actor.userId : query.kam } : {}),
         ...(query.pricer ? { pricerId: query.pricer === 'me' ? actor.userId : query.pricer } : {}),
         ...(query.q ? { q: query.q } : {}),
-      });
+      })
+        // Lead review: "Ready for my review" lists what waits on the pricing lead.
+        .filter((e) => query.review !== 'ready' || e.item.leadReview === 'submitted');
 
       return {
         stage: {
@@ -263,6 +282,7 @@ export class PricingService {
         },
         canEdit: can(actor, 'quoting.edit'),
         canDecide: can(actor, 'gate.G3.submit'),
+        readyForReview: all.filter((e) => e.item.leadReview === 'submitted').length,
         canAssign,
         pricers: canAssign
           ? (await listActiveUsersWithRoles(tx, PRICING_ASSIGNABLE_ROLES)).map((u) => ({
@@ -330,6 +350,8 @@ export class PricingService {
     );
     const nameOf = (id: string | null) => names.find((u) => u.id === id)?.displayName ?? null;
     await updateQuote(tx, q.id, { assignedPricerId: plan.to, pricerAssignedAt: now });
+    // Lead review: a new pricer starts their own round (like a new engineer's acceptance).
+    if (plan.from) await clearLeadReview(tx, q.id, 'pricing');
     await insertActivityEvent(tx, {
       quoteId: q.id,
       type: 'pricer_assigned',
@@ -408,6 +430,53 @@ export class PricingService {
       }
       const [to] = await listUsersByIds(tx, [body.toUserId]);
       return { reassigned, skipped, toUserName: to?.displayName ?? null };
+    });
+  }
+
+  private leadReviewDeps(): LeadReviewDeps {
+    return {
+      quotes: this.opts.quotes,
+      log: this.opts.log,
+      fail,
+      notFound: (n) => new PricingError(404, PRICING_PROBLEM_CODES.notFound, `No quote ${n}`),
+    };
+  }
+
+  /** POST /quotes/:qn/quoting/submit: the assigned pricer hands the Quoting work to the pricing lead. */
+  async submitToLead(
+    withTx: PricingWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    meta: AuditMeta,
+  ): Promise<QuotingDetail> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      await submitToLead(tx, this.leadReviewDeps(), actor, 'pricing', quoteNumber, meta, now);
+      return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /** POST /quotes/:qn/quoting/send-back: the pricing lead returns it to the pricer with a note. */
+  async sendBack(
+    withTx: PricingWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    note: string,
+    meta: AuditMeta,
+  ): Promise<QuotingDetail> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      await returnToAssignee(
+        tx,
+        this.leadReviewDeps(),
+        actor,
+        'pricing',
+        quoteNumber,
+        note,
+        meta,
+        now,
+      );
+      return this.detail(tx, actor, quoteNumber);
     });
   }
 

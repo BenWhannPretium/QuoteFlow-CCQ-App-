@@ -23,6 +23,11 @@ export interface QuoteState {
   version: number;
   kamUserId: UserId;
   assignedEngineerId?: UserId | null;
+  /** B-26: the pricer the pricing lead assigned. */
+  assignedPricerId?: UserId | null;
+  /** Lead review: when the assignee submitted their part to the lead (null: not waiting on the lead). */
+  engSubmittedAt?: Date | null;
+  pricingSubmittedAt?: Date | null;
   region?: string;
   accountId?: string;
   /**

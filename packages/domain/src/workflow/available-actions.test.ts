@@ -127,7 +127,7 @@ describe('availableActions', () => {
   it('only decider roles ever see actions at a gate', () => {
     for (const role of ROLES) {
       const seen = availableActions(hybridConfig, makeQuote('QUOTING'), makeActor(role)).length > 0;
-      expect(seen, role).toBe(role === 'Pricing' || role === 'PricingLead');
+      expect(seen, role).toBe(role === 'PricingLead');
     }
   });
 });

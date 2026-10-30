@@ -137,6 +137,8 @@ export interface EngQueueParams {
   bucket?: string;
   productFamily?: string;
   q?: string;
+  /** Lead review: `ready` = only what waits on the lead ("Ready for my review"). */
+  review?: 'ready';
 }
 
 /** GET /analytics/* filters: US Central days and single or comma-joined dimension values. */
@@ -160,6 +162,8 @@ export interface PricingQueueParams {
   /** B-26: a pricer's id, `me` or `unassigned`. */
   pricer?: string;
   q?: string;
+  /** Lead review: `ready` = only what waits on the pricing lead. */
+  review?: 'ready';
 }
 
 /** GET /approvals?gate=G4 filters (contracts `FinalReviewQueueQuery`), as sent on the URL. */
@@ -346,6 +350,14 @@ export const api = {
       method: 'PUT',
       body,
     }),
+  // Lead review (2026-10-30): the engineer submits to the engineering lead, who may send it back.
+  submitEngReviewToLead: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/eng-review/submit`, EngineeringDetail, { method: 'POST' }),
+  sendBackEngReview: (quoteNumber: string, note: string) =>
+    getJson(`${quotePath(quoteNumber)}/eng-review/send-back`, EngineeringDetail, {
+      method: 'POST',
+      body: { note },
+    }),
   stageTimes: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/stage-times`, StageTimesResponse),
   // B-18 notifications and email preferences
@@ -379,6 +391,14 @@ export const api = {
     }),
   bulkReassignPricing: (body: BulkReassignBody) =>
     getJson('/api/v1/queue/pricing/reassign', BulkReassignResponse, { method: 'POST', body }),
+  // Lead review: the pricer submits to the pricing lead, who may send it back.
+  submitQuotingToLead: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/quoting/submit`, QuotingDetail, { method: 'POST' }),
+  sendBackQuoting: (quoteNumber: string, note: string) =>
+    getJson(`${quotePath(quoteNumber)}/quoting/send-back`, QuotingDetail, {
+      method: 'POST',
+      body: { note },
+    }),
   updatePricingRecord: (quoteNumber: string, body: PricingRecordBody) =>
     getJson(`${quotePath(quoteNumber)}/pricing-record`, QuotingDetail, { method: 'PUT', body }),
   updateCapitalReadiness: (quoteNumber: string, body: CapitalReadinessBody) =>

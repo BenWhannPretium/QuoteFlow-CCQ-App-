@@ -76,6 +76,7 @@ const ROLE_PERSONA: Record<string, string> = {
   EngLead: 'eng-lead',
   Engineer: 'engineer',
   Pricing: 'pricing',
+  PricingLead: 'pricing-lead',
   Approver: 'approver',
   Leadership: 'leadership',
   Admin: 'admin',
@@ -229,7 +230,7 @@ async function inFinalReview(o: Opts = {}) {
     }),
     200,
   );
-  ok(await decide(qn, { outcomeKey: 'submit' }, 'Pricing', 'G3'));
+  ok(await decide(qn, { outcomeKey: 'submit' }, 'PricingLead', 'G3'));
   if (o.terms !== false) {
     // B-26: the KAM checks the terms before the offer is released.
     ok(

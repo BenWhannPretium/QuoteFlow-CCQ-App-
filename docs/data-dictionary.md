@@ -681,6 +681,16 @@ The CCQ quote: the workflow record CCQ owns.
 | `assigned_at` | timestamp with time zone | yes |  |  | When the current engineer was assigned (B-10 "time since assignment"); reset on reassign. | Engineering (EngLead / Engineer) |
 | `assigned_pricer_id` | uuid | yes |  | app_user.id | B-26: the pricer the pricing lead assigned the Quoting work to. | Pricing |
 | `pricer_assigned_at` | timestamp with time zone | yes |  |  | B-26: when the current pricer was assigned; reset on reassign. | Pricing |
+| `eng_submitted_at` | timestamp with time zone | yes |  |  | Lead review: when the engineer submitted their part to the lead (null: not waiting on the lead). | Engineering (EngLead / Engineer) |
+| `eng_submitted_by` | uuid | yes |  | app_user.id | Lead review: who submitted it. | Engineering (EngLead / Engineer) |
+| `eng_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the engineer. | Engineering (EngLead / Engineer) |
+| `eng_returned_by` | uuid | yes |  | app_user.id | Lead review: the lead who sent it back. | Engineering (EngLead / Engineer) |
+| `eng_return_note` | text | yes |  |  | Lead review: what the lead asked the engineer to change. | Engineering (EngLead / Engineer) |
+| `pricing_submitted_at` | timestamp with time zone | yes |  |  | Lead review: when the pricer submitted their part to the lead (null: not waiting on the lead). | Pricing |
+| `pricing_submitted_by` | uuid | yes |  | app_user.id | Lead review: who submitted it. | Pricing |
+| `pricing_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the pricer. | Pricing |
+| `pricing_returned_by` | uuid | yes |  | app_user.id | Lead review: the lead who sent it back. | Pricing |
+| `pricing_return_note` | text | yes |  |  | Lead review: what the lead asked the pricer to change. | Pricing |
 | `capital_likely` | boolean | no | false |  | B-26: significant capital is likely (set at Stage 1 by Sales or upfront Engineering, or by the capital_likely_notice threshold). When set, G3 needs capital readiness confirmed. | KAM |
 | `capital_likely_set_by` | uuid | yes |  | app_user.id | B-26: who last set or cleared capital_likely (null when set by the threshold). | KAM |
 | `capital_likely_set_at` | timestamp with time zone | yes |  |  | B-26: when capital_likely last changed. | KAM |

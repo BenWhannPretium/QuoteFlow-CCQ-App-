@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { PRICING_QUEUE_STAGE_KEY } from './queue';
 import { DomainError } from '../errors';
+import { lockedFor } from '../lead-review';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
@@ -143,20 +144,40 @@ export function carryForwardPricingRecord(prior: PricingRecordValues | null): Pr
 
 export type PricingQuote = Pick<
   QuoteState,
-  'stageKey' | 'status' | 'kamUserId' | 'assignedEngineerId' | 'region' | 'accountId'
+  | 'stageKey'
+  | 'status'
+  | 'kamUserId'
+  | 'assignedEngineerId'
+  | 'assignedPricerId'
+  | 'pricingSubmittedAt'
+  | 'region'
+  | 'accountId'
 >;
 
 const inQuoting = (quote: PricingQuote) =>
   quote.stageKey === PRICING_QUEUE_STAGE_KEY && quote.status !== 'closed';
 
-/** Pricing edits the Quoting tab while the quote is in Quoting (on hold included). */
+/**
+ * Pricing edits the Quoting tab while the quote is in Quoting (on hold included). Lead review: once
+ * the pricer submits it to the pricing lead, only the lead edits.
+ */
 export function canEditQuoting(actor: Actor, quote: PricingQuote): boolean {
-  return inQuoting(quote) && can(actor, 'quoting.edit', quote);
+  return (
+    inQuoting(quote) && can(actor, 'quoting.edit', quote) && !lockedFor('pricing', actor, quote)
+  );
 }
 
 function guard(actor: Actor, quote: PricingQuote): DomainError[] {
   if (!can(actor, 'quoting.edit', quote)) {
     return [new DomainError('NOT_PERMITTED', 'Only Pricing records the price approval')];
+  }
+  if (lockedFor('pricing', actor, quote)) {
+    return [
+      new DomainError(
+        'LOCKED_FOR_REVIEW',
+        'Submitted to the pricing lead: only the lead edits until it is sent back',
+      ),
+    ];
   }
   if (quote.status === 'closed') return [new DomainError('QUOTE_CLOSED', 'The quote is closed')];
   if (quote.stageKey !== PRICING_QUEUE_STAGE_KEY) {

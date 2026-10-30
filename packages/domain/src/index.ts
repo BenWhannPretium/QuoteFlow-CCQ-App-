@@ -14,6 +14,7 @@ export * from './errors';
 export * from './feedback';
 export * from './final-review';
 export * from './intake';
+export * from './lead-review';
 export * from './notifications';
 export * from './outcome';
 export * from './overrides';
