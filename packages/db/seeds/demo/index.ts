@@ -27,12 +27,12 @@ import type {
 import { DAY_MS, createRng } from '../synthetic/rng';
 
 /**
- * Demo seed: one example quote at each stage of the workflow, for walkthroughs with each user group
- * on an environment that otherwise has only live Salesforce data. Everything here is fake (CLAUDE.md
- * rule 8): customers and opportunities are named "(demo)" and carry `006DEMO…` / `001DEMO…` ids that
- * Salesforce never returns, so the live sync never touches them. The quotes are walked through the
- * real stage/gate engine by the synthetic generator, acted on by the synthetic personas
- * (`@example.com`), which are created too.
+ * Demo seed: one example quote at each stage of the workflow, for local walkthroughs with each user
+ * group (`pnpm db:demo`, then `pnpm dev` with AUTH_MODE=dev and the persona switcher). Local only:
+ * nothing loads it on Azure. Everything here is fake (CLAUDE.md rule 8): customers and opportunities
+ * are named "(demo)" and carry `006DEMO…` / `001DEMO…` ids. The quotes are walked through the real
+ * stage/gate engine by the synthetic generator, acted on by the synthetic personas (`@example.com`,
+ * the dev-mode switcher's users), which are created too.
  *
  * Idempotent: customers and opportunities have fixed ids, and the quotes are created once (a re-run
  * finds them and skips).

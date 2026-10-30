@@ -103,8 +103,6 @@ param sfClientId string = ''
 param sfClientSecretName string = ''
 @description('Test only. Ignored on prod (never seed synthetic data there).')
 param seedSyntheticData bool = false
-@description('Test only: load the demo set (one fake quote per stage) on start. Never on production.')
-param seedDemoData bool = false
 @description('B-27 (PR #32): Fabric workspace and mirrored database ids. Empty = not set.')
 param fabricWorkspaceId string = ''
 param fabricMirroredDbId string = ''
@@ -308,7 +306,6 @@ var sfSettings = sfMode == 'live'
 var optionalSettings = union(
   empty(mailFrom) ? {} : { MAIL_FROM: mailFrom },
   environmentName == 'test' ? { SEED_SYNTHETIC_DATA: seedSyntheticData ? 'true' : 'false' } : {},
-  environmentName == 'test' ? { SEED_DEMO_DATA: seedDemoData ? 'true' : 'false' } : {},
   empty(fabricWorkspaceId) ? {} : { FABRIC_WORKSPACE_ID: fabricWorkspaceId },
   empty(fabricMirroredDbId) ? {} : { FABRIC_MIRRORED_DB_ID: fabricMirroredDbId }
 )
