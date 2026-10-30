@@ -831,6 +831,15 @@ describe('B-26: the pricing lead triages the queue (CCQ demo, Darren and Bailey)
     expect((await queue('Pricing', '?pricer=me')).items.map((i) => i.quoteNumber)).toContain(qn);
     expect((await queue('Pricing')).canAssign).toBe(false);
 
+    // The quote's Quoting tab shows the assignment, and offers Assign… to the lead only, like the
+    // Engineering tab does for the engineering lead.
+    const leadTab = (await detail(qn, 'PricingLead')).dto.quoting;
+    expect(leadTab).toMatchObject({ assignedPricerId: pricer, canAssign: true });
+    expect(leadTab.assignedPricerName).toEqual(expect.any(String));
+    expect(leadTab.pricerAssignedAt).toEqual(expect.any(String));
+    const pricerTab = (await detail(qn, 'Pricing')).dto.quoting;
+    expect(pricerTab).toMatchObject({ assignedPricerId: pricer, canAssign: false });
+
     const told = await db.db
       .select()
       .from(schema.notification)

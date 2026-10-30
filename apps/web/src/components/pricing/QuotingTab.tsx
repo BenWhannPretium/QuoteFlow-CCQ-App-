@@ -5,7 +5,7 @@ import type {
   QuoteDetail,
   QuotingDetail,
 } from '@ccq/contracts';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -22,13 +22,14 @@ import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '..
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
+import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
 import {
   PricingContextPanel,
   pricingContextQueryKey,
   type ReferenceKind,
 } from './PricingContextPanel';
 
-export const pricingQueueQueryKey = ['pricing-queue'] as const;
+export { pricingQueueQueryKey };
 
 export const CAPITAL_LABELS: Record<CapitalReadiness, string> = {
   not_required: 'Not required',
@@ -62,6 +63,7 @@ export function QuotingTab({
   return (
     <div className="grid gap-6" data-testid="quoting-tab">
       <ApprovalStatus quoting={quoting} passThrough={quote.commercial.passThroughEligible} />
+      <PricerAssignment quote={quote} />
       {quoting.commercialRedacted ? (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -93,6 +95,55 @@ export function QuotingTab({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Who prices this quote, and (for the pricing lead) Assign… / Reassign… right here, like the
+ * Engineering tab's assigned engineer. The picker loads the pricers' open load from the queue.
+ */
+function PricerAssignment({ quote }: { quote: QuoteDetail }) {
+  const quoting = quote.quoting;
+  const [assigning, setAssigning] = useState(false);
+  const picker = useQuery({
+    queryKey: [...pricingQueueQueryKey, 'picker'],
+    queryFn: () => api.pricingQueue({ q: quote.quoteNumber }),
+    enabled: assigning,
+  });
+  if (!quoting.inQuoting && !quoting.assignedPricerId) return null;
+  return (
+    <section
+      className="bg-card rounded-card flex flex-wrap items-center gap-3 border p-4 text-sm"
+      data-testid="pricer-assignment"
+    >
+      <span>
+        <span className="font-semibold">Pricer:</span>{' '}
+        {quoting.assignedPricerName ? (
+          <span data-testid="assigned-pricer">
+            {quoting.assignedPricerName}
+            {quoting.pricerAssignedAt
+              ? ` (assigned ${absoluteTime(quoting.pricerAssignedAt)})`
+              : ''}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">Unassigned</span>
+        )}
+      </span>
+      {quoting.canAssign && (
+        <Button variant="outline" size="sm" onClick={() => setAssigning(true)}>
+          {quoting.assignedPricerId ? 'Reassign…' : 'Assign…'}
+        </Button>
+      )}
+      {assigning && picker.data && (
+        <PricerAssignDialog
+          open
+          onOpenChange={setAssigning}
+          quoteNumbers={[quote.quoteNumber]}
+          pricers={picker.data.pricers}
+          currentPricerId={quoting.assignedPricerId}
+        />
+      )}
+    </section>
   );
 }
 

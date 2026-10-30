@@ -253,3 +253,111 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
     `${quoteNumber} is ready for Final Review`,
   );
 });
+
+// The pricing lead assigns work like the engineering lead: from the quote's Quoting tab, or by ticking
+// quotes in the queue and "Assign selected…". A plain pricer sees who is assigned, without the button.
+test('the pricing lead assigns a pricer from the Quoting tab and from the queue', async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const me = async (persona: string) =>
+    (
+      (await (await request.get('/api/v1/me', { headers: as(persona) })).json()) as {
+        user: { id: string; displayName: string };
+      }
+    ).user;
+  const pricer = await me('pricing');
+  await me('pricing-lead');
+  const engineerId = (await me('engineer')).id;
+  const ok = async (res: Promise<APIResponse>, status = 200) => {
+    const r = await res;
+    expect(r.status(), await r.text()).toBe(status);
+  };
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  await ok(
+    request.post(`/api/v1/quotes/${quoteNumber}/gates/G1/decisions`, {
+      headers: as('sales-leader'),
+      data: { outcomeKey: 'advance' },
+    }),
+    201,
+  );
+  await ok(
+    request.put(`/api/v1/quotes/${quoteNumber}/eng-review`, {
+      headers: as('eng-lead'),
+      data: {
+        processType: 'EBM',
+        machineType: 'EBM_SHUTTLE',
+        plantCode: 'PLANT_01',
+        cavitation: 8,
+        cycleTimeS: 14.5,
+      },
+    }),
+  );
+  await ok(
+    request.put(`/api/v1/quotes/${quoteNumber}/capacity-evidence`, {
+      headers: as('eng-lead'),
+      data: {
+        rows: [
+          {
+            site: 'PLANT_01',
+            assumedEffectivenessPct: 70,
+            cycleTimeS: 14.5,
+            utilizationPct: 62,
+            analysisDate: '2026-10-26',
+            analystId: engineerId,
+          },
+        ],
+      },
+    }),
+  );
+  await ok(
+    request.put(`/api/v1/quotes/${quoteNumber}/capacity-signoff`, {
+      headers: as('eng-lead'),
+      data: { status: 'approved' },
+    }),
+  );
+  await ok(
+    request.post(`/api/v1/quotes/${quoteNumber}/gates/G2/decisions`, {
+      headers: as('eng-lead'),
+      data: { outcomeKey: 'proceed' },
+    }),
+    201,
+  );
+
+  // ── From the Quoting tab ──
+  const lead = await (await browser.newContext()).newPage();
+  await signInAs(lead, 'pricing-lead');
+  await lead.goto(`/quotes/${quoteNumber}?tab=quoting`);
+  const box = lead.getByTestId('pricer-assignment');
+  await expect(box).toContainText('Unassigned');
+  await box.getByRole('button', { name: 'Assign…' }).click();
+  const dialog = lead.getByRole('dialog');
+  await dialog.getByLabel('Pricer').selectOption({ value: pricer.id });
+  await dialog.getByRole('button', { name: 'Assign', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(box.getByTestId('assigned-pricer')).toContainText(pricer.displayName);
+  await expect(box.getByRole('button', { name: 'Reassign…' })).toBeVisible();
+
+  // ── From the queue: tick the quote, Assign selected… (back to the lead) ──
+  await lead.goto('/queue/pricing');
+  await lead.getByLabel('Search the pricing queue').fill(quoteNumber);
+  await lead.getByLabel(`Select ${quoteNumber}`).check();
+  const bar = lead.getByRole('region', { name: 'Bulk actions' });
+  await expect(bar).toContainText('1 selected');
+  await bar.getByRole('button', { name: 'Assign selected…' }).click();
+  const bulk = lead.getByRole('dialog');
+  await bulk.getByLabel('Pricer').selectOption({ index: 1 });
+  await bulk.getByRole('button', { name: 'Assign', exact: true }).click();
+  await expect(bulk).toHaveCount(0);
+  await expect(bar).toHaveCount(0);
+  expect(await seriousViolations(lead)).toEqual([]);
+
+  // ── A plain pricer sees the assignment, with no Assign button ──
+  const p = await (await browser.newContext()).newPage();
+  await signInAs(p, 'pricing');
+  await p.goto(`/quotes/${quoteNumber}?tab=quoting`);
+  const theirs = p.getByTestId('pricer-assignment');
+  await expect(theirs.getByTestId('assigned-pricer')).toBeVisible();
+  await expect(theirs.getByRole('button')).toHaveCount(0);
+});
