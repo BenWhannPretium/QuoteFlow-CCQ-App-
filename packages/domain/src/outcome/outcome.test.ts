@@ -36,13 +36,13 @@ const DECIDER: Record<string, Role> = {
   G1: 'SalesLeader',
   SUBMIT: 'KAM',
   G2: 'EngLead',
-  G3: 'Pricing',
+  G3: 'PricingLead',
   G4: 'Approver',
   G5: 'SalesLeader',
   G6: 'SalesLeader',
   P_INTAKE: 'KAM',
   P_ENG: 'EngLead',
-  P_QUOTE: 'Pricing',
+  P_QUOTE: 'PricingLead',
   P_FINAL: 'Approver',
 };
 

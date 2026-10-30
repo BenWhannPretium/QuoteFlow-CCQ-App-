@@ -37,6 +37,13 @@ const FIXTURES: Record<string, Record<string, string>> = {
   'comment.mention': { actor: 'Dana Whitfield' },
   'quote.validity_expiring': { validityUntil: '2026-11-02', daysLeft: '5' },
   'quote.validity_expired': { validityUntil: '2026-10-30' },
+  'quote.pricing_assigned': { reassigned: 'no' },
+  'quote.submitted_to_lead': { kind: 'pricing', actor: 'Dana Whitfield' },
+  'quote.returned_by_lead': {
+    kind: 'engineering',
+    actor: 'Jim Lead',
+    note: 'Check the cavitation',
+  },
 };
 
 describe('subjects', () => {
@@ -62,6 +69,9 @@ describe('subjects', () => {
       'quote.validity_expired',
       '[QuoteFlow] CCQ-2026-00042 proposal validity has passed: Revalidate or record the outcome',
     ],
+    ['quote.pricing_assigned', '[QuoteFlow] CCQ-2026-00042 is assigned to you: Quoting'],
+    ['quote.submitted_to_lead', '[QuoteFlow] CCQ-2026-00042 is ready for your review: Lead review'],
+    ['quote.returned_by_lead', '[QuoteFlow] CCQ-2026-00042 was sent back to you: Lead review'],
   ])('%s', (type, subject) => {
     expect(renderEmail(model(type, { payload: FIXTURES[type] ?? {} })).subject).toBe(subject);
   });

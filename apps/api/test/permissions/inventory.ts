@@ -11,10 +11,6 @@ import type { RegisteredRoute } from './registry';
 export const SERVICE_CHECKED_PERMISSIONS: Partial<Record<Permission, string>> = {
   'gate.G1.decide':
     'POST /quotes/:quoteNumber/gates/G1/decisions (floor quote.read): gates.int.test.ts',
-  'gate.G2.decide':
-    'POST /quotes/:quoteNumber/gates/G2/decisions (floor quote.read): engineering.int.test.ts',
-  'gate.G3.submit':
-    'POST /quotes/:quoteNumber/gates/G3/decisions (floor quote.read): pricing.int.test.ts',
   'gate.G4.decide':
     'POST /quotes/:quoteNumber/gates/G4/decisions (floor quote.read): final-review.int.test.ts',
   'gate.G6.decide':

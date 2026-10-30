@@ -342,6 +342,20 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/eng-review/accept`,
     permission: 'engReview.edit',
   },
+  // Lead review (2026-10-30)
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/eng-review/submit',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/eng-review/submit`,
+    permission: 'engReview.edit',
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/eng-review/send-back',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/eng-review/send-back`,
+    permission: 'gate.G2.decide',
+    sampleBody: { note: 'Check the cavitation' },
+  },
   {
     method: 'PUT',
     route: '/api/v1/quotes/:quoteNumber/eng-review',
@@ -434,6 +448,20 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/queue/pricing/reassign',
     permission: 'pricingQueue.assign',
     sampleBody: { fromUserId: SAMPLE_CONFIG_ID, toUserId: SAMPLE_OVERRIDE },
+  },
+  // Lead review (2026-10-30)
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/quoting/submit',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/quoting/submit`,
+    permission: 'quoting.edit',
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/quoting/send-back',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/quoting/send-back`,
+    permission: 'gate.G3.submit',
+    sampleBody: { note: 'Recheck the capital readiness' },
   },
   {
     method: 'PUT',

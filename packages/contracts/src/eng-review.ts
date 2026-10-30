@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { LeadReviewView } from './lead-review';
+
 // B-10: no imports from quotes.ts here; QuoteDetail embeds EngineeringDetail.
 
 // ── Engineering Review (on quote detail, tab "Engineering") ──────────────────────────────────────
@@ -128,6 +130,8 @@ export const EngineeringDetail = z.object({
   canEdit: z.boolean(),
   canAccept: z.boolean(),
   canAssign: z.boolean(),
+  /** Lead review: the engineer's submission to the engineering lead. */
+  leadReview: LeadReviewView,
 });
 export type EngineeringDetail = z.infer<typeof EngineeringDetail>;
 

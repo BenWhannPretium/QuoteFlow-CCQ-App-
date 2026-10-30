@@ -5,7 +5,7 @@
 > `routeMatrix.test.ts` fails if this file is stale, and `test/permissions/matrix.int.test.ts` sends
 > every route below as every role (allowed: not 401/403; denied: 403 problem+json) and anonymously (401).
 
-115 routes: 3 public, 6 for any signed-in role, 106 gated by a matrix permission.
+119 routes: 3 public, 6 for any signed-in role, 110 gated by a matrix permission.
 
 Qualified grants (own, assigned, fields, stages) pass the route gate; the service then checks the
 quote with `assertCan`, and Postgres RLS enforces the data scope as the second layer.
@@ -100,6 +100,8 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | POST | `/api/v1/quotes/:quoteNumber/comments` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | PUT | `/api/v1/quotes/:quoteNumber/eng-review` | `engReview.edit` | EngLead, Engineer (assigned) |  |
 | POST | `/api/v1/quotes/:quoteNumber/eng-review/accept` | `engReview.edit` | EngLead, Engineer (assigned) |  |
+| POST | `/api/v1/quotes/:quoteNumber/eng-review/send-back` | `gate.G2.decide` | EngLead |  |
+| POST | `/api/v1/quotes/:quoteNumber/eng-review/submit` | `engReview.edit` | EngLead, Engineer (assigned) |  |
 | POST | `/api/v1/quotes/:quoteNumber/escalations` | `quote.escalate` | KAM (own), SalesLeader, EngLead, Engineer (assigned), Pricing, PricingLead, Approver, Admin |  |
 | POST | `/api/v1/quotes/:quoteNumber/gates/:gateKey/decisions` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | PUT | `/api/v1/quotes/:quoteNumber/handoff` | `handoff.edit` | KAM (own), SalesLeader, Admin |  |
@@ -108,6 +110,8 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | POST | `/api/v1/quotes/:quoteNumber/pricing-assignment` | `pricingQueue.assign` | PricingLead, Admin |  |
 | GET | `/api/v1/quotes/:quoteNumber/pricing-context` | `quote.read.commercialFields` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward |  |
 | PUT | `/api/v1/quotes/:quoteNumber/pricing-record` | `quoting.edit` | Pricing, PricingLead |  |
+| POST | `/api/v1/quotes/:quoteNumber/quoting/send-back` | `gate.G3.submit` | PricingLead |  |
+| POST | `/api/v1/quotes/:quoteNumber/quoting/submit` | `quoting.edit` | Pricing, PricingLead |  |
 | GET | `/api/v1/quotes/:quoteNumber/review-summary` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | POST | `/api/v1/quotes/:quoteNumber/rework` | `quote.create` | KAM, SalesLeader, Admin |  |
 | GET | `/api/v1/quotes/:quoteNumber/stage-times` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
@@ -135,8 +139,6 @@ These matrix permissions are not a route gate; the service checks them against t
 | Permission | Holders | Where, and the test that proves it |
 | --- | --- | --- |
 | `gate.G1.decide` | SalesLeader | POST /quotes/:quoteNumber/gates/G1/decisions (floor quote.read): gates.int.test.ts |
-| `gate.G2.decide` | EngLead | POST /quotes/:quoteNumber/gates/G2/decisions (floor quote.read): engineering.int.test.ts |
-| `gate.G3.submit` | Pricing, PricingLead | POST /quotes/:quoteNumber/gates/G3/decisions (floor quote.read): pricing.int.test.ts |
 | `gate.G4.decide` | Approver | POST /quotes/:quoteNumber/gates/G4/decisions (floor quote.read): final-review.int.test.ts |
 | `gate.G6.decide` | KAM (own), SalesLeader | POST /quotes/:quoteNumber/gates/G6/decisions (floor quote.read): outcome.int.test.ts |
 | `outcome.assignOwner` | SalesLeader | G5 decision closureOwnerId other than the KAM (floor quote.read): outcome.int.test.ts |

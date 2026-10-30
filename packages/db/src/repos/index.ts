@@ -10,6 +10,7 @@ export * from './dashboards';
 export * from './engineering';
 export * from './events';
 export * from './intake';
+export * from './lead-review';
 export * from './integration';
 export * from './notifications';
 export * from './outcome';

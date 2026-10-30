@@ -13,13 +13,13 @@ const ALLOWED: Record<string, Role[]> = {
   G1: ['SalesLeader'],
   SUBMIT: ['KAM', 'SalesLeader', 'Admin'],
   G2: ['EngLead'],
-  G3: ['Pricing', 'PricingLead'],
+  G3: ['PricingLead'], // 2026-10-30: lead only, like G2
   G4: ['Approver'],
   G5: ['SalesLeader'], // KAM only on their own quote: see "KAM records the outcome on own quote"
   G6: ['SalesLeader'], // B-26: likewise, KAM only on their own quote
   P_INTAKE: ['KAM', 'SalesLeader', 'Admin'],
   P_ENG: ['EngLead'],
-  P_QUOTE: ['Pricing', 'PricingLead'],
+  P_QUOTE: ['PricingLead'],
   P_FINAL: ['Approver'],
 };
 
@@ -92,7 +92,7 @@ describe('hybrid: routing', () => {
     ['G2', 'proceed', 'EngLead', 'QUOTING'],
     ['G2', 'proceed_with_risk', 'EngLead', 'QUOTING'],
     ['G2', 'capital_required', 'EngLead', 'QUOTING'],
-    ['G3', 'submit', 'Pricing', 'FINAL_REVIEW'],
+    ['G3', 'submit', 'PricingLead', 'FINAL_REVIEW'],
     ['G4', 'approve', 'Approver', 'CUSTOMER_DECISION'],
     ['G4', 'decline', 'Approver', 'DECLINED'],
     ['G5', 'awarded', 'SalesLeader', 'COMMIT_HANDOFF'],
@@ -241,7 +241,7 @@ describe('return / rework / requote', () => {
   it.each([
     ['G1', 'rework', 'SalesLeader', undefined, 'INTAKE'],
     ['G2', 'rework', 'EngLead', undefined, 'INTAKE'],
-    ['G3', 'rework', 'Pricing', undefined, 'ENG_REVIEW'],
+    ['G3', 'rework', 'PricingLead', undefined, 'ENG_REVIEW'],
     ['G4', 'return', 'Approver', 'QUOTING', 'QUOTING'],
     ['G4', 'return', 'Approver', 'ENG_REVIEW', 'ENG_REVIEW'],
     ['G5', 'requote', 'SalesLeader', 'QUOTING', 'QUOTING'],

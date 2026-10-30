@@ -24,7 +24,8 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   test.setTimeout(120_000);
   // Provision the personas the flow notifies or names (the e2e database is config-seeded only).
   await request.get('/api/v1/me', { headers: as('approver') });
-  await request.get('/api/v1/me', { headers: as('pricing') });
+  const pricer = await request.get('/api/v1/me', { headers: as('pricing') });
+  const pricerId = ((await pricer.json()) as { user: { id: string } }).user.id;
   const engineer = await request.get('/api/v1/me', { headers: as('engineer') });
   const engineerId = ((await engineer.json()) as { user: { id: string } }).user.id;
 
@@ -100,6 +101,14 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
     201,
   );
 
+  // The pricing lead assigns the Quoting work to the pricer (B-26), who submits it back to them.
+  await ok(
+    request.post(`/api/v1/quotes/${quoteNumber}/pricing-assignment`, {
+      headers: as('pricing-lead'),
+      data: { pricerId },
+    }),
+  );
+
   const open = async (persona: string): Promise<Page> => {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -121,7 +130,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await expect(row.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
   await expect(row.getByTestId('capital-readiness')).toHaveText('Pending');
   await expect(row.getByTestId('approval-status')).toHaveText('Awaiting approval');
-  await expect(row).toContainText('Unassigned');
+  await expect(row.getByTestId('assigned-pricer')).toBeVisible(); // assigned by the pricing lead
   expect(await seriousViolations(pricing)).toEqual([]);
 
   await row.getByRole('link', { name: quoteNumber }).click();
@@ -206,15 +215,29 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await expect(tab.getByTestId('quoting-warnings')).toContainText('Capital is still pending');
   expect(await seriousViolations(pricing)).toEqual([]);
 
-  // ── G3 Advance to Final Review ──
-  await tab.getByRole('button', { name: 'Advance to Final Review…' }).click();
-  const g3 = pricing.getByRole('dialog');
+  // ── Lead review (2026-10-30): the pricer submits to the pricing lead; only the lead decides G3 ──
+  await expect(tab.getByRole('button', { name: 'Advance to Final Review…' })).toHaveCount(0);
+  await tab.getByRole('button', { name: 'Submit to pricing lead' }).click();
+  await expect(tab.getByTestId('lead-review-submitted')).toContainText(
+    'Submitted to the pricing lead',
+  );
+  await expect(tab.getByTestId('capital-form')).toHaveCount(0); // locked for the pricer
+
+  const lead = await open('pricing-lead');
+  await lead.goto('/queue/pricing');
+  await lead.getByTestId('review-tab-ready').click();
+  await lead.getByRole('link', { name: quoteNumber }).click();
+  await lead.goto(`/quotes/${quoteNumber}?tab=quoting`);
+  const leadTab = lead.getByTestId('quoting-tab');
+  await expect(leadTab.getByTestId('lead-review-submitted')).toBeVisible();
+  await leadTab.getByRole('button', { name: 'Advance to Final Review…' }).click();
+  const g3 = lead.getByRole('dialog');
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
   await expect(g3.getByRole('radio', { name: 'Advance to Final Review' })).toBeChecked();
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(g3).toHaveCount(0);
-  await expect(pricing.getByText(`${quoteNumber} is now in Final Review`)).toBeVisible();
-  await expect(pricing.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'FINAL_REVIEW');
+  await expect(lead.getByText(`${quoteNumber} is now in Final Review`)).toBeVisible();
+  await expect(lead.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'FINAL_REVIEW');
 
   // ── The KAM: "Price approved ✓ on <date> by <name>", and (2026-10-30) the record itself ──
   const kam = await open('kam');

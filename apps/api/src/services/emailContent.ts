@@ -56,9 +56,14 @@ export class EmailContentBuilder {
     return `${this.base}${path}`;
   }
 
-  private quoteUrl(type: string, quoteNumber: string): string {
+  private quoteUrl(type: string, quoteNumber: string, payload: Record<string, string>): string {
     const n = encodeURIComponent(quoteNumber);
     if (type === 'quote.ready_for_final_review') return this.url(`/quotes/${n}/review`);
+    // Lead review and pricing assignment: the tab of the work in question.
+    if (type === 'quote.pricing_assigned') return this.url(`/quotes/${n}?tab=quoting`);
+    if (type === 'quote.submitted_to_lead' || type === 'quote.returned_by_lead') {
+      return this.url(`/quotes/${n}?tab=${payload.kind === 'pricing' ? 'quoting' : 'engineering'}`);
+    }
     return ENGINEERING_TYPES.has(type)
       ? this.url(`/quotes/${n}?tab=engineering`)
       : this.url(`/quotes/${n}`);
@@ -102,13 +107,20 @@ export class EmailContentBuilder {
     }
     return {
       type: row.type,
-      quote: row.quoteId ? await this.quote(actor, row.type, row.quoteId) : null,
+      quote: row.quoteId
+        ? await this.quote(actor, row.type, row.quoteId, stringsOnly(row.payload))
+        : null,
       payload: stringsOnly(row.payload),
       preferencesUrl,
     };
   }
 
-  private async quote(actor: Actor, type: string, quoteId: string): Promise<EmailQuote | null> {
+  private async quote(
+    actor: Actor,
+    type: string,
+    quoteId: string,
+    payload: Record<string, string> = {},
+  ): Promise<EmailQuote | null> {
     // The number alone is not sensitive: read it without the recipient's scope, so an out-of-scope
     // recipient still gets "CCQ-… needs you" and a link (the app then enforces access).
     const number = await withSystemContext(
@@ -133,7 +145,7 @@ export class EmailContentBuilder {
       account: facts?.account ?? null,
       product: facts?.product ?? null,
       tier: facts?.tier ?? null,
-      url: this.quoteUrl(type, number),
+      url: this.quoteUrl(type, number, payload),
     };
   }
 

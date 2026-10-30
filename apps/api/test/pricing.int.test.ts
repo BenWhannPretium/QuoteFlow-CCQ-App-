@@ -234,7 +234,9 @@ describe('the pricing queue', () => {
     );
     expect(q.total).toBe(open[0]!.n);
     expect(q.items.length).toBe(q.total);
-    expect(q).toMatchObject({ canEdit: true, canDecide: true, stage: { key: 'QUOTING' } });
+    // 2026-10-30: a pricer edits; only the pricing lead decides G3.
+    expect(q).toMatchObject({ canEdit: true, canDecide: false, stage: { key: 'QUOTING' } });
+    expect((await queue('PricingLead')).canDecide).toBe(true);
 
     const tiers = ['CRITICAL', 'HIGH', 'STANDARD', 'LOW'];
     for (let i = 1; i < q.items.length; i++) {
@@ -417,7 +419,7 @@ describe('the price approval record', () => {
       qn,
       'G3',
       { outcomeKey: 'rework', reasonCode: 'missing_information' },
-      'Pricing',
+      'PricingLead',
     );
     expect(before.statusCode, before.body).toBe(201);
     const late = await putRecord(qn, { pricingBasisNote: 'x' });
@@ -504,7 +506,7 @@ describe('capital readiness', () => {
 describe('G3 Submit to Final Review', () => {
   it('needs the approval, the costing attestation and a capital status (B-26: no ERF / BPR)', async () => {
     const qn = await inQuoting();
-    const empty = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
+    const empty = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     expect(empty.statusCode).toBe(422);
     expect(errorPaths(empty)).toEqual([
       '/pricing_record.capital_readiness',
@@ -513,7 +515,7 @@ describe('G3 Submit to Final Review', () => {
       '/pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible',
     ]);
     // The decision dialog lists the same gaps before the click.
-    const missing = (await detail(qn)).dto.availableActions.find(
+    const missing = (await detail(qn, 'PricingLead')).dto.availableActions.find(
       (a) => a.gateKey === 'G3' && a.outcomeKey === 'submit',
     )!.missing;
     expect(missing).toHaveLength(4);
@@ -521,12 +523,12 @@ describe('G3 Submit to Final Review', () => {
     // Cost before price: the approval alone is not enough.
     await putRecord(qn, { approvedBy: await userId('Pricing') });
     await putCapital(qn, { capitalReadiness: 'not_required' });
-    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing'))).toEqual([
+    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
       '/pricing_record.costing_completed',
     ]);
     await putRecord(qn, { costingCompleted: true });
     await putCapital(qn, { capitalReadiness: 'not_required' });
-    const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
+    const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     expect(ok.statusCode, ok.body).toBe(201);
     const { quote } = GateDecisionResponse.parse(ok.json());
     expect(quote).toMatchObject({ stageKey: 'FINAL_REVIEW', status: 'active' });
@@ -587,7 +589,7 @@ describe('G3 Submit to Final Review', () => {
   it('"Capital required" path: pending capital needs a justification, then submits with a warning', async () => {
     const qn = await inQuoting('capital_required');
     await approve(qn);
-    const blocked = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
+    const blocked = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     expect(blocked.statusCode).toBe(422);
     expect(errorPaths(blocked)).toEqual([
       '/pricing_record.capital_readiness,pricing_record.capital_pending_justification',
@@ -598,7 +600,7 @@ describe('G3 Submit to Final Review', () => {
     });
     const view = (await detail(qn)).dto.quoting.pricingRecord!;
     expect(view.warnings.map((w) => w.code)).toEqual(['CAPITAL_PENDING']);
-    const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
+    const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     expect(ok.statusCode, ok.body).toBe(201);
     const id = await quoteId(qn);
     const [decision] = await db.db
@@ -611,14 +613,13 @@ describe('G3 Submit to Final Review', () => {
     });
   });
 
-  it('only Pricing decides G3', async () => {
+  it('only the pricing lead decides G3 (2026-10-30, like G2)', async () => {
     const qn = await inQuoting();
     await approve(qn);
     await putCapital(qn, { capitalReadiness: 'not_required' });
-    for (const role of ['KAM', 'EngLead', 'Approver', 'Leadership', 'Admin'] as Role[]) {
+    for (const role of ['Pricing', 'KAM', 'EngLead', 'Approver', 'Leadership', 'Admin'] as Role[]) {
       expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, role)).statusCode, role).toBe(403);
     }
-    // B-26: the pricing lead decides G3 like Pricing.
     const lead = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     expect(lead.statusCode, lead.body).toBe(201);
   });
@@ -627,7 +628,7 @@ describe('G3 Submit to Final Review', () => {
     const qn = await inQuoting();
     await putRecord(qn, { costingCompleted: true });
     await putCapital(qn, { capitalReadiness: 'not_required' });
-    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing')).statusCode).toBe(422);
+    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(422);
     const id = await quoteId(qn);
     await db.db.execute(sql`update quote set est_annual_revenue = 40000 where id = ${id}`);
     await db.db.execute(
@@ -635,7 +636,7 @@ describe('G3 Submit to Final Review', () => {
     );
     try {
       expect((await detail(qn)).dto.commercial.passThroughEligible).toBe(true);
-      const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
+      const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
       expect(ok.statusCode, ok.body).toBe(201);
     } finally {
       await db.db.execute(
@@ -655,11 +656,11 @@ describe('G3 Submit to Final Review', () => {
       capitalLikely: true,
     });
     expect(flag.statusCode, flag.body).toBe(200);
-    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing'))).toEqual([
+    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
       '/capital_likely,pricing_record.capital_readiness',
     ]);
     await putCapital(qn, { capitalReadiness: 'pre_approved' });
-    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing')).statusCode).toBe(201);
+    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(201);
   });
 
   it('B-26: Rework (re-cost) stays in Quoting and clears the costing attestation; Redirect stays too', async () => {
@@ -669,7 +670,7 @@ describe('G3 Submit to Final Review', () => {
       qn,
       'G3',
       { outcomeKey: 'recost', reasonCode: 'missing_information', note: 'Freight changed' },
-      'Pricing',
+      'PricingLead',
     );
     expect(recost.statusCode, recost.body).toBe(201);
     expect(GateDecisionResponse.parse(recost.json()).quote).toMatchObject({
@@ -684,7 +685,7 @@ describe('G3 Submit to Final Review', () => {
       qn,
       'G3',
       { outcomeKey: 'redirect', note: 'Customer funds the tooling' },
-      'Pricing',
+      'PricingLead',
     );
     expect(GateDecisionResponse.parse(redirect.json()).quote.stageKey).toBe('QUOTING');
   });
@@ -693,9 +694,12 @@ describe('G3 Submit to Final Review', () => {
     const qn = await inQuoting();
     await approve(qn);
     await putCapital(qn, { capitalReadiness: 'not_required' });
-    await decide(qn, 'G3', { outcomeKey: 'submit' }, 'Pricing');
+    await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     const state = await db.db.transaction(async (tx) => loadQuoteState(tx, await quoteId(qn)));
-    expect(state!.priceApproverIds).toEqual([await userId('Pricing')]);
+    // The pricer recorded the approval and the pricing lead decided G3: both acted as Pricing.
+    expect([...state!.priceApproverIds!].sort()).toEqual(
+      [await userId('Pricing'), await userId('PricingLead')].sort(),
+    );
     // The plain Approver persona approved no price: G4 stays open to them (B-12 builds the screen).
     const actions = (await detail(qn, 'Approver')).dto.availableActions;
     expect(actions.some((a) => a.gateKey === 'G4')).toBe(true);
@@ -703,7 +707,7 @@ describe('G3 Submit to Final Review', () => {
 
   it('Hold needs a reason, a review date and an owner (B-26)', async () => {
     const qn = await inQuoting();
-    expect(errorCodes(await decide(qn, 'G3', { outcomeKey: 'hold' }, 'Pricing'))).toEqual([
+    expect(errorCodes(await decide(qn, 'G3', { outcomeKey: 'hold' }, 'PricingLead'))).toEqual([
       'MISSING_FIELD',
       'MISSING_FIELD',
       'REASON_REQUIRED',
@@ -717,7 +721,7 @@ describe('G3 Submit to Final Review', () => {
         holdUntil: '2026-11-20',
         holdOwnerId: await userId('Pricing'),
       },
-      'Pricing',
+      'PricingLead',
     );
     expect(GateDecisionResponse.parse(ok.json()).quote).toMatchObject({
       stageKey: 'QUOTING',
@@ -731,7 +735,7 @@ describe('G3 Submit to Final Review', () => {
 
   it('Stop needs a reason and a note and closes as DECLINED', async () => {
     const qn = await inQuoting();
-    expect(errorCodes(await decide(qn, 'G3', { outcomeKey: 'stop' }, 'Pricing'))).toEqual([
+    expect(errorCodes(await decide(qn, 'G3', { outcomeKey: 'stop' }, 'PricingLead'))).toEqual([
       'NOTE_REQUIRED',
       'REASON_REQUIRED',
     ]);
@@ -739,7 +743,7 @@ describe('G3 Submit to Final Review', () => {
       qn,
       'G3',
       { outcomeKey: 'stop', reasonCode: 'not_strategic', note: 'Below the margin floor' },
-      'Pricing',
+      'PricingLead',
     );
     expect(GateDecisionResponse.parse(ok.json()).quote).toMatchObject({
       stageKey: 'DECLINED',
@@ -753,12 +757,12 @@ describe('G3 Submit to Final Review', () => {
     await approve(qn);
     await putCapital(qn, { capitalReadiness: 'not_required', cerReference: 'CER-5' });
     const [v1] = await records(qn);
-    expect((await decide(qn, 'G3', { outcomeKey: 'rework' }, 'Pricing')).statusCode).toBe(422);
+    expect((await decide(qn, 'G3', { outcomeKey: 'rework' }, 'PricingLead')).statusCode).toBe(422);
     const rework = await decide(
       qn,
       'G3',
       { outcomeKey: 'rework', reasonCode: 'missing_information' },
-      'Pricing',
+      'PricingLead',
     );
     expect(rework.statusCode, rework.body).toBe(201);
     expect(GateDecisionResponse.parse(rework.json()).quote).toMatchObject({
@@ -881,5 +885,95 @@ describe('B-26: the pricing lead triages the queue (CCQ demo, Darren and Bailey)
         })
       ).statusCode,
     ).toBe(403);
+  });
+});
+
+describe('lead review (2026-10-30): the pricer submits to the pricing lead', () => {
+  const submit = (qn: string, role: Role = 'Pricing') =>
+    as(role).post(`/api/v1/quotes/${qn}/quoting/submit`);
+  const sendBack = (qn: string, body: unknown, role: Role = 'PricingLead') =>
+    as(role).post(`/api/v1/quotes/${qn}/quoting/send-back`, body);
+  const inAppTold = async (qn: string, type: string, userId: string) =>
+    (
+      await db.db
+        .select()
+        .from(schema.notification)
+        .where(
+          and(
+            eq(schema.notification.quoteId, await quoteId(qn)),
+            eq(schema.notification.type, type),
+            eq(schema.notification.userId, userId),
+            eq(schema.notification.channel, 'in_app'),
+          ),
+        )
+    ).length;
+
+  async function assignedToPricer() {
+    const qn = await inQuoting();
+    const res = await as('PricingLead').post(`/api/v1/quotes/${qn}/pricing-assignment`, {
+      pricerId: await userId('Pricing'),
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    return qn;
+  }
+
+  it('the pricer submits complete work, is locked out, and the lead is told', async () => {
+    const qn = await assignedToPricer();
+    const empty = await submit(qn);
+    expect(empty.statusCode).toBe(422);
+    expect(errorPaths(empty).length).toBeGreaterThan(0);
+
+    await approve(qn);
+    await putCapital(qn, { capitalReadiness: 'not_required' });
+    const res = await submit(qn);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(QuotingDetail.parse(res.json())).toMatchObject({
+      canEdit: false,
+      leadReview: { status: 'submitted', canSubmit: false },
+    });
+    expect((await putRecord(qn, { pricingBasisNote: 'changed' })).statusCode).toBe(409);
+    expect((await putRecord(qn, { pricingBasisNote: 'lead edit' }, 'PricingLead')).statusCode).toBe(
+      200,
+    );
+    expect(await inAppTold(qn, 'quote.submitted_to_lead', await userId('PricingLead'))).toBe(1);
+
+    const ready = await queue('PricingLead', '?review=ready');
+    expect(ready.items.map((i) => i.quoteNumber)).toContain(qn);
+    expect(ready.readyForReview).toBeGreaterThanOrEqual(1);
+    expect((await detail(qn, 'PricingLead')).dto.quoting.leadReview.canSendBack).toBe(true);
+  });
+
+  it('the lead sends it back with a note, the pricer resubmits, and the lead decides G3', async () => {
+    const qn = await assignedToPricer();
+    await approve(qn);
+    await putCapital(qn, { capitalReadiness: 'not_required' });
+    expect((await submit(qn)).statusCode).toBe(200);
+
+    expect((await sendBack(qn, { note: 'x' }, 'Pricing')).statusCode).toBe(403);
+    const back = await sendBack(qn, { note: 'Use the October resin index' });
+    expect(back.statusCode, back.body).toBe(200);
+    expect(QuotingDetail.parse(back.json()).leadReview).toMatchObject({
+      status: 'returned',
+      returnNote: 'Use the October resin index',
+    });
+    expect(await inAppTold(qn, 'quote.returned_by_lead', await userId('Pricing'))).toBe(1);
+
+    expect((await putRecord(qn, { pricingBasisNote: 'October index' })).statusCode).toBe(200);
+    expect((await submit(qn)).statusCode).toBe(200);
+    const g3 = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
+    expect(g3.statusCode, g3.body).toBe(201);
+    expect(GateDecisionResponse.parse(g3.json()).quote.stageKey).toBe('FINAL_REVIEW');
+  });
+
+  it('a new pricer, or a new stay in Quoting, starts a new round', async () => {
+    const qn = await assignedToPricer();
+    await approve(qn);
+    await putCapital(qn, { capitalReadiness: 'not_required' });
+    expect((await submit(qn)).statusCode).toBe(200);
+    const res = await as('PricingLead').post(`/api/v1/quotes/${qn}/pricing-assignment`, {
+      pricerId: await userId('PricingLead'),
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect((await detail(qn, 'PricingLead')).dto.quoting.leadReview.status).toBe('none');
   });
 });

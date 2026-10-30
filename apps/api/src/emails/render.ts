@@ -72,6 +72,43 @@ const COPY: Record<string, Copy> = {
         : 'You have a new engineering review.',
     cta: 'Open the engineering review',
   },
+  // B-26: the pricing lead assigned Quoting work.
+  'quote.pricing_assigned': {
+    phrase: 'is assigned to you',
+    context: 'Quoting',
+    heading: 'You have a quote to price',
+    action: (p) =>
+      p.reassigned === 'yes'
+        ? 'The pricing lead reassigned this quote to you.'
+        : 'The pricing lead assigned you a quote to price.',
+    cta: 'Open Quoting',
+  },
+  // Lead review (2026-10-30). `kind` is engineering | pricing.
+  'quote.submitted_to_lead': {
+    phrase: 'is ready for your review',
+    context: 'Lead review',
+    heading: 'Work is waiting for your review',
+    action: (p) =>
+      sentence(
+        p.actor
+          ? `${p.actor} submitted the ${p.kind === 'pricing' ? 'pricing' : 'engineering'} work.`
+          : `The ${p.kind === 'pricing' ? 'pricing' : 'engineering'} work was submitted.`,
+        `Review it, then decide ${p.kind === 'pricing' ? 'G3' : 'G2'} or send it back.`,
+      ),
+    cta: 'Review it',
+  },
+  'quote.returned_by_lead': {
+    phrase: 'was sent back to you',
+    context: 'Lead review',
+    heading: 'Your lead sent your work back',
+    action: (p) =>
+      sentence(
+        p.actor ? `${p.actor} asked for changes.` : 'Your lead asked for changes.',
+        p.note ? `Note: ${p.note}` : undefined,
+        'Make the changes, then submit it again.',
+      ),
+    cta: 'Open the quote',
+  },
   'quote.reworked': {
     phrase: 'was returned to you',
     context: 'Rework needed',

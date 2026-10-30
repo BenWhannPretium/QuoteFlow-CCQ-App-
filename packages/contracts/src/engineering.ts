@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { LeadReviewFilter } from './lead-review';
 import { QuoteSummary } from './quotes';
 
 // ── B-10 Engineering queue (F-04, F-07, DEC-26) ──────────────────────────────────────────────────
@@ -27,6 +28,8 @@ export const EngQueueQuery = z.object({
   bucket: csv.pipe(z.array(AgingBucket)).optional(),
   productFamily: csv.optional(),
   q: z.string().max(200).optional(),
+  /** Lead review: `ready` = only what waits on the lead's review ("Ready for my review"). */
+  review: LeadReviewFilter.optional(),
 });
 export type EngQueueQuery = z.input<typeof EngQueueQuery>;
 /** The query after parsing (what the route hands the service). */
@@ -52,6 +55,10 @@ export const EngQueueItem = QuoteSummary.extend({
   acceptedAt: z.string().nullable(),
   /** unassigned → assigned (awaiting acceptance) → accepted (review in progress). */
   queueStatus: z.enum(['unassigned', 'assigned', 'accepted']),
+  /** Lead review: submitted to the lead (waiting on them), sent back, or neither. */
+  leadReview: z.enum(['none', 'submitted', 'returned']),
+  /** When the assignee submitted it (null unless `submitted`). */
+  submittedAt: z.string().nullable(),
   /** Pinned by an applied queue_position override. */
   pinned: z.boolean(),
   queuePosition: z.number().int().nullable(),
@@ -91,6 +98,8 @@ export const EngQueueResponse = z.object({
   canPin: z.boolean(),
   /** The engineer picker (empty unless canAssign). */
   engineers: z.array(AssignableEngineer),
+  /** Lead review: quotes waiting on the lead's review (before filters), for the tab's count. */
+  readyForReview: z.number().int(),
   /** Quotes assigned to the caller (unfiltered), default order. */
   mine: z.array(EngQueueItem),
   /** The queue, filtered, in the default order (pinned → tier → score → oldest). */

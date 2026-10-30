@@ -78,6 +78,20 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     description: 'KAMs: revalidate the proposal or record the outcome.',
     email: 'immediate',
   },
+  // Lead review (2026-10-30)
+  {
+    type: 'quote.submitted_to_lead',
+    label: 'An engineer or pricer submits their part for your review',
+    description:
+      'Engineering and pricing leads: the assignee finished their part; review it and move the quote on or send it back.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.returned_by_lead',
+    label: 'Your lead sends your part back',
+    description: 'Engineers and pricers: your lead asked for changes before moving the quote on.',
+    email: 'immediate',
+  },
   // B-26
   {
     type: 'quote.pricing_assigned',

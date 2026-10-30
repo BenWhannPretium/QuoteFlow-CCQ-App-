@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { LeadReviewView } from './lead-review';
+
 // B-11: no imports from quotes.ts here; QuoteDetail embeds QuotingDetail and the queue item extends
 // QuoteSummary in pricing-queue.ts.
 
@@ -119,6 +121,8 @@ export const QuotingDetail = z.object({
   pricerAssignedAt: z.string().nullable(),
   /** The caller may assign or reassign the pricer here (in Quoting, `pricingQueue.assign`). */
   canAssign: z.boolean(),
+  /** Lead review: the pricer's submission to the pricing lead. */
+  leadReview: LeadReviewView,
   /** The price-approver picker (empty unless canEdit). */
   pricingUsers: z.array(z.object({ id: z.string(), displayName: z.string() })),
   /** Format hint for the legacy ERF numbers (app_setting `pricing_ref_formats`). */

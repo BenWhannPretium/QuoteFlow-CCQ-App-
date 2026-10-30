@@ -1,6 +1,7 @@
 import { DomainError } from '../errors';
 import { ENG_QUEUE_STAGE_KEY, type EngQueueSettings } from './queue';
 import { evaluateIntake, type IntakeConfig, type IntakeIssue } from '../intake/intake';
+import { lockedFor } from '../lead-review';
 import { can, canSeeCommercialFields, type PolicyResource } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
@@ -12,7 +13,13 @@ export const ASSIGNABLE_ROLES: readonly Role[] = ['Engineer', 'EngLead'];
 
 export type EngQuote = Pick<
   QuoteState,
-  'stageKey' | 'status' | 'kamUserId' | 'assignedEngineerId' | 'region' | 'accountId'
+  | 'stageKey'
+  | 'status'
+  | 'kamUserId'
+  | 'assignedEngineerId'
+  | 'engSubmittedAt'
+  | 'region'
+  | 'accountId'
 >;
 
 const inEngReview = (quote: EngQuote) =>
@@ -31,9 +38,16 @@ export function canAssignEngQueue(
   return settings.backupAssignerUserIds.includes(actor.userId) && can(actor, 'quote.read', quote);
 }
 
-/** Edit the Engineering Review and capacity evidence: EngLead, or the Engineer assigned, while in ENG_REVIEW. */
+/**
+ * Edit the Engineering Review and capacity evidence: EngLead, or the Engineer assigned, while in
+ * ENG_REVIEW. Lead review: once the engineer submits it to the lead, only the lead edits.
+ */
 export function canEditEngReview(actor: Actor, quote: EngQuote): boolean {
-  return inEngReview(quote) && can(actor, 'engReview.edit', quote);
+  return (
+    inEngReview(quote) &&
+    can(actor, 'engReview.edit', quote) &&
+    !lockedFor('engineering', actor, quote)
+  );
 }
 
 function stageErrors(quote: EngQuote): DomainError[] {

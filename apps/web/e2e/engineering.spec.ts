@@ -159,3 +159,89 @@ test('the KAM sees the Engineering tab read-only, capital included', async ({ pa
   await expect(tab.getByRole('button', { name: /Assign|Accept|Decide/ })).toHaveCount(0);
   expect(await seriousViolations(page)).toEqual([]);
 });
+
+// Lead review (2026-10-30): the engineer submits the finished review to the engineering lead, who
+// finds it under "Ready for my review" and sends it back with a note; the engineer sees the note.
+test('the engineer submits to the engineering lead, who sends it back with a note', async ({
+  browser,
+  request,
+}) => {
+  const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
+  const engineerId = (
+    (await (await request.get('/api/v1/me', { headers: as('engineer') })).json()) as {
+      user: { id: string };
+    }
+  ).user.id;
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  const call = async (method: 'post' | 'put', path: string, persona: string, data?: object) => {
+    const res = await request[method](`/api/v1/quotes/${quoteNumber}/${path}`, {
+      headers: as(persona),
+      ...(data ? { data } : {}),
+    });
+    expect(res.status(), await res.text()).toBeLessThan(300);
+  };
+  await call('post', 'gates/G1/decisions', 'sales-leader', { outcomeKey: 'advance' });
+  await call('post', 'assignment', 'eng-lead', { engineerId });
+  await call('post', 'eng-review/accept', 'engineer');
+  await call('put', 'eng-review', 'engineer', {
+    processType: 'EBM',
+    machineType: 'EBM_SHUTTLE',
+    plantCode: 'PLANT_01',
+    cavitation: 8,
+    cycleTimeS: 14.5,
+  });
+  await call('put', 'capacity-evidence', 'engineer', {
+    rows: [
+      {
+        site: 'PLANT_01',
+        assumedEffectivenessPct: 70,
+        cycleTimeS: 14.5,
+        utilizationPct: 62,
+        analysisDate: '2026-10-26',
+        analystId: engineerId,
+      },
+    ],
+  });
+
+  const open = async (persona: string): Promise<Page> => {
+    const page = await (await browser.newContext()).newPage();
+    await signInAs(page, persona);
+    return page;
+  };
+
+  // ── The engineer submits ──
+  const eng = await open('engineer');
+  await eng.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  const panel = eng.getByTestId('lead-review');
+  await panel.getByRole('button', { name: 'Submit to engineering lead' }).click();
+  await expect(panel.getByTestId('lead-review-submitted')).toContainText(
+    'Submitted to the engineering lead',
+  );
+  await expect(eng.getByTestId('solution-form')).toHaveCount(0); // locked for the engineer
+
+  // ── The lead finds it under "Ready for my review" and sends it back ──
+  const lead = await open('eng-lead');
+  await lead.goto('/queue/engineering');
+  await lead.getByTestId('review-tab-ready').click();
+  await expect(lead.getByRole('link', { name: quoteNumber })).toBeVisible();
+  await lead.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  await lead.getByRole('button', { name: 'Send back to engineer…' }).click();
+  const dialog = lead.getByRole('dialog');
+  await dialog
+    .getByLabel('What should change?')
+    .fill('Check the cavitation against the press size.');
+  await dialog.getByRole('button', { name: 'Send back', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await seriousViolations(lead)).toEqual([]);
+
+  // ── The engineer sees the note and can edit and resubmit ──
+  await eng.reload();
+  await expect(eng.getByTestId('lead-review-returned')).toContainText(
+    'Check the cavitation against the press size.',
+  );
+  await expect(eng.getByTestId('solution-form')).toBeVisible();
+  await expect(
+    eng.getByTestId('lead-review').getByRole('button', { name: 'Submit to engineering lead' }),
+  ).toBeVisible();
+  expect(await seriousViolations(eng)).toEqual([]);
+});

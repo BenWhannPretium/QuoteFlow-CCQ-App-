@@ -860,7 +860,7 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       'G3',
       // B-11: a G3 Rework needs a reason code.
       { outcomeKey: 'rework', reasonCode: 'missing_information', note: 'Capital excludes trimmer' },
-      'Pricing',
+      'PricingLead',
     );
     expect(back.statusCode, back.body).toBe(201);
     const after = await db.db.execute<{ n: number }>(
@@ -1006,5 +1006,144 @@ describe('time in stage', () => {
     expect(body.stages[0]!.stageKey).toBe('INTAKE');
     expect(find(await queue(), qn)!.activeMsInStage).toBe(DAY);
     expect((await as('KAM').get('/api/v1/quotes/CCQ-2099-99999/stage-times')).statusCode).toBe(404);
+  });
+});
+
+describe('lead review (2026-10-30): the engineer submits to the engineering lead', () => {
+  const submit = (qn: string, role: Role = 'Engineer') =>
+    as(role).post(`/api/v1/quotes/${qn}/eng-review/submit`);
+  const sendBack = (qn: string, body: unknown, role: Role = 'EngLead') =>
+    as(role).post(`/api/v1/quotes/${qn}/eng-review/send-back`, body);
+  const told = async (qn: string, type: string, userId: string) =>
+    (
+      await db.db
+        .select()
+        .from(schema.notification)
+        .innerJoin(schema.quote, eq(schema.quote.id, schema.notification.quoteId))
+        .where(
+          and(
+            eq(schema.quote.quoteNumber, qn),
+            eq(schema.notification.type, type),
+            eq(schema.notification.userId, userId),
+            eq(schema.notification.channel, 'in_app'),
+          ),
+        )
+    ).length;
+
+  async function assignedAndAccepted() {
+    const qn = await inQueue();
+    expect((await assign(qn, await userId('Engineer'))).statusCode).toBe(200);
+    expect((await as('Engineer').post(`/api/v1/quotes/${qn}/eng-review/accept`)).statusCode).toBe(
+      200,
+    );
+    return qn;
+  }
+
+  it('checks the work against G2 Advance (less the capacity sign-off), then tells the lead', async () => {
+    const qn = await assignedAndAccepted();
+    const empty = await submit(qn);
+    expect(empty.statusCode).toBe(422);
+    expect(errorCodes(empty).every((c) => c === 'MISSING_FIELD')).toBe(true);
+
+    expect((await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION)).statusCode).toBe(
+      200,
+    );
+    expect(
+      (
+        await as('Engineer').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
+          rows: [await capacityRow()],
+        })
+      ).statusCode,
+    ).toBe(200);
+    // Not signed off yet: that is the lead's step, so it does not block the submission.
+    const res = await submit(qn);
+    expect(res.statusCode, res.body).toBe(200);
+    const eng = EngineeringDetail.parse(res.json());
+    expect(eng.leadReview).toMatchObject({ status: 'submitted', canSubmit: false });
+    expect(eng.leadReview.submittedByName).toEqual(expect.any(String));
+    // Locked: the engineer can no longer edit; the lead can.
+    expect(eng.canEdit).toBe(false);
+    const locked = await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 6 });
+    expect(locked.statusCode).toBe(409);
+    expect(
+      (await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 6 })).statusCode,
+    ).toBe(200);
+
+    // The lead is told and finds it under "Ready for my review".
+    expect(await told(qn, 'quote.submitted_to_lead', await userId('EngLead'))).toBe(1);
+    const ready = await queue('EngLead', '?review=ready');
+    expect(ready.items.map((i) => i.quoteNumber)).toContain(qn);
+    expect(ready.items.every((i) => i.leadReview === 'submitted')).toBe(true);
+    expect(ready.readyForReview).toBeGreaterThanOrEqual(1);
+    expect((await detail(qn)).engineering.leadReview.canSendBack).toBe(true);
+
+    // Not twice.
+    expect((await submit(qn)).statusCode).toBe(409);
+  });
+
+  it('the lead sends it back with a note; the engineer is told, edits and resubmits', async () => {
+    const qn = await assignedAndAccepted();
+    await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION);
+    await as('Engineer').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
+      rows: [await capacityRow()],
+    });
+    expect((await submit(qn)).statusCode).toBe(200);
+
+    expect((await sendBack(qn, { note: 'x' }, 'Engineer')).statusCode).toBe(403);
+    expect((await sendBack(qn, { note: ' ' })).statusCode).toBe(400);
+    const back = await sendBack(qn, { note: 'Check the cavitation against the press size' });
+    expect(back.statusCode, back.body).toBe(200);
+    expect(EngineeringDetail.parse(back.json()).leadReview).toMatchObject({
+      status: 'returned',
+      returnNote: 'Check the cavitation against the press size',
+    });
+    expect(await told(qn, 'quote.returned_by_lead', await userId('Engineer'))).toBe(1);
+    expect((await queue('EngLead', '?review=ready')).items.map((i) => i.quoteNumber)).not.toContain(
+      qn,
+    );
+
+    // Unlocked again: the engineer edits and submits a second round.
+    expect(
+      (await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 6 })).statusCode,
+    ).toBe(200);
+    expect((await submit(qn)).statusCode).toBe(200);
+    // Nothing to send back twice in a row once it is back.
+    expect((await sendBack(qn, { note: 'again' })).statusCode).toBe(200);
+    expect((await sendBack(qn, { note: 'again' })).statusCode).toBe(409);
+
+    // Every step is on the timeline and in the audit log.
+    const events = await db.db
+      .select({ type: schema.activityEvent.type })
+      .from(schema.activityEvent)
+      .innerJoin(schema.quote, eq(schema.quote.id, schema.activityEvent.quoteId))
+      .where(eq(schema.quote.quoteNumber, qn));
+    const types = events.map((e) => e.type);
+    expect(types.filter((t) => t === 'lead_review_submitted')).toHaveLength(2);
+    expect(types.filter((t) => t === 'lead_review_returned')).toHaveLength(2);
+  });
+
+  it('only the assignee submits; a reassignment starts a new round; the lead decides whenever', async () => {
+    const qn = await assignedAndAccepted();
+    await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION);
+    await as('Engineer').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
+      rows: [await capacityRow()],
+    });
+    // The lead has nobody to submit to; another engineer is not the assignee.
+    expect((await submit(qn, 'EngLead')).statusCode).toBe(403);
+    // An engineer who isn't assigned can't see it at all (owner scope): 404.
+    expect(
+      (await as('Engineer', 'owner').post(`/api/v1/quotes/${qn}/eng-review/submit`)).statusCode,
+    ).toBe(404);
+    expect((await submit(qn)).statusCode).toBe(200);
+
+    // Reassigning clears the round (like acceptance).
+    expect((await assign(qn, await userId('Engineer', 'owner'))).statusCode).toBe(200);
+    expect((await detail(qn)).engineering.leadReview.status).toBe('none');
+
+    // The lead may decide G2 without a submission (they can fill anything in themselves).
+    await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
+    const g2 = await decide(qn, 'G2', { outcomeKey: 'proceed' });
+    expect(g2.statusCode, g2.body).toBe(201);
+    expect(GateDecisionResponse.parse(g2.json()).quote.stageKey).toBe('QUOTING');
   });
 });

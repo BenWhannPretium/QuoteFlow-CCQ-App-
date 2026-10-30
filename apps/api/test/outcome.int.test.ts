@@ -206,7 +206,7 @@ async function recordPrice(qn: string) {
 /** Into Final Review. */
 async function inFinalReview() {
   const qn = await inQuoting();
-  ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'pricing'));
+  ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'pricing-lead'));
   tick();
   return qn;
 }
@@ -698,7 +698,7 @@ describe('G5 Re-quote (CR-38)', () => {
 
     // Released again later, the new proposal gets a fresh validity date.
     await recordPrice(qn);
-    ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'pricing'));
+    ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'pricing-lead'));
     ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'approver'));
     expect((await detail(qn)).decisions.filter((d) => !d.superseded).map((d) => d.gateKey)).toEqual(
       ['G4', 'G3'],
@@ -829,7 +829,7 @@ describe('the closure rule (CR-39/40): every terminal path', () => {
         inQuoting,
         'G3',
         { outcomeKey: 'stop', reasonCode: 'not_strategic', note: 'n' },
-        'pricing',
+        'pricing-lead',
         'DECLINED',
       ],
       [
@@ -994,7 +994,7 @@ describe('the daily validity expiry job', () => {
       }),
     );
     await recordPrice(qn);
-    ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'pricing'));
+    ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'pricing-lead'));
     ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'approver'));
     const row = await quoteRow(qn);
     expect(row.validityExpiredFlaggedAt).toBeNull();

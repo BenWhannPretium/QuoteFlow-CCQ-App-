@@ -103,7 +103,8 @@ const d = (
 
 const g1 = (outcome = 'advance', extra = {}) => d('G1', outcome, 'g1', extra);
 const g2 = (outcome = 'proceed', extra = {}) => d('G2', outcome, 'eng-lead', extra);
-const g3 = (outcome = 'submit', extra = {}) => d('G3', outcome, 'pricing', extra);
+// 2026-10-30: the pricing lead decides G3 (the pricer submits to them), as the EngLead decides G2.
+const g3 = (outcome = 'submit', extra = {}) => d('G3', outcome, 'pricing-lead', extra);
 const g4 = (outcome = 'approve', extra = {}) => d('G4', outcome, 'g4', extra);
 const g5 = (outcome: string, extra = {}) => d('G5', outcome, 'kam', extra);
 const g6 = (outcome: string, extra = {}) => d('G6', outcome, 'kam', extra);
@@ -127,7 +128,7 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
     d(
       gate,
       gate === 'G5' ? 'on_hold' : 'hold',
-      gate === 'G1' ? 'g1' : gate === 'G2' ? 'eng-lead' : gate === 'G3' ? 'pricing' : 'kam',
+      gate === 'G1' ? 'g1' : gate === 'G2' ? 'eng-lead' : gate === 'G3' ? 'pricing-lead' : 'kam',
       {
         reason: rng.pick([
           'awaiting_customer_info',

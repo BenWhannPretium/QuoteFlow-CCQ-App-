@@ -22,6 +22,8 @@ import {
   type QuoteState,
 } from '@ccq/domain';
 
+import { leadReviewView } from './lead-review';
+
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 /** `eng_queue_aging_days` + `eng_queue_backup_assigner_user_ids`, falling back to the seed. */
@@ -116,5 +118,6 @@ export async function engineeringView(
     canEdit: canEditEngReview(actor, state),
     canAccept: planAccept(actor, state, eng?.acceptedAt ?? null).ok,
     canAssign: inQueue && canAssignEngQueue(actor, settings, state),
+    leadReview: await leadReviewView(db, actor, 'engineering', q, state),
   };
 }

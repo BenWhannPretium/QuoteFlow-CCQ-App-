@@ -74,7 +74,8 @@ async function quoteInFinalReview(
       ? { capitalPendingJustification: 'CER goes to the board Nov 10' }
       : {}),
   });
-  await post('gates/G3/decisions', 'pricing', { outcomeKey: 'submit' });
+  // 2026-10-30: the pricing lead decides G3.
+  await post('gates/G3/decisions', 'pricing-lead', { outcomeKey: 'submit' });
   // B-26: the KAM checks the terms before the offer can be released at G4.
   await put('terms', 'kam', {
     termsPaymentTerms: 'Net 45',
