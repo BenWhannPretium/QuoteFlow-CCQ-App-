@@ -153,7 +153,7 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
       schema: {
         tags: ['engineering'],
         summary:
-          'Update the Engineering Review solution fields (only the keys sent). The preliminary capital is commercial: write-only for an Engineer; a change rescores the quote',
+          'Update the Engineering Review solution fields (only the keys sent). A change to the preliminary capital rescores the quote',
         security,
         params: QuoteNumberParams,
         body: EngReviewBody,

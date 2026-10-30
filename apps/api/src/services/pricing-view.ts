@@ -12,6 +12,7 @@ import {
 import {
   PRICING_QUEUE_STAGE_KEY,
   PRICING_REF_FORMATS_SEED,
+  can,
   canEditQuoting,
   canSeeCommercialFields,
   carryForwardPricingRecord,
@@ -138,6 +139,7 @@ export async function quotingView(
     ...new Set(
       rows
         .flatMap((r) => [r.priceApprovedBy, r.costingAttestedBy])
+        .concat(q.assignedPricerId ? [q.assignedPricerId] : [])
         .filter((id): id is string => !!id),
     ),
   ]);
@@ -146,6 +148,7 @@ export async function quotingView(
   const g2 = [...decisions].reverse().find((d) => d.decision.gateKey === 'G2');
   const status = priceApprovalStatus(recordValues(current));
   const canEdit = canEditQuoting(actor, state);
+  const inQuoting = q.stageKey === PRICING_QUEUE_STAGE_KEY && q.status !== 'closed';
 
   const commercial = redact(
     {
@@ -155,7 +158,7 @@ export async function quotingView(
     actor,
   );
   return {
-    inQuoting: q.stageKey === PRICING_QUEUE_STAGE_KEY && q.status !== 'closed',
+    inQuoting,
     approval: {
       approved: status.approved,
       approvedAt: iso(status.approvedAt),
@@ -176,6 +179,10 @@ export async function quotingView(
     ...commercial,
     commercialRedacted: !canSeeCommercialFields(actor),
     canEdit,
+    assignedPricerId: q.assignedPricerId,
+    assignedPricerName: name(q.assignedPricerId),
+    pricerAssignedAt: iso(q.pricerAssignedAt),
+    canAssign: inQuoting && can(actor, 'pricingQueue.assign', state),
     pricingUsers: canEdit ? await listActiveUsersWithRoles(db, pricingRoles()) : [],
     refFormats: formats,
   };

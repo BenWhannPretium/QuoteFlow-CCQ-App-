@@ -38,8 +38,18 @@ let db: DbClient;
 let app: Awaited<ReturnType<typeof buildApp>>;
 const as = (role: Role) => asRole(app, role);
 
-const ALLOWED: Role[] = ['Pricing', 'PricingLead', 'EngLead', 'Approver', 'Leadership', 'Admin'];
-const DENIED: Role[] = ['KAM', 'Engineer', 'SalesLeader'];
+// 2026-10-30: every role reads the pricing history (quote.read.commercialFields is granted to all).
+const ALLOWED: Role[] = [
+  'KAM',
+  'SalesLeader',
+  'EngLead',
+  'Engineer',
+  'Pricing',
+  'PricingLead',
+  'Approver',
+  'Leadership',
+  'Admin',
+];
 
 let qn: string;
 let customer: string;
@@ -120,29 +130,12 @@ afterAll(async () => {
   await app.close();
 });
 
-describe('access: commercial roles read, Admin imports (server-enforced)', () => {
+describe('access: every role reads, Admin imports (server-enforced)', () => {
   const reads = () => [
     `/api/v1/pricing/erf/${erfA}`,
     `/api/v1/pricing/history?kind=bpr&customer=${encodeURIComponent(customer.slice(0, 10))}`,
     `/api/v1/quotes/${qn}/pricing-context`,
   ];
-
-  it.each(DENIED)('%s gets 403 on every read, with no history in the body', async (role) => {
-    for (const url of reads()) {
-      const res = await as(role).get(url);
-      expect(res.statusCode, url).toBe(403);
-      // The problem body echoes the URL the caller sent (`instance`); nothing else may come back.
-      for (const secret of [
-        customer,
-        'historyRecords',
-        'erfRecord',
-        'customerErfs',
-        'priceAgreedTo',
-      ]) {
-        expect(res.body, `${role} ${url}`).not.toContain(secret);
-      }
-    }
-  });
 
   it.each(ALLOWED)('%s reads every route', async (role) => {
     for (const url of reads()) {
@@ -159,7 +152,7 @@ describe('access: commercial roles read, Admin imports (server-enforced)', () =>
     }
   });
 
-  it('RLS: the table is invisible to a KAM context and read-only for Pricing', async () => {
+  it('RLS: every role reads, nobody without a role does, and Pricing cannot write', async () => {
     const ctx = (roles: Role[]) => ({
       userId: randomUUID(),
       roles,
@@ -175,9 +168,10 @@ describe('access: commercial roles read, Admin imports (server-enforced)', () =>
           )[0]!.n,
         ),
       );
-    expect(await count(['KAM'])).toBe(0);
-    expect(await count(['Engineer', 'SalesLeader'])).toBe(0);
-    expect(await count(['Pricing'])).toBeGreaterThan(0);
+    expect(await count([])).toBe(0);
+    for (const role of [...ALLOWED, 'PostAward'] as Role[]) {
+      expect(await count([role]), role).toBeGreaterThan(0);
+    }
     await expect(
       withRequestContext(db.db, ctx(['Pricing']), (tx) =>
         tx.execute(sql`update pricing_history_record set comments = 'x' where kind = 'erf'`),

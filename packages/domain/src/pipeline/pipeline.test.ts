@@ -219,7 +219,7 @@ describe('list helpers', () => {
     expect(daysSince(new Date('2026-11-04T00:00:00Z'), now)).toBe(0);
   });
 
-  it('exportColumnsFor drops commercial columns for roles without commercialFields', () => {
+  it('exportColumnsFor drops commercial columns for an actor without commercialFields', () => {
     const known = [
       'quoteNumber',
       'amount',
@@ -234,7 +234,13 @@ describe('list helpers', () => {
       'nope',
       'quoteNumber',
     ];
-    expect(exportColumnsFor(makeActor('KAM'), requested, known)).toEqual(['quoteNumber']);
+    expect(exportColumnsFor(makeActor([]), requested, known)).toEqual(['quoteNumber']);
+    // Every role holds it since 2026-10-30.
+    expect(exportColumnsFor(makeActor('KAM'), requested, known)).toEqual([
+      'quoteNumber',
+      'prelimCapitalUsd',
+      'capitalReadiness',
+    ]);
     expect(exportColumnsFor(makeActor('Pricing'), requested, known)).toEqual([
       'quoteNumber',
       'prelimCapitalUsd',
@@ -242,7 +248,7 @@ describe('list helpers', () => {
     ]);
     // `priceApproved…` matches the commercial prefix `price`; the approval *status* column is named
     // differently in the list so it stays visible to everyone.
-    expect(exportColumnsFor(makeActor('KAM'), ['priceApproved'], known)).toEqual([]);
+    expect(exportColumnsFor(makeActor([]), ['priceApproved'], known)).toEqual([]);
   });
 
   it('personInitials', () => {

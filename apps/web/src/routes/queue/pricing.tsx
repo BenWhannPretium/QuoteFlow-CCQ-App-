@@ -292,16 +292,62 @@ function Toolbar({
   );
 }
 
+/** Like the engineering queue: assign one or several quotes, or move them off one pricer. */
+type AssignDialogState =
+  | { kind: 'assign'; quoteNumbers: string[]; current?: string | null }
+  | { kind: 'reassign'; quoteNumbers: string[] };
+
 function QueueTable({ data }: { data: PricingQueueResponse }) {
   const { data: config } = usePublicConfig();
   const navigate = useNavigate();
   const [deciding, setDeciding] = useState<string | null>(null);
-  const [assigning, setAssigning] = useState<PricingQueueItem | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [dialog, setDialog] = useState<AssignDialogState | null>(null);
   const label = (list: string, code: string | null) =>
     code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
 
+  const visibleIds = new Set(data.items.map((i) => i.quoteNumber));
+  const chosen = selected.filter((qn) => visibleIds.has(qn));
+
   const columns = useMemo<ColumnDef<PricingQueueItem>[]>(() => {
-    const cols: ColumnDef<PricingQueueItem>[] = [
+    const cols: ColumnDef<PricingQueueItem>[] = [];
+    if (data.canAssign) {
+      cols.push({
+        id: 'select',
+        enableSorting: false,
+        meta: { hideOnMobile: true },
+        header: () => (
+          <input
+            type="checkbox"
+            aria-label="Select all quotes in view"
+            className="size-4 accent-[var(--primary)]"
+            checked={
+              data.items.length > 0 && data.items.every((i) => selected.includes(i.quoteNumber))
+            }
+            onChange={(e) =>
+              setSelected(e.target.checked ? data.items.map((i) => i.quoteNumber) : [])
+            }
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            aria-label={`Select ${row.original.quoteNumber}`}
+            className="size-4 accent-[var(--primary)]"
+            checked={selected.includes(row.original.quoteNumber)}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) =>
+              setSelected((s) =>
+                e.target.checked
+                  ? [...s, row.original.quoteNumber]
+                  : s.filter((x) => x !== row.original.quoteNumber),
+              )
+            }
+          />
+        ),
+      });
+    }
+    cols.push(
       {
         id: 'priority',
         header: 'Tier',
@@ -435,7 +481,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
         cell: ({ row }) =>
           row.original.assignedEngineerName ?? <span className="text-muted-foreground">–</span>,
       },
-    ];
+    );
     cols.push({
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
@@ -467,7 +513,15 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
                 {q.canEdit ? 'Record price approval' : 'Open Quoting'}
               </DropdownMenuItem>
               {data.canAssign && (
-                <DropdownMenuItem onSelect={() => setAssigning(q)}>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    setDialog({
+                      kind: 'assign',
+                      quoteNumbers: [q.quoteNumber],
+                      current: q.assignedPricerId,
+                    })
+                  }
+                >
                   {q.assignedPricerId ? 'Reassign pricer…' : 'Assign pricer…'}
                 </DropdownMenuItem>
               )}
@@ -484,10 +538,32 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
     return cols;
     // The label helper changes every render; the table only needs the data and config.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, config]);
+  }, [data, config, selected]);
 
   return (
     <div className="grid gap-3">
+      {data.canAssign && chosen.length > 0 && (
+        <div
+          className="bg-secondary flex flex-wrap items-center gap-3 rounded-md px-3 py-2 text-sm"
+          role="region"
+          aria-label="Bulk actions"
+        >
+          <span>{chosen.length} selected</span>
+          <Button size="sm" onClick={() => setDialog({ kind: 'assign', quoteNumbers: chosen })}>
+            Assign selected…
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setDialog({ kind: 'reassign', quoteNumbers: chosen })}
+          >
+            Move selected from one pricer…
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
+            Clear
+          </Button>
+        </div>
+      )}
       <DataTable
         caption="Pricing queue"
         columns={columns}
@@ -507,13 +583,31 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
           />
         }
       />
-      {assigning && (
+      {dialog?.kind === 'assign' && (
         <PricerAssignDialog
           open
-          onOpenChange={(open) => !open && setAssigning(null)}
-          quoteNumber={assigning.quoteNumber}
-          currentPricerId={assigning.assignedPricerId}
+          onOpenChange={(open) => !open && setDialog(null)}
+          quoteNumbers={dialog.quoteNumbers}
+          currentPricerId={dialog.current ?? null}
           pricers={data.pricers}
+          onDone={() => setSelected([])}
+        />
+      )}
+      {dialog?.kind === 'reassign' && (
+        <BulkReassignDialog
+          open
+          onOpenChange={(open) => !open && setDialog(null)}
+          title="Reassign a pricer's work"
+          noun="pricer"
+          people={data.pricers.map((p) => ({
+            id: p.id,
+            displayName: p.displayName,
+            openCount: p.openAssigned,
+          }))}
+          quoteNumbers={dialog.quoteNumbers}
+          queryKey={pricingQueueQueryKey}
+          reassign={api.bulkReassignPricing}
+          onDone={() => setSelected([])}
         />
       )}
       {deciding && (

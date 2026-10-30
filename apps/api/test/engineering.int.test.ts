@@ -565,7 +565,7 @@ describe('Engineering Review and capacity evidence', () => {
     expect(updated.payload).toEqual({ fields: Object.keys(SOLUTION) });
   });
 
-  it('prelim capital is commercial: KAM and Engineer never read it; saving it rescores the quote', async () => {
+  it('prelim capital: the Engineer who enters it and the KAM both read it; saving it rescores the quote', async () => {
     const qn = await inQueue();
     const owner = await userId('Engineer', 'owner');
     await assign(qn, owner);
@@ -577,22 +577,22 @@ describe('Engineering Review and capacity evidence', () => {
     });
     expect(res.statusCode, res.body).toBe(200);
     const asEngineer = EngineeringDetail.parse(res.json());
-    expect(asEngineer.commercialRedacted).toBe(true);
-    expect('prelimCapitalUsd' in asEngineer.review).toBe(false);
+    // 2026-10-30: no role enters data it cannot see.
+    expect(asEngineer.commercialRedacted).toBe(false);
+    expect(asEngineer.review.prelimCapitalUsd).toBe(400_000);
 
     const lead = await detail(qn);
     expect(lead.engineering.review.prelimCapitalUsd).toBe(400_000);
     expect(lead.priority.unknowns).not.toContain('capital_exposure');
     const kam = await detail(qn, 'KAM');
-    expect(kam.engineering.commercialRedacted).toBe(true);
-    expect('prelimCapitalUsd' in kam.engineering.review).toBe(false);
-    expect(JSON.stringify(kam)).not.toContain('400000');
-    // Write-only: an Engineer's save without the capital keeps it.
+    expect(kam.engineering.commercialRedacted).toBe(false);
+    expect(kam.engineering.review.prelimCapitalUsd).toBe(400_000);
+    // A save sends only the keys it changes: one without the capital keeps it.
     await as('Engineer', 'owner').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 6 });
     expect((await detail(qn)).engineering.review.prelimCapitalUsd).toBe(400_000);
   });
 
-  it('capacity rows: effectiveness has no default; numbers are redacted for KAM and Engineer, kept on save', async () => {
+  it('capacity rows: effectiveness has no default; the Engineer and the KAM see the numbers', async () => {
     const qn = await inQueue();
     const owner = await userId('Engineer', 'owner');
     await assign(qn, owner);
@@ -611,20 +611,20 @@ describe('Engineering Review and capacity evidence', () => {
     expect(saved.capacityEvidence).toHaveLength(1);
     const row = saved.capacityEvidence[0]!;
     expect(row).toMatchObject({ site: 'PLANT_01', lineAsset: 'Line 4' });
-    expect(row.assumedEffectivenessPct).toBeUndefined();
+    // 2026-10-30: the Engineer sees the numbers they entered.
+    expect(row).toMatchObject({
+      assumedEffectivenessPct: 70,
+      cycleTimeS: 14.5,
+      utilizationPct: 62,
+      bufferPct: 10,
+    });
 
-    // The Engineer edits the notes without resending the hidden numbers: they are kept.
-    const kept = await put([
-      {
-        ...(await capacityRow()),
-        id: row.id,
-        assumedEffectivenessPct: undefined,
-        cycleTimeS: undefined,
-        utilizationPct: undefined,
-        bufferPct: undefined,
-        notes: 'Line 4 confirmed',
-      },
+    // So they resend them on an edit, like every other role: leaving one out is an error.
+    const omitted = await put([
+      { ...(await capacityRow()), id: row.id, cycleTimeS: undefined, notes: 'Line 4 confirmed' },
     ]);
+    expect(errorPaths(omitted)).toEqual(['/rows/0/cycleTimeS']);
+    const kept = await put([{ ...(await capacityRow()), id: row.id, notes: 'Line 4 confirmed' }]);
     expect(kept.statusCode, kept.body).toBe(200);
     const lead = (await detail(qn)).engineering.capacityEvidence;
     expect(lead).toEqual([
@@ -638,8 +638,8 @@ describe('Engineering Review and capacity evidence', () => {
       }),
     ]);
     const kam = (await detail(qn, 'KAM')).engineering.capacityEvidence[0]!;
-    expect(kam.assumedEffectivenessPct).toBeUndefined();
-    expect(kam.utilizationPct).toBeUndefined();
+    expect(kam.assumedEffectivenessPct).toBe(70);
+    expect(kam.utilizationPct).toBe(62);
 
     // Replace the set: add one, drop the first.
     const replaced = await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {

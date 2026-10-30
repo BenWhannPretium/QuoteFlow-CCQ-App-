@@ -54,7 +54,8 @@ export const integrationRun = documented(
 );
 
 const PRICING = 'Pricing (legacy pricing-app export)';
-const COMMERCIAL = ' Commercial: stripped for roles without quote.read.commercialFields.';
+const COMMERCIAL =
+  ' Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30).';
 // The export holds junk figures of $1T and more, kept as history (the raw value is in `fields`). B-27:
 // bounded at precision 38 so Fabric mirroring keeps the decimals (an unbounded numeric lands as
 // Decimal(38, 0)); the mapper drops anything over 1e30 (`MAX_FIGURE`).

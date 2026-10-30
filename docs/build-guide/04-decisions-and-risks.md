@@ -84,7 +84,7 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 - **`eng_queue_backup_assigner_user_ids`** = [] (R-04 / BR-8). *Ask R2:* who covers for Jim? Add their app_user id; they need a role that can open the queue (Engineer or EngLead).
 - **`capital_readiness_on_outcome`** = { "G2:capital_required": "pending" }.
 - **New permission `engQueue.read`** (EngLead, Engineer, Leadership, Admin): the queue page.
-- **Engineers do not read commercial numbers** (architecture §3.3): prelim capital and the capacity figures are write-only for an assigned Engineer. *Ask R2:* should an Engineer see the numbers on quotes assigned to them? That would be a matrix change (an `assigned` qualifier on `quote.read.commercialFields`) agreed with the data owners.
+- ~~**Engineers do not read commercial numbers**~~ **Decided 2026-10-30 (Ben):** no role is hidden from data it can enter, so every role now reads the commercial fields (prelim capital, capacity numbers, the pricing record and the pricing history). Architecture §3.3, `CLAUDE.md` rule 2. If Gemma Cebolla's sensitivity review (M5) wants a restriction back, it is a matrix change.
 - **Accept** is open to the EngLead and the assigned engineer. *Ask R2:* lead-only?
 
 **B-15 revised (2026-10-22): pricing history from the export.** Decided with Ben: no live connection (D-PR); Cory's export is approved data; the free text is included for context (it can be removed later); attachments are not needed for now; in-flight ERFs are a business decision (D-30). Provisional choices, to confirm with Gemma Cebolla / Pricing. Code, not config, where noted:

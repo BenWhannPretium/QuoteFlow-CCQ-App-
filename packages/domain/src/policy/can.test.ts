@@ -31,13 +31,18 @@ const EXPECTED: Record<string, Role[]> = {
     'Leadership',
     'Admin',
   ],
+  // 2026-10-30: every role (no role enters data it cannot see).
   'quote.read.commercialFields': [
+    'KAM',
+    'SalesLeader',
     'EngLead',
+    'Engineer',
     'Pricing',
     'PricingLead',
     'Approver',
     'Leadership',
     'Admin',
+    'PostAward',
   ],
   'gate.G1.decide': ['SalesLeader'],
   'engQueue.read': ['EngLead', 'Engineer', 'Leadership', 'Admin'],
@@ -119,9 +124,9 @@ describe('permission matrix', () => {
     expect(rolesWithPermission('config.manage')).toEqual(['Admin']);
   });
 
-  it('has no unexpected PostAward grant other than quote.read', () => {
+  it('has no unexpected PostAward grant other than reading quotes', () => {
     const granted = PERMISSIONS.filter((p) => rolesWithPermission(p).includes('PostAward'));
-    expect(granted).toEqual(['quote.read']);
+    expect(granted).toEqual(['quote.read', 'quote.read.commercialFields']);
   });
 });
 
@@ -259,7 +264,9 @@ describe('visibility helpers', () => {
 
   it('commercial fields', () => {
     expect(canSeeCommercialFields(makeActor('Pricing'))).toBe(true);
-    expect(canSeeCommercialFields(makeActor('KAM'))).toBe(false);
+    expect(canSeeCommercialFields(makeActor('KAM'))).toBe(true);
+    expect(canSeeCommercialFields(makeActor('Engineer'))).toBe(true);
+    expect(canSeeCommercialFields(makeActor([]))).toBe(false);
   });
 });
 

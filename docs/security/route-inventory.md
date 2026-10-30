@@ -82,8 +82,8 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | POST | `/api/v1/overrides/:id/approve` | `override.approve` | SalesLeader, EngLead (priority_tier, queue_position), Admin |  |
 | POST | `/api/v1/overrides/:id/reject` | `override.approve` | SalesLeader, EngLead (priority_tier, queue_position), Admin |  |
 | POST | `/api/v1/overrides/:id/revert` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
-| GET | `/api/v1/pricing/erf/:erfNumber` | `quote.read.commercialFields` | EngLead, Pricing, PricingLead, Approver, Leadership, Admin |  |
-| GET | `/api/v1/pricing/history` | `quote.read.commercialFields` | EngLead, Pricing, PricingLead, Approver, Leadership, Admin |  |
+| GET | `/api/v1/pricing/erf/:erfNumber` | `quote.read.commercialFields` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward |  |
+| GET | `/api/v1/pricing/history` | `quote.read.commercialFields` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward |  |
 | GET | `/api/v1/queue/engineering` | `engQueue.read` | EngLead, Engineer, Leadership, Admin |  |
 | POST | `/api/v1/queue/engineering/reassign` | `queue.assign` | EngLead, Admin |  |
 | GET | `/api/v1/queue/pricing` | `pricingQueue.read` | Pricing, PricingLead, Leadership, Admin |  |
@@ -106,7 +106,7 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | GET | `/api/v1/quotes/:quoteNumber/overrides` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | POST | `/api/v1/quotes/:quoteNumber/overrides` | `override.request` | KAM, SalesLeader, EngLead, Pricing, PricingLead |  |
 | POST | `/api/v1/quotes/:quoteNumber/pricing-assignment` | `pricingQueue.assign` | PricingLead, Admin |  |
-| GET | `/api/v1/quotes/:quoteNumber/pricing-context` | `quote.read.commercialFields` | EngLead, Pricing, PricingLead, Approver, Leadership, Admin |  |
+| GET | `/api/v1/quotes/:quoteNumber/pricing-context` | `quote.read.commercialFields` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward |  |
 | PUT | `/api/v1/quotes/:quoteNumber/pricing-record` | `quoting.edit` | Pricing, PricingLead |  |
 | GET | `/api/v1/quotes/:quoteNumber/review-summary` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | POST | `/api/v1/quotes/:quoteNumber/rework` | `quote.create` | KAM, SalesLeader, Admin |  |

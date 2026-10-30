@@ -113,6 +113,12 @@ export const QuotingDetail = z.object({
   /** Commercial details were withheld from this response. */
   commercialRedacted: z.boolean(),
   canEdit: z.boolean(),
+  /** The pricer the pricing lead assigned (B-26), like the Engineering tab's assigned engineer. */
+  assignedPricerId: z.string().nullable(),
+  assignedPricerName: z.string().nullable(),
+  pricerAssignedAt: z.string().nullable(),
+  /** The caller may assign or reassign the pricer here (in Quoting, `pricingQueue.assign`). */
+  canAssign: z.boolean(),
   /** The price-approver picker (empty unless canEdit). */
   pricingUsers: z.array(z.object({ id: z.string(), displayName: z.string() })),
   /** Format hint for the legacy ERF numbers (app_setting `pricing_ref_formats`). */

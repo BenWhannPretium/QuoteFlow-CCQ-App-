@@ -41,61 +41,50 @@ const quote = () => ({
   history: [{ at: new Date('2026-01-01T00:00:00Z'), detail: { price_floor: 3, keep: 1 } }],
 });
 
-describe('redact', () => {
-  it.each(['KAM', 'Engineer', 'SalesLeader', 'PostAward'] as const)(
-    'strips commercial fields for %s',
-    (role) => {
-      const out = redact(quote(), makeActor(role)) as ReturnType<typeof quote> &
-        Record<string, unknown>;
-      expect(out).not.toHaveProperty('prelim_capital_usd');
-      expect(out).not.toHaveProperty('pricing_record');
-      expect(out).not.toHaveProperty('priceRange');
-      expect(out).not.toHaveProperty('margin_pct');
-      expect(out).not.toHaveProperty('marginNote');
-      expect(out.eng_review).toEqual({ process_type: 'IBM', cavitation: 8, cycle_time_s: 12 });
-      expect(out.capacity_evidence).toEqual([
-        { site: 'Plant A', notes: 'ok' },
-        { site: 'Plant B', notes: 'ok' },
-      ]);
-      expect(out.history[0]!.detail).toEqual({ keep: 1 });
-      expect(out.history[0]!.at).toBeInstanceOf(Date);
-      // non-commercial data survives
-      expect(out).toMatchObject({ id: 'q1', priority_score: 82, est_annual_volume: 5_000_000 });
-    },
-  );
+// Since 2026-10-30 every role reads commercial fields (no role enters data it cannot see), so the
+// stripping is exercised with an actor that holds no role at all.
+const noAccess = makeActor([]);
 
-  it.each(['Pricing', 'Leadership', 'EngLead', 'Approver', 'Admin'] as const)(
-    'keeps everything for %s',
-    (role) => {
-      expect(redact(quote(), makeActor(role))).toEqual(quote());
-    },
-  );
+describe('redact', () => {
+  it('strips commercial fields for an actor without commercial access', () => {
+    const out = redact(quote(), noAccess) as ReturnType<typeof quote> & Record<string, unknown>;
+    expect(out).not.toHaveProperty('prelim_capital_usd');
+    expect(out).not.toHaveProperty('pricing_record');
+    expect(out).not.toHaveProperty('priceRange');
+    expect(out).not.toHaveProperty('margin_pct');
+    expect(out).not.toHaveProperty('marginNote');
+    expect(out.eng_review).toEqual({ process_type: 'IBM', cavitation: 8, cycle_time_s: 12 });
+    expect(out.capacity_evidence).toEqual([
+      { site: 'Plant A', notes: 'ok' },
+      { site: 'Plant B', notes: 'ok' },
+    ]);
+    expect(out.history[0]!.detail).toEqual({ keep: 1 });
+    expect(out.history[0]!.at).toBeInstanceOf(Date);
+    // non-commercial data survives
+    expect(out).toMatchObject({ id: 'q1', priority_score: 82, est_annual_volume: 5_000_000 });
+  });
+
+  it.each(ROLES)('keeps everything for %s', (role) => {
+    expect(redact(quote(), makeActor(role))).toEqual(quote());
+  });
 
   it('matches the permission, not a hard-coded role list', () => {
     const roles = ROLES.filter((role) =>
       Object.keys(redact(quote(), makeActor(role)) as object).includes('pricing_record'),
     );
-    expect(roles.sort()).toEqual([
-      'Admin',
-      'Approver',
-      'EngLead',
-      'Leadership',
-      'Pricing',
-      'PricingLead',
-    ]);
+    expect(roles).toEqual([...ROLES]);
   });
 
   it('never mutates its input', () => {
     const input = quote();
-    redact(input, makeActor('KAM'));
+    redact(input, noAccess);
     expect(input).toEqual(quote());
   });
 
   it('handles primitives, null and arrays at the top level', () => {
-    const kam = makeActor('KAM');
-    expect(redact(null, kam)).toBeNull();
-    expect(redact('text', kam)).toBe('text');
-    expect(redact([{ price: 1, keep: 2 }, 3], kam)).toEqual([{ keep: 2 }, 3]);
+    expect(redact(null, noAccess)).toBeNull();
+    expect(redact('text', noAccess)).toBe('text');
+    expect(redact([{ price: 1, keep: 2 }, 3], noAccess)).toEqual([{ keep: 2 }, 3]);
   });
 
   it('catches camelCase DTO keys', () => {
@@ -105,7 +94,7 @@ describe('redact', () => {
         capacityEvidence: [{ utilizationPct: 5, site: 'A' }],
         pricingRecord: {},
       },
-      makeActor('KAM'),
+      noAccess,
     );
     // capacityEvidence snake-cases to capacity_evidence, so its scoped numbers go
     expect(out).toEqual({ capacityEvidence: [{ site: 'A' }] });
@@ -113,7 +102,7 @@ describe('redact', () => {
 
   it('leaves class instances alone', () => {
     const map = new Map([['price', 1]]);
-    expect(redact({ map }, makeActor('KAM')).map).toBe(map);
+    expect(redact({ map }, noAccess).map).toBe(map);
   });
 
   it('does not strip look-alike keys such as priority_score', () => {
@@ -141,17 +130,15 @@ describe('redact', () => {
       bprRecord: { bprNumber: 'BPR-1' },
       nested: { erf },
     };
-    for (const role of ['KAM', 'Engineer', 'SalesLeader', 'PostAward'] as const) {
-      expect(redact(context, makeActor(role))).toEqual({
-        refs: { quoteErfNumber: '26367', erfRefs: ['26367'] },
-        linkage: { status: 'match' },
-        nested: { erf: { erfNumber: '26367', plant: 'CHI' } },
-      });
-    }
-    for (const role of ['Pricing', 'EngLead', 'Approver', 'Leadership', 'Admin'] as const) {
+    expect(redact(context, noAccess)).toEqual({
+      refs: { quoteErfNumber: '26367', erfRefs: ['26367'] },
+      linkage: { status: 'match' },
+      nested: { erf: { erfNumber: '26367', plant: 'CHI' } },
+    });
+    for (const role of ROLES) {
       expect(redact(context, makeActor(role))).toEqual(context);
     }
-    expect(redact({ pricingContext: { x: 1 }, keep: 1 }, makeActor('KAM'))).toEqual({ keep: 1 });
+    expect(redact({ pricingContext: { x: 1 }, keep: 1 }, noAccess)).toEqual({ keep: 1 });
   });
 
   it('B-15 (revised): strips the imported pricing history shapes and their prices', () => {
@@ -163,13 +150,13 @@ describe('redact', () => {
       sprHistory: [{ currentPrice: 0.4 }],
       loose: { currentPrice: 0.4, targetPrice: 0.38, priceAgreedTo: 0.41, keep: 1 },
     };
-    for (const role of ['KAM', 'Engineer', 'SalesLeader'] as const) {
-      expect(redact(history, makeActor(role))).toEqual({
-        source: { imported: true, counts: { erf: 1 } },
-        customerMatch: 'Acme (synthetic)',
-        loose: { keep: 1 },
-      });
+    expect(redact(history, noAccess)).toEqual({
+      source: { imported: true, counts: { erf: 1 } },
+      customerMatch: 'Acme (synthetic)',
+      loose: { keep: 1 },
+    });
+    for (const role of ROLES) {
+      expect(redact(history, makeActor(role))).toEqual(history);
     }
-    expect(redact(history, makeActor('PricingLead'))).toEqual(history);
   });
 });

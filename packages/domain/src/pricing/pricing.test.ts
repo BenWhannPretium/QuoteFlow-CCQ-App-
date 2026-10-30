@@ -277,8 +277,10 @@ describe('what other roles see', () => {
       pricingRecords: [{ approvedRangeNote: 'old' }],
       capitalReadiness: 'pending',
     };
-    expect(redact(dto, makeActor('KAM'))).toEqual({ approval: dto.approval });
-    expect(redact(dto, makeActor('Engineer'))).toEqual({ approval: dto.approval });
+    expect(redact(dto, makeActor([]))).toEqual({ approval: dto.approval });
+    // Since 2026-10-30 every role sees the whole record.
+    expect(redact(dto, makeActor('KAM'))).toEqual(dto);
+    expect(redact(dto, makeActor('Engineer'))).toEqual(dto);
     expect(redact(dto, makeActor('Pricing'))).toEqual(dto);
   });
 

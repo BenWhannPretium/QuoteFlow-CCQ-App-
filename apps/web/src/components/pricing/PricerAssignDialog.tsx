@@ -17,54 +17,81 @@ import { toast } from '@/lib/toast';
 
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { timelineQueryKey } from '../Overrides';
-import { pricingQueueQueryKey } from './QuotingTab';
+
+export const pricingQueueQueryKey = ['pricing-queue'] as const;
 
 /**
- * B-26 (A6): the pricing lead triages Quoting by assigning each quote to a pricer. The picker shows
- * each pricer's open load in Quoting. The pricer is notified; the move is recorded and audited.
+ * B-26 (A6): the pricing lead triages Quoting by assigning quotes to a pricer, like the engineering
+ * lead's AssignDialog: one quote or several. The picker shows each pricer's open load in Quoting. A
+ * bulk assign sends one request per quote (each is recorded, audited and notified on its own) and
+ * reports any that failed.
  */
 export function PricerAssignDialog({
   open,
   onOpenChange,
-  quoteNumber,
+  quoteNumbers,
   currentPricerId,
   pricers,
+  onDone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  quoteNumber: string;
-  currentPricerId: string | null;
+  quoteNumbers: string[];
+  currentPricerId?: string | null;
   pricers: PricingQueueResponse['pricers'];
+  onDone?: () => void;
 }) {
   const queryClient = useQueryClient();
   const id = useId();
   const [pricerId, setPricerId] = useState(currentPricerId ?? '');
   const [error, setError] = useState<string | null>(null);
+  const bulk = quoteNumbers.length > 1;
   const mutation = useMutation({
-    mutationFn: () => api.assignPricer(quoteNumber, pricerId),
-    onSuccess: async (res) => {
+    mutationFn: async () => {
+      const failed: string[] = [];
+      let changed = 0;
+      for (const qn of quoteNumbers) {
+        try {
+          if ((await api.assignPricer(qn, pricerId)).changed) changed += 1;
+        } catch (err) {
+          failed.push(
+            `${qn}: ${isApiError(err) ? (err.problem.detail ?? err.problem.title) : 'failed'}`,
+          );
+        }
+      }
+      return { changed, failed };
+    },
+    onSuccess: async ({ changed, failed }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: pricingQueueQueryKey }),
-        queryClient.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) }),
-        queryClient.invalidateQueries({ queryKey: timelineQueryKey(quoteNumber) }),
+        ...quoteNumbers.flatMap((qn) => [
+          queryClient.invalidateQueries({ queryKey: quoteQueryKey(qn) }),
+          queryClient.invalidateQueries({ queryKey: timelineQueryKey(qn) }),
+        ]),
       ]);
+      const name = pricers.find((p) => p.id === pricerId)?.displayName ?? 'the pricer';
+      if (failed.length > 0) {
+        setError(failed.join('; '));
+        if (changed > 0) toast.success({ title: `${changed} assigned to ${name}` });
+        return;
+      }
       toast.success({
-        title: `Assigned to ${res.assignedPricerName ?? 'the pricer'}`,
-        description: res.changed
-          ? 'They have been notified.'
-          : 'Nothing changed: already assigned.',
+        title: bulk ? `${quoteNumbers.length} quotes assigned to ${name}` : `Assigned to ${name}`,
+        description:
+          changed === 0 ? 'Nothing changed: already assigned.' : 'They have been notified.',
       });
       onOpenChange(false);
+      onDone?.();
     },
-    onError: (err) =>
-      setError(isApiError(err) ? (err.problem.detail ?? err.problem.title) : 'Try again.'),
   });
   return (
     <Dialog open={open} onOpenChange={(next) => !mutation.isPending && onOpenChange(next)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{currentPricerId ? 'Reassign' : 'Assign'} pricer</DialogTitle>
-          <DialogDescription>{quoteNumber}</DialogDescription>
+          <DialogDescription>
+            {bulk ? `${quoteNumbers.length} quotes: ${quoteNumbers.join(', ')}` : quoteNumbers[0]}
+          </DialogDescription>
         </DialogHeader>
         <form
           id="pricer-assign-form"
@@ -83,7 +110,12 @@ export function PricerAssignDialog({
           <label htmlFor={id} className="text-sm font-medium">
             Pricer
           </label>
-          <NativeSelect id={id} value={pricerId} onChange={(e) => setPricerId(e.target.value)}>
+          <NativeSelect
+            id={id}
+            value={pricerId}
+            onChange={(e) => setPricerId(e.target.value)}
+            aria-invalid={!!error && !pricerId}
+          >
             <option value="">Choose a pricer…</option>
             {pricers.map((p) => (
               <option key={p.id} value={p.id}>

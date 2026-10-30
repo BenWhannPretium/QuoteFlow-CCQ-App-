@@ -81,7 +81,8 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   const tab = eng.getByTestId('engineering-tab');
   await tab.getByRole('button', { name: 'Accept (start review)' }).click();
   await expect(tab).toContainText(/Accepted.*by/);
-  await expect(eng.getByTestId('commercial-hidden')).toBeVisible();
+  // 2026-10-30: the Engineer sees the commercial figures they enter.
+  await expect(eng.getByTestId('commercial-hidden')).toHaveCount(0);
 
   const solution = eng.getByTestId('solution-form');
   await solution.getByLabel('Process type').selectOption({ label: 'EBM' });
@@ -95,8 +96,8 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await solution.getByLabel('Supply Chain').fill('Resin from the Midwest hub; freight OK');
   await solution.getByRole('button', { name: 'Save solution' }).click();
   await expect(eng.getByText('Engineering review saved')).toBeVisible();
-  // Commercial: the engineer wrote the capital but can't read it back.
-  await expect(solution.getByLabel('Preliminary capital (USD)')).toHaveValue('');
+  // 2026-10-30: the engineer reads back the capital they wrote.
+  await expect(solution.getByLabel('Preliminary capital (USD)')).toHaveValue('350000');
 
   const capacity = eng.getByTestId('capacity-form');
   await capacity.getByRole('button', { name: 'Add capacity row' }).click();
@@ -138,10 +139,7 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await expect(lead.getByText(/The queue is empty|No quotes match these filters/)).toBeVisible();
 });
 
-test('the KAM sees the Engineering tab read-only, with capital hidden', async ({
-  page,
-  request,
-}) => {
+test('the KAM sees the Engineering tab read-only, capital included', async ({ page, request }) => {
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
   await request.post(`/api/v1/quotes/${quoteNumber}/gates/G1/decisions`, {
     headers: { [DEV_USER_HEADER]: 'sales-leader' },
@@ -155,8 +153,8 @@ test('the KAM sees the Engineering tab read-only, with capital hidden', async ({
   await page.goto(`/quotes/${quoteNumber}`);
   await page.getByRole('tab', { name: 'Engineering' }).click();
   const tab = page.getByTestId('engineering-tab');
-  await expect(tab).toContainText('Hidden (commercial)');
-  await expect(tab).not.toContainText('125,000');
+  await expect(tab).not.toContainText('Hidden (commercial)');
+  await expect(tab).toContainText('125,000');
   await expect(tab.getByTestId('solution-form')).toHaveCount(0);
   await expect(tab.getByRole('button', { name: /Assign|Accept|Decide/ })).toHaveCount(0);
   expect(await seriousViolations(page)).toEqual([]);

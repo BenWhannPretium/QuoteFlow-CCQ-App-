@@ -528,12 +528,14 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     expect(dto.proposal).toEqual({ issuedAt: null, validityUntil: null, validityDaysDefault: 30 });
   });
 
-  it('withholds every commercial part from roles that may not read it', async () => {
+  it('shows every commercial part to the other roles too (2026-10-30), without a decision', async () => {
     const qn = await inFinalReview({ g2: 'capital_required' });
+    const lead = await summary(qn, 'Leadership');
+    expect(lead.dto.commercialRedacted).toBe(false);
     for (const role of ['KAM', 'SalesLeader', 'Engineer'] as Role[]) {
       const { dto, raw } = await summary(qn, role);
-      expect(dto.commercialRedacted, role).toBe(true);
-      for (const secret of [
+      expect(dto.commercialRedacted, role).toBe(false);
+      for (const figure of [
         SECRETS.basis,
         SECRETS.range,
         SECRETS.capitalNotes,
@@ -542,20 +544,21 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
         SECRETS.erf,
         '250000',
       ]) {
-        expect(raw, `${role} must not see ${secret}`).not.toContain(secret);
+        expect(raw, `${role} sees ${figure}`).toContain(figure);
       }
-      expect(dto.quoting.pricingRecord ?? null).toBeNull();
-      expect(dto.engineering.review.prelimCapitalUsd).toBeUndefined();
-      expect(dto.engineering.capacityEvidence[0]?.utilizationPct).toBeUndefined();
-      // The approval status is not commercial: "Price approved ✓ on <date> by <name>".
+      expect(dto.quoting.pricingRecord).toEqual(lead.dto.quoting.pricingRecord);
+      expect(dto.engineering.review.prelimCapitalUsd).toBe(
+        lead.dto.engineering.review.prelimCapitalUsd,
+      );
+      expect(dto.engineering.capacityEvidence[0]?.utilizationPct).toBe(
+        lead.dto.engineering.capacityEvidence[0]?.utilizationPct,
+      );
       expect(dto.quoting.approval).toMatchObject({ approved: true });
-      expect(dto.quoting.approval.approvedByName).toBeTruthy();
-      // No decision to take, and the commercial warnings are not derived for them.
+      expect(dto.warnings).toEqual(lead.dto.warnings);
+      // Seeing is not deciding: G4 stays the Approver's.
       expect(dto.availableActions).toEqual([]);
       expect(dto.canDecide).toBe(false);
-      expect(dto.warnings.map((w) => w.code)).not.toContain('CAPITAL_PENDING');
     }
-    expect((await summary(qn, 'Leadership')).dto.commercialRedacted).toBe(false);
   });
 
   it('is a quote view (audited) and 404 for an unknown quote', async () => {
