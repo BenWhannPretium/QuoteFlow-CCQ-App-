@@ -25,6 +25,7 @@ pnpm dev                          # web http://localhost:5173 · api http://loca
 | `pnpm db:migrate`       | apply Drizzle migrations to `DATABASE_URL`                          |
 | `pnpm db:seed`          | load config seeds (add `--synthetic` for the synthetic data set)    |
 | `pnpm db:reset`         | drop, re-migrate (refuses in production)                            |
+| `pnpm db:demo`          | drop, re-migrate, seed config + the 12 demo quotes (one per stage)  |
 
 ## Repository layout
 
