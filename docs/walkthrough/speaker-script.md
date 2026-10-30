@@ -10,6 +10,8 @@ One core script, four audience modules. Word-for-word. Demo runs locally in `AUT
 - `DO:` is what you click. Don't read it out.
 - `[PERSONA: x]` means pick `x` in the DEV bar's **Persona** dropdown.
 - `[MODULE]` marks where an audience module plugs in.
+- `FILL:` tables list what to type or pick on each form. Everything uses one running example, a **16 oz HDPE bottle** for a household-cleaner line, so the story stays consistent from intake to hand-off. Dropdown values are exact names from the seeded option lists. Free-text values are invented. Don't use real customer details.
+- Don't enter an annual volume of exactly 1,000,000 (or any whole multiple of it). The app treats that as a default and shows a "Is this the customer's real annual volume?" prompt. The table uses 750,000.
 
 ---
 
@@ -77,19 +79,64 @@ DO: **New intake**. Step 1, **Opportunity**. Type part of an opportunity name in
 
 SAY: "A KAM starts by finding their own Salesforce opportunity. The details come straight from Salesforce: name, account, amount, close date, owner. I'm not retyping any of it."
 
+FILL (step 1, Opportunity):
+
+| Field | Enter |
+|---|---|
+| Find the Salesforce opportunity | Type the first few letters of any open opportunity in the list. Keep **Mine** selected, and pick one that has no **Has quote CCQ-…** badge |
+
 DO: Click **Use this opportunity**. Step 2, **Customer & ship-to**.
 
 SAY: "The customer is pulled from the Salesforce account and flagged as existing or not yet established. There is deliberately no way to create a customer account here. That stays in the system that owns it."
 
-DO: Point at **Ship-to / fill location**. Click **Next**. Step 3, **Product & volume**. Fill the fields quickly (request class, product family, components, market, resin, neck finish, packaging type, annual volume, annual revenue, expected close date).
+FILL (step 2, Customer & ship-to). Nothing to type, the customer and default ship-to come from Salesforce. To demo a ship-to change instead, click **Change ship-to** and use:
+
+| Field | Enter |
+|---|---|
+| Street | 1200 Commerce Pkwy |
+| City | Aurora |
+| State / region | IL |
+| Postal code | 60504 |
+| Country | USA |
+| Reason for changing the ship-to | Customer ships from its regional distribution centre |
+
+DO: Point at **Ship-to / fill location**. Click **Next**. Step 3, **Product & volume**. Fill the fields quickly.
+
+FILL (step 3, Product & volume):
+
+| Field | Enter |
+|---|---|
+| Request class | CCQ (new business + capital/engineering) |
+| Product family | Bottle |
+| Container size | 16 oz |
+| Resin | HDPE |
+| Market | Household Chemical |
+| Components (tick) | Container, Closure |
+| Neck finish / type | 28-410 |
+| Packaging type | Palletized-custom |
+| Packaging requirements | Palletized, 12 cases per layer, max height 60 in |
+| Estimated annual volume (units) | 750000 |
+| Estimated annual revenue (USD) | 1800000 |
+| Expected close date | 2027-01-29 (about 90 days out; use any future date) |
+| Standard description | Click the suggested text. It builds "16 oz Bottle, HDPE with Container, Closure" |
+| Anything else (free text) | New 16 oz HDPE bottle, 28-410 finish, for a household-cleaner line |
+
+Only **Product family**, **Resin** and **Estimated annual volume** block a submit (plus the opportunity, customer name and a ship-to street or city). Everything else is advisory. To show a blocked submit, leave **Resin** empty.
 
 SAY: "Every field has a one-line reason for why we ask. And notice what the KAM is not asked: plant, engineer, priority. Those aren't the KAM's decisions."
 
 DO: **Next**. Step 4, **Drawing, notes & review**. Set **Drawing** to **None (quote will take longer)**. Show **Engineering may ask about this**.
 
+FILL (step 4, Drawing, notes & review):
+
+| Field | Enter |
+|---|---|
+| Drawing | None (quote will take longer). To show an upload instead, pick **Have drawing** and drop any small PDF |
+| Comments for engineering | No drawing yet. Customer will send CAD after kickoff. Target launch Q3 2027. Please confirm EBM shuttle capacity. |
+
 SAY: "If something is missing, I'm told up front what engineering may come back on. I can still submit. If it's a hard requirement, the Submit button stays disabled and tells me exactly what's missing."
 
-DO: Type a short note in **Comments for engineering**. Click **Submit to CCQ**.
+DO: Type the **Comments for engineering** from the table. Click **Submit to CCQ**.
 
 SAY: "And that's the intake. The system generates the quote number. That number follows this quote everywhere."
 
@@ -125,7 +172,39 @@ DO: `[PERSONA: engineer]`. **My assignments**. Open your quote, **Engineering** 
 
 SAY: "The engineer accepts and does the review. Process type, machine, plant, cavitation, cycle time, preliminary capital, tooling, technical concept."
 
-DO: Fill a few fields. Click **Save solution**. Add one row under **Capacity evidence**. **Save capacity evidence**.
+FILL (**Engineering** tab, Solution):
+
+| Field | Enter |
+|---|---|
+| Process type | EBM |
+| Machine type | EBM shuttle |
+| Plant / site | Placeholder plant 01 |
+| Cavitation | 4 |
+| Cycle time (s) | 12 |
+| Preliminary capital (USD) | 450000 |
+| Tooling notes (mold, hot runner) | New 4-cavity mold set. Standard neck insert for 28-410. |
+| Downstream equipment | Leak tester and case packer on the existing line |
+| Technical concept | 4-cavity EBM shuttle, 16 oz HDPE bottle, about 28 g, existing 28-410 tooling family |
+| Equipment BOM | 1 mold set (4 cavities), neck insert, leak tester |
+| Supply Chain | HDPE from the existing resin contract. No new supplier needed. |
+
+DO: Click **Save solution**. Click **Add capacity row**.
+
+FILL (Capacity evidence row):
+
+| Field | Enter |
+|---|---|
+| Site | Placeholder plant 01 |
+| Line / asset | EBM-07 |
+| Assumed effectiveness % | 82 |
+| Cycle time (s) | 12 |
+| Utilization % | 78 |
+| Buffer % | 10 |
+| Analysis date | Today |
+| Analyst | Pick any name in the list |
+| Notes and assumptions | Assumes 82% effectiveness, 3 shifts, 5 days. Buffer covers changeovers. |
+
+DO: Click **Save capacity evidence**.
 
 DO: Point at **Preliminary capital (USD)** and the capacity numbers now showing **Hidden**.
 
@@ -151,11 +230,44 @@ DO: Show the **Pricing history** card.
 
 SAY: "Pricing history comes from the retired pricing app's export, loaded by an admin. It is read-only. QuoteFlow shows it, it never edits it."
 
-DO: In **Price approval record**: tick **Costing completed (Cost-to-Serve)**, pick **Approved by**, set **Approved at**, add **Pricing basis** and **Approved negotiation range**. **Save price approval**.
+FILL (**Quoting** tab, Price approval record):
+
+| Field | Enter |
+|---|---|
+| Legacy ERF # (optional) | Leave blank, or ERF-10482 (invented) |
+| Costing completed (Cost-to-Serve) | Tick |
+| Approved by | Pick any name in the list |
+| Approved at | Now |
+| Pricing basis | Cost-to-serve plus standard margin target. Resin indexed to contract. |
+| Approved negotiation range | Within the approved band. Walk-away at the floor set by the pricing lead. |
+
+Keep the wording about price qualitative. The record has no price field, and it keeps the demo clear of real figures.
+
+DO: Click **Save price approval**.
 
 SAY: "Here's a deliberate design choice. There is no field to type a price. Costing happens in Excel and the pricing application, which stay the systems of record. QuoteFlow records that costing was completed and who approved it."
 
-DO: Set **Capital readiness** status. **Save capital readiness**. In **Commercial terms** tick **Terms checked** and **Save terms**.
+FILL (Capital readiness):
+
+| Field | Enter |
+|---|---|
+| Status | Pre-approved (G2 said capital is required, so **Not required** is blocked) |
+| CER reference (optional) | CER-2026-0457 (invented) |
+| Capital notes | Mold set funded under the FY27 capital plan |
+
+DO: **Save capital readiness**.
+
+FILL (Commercial terms):
+
+| Field | Enter |
+|---|---|
+| Tooling funding model | Company-funded |
+| Customer tooling commitment | None |
+| MOQ | 50,000 units |
+| Payment terms | Net 45 |
+| Terms checked | Tick |
+
+DO: Click **Save terms**.
 
 DO: Click **Advance to Final Review…**, **Record decision**.
 
@@ -187,7 +299,18 @@ SAY: "Approving here is internal. It releases the proposal to the customer. It d
 
 ### 1.8 Customer decision and hand-off (4 min)
 
-DO: `[PERSONA: kam]`. **My proposals**. Click **Record outcome** on your quote. **Awarded**, acceptance evidence **Purchase order (PO)**, accepted date today. **Record decision**.
+FILL (Record outcome, to show an award):
+
+| Field | Enter |
+|---|---|
+| Outcome | Awarded |
+| Acceptance evidence | Purchase order (PO) |
+| Customer accepted on | Today (a future date is refused) |
+| Document link (optional) | https://example.com/po/12345 (invented) |
+
+To show a loss instead: **Lost**, reason **Price**, competitor `Competitor A`.
+
+DO: `[PERSONA: kam]`. **My proposals**. Click **Record outcome** on your quote, fill the table, **Record decision**.
 
 SAY: "The customer answers, and the KAM records it. Awarded, lost, or no response. Lost needs a reason code, and an expired proposal needs a note. That feeds the reasons chart you'll see in a moment."
 
@@ -195,7 +318,19 @@ DO: Open the quote. Show the stage **Commit & Hand Off**. Click **Commit & hand 
 
 SAY: "Awarded does not mean closed. The deal is closed won only after the capital approval is recorded, or marked not required, and the receiving team accepts the hand-off. So we don't lose deals in the gap between a yes and actual production."
 
-DO: Fill the card (**CER status**, **Receiving role**, tick **Hand-off accepted by the receiving team**), **Save hand-off**, then **Advance (close Won)**, **Record decision**.
+FILL (**Commit & hand off** card):
+
+| Field | Enter |
+|---|---|
+| CER status | Approved |
+| CER ID (Apex) | APX-2026-0457 (invented) |
+| CER approved on | Today |
+| Receiving role | Operations (or the closest option) |
+| Receiving contact | Dana Reyes (synthetic name) |
+| Accepted-by date | Today |
+| Hand-off accepted by the receiving team | Tick |
+
+DO: Click **Save hand-off**, then **Advance (close Won)**, **Record decision**.
 
 ### 1.9 Leadership view and the audit trail (4 min)
 
