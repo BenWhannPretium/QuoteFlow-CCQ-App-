@@ -393,6 +393,13 @@ What the less obvious ones mean:
 - `MAIL_MODE=graph` + `NOTIFICATION_DISPATCH_INTERVAL_SECONDS=0`: email is switched **off** until the mailbox exists (M7). In-app notifications still work.
 - `SF_MODE=fake`, `PRICING_MODE=fake`, `SEED_SYNTHETIC_DATA=true`: **synthetic data only** until Salesforce (M3) and the production-data approval. Never set `SEED_SYNTHETIC_DATA` on production.
 - `APPLICATIONINSIGHTS_CONNECTION_STRING`: kept ready. Telemetry from the code arrives with B-21; until then logs are in **Log stream**.
+- `SEED_DEMO_DATA=true` (optional, test only): loads the **demo set** on start: 12 fake quotes, one at each
+  stage (Intake through Commit & Hand Off, plus each closed outcome), on fake `(demo)` customers and
+  `006DEMO…` opportunities that the live Salesforce sync never touches. Use it for user-group walkthroughs
+  when the pipeline is otherwise empty. It is idempotent (created once, skipped after). The quotes are acted
+  on by the synthetic `@example.com` personas, which it also creates. Never set it on production. To add it:
+  `az webapp config appsettings set --name $WEBAPP --resource-group $RG --settings SEED_DEMO_DATA=true`, then
+  restart. Locally: `pnpm db:seed --demo`.
 
 **Check:** web app → **Settings → Environment variables**: after the identity is granted in B7, `DATABASE_URL` shows a **green tick** (Key Vault reference resolved).
 

@@ -33,7 +33,7 @@ Built in `main.bicep` from parameters, matching runbook B6: `NODE_ENV=production
 `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, `AUTH_MODE=entra`, `ENTRA_*`, `APP_BASE_URL`,
 `DATABASE_URL` (Key Vault reference to secret `database-url`), `FILESTORE_MODE` + `BLOB_*` (or `SP_*`),
 `MAIL_MODE=graph`, `NOTIFICATION_DISPATCH_INTERVAL_SECONDS`, `SF_*` (the consumer secret as a Key Vault
-reference to `sf-client-secret`), `APPLICATIONINSIGHTS_CONNECTION_STRING`, `SEED_SYNTHETIC_DATA` (test
+reference to `sf-client-secret`), `APPLICATIONINSIGHTS_CONNECTION_STRING`, `SEED_SYNTHETIC_DATA` and `SEED_DEMO_DATA` (test
 only, never emitted for prod), and `FABRIC_WORKSPACE_ID` / `FABRIC_MIRRORED_DB_ID` when given (B-27,
 PR #32). `extraAppSettings` adds plain settings such as `LOG_LEVEL`. `PRICING_MODE` from the runbook is
 dropped: B-15 removed it from `apps/api/src/config.ts`.
