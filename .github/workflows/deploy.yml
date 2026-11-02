@@ -12,7 +12,9 @@ name: Deploy (test)
 #   AZURE_RESOURCE_GROUP   rg-ccq-test
 #   FABRIC_WORKSPACE_ID    B-27: D&A's Fabric workspace for test (empty = no mirror yet, steps skip)
 #   FABRIC_MIRRORED_DB_ID  B-27: the mirrored database item in it
-# B-27: the deploy identity must be a Contributor on that Fabric workspace (stop/start mirroring).
+#                          (runbook 07 puts these two on the `test` environment; either place works)
+# B-27: the deploy identity needs Read and write on that mirrored database (stop/start mirroring;
+# runbook 07 C5).
 # The identity's federated credential trusts subject repo:<owner>/<repo>:environment:test, so the job
 # must keep `environment: test`. If the repo moves to the Pretium org, add a credential for the new
 # name. Runbook: docs/build-guide/06-azure-entra-setup.md.
