@@ -172,7 +172,7 @@ Optimized, on purpose (mirroring), so it can't be applied to test with Burstable
   `ccq_app` / `ccq_migrator` roles are created by the app at start-up.
 - **Fabric (D&A):** workspaces, the mirrored database (created by a D&A service principal), the VNet data
   gateway in `snet-fabric-gw` (its creator needs `subnets/join/action` on the VNet, e.g. Network
-  Contributor), the deploy identity as workspace Contributor, Fabric security (B-27 §3).
+  Contributor), the deploy identity's Read and write share on the mirrored database (runbook `07` C5), Fabric security (B-27 §3).
 - **GitHub:** the `test` / `production` environments, their variables and the production protection
   rule (runbook Part C, B-22).
 - **IT approvals:** D-FB3 (test on General Purpose), D-H2 exposure (M8), naming/tagging standard and
