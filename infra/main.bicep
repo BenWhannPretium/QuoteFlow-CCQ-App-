@@ -93,6 +93,10 @@ param blobContainerName string = 'attachments'
 param sharePointSiteId string = ''
 param sharePointDriveId string = ''
 param mailFrom string = ''
+@description('Test only (ignored on prod): the only addresses that get their own email (MAIL_ALLOWLIST).')
+param mailAllowlist array = []
+@description('Test only (ignored on prod): where everyone else\'s copy goes. Empty = dropped (MAIL_REDIRECT_TO).')
+param mailRedirectTo string = ''
 @description('0 = email dispatch off until the shared mailbox exists (M7).')
 param notificationDispatchIntervalSeconds int = 0
 @allowed(['fake', 'live'])
@@ -272,6 +276,7 @@ module peBlob 'modules/privateEndpoint.bicep' = if (deployNetwork) {
 var kvRef = '@Microsoft.KeyVault(SecretUri=${keyVault.outputs.vaultUri}secrets/'
 var baseSettings = {
   NODE_ENV: 'production'
+  APP_ENVIRONMENT: environmentName
   SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
   AUTH_MODE: 'entra'
   ENTRA_TENANT_ID: entraTenantId
@@ -310,6 +315,8 @@ var sfSettings = sfMode == 'live'
 var optionalSettings = union(
   empty(mailFrom) ? {} : { MAIL_FROM: mailFrom },
   environmentName == 'test' ? { SEED_SYNTHETIC_DATA: seedSyntheticData ? 'true' : 'false' } : {},
+  environmentName == 'test' && !empty(mailAllowlist) ? { MAIL_ALLOWLIST: join(mailAllowlist, ',') } : {},
+  environmentName == 'test' && !empty(mailRedirectTo) ? { MAIL_REDIRECT_TO: mailRedirectTo } : {},
   empty(fabricWorkspaceId) ? {} : { FABRIC_WORKSPACE_ID: fabricWorkspaceId },
   empty(fabricMirroredDbId) ? {} : { FABRIC_MIRRORED_DB_ID: fabricMirroredDbId }
 )

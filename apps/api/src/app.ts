@@ -8,12 +8,14 @@ import {
   createGraphCredential,
   createMailTransport,
   createSalesforceReader,
+  GuardedMailTransport,
   type FabricMirrorReader,
   type FileStore,
   type FileStoreConfig,
   type FileStoreLogger,
   type GraphCredentialConfig,
   type MailConfig,
+  type MailGuardOptions,
   type MailTransport,
   type SalesforceReader,
   type SfLogger,
@@ -41,7 +43,7 @@ import {
   type UserDirectory,
 } from './auth/directory';
 import { createEntraVerifier } from './auth/entra';
-import type { AppConfig } from './config';
+import { appEnvironment, type AppConfig, type AppEnvironment } from './config';
 import {
   createFabricMirrorCheckScheduler,
   type FabricMirrorCheckScheduler,
@@ -161,6 +163,26 @@ export function graphCredentialFor(config: AppConfig): GraphCredentialConfig {
     : { kind: 'managed-identity' as const, clientId: config.GRAPH_MI_CLIENT_ID };
 }
 
+const GUARD_LABELS: Record<Exclude<AppEnvironment, 'prod'>, string> = {
+  local: 'LOCAL',
+  test: 'TEST',
+  unset: 'NOT PROD',
+};
+
+/**
+ * The mail guard outside prod: Graph mail (the only transport that reaches real inboxes) goes only to
+ * MAIL_ALLOWLIST, the rest to MAIL_REDIRECT_TO or nowhere. Null in prod, and for smtp/fake.
+ */
+export function mailGuardFor(config: AppConfig): Omit<MailGuardOptions, 'logger'> | null {
+  const env = appEnvironment(config);
+  if (env === 'prod' || config.MAIL_MODE !== 'graph') return null;
+  return {
+    label: GUARD_LABELS[env],
+    allow: config.MAIL_ALLOWLIST ?? [],
+    ...(config.MAIL_REDIRECT_TO ? { redirectTo: config.MAIL_REDIRECT_TO } : {}),
+  };
+}
+
 /** B-18: where notification email goes. */
 export function mailConfig(config: AppConfig): MailConfig {
   switch (config.MAIL_MODE) {
@@ -264,6 +286,11 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     (deps.db.db ? createPgDirectory(deps.db.db, deps.now) : unavailableDirectory());
   const identity = createIdentityService(directory, deps.now ? { now: deps.now } : {});
 
+  if (appEnvironment(config) === 'unset') {
+    app.log.warn(
+      'APP_ENVIRONMENT is not set: showing the "not prod" banner and guarding Graph mail. Set it to test or prod.',
+    );
+  }
   if (config.AUTH_MODE === 'dev') {
     app.log.warn(
       '\n' +
@@ -347,15 +374,17 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   // from the shared mailbox and builds the 7:00 AM Central to-qualify digest.
   const notificationService = new NotificationService(deps.now ? { now: deps.now } : {});
   const mailLog = app.log.child({ component: 'notification-dispatch' });
-  const mailTransport =
-    deps.mail ??
-    createMailTransport(mailConfig(config), {
-      logger: {
-        info: (obj, msg) => mailLog.info(obj, msg),
-        warn: (obj, msg) => mailLog.warn(obj, msg),
-        error: (obj, msg) => mailLog.error(obj, msg),
-      },
-    });
+  const mailLogger = {
+    info: (obj: Record<string, unknown>, msg: string) => mailLog.info(obj, msg),
+    warn: (obj: Record<string, unknown>, msg: string) => mailLog.warn(obj, msg),
+    error: (obj: Record<string, unknown>, msg: string) => mailLog.error(obj, msg),
+  };
+  const baseMailTransport =
+    deps.mail ?? createMailTransport(mailConfig(config), { logger: mailLogger });
+  const guard = mailGuardFor(config);
+  const mailTransport = guard
+    ? new GuardedMailTransport(baseMailTransport, { ...guard, logger: mailLogger })
+    : baseMailTransport;
   const notificationDispatch =
     deps.db.db && deps.db.sql
       ? createNotificationDispatchScheduler(

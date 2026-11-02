@@ -35,6 +35,7 @@ describe('auth contracts', () => {
     expect(
       AuthConfigResponse.parse({
         authMode: 'entra',
+        environment: 'test',
         tenantId: 't',
         spaClientId: 'c',
         apiScope: 'api://x/access_as_user',
@@ -43,9 +44,14 @@ describe('auth contracts', () => {
     expect(
       AuthConfigResponse.parse({
         authMode: 'dev',
+        environment: 'local',
         personas: [{ key: 'kam', roles: ['KAM'], scope: { type: 'all' } }],
       }).authMode,
     ).toBe('dev');
+    expect(
+      AuthConfigResponse.safeParse({ authMode: 'dev', environment: 'staging', personas: [] })
+        .success,
+    ).toBe(false);
   });
 
   it('requires values on region scopes', () => {

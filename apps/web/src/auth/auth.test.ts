@@ -9,6 +9,7 @@ describe('msal configuration', () => {
     const cfg = msalConfiguration(
       {
         authMode: 'entra',
+        environment: 'test',
         tenantId: 'tenant-1',
         spaClientId: 'spa-1',
         apiScope: 'api://x/access_as_user',

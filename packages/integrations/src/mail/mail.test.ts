@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   FakeMailTransport,
   GraphMailTransport,
+  GuardedMailTransport,
   MailError,
   SmtpMailTransport,
   buildMime,
@@ -193,5 +194,62 @@ describe('createMailTransport', () => {
         credential: { kind: 'managed-identity' },
       }).kind,
     ).toBe('graph');
+  });
+});
+
+describe('GuardedMailTransport (test environment)', () => {
+  const logs: Record<string, unknown>[] = [];
+  const logger = { info: (o: Record<string, unknown>) => logs.push(o), warn() {}, error() {} };
+
+  it('delivers to allowlisted recipients, case-insensitively, with a [TEST] subject', async () => {
+    const inner = new FakeMailTransport();
+    const guard = new GuardedMailTransport(inner, {
+      label: 'TEST',
+      allow: ['JIM@pretiumpkg.com '],
+    });
+    await guard.send(MESSAGE);
+    expect(inner.sent).toEqual([{ ...MESSAGE, subject: `[TEST] ${MESSAGE.subject}` }]);
+    expect(guard.kind).toBe('fake');
+  });
+
+  it('redirects everyone else, naming the intended recipient in the subject and body', async () => {
+    const inner = new FakeMailTransport();
+    const guard = new GuardedMailTransport(inner, {
+      label: 'TEST',
+      allow: [],
+      redirectTo: 'ccq-test@pretiumpkg.com',
+    });
+    await guard.send({ ...MESSAGE, to: 'kam<x>@pretiumpkg.com' });
+    const [sent] = inner.sent;
+    expect(sent).toMatchObject({
+      to: 'ccq-test@pretiumpkg.com',
+      subject: `[TEST → kam<x>@pretiumpkg.com] ${MESSAGE.subject}`,
+    });
+    expect(
+      sent!.text.startsWith('TEST copy: this message was addressed to kam<x>@pretiumpkg.com.'),
+    ).toBe(true);
+    expect(sent!.html).toContain('kam&#60;x&#62;@pretiumpkg.com');
+    expect(sent!.html).toContain(MESSAGE.html);
+  });
+
+  it('drops (and logs without the address) when there is no redirect', async () => {
+    const inner = new FakeMailTransport();
+    logs.length = 0;
+    const guard = new GuardedMailTransport(inner, {
+      label: 'TEST',
+      allow: ['other@pretiumpkg.com'],
+      logger,
+    });
+    await expect(guard.send(MESSAGE)).resolves.toBeUndefined();
+    expect(inner.sent).toEqual([]);
+    expect(logs).toEqual([{ guard: 'TEST', outcome: 'dropped' }]);
+    expect(JSON.stringify(logs)).not.toContain('jim@');
+  });
+
+  it('passes send failures through so the outbox retries', async () => {
+    const inner = new FakeMailTransport();
+    inner.failNext(1, new MailError('THROTTLED', 'slow down', 429));
+    const guard = new GuardedMailTransport(inner, { label: 'TEST', allow: [MESSAGE.to] });
+    await expect(guard.send(MESSAGE)).rejects.toMatchObject({ code: 'THROTTLED' });
   });
 });

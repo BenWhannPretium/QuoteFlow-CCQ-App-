@@ -31,6 +31,8 @@ doesn't lose them.
 ### App settings
 
 Built in `main.bicep` from parameters, matching runbook B6: `NODE_ENV=production`,
+`APP_ENVIRONMENT` (= `environmentName`: banner and mail guard), test only `MAIL_ALLOWLIST` /
+`MAIL_REDIRECT_TO` when set,
 `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, `AUTH_MODE=entra`, `ENTRA_*`, `APP_BASE_URL`,
 `DATABASE_URL` (Key Vault reference to secret `database-url`), `FILESTORE_MODE` + `BLOB_*` (or `SP_*`),
 `MAIL_MODE=graph`, `NOTIFICATION_DISPATCH_INTERVAL_SECONDS`, `SF_*` (the consumer secret as a Key Vault

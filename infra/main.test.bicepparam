@@ -44,8 +44,15 @@ param entraSpaClientId = '033b5ed1-f56f-48c7-9c74-83089f6b311f' // gitleaks:allo
 // exist and are populated: switching first refuses every test user (403, no CCQ role).
 param entraRolePrefix = 'CCQ.'
 
+// Blob, so test's files never land in prod's SharePoint. If test moves to SharePoint, give it its own
+// test site or library (sharePointSiteId / sharePointDriveId), never prod's.
 param filestoreMode = 'blob'
 param notificationDispatchIntervalSeconds = 0
+// Mail guard: test holds real Salesforce data, so Graph mail reaches only these addresses; everyone
+// else's copy goes to mailRedirectTo, or is dropped when that is empty. Fill both before turning on
+// email (notificationDispatchIntervalSeconds > 0) for UAT.
+param mailAllowlist = []
+param mailRedirectTo = ''
 
 // Salesforce live since 2026-10-24 (03 B-06): client credentials against the production org.
 param sfMode = 'live'

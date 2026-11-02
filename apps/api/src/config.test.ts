@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ConfigError, loadConfig } from './config';
+import { appEnvironment, ConfigError, loadConfig } from './config';
 
 const base = {
   DATABASE_URL: 'postgres://ccq:ccq@localhost:5432/ccq',
@@ -66,6 +66,46 @@ describe('loadConfig', () => {
         /ENTRA_ROLE_PREFIX/,
       );
     }
+  });
+
+  it('reads the environment, failing safe to "unset" in production', () => {
+    expect(appEnvironment(loadConfig({ ...base, AUTH_MODE: 'dev' }))).toBe('local');
+    expect(appEnvironment(loadConfig({ ...base, AUTH_MODE: 'dev', APP_ENVIRONMENT: 'test' }))).toBe(
+      'test',
+    );
+    const prodNoEnv = loadConfig({
+      ...base,
+      NODE_ENV: 'production',
+      AUTH_MODE: 'entra',
+      ENTRA_TENANT_ID: 't',
+      ENTRA_API_AUDIENCE: 'api://quoteflow',
+      ENTRA_SPA_CLIENT_ID: 's',
+      FILESTORE_MODE: 'blob',
+      BLOB_ACCOUNT_URL: 'https://x.blob.core.windows.net',
+      BLOB_CONTAINER: 'c',
+      MAIL_MODE: 'graph',
+    });
+    expect(appEnvironment(prodNoEnv)).toBe('unset');
+    expect(() => loadConfig({ ...base, AUTH_MODE: 'dev', APP_ENVIRONMENT: 'staging' })).toThrow(
+      /APP_ENVIRONMENT/,
+    );
+  });
+
+  it('keeps the mail guard settings out of prod, and validates the allowlist', () => {
+    for (const extra of [
+      { MAIL_ALLOWLIST: 'ben@pretiumpkg.com' },
+      { MAIL_REDIRECT_TO: 'ccq-test@pretiumpkg.com' },
+    ]) {
+      expect(() =>
+        loadConfig({ ...base, AUTH_MODE: 'entra', APP_ENVIRONMENT: 'prod', ...extra }),
+      ).toThrow(/forbidden when APP_ENVIRONMENT=prod/);
+    }
+    expect(() => loadConfig({ ...base, AUTH_MODE: 'dev', APP_ENVIRONMENT: 'prod' })).toThrow(
+      /AUTH_MODE=dev is forbidden when APP_ENVIRONMENT=prod/,
+    );
+    expect(() =>
+      loadConfig({ ...base, AUTH_MODE: 'dev', MAIL_ALLOWLIST: 'ben@pretiumpkg.com, not-an-email' }),
+    ).toThrow(/MAIL_ALLOWLIST/);
   });
 
   it('rejects a non-postgres DATABASE_URL and a missing AUTH_MODE', () => {

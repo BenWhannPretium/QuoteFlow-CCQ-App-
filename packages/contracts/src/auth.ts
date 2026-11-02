@@ -21,12 +21,20 @@ export const DevPersona = z.object({
 export type DevPersona = z.infer<typeof DevPersona>;
 
 /**
+ * Which deployment the SPA is talking to (`APP_ENVIRONMENT`). Every value but `prod` shows the
+ * environment banner. `unset` = a production build with no APP_ENVIRONMENT (fails safe: banner on).
+ */
+export const AppEnvironment = z.enum(['local', 'test', 'prod', 'unset']);
+export type AppEnvironment = z.infer<typeof AppEnvironment>;
+
+/**
  * `GET /api/v1/auth/config` (public): what the SPA needs to start sign-in. Served at runtime so one
  * web build works in every environment. None of these values are secrets.
  */
 export const AuthConfigResponse = z.discriminatedUnion('authMode', [
   z.object({
     authMode: z.literal('entra'),
+    environment: AppEnvironment,
     tenantId: z.string(),
     spaClientId: z.string(),
     /** e.g. `api://<api-client-id>/access_as_user` */
@@ -34,6 +42,7 @@ export const AuthConfigResponse = z.discriminatedUnion('authMode', [
   }),
   z.object({
     authMode: z.literal('dev'),
+    environment: AppEnvironment,
     personas: z.array(DevPersona),
   }),
 ]);
