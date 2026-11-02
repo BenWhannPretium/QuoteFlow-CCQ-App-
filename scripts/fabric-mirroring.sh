@@ -14,7 +14,7 @@
 #       poll until mirroring is Running and no table is Failed or Stopped (default 900 s).
 #
 # Env: FABRIC_WORKSPACE_ID, FABRIC_MIRRORED_DB_ID. Auth: the signed-in az CLI (the OIDC deploy
-# identity, which must be a Contributor on the Fabric workspace). Prints statuses and table names
+# identity, which needs Read and write on the mirrored database: runbook 07 C5). Prints statuses and table names
 # only, never data.
 set -euo pipefail
 

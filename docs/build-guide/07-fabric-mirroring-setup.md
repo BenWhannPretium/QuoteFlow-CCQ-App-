@@ -29,10 +29,11 @@ After most steps there's a **Check:** line saying what you should see.
 
 | # | Decision | Why it blocks | Owner |
 |---|---|---|---|
+| 0 | **D-23: the copy is real data.** Test runs on production Salesforce data (since 2026-10-24) and real QuoteFlow records, so the Fabric copy holds real customer, pricing and capital figures. | CLAUDE.md rule 8: production data moves only with IT and D&A approval. D-23 is approved in principle, but its written approval is still pending; it must cover copying the data to Fabric. | Oliver Kade + Brennan Paul |
 | 1 | **D-FB3: approve General Purpose compute for test Postgres.** | Fabric mirroring does **not** support the Burstable tier, and test runs on Burstable `Standard_B1ms` today. Step B1 moves it to General Purpose `Standard_D2ds_v5`, which costs more each month (estimate in `infra/README.md`). Test must stay off Burstable for as long as it's mirrored. | Oliver Kade (cost) + Brennan Paul |
-| 2 | **Fabric connects as the database's admin login.** See the box below. | Fabric only mirrors tables owned by the login it connects with. | IT + D&A sign-off |
-| 3 | **D-FB2: what's mirrored.** This runbook turns on **Mirror all data**, which copies every table, including the Salesforce copy (`sf_opportunity_snapshot`), the legacy pricing import (`pricing_history_record`) and Drizzle's bookkeeping table (`drizzle.__drizzle_migrations`). | With **Mirror all data** on, tables that future migrations add are mirrored automatically. Picking tables by hand switches that off, so every new table would need a manual add in Fabric. The bookkeeping table holds only migration hashes and dates. | Brennan Paul |
-| 4 | **D-FB4: workspace, capacity and the account that creates the mirror.** | The mirrored database **can't change owner**. Microsoft: when the owner leaves, or **doesn't sign in for more than 90 days**, the item may stop working, and a mirrored database then has to be recreated. So it must be created by a D&A **service account** (a non-personal user account), not by a person, and that account must **sign in to Fabric at least every 90 days**. Until D-FB4 is decided, only D&A engineers and CCQ Admins get access, and there are no downstream readers. | Brennan Paul |
+| 2 | **Fabric connects as the database's admin login.** See the box below. | Fabric only mirrors tables owned by the login it connects with. | IT (including security) + D&A sign-off |
+| 3 | **D-FB2: what's mirrored.** This runbook turns on **Mirror all data**, which copies every table, including the Salesforce copy (`sf_opportunity_snapshot`), the legacy pricing import (`pricing_history_record`) and Drizzle's bookkeeping table (`drizzle.__drizzle_migrations`). | With **Mirror all data** on, tables that future migrations add are mirrored automatically. Picking tables by hand switches that off, so every new table would need a manual add in Fabric. The bookkeeping table holds only migration hashes and dates. This differs from D-FB2's proposed default, which excluded it. **Also decide on `feedback`:** "Report an issue" screenshots are stored in it, Fabric mirrors them, and the dialog promises "Only the QuoteFlow admins see screenshots". Either accept it (and change that sentence), or exclude `feedback`, which turns **Mirror all data** off. | Brennan Paul (+ Ben for the `feedback` text) |
+| 4 | **D-FB4: workspace, capacity and the account that creates the mirror.** | The mirrored database **can't change owner**. Microsoft: when the owner leaves, or **doesn't sign in for more than 90 days**, the item may stop working, and a mirrored database then has to be recreated. So it must be created by a D&A **service account**, a non-personal **user** account, not by a person. D-FB4's draft says "service principal", but a service principal can't sign in to the Fabric portal, and this runbook creates the mirror in the portal. The account must **sign in to Fabric at least every 90 days**, and needs a way through MFA or Conditional Access that D&A controls. Until D-FB4 is decided, only D&A engineers and CCQ Admins get access, and there are no downstream readers. | Brennan Paul |
 
 > **Why Fabric connects as the admin login (decision 2).** Microsoft requires the login Fabric uses to **own** every table it mirrors (a PostgreSQL publication rule). In QuoteFlow, every table is created by the migrations, which run as the server's admin login (`ccqadmin` if the server was built with runbook `06`). So that login owns every table today, and will own every table future migrations create.
 >
@@ -40,6 +41,7 @@ After most steps there's a **Check:** line saying what you should see.
 >
 > **What this means in practice:**
 > - The Fabric connection stores the admin password, encrypted by Fabric. Only the D&A service account that creates the connection can see or use it; don't share the connection.
+> - **Use this connection for the mirror and nothing else.** The admin login can change any table, so reusing the connection in, say, a Fabric pipeline could write to QuoteFlow's database. That's why decision 2 needs IT security's sign-off too.
 > - Changing the admin password means updating the Fabric connection too (§6).
 > - Step B6 gives the admin login the `REPLICATION` attribute and the `azure_cdc_admin` role. The app also connects as this login (`06` §6 deviation 3), so the app's login gains these rights.
 >
@@ -50,10 +52,11 @@ After most steps there's a **Check:** line saying what you should see.
 | Who | Where | Right | Why |
 |---|---|---|---|
 | Fabric admin | Fabric tenant | **Fabric administrator** | Turn on two tenant settings (A2) |
-| D&A | Fabric capacity | **Capacity admin or contributor** on a **running** F-SKU capacity | Put the workspace on it (A3) |
+| D&A service account | Fabric capacity | **Capacity admin or contributor** on a **running** F-SKU capacity | Put the workspace on it (A3) |
+| D&A | Azure, the Fabric capacity resource | **Contributor** (or Owner) | Resume the capacity if it's paused (A1) |
 | D&A service account | Fabric workspace | **Admin** or **Member** (it is Admin if it creates the workspace) | Only Admin or Member can create a mirrored database. Contributor can't: creation needs the "Reshare" permission to give the Postgres server access to the mirror. |
 | IT | Azure, the test Postgres server | **Contributor** (or Owner) on the server or `rg-ccq-test` | Scale compute, enable the server identity, run the Fabric mirroring page, add and remove firewall rules |
-| IT (optional) | Entra ID | **Groups Administrator**, or owner of the group used in A2 | Only if the tenant setting in A2 is limited to a security group |
+| IT (optional) | Entra ID | **Groups Administrator**, or owner of the group used in A2 | Only if the tenant setting in A2 is limited to a security group: IT adds the three identities to it |
 | Dev | Key Vault `kv-quoteflow-test-*` | **Key Vault Secrets Officer** (granted in `06` B4) | Read the admin password from the `database-url` secret |
 | Dev | Azure `rg-ccq-test` | **Website Contributor** (granted in `06` B9) | Add two app settings (E2) |
 | Dev | GitHub repo | **Admin** | Add two environment variables (E1) |
@@ -74,12 +77,12 @@ After most steps there's a **Check:** line saying what you should see.
 | Mirrored database | `ccq_test_mirror` | Letters, digits and underscores only, to be safe |
 | Fabric connection | `ccq-test-postgres` | |
 
-### 0.4 Running order, and the two short outages
+### 0.4 Running order, and the short outages
 
 | Order | Who | What | Roughly |
 |---|---|---|---|
 | Any day before | Fabric admin, D&A | **Part A**: tenant settings, workspace, access. A tenant setting can take up to 15 minutes to apply, so do this first. | 30 min |
-| 1 | IT | **B1–B3**: scale up, server identity, Fabric mirroring page. **Each of B1 and B3 restarts the database: QuoteFlow test is down for a few minutes each time.** Tell Bailey and Tre beforehand. | 30–45 min |
+| 1 | IT | **B1–B3**: scale up, server identity, Fabric mirroring page. **Each of B1 and B3 restarts the database: QuoteFlow test is down for a few minutes each time** (and possibly a third time, if B7 needs its `max_worker_processes` fix). Tell Bailey and Tre beforehand. | 30–45 min |
 | 2 | IT + Dev | **B4–B8**: firewall rule for Dev, SQL grants and checks | 20 min |
 | 3 | D&A (service account) + Dev | **Part C**: create the mirror, watch the first copy | 20 min |
 | 4 | Dev | **Part D**: prove it (row counts, a JSON column, latency) | 30 min |
@@ -111,7 +114,7 @@ Azure portal → search **Microsoft Fabric** → open the capacity D&A will use 
 1. Fabric portal → **OneLake catalog** → **Govern** tab → **Configurations** → **Tenant settings**. (If you don't see **Govern**, use the **Settings** gear → **Admin portal** → **Tenant settings**.)
 2. Under **Developer settings**, open **Service principals can call Fabric public APIs**. Some Microsoft pages still use its old name, "Service principals can use Fabric APIs".
    - Make sure it is **Enabled**.
-   - If it's enabled only for **specific security groups**, put these three identities in one of those groups. Microsoft says a service principal must be in an allowed group; it doesn't say whether that includes the Postgres server's identity, so include it to be safe. In the **Entra admin center → Groups → the group → Members → + Add members**, search each by name:
+   - If it's enabled only for **specific security groups**, **[IT]** puts these three identities in one of those groups. Microsoft says a service principal must be in an allowed group; it doesn't say whether that includes the Postgres server's identity, so include it to be safe. In the **Entra admin center → Groups → the group → Members → + Add members**, search each by name:
      - the Postgres server (its identity has the server's name; it exists only after **B2**, so add it then),
      - `id-quoteflow-deploy`,
      - `quoteflow-test` (the web app's identity).
@@ -136,12 +139,10 @@ In the workspace, select **Manage access** (sometimes under **…**) → **Add p
 |---|---|---|
 | D&A engineers (their group) | **Admin** or **Member**, as D&A decides | Run and secure the mirror |
 | Ben (CCQ Admin and developer) | **Contributor** | Watch replication, stop and start it if needed, run the tie-out queries |
-| `id-quoteflow-deploy` (the GitHub deploy identity) | **Contributor** | The deploy pipeline stops and starts mirroring around schema changes. Stop and start need **read and write** permission on the mirrored database, and Contributor gives that. |
-| `quoteflow-test` (the web app's identity) | **Viewer** | QuoteFlow's hourly health check reads the mirroring status, which needs **read** permission. |
 
-- **Don't add** the Postgres server's identity here. Fabric gives it **Read and Write** on the mirrored database by itself in C3.
-- **No one else** gets access until D-FB4 is decided, and nobody uses **Share** on the mirrored database: sharing an item gives access without a workspace role. Workspace roles and item sharing are the only ways in, because none of QuoteFlow's Postgres permissions or row-level security carry over to Fabric.
-- If a managed identity doesn't show up when you search, check that A2's first setting is on, and wait: a tenant setting can take up to 15 minutes to apply.
+- **Don't add QuoteFlow's two machine identities here.** A workspace role would let them read every mirrored table. C5 gives each one only the permission its job needs, on the mirrored database alone.
+- **Don't add** the Postgres server's identity either. Fabric gives it **Read and Write** on the mirrored database by itself in C3.
+- **No one else** gets access until D-FB4 is decided, and nobody uses **Share** on the mirrored database except in C5: sharing an item gives access without a workspace role. Workspace roles and item sharing are the only ways in, because none of QuoteFlow's Postgres permissions or row-level security carry over to Fabric.
 
 **Check:** **Manage access** lists every row above with the right role.
 
@@ -184,9 +185,11 @@ This one page does the rest of the server setup for you: it sets `wal_level = lo
 ### B4. [IT] Let Dev's computer reach the database (temporary)
 
 1. The Postgres server → **Settings → Networking**.
-2. Select **+ Add current client IP address** **on Dev's computer**, or type Dev's public IP address as both start and end. Name the rule `tmp-dev-fabric-setup`.
-3. **Don't touch** the existing rules, and leave **Allow public access from any Azure service within Azure to this server** ticked: QuoteFlow and Fabric both connect through it.
-4. Select **Save**.
+2. **Get Dev's IP address first.** **[Dev]** opens this same **Networking** page on their own computer (their Reader role is enough to view it). They read the address shown in the button label **Add current client IP address (x.x.x.x)**, without selecting it, and send it to IT. Dev can't save the rule themselves, and if IT selects the button it adds IT's own address.
+3. **[IT]** in the empty firewall-rule row: **Firewall rule name** `tmp-dev-fabric-setup`, **Start IP address** and **End IP address** both Dev's address.
+   - If Dev is on the office network or VPN, that address is shared by everyone there. That's fine for an hour, and it's why Part F removes the rule.
+4. **Don't touch** the existing rules, and leave **Allow public access from any Azure service within Azure to this server** ticked: QuoteFlow and Fabric both connect through it.
+5. Select **Save**.
 
 **Check:** the rule is in the list. Rule changes can take up to 5 minutes to apply. Part F removes it.
 
@@ -200,7 +203,7 @@ This one page does the rest of the server setup for you: it sets `wal_level = lo
    - **Server name:** `<server>.postgres.database.azure.com`
    - **Authentication type:** **Password**
    - **User name:** `ccqadmin`
-   - **Password:** the password from step 1
+   - **Password:** the password from step 1. If there's a **Save password** option, leave it **off**.
    - **Database name:** `ccq`
    - **SSL mode:** **require**
 3. Select **Connect**, then right-click the connection → **New Query**.
@@ -293,7 +296,11 @@ Also note the server parameters for the record (Part F), from the portal → **S
    | **Use encrypted connection** | leave **ticked** |
    | **This connection can be used with on-premises data gateway and VNET data gateway** | leave **unticked** |
 
-2. **Entering the password.** Whoever holds Key Vault access (Ben or IT) types or pastes it straight into this field on the service account's screen. Or send it once through Pretium's approved secret-sharing tool. Never send it by chat or email, and never read it aloud.
+2. **Entering the password.** Use one of these two methods only:
+   - **In person:** whoever holds Key Vault access (Ben or IT) sits at the machine where the service account is signed in and types or pastes the password into this field. Clear the clipboard afterwards (copy any other text).
+   - **Pretium's approved secret-sharing tool:** send it once to the person signed in as the service account.
+
+   Don't paste it through Teams remote control (that copies it to the other computer's clipboard), and never send it by chat or email or read it aloud.
 3. Select **Connect**.
 
 **Check:** Fabric moves on to choosing the data.
@@ -319,7 +326,18 @@ In the workspace, on the mirrored database select **…** → **Manage permissio
 **Check:** the Postgres server (listed under its server name) has **Read** and **Write**. Fabric added it in C3.
 - **Never remove it.** Without it, no new data reaches Fabric. If it's ever removed, add it back here with Read and Write (§6).
 
-### C5. [D&A → Dev] Hand over the two IDs (not secrets)
+### C5. [D&A] Give QuoteFlow's two identities access to the mirror only
+
+Both identities get rights on the **mirrored database alone**, not the workspace. Only an Admin or Member can share, so the service account does this.
+
+1. In the workspace, next to the mirrored database, select **Share**. (Or **…** → **Manage permissions** → **Add user**.)
+2. **The web app's identity.** Search `quoteflow-test`. **Leave every extra box unticked**, so it gets only the default **Read**: QuoteFlow's hourly health check reads the mirroring status, which needs read permission on the mirrored database and nothing more. Don't tick **Read all SQL analytics endpoint data** or **Read all OneLake data**. Confirm the share.
+3. **The deploy identity.** Search `id-quoteflow-deploy`. Tick **Read and write** only. The deploy pipeline stops and starts mirroring around schema changes, and Microsoft's stop and start calls need read and write permission. Confirm the share.
+
+**Check:** **Manage permissions** lists `quoteflow-test` with **Read**, `id-quoteflow-deploy` with **Read** and **Write**, and the Postgres server from C4.
+- If an identity doesn't show up when you search, check that A2's first setting is on, and wait: a tenant setting can take up to 15 minutes to apply.
+
+### C6. [D&A → Dev] Hand over the two IDs (not secrets)
 
 Open the **mirrored database** item itself, not the SQL analytics endpoint next to it, which has a different ID. Its browser address looks like `…/groups/<workspace ID>/…/<mirrored database ID>…`:
 - **Workspace ID:** the first long ID, the one right after `/groups/`.
@@ -342,7 +360,7 @@ SELECT slot_name, active FROM pg_replication_slots;
 
 **Check:** one row in each, with `active` = **true**. `snapshot_done` = **true** once the first copy has finished.
 
-### D2. [Dev] Row counts match, table by table (the U5 tie-out)
+### D2. [Dev] Row counts match, table by table
 
 The counts are compared while QuoteFlow is running, so a busy table (`integration_run`, `audit_event`, `notification`) can be a few rows apart. Fabric is a few minutes behind. If one differs, run both sides again a few minutes later.
 
@@ -367,13 +385,15 @@ The counts are compared while QuoteFlow is running, so a busy table (`integratio
    WHERE table_schema IN ('public', 'drizzle') AND table_type = 'BASE TABLE';
    ```
 3. **Fabric counts.** In the workspace, open the **SQL analytics endpoint** (it has the mirror's name) → **New SQL query** → paste → **Run**.
-4. Compare the two lists.
+4. Compare the two lists. On 2026-11-02 the list had **38 tables**: 37 in `public` and `drizzle.__drizzle_migrations`. A later migration can add more.
 
 **Check:**
 - **Same tables on both sides.** Fabric keeps the Postgres schemas, so tables appear as `public.<table>` and `drizzle.__drizzle_migrations`. Compare by table name, not by line: the two systems can sort names slightly differently.
 - **Same counts.**
 - **`Invalid object name`** means one of the tables isn't in Fabric yet; the message names it. Right after the first copy, wait a few minutes and run again, because the SQL endpoint can lag the copy briefly.
 - If a table is still missing or short after 15 minutes, look at its status in **Monitor replication** and see §6.
+
+This is the row-count part of B-27's proof. The rest of the U5 tie-out, comparing 20 quotes field by field, is done at U5 with D&A's curated layer.
 
 > **Why counts are trustworthy here.** Postgres row-level security also applies to the table owner, because QuoteFlow forces it. The admin login sees every row only because it inherits the `ccq_migrator` role, whose policies allow everything (`06` B2; `packages/db/src/migrate.ts`). Matching counts prove that Fabric's first copy got every row too.
 
@@ -386,18 +406,20 @@ SELECT TOP 5 id, counts_json FROM [public].[integration_run] ORDER BY started_at
 ```
 
 **Check:**
-- `counts_json` holds JSON text (it starts with `{`), the same counters QuoteFlow shows in **Admin → Integrations**. This text copy is what D&A should read.
+- `counts_json` holds JSON text (it starts with `{`): the counters behind each run in **Admin → Integrations**. This text copy is what D&A should read.
 - Note in B-27 whether Fabric also has the original `counts` column. Microsoft's pages disagree on whether `jsonb` is mirrored, so either answer is fine; the text copy is there regardless.
 
 ### D4. [Dev] Measure how far behind Fabric is
 
-1. Note the time. In QuoteFlow test, select **Report an issue** and send: type **An idea**, severity **Sev-4: cosmetic**, description `Fabric latency test - please ignore`.
+1. Note the time. In QuoteFlow test, select **Report an issue** and send: type **An idea**, severity **Sev-4: cosmetic**, description `Fabric latency test - please ignore`. **Don't attach a screenshot.**
 2. In Fabric, run this every minute until the new row appears:
    ```sql
-   SELECT TOP 3 id, created_at, type, severity FROM [public].[feedback] ORDER BY created_at DESC;
+   SELECT TOP 3 id, created_at, description FROM [public].[feedback]
+   WHERE description LIKE 'Fabric latency test%' ORDER BY created_at DESC;
    ```
+   `created_at` is in **UTC**: Central time plus 6 hours (5 hours in daylight saving time).
 3. Record the minutes it took. The target is **15 minutes** (D-FB4, proposed). Microsoft describes mirroring as near real time.
-4. In QuoteFlow, **Admin → Feedback**: set the test report to **Won't fix**.
+4. In QuoteFlow, **Admin → Feedback** → select the test report's text → **Triage report** → **Status** **Won't fix** → **Save**.
 
 **Check:** the row appears within the target. Write the measured time in `03-build-steps.md` under B-27.
 
@@ -405,7 +427,7 @@ SELECT TOP 5 id, counts_json FROM [public].[integration_run] ORDER BY started_at
 
 ## Part E. Turn on QuoteFlow's hooks [Dev]
 
-QuoteFlow already has the code (B-27, PR #32). It only needs the two IDs from C5.
+QuoteFlow already has the code (B-27, PR #32). It only needs the two IDs from C6.
 
 ### E1. [Dev] GitHub: the deploy pipeline
 
@@ -413,44 +435,60 @@ GitHub → the repo → **Settings → Environments → `test` → Environment v
 
 | Name | Value |
 |---|---|
-| `FABRIC_WORKSPACE_ID` | the workspace ID (C5) |
-| `FABRIC_MIRRORED_DB_ID` | the mirrored database ID (C5) |
+| `FABRIC_WORKSPACE_ID` | the workspace ID (C6) |
+| `FABRIC_MIRRORED_DB_ID` | the mirrored database ID (C6) |
 
 **What changes:** from now on, when a deploy brings a new migration, **Deploy (test)** does three things:
 - it stops mirroring before deploying;
 - it starts mirroring again after the smoke test (or after a failed deploy);
 - it waits until mirroring is **Running** and no table is **Failed** or **Stopped**.
 
-Starting again copies every table from scratch, so nothing is lost. Deploys without migrations don't touch mirroring. This ends the schema-change freeze from §0.4.
+Starting again copies every table from scratch, so nothing is lost. Deploys without migrations don't touch mirroring, except when the pipeline can't tell which commit is running now (the site is down, or reports a commit it doesn't know). Then it plays safe and stops and restarts mirroring anyway. This ends the schema-change freeze from §0.4.
+
+**Paste only the 36-character ID**, with no spaces before or after, here and in E2. A wrong value makes the stop step fail, which blocks the deploy.
 
 ### E2. [Dev] Azure: the hourly health check
 
-Azure portal → web app `quoteflow-test` → **Settings → Environment variables → App settings → + Add**. Add the same two names and values as E1, then **Apply** → **Confirm**. The app restarts.
+Azure portal → web app `quoteflow-test` → **Settings → Environment variables → App settings → + Add**. Add the same two names and values as E1, with no spaces, then **Apply** → **Confirm**. The app restarts.
+
+**Check:** QuoteFlow test loads again within about 3 minutes. If it doesn't, the web app's **Log stream** shows `refusing to start … Invalid configuration` naming the `FABRIC_…` setting: the value isn't a valid ID (a stray space, or part of a URL). Correct it and **Apply** again.
 
 > **Bicep note.** When the Bicep in `infra/` is applied, it replaces the whole set of app settings. Before that first apply, put these two IDs in `infra/main.test.bicepparam` (`fabricWorkspaceId`, `fabricMirroredDbId`), or the apply removes them.
 
 ### E3. [Dev] Check both hooks
 
 1. **Health check.** About 5 minutes after the restart, open QuoteFlow → **Admin → Integrations**.
-   - **Check:** a **fabric** run shows **succeeded**, with table counts. After that it runs every hour.
-   - A **failed** run with `Fabric API unavailable (…)` means the web app's identity can't read the mirror. Check A2 and the **Viewer** row in A4.
+   - **Check:** under recent runs, a **fabric** run shows **succeeded**. Its **Counts** cell is blank for this source: hover over it to see `tables`, `replicating`, `snapshotting`, `failed`, `stopped` and `maxLatencySeconds`. After that it runs every hour.
+   - A **failed** run with `Fabric API unavailable (…)` means the web app's identity can't read the mirror. Check A2 and the web app's **Read** share in C5.
 2. **Deploy hooks.** The first deploy that brings a migration is the real test. Open that run in **Actions → Deploy (test)**.
    - **Check:** **Fabric mirroring (stop if migrations change)** printed `stop requested`, and **Fabric mirroring (start and wait until Running)** ended with `mirroring Running; every table replicating or snapshotting`. Tick B-27's "exercised once on test" box then.
-   - If the stop step fails with an authorization error, nothing was deployed and mirroring wasn't touched. Fix the deploy identity's **Contributor** role (A4) and A2, then re-run the workflow.
+   - If the stop step fails with an authorization error, nothing was deployed and mirroring wasn't touched. Fix the deploy identity's **Read and write** share (C5) and A2, then re-run the workflow.
 
 ---
 
 ## Part F. Close out [IT, Dev]
 
-### F1. [IT] Remove the temporary firewall rule
+### F1. [IT, Dev] Remove the temporary access
 
-The Postgres server → **Settings → Networking** → delete `tmp-dev-fabric-setup` → **Save**. Leave every other rule as it was.
+- **[IT]** The Postgres server → **Settings → Networking** → delete `tmp-dev-fabric-setup` → **Save**. Leave every other rule as it was.
+- **[Dev]** In VS Code (or pgAdmin), delete the `ccq` connection, so no copy of the admin password stays on your laptop.
 
 ### F2. [Dev] Record and tick
 
-- **`03-build-steps.md` B-27:** tick "the test mirror is `Running`, every table ties out, latency is measured". Write down the date, the measured latency, and the workspace and mirrored database IDs (identifiers, not secrets). Tick "test Postgres is General Purpose with the mirroring parameters". Note the deviation: it was set by the portal's Fabric mirroring page; the Bicep in `infra/` matches but isn't applied yet.
-- **`infra/README.md`**, under "Check on the first apply": record the server parameter values from B8. The Bicep sets `max_worker_processes = 16` and `shared_preload_libraries = pg_cron,pg_stat_statements,azure_cdc`. If the portal set something different, note it, so the first apply's what-if is understood.
-- **`04-decisions-and-risks.md`:** mark D-FB3 decided, with the date. Record decisions 2–4 from §0.1 as made.
+Make these doc updates in one PR (the GitHub web editor is fine: none of them contains a secret).
+
+- **`03-build-steps.md` B-27:**
+  - Tick "the test mirror is `Running`, every table ties out, latency is measured". Write down the date, the measured latency, and the workspace and mirrored database IDs (identifiers, not secrets).
+  - Tick "test Postgres is General Purpose with the mirroring parameters". Note the deviation: the portal's Fabric mirroring page set them. The Bicep in `infra/` covers the compute tier, the server identity and the three static parameters, but it doesn't register `azure_cdc` in `ccq` or set `azure.fabric_mirror_enabled`. So a server rebuilt from the Bicep still needs B3.
+  - In the notes, replace "Still open for the spike: the `ccq_fabric_mirror` role…" with what was done: Fabric connects as the admin login (§0.1).
+  - Reword the "commercial columns hidden from non-commercial readers in Fabric" box. Since 2026-10-30 every QuoteFlow role sees these fields (`01` §3.3), so who may read them in Fabric is now part of D-FB4.
+- **`infra/main.test.bicepparam`:** set `fabricWorkspaceId` and `fabricMirroredDbId` to the two IDs. Otherwise the first Bicep apply removes them from the web app (E2's note).
+- **`infra/README.md`:**
+  - Under "Check on the first apply", record the server parameter values from B8. The Bicep sets `max_worker_processes = 16` and `shared_preload_libraries = pg_cron,pg_stat_statements,azure_cdc`; if the portal set something different, note it, so the first apply's what-if is understood.
+  - Under "What stays manual", replace the `ccq_fabric_mirror` role with B6's grants to the admin login.
+- **`infra/main.bicep`:** reword the `postgresEntraAdmins` description, which says the Entra admin is "needed to map ccq_fabric_mirror". It isn't needed now.
+- **`01-architecture.md` §6.1:** replace the dedicated `ccq_fabric_mirror` role with the admin login, and link this runbook.
+- **`04-decisions-and-risks.md`:** mark D-FB3 decided, with the date. Record decisions 0 and 2–4 from §0.1 as made, including the `feedback` choice.
 - **`06` §6:** add the deviation "Fabric connects as the admin login" (§0.1).
 
 ### F3. Tell people
@@ -480,7 +518,7 @@ Brennan Paul and Oleg Yarovinski: the test mirror is running, with the tie-out r
 | C2 shows **"Internal error"** | A Part B security step is missing | Re-run B6, B7 and B8 |
 | A table isn't listed, or `NOT_TABLE_OWNER` | The table isn't owned by `ccqadmin` | Tell Ben's team. Don't change ownership by hand: migrations expect `ccqadmin` to own every table. |
 | Tables never get past Initialized / "Tables Cannot Reach Replicating Status" | The OneLake tenant setting is off | A2 step 3 |
-| A managed identity can't be found in **Manage access** | The service-principal tenant setting isn't on (or not applied yet), or the identity isn't in the allowed group | A2 step 2, then wait 15 minutes |
+| A managed identity can't be found in the **Share** dialog (C5) | The service-principal tenant setting isn't on (or not applied yet), or the identity isn't in the allowed group | A2 step 2, then wait 15 minutes |
 
 **More checks on the Postgres side** (VS Code, as in B5):
 - `SELECT * FROM azure_cdc.get_health_status('', '');` lists server-wide mirroring errors. `CDC_ERR_SYS_ONELAKE_PERMISSION_DENIED` usually means the server's permission on the mirror is gone (C4) or a tenant setting is off (A2).
@@ -503,11 +541,13 @@ A prod runbook section will be written once the gateway is agreed.
 - Troubleshooting (status codes, `check_prerequisites`, supported DDL, capacity changes, server identity): https://learn.microsoft.com/en-us/fabric/mirroring/azure-database-postgresql-troubleshoot
 - FAQ (stop and start re-copies every table; removing a table deletes its data): https://learn.microsoft.com/en-us/fabric/mirroring/azure-database-postgresql-mirroring-faq
 - Mirroring REST API (status, start, stop): https://learn.microsoft.com/en-us/fabric/mirroring/mirrored-database-rest-api · Start Mirroring needs read and write: https://learn.microsoft.com/en-us/rest/api/fabric/mirroreddatabase/mirroring/start-mirroring · Get Tables Mirroring Status needs read: https://learn.microsoft.com/en-us/rest/api/fabric/mirroreddatabase/mirroring/get-tables-mirroring-status
-- Share a mirrored database and manage permissions (the server identity's Read and Write): https://learn.microsoft.com/en-us/fabric/mirroring/share-and-manage-permissions
-- Mirrored databases can't change owner: https://learn.microsoft.com/en-us/fabric/fundamentals/item-ownership-take-over
+- Share a mirrored database and manage permissions (default Read, the extra boxes, the server identity's Read and write; Admin or Member to share): https://learn.microsoft.com/en-us/fabric/mirroring/share-and-manage-permissions
+- Monitor replication (portal statuses, Rows replicated, Last completed): https://learn.microsoft.com/en-us/fabric/mirroring/monitor
+- General mirroring troubleshooting (Stop/Start replication, Resume replication after a capacity resume): https://learn.microsoft.com/en-us/fabric/mirroring/troubleshooting
+- Mirrored databases can't change owner; owners who don't sign in for 90 days: https://learn.microsoft.com/en-us/fabric/fundamentals/item-ownership-take-over
 - Tenant settings (where they are, up to 15 minutes to apply): https://learn.microsoft.com/en-us/fabric/admin/about-tenant-settings · Developer settings: https://learn.microsoft.com/en-us/fabric/admin/service-admin-portal-developer
 - Workspaces: create https://learn.microsoft.com/en-us/fabric/fundamentals/create-workspaces · give access https://learn.microsoft.com/en-us/fabric/fundamentals/give-access-workspaces · roles https://learn.microsoft.com/en-us/fabric/fundamentals/roles-workspaces · find the workspace ID https://learn.microsoft.com/en-us/fabric/admin/portal-workspace
 - Postgres server identity (portal steps): https://learn.microsoft.com/en-us/azure/postgresql/security/security-configure-managed-identities-system-assigned
 - Scale compute (restart): https://learn.microsoft.com/en-us/azure/postgresql/scale/how-to-scale-compute · Manage the server in the portal: https://learn.microsoft.com/en-us/azure/postgresql/configure-maintain/how-to-manage-server-portal
-- Firewall rules (add current client IP; "Allow Azure services"): https://learn.microsoft.com/en-us/azure/postgresql/network/how-to-networking-servers-deployed-public-access-add-firewall-rules
+- Firewall rules (add current client IP; "Allow Azure services"): https://learn.microsoft.com/en-us/azure/postgresql/network/how-to-networking-servers-deployed-public-access-add-firewall-rules · rule changes take up to 5 minutes: https://learn.microsoft.com/en-us/azure/postgresql/network/concepts-networking-public
 - The admin login's attributes and `azure_pg_admin`: https://learn.microsoft.com/en-us/azure/postgresql/security/security-manage-database-users · `ALTER ROLE <admin> WITH REPLICATION`: https://learn.microsoft.com/en-us/azure/postgresql/configure-maintain/concepts-logical
