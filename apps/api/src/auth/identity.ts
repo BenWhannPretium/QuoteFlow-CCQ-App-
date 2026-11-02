@@ -1,6 +1,9 @@
 import { isRole, type Role, type Scope } from '@ccq/domain';
 
-/** Prefix on every QuoteFlow Entra app role (`CCQ.KAM` → `KAM`). */
+/**
+ * Prefix on the prod QuoteFlow Entra app roles (`CCQ.KAM` → `KAM`). Test honours `CCQ.Test.` instead
+ * (ENTRA_ROLE_PREFIX): both environments share one app registration.
+ */
 export const CCQ_ROLE_PREFIX = 'CCQ.';
 
 /** Who the caller is, as asserted by the token (or the dev persona). Not yet provisioned. */
@@ -18,13 +21,17 @@ export interface Identity {
   dev?: { personaKey: string; scope: Scope };
 }
 
-/** Map the token `roles` claim to CCQ roles. Non-CCQ and unknown roles are ignored. */
-export function rolesFromClaim(claim: unknown): Role[] {
+/**
+ * Map the token `roles` claim to CCQ roles. Roles without `prefix`, and unknown roles, are ignored, so
+ * with `CCQ.` a `CCQ.Test.Admin` is dropped (`Test.Admin` is not a role), and with `CCQ.Test.` a
+ * `CCQ.Admin` is.
+ */
+export function rolesFromClaim(claim: unknown, prefix: string = CCQ_ROLE_PREFIX): Role[] {
   if (!Array.isArray(claim)) return [];
   const roles = new Set<Role>();
   for (const value of claim) {
-    if (typeof value !== 'string' || !value.startsWith(CCQ_ROLE_PREFIX)) continue;
-    const role = value.slice(CCQ_ROLE_PREFIX.length);
+    if (typeof value !== 'string' || !value.startsWith(prefix)) continue;
+    const role = value.slice(prefix.length);
     if (isRole(role)) roles.add(role);
   }
   return [...roles].sort();

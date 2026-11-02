@@ -7,7 +7,8 @@ prerequisites (B-27, [`01-architecture.md` §6.1](../docs/build-guide/01-archite
 doesn't lose them.
 
 **Status (2026-10-26): written and compiled, not yet applied.** The first apply is a `what-if` against
-`rg-ccq-test`, reviewed with IT (see [First apply against test](#first-apply-against-rg-ccq-test)).
+`rg-ccq-test` (see [First apply against test](#first-apply-against-rg-ccq-test)). Ben has Contributor
+(runbook B9 deviation, 2026-11-02), so he runs the what-if and the test apply himself.
 
 ## Files
 
@@ -103,15 +104,15 @@ most damaging failure (a stalled slot filling the disk), and the check's `integr
 ## Deploy
 
 Needs the Azure CLI with Bicep **0.38 or later** (`az bicep upgrade`; Cloud Shell is current), signed in
-as someone with Owner, or Contributor + User Access Administrator, on the resource group (role
-assignments). Register the providers once per subscription: the runbook B1 list plus `Microsoft.Network`,
+as someone with Contributor on the resource group. With `manageRoleAssignments = true` (prod) it also
+needs Owner, or User Access Administrator, to create the role assignments. Register the providers once per subscription: the runbook B1 list plus `Microsoft.Network`,
 and `Microsoft.PowerPlatform` for the Fabric gateway (prod).
 
 ```bash
 # 1. Always look first. Nothing changes.
 az deployment group what-if -g rg-ccq-test --parameters infra/main.test.bicepparam
 
-# 2. Apply only after the what-if is reviewed (with IT).
+# 2. Apply only after the what-if is reviewed.
 az deployment group create -g rg-ccq-test --parameters infra/main.test.bicepparam
 
 # Prod: the first create needs the admin password (never in a file). Afterwards omit it.
@@ -131,8 +132,8 @@ Never pass `postgresAdminPassword` against an existing server: it resets the adm
 
 ## First apply against rg-ccq-test
 
-Test was built by hand, so the first apply must be a **what-if reviewed for drift** against the CLI-built
-resources. Before running it:
+Test was built by hand by IT, so the first apply must be a **what-if reviewed for drift** against the
+CLI-built resources. Before running it:
 
 1. Replace the `<confirm: …>` values in `main.test.bicepparam` from `az resource list -g rg-ccq-test -o table`
    (Postgres, Key Vault and storage names; the runbook gave them a 4-letter suffix the repo doesn't

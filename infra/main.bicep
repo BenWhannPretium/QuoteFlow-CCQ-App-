@@ -81,6 +81,9 @@ param entraTenantId string = subscription().tenantId
 param entraApiClientId string
 param entraSpaClientId string
 param entraApiScope string = 'access_as_user'
+@description('App-role prefix this environment honours: CCQ. (prod) or CCQ.Test. (test). Test and prod share one app registration.')
+@allowed(['CCQ.', 'CCQ.Test.'])
+param entraRolePrefix string = 'CCQ.'
 @description('Public URL users reach the app on. Default: the azurewebsites.net host.')
 param appBaseUrl string = 'https://${webAppName}.azurewebsites.net'
 @allowed(['blob', 'sharepoint'])
@@ -276,6 +279,7 @@ var baseSettings = {
   ENTRA_API_AUDIENCE: 'api://${entraApiClientId}'
   ENTRA_SPA_CLIENT_ID: entraSpaClientId
   ENTRA_API_SCOPE: entraApiScope
+  ENTRA_ROLE_PREFIX: entraRolePrefix
   APP_BASE_URL: appBaseUrl
   DATABASE_URL: '${kvRef}${databaseUrlSecretName}/)'
   FILESTORE_MODE: filestoreMode

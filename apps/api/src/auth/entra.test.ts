@@ -126,4 +126,43 @@ describe('rolesFromClaim', () => {
   it('accepts the B-26 pricing lead role (CCQ.PricingLead)', () => {
     expect(rolesFromClaim(['CCQ.PricingLead', 'CCQ.Pricing'])).toEqual(['Pricing', 'PricingLead']);
   });
+
+  it('keeps test and prod roles apart (one app registration, ENTRA_ROLE_PREFIX)', () => {
+    const claim = ['CCQ.Admin', 'CCQ.Test.KAM', 'CCQ.Test.Pricing'];
+    expect(rolesFromClaim(claim)).toEqual(['Admin']);
+    expect(rolesFromClaim(claim, 'CCQ.')).toEqual(['Admin']);
+    expect(rolesFromClaim(claim, 'CCQ.Test.')).toEqual(['KAM', 'Pricing']);
+  });
+});
+
+describe('Entra token validation with the test role prefix', () => {
+  let verifyTest: ReturnType<typeof createEntraVerifier>;
+
+  beforeAll(() => {
+    verifyTest = createEntraVerifier({
+      tenantId: TEST_TENANT,
+      audiences: [TEST_AUDIENCE],
+      requiredScope: 'access_as_user',
+      rolePrefix: 'CCQ.Test.',
+      keySet: keys.keySet,
+    });
+  });
+
+  it('honours CCQ.Test.* roles and ignores prod roles', async () => {
+    const id = await verifyTest(await keys.sign({ roles: ['CCQ.Test.Admin', 'CCQ.KAM'] }));
+    expect(id.roles).toEqual(['Admin']);
+  });
+
+  it('refuses (403) a token carrying only prod roles', async () => {
+    const err = await verifyTest(await keys.sign({ roles: ['CCQ.Admin'] })).then(
+      () => expect.unreachable('token was accepted'),
+      (e: unknown) => e,
+    );
+    expect(err).toMatchObject({ status: 403, message: NO_ROLE_MESSAGE });
+  });
+
+  it('in prod, a token carrying only test roles is refused (403)', async () => {
+    const err = await rejection(keys.sign({ roles: ['CCQ.Test.Admin'] }));
+    expect(err.status).toBe(403);
+  });
 });

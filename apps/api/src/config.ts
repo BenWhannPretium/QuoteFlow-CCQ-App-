@@ -23,6 +23,19 @@ const EnvSchema = z
     ENTRA_API_AUDIENCE: nonEmpty.optional(),
     /** Delegated scope the SPA requests and the API requires in `scp`. */
     ENTRA_API_SCOPE: nonEmpty.default('access_as_user'),
+    /**
+     * Prefix of the app roles this environment honours. Test and prod share one app registration, so
+     * prod uses `CCQ.` (`CCQ.Admin`) and test uses `CCQ.Test.` (`CCQ.Test.Admin`): a role granted for
+     * testing never carries into prod, and a test token carries no prod role.
+     */
+    ENTRA_ROLE_PREFIX: z
+      .string()
+      .trim()
+      .regex(
+        /^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*\.$/,
+        'must look like CCQ. or CCQ.Test.',
+      )
+      .default('CCQ.'),
 
     APP_BASE_URL: z.url(),
     GIT_SHA: nonEmpty.default('dev'),
