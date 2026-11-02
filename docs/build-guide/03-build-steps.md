@@ -667,7 +667,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **Unbounded numerics.** Fabric turns an unbounded `numeric` into Decimal(38, 0). The `pricing_history_record` estimates are now `numeric(38, 4)`, and the importer drops values ≥ 1e30 (the raw value stays in `fields`).
   - **Guards.** `fabricCompat.test.ts` covers the Drizzle schema (allowlist, registry, primary keys). `test/fabric.int.test.ts` covers the migrated database: every column is mirrorable or has a companion, every seeded companion is correct, triggers follow inserts and updates, and the audit side table is complete and append-only. `fabricTwins.test.ts` checks that every analytics view has its T-SQL twin.
   - **Still open for the spike:** the `ccq_fabric_mirror` role and table ownership vs `FORCE` RLS; ~~whether the `COMMENT ON` statements run at every start count as DDL to mirroring~~ (2026-10-27: start-up now applies only changed comments, `applyChangedComments`; views aren't mirrored); Bicep (no `infra/` yet, B-20).
-- **Prompt:** `prompts/B-27-fabric-data-landing.md`
+- **Prompt:** `prompts/B-27-fabric-data-landing.md` · **Setup runbook:** [`07-fabric-mirroring-setup.md`](07-fabric-mirroring-setup.md)
 
 ---
 

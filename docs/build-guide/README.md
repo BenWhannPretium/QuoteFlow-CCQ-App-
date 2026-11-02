@@ -17,6 +17,7 @@ QuoteFlow replaces the legacy ERF application for new-business quotes that need 
 | [`04-decisions-and-risks.md`](04-decisions-and-risks.md) | Locked decisions, open decisions (owner, needed-by date, fallback), PRD v1.1 corrections, risks, sources |
 | [`05-path-to-mvp.md`](05-path-to-mvp.md) | **Start here for what's left.** The short version: remaining work, integrations, user feedback by app area, who to meet and what each meeting must produce, in order |
 | [`06-azure-entra-setup.md`](06-azure-entra-setup.md) | Step-by-step runbook for the Entra + Azure session (IT / Dev labelled), first deploy, deploying updates, developer permissions, troubleshooting |
+| [`07-fabric-mirroring-setup.md`](07-fabric-mirroring-setup.md) | Step-by-step runbook for Fabric mirroring of the test database (B-27, L-8): Fabric settings and workspace, Postgres preparation, creating the mirror, the tie-out, QuoteFlow's deploy and health hooks, troubleshooting. Portal only, no Cloud Shell |
 
 Elsewhere in the repo:
 
