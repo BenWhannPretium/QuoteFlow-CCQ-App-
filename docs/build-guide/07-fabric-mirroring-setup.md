@@ -29,10 +29,10 @@ After most steps there's a **Check:** line saying what you should see.
 
 | # | Decision | Why it blocks | Owner |
 |---|---|---|---|
-| 1 | **D-FB3: approve General Purpose compute for test Postgres.** | Fabric mirroring does **not** support the Burstable tier, and test runs on Burstable `Standard_B1ms` today. Step B1 moves it to General Purpose `Standard_D2ds_v5`, which costs more each month (estimate in `infra/README.md`). Scaling back to Burstable later stops mirroring. | Oliver Kade (cost) + Brennan Paul |
+| 1 | **D-FB3: approve General Purpose compute for test Postgres.** | Fabric mirroring does **not** support the Burstable tier, and test runs on Burstable `Standard_B1ms` today. Step B1 moves it to General Purpose `Standard_D2ds_v5`, which costs more each month (estimate in `infra/README.md`). Test must stay off Burstable for as long as it's mirrored. | Oliver Kade (cost) + Brennan Paul |
 | 2 | **Fabric connects as the database's admin login.** See the box below. | Fabric only mirrors tables owned by the login it connects with. | IT + D&A sign-off |
 | 3 | **D-FB2: what's mirrored.** This runbook turns on **Mirror all data**, which copies every table, including the Salesforce copy (`sf_opportunity_snapshot`), the legacy pricing import (`pricing_history_record`) and Drizzle's bookkeeping table (`drizzle.__drizzle_migrations`). | With **Mirror all data** on, tables that future migrations add are mirrored automatically. Picking tables by hand switches that off, so every new table would need a manual add in Fabric. The bookkeeping table holds only migration hashes and dates. | Brennan Paul |
-| 4 | **D-FB4: workspace, capacity and the account that creates the mirror.** | The mirrored database **can't change owner**. If its creator's account is disabled, mirroring stops and the mirror has to be recreated. So it must be created by a D&A **service account** (a non-personal user account), not by a person. Until D-FB4 is decided, only D&A engineers and CCQ Admins get access, and there are no downstream readers. | Brennan Paul |
+| 4 | **D-FB4: workspace, capacity and the account that creates the mirror.** | The mirrored database **can't change owner**. Microsoft: when the owner leaves, or **doesn't sign in for more than 90 days**, the item may stop working, and a mirrored database then has to be recreated. So it must be created by a D&A **service account** (a non-personal user account), not by a person, and that account must **sign in to Fabric at least every 90 days**. Until D-FB4 is decided, only D&A engineers and CCQ Admins get access, and there are no downstream readers. | Brennan Paul |
 
 > **Why Fabric connects as the admin login (decision 2).** Microsoft requires the login Fabric uses to **own** every table it mirrors (a PostgreSQL publication rule). In QuoteFlow, every table is created by the migrations, which run as the server's admin login (`ccqadmin` if the server was built with runbook `06`). So that login owns every table today, and will own every table future migrations create.
 >
@@ -86,7 +86,7 @@ After most steps there's a **Check:** line saying what you should see.
 | 5 | Dev | **Part E**: turn on QuoteFlow's deploy and health hooks | 15 min |
 | 6 | IT + Dev | **Part F**: remove the firewall rule, update the docs | 10 min |
 
-> **Freeze schema changes from Part C until E1 is done.** Don't merge a PR that adds a migration (`packages/db/migrations/`) to `main` in that window. Fabric mirroring doesn't support most structural changes to a mirrored table. From E1 on, the deploy pipeline stops mirroring before such a deploy and restarts it afterwards. If one slips through, see §6, "A table shows Failed".
+> **Freeze schema changes from Part C until E1 is done.** Don't merge a PR that adds a migration (`packages/db/migrations/`) to `main` in that window. Microsoft's limitations page says structural changes to a mirrored table aren't supported without stopping and restarting mirroring. From E1 on, the deploy pipeline stops mirroring before such a deploy and restarts it afterwards. If one slips through, see §6, "A table shows Failed".
 
 ### 0.5 [Dev] Install the SQL tool (10 minutes, once)
 
@@ -111,7 +111,7 @@ Azure portal → search **Microsoft Fabric** → open the capacity D&A will use 
 1. Fabric portal → **OneLake catalog** → **Govern** tab → **Configurations** → **Tenant settings**. (If you don't see **Govern**, use the **Settings** gear → **Admin portal** → **Tenant settings**.)
 2. Under **Developer settings**, open **Service principals can call Fabric public APIs**. Some Microsoft pages still use its old name, "Service principals can use Fabric APIs".
    - Make sure it is **Enabled**.
-   - If it's enabled only for **specific security groups**, three identities must be **direct** members of one of those groups. In the **Entra admin center → Groups → the group → Members → + Add members**, search each by name:
+   - If it's enabled only for **specific security groups**, put these three identities in one of those groups. Microsoft says a service principal must be in an allowed group; it doesn't say whether that includes the Postgres server's identity, so include it to be safe. In the **Entra admin center → Groups → the group → Members → + Add members**, search each by name:
      - the Postgres server (its identity has the server's name; it exists only after **B2**, so add it then),
      - `id-quoteflow-deploy`,
      - `quoteflow-test` (the web app's identity).
@@ -140,8 +140,8 @@ In the workspace, select **Manage access** (sometimes under **…**) → **Add p
 | `quoteflow-test` (the web app's identity) | **Viewer** | QuoteFlow's hourly health check reads the mirroring status, which needs **read** permission. |
 
 - **Don't add** the Postgres server's identity here. Fabric gives it **Read and Write** on the mirrored database by itself in C3.
-- **No one else** gets access until D-FB4 is decided. Workspace roles are the only access control on the copy: none of QuoteFlow's Postgres permissions or row-level security carry over to Fabric.
-- If a managed identity doesn't show up when you search, the tenant setting from A2 hasn't applied yet. Wait 15 minutes and try again.
+- **No one else** gets access until D-FB4 is decided, and nobody uses **Share** on the mirrored database: sharing an item gives access without a workspace role. Workspace roles and item sharing are the only ways in, because none of QuoteFlow's Postgres permissions or row-level security carry over to Fabric.
+- If a managed identity doesn't show up when you search, check that A2's first setting is on, and wait: a tenant setting can take up to 15 minutes to apply.
 
 **Check:** **Manage access** lists every row above with the right role.
 
@@ -155,7 +155,7 @@ In the workspace, select **Manage access** (sometimes under **…**) → **Add p
 
 1. Azure portal → the Postgres server → **Settings → Compute + storage**.
 2. **Compute tier:** **General Purpose**. **Compute size:** **Standard_D2ds_v5** (2 vCores, 8 GiB). Leave storage as it is.
-3. Select **Save**. The server restarts, so QuoteFlow test is down for a few minutes.
+3. Select **Save**. If the portal asks you to confirm the restart, confirm it. The server restarts, so QuoteFlow test is down for a few minutes.
 
 **Check:** **Overview** shows **General Purpose, D2ds_v5** and status **Ready**. QuoteFlow loads again; if it doesn't after 5 minutes, restart the web app.
 
@@ -164,8 +164,9 @@ In the workspace, select **Manage access** (sometimes under **…**) → **Add p
 1. The Postgres server → **Security → Identity**.
 2. **System assigned managed identity:** **On** → **Save**.
 
-**Check:** the page shows an **Object (principal) ID**.
+**Check:** a notification says the system assigned managed identity is enabled, and the switch stays **On**. B7 checks it from the database side too.
 
+- **It must be the server's primary identity.** A server built with runbook `06` has no other identity. If **Identity** also lists a user-assigned identity, stop and ask IT which is primary.
 - **Leave it on, forever.** Microsoft: if this identity is switched off and on again after mirroring starts, mirroring fails. The server writes to OneLake as this identity.
 - If A2 used a security group, add this identity (search the server's name) to that group now.
 
@@ -220,7 +221,7 @@ These are what Microsoft's mirroring tutorial grants to the login Fabric connect
 
 **Check:** each line succeeds.
 - **`GRANT azure_cdc_admin` says the role doesn't exist:** B3 didn't finish, or you're connected to the wrong database (it must be `ccq`).
-- **`ALTER ROLE` says `permission denied to alter role`:** standard PostgreSQL 16 refuses this, although Microsoft documents that the Azure admin login can run it. Note the error and carry on with the other two lines; Microsoft's instructions for an Entra login grant only those two, without `REPLICATION`. If C2 later shows **"Internal error"**, this refusal is the first thing to raise with Microsoft support.
+- **`ALTER ROLE` says `permission denied to alter role`:** standard PostgreSQL 16 refuses this, although Microsoft documents that the Azure admin login can run it (sources). Microsoft's limitations page says the role **must** have `REPLICATION`, so don't start Part C: note the exact error and raise it with Microsoft support (or IT's Azure support contact) first.
 
 ### B7. [Dev] Check the server is ready
 
@@ -232,10 +233,12 @@ SELECT * FROM azure_cdc.check_prerequisites();
 
 | If `data` shows | Fix |
 |---|---|
-| `IDENTITY_NOT_CONFIGURED` | B2 didn't apply. Check **Security → Identity** is **On**. |
+| `IDENTITY_NOT_CONFIGURED` | B2 didn't apply. Check **Security → Identity** is **On**; `SHOW azure.service_principal_id;` should return an ID. |
+| `CDC_ADMIN_ROLE_NOT_EXISTS` | B3 didn't finish, or you're connected to a database other than `ccq`. |
 | `USER_NOT_CDC_ADMIN` or `NO_CREATE_PRIVILEGE_ON_DATABASE` | Re-run B6. |
 | `MAX_WORKER_PROCESSES_TOO_LOW` | **[IT]** **Settings → Server parameters** → `max_worker_processes` = **16** (the value in our Bicep) → **Save** → **Overview → Restart**. Then run this check again. |
 | `SERVER_IN_RECOVERY` | You're connected to a replica. Test has none, so check the server name. |
+| `PUBLICATION_LIMIT_REACHED` | A database can have one mirroring publication, and an earlier attempt left one behind. Run `SELECT azure_cdc.list_tracked_publications();`, then `SELECT azure_cdc.stop_publication('<name it returned>');`, and check again. |
 
 ### B8. [Dev] Check every table can be mirrored
 
@@ -252,8 +255,9 @@ ORDER BY table_schema, table_name;
 
 **Check:**
 - **No `ERROR` rows.** An `ERROR` with `NOT_TABLE_OWNER` means a table isn't owned by `ccqadmin`. **Stop and tell Ben's team before Part C.**
-- **`WARNING` rows are expected,** each with `UNSUPPORTED_DATA_TYPE`. These are the tables with `jsonb` or array columns. Every one must appear in `packages/db/src/fabric.ts`: `FABRIC_JSON_COMPANIONS`, plus `audit_event`, whose copies are in `audit_event_fabric`.
-  - Fabric skips those columns. It mirrors their text copies instead (`<column>_json`), which QuoteFlow keeps in step (migration 0022).
+- **`WARNING` rows with `UNSUPPORTED_DATA_TYPE` are expected** for tables with array columns, and probably for tables with `jsonb` columns. Microsoft's pages disagree on `jsonb`: the limitations page lists it as unsupported, while the troubleshooting page's supported list includes it.
+  - Every `WARNING` table must appear in `packages/db/src/fabric.ts`: `FABRIC_JSON_COMPANIONS`, plus `audit_event`, whose copies are in `audit_event_fabric`. A warning on any other table: tell Ben's team.
+  - Fabric skips the unsupported columns. Every one of them also has a text copy (`<column>_json`) that QuoteFlow keeps in step (migration 0022), so D&A has the data either way.
 - A `WARNING` with **`NO_INDEX_FULL_IDENTITY`** means a table has no primary key. QuoteFlow shouldn't have any. Note the table and tell Ben's team; it still mirrors, just less efficiently.
 
 Also note the server parameters for the record (Part F), from the portal → **Settings → Server parameters**:
@@ -299,13 +303,14 @@ Also note the server parameters for the record (Part F), from the portal → **S
 ### C3. [D&A] Choose the data and start mirroring
 
 1. Leave **Mirror all data** **on** (decision 3 in §0.1). New tables created by future migrations are then mirrored automatically.
-2. Fabric shows notes on some tables about **unsupported data types**: the `jsonb` and array columns found in B8. That's expected. Microsoft's limitations page says those columns are skipped and the table is still mirrored; D3 proves it.
-3. Select **Mirror database**. When Fabric asks for a name, enter `ccq_test_mirror`.
+2. Fabric may flag some tables for **unsupported data types**, possibly labelled as an **error**. These are the tables found in B8. That's expected: Microsoft's limitations page says such columns are skipped and the rest of the table is mirrored. D2 and D3 prove it.
+3. Select **Mirror database**. If Fabric asks for a name, enter `ccq_test_mirror`. If it doesn't, write down the name Fabric gave it; the name doesn't affect mirroring.
 
 **Check:** after 2–5 minutes, select **Monitor replication**.
-- The status becomes **Running**.
-- Each table appears with a status. They show **Snapshotting** first, then **Replicating**.
-- A date appears in **Last refresh** once a table's first copy is done. If the list is empty, wait a few seconds and refresh.
+- The database status becomes **Running**.
+- Each table is listed with status **Running**, and a **Rows replicated** count.
+- A time appears in **Last completed** (some Microsoft pages call it **Last refresh**) once a table's first copy is done. If the list is empty, wait a few seconds and refresh.
+- **Running with warning** means a temporary error that Fabric is retrying. **Failed** needs action (§6).
 
 ### C4. [D&A] Check the server's permission on the mirror (don't change it)
 
@@ -320,7 +325,7 @@ Open the **mirrored database** item itself, not the SQL analytics endpoint next 
 - **Workspace ID:** the first long ID, the one right after `/groups/`.
 - **Mirrored database ID:** the second long ID.
 
-Both look like `1a2b3c4d-1111-2222-3333-444455556666`. Send both to Ben.
+Both look like `1a2b3c4d-1111-2222-3333-444455556666`. Send both to Ben. E3 confirms they're right: with a wrong ID, QuoteFlow's health check fails with `Fabric API unavailable (…)`.
 
 ---
 
@@ -365,9 +370,9 @@ The counts are compared while QuoteFlow is running, so a busy table (`integratio
 4. Compare the two lists.
 
 **Check:**
-- **Same tables on both sides.** Fabric keeps the Postgres schemas, so tables appear as `public.<table>` and `drizzle.__drizzle_migrations`.
+- **Same tables on both sides.** Fabric keeps the Postgres schemas, so tables appear as `public.<table>` and `drizzle.__drizzle_migrations`. Compare by table name, not by line: the two systems can sort names slightly differently.
 - **Same counts.**
-- If a table is missing in Fabric right after the first copy, wait a few minutes and run again: the SQL endpoint can lag the copy briefly.
+- **`Invalid object name`** means one of the tables isn't in Fabric yet; the message names it. Right after the first copy, wait a few minutes and run again, because the SQL endpoint can lag the copy briefly.
 - If a table is still missing or short after 15 minutes, look at its status in **Monitor replication** and see §6.
 
 > **Why counts are trustworthy here.** Postgres row-level security also applies to the table owner, because QuoteFlow forces it. The admin login sees every row only because it inherits the `ccq_migrator` role, whose policies allow everything (`06` B2; `packages/db/src/migrate.ts`). Matching counts prove that Fabric's first copy got every row too.
@@ -381,8 +386,8 @@ SELECT TOP 5 id, counts_json FROM [public].[integration_run] ORDER BY started_at
 ```
 
 **Check:**
-- `counts_json` holds JSON text (it starts with `{`), the same counters QuoteFlow shows in **Admin → Integrations**.
-- `integration_run` has **no** `counts` column in Fabric: the `jsonb` original is skipped, and the text copy is what D&A reads.
+- `counts_json` holds JSON text (it starts with `{`), the same counters QuoteFlow shows in **Admin → Integrations**. This text copy is what D&A should read.
+- Note in B-27 whether Fabric also has the original `counts` column. Microsoft's pages disagree on whether `jsonb` is mirrored, so either answer is fine; the text copy is there regardless.
 
 ### D4. [Dev] Measure how far behind Fabric is
 
@@ -459,8 +464,8 @@ Brennan Paul and Oleg Yarovinski: the test mirror is running, with the tie-out r
 | Situation | What happens | What to do |
 |---|---|---|
 | A deploy brings a migration | The pipeline stops mirroring, deploys, starts it again, and waits (E1) | Nothing. Watch the two Fabric steps in the run. |
-| **A table shows Failed** in Monitor replication | Usually a structural change reached the table while mirroring ran (a migration deployed without the stop step, or before E1). Microsoft supports adding, renaming and dropping a column, and changing the primary key, while mirroring runs; other changes can fail a table. | Fabric → the mirrored database → **Stop replication**, then start it again (**Start replication**, or **Mirror database**). Every table is copied again from scratch. Then repeat D2. |
-| The Fabric capacity was **paused** (or resumed) | Mirroring stops, and doesn't restart on its own when the capacity comes back | Resume the capacity (A1), then **Stop replication** and start it again |
+| **A table shows Failed** in Monitor replication | Usually a structural change reached the table while mirroring ran (a migration deployed without the stop step, or before E1). Microsoft's pages disagree on which changes are safe (the troubleshooting page allows adding, renaming and dropping a column; the limitations page allows none), so treat every change as needing a stop and start. | Fabric → the mirrored database → **Stop replication**, then start it again (**Start replication**, or **Mirror database**). Every table is copied again from scratch. Then repeat D2. |
+| The Fabric capacity was **paused** (or resumed) | Mirroring stops, and doesn't restart on its own when the capacity comes back | Resume the capacity (A1). If the mirrored database shows **Paused** with a **Resume replication** button, select it: mirroring carries on where it stopped. Otherwise, **Stop replication** and start it again. |
 | The capacity is **overloaded** | Mirroring pauses | It carries on by itself when the overload ends. If it happens often, D&A sizes the capacity up. |
 | QuoteFlow **Admin → Integrations** shows a failed **fabric** run | Admins get one in-app alert when the mirror **becomes** unhealthy | Read the reason on the run, then this table. QuoteFlow keeps working either way. |
 | The **admin password is reset** | The app and Fabric both lose access | Update the `database-url` secret (`06` B4) and restart the web app. In Fabric, **Settings (gear) → Manage connections and gateways** → `ccq-test-postgres` → edit the credentials (the connection's owner does this). |
@@ -469,7 +474,7 @@ Brennan Paul and Oleg Yarovinski: the test mirror is running, with the tie-out r
 | A **point-in-time restore** of the server | The restored server isn't mirrored | Redo Parts B and C on the restored server (Microsoft: mirroring must be reconfigured) |
 | A **major version upgrade** (16 → 17) | Not supported while mirroring | Stop replication first, upgrade, then start it again |
 | A **failover** (high availability is **off** in test today) | On PostgreSQL 16, mirroring doesn't follow a failover | Restart mirroring by hand after any failover. PostgreSQL 17 and later follow it automatically. |
-| The **service account** that created the mirror is disabled | Mirroring stops. A mirrored database can't change owner. | Create a new mirrored database (Part C) with a working service account, then update the two IDs (E1, E2) |
+| The **service account** that created the mirror is disabled, or hasn't signed in for over 90 days | Mirroring may stop. A mirrored database can't change owner. Prevent it: someone signs in to Fabric as the service account at least every 90 days. | Create a new mirrored database (Part C) with a working service account, then update the two IDs (E1, E2) |
 | Someone wants to **remove a table** from the mirror | Microsoft: its data is deleted from OneLake | Don't, without a D-FB2 decision |
 | Someone runs **`TRUNCATE`** on a table | Not supported for mirrored tables | Never `TRUNCATE` QuoteFlow tables (CLAUDE.md rule 10) |
 | C2 shows **"Internal error"** | A Part B security step is missing | Re-run B6, B7 and B8 |
