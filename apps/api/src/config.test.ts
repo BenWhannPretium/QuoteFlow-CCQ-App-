@@ -54,6 +54,18 @@ describe('loadConfig', () => {
     });
     expect(c.AUTH_MODE).toBe('entra');
     expect(c.ENTRA_API_SCOPE).toBe('access_as_user');
+    expect(c.ENTRA_ROLE_PREFIX).toBe('CCQ.');
+  });
+
+  it('takes the test role prefix and rejects a malformed one', () => {
+    expect(
+      loadConfig({ ...base, AUTH_MODE: 'dev', ENTRA_ROLE_PREFIX: 'CCQ.Test.' }).ENTRA_ROLE_PREFIX,
+    ).toBe('CCQ.Test.');
+    for (const bad of ['CCQ', 'CCQ.Test', '.CCQ.', 'CCQ..', 'CCQ Test.']) {
+      expect(() => loadConfig({ ...base, AUTH_MODE: 'dev', ENTRA_ROLE_PREFIX: bad })).toThrow(
+        /ENTRA_ROLE_PREFIX/,
+      );
+    }
   });
 
   it('rejects a non-postgres DATABASE_URL and a missing AUTH_MODE', () => {

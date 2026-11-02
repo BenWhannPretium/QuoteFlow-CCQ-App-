@@ -135,7 +135,7 @@ EOF
 az ad app update --id $API_APP_ID --app-roles @roles.json
 az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv
 ```
-- **Spelling matters.** The server reads the `roles` claim and only accepts values starting `CCQ.` exactly as above.
+- **Spelling matters.** The server reads the `roles` claim and only accepts values starting with its `ENTRA_ROLE_PREFIX` (`CCQ.` in prod, `CCQ.Test.` in test; A8a) exactly as above.
 - `"User"` is what the portal calls **Users/Groups**.
 - `CCQ.PostAward` is created now so nobody has to come back for it; it has no group yet.
 - **Check:** the last command prints the ten values. **App roles** shows ten roles, all enabled.
@@ -240,6 +240,40 @@ echo "SPA client id: $SPA_APP_ID"
      --body "{\"@odata.id\":\"https://graph.microsoft.com/v1.0/directoryObjects/$DEV_OID\"}"
    ```
    **Check:** **Owners** on each lists Ben. "Already exists" errors are fine.
+
+### A8a. [Ben, as owner] Test-only roles (one registration for test and prod)
+
+Test and prod share **QuoteFlow-API** and **QuoteFlow-SPA** (decided 2026-11-02). To stop a role given
+for testing from working in prod, each environment honours its own role prefix, set by the app setting
+`ENTRA_ROLE_PREFIX`:
+
+| Environment | `ENTRA_ROLE_PREFIX` | Roles it honours | Groups |
+|---|---|---|---|
+| prod | `CCQ.` (default) | `CCQ.KAM`, `CCQ.Admin`, … (A4) | `SG-CCQ-*` (A8) |
+| test | `CCQ.Test.` | `CCQ.Test.KAM`, `CCQ.Test.Admin`, … | `SG-CCQ-Test-*` |
+
+Each environment ignores the other's roles. A user with only `CCQ.Test.*` roles gets a 403 in prod even
+though the token's audience is the same.
+
+1. **Add the test roles** (appends; existing roles keep their ids):
+   ```bash
+   uuid() { cat /proc/sys/kernel/random/uuid; }
+   az ad app show --id $API_APP_ID --query appRoles > roles-current.json
+   jq '[.[] | select(.value | startswith("CCQ.") and (startswith("CCQ.Test.") | not))]' roles-current.json > prod-roles.json
+   jq -c '.[]' prod-roles.json | while read -r r; do
+     echo "$r" | jq --arg id "$(uuid)" '.id = $id | .value = ("CCQ.Test." + (.value | ltrimstr("CCQ."))) | .displayName = ("Test: " + .displayName)'
+   done | jq -s --slurpfile cur roles-current.json '$cur[0] + .' > roles.json
+   az ad app update --id $API_APP_ID --app-roles @roles.json
+   az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv   # CCQ.* and CCQ.Test.*
+   ```
+2. **Create the `SG-CCQ-Test-*` groups and assign them.** Run the A8 step 1 loop with `G="SG-CCQ-Test-$R"`
+   and `CCQ.Test.$R` in the `ROLE_ID` query. Creating groups may need a groups admin.
+3. **Move testers.** Add the UAT cohort and yourself to the `SG-CCQ-Test-*` groups. Take yourself out of
+   the prod `SG-CCQ-*` groups you only held for demos, keeping the ones you need in prod.
+4. **Switch test:** set `entraRolePrefix = 'CCQ.Test.'` in `infra/main.test.bicepparam` and apply (or set
+   `ENTRA_ROLE_PREFIX=CCQ.Test.` under the web app's **Environment variables**). **Not before steps 1–3:**
+   until the test groups are populated, every test user gets "No QuoteFlow role assigned".
+5. **Check:** sign out and in on test. The role tabs match your `SG-CCQ-Test-*` groups.
 
 ### A9. [IT → Dev] Hand over these three values (not secrets)
 
@@ -446,6 +480,11 @@ az role assignment create --role "Log Analytics Reader" --assignee-object-id $DE
 ```
 Key Vault Secrets Officer was already granted in B4. §4 explains each grant.
 
+> **Deviation (recorded 2026-11-02):** Vincent Brown granted Ben **Contributor** across the Azure
+> resources instead of the four roles above, so Ben can run the Bicep what-if and apply (`infra/`)
+> himself. Contributor can't create role assignments: an apply with `manageRoleAssignments = true`
+> (prod) still needs Owner or User Access Administrator.
+
 ### B10. [IT → Dev] Hand over
 
 ```bash
@@ -533,11 +572,11 @@ Web app URL, resource group, tenant id, the API and SPA client ids, the deploy i
 | Backfill after a Salesforce field-map change | **Admin → Integrations → Full re-sync** (confirm). It re-reads every opportunity and rewrites each copy, even ones Salesforce hasn't changed, so a newly mapped field fills in. About a minute for ~32,000 records; read-only toward Salesforce. |
 | Restart | Portal → web app → **Restart**, or `az webapp restart -n <webapp> -g rg-ccq-test`. |
 | Add a sign-in URL (e.g. a prod or custom domain) | **App registrations → QuoteFlow-SPA → Authentication → Add Redirect URI → Single-page application**. Ben can do this as owner. |
-| Give a tester a role | Add them to the right `SG-CCQ-*` group (IT, or the group's owner). They sign out and back in to pick it up. |
+| Give a tester a role | Add them to the right `SG-CCQ-Test-*` group for test, `SG-CCQ-*` for prod (A8a; IT, or the group's owner). They sign out and back in to pick it up. |
 | Turn on the Fabric mirror hooks (B-27, once D&A has created the mirrored database) | The full first-time setup, portal only, is runbook [`07`](07-fabric-mirroring-setup.md); Part E there covers these hooks. In short: 1. D&A shares the mirrored database with `id-quoteflow-deploy` (**Read and write**) and with the web app's managed identity (**Read** only) (`07` C5). 2. Add `FABRIC_WORKSPACE_ID` and `FABRIC_MIRRORED_DB_ID` as variables on the GitHub **test** environment. From then on, a deploy that brings migrations stops mirroring first, then starts it and waits for `Running`. 3. Set the same two values as web app settings, which turns on the hourly health check (Admin → Integrations → **fabric**). By hand: `FABRIC_WORKSPACE_ID=… FABRIC_MIRRORED_DB_ID=… scripts/fabric-mirroring.sh status` (or `tables`, `stop`, `start`, `wait`). |
 | Fabric shows "not up to date" | Admin → Integrations → **fabric** shows the reason. A stopped mirror: `scripts/fabric-mirroring.sh start && scripts/fabric-mirroring.sh wait`, which reseeds every table, so no data is lost. A failed table after a migration usually means mirroring wasn't stopped: stop, then start. After a PITR restore or a major-version upgrade, D&A reconfigures mirroring. |
 
-**Local tools (optional).** Install the Azure CLI, then `az login`. With the B9 roles you can tail logs, restart, and change settings. You can't change role assignments or Entra; that stays with IT.
+**Local tools (optional).** Install the Azure CLI, then `az login`. With Contributor (B9 deviation) you can tail logs, restart, change settings and deploy the Bicep. You can't change role assignments or Entra beyond the apps you own; that stays with IT.
 
 ---
 
@@ -548,16 +587,14 @@ Web app URL, resource group, tenant id, the API and SPA client ids, the deploy i
 | Entra: QuoteFlow-API and QuoteFlow-SPA app registrations | **Owner** | Edit redirect URIs, roles and scopes on these two apps only | IT (A8.3) |
 | Entra: QuoteFlow-API **enterprise app** | **Owner** | Assign users and groups to CCQ roles for testing and UAT | IT (A8.3) |
 | Entra groups | Membership of `SG-CCQ-Admin` (+ other roles to test) | Sign in with those roles | IT (A8.2) |
-| Azure `rg-ccq-test` | **Reader** | See every resource | IT (B9) |
-| Azure `rg-ccq-test` | **Website Contributor** | Restart, change app settings, read the log stream, deploy by hand | IT (B9) |
-| Azure `rg-ccq-test` | **Monitoring Reader** + **Log Analytics Reader** | Query logs, Application Insights and metrics | IT (B9) |
+| Azure resources | **Contributor** (granted instead of B9's Reader, Website Contributor, Monitoring Reader and Log Analytics Reader) | Everything B9 allowed, plus run and apply the Bicep (`infra/`). Not role assignments | IT (Vincent Brown) |
 | Key Vault `kv-quoteflow-test-*` | **Key Vault Secrets Officer** | Add or rotate secrets (Salesforce key, pricing password) | IT (B4) |
 | GitHub repo | **Admin** | Add Actions variables and environments | Repo owner |
-| **Not needed** | Subscription Owner/Contributor, Global Admin, Application Administrator, User Access Administrator | — | — |
+| **Not needed** | Subscription Owner, Global Admin, Application Administrator, User Access Administrator | — | — |
 
 Notes:
 - **Postgres:** the dev doesn't need direct database access, because migrations and seeds run when the app starts. To connect with `psql` for troubleshooting, IT adds a firewall rule for the dev's IP (`az postgres flexible-server firewall-rule create …`); the password is in Key Vault. Keep this rare and remove the rule after.
-- **Production** (B-22) gets a separate resource group. Devs get **Reader** there, and deploys need an approval (a GitHub environment protection rule on `production`).
+- **Production** (B-22) gets a separate resource group. Deploys need an approval (a GitHub environment protection rule on `production`). Other developers get **Reader** there (`main.prod.bicepparam`); Ben's Contributor covers it.
 
 ---
 

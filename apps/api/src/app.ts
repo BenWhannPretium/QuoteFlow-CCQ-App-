@@ -284,6 +284,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
               (a): a is string => !!a,
             ),
             requiredScope: config.ENTRA_API_SCOPE,
+            rolePrefix: config.ENTRA_ROLE_PREFIX,
             ...(deps.entraKeySet ? { keySet: deps.entraKeySet } : {}),
           }),
         }

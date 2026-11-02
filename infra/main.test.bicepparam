@@ -40,6 +40,9 @@ param keyVaultPurgeProtection = false
 
 param entraApiClientId = 'ad1e0bca-1df0-476d-84a2-1af5840b9569' // gitleaks:allow (public Entra client id)
 param entraSpaClientId = '033b5ed1-f56f-48c7-9c74-83089f6b311f' // gitleaks:allow (public Entra client id)
+// Target 'CCQ.Test.' (runbook A8a). Kept at 'CCQ.' until the CCQ.Test.* roles and SG-CCQ-Test-* groups
+// exist and are populated: switching first refuses every test user (403, no CCQ role).
+param entraRolePrefix = 'CCQ.'
 
 param filestoreMode = 'blob'
 param notificationDispatchIntervalSeconds = 0

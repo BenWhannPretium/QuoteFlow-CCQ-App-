@@ -8,6 +8,8 @@ export interface EntraVerifierOptions {
   audiences: string[];
   /** Delegated scope that must appear in `scp`. */
   requiredScope: string;
+  /** App-role prefix this environment honours (ENTRA_ROLE_PREFIX). Defaults to `CCQ.` (prod). */
+  rolePrefix?: string;
   /** Seconds of clock skew allowed on exp/nbf. */
   clockToleranceSeconds?: number;
   /** Signing keys. Defaults to the tenant's JWKS; tests pass a local key set. */
@@ -21,7 +23,11 @@ export const entraJwksUrl = (tenantId: string) =>
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined);
 
-function identityFromPayload(payload: JWTPayload, requiredScope: string): Identity {
+function identityFromPayload(
+  payload: JWTPayload,
+  requiredScope: string,
+  rolePrefix: string | undefined,
+): Identity {
   const scopes = (str(payload.scp) ?? '').split(' ');
   if (!scopes.includes(requiredScope)) {
     throw new AuthError('invalid_token', 401, `Token is missing the ${requiredScope} scope`);
@@ -35,7 +41,7 @@ function identityFromPayload(payload: JWTPayload, requiredScope: string): Identi
     upn,
     displayName: str(payload.name) ?? upn,
     email,
-    roles: rolesFromClaim(payload.roles),
+    roles: rolesFromClaim(payload.roles, rolePrefix),
   });
 }
 
@@ -67,7 +73,7 @@ export function createEntraVerifier(opts: EntraVerifierOptions) {
             : 'Token is invalid';
       throw new AuthError('invalid_token', 401, detail);
     }
-    return identityFromPayload(payload, opts.requiredScope);
+    return identityFromPayload(payload, opts.requiredScope, opts.rolePrefix);
   };
 }
 
