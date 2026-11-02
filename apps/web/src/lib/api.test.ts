@@ -103,7 +103,9 @@ describe('api client auth', () => {
   });
 
   it('public calls send no credentials', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json(200, { authMode: 'dev', personas: [] }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(json(200, { authMode: 'dev', environment: 'local', personas: [] }));
     vi.stubGlobal('fetch', fetchMock);
     await expect(api.authConfig()).resolves.toMatchObject({ authMode: 'dev' });
     expect(fetchMock.mock.calls[0]?.[1]).toEqual({

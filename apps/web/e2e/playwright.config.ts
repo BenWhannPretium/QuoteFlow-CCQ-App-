@@ -85,6 +85,8 @@ export default defineConfig({
         ENTRA_API_AUDIENCE: 'api://quoteflow-e2e',
         ENTRA_SPA_CLIENT_ID: '00000000-0000-0000-0000-0000000000e2',
         APP_BASE_URL: smokeURL,
+        // As the Azure test environment: the TEST banner, and Graph mail behind the guard.
+        APP_ENVIRONMENT: 'test',
         GIT_SHA: process.env.GIT_SHA ?? 'e2e',
         LOG_LEVEL: 'warn',
         // Production refuses the local store; signed-out smoke never touches files.

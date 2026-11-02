@@ -37,6 +37,13 @@ const EnvSchema = z
       )
       .default('CCQ.'),
 
+    /**
+     * Which deployment this is. Drives the environment banner and the test mail guard. Unset reads as
+     * `local` outside NODE_ENV=production; in production unset is treated as "not prod" (banner shown,
+     * mail guarded), so a forgotten setting fails safe. Bicep sets it from `environmentName`.
+     */
+    APP_ENVIRONMENT: z.enum(['local', 'test', 'prod']).optional(),
+
     APP_BASE_URL: z.url(),
     GIT_SHA: nonEmpty.default('dev'),
 
@@ -113,6 +120,23 @@ const EnvSchema = z
     MAIL_MODE: z.enum(['fake', 'smtp', 'graph']).default('fake'),
     /** The shared mailbox the email is sent from (IT names it at M7). Graph sends as this mailbox. */
     MAIL_FROM: z.email().default('ccq-noreply@pretiumpkg.com'),
+    /**
+     * Mail guard (Graph mail outside prod): test holds real Salesforce data, so its email must not reach
+     * real KAMs. Recipients on the allowlist (comma-separated addresses) get the message, subject
+     * prefixed `[TEST]`. Everyone else's copy goes to MAIL_REDIRECT_TO, or is dropped (logged) when that
+     * is unset. Both are refused when APP_ENVIRONMENT=prod.
+     */
+    MAIL_ALLOWLIST: z
+      .string()
+      .transform((s) =>
+        s
+          .split(',')
+          .map((a) => a.trim().toLowerCase())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.email()))
+      .optional(),
+    MAIL_REDIRECT_TO: z.email().optional(),
     /** smtp: the mailpit host and port. */
     SMTP_HOST: nonEmpty.default('localhost'),
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1025),
@@ -219,6 +243,24 @@ const EnvSchema = z
         message: `MAIL_MODE=${env.MAIL_MODE} is forbidden when NODE_ENV=production. Use graph (the shared mailbox).`,
       });
     }
+    if (env.APP_ENVIRONMENT === 'prod') {
+      for (const key of ['MAIL_ALLOWLIST', 'MAIL_REDIRECT_TO'] as const) {
+        if (env[key] !== undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is for test only and is forbidden when APP_ENVIRONMENT=prod`,
+          });
+        }
+      }
+      if (env.AUTH_MODE === 'dev') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['AUTH_MODE'],
+          message: 'AUTH_MODE=dev is forbidden when APP_ENVIRONMENT=prod',
+        });
+      }
+    }
     if (env.AUTH_MODE === 'entra') {
       for (const key of ['ENTRA_TENANT_ID', 'ENTRA_API_AUDIENCE', 'ENTRA_SPA_CLIENT_ID'] as const) {
         if (!env[key]) {
@@ -233,6 +275,13 @@ const EnvSchema = z
   });
 
 export type AppConfig = z.infer<typeof EnvSchema>;
+
+/** The deployment, for the banner and the mail guard. `unset` = production with no APP_ENVIRONMENT. */
+export type AppEnvironment = 'local' | 'test' | 'prod' | 'unset';
+
+export function appEnvironment(config: AppConfig): AppEnvironment {
+  return config.APP_ENVIRONMENT ?? (config.NODE_ENV === 'production' ? 'unset' : 'local');
+}
 
 export class ConfigError extends Error {
   constructor(public readonly issues: string[]) {

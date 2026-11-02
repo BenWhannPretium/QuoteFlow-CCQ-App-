@@ -1,7 +1,7 @@
 import { HealthResponse, PROBLEM_CONTENT_TYPE } from '@ccq/contracts';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { buildApp } from './app';
+import { buildApp, mailGuardFor } from './app';
 import { fakeDb, testConfig } from './test-utils';
 
 type App = Awaited<ReturnType<typeof buildApp>>;
@@ -58,5 +58,47 @@ describe('app', () => {
     const res = await app.inject({ method: 'GET', url: '/docs/json' });
     expect(res.statusCode).toBe(200);
     expect(res.json<{ paths: Record<string, unknown> }>().paths).toHaveProperty('/api/v1/health');
+  });
+});
+
+describe('mailGuardFor (test mail guard)', () => {
+  const graph = { MAIL_MODE: 'graph' };
+  const entra = {
+    ENTRA_TENANT_ID: '00000000-0000-0000-0000-000000000000',
+    ENTRA_API_AUDIENCE: 'api://quoteflow',
+    ENTRA_SPA_CLIENT_ID: '11111111-1111-1111-1111-111111111111',
+    FILESTORE_MODE: 'blob',
+    BLOB_ACCOUNT_URL: 'https://x.blob.core.windows.net',
+    BLOB_CONTAINER: 'c',
+  };
+
+  it('guards Graph mail in test with the allowlist and redirect', () => {
+    expect(
+      mailGuardFor(
+        testConfig({
+          ...graph,
+          APP_ENVIRONMENT: 'test',
+          MAIL_ALLOWLIST: ' Ben@pretiumpkg.com, uat1@pretiumpkg.com ,',
+          MAIL_REDIRECT_TO: 'ccq-test@pretiumpkg.com',
+        }),
+      ),
+    ).toEqual({
+      label: 'TEST',
+      allow: ['ben@pretiumpkg.com', 'uat1@pretiumpkg.com'],
+      redirectTo: 'ccq-test@pretiumpkg.com',
+    });
+  });
+
+  it('fails safe: Graph mail with no APP_ENVIRONMENT in production is guarded, nothing allowed', () => {
+    const config = testConfig({ ...graph, NODE_ENV: 'production', AUTH_MODE: 'entra', ...entra });
+    expect(mailGuardFor(config)).toEqual({ label: 'NOT PROD', allow: [] });
+  });
+
+  it('is off in prod, and for smtp and fake mail', () => {
+    expect(
+      mailGuardFor(testConfig({ ...graph, ...entra, AUTH_MODE: 'entra', APP_ENVIRONMENT: 'prod' })),
+    ).toBeNull();
+    expect(mailGuardFor(testConfig({ MAIL_MODE: 'smtp', APP_ENVIRONMENT: 'test' }))).toBeNull();
+    expect(mailGuardFor(testConfig({ APP_ENVIRONMENT: 'test' }))).toBeNull();
   });
 });

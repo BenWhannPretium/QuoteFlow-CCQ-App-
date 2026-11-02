@@ -8,6 +8,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { api, isApiError } from '@/lib/api';
 
 import { AuthContext, type AuthContextValue } from './context';
+import { EnvironmentBanner } from './EnvironmentBanner';
 import { createMsal } from './msal';
 import { AuthErrorPage, LoadingPage, NoRolePage, SignInPage } from './pages';
 import { DEV_PERSONA_STORAGE_KEY, meQueryKey } from './permissions';
@@ -26,10 +27,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
   });
   if (config.isPending) return <LoadingPage message="Loading…" />;
   if (config.isError) return <AuthErrorPage message={config.error.message} />;
-  return config.data.authMode === 'dev' ? (
-    <DevAuth personas={config.data.personas}>{children}</DevAuth>
-  ) : (
-    <EntraAuth config={config.data}>{children}</EntraAuth>
+  return (
+    <>
+      <EnvironmentBanner environment={config.data.environment} />
+      {config.data.authMode === 'dev' ? (
+        <DevAuth personas={config.data.personas}>{children}</DevAuth>
+      ) : (
+        <EntraAuth config={config.data}>{children}</EntraAuth>
+      )}
+    </>
   );
 }
 

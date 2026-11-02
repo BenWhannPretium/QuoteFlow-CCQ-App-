@@ -6,6 +6,14 @@ test('signed-out users get the branded sign-in page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sign in with Microsoft' })).toBeVisible();
 });
 
+test('the test environment says so before sign-in, in the page and the tab title', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByTestId('environment-banner')).toContainText('TEST');
+  await expect(page).toHaveTitle(/^\[TEST\] /);
+});
+
 test('client-side routes fall back to the SPA', async ({ page }) => {
   const res = await page.goto('/some/client/route');
   expect(res?.status()).toBe(200);
@@ -22,6 +30,7 @@ test('auth config tells the SPA to use Entra', async ({ request }) => {
   const res = await request.get('/api/v1/auth/config');
   expect(await res.json()).toMatchObject({
     authMode: 'entra',
+    environment: 'test',
     apiScope: 'api://quoteflow-e2e/access_as_user',
   });
 });

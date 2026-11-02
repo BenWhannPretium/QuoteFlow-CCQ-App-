@@ -2,7 +2,7 @@ import { AuthConfigResponse } from '@ccq/contracts';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 import { devPersonas } from '../../auth/dev';
-import type { AppConfig } from '../../config';
+import { appEnvironment, type AppConfig } from '../../config';
 
 /** Runtime sign-in settings for the SPA (one web build for every environment). Nothing secret. */
 export const authConfigRoutes: FastifyPluginAsyncZod<{ config: AppConfig }> = async (
@@ -20,13 +20,15 @@ export const authConfigRoutes: FastifyPluginAsyncZod<{ config: AppConfig }> = as
       },
     },
     async () => {
+      const environment = appEnvironment(config);
       if (config.AUTH_MODE === 'dev') {
-        return { authMode: 'dev' as const, personas: devPersonas() };
+        return { authMode: 'dev' as const, environment, personas: devPersonas() };
       }
       // config.ts guarantees these are set when AUTH_MODE=entra.
       const audience = config.ENTRA_API_AUDIENCE!;
       return {
         authMode: 'entra' as const,
+        environment,
         tenantId: config.ENTRA_TENANT_ID!,
         spaClientId: config.ENTRA_SPA_CLIENT_ID!,
         apiScope: `${audience.replace(/\/+$/, '')}/${config.ENTRA_API_SCOPE}`,

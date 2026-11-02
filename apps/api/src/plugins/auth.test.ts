@@ -271,6 +271,7 @@ describe('AUTH_MODE=entra', () => {
     const res = await app!.inject({ method: 'GET', url: '/api/v1/auth/config' });
     expect(res.json()).toEqual({
       authMode: 'entra',
+      environment: 'local',
       tenantId: entraTestEnv.ENTRA_TENANT_ID,
       spaClientId: entraTestEnv.ENTRA_SPA_CLIENT_ID,
       apiScope: `${entraTestEnv.ENTRA_API_AUDIENCE}/access_as_user`,
