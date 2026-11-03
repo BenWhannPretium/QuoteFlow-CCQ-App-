@@ -46,16 +46,16 @@ in the parameter file is removed by the next apply. Put every change in the para
 
 ### Fabric mirroring prerequisites (B-27)
 
-| Prerequisite                                     | Where                                                                                                                                        |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| General Purpose tier in both envs (no Burstable) | `postgresSkuTier = GeneralPurpose`, `postgresSkuName = Standard_D2ds_v5` (test was scaled to D2ds_v5 on 2026-11-03, D-FB3 approved)          |
-| Server system-assigned managed identity          | `identity: SystemAssigned` on the server; `postgresPrincipalId` output                                                                       |
-| `wal_level=logical`                              | server parameter                                                                                                                             |
+| Prerequisite                                     | Where                                                                                                                                                                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| General Purpose tier in both envs (no Burstable) | `postgresSkuTier = GeneralPurpose`, `postgresSkuName = Standard_D2ds_v5` (test was scaled to D2ds_v5 on 2026-11-03, D-FB3 approved)                                                                                       |
+| Server system-assigned managed identity          | `identity: SystemAssigned` on the server; `postgresPrincipalId` output                                                                                                                                                    |
+| `wal_level=logical`                              | server parameter                                                                                                                                                                                                          |
 | `azure_cdc` allow-listed                         | **Not settable through ARM/CLI** (see the 2026-11-03 record below). Set by the portal's Fabric mirroring **Prepare** workflow. `azure.extensions = pg_trgm,pgcrypto` (`pg_trgm`, `pgcrypto`: migrations `0001` and later) |
-| `azure_cdc` preloaded                            | **Not settable through ARM/CLI.** Set by the same workflow. `shared_preload_libraries = pg_cron,pg_stat_statements` (Azure's PG16 default)    |
-| `max_worker_processes` + 3 per mirrored database | `21` (default 8). The Prepare workflow raised it from the Bicep's 16; the Bicep now matches. `azure_cdc`'s readiness check flags anything under 13. |
-| Private endpoint needs a gateway (prod)          | `snet-fabric-gw`, delegated to `Microsoft.PowerPlatform/vnetaccesslinks` (`fabricGatewaySubnetId` output). Fabric creates the gateway in it. |
-| Test: Fabric connects directly                   | public access + "Allow Azure services" rule                                                                                                  |
+| `azure_cdc` preloaded                            | **Not settable through ARM/CLI.** Set by the same workflow. `shared_preload_libraries = pg_cron,pg_stat_statements` (Azure's PG16 default)                                                                                |
+| `max_worker_processes` + 3 per mirrored database | `21` (default 8). The Prepare workflow raised it from the Bicep's 16; the Bicep now matches. `azure_cdc`'s readiness check flags anything under 13.                                                                       |
+| Private endpoint needs a gateway (prod)          | `snet-fabric-gw`, delegated to `Microsoft.PowerPlatform/vnetaccesslinks` (`fabricGatewaySubnetId` output). Fabric creates the gateway in it.                                                                              |
+| Test: Fabric connects directly                   | public access + "Allow Azure services" rule                                                                                                                                                                               |
 
 > **Restart required.** `wal_level`, `shared_preload_libraries` and `max_worker_processes` are static
 > parameters: ARM saves the value, but it takes effect only after a **server restart**, which this
@@ -69,20 +69,20 @@ in the parameter file is removed by the next apply. Put every change in the para
 > Prepare** workflow did all of it: after it ran, `azure_cdc.check_prerequisites()` returned `OK`, even
 > though the parameter API still shows neither `azure_cdc` value. Parameters afterwards:
 >
-> | Parameter                      | Value                                         |
-> | ------------------------------ | --------------------------------------------- |
-> | `wal_level`                    | `logical`                                     |
-> | `max_worker_processes`         | `21` (Bicep had 16; the workflow raised it)   |
-> | `shared_preload_libraries`     | `pg_cron,pg_stat_statements` (as the API shows it) |
-> | `azure.extensions`             | `pg_trgm,pgcrypto` (as the API shows it)      |
-> | `azure.fabric_mirror_enabled`  | `on` (set by the workflow; don't set it by hand) |
+> | Parameter                     | Value                                              |
+> | ----------------------------- | -------------------------------------------------- |
+> | `wal_level`                   | `logical`                                          |
+> | `max_worker_processes`        | `21` (Bicep had 16; the workflow raised it)        |
+> | `shared_preload_libraries`    | `pg_cron,pg_stat_statements` (as the API shows it) |
+> | `azure.extensions`            | `pg_trgm,pgcrypto` (as the API shows it)           |
+> | `azure.fabric_mirror_enabled` | `on` (set by the workflow; don't set it by hand)   |
 >
-> The server's system-assigned identity must be switched on with an ARM PATCH or the portal: `az postgres
-> flexible-server identity assign` handles user-assigned identities only.
+> The server's system-assigned identity must be switched on with an ARM PATCH or the portal, because
+> `az postgres flexible-server identity assign` handles user-assigned identities only.
 >
 > **Not yet verified:** whether re-applying these two parameters from the Bicep removes the `azure_cdc`
-> that the workflow loaded. After the first apply on a mirrored server, run `SELECT * FROM
-> azure_cdc.check_prerequisites();`; if it is no longer `OK`, run **Prepare** again. A server rebuilt from
+> that the workflow loaded. After the first apply on a mirrored server, query
+> `azure_cdc.check_prerequisites()`; if it is no longer `OK`, run **Prepare** again. A server rebuilt from
 > the Bicep always needs **Prepare** (runbook `07` B3).
 
 ### Alerts
