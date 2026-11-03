@@ -2,7 +2,9 @@
 // mirroring prerequisites (B-27, 01-architecture.md §6.1):
 //   - General Purpose tier (Burstable is not supported by mirroring; D-FB3 approves the cost for test)
 //   - a system-assigned managed identity on the server (azure_cdc writes to OneLake with it)
-//   - wal_level=logical, azure_cdc allow-listed and preloaded, max_worker_processes raised
+//   - wal_level=logical, max_worker_processes raised. azure_cdc is NOT set here: ARM rejects it in
+//     azure.extensions and shared_preload_libraries (2026-11-03), so the portal's Fabric mirroring
+//     "Prepare" workflow adds it (infra/README.md).
 // wal_level, shared_preload_libraries and max_worker_processes are STATIC parameters: ARM stores the new
 // value but it takes effect only after a server restart, which this template does not do. Schedule the
 // restart with IT (infra/README.md). A SKU change (B1ms -> D2ds_v5) also restarts the server.
@@ -27,9 +29,9 @@ param publicNetworkAccess string
 param allowAzureServicesRuleName string
 @description('Entra admins: [{ objectId, principalName, principalType: User|Group|ServicePrincipal }].')
 param entraAdmins array
-@description('Comma list for azure.extensions. pg_trgm + pgcrypto (migrations 0001+) and azure_cdc (Fabric).')
+@description('Comma list for azure.extensions. pg_trgm + pgcrypto (migrations 0001+). azure_cdc is added by the portal Prepare workflow.')
 param azureExtensions string
-@description('Azure default for PG16 is pg_cron,pg_stat_statements; azure_cdc is added for mirroring.')
+@description('Azure default for PG16 is pg_cron,pg_stat_statements; the portal Prepare workflow loads azure_cdc.')
 param sharedPreloadLibraries string
 @description('Default 8. Mirroring needs +3 per mirrored database; azure_cdc\'s readiness check wants >= 13.')
 param maxWorkerProcesses int

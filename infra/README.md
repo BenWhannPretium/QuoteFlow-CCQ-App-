@@ -48,12 +48,12 @@ in the parameter file is removed by the next apply. Put every change in the para
 
 | Prerequisite                                     | Where                                                                                                                                        |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| General Purpose tier in both envs (no Burstable) | `postgresSkuTier = GeneralPurpose`, `postgresSkuName = Standard_D2ds_v5` (test is B1ms today; **D-FB3 cost approval pending**)               |
+| General Purpose tier in both envs (no Burstable) | `postgresSkuTier = GeneralPurpose`, `postgresSkuName = Standard_D2ds_v5` (test was scaled to D2ds_v5 on 2026-11-03, D-FB3 approved)          |
 | Server system-assigned managed identity          | `identity: SystemAssigned` on the server; `postgresPrincipalId` output                                                                       |
 | `wal_level=logical`                              | server parameter                                                                                                                             |
-| `azure_cdc` allow-listed                         | `azure.extensions = pg_trgm,pgcrypto,azure_cdc` (`pg_trgm`, `pgcrypto`: migrations `0001` and later)                                         |
-| `azure_cdc` preloaded                            | `shared_preload_libraries = pg_cron,pg_stat_statements,azure_cdc` (Azure's PG16 default plus `azure_cdc`)                                    |
-| `max_worker_processes` + 3 per mirrored database | `16` (default 8). +3 gives 11, but `azure_cdc`'s readiness check flags anything under 13, so 16 leaves headroom.                             |
+| `azure_cdc` allow-listed                         | **Not settable through ARM/CLI** (see the 2026-11-03 record below). Set by the portal's Fabric mirroring **Prepare** workflow. `azure.extensions = pg_trgm,pgcrypto` (`pg_trgm`, `pgcrypto`: migrations `0001` and later) |
+| `azure_cdc` preloaded                            | **Not settable through ARM/CLI.** Set by the same workflow. `shared_preload_libraries = pg_cron,pg_stat_statements` (Azure's PG16 default)    |
+| `max_worker_processes` + 3 per mirrored database | `21` (default 8). The Prepare workflow raised it from the Bicep's 16; the Bicep now matches. `azure_cdc`'s readiness check flags anything under 13. |
 | Private endpoint needs a gateway (prod)          | `snet-fabric-gw`, delegated to `Microsoft.PowerPlatform/vnetaccesslinks` (`fabricGatewaySubnetId` output). Fabric creates the gateway in it. |
 | Test: Fabric connects directly                   | public access + "Allow Azure services" rule                                                                                                  |
 
@@ -62,11 +62,28 @@ in the parameter file is removed by the next apply. Put every change in the para
 > template does not do. The SKU change from B1ms to D2ds_v5 also restarts the server. Schedule both with
 > IT (a few minutes of downtime), then `az postgres flexible-server restart -g <rg> -n <server>`.
 
-> **Check on the first apply:** the Learn parameter reference lists the allowed values of
-> `shared_preload_libraries` without `azure_cdc` (the portal's _Fabric mirroring_ page sets it). If ARM
-> rejects the value, set `postgresSharedPreloadLibraries` back to `pg_cron,pg_stat_statements`, apply, and
-> run the portal's **Fabric mirroring → Get started → Prepare** workflow once (it also sets
-> `azure.fabric_mirror_enabled` and restarts). Record the outcome here.
+> **Recorded on test, 2026-11-03.** ARM rejected `azure_cdc` in both `shared_preload_libraries` and
+> `azure.extensions` (`ServerParameterToCMSUnAllowedParameterValue`, on Burstable and on General Purpose),
+> and rejected `azure.fabric_mirror_enabled` on Burstable (`MirroringNotSupportedForBurstableSku`) and, once
+> on General Purpose, with an `InternalServerError`. The portal's **Fabric mirroring → Get started →
+> Prepare** workflow did all of it: after it ran, `azure_cdc.check_prerequisites()` returned `OK`, even
+> though the parameter API still shows neither `azure_cdc` value. Parameters afterwards:
+>
+> | Parameter                      | Value                                         |
+> | ------------------------------ | --------------------------------------------- |
+> | `wal_level`                    | `logical`                                     |
+> | `max_worker_processes`         | `21` (Bicep had 16; the workflow raised it)   |
+> | `shared_preload_libraries`     | `pg_cron,pg_stat_statements` (as the API shows it) |
+> | `azure.extensions`             | `pg_trgm,pgcrypto` (as the API shows it)      |
+> | `azure.fabric_mirror_enabled`  | `on` (set by the workflow; don't set it by hand) |
+>
+> The server's system-assigned identity must be switched on with an ARM PATCH or the portal: `az postgres
+> flexible-server identity assign` handles user-assigned identities only.
+>
+> **Not yet verified:** whether re-applying these two parameters from the Bicep removes the `azure_cdc`
+> that the workflow loaded. After the first apply on a mirrored server, run `SELECT * FROM
+> azure_cdc.check_prerequisites();`; if it is no longer `OK`, run **Prepare** again. A server rebuilt from
+> the Bicep always needs **Prepare** (runbook `07` B3).
 
 ### Alerts
 
@@ -151,8 +168,10 @@ Expected, intended differences in the what-if:
 - Postgres SKU `Standard_B1ms`/Burstable → `Standard_D2ds_v5`/GeneralPurpose (**restart; needs D-FB3**).
 - Postgres identity `SystemAssigned` added; Entra authentication enabled next to password auth; storage
   auto-grow on.
-- Server parameters `wal_level`, `shared_preload_libraries`, `max_worker_processes`, `azure.extensions`
-  (adds `azure_cdc`), `require_secure_transport` (**restart**).
+- Server parameters `wal_level`, `shared_preload_libraries`, `max_worker_processes`, `azure.extensions`,
+  `require_secure_transport` (**restart**). Test already has the Postgres changes above applied by hand
+  (2026-11-03), so those lines should show as no change except `require_secure_transport` and any value the
+  portal workflow changed.
 - Tags `app`, `owner`, `env` added everywhere.
 - App setting `PRICING_MODE` removed (no longer read by the app).
 
@@ -169,8 +188,10 @@ Optimized, on purpose (mirroring), so it can't be applied to test with Burstable
 - **Secrets:** `database-url` and `sf-client-secret` values in Key Vault (B4, Part E). In prod the vault
   has no public access: set them from inside the VNet, or through a short-lived firewall exception agreed
   with IT.
-- **Postgres:** the restart above; the Entra admin (`postgresEntraAdmins`, or the portal); the
-  `ccq_fabric_mirror` role (`azure_cdc_admin`, `CREATE` on `ccq`, table ownership/RLS per B-27); the
+- **Postgres:** the restart above; the Entra admin (`postgresEntraAdmins`, or the portal); the portal's
+  Fabric mirroring **Prepare** workflow (registers `azure_cdc`, sets `azure.fabric_mirror_enabled`); the
+  mirroring grants to the admin login (`ALTER ROLE ccqadmin WITH REPLICATION`, `azure_cdc_admin`, `CREATE`
+  on `ccq`; runbook `07` B6, done on test 2026-11-03); the
   `ccq_app` / `ccq_migrator` roles are created by the app at start-up.
 - **Fabric (D&A):** workspaces, the mirrored database (created by a D&A service principal), the VNet data
   gateway in `snet-fabric-gw` (its creator needs `subnets/join/action` on the VNet, e.g. Network
