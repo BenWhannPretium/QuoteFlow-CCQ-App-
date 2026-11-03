@@ -63,12 +63,14 @@ param postgresAdminPassword string = ''
 param databaseName string = 'ccq'
 @description('Existing name of the test "Allow Azure services" (0.0.0.0) firewall rule; ignored when deployNetwork = true.')
 param postgresAllowAzureServicesRuleName string = 'AllowAllAzureServicesAndResourcesWithinAzureIps'
-@description('Entra admins on the server: [{ objectId, principalName, principalType }]. Needed to map ccq_fabric_mirror (B-27).')
+@description('Entra admins on the server: [{ objectId, principalName, principalType }]. Not needed for Fabric mirroring: Fabric connects as the admin login (runbook 07 section 0.1).')
 param postgresEntraAdmins array = []
-param postgresAzureExtensions string = 'pg_trgm,pgcrypto,azure_cdc'
-param postgresSharedPreloadLibraries string = 'pg_cron,pg_stat_statements,azure_cdc'
-@description('Azure default 8; Fabric mirroring adds 3 per mirrored database, and azure_cdc\'s readiness check wants at least 13.')
-param postgresMaxWorkerProcesses int = 16
+@description('ARM rejects azure_cdc here (2026-11-03); the portal Fabric mirroring Prepare workflow adds it. See infra/README.md.')
+param postgresAzureExtensions string = 'pg_trgm,pgcrypto'
+@description('ARM rejects azure_cdc here (2026-11-03); the portal Fabric mirroring Prepare workflow loads it. See infra/README.md.')
+param postgresSharedPreloadLibraries string = 'pg_cron,pg_stat_statements'
+@description('Azure default 8. The Fabric mirroring Prepare workflow set 21 on test; azure_cdc\'s readiness check wants at least 13.')
+param postgresMaxWorkerProcesses int = 21
 
 // ---------------------------------------------------------------------------------------------------
 // Key Vault
