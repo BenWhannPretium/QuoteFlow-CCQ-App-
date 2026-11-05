@@ -60,8 +60,16 @@ export const intakeConfigSchema = z
         roundMultiple: z.number().positive().nullable().default(null),
       })
       .strict(),
-    /** The main request class; anything else may be redirected at G1 (app_setting `intake_default_request_class`). */
+    /** The request class a new intake starts with (app_setting `intake_default_request_class`). */
     defaultRequestClass: z.string().min(1),
+    /**
+     * FB-02 (F-067): the request classes that can be submitted (app_setting
+     * `intake_allowed_request_classes`, seeded ["CCQ"], provisional). Anything else stays in the
+     * pricing application for now.
+     */
+    allowedRequestClasses: z.array(z.string().min(1)).min(1),
+    /** FB-02 (F-067): shown when another class is chosen (app_setting `intake_redirect_message`; D-030). */
+    redirectMessage: z.string().min(1),
     /** drawing_status codes that mean a drawing exists (value_list meta `hasDrawing`). */
     drawingProvidedCodes: z.array(z.string()),
   })
@@ -81,9 +89,12 @@ export const INTAKE_ISSUE_CODES = [
   /** FB-02 (F-007, D-011): the opportunity has no Salesforce Account; the customer always comes from SF. */
   'SF_ACCOUNT_REQUIRED',
   // warnings
+  /** FB-02 (F-067): only the allowed classes (CCQ) can be submitted; the rest go to the pricing app. */
+  'REQUEST_CLASS_NOT_ALLOWED',
+  /** FB-02 (F-016): no bottle / competitor drawing and the minimum spec is incomplete. */
+  'DRAWING_OR_MIN_SPEC_REQUIRED',
   'VOLUME_PLACEHOLDER',
   'DRAWING_MISSING',
-  'REQUEST_CLASS_REDIRECT',
   'ENRICH',
 ] as const;
 export type IntakeIssueCode = (typeof INTAKE_ISSUE_CODES)[number];
@@ -93,6 +104,8 @@ export interface IntakeIssue {
   /** snake_case field (dotted for nested values); comma-separated when several satisfy the rule. */
   field: string;
   message: string;
+  /** FB-02 (F-016): for DRAWING_OR_MIN_SPEC_REQUIRED, the minimum-spec fields still missing (snake_case). */
+  missing?: string[];
 }
 
 export interface IntakeEvaluation {
@@ -275,12 +288,24 @@ export function evaluateIntake(
     });
   }
 
+  // F-067: only CCQ work is submitted here; stock, stock-plus, price inquiries and pack-out evaluations
+  // stay in the pricing application (configurable message, D-030 may move pack-out changes).
   const requestClass = values.request_class;
-  if (isPresent(requestClass) && requestClass !== config.defaultRequestClass) {
-    warnings.push({
-      code: 'REQUEST_CLASS_REDIRECT',
+  if (!isPresent(requestClass)) {
+    if (!blocking.some((b) => b.field === 'request_class'))
+      blocking.push({
+        code: 'MISSING_FIELD',
+        field: 'request_class',
+        message: 'request_class is required',
+      });
+  } else if (
+    typeof requestClass !== 'string' ||
+    !config.allowedRequestClasses.includes(requestClass)
+  ) {
+    blocking.push({
+      code: 'REQUEST_CLASS_NOT_ALLOWED',
       field: 'request_class',
-      message: 'This may be redirected at qualification.',
+      message: config.redirectMessage,
     });
   }
 

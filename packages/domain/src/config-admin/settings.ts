@@ -216,6 +216,21 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'text',
     z_('intake_default_request_class', z.string().trim().min(1)),
   ),
+  // FB-02 (F-067): only these request classes are submitted to CCQ; the message points elsewhere (D-030).
+  spec(
+    'intake_allowed_request_classes',
+    'intake',
+    'Request classes that can be submitted to CCQ',
+    'json',
+    z_('intake_allowed_request_classes', intakeConfigSchema.shape.allowedRequestClasses),
+  ),
+  spec(
+    'intake_redirect_message',
+    'intake',
+    'Message shown for a request class that is not submitted to CCQ',
+    'text',
+    z_('intake_redirect_message', z.string().trim().min(1).max(500)),
+  ),
   spec(
     'intake_description_template',
     'intake',

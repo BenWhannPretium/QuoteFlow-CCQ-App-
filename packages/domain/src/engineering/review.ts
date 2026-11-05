@@ -274,11 +274,7 @@ export function planCapacityEvidence(
  * FB-02: judged as of the submit (`asOf`), so a need-by date that has since passed isn't reported as
  * missing information; the intake-only checks (request class, SF account) don't apply to a quote.
  */
-const NOT_COMPLETENESS: readonly string[] = [
-  'REQUEST_CLASS_REDIRECT',
-  'REQUEST_CLASS_NOT_ALLOWED',
-  'SF_ACCOUNT_REQUIRED',
-];
+const NOT_COMPLETENESS: readonly string[] = ['REQUEST_CLASS_NOT_ALLOWED', 'SF_ACCOUNT_REQUIRED'];
 
 export function engineeringCompleteness(
   values: FieldValues,

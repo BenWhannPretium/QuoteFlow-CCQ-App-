@@ -353,7 +353,8 @@ describe('G1 decisions through the generic route', () => {
   });
 
   it('Redirect needs a reason and closes as REDIRECTED', async () => {
-    const q = await submitted({ requestClass: 'STOCK' });
+    // FB-02 (F-067): only CCQ can be submitted, so G1 redirects CCQ requests that turn out not to be.
+    const q = await submitted();
     const bad = await decide(q.quoteNumber, { outcomeKey: 'redirect' });
     expect(errorCodes(bad)).toEqual(['REASON_REQUIRED']);
     const wrongContext = await decide(q.quoteNumber, {

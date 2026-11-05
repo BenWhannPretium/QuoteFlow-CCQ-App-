@@ -121,6 +121,8 @@ export const IntakeIssue = z.object({
   /** snake_case field the issue is about (dotted for nested values, comma-separated for alternatives). */
   field: z.string(),
   message: z.string(),
+  /** FB-02 (F-016): for DRAWING_OR_MIN_SPEC_REQUIRED, the minimum-spec fields still missing. */
+  missing: z.array(z.string()).optional(),
 });
 export type IntakeIssue = z.infer<typeof IntakeIssue>;
 
@@ -258,6 +260,10 @@ export const INTAKE_PROBLEM_CODES = {
   notOwner: 'not_draft_owner',
   /** The quote is not back with its KAM for rework (or the caller is not its KAM). */
   notReturned: 'quote_not_returned',
+  /** FB-02 (F-067): the request class can't be submitted to CCQ (422; `blocking` lists it). */
+  requestClassNotAllowed: 'REQUEST_CLASS_NOT_ALLOWED',
+  /** FB-02 (F-016): no drawing and an incomplete minimum spec (422; `missing` names the fields). */
+  drawingOrMinSpecRequired: 'DRAWING_OR_MIN_SPEC_REQUIRED',
 } as const;
 
 // ── Draft → domain values ────────────────────────────────────────────────────────────────────────

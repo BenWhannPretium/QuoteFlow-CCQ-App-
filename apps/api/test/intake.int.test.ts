@@ -381,6 +381,28 @@ describe('customer and ship-to', () => {
     }
   });
 
+  it('only CCQ can be submitted: another class is 422 REQUEST_CLASS_NOT_ALLOWED (F-067, T-027)', async () => {
+    const data = await prefill(nextFree());
+    const draft = await createDraft({ ...data, requestClass: 'STOCK' });
+    expect(draft.evaluation.blocking).toEqual([
+      {
+        code: 'REQUEST_CLASS_NOT_ALLOWED',
+        field: 'request_class',
+        message:
+          'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.',
+      },
+    ]);
+    const res = await submit(draft.id);
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toMatchObject({
+      code: INTAKE_PROBLEM_CODES.requestClassNotAllowed,
+      blocking: [{ code: 'REQUEST_CLASS_NOT_ALLOWED' }],
+    });
+    // No quote was created; switching back to CCQ submits.
+    await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, { data: { requestClass: 'CCQ' } });
+    expect((await submit(draft.id)).statusCode).toBe(201);
+  });
+
   it('need-by dates: Quote needed by after today, Product needed by on or after it (F-009)', async () => {
     const data = await prefill(nextFree());
     const past = await createDraft({ ...data, quoteNeededBy: '2026-10-16' });

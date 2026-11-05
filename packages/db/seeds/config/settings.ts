@@ -39,6 +39,11 @@ export const INTAKE_REQUIRED_FIELDS = [
   present('product_needed_by'),
 ];
 
+/** FB-02 (F-067): only CCQ is submitted here for MVP (provisional). */
+export const INTAKE_ALLOWED_REQUEST_CLASSES = ['CCQ'];
+export const INTAKE_REDIRECT_MESSAGE =
+  'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
+
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
 export const INTAKE_FIELD_HELP: Record<string, string> = {
   sf_opportunity_id:
@@ -50,7 +55,7 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   ship_to_override_reason:
     'A ship-to that differs from the account default changes the quote, so we record why.',
   request_class:
-    'CCQ is new business that needs engineering or capital; stock and price checks take a faster route.',
+    'CCQ is new business that needs engineering or capital. Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application.',
   product_family: 'Tells Engineering which product line and tooling family to look at.',
   components: 'Closures, liners and labels change tooling, sourcing and the price build.',
   market: 'Market drives material, regulatory and cleanliness requirements.',
@@ -166,8 +171,20 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
   {
     key: 'intake_default_request_class',
     value: 'CCQ',
+    description: 'The request_class code a new intake starts with.',
+  },
+  // ── FB-02 intake overhaul (Nov 2–3 walkthroughs). All provisional.
+  {
+    key: 'intake_allowed_request_classes',
+    value: INTAKE_ALLOWED_REQUEST_CLASSES,
     description:
-      'Default request_class code at intake. Any other class shows "This may be redirected at qualification".',
+      'FB-02 (F-067): the request_class codes that can be submitted to CCQ. Any other class shows intake_redirect_message and Submit is disabled; the API answers 422 REQUEST_CLASS_NOT_ALLOWED. Provisional (Matthew Graden, Tania Nazario).',
+  },
+  {
+    key: 'intake_redirect_message',
+    value: INTAKE_REDIRECT_MESSAGE,
+    description:
+      'FB-02 (F-067): shown when a non-CCQ request class is chosen. D-030 (open) may change where pack-out changes go.',
   },
   {
     key: 'intake_description_template',

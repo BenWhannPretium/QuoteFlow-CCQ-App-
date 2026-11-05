@@ -92,16 +92,30 @@ const notFound = () =>
 export async function loadIntakeConfig(
   db: DbOrTx,
 ): Promise<IntakeConfig & { freeTextNeckFinishes: string[] }> {
-  const [requiredFields, volumePlaceholder, defaultRequestClass, drawing, neck] = await Promise.all(
-    [
-      getSetting(db, 'intake_required_fields'),
-      getSetting(db, 'intake_volume_placeholder'),
-      getSetting(db, 'intake_default_request_class'),
-      listValueList(db, 'drawing_status'),
-      listValueList(db, 'neck_finish'),
-    ],
-  );
-  if (requiredFields === undefined || volumePlaceholder === undefined || !defaultRequestClass) {
+  const [
+    requiredFields,
+    volumePlaceholder,
+    defaultRequestClass,
+    allowedRequestClasses,
+    redirectMessage,
+    drawing,
+    neck,
+  ] = await Promise.all([
+    getSetting(db, 'intake_required_fields'),
+    getSetting(db, 'intake_volume_placeholder'),
+    getSetting(db, 'intake_default_request_class'),
+    getSetting(db, 'intake_allowed_request_classes'),
+    getSetting(db, 'intake_redirect_message'),
+    listValueList(db, 'drawing_status'),
+    listValueList(db, 'neck_finish'),
+  ]);
+  if (
+    requiredFields === undefined ||
+    volumePlaceholder === undefined ||
+    !defaultRequestClass ||
+    allowedRequestClasses === undefined ||
+    !redirectMessage
+  ) {
     throw new Error('intake settings are not seeded (run pnpm db:seed)');
   }
   const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
@@ -110,6 +124,8 @@ export async function loadIntakeConfig(
       requiredFields: requiredFields as never,
       volumePlaceholder: volumePlaceholder ?? {},
       defaultRequestClass: typeof defaultRequestClass === 'string' ? defaultRequestClass : '',
+      allowedRequestClasses: allowedRequestClasses as never,
+      redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
       drawingProvidedCodes: drawing
         .filter((v) => meta(v.meta).hasDrawing === true)
         .map((v) => v.code),
@@ -510,15 +526,7 @@ export class IntakeService {
     const values = intakeValues(data, config.freeTextNeckFinishes);
     const evaluation: IntakeEvaluation = evaluateIntake(values, config, now);
     if (!evaluation.ready) {
-      throw new IntakeError(
-        422,
-        INTAKE_PROBLEM_CODES.incomplete,
-        'The intake is missing required information',
-        {
-          errors: evaluation.blocking.map((b) => ({ path: b.field, message: b.message })),
-          blocking: evaluation.blocking,
-        },
-      );
+      throw incompleteError(evaluation);
     }
     const sfOpportunityId = data.sfOpportunityId!;
     const audit = {
@@ -760,6 +768,29 @@ export class IntakeService {
       attachments,
     };
   }
+}
+
+/**
+ * 422 for a blocked submit. The problem `code` names the rule when one decides it (FB-02): a request
+ * class that isn't CCQ (F-067) first, then no drawing and an incomplete minimum spec (F-016);
+ * otherwise `intake_incomplete`. `blocking` always lists every issue.
+ */
+function incompleteError(evaluation: IntakeEvaluation): IntakeError {
+  const has = (code: string) => evaluation.blocking.some((b) => b.code === code);
+  const [code, title] = has('REQUEST_CLASS_NOT_ALLOWED')
+    ? [INTAKE_PROBLEM_CODES.requestClassNotAllowed, 'This request class is not submitted to CCQ']
+    : has('DRAWING_OR_MIN_SPEC_REQUIRED')
+      ? [
+          INTAKE_PROBLEM_CODES.drawingOrMinSpecRequired,
+          'Attach a drawing or complete the minimum spec',
+        ]
+      : [INTAKE_PROBLEM_CODES.incomplete, 'The intake is missing required information'];
+  const minSpec = evaluation.blocking.find((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED');
+  return new IntakeError(422, code, title, {
+    errors: evaluation.blocking.map((b) => ({ path: b.field, message: b.message })),
+    blocking: evaluation.blocking,
+    ...(minSpec?.missing ? { missing: minSpec.missing } : {}),
+  });
 }
 
 /** The quote must be back with this KAM for rework (INTAKE, not submitted, not closed). */

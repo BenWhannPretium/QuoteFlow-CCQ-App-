@@ -92,6 +92,9 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
       volumePlaceholder: s.intake_volume_placeholder ?? {},
       defaultRequestClass:
         typeof s.intake_default_request_class === 'string' ? s.intake_default_request_class : 'CCQ',
+      allowedRequestClasses: (s.intake_allowed_request_classes ?? []) as never,
+      redirectMessage:
+        typeof s.intake_redirect_message === 'string' ? s.intake_redirect_message : '',
       drawingProvidedCodes: (lists.drawing_status ?? [])
         .filter((e) => meta(e, 'hasDrawing'))
         .map((e) => e.code),

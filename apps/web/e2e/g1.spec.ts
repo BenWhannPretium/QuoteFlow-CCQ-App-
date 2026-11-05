@@ -13,7 +13,8 @@ test('a SalesLeader qualifies one quote and redirects another from the G1 queue'
 }) => {
   const candidates = await freeOpportunities(request, 2);
   const toAdvance = await submitQuote(request, candidates);
-  const toRedirect = await submitQuote(request, candidates, { requestClass: 'STOCK' });
+  // FB-02 (F-067): only CCQ can be submitted; G1 still redirects one that turns out not to be.
+  const toRedirect = await submitQuote(request, candidates);
 
   await signInAs(page, 'sales-leader');
   await page.goto('/');
@@ -25,7 +26,7 @@ test('a SalesLeader qualifies one quote and redirects another from the G1 queue'
   const advanceCard = page.locator(`[data-testid="queue-item"][data-quote="${toAdvance}"]`);
   const redirectCard = page.locator(`[data-testid="queue-item"][data-quote="${toRedirect}"]`);
   await expect(advanceCard).toBeVisible();
-  await expect(redirectCard.getByTestId('request-class')).toContainText('Stock');
+  await expect(redirectCard.getByTestId('request-class')).toContainText('CCQ');
   await expect(advanceCard.getByRole('img', { name: /^Priority score \d+/ })).toBeVisible();
 
   // "Why this priority?" explains the score attribute by attribute.

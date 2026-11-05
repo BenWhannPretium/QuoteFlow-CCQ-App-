@@ -64,6 +64,7 @@ function Select({
   onChange,
   cfg,
   placeholder = 'Choose…',
+  invalid,
 }: {
   id: string;
   listKey: string;
@@ -71,11 +72,13 @@ function Select({
   onChange: (v: string | null) => void;
   cfg: WizardConfig;
   placeholder?: string;
+  invalid?: boolean;
 }) {
   return (
     <NativeSelect
       id={id}
       aria-describedby={`${id}-help`}
+      aria-invalid={invalid || undefined}
       value={value ?? ''}
       onChange={(e) => onChange(nullIfBlank(e.target.value))}
     >
@@ -273,7 +276,8 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
   const sf = data.sfPrefill ?? {};
   const neckEntry = cfg.lists.neck_finish?.find((e) => e.code === data.neckFinish);
   const placeholder = evaluation.warnings.find((w) => w.code === 'VOLUME_PLACEHOLDER');
-  const redirect = evaluation.warnings.find((w) => w.code === 'REQUEST_CLASS_REDIRECT');
+  // F-067: a class other than CCQ shows where it goes instead, and Submit stays disabled.
+  const notAllowed = evaluation.blocking.find((b) => b.code === 'REQUEST_CLASS_NOT_ALLOWED');
   const suggestion = suggestedDescription(data, cfg);
 
   // Keep the standard description in step with the suggestion until the KAM edits it.
@@ -304,14 +308,22 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
   return (
     <div className="grid gap-4">
       <Section title="Request">
-        <Field {...meta(cfg, 'request_class')} note={redirect ? redirect.message : undefined}>
+        <Field {...meta(cfg, 'request_class')}>
           <Select
             id={fid('request_class')}
             listKey="request_class"
             value={data.requestClass}
             onChange={(v) => update({ requestClass: v })}
             cfg={cfg}
+            invalid={Boolean(notAllowed)}
           />
+          {notAllowed && (
+            <div role="alert">
+              <Notice tone="blocking" testId="request-class-redirect">
+                {notAllowed.message}
+              </Notice>
+            </div>
+          )}
         </Field>
       </Section>
 

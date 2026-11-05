@@ -25,6 +25,8 @@ const config: IntakeConfig = parseIntakeConfig({
   ],
   volumePlaceholder: { values: [1_000_000], roundMultiple: 1_000_000 },
   defaultRequestClass: 'CCQ',
+  allowedRequestClasses: ['CCQ'],
+  redirectMessage: 'Stock and price checks stay in the pricing application.',
   drawingProvidedCodes: ['HAVE_DRAWING'],
 });
 
@@ -81,6 +83,8 @@ describe('evaluateIntake', () => {
       'MISSING_FIELD:product_family',
       'MISSING_FIELD:resin',
       'MISSING_FIELD:est_annual_volume',
+      // F-067: only CCQ is submitted, so a blank class blocks too (a domain rule, not config).
+      'MISSING_FIELD:request_class',
     ]);
     expect(result.ready).toBe(false);
   });
@@ -180,10 +184,33 @@ describe('evaluateIntake', () => {
     );
   });
 
-  it('a request class other than the default warns about redirection', () => {
-    const result = ev({ ...complete, request_class: 'STOCK' }, config);
-    expect(result.ready).toBe(true);
-    expect(codes(result.warnings)).toEqual(['REQUEST_CLASS_REDIRECT:request_class']);
+  describe('request class (F-067)', () => {
+    it('a class that is not allowed blocks with the configured message', () => {
+      const result = ev({ ...complete, request_class: 'STOCK' });
+      expect(result.ready).toBe(false);
+      expect(result.blocking).toEqual([
+        {
+          code: 'REQUEST_CLASS_NOT_ALLOWED',
+          field: 'request_class',
+          message: 'Stock and price checks stay in the pricing application.',
+        },
+      ]);
+    });
+
+    it('the allowed list is config: allow STOCK and it submits', () => {
+      const wider = { ...config, allowedRequestClasses: ['CCQ', 'STOCK'] };
+      expect(ev({ ...complete, request_class: 'STOCK' }, wider).ready).toBe(true);
+    });
+
+    it('a blank class blocks once, even when the config also requires it', () => {
+      expect(codes(ev({ ...complete, request_class: null }).blocking)).toEqual([
+        'MISSING_FIELD:request_class',
+      ]);
+      const strict = { ...config, requiredFields: [present('request_class')] };
+      expect(codes(ev({ ...complete, request_class: '' }, strict).blocking)).toEqual([
+        'MISSING_FIELD:request_class',
+      ]);
+    });
   });
 
   describe('ship-to override', () => {
@@ -282,6 +309,8 @@ describe('parseIntakeConfig', () => {
       requiredFields: [],
       volumePlaceholder: {},
       defaultRequestClass: 'CCQ',
+      allowedRequestClasses: ['CCQ'],
+      redirectMessage: 'Elsewhere.',
       drawingProvidedCodes: [],
     });
     expect(parsed.volumePlaceholder).toEqual({ values: [], roundMultiple: null });
@@ -293,6 +322,8 @@ describe('parseIntakeConfig', () => {
         ],
         volumePlaceholder: {},
         defaultRequestClass: 'CCQ',
+        allowedRequestClasses: ['CCQ'],
+        redirectMessage: 'Elsewhere.',
         drawingProvidedCodes: [],
       }),
     ).toThrow();
