@@ -876,32 +876,49 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - Every request class can be submitted, with only a warning.
 - **People:** Jordan Albin and John Kraus (KAM retest); Jim Zweifel and Danielle Leu (the minimum list, A-005 and A-024).
 - **Done when:**
-  - [ ] **F-007** no new-customer form.
+  - [x] **F-007** no new-customer form.
     - The customer is always the Salesforce Account on the opportunity.
     - "Not yet established" stays as one checkbox, meaning not yet set up in ERP (CLAUDE.md rule 7, DEC-27). It still drives the new-customer Legal trigger.
     - No account fields are typed. Existing rows keep their data.
-  - [ ] **F-008** fields already in Salesforce pre-fill and aren't re-entered. The **SF close date shows read-only from the latest sync** (live, not a snapshot), which answers T-009.
-  - [ ] **F-009** required **Quote needed by** and **Product needed by** dates replace the editable close date. Quote needed by feeds the `timing` attribute of the priority score.
-  - [ ] **F-010** neck as **Neck diameter**, **Neck finish** and **Special feature** pick-lists, using Jim Zweifel's lists (Field Inventory, A-001):
+  - [x] **F-008** fields already in Salesforce pre-fill and aren't re-entered. The **SF close date shows read-only from the latest sync** (live, not a snapshot), which answers T-009.
+  - [x] **F-009** required **Quote needed by** and **Product needed by** dates replace the editable close date. Quote needed by feeds the `timing` attribute of the priority score.
+  - [x] **F-010** neck as **Neck diameter**, **Neck finish** and **Special feature** pick-lists, using Jim Zweifel's lists (Field Inventory, A-001):
     - "Other" is renamed "Custom" and opens a required short description.
     - Existing `neck_finish` values migrate (e.g. `28-410` → 28 + 410).
     - All lists are provisional.
-  - [ ] **F-011** "Customer-specified resin" checkbox, which reveals a required supplier/grade field (≤ 120). **F-055** PCR % from a value list (0, 25, 50, 100; provisional).
-  - [ ] **F-023** color (Natural / Custom + short description) and additives (short note) at intake.
-  - [ ] **F-013** a Decoration component plus follow-ups:
+  - [x] **F-011** "Customer-specified resin" checkbox, which reveals a required supplier/grade field (≤ 120). **F-055** PCR % from a value list (0, 25, 50, 100; provisional).
+  - [x] **F-023** color (Natural / Custom + short description) and additives (short note) at intake.
+  - [x] **F-013** a Decoration component plus follow-ups:
     - liner spec
     - label purchased by (customer / Pretium)
     - decoration type and number of print colors
-  - [ ] **F-014** attachment kinds Bid file, Project brief and Competitor/incumbent drawing, plus an optional RFP/portal link (https only). **T-003** file names with commas or slashes are stored safely and open for every role.
-  - [ ] **F-015** "Modify an existing mold": the existing mold or part number, the reference drawing or part, and what changes. Visible to Engineering.
-  - [ ] **F-016** a quote can't be submitted without a drawing attachment **or** every field in the minimum spec set:
+  - [x] **F-014** attachment kinds Bid file, Project brief and Competitor/incumbent drawing, plus an optional RFP/portal link (https only). **T-003** file names with commas or slashes are stored safely and open for every role.
+  - [x] **F-015** "Modify an existing mold": the existing mold or part number, the reference drawing or part, and what changes. Visible to Engineering.
+  - [x] **F-016** a quote can't be submitted without a drawing attachment **or** every field in the minimum spec set:
     - The set is the `intake_min_spec_fields` setting, seeded from D-018: height, width or diameter, depth, gram weight, neck finish, resin, color. It is provisional; A-024 may add layer structure and a photo.
     - Enforced in the domain, the API and the wizard.
-  - [ ] **F-017** ship/fill destination city and state required, pre-filled from Salesforce, and shown to Engineering.
-  - [ ] **F-067** only CCQ can be submitted. Other classes show a configurable message pointing to the pricing application (`intake_redirect_message`, provisional; D-030 may change where pack-out changes go).
-  - [ ] **F-075** optional "Quote variants requested" note (≤ 300, provisional), shown to Engineering and Pricing.
-  - [ ] Fabric-safe schema (rule 10); the data dictionary is regenerated; Playwright intake happy path plus "no drawing, incomplete spec → blocked"
-  - [ ] change-log procedure done
+  - [x] **F-017** ship/fill destination city and state required, pre-filled from Salesforce, and shown to Engineering.
+  - [x] **F-067** only CCQ can be submitted. Other classes show a configurable message pointing to the pricing application (`intake_redirect_message`, provisional; D-030 may change where pack-out changes go).
+  - [x] **F-075** optional "Quote variants requested" note (≤ 300, provisional), shown to Engineering and Pricing.
+  - [x] Fabric-safe schema (rule 10); the data dictionary is regenerated; Playwright intake happy path plus "no drawing, incomplete spec → blocked"
+  - [x] change-log procedure done
+- **Built 2026-11-05. Notes and deviations:**
+  - **Commits by section:** §1, §2, §3–4 (one commit: §4's follow-up columns share §3's value-list check constraint and admin usage lookup) and §5. One migration, `0026_fb02_intake_overhaul` (schema + hand-written data migration; `packages/db/test/fb02-migration.int.test.ts` re-runs its blocks on a copy of the synthetic data).
+  - **F-010, three fields, not two (deviation):** the tracker's F-010 text says two fields (diameter/finish + type). Jim Zweifel's later list (Field Inventory, Nov 5; V-073, A-001) has three, so the neck is `neck_diameter` + `neck_finish_type` + optional `neck_special_feature`. "Other" is "Custom" with a required description (≤ 120). The old `neck_finish` list is deactivated (not deleted) and the column deprecated. Migration 0026 split stored values: 28-410 / 38-400 / 89-400 / 110-400 → diameter + finish, 120 DC → 120 + Custom "DC", other text → finish Custom keeping the text (quotes and open drafts; submitted drafts are history). The SF `Neck_Finish__c` pre-fill parses "28-410"-style text against the lists and stays blank when it can't.
+  - **F-007:** the customer is always the opportunity's SF Account; an opportunity without one blocks (`SF_ACCOUNT_REQUIRED`, D-011). "Not yet a Pretium customer (no ERP account)" sets the shared customer row's status (audited `customer` update). The customer check constraint now only requires an SF account for `existing`; `location` / `contact` are deprecated.
+  - **F-008 / T-009:** the SF close date is read from the latest snapshot (draft `sfCloseDate`, quote `expectedCloseDate`, pipeline filter/sort via `coalesce(snapshot.close_date, quote.expected_close_date)`); `expected_close_date` is no longer written. Resin, neck, volume and container size from the SF product spec are **read-only in the wizard** with a "from Salesforce" tag (`sfPrefill` on the draft); the server does not re-read SF at submit to enforce it (no write-back; the KAM fixes the value in SF and re-picks). Revenue and the destination stay overridable (destination with a reason, as before).
+  - **F-009:** "after today" is judged in US Central (`todayInCentral`, DST computed in the domain). Scoring: a new model **version 2** (timing input `days_to_quote_needed`, label "Timing (days to quote needed by)"; weights and bands unchanged, D-004 open). Existing environments get it from migration 0026 as max version + 1 copied from the model in effect (effective at the migration); new databases from the seed (effective from v1's date, so every score uses it). Earlier scores keep their version. **Quotes submitted before FB-02 and still waiting at G1 need the two dates before G1 Advance** (INTAKE_COMPLETE): the G1 decider sends them back to the KAM with Rework.
+  - **F-067:** blank request class also blocks (only CCQ can be submitted). G1 Redirect stays for CCQ requests that turn out not to be CCQ work; the old "may be redirected at qualification" warning is gone.
+  - **F-016:** the rule is enforced at **submit** (domain, API, wizard), not at G1. A drawing *status* alone no longer counts: it takes a `bottle_drawing` or `competitor_drawing` file on the draft (or, for a rework, on the quote); uploading a competitor drawing also sets the drawing status. Without a drawing the submit is amber ("quotes without a drawing usually take longer"). `422 DRAWING_OR_MIN_SPEC_REQUIRED` (with `missing`) is the problem code when that rule is the only blocker; with other gaps it is `intake_incomplete` and the rule is in `blocking`. A-024's layer structure / container photo: a TODO next to the seed, no field.
+  - **T-003 fixed:** the multipart parser cut names at the last "/" (`P&G, bottle 1/2 rev.pdf` became `2 rev.pdf`). `preservePath` is on, `displayFileName` keeps the name whole (minus a Windows path), and the stored key replaces "/" with "_".
+  - **F-013:** the follow-ups come from `component` value-list meta (`followUps`), so the list stays config. Values that no longer apply (a deselected component's follow-ups, a description of a non-Custom value, a grade without the checkbox, mold details when unticked) are cleared on submit.
+  - **Shown to Engineering and Pricing (T-013):** `QuoteDetail.intakeFacts` (every role that reads the quote), the quote's Intake card, the Final Review request section, and a compact "From intake" header on the Engineering tab (destination, mold chip, neck / resin grade / PCR / color / additives / variants). FB-03 owns the Engineering review header; if it adds its own, merge the two there.
+  - **Routes:** no new route and no permission change (the intake routes stay `quote.create`; quote reads stay `quote.read`), so no new permission-matrix rows. `docs/security/route-inventory.md` is unchanged.
+  - **Provisional values seeded (all `provisional: true`):** `intake_allowed_request_classes` `["CCQ"]`; `intake_redirect_message`; `intake_min_spec_fields` `["height","widthOrDiameter","depth","gramWeight","neck","resin","color"]`; `intake_variants_note_max_length` 300; `intake_required_fields` + ship_to.city, ship_to.state, quote_needed_by, product_needed_by (the street-or-city alternative dropped); value lists `neck_diameter` (29), `neck_finish_type` (18), `neck_special_feature` (5), `pcr_level` (0/25/50/100), `color_type` (Natural / Custom color), `labels_purchased_by` (Customer / Pretium), `decoration_type` (Silk screen, Hot stamp, Shrink sleeve, Other), `component` + Decoration; scoring model v2.
+  - **Opportunity picker:** an opportunity with no SF Account shows "Add the account to this opportunity in Salesforce, then pick it" instead of "Use" (F-007).
+  - **Merge order (FB-01 → FB-03 → FB-02):** FB-03 (`0026_fb03_capacity_utilization`, plus the `capacity_analysis` attachment kind and an Engineering review header fed from the server) and FB-01 also add migration 0026. When they merge, rebase this PR: renumber `0026_fb02_intake_overhaul` (file, `meta/NNNN_snapshot.json`, `idx` / `tag` in `_journal.json`), regenerate the snapshot so the `attachment_kind_check` and `value_list_list_key_check` lists include both steps' values, point the `fb02-migration.int.test.ts` file name at the new number, feed the FB-02 facts into FB-03's header list (and drop or merge `IntakeFactsHeader`), then re-run `pnpm test:integration`.
+  - **Verification:** Docker wasn't available in the build session, so `pnpm verify` ran against a local PostgreSQL 16 with the same `ccq` credentials: lint, typecheck, unit, integration (db 100, api 1,644+) and build all pass; the full Playwright suite passed locally (114 passed, 1 skipped). Migration 0026 was also applied to a database built and seeded by `main` (150 synthetic quotes plus an admin-edited setting): necks split as specified, the admin's own required-field rule kept, scoring v2 created.
+  - **Left for later:** `Ship_to_Locations__c` is not mapped (`fieldMap.ts` doesn't resolve it; `TODO(D-18)` stays). Structured multi-scenario quotes are F-056 (P1). Packaging is unchanged (D-016, FB-09).
 - **Prompt:** `prompts/feedback/FB-02-intake-overhaul.md`
 
 ### FB-03: Engineering review and capacity · **Wave 1** · Ben (Sonnet 5.5 · high)

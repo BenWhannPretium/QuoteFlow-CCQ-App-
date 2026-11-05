@@ -186,12 +186,12 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 
 | Tracker ID | Decision | Built in |
 |---|---|---|
-| D-011 | No ERP account setup until the business is won; new accounts start in Salesforce; remove the QuoteFlow new-customer form (Nov 2) | FB-02 (F-007) |
-| D-012 | Engineering decides the plant, with KAM input on destination and logistics (Nov 2) | FB-02 (F-017) |
+| D-011 | No ERP account setup until the business is won; new accounts start in Salesforce; remove the QuoteFlow new-customer form (Nov 2) | FB-02 (F-007), **built 2026-11-05**: the customer is always the opportunity's SF Account; one checkbox "Not yet a Pretium customer (no ERP account)" |
+| D-012 | Engineering decides the plant, with KAM input on destination and logistics (Nov 2) | FB-02 (F-017), **built 2026-11-05**: "Ship / fill destination" city + state required, shown on the Engineering queue and header |
 | D-013 | MVP cost model = upload the standard template and extract a one-page summary; in-app model later (Oct 30) | FB-07 (F-031), after D-001 |
 | D-014 | Salesforce write-back deferred to Phase 1 (Oct 26) | P1 backlog (F-035); FB-04 ships the link-and-prompt stopgap (F-076) |
 | D-015 | Minimise free text; notes only on exceptions (Oct 30) | FB-01 (F-027); caps wait for D-016 (FB-09) |
-| D-018 | A drawing, or a required minimum spec set (height, diameter/width/depth, gram weight, neck finish, resin, color), to advance (Nov 3). Final list: Jim Zweifel / Danielle Leu (A-005, A-024) | FB-02 (F-016), list as provisional config |
+| D-018 | A drawing, or a required minimum spec set (height, diameter/width/depth, gram weight, neck finish, resin, color), to advance (Nov 3). Final list: Jim Zweifel / Danielle Leu (A-005, A-024) | FB-02 (F-016), **built 2026-11-05**: enforced at submit; the list is `intake_min_spec_fields` (provisional, seeded height, widthOrDiameter, depth, gramWeight, neck, resin, color) |
 | D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3) | FB-04 (F-022) |
 | D-028 | Only sales leaders override priority, with the justification passed to Engineering; KAMs use escalation (Bailey, Nov 3; confirm with KAMs before the pilot) | FB-04 (F-065) |
 
@@ -207,17 +207,20 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | **D-007** | Does two-step (preform) continue across plants? | Engineering | Engineering follow-up (A-014) | FB-06 (F-024) | Pricing carries it in the costing workbook |
 | **D-008** | Engineering and capacity roles: who is lead, one or several engineers, who owns capacity | Paul Slomkowski; Danielle Leu | Engineering roles session. *A-006 (Nov 4): Paul is the Engineering Lead; Randy Neiberger and Rafael Pasillas are assigned by project × request type (e.g. PET × ISBM)* | FB-06 (F-062, capacity owner) | One assignee; EngLead signs capacity |
 | **D-016** | Data standards: packaging list ("Plant specified" vs "not acceptable"), free-text caps, where "Other" is allowed | Bailey Schmitt | Engineering follow-up (A-028) | FB-09 (F-012, F-019) | Current packaging list and text limits |
-| **D-017** | Multi-scenario quotes | Bailey Schmitt | Decision session with Oleg | F-056 (P1). F-075's short variant note is built in FB-02 as the recommended interim (option B) | The variant note |
+| **D-017** | Multi-scenario quotes | Bailey Schmitt | Decision session with Oleg | F-056 (P1). F-075's short variant note is built in FB-02 as the recommended interim (option B) | The variant note: **built 2026-11-05**, limit in `intake_variants_note_max_length` (300, provisional) |
 | **D-020** | Quote turnaround standards | Oleg | Decision session with Oleg | F-072 (P1) | Aging only |
 | **D-021** | Standard utilization basis; confirm Faron's formula (A-023: trending OEE appears twice as emailed) | Faron Ipox with leadership | Supply Chain follow-up | F-060 (P1); the run-days basis in FB-03 | FB-03 calculates with Faron's formula shape and a provisional `capacity_basis` setting |
-| **D-005**, **D-019**, **D-022**, **D-030** | Bid scope rules; innovation projects; operations alignment on large projects; where stock / stock-plus requests go | Bailey; sales leadership; Engineering | See the tracker | P1 (T-006, T-028, T-029, F-071); F-067 ships with a configurable redirect message | Bid file attached to a single-item quote; CCQ-only request class |
+| **D-005**, **D-019**, **D-022**, **D-030** | Bid scope rules; innovation projects; operations alignment on large projects; where stock / stock-plus requests go | Bailey; sales leadership; Engineering | See the tracker | P1 (T-006, T-028, T-029, F-071); F-067 ships with a configurable redirect message | Bid file attached to a single-item quote (FB-02 added the `bid_file` kind); CCQ-only request class (FB-02, **built 2026-11-05**: `intake_allowed_request_classes` `["CCQ"]` and `intake_redirect_message`, both provisional; D-030 may change the pack-out wording) |
+| **D-004** (FB-02 note) | Scoring weights stay open | Sales/Marketing leadership | Decision session with Oleg | — | FB-02 added scoring model **v2**: `timing` reads "Quote needed by" (F-009) with v1's weight and bands, provisional |
 
 **Inputs the business still has to send (tracker Action Items):**
 
 | Input | From | Action | Used by |
 |---|---|---|---|
-| Standard neck diameters, finishes, special features | Jim Zweifel | A-001 (received 11/4; values in the Field Inventory) | FB-02 (F-010) |
-| No-drawing minimum set, incl. whether layer structure and a container photo join it | Jim Zweifel, Danielle Leu | A-005, A-024 | FB-02 (F-016) |
+| Standard neck diameters, finishes, special features | Jim Zweifel | A-001 (received 11/4; values in the Field Inventory) | FB-02 (F-010): seeded as provisional value lists `neck_diameter`, `neck_finish_type`, `neck_special_feature` (2026-11-05); sign-off still needed (F-020) |
+| No-drawing minimum set, incl. whether layer structure and a container photo join it | Jim Zweifel, Danielle Leu | A-005, A-024 | FB-02 (F-016): the D-018 set is seeded provisionally; layer structure / photo would need new fields first |
+| Component list and follow-ups (liner spec, labels purchased by, decoration type and colors) | Bailey Schmitt with Engineering (V-090: the list isn't final) | F-020 | FB-02 (F-013): Decoration added; follow-ups in `component` meta, provisional |
+| PCR levels and color list | Engineering and Supply Chain; Kyle Arnold, Tania Nazario | F-055, F-023 | FB-02: `pcr_level` (0/25/50/100) and `color_type` (Natural / Custom), provisional |
 | Utilization formula confirmation and basis | Faron Ipox | A-023 (email copied to `feedback/inputs/capacity-formula.md`; OEE appears twice) | FB-03 (F-059) |
 | Equipment BOM template and component list | Kal Kaliszewski | A-003 (session 11/6) | FB-06 (F-058) |
 | Engineering estimate workbook (the costing input Engineering fills today) | Engineering (Paul Slomkowski) | new | FB-06 (F-026) |
