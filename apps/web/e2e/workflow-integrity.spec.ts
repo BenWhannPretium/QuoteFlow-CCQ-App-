@@ -48,7 +48,7 @@ async function pricedInQuoting(request: APIRequestContext): Promise<string> {
         site: 'PLANT_01',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
-        utilizationPct: 62,
+        utilizationBeforePct: 62,
         analysisDate: '2026-10-26',
         analystId: engineerId,
       },
