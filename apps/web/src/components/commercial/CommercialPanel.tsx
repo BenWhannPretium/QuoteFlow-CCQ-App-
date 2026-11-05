@@ -1,6 +1,6 @@
 import type { CommercialDetail, QuoteDetail, TermsBody } from '@ccq/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MegaphoneIcon, ScaleIcon } from 'lucide-react';
+import { InfoIcon, MegaphoneIcon, ScaleIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useValueList } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
@@ -180,6 +181,39 @@ function termsFormFrom(c: CommercialDetail): TermsForm {
   };
 }
 
+/** FB-04 (F-022, V-055): an (i) beside the funding options that lists each option's help text (meta.helpText). */
+function FundingHelp({
+  options,
+}: {
+  options: readonly { code: string; label: string; meta: Record<string, unknown> }[];
+}) {
+  const withHelp = options.filter((o) => typeof o.meta.helpText === 'string');
+  if (withHelp.length === 0) return null;
+  return (
+    <div className="flex items-end pb-1.5 sm:col-span-2 sm:-mt-2">
+      <Popover>
+        <PopoverTrigger
+          className="text-emphasis inline-flex min-h-8 items-center gap-1 rounded px-1 text-xs underline-offset-4 hover:underline"
+          data-testid="funding-help"
+        >
+          <InfoIcon className="size-3.5" aria-hidden="true" />
+          What do the funding options mean?
+        </PopoverTrigger>
+        <PopoverContent className="w-[min(28rem,calc(100vw-2rem))]" align="start">
+          <dl className="grid gap-2 text-xs">
+            {withHelp.map((o) => (
+              <div key={o.code}>
+                <dt className="font-semibold">{o.label}</dt>
+                <dd className="text-muted-foreground">{String(o.meta.helpText)}</dd>
+              </div>
+            ))}
+          </dl>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 /** B-26 (B6, B8): tooling funding, the terms check and, when a trigger applies, the Legal review. */
 function TermsEditor({ quote }: { quote: QuoteDetail }) {
   const c = quote.commercial;
@@ -322,6 +356,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
             </NativeSelect>
           )}
         </Field>
+        <FundingHelp options={fundingModels} />
         <Field
           label="Customer tooling commitment"
           hint="Does the customer commit to fund or pay for tooling?"

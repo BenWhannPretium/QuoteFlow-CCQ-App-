@@ -6,8 +6,8 @@ import type {
   SfStageComparison,
   ValidityStatus,
 } from '@ccq/contracts';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CircleAlertIcon, ClockIcon, HandshakeIcon } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CircleAlertIcon, ClockIcon, HandshakeIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
-import { quoteQueryKey } from '../GateDecisionDialog';
+import { quoteQueryKey, sfReminderKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
 
@@ -578,5 +578,82 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ── FB-04 (F-076): the "update the Salesforce opportunity" reminder (stopgap until write-back, F-035) ──
+
+/** "Open in Salesforce ↗" (new tab), or the plain opportunity ID while `salesforce_instance_url` is unset. */
+export function SalesforceLink({
+  quote,
+  className,
+}: {
+  quote: Pick<QuoteDetail, 'sfOpportunityId' | 'sfOpportunityUrl'>;
+  className?: string;
+}) {
+  if (!quote.sfOpportunityUrl) {
+    return (
+      <span className={cn('font-mono text-xs', className)} data-testid="sf-opportunity-plain">
+        {quote.sfOpportunityId}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={quote.sfOpportunityUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        'text-emphasis text-sm font-medium underline-offset-4 hover:underline',
+        className,
+      )}
+      data-testid="open-in-salesforce"
+    >
+      Open in Salesforce ↗
+    </a>
+  );
+}
+
+/** Shown on the quote after a G5 outcome is saved; dismissible; nothing is written to Salesforce. */
+export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
+  const queryClient = useQueryClient();
+  const key = sfReminderKey(quote.quoteNumber);
+  const { data: outcomeKey } = useQuery<string | null>({
+    queryKey: key,
+    queryFn: () => null,
+    enabled: false,
+    initialData: null,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+  if (!outcomeKey) return null;
+  const stage = quote.customerDecision.sfStageByOutcome[outcomeKey];
+  return (
+    <div
+      role="status"
+      data-testid="sf-update-reminder"
+      className="bg-warning text-warning-foreground rounded-card flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm"
+    >
+      <span>
+        {stage ? (
+          <>
+            Update the Salesforce opportunity to match: <strong>{stage}</strong>.
+          </>
+        ) : (
+          'Update the Salesforce opportunity to match this outcome.'
+        )}
+      </span>
+      <SalesforceLink quote={quote} className="text-current" />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="ml-auto h-8 min-h-8 px-2"
+        aria-label="Dismiss the Salesforce reminder"
+        onClick={() => queryClient.setQueryData(key, null)}
+      >
+        <XIcon aria-hidden="true" />
+        Dismiss
+      </Button>
+    </div>
   );
 }

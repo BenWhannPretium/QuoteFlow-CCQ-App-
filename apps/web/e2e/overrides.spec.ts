@@ -7,49 +7,50 @@ import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 // B-09: governed overrides end to end (tier with approval and revert; ship-to self-applied), the
 // quote timeline with filters and an @mention comment, and the Leadership audit pages.
 
-test('tier override: the KAM requests, the SalesLeader approves, then reverts from the timeline', async ({
+test('tier override: only a SalesLeader overrides (self-applied, with a justification), then reverts from the timeline', async ({
   page,
   request,
 }) => {
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
 
-  // KAM: request a tier override (justification needs 15+ characters).
+  // FB-04 (F-065, D-028): the KAM has no override option, only a pointer to escalation.
   await signInAs(page, 'kam');
   await page.goto(`/quotes/${quoteNumber}`);
   const priority = page.getByTestId('quote-priority');
-  await priority.getByRole('button', { name: 'Override priority tier' }).click();
+  await expect(priority.getByRole('button', { name: 'Override priority tier' })).toHaveCount(0);
+  await expect(priority.getByTestId('priority-escalate-hint')).toHaveText(
+    'Need a different priority? Escalate to your sales leader.',
+  );
+
+  // SalesLeader: override the tier; the justification needs 15+ characters and applies at once.
+  await signInAs(page, 'sales-leader');
+  await page.goto(`/quotes/${quoteNumber}`);
+  await page
+    .getByTestId('quote-priority')
+    .getByRole('button', { name: 'Override priority tier' })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Override priority tier' });
+  await expect(dialog).toContainText('Applies now and is logged with your reason');
   await dialog.getByLabel('New tier').selectOption({ label: 'Critical' });
   await expect(dialog.getByTestId('override-current-requested')).toContainText('Critical');
   await dialog.getByLabel('Justification (required)').fill('Too short');
-  await dialog.getByRole('button', { name: 'Request override' }).click();
+  await dialog.getByRole('button', { name: 'Apply override' }).click();
   await expect(dialog.getByRole('alert')).toContainText('at least 15 characters');
   expect(await seriousViolations(page)).toEqual([]);
   await dialog
     .getByLabel('Justification (required)')
     .fill('Strategic launch with the national account this quarter');
-  await dialog.getByRole('button', { name: 'Request override' }).click();
+  await dialog.getByRole('button', { name: 'Apply override' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByTestId('override-pending-priority_tier')).toContainText('Critical');
 
-  // SalesLeader: approve it from Approvals → Override requests.
-  await signInAs(page, 'sales-leader');
-  await page.goto('/');
-  await page.getByRole('navigation', { name: 'Primary' }).locator('[data-nav="approvals"]').click();
-  const request_ = page.locator('[data-testid="override-request"]', { hasText: quoteNumber });
-  await expect(request_).toContainText('Strategic launch with the national account');
-  expect(await seriousViolations(page)).toEqual([]);
-  // B-26 (A2): approving needs a note too.
-  await request_.getByRole('textbox').fill('Agreed with the account plan');
-  await request_.getByRole('button', { name: 'Approve' }).click();
-  await expect(page.getByText('Override approved and applied', { exact: true })).toBeVisible();
-  await expect(request_).toHaveCount(0);
-
-  // The quote shows the copper marker (original + justification) and the timeline entry.
-  await page.goto(`/quotes/${quoteNumber}`);
+  // The quote shows the copper marker (original + justification), the priority panel repeats the
+  // justification for Engineering (T-024), and the timeline has the entry.
   const marker = page.getByTestId('overridden-priority_tier');
   await expect(marker).toBeVisible();
   await expect(marker).toHaveAccessibleName(/Original: .+ Why: Strategic launch/);
+  await expect(page.getByTestId('priority-override-note')).toContainText(
+    'Strategic launch with the national account this quarter',
+  );
   const timeline = page.getByTestId('quote-timeline');
   await timeline.getByRole('button', { name: 'Overrides' }).click();
   await expect(timeline.getByText(/Priority tier overridden: .+ → Critical/)).toBeVisible();

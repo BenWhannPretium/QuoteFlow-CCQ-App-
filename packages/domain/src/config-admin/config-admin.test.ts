@@ -88,7 +88,7 @@ describe('app setting specs', () => {
     const fields = OVERRIDE_SETTINGS_SEED.fields;
     expect(parseSettingValue('overridable_fields', fields)).toHaveLength(fields.length);
     const noApprover = fields.map((f) =>
-      f.field === 'priority_tier' ? { ...f, approverRoles: [] } : f,
+      f.field === 'priority_tier' ? { ...f, approval: 'approver', approverRoles: [] } : f,
     );
     expect(invalid(() => parseSettingValue('overridable_fields', noApprover))).toMatch(
       /needs approverRoles/,

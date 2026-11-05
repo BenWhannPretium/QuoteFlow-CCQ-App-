@@ -19,6 +19,8 @@ export interface ScoreBreakdownItem {
   unknown: boolean;
   /** The input is a commercial field (e.g. preliminary capital): `raw` is hidden from roles without commercial access. */
   sensitive: boolean;
+  /** FB-04: the attribute's map is still empty, so these points are the neutral default (awaiting D-004). */
+  provisional?: boolean;
 }
 
 export interface ScoreResult {
@@ -83,7 +85,11 @@ function scoreAttribute(
   let how: string;
   if (resolved.points !== undefined) {
     base = resolved.points;
-    how = `${resolved.raw}${resolved.detail ? ` (${resolved.detail}, default)` : ''}`;
+    how = `${resolved.raw}${
+      resolved.detail
+        ? ` (${resolved.detail}${resolved.detail === 'segment' ? '' : ', default'})`
+        : ''
+    }`;
   } else {
     const value = Number(resolved.raw);
     const band = bandFor(attribute.bands ?? [], value);
@@ -97,6 +103,7 @@ function scoreAttribute(
     points,
     unknown: false,
     explanation: `${how} → ${fmt.format(points)} points${attribute.inverse ? ' (inverse scale)' : ''}`,
+    ...(resolved.provisional ? { provisional: true } : {}),
   };
 }
 

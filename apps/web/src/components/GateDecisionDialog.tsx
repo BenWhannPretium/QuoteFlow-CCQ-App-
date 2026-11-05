@@ -56,6 +56,12 @@ export const MISSING_LABELS: Record<string, string> = {
 
 export const quoteQueryKey = (quoteNumber: string) => ['quote', quoteNumber] as const;
 
+/**
+ * FB-04 (F-076): set once a G5 outcome is saved; the value is the outcome key that was recorded. Client-only:
+ * dismissing the reminder writes nothing, and a reload clears it.
+ */
+export const sfReminderKey = (quoteNumber: string) => ['sf-reminder', quoteNumber] as const;
+
 interface ServerError {
   path: string;
   message: string;
@@ -208,6 +214,10 @@ export function GateDecisionDialog({
     mutationFn: (body: GateDecisionBody) => api.decideGate(quoteNumber, gateKey, body),
     onSuccess: async (result) => {
       queryClient.setQueryData(quoteQueryKey(quoteNumber), result.quote);
+      // FB-04 (F-076): after a customer outcome (G5), remind the KAM to update the Salesforce opportunity.
+      if (gateKey === 'G5' && action) {
+        queryClient.setQueryData(sfReminderKey(quoteNumber), action.outcomeKey);
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['gate-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['eng-queue'] }),

@@ -41,6 +41,7 @@ export default defineConfig({
         'intake.spec.ts',
         'g1.spec.ts',
         'overrides.spec.ts',
+        'fb04.spec.ts',
         'engineering.spec.ts',
         'pricing.spec.ts',
         'outcome.spec.ts',

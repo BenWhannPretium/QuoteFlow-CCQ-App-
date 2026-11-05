@@ -192,8 +192,8 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | D-014 | Salesforce write-back deferred to Phase 1 (Oct 26) | P1 backlog (F-035); FB-04 ships the link-and-prompt stopgap (F-076) |
 | D-015 | Minimise free text; notes only on exceptions (Oct 30) | FB-01 (F-027), built 2026-11-05: a note on every exception outcome, none on a plain Advance; caps wait for D-016 (FB-09) |
 | D-018 | A drawing, or a required minimum spec set (height, diameter/width/depth, gram weight, neck finish, resin, color), to advance (Nov 3). Final list: Jim Zweifel / Danielle Leu (A-005, A-024) | FB-02 (F-016), **built 2026-11-05**: enforced at submit; the list is `intake_min_spec_fields` (provisional, seeded height, widthOrDiameter, depth, gramWeight, neck, resin, color) |
-| D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3) | FB-04 (F-022) |
-| D-028 | Only sales leaders override priority, with the justification passed to Engineering; KAMs use escalation (Bailey, Nov 3; confirm with KAMs before the pilot) | FB-04 (F-065) |
+| D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3) | FB-04 (F-022), **built 2026-11-05**: relabelled "$0 CER (customer-reimbursed capital)" with Oleg's wording as an ⓘ; no separate path |
+| D-028 | Only sales leaders override priority, with the justification passed to Engineering; KAMs use escalation (Bailey, Nov 3; confirm with KAMs before the pilot) | FB-04 (F-065), **built 2026-11-05**: `priority_tier` is SalesLeader-only, self-applied; waiting requests are left for the SalesLeader |
 
 **Open, and what each one blocks:**
 
@@ -202,7 +202,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | **D-001** | Costing vs pricing/ROI structure (separate Costing gate, Pricing + ROI in parallel?) and the minimum ROI fields | Oleg Yarovinski (Gemma Cebolla, Stacy Slocum) | ROI & capital session, Mon Nov 9 | FB-07 (F-031, F-032, F-074) | Today's G3 (price approval, costing attestation, capital readiness) |
 | **D-002** | Final Review approval tiers | Oleg; sales leadership | Decision session with Oleg | FB-08 (tiers part) | One approver group (build-guide D-10 fallback) |
 | **D-003** + **D-029** | Who owns commercial terms (MOQ and tooling funding to Engineering?), the standard payment term (Net 15 or 30), exception approval, milestone payment terms | Oleg; Gemma Cebolla; Bailey | ROI & capital session (Nov 9); Bailey/Gemma call (A-022) | FB-08 (F-021, F-068, T-007, T-031) | Today's terms check (KAM, free-text payment terms); "Shared" funding option added as provisional in FB-04 |
-| **D-004** | Qualification bands, scoring weights, 9-box strategic-fit points by market, guardrail thresholds | Sales/Marketing leadership (Matthew Graden, Jennifer Wulf, Tania Nazario, Melanie Rasche) | Decision session with Oleg | FB-10 values (F-005 weights, F-073 points, F-066 thresholds) | FB-04 builds the per-market strategic-fit mechanism with provisional points; current weights stay provisional |
+| **D-004** | Qualification bands, scoring weights, 9-box strategic-fit points by market, guardrail thresholds | Sales/Marketing leadership (Matthew Graden, Jennifer Wulf, Tania Nazario, Melanie Rasche) | Decision session with Oleg | FB-10 values (F-005 weights, F-073 points, F-066 thresholds) | FB-04 (built 2026-11-05) built the strategic-fit mechanism (`byMarket` plus optional `bySegment`) and the panel display with **no points seeded**; the map is empty (every quote scores 50, shown as provisional). D-004 must choose segment vs market and the points per 9-box cell; FB-10 loads them. Weights stay provisional |
 | **D-006** | The mandatory-field list | Bailey Schmitt | Decision session with Oleg | FB-09 | Today's required fields plus FB-02's drawing-or-minimum-spec rule |
 | **D-007** | Does two-step (preform) continue across plants? | Engineering | Engineering follow-up (A-014) | FB-06 (F-024) | Pricing carries it in the costing workbook |
 | **D-008** | Engineering and capacity roles: who is lead, one or several engineers, who owns capacity | Paul Slomkowski; Danielle Leu | Engineering roles session. *A-006 (Nov 4): Paul is the Engineering Lead; Randy Neiberger and Rafael Pasillas are assigned by project × request type (e.g. PET × ISBM)* | FB-06 (F-062, capacity owner) | One assignee; EngLead signs capacity |
@@ -212,6 +212,14 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | **D-021** | Standard utilization basis; confirm Faron's formula (A-023: trending OEE appears twice as emailed) | Faron Ipox with leadership | Supply Chain follow-up | F-060 (P1); the run-days basis in FB-03 | FB-03 calculates with Faron's formula shape (OEE applied once) and a provisional `app_setting.capacity_basis` (350 run days, amber over 85 %, basis label "Trailing 12 months actual, trending OEE (provisional, D-021)"); built 2026-11-05 |
 | **D-005**, **D-019**, **D-022**, **D-030** | Bid scope rules; innovation projects; operations alignment on large projects; where stock / stock-plus requests go | Bailey; sales leadership; Engineering | See the tracker | P1 (T-006, T-028, T-029, F-071); F-067 ships with a configurable redirect message | Bid file attached to a single-item quote (FB-02 added the `bid_file` kind); CCQ-only request class (FB-02, **built 2026-11-05**: `intake_allowed_request_classes` `["CCQ"]` and `intake_redirect_message`, both provisional; D-030 may change the pack-out wording) |
 | **D-004** (FB-02 note) | Scoring weights stay open | Sales/Marketing leadership | Decision session with Oleg | — | FB-02 added scoring model **v2**: `timing` reads "Quote needed by" (F-009) with v1's weight and bands, provisional |
+
+**Provisional values FB-04 seeded (built 2026-11-05):**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `tooling_funding_model` = `SHARED` "Shared (company and customer)" | Active, provisional, help text "record the split in the terms notes" | **D-003** (terms structure) | Oleg Yarovinski; Jennifer Wulf (asked for it) |
+| `app_setting.sf_outcome_stage_names` | awarded → Verbal Award; negotiating → Negotiating; lost, expired → Closed Lost; requote → Quoting | KAMs confirming which SF stage they use; goes away with write-back (F-035) | KAMs with Bailey Schmitt |
+| `app_setting.salesforce_instance_url` | `""` (not set) | An Admin entering the Lightning URL | Admin |
 
 **Provisional values FB-01 seeded (built 2026-11-05, awaiting sign-off; all `provisional: true`, changed by config, not code):**
 

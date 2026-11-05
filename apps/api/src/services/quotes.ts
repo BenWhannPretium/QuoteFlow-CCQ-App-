@@ -24,6 +24,7 @@ import {
   isValidityLapsed,
   qualificationWarnings,
   redactScore,
+  salesforceOpportunityUrl,
   withDerivedFields,
   type Actor,
   type EngQueueSettings,
@@ -364,6 +365,10 @@ export class QuoteReadService {
         sfStage: row.sfStage,
         decisions: raw,
       }),
+      sfOpportunityUrl: salesforceOpportunityUrl(
+        ctx.outcome.salesforceInstanceUrl,
+        q.sfOpportunityId,
+      ),
       commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!, workflow),
     };
   }

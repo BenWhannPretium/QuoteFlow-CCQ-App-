@@ -3,6 +3,11 @@ import type { DbOrTx } from '../../src/client';
 import type { ValueListKey } from '../../src/schema/enums';
 import { valueList } from '../../src/schema/index';
 
+export const ZERO_CER_HELP =
+  'Follows the standard quoting process. The capital is reimbursed by the customer as a lump sum or through amortization, and is approved after award like company-funded capital. At purchasing, the customer invoice or contract goes with the mold PO.';
+export const SHARED_HELP =
+  'Split agreed with the customer; record the split in the terms notes until the terms structure is decided (D-003).';
+
 type Entry = [code: string, label: string, meta?: Record<string, unknown>];
 
 /**
@@ -193,8 +198,11 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   tooling_funding_model: [
     ['COMPANY_FUNDED', 'Company-funded'],
     ['CUSTOMER_FUNDED', 'Customer-funded'],
-    ['ZERO_CER', '$0 CER'],
+    // FB-04 (F-022, D-023): Oleg Yarovinski's definition. meta.helpText shows as an (i) next to the option.
+    ['ZERO_CER', '$0 CER (customer-reimbursed capital)', { helpText: ZERO_CER_HELP }],
     ['AMORTIZED', 'Amortized'],
+    // FB-04 (V-055, D-003 open): provisional until the terms structure is decided.
+    ['SHARED', 'Shared (company and customer)', { helpText: SHARED_HELP }],
   ],
 };
 

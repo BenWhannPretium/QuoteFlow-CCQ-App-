@@ -70,6 +70,14 @@ export const EngQueueItem = QuoteSummary.extend({
   /** FB-02 (F-015, T-012): the KAM asked to modify an existing mold ("Mold modification" chip). */
   moldModification: z.boolean(),
   completeness: z.array(CompletenessWarning),
+  /** FB-04 (F-065, T-024): a sales leader overrode the priority tier; null when no override applies. */
+  priorityOverride: z
+    .object({
+      justification: z.string(),
+      requestedByName: z.string().nullable(),
+      appliedAt: z.string().nullable(),
+    })
+    .nullable(),
   /** The caller may edit this quote's Engineering Review. */
   canEdit: z.boolean(),
 });

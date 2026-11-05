@@ -29,6 +29,8 @@ import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import {
   ClosureCard,
   CustomerDecisionHeader,
+  SalesforceLink,
+  SfUpdateReminder,
   HandoffCard,
 } from '@/components/outcome/CustomerDecision';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
@@ -97,6 +99,7 @@ function QuotePage() {
   }
   const q = quote.data;
   const gates = [...new Set(q.availableActions.map((a) => a.gateKey))];
+  const tierOverride = q.overridableFields.find((f) => f.field === 'priority_tier')?.applied;
 
   return (
     <div className="grid gap-6" data-testid="quote-detail" data-stage={q.stageKey}>
@@ -107,6 +110,7 @@ function QuotePage() {
         description={[q.customerName, q.opportunityName].filter(Boolean).join(' · ') || undefined}
         actions={
           <>
+            <SalesforceLink quote={q} />
             {q.stageKey === 'FINAL_REVIEW' && q.status !== 'closed' && canReadFinalReview && (
               <Link
                 to="/quotes/$quoteNumber/review"
@@ -148,6 +152,7 @@ function QuotePage() {
         <GateRail stageKey={q.stageKey} />
       </section>
 
+      <SfUpdateReminder quote={q} />
       <CustomerDecisionHeader quote={q} />
       <ReworkBanner quote={q} />
       <QualificationWarnings warnings={q.warnings} />
@@ -189,6 +194,14 @@ function QuotePage() {
                 </CardHeader>
                 <CardContent>
                   <ScoreBreakdownTable priority={q.priority} />
+                  {/* FB-04 (F-065, T-024): the sales leader's justification, visible to Engineering. */}
+                  {tierOverride && (
+                    <p className="mt-3 text-xs" data-testid="priority-override-note">
+                      <span className="font-semibold">Tier overridden by </span>
+                      {tierOverride.requestedByName ?? 'a sales leader'}:{' '}
+                      {tierOverride.justification}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
               <DecisionsCard quote={q} />

@@ -985,16 +985,26 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - `strategic_fit` maps by market with an **empty map** (everything scores 50).
   - The SF opportunity ID is plain text, and there is no prompt when an outcome is recorded.
 - **Done when:**
-  - [ ] **F-065** only SalesLeader overrides `priority_tier`. It is self-applied with a justification (≥ 15 characters) that shows on the Engineering queue and quote. KAM, EngLead and Pricing can't request it; KAMs use escalation. The setting is changed by a data migration.
-  - [ ] **F-005** the score is recomputed by hand for 5 test quotes against `SCORING_MODEL_V1`. Any defect is fixed, and a golden test is added. **Weights are not changed** (D-004).
-  - [ ] **F-073** strategic-fit points come from the market map:
+  - [x] **F-065** only SalesLeader overrides `priority_tier`. It is self-applied with a justification (≥ 15 characters) that shows on the Engineering queue and quote. KAM, EngLead and Pricing can't request it; KAMs use escalation. The setting is changed by a data migration.
+  - [x] **F-005** the score is recomputed by hand for 5 test quotes against `SCORING_MODEL_V1`. Any defect is fixed, and a golden test is added. **Weights are not changed** (D-004).
+  - [x] **F-073** (mechanism and display; points wait for D-004) strategic-fit points come from the market map:
     - Seeded from Melanie's 9-box if Ben drops it into `docs/build-guide/feedback/inputs/`. Otherwise the seed stays as is and the step records that it's waiting.
     - Values stay provisional.
     - The "Why this priority" panel shows the market and the points (T-036).
-  - [ ] **F-022** "$0 CER" relabelled "$0 CER (customer-reimbursed capital)" with Oleg's definition as help text. **"Shared"** is added as a provisional funding option.
-  - [ ] **F-076** the quote header links to the Salesforce opportunity (`salesforce_instance_url` setting). Recording a G5 outcome shows a reminder to update the opportunity, with the link (T-035).
-  - [ ] permission-matrix tests for the override change; change-log procedure done
+  - [x] **F-022** "$0 CER" relabelled "$0 CER (customer-reimbursed capital)" with Oleg's definition as help text. **"Shared"** is added as a provisional funding option.
+  - [x] **F-076** the quote header links to the Salesforce opportunity (`salesforce_instance_url` setting). Recording a G5 outcome shows a reminder to update the opportunity, with the link (T-035).
+  - [x] permission-matrix tests for the override change; change-log procedure done
 - **Prompt:** `prompts/feedback/FB-04-qualification-funding-sf-link.md`
+
+**Built 2026-11-05. Notes and deviations:**
+- **F-065:** `overridable_fields.priority_tier` is now `approval: self`, `requestRoles: [SalesLeader]`, justification ≥ 15 characters (migration 0029). `revertRoles` unchanged (SalesLeader, EngLead, Admin). Requests already waiting are **not** auto-rejected: while a request raised under the old rules is open, the roles that may now request the field (SalesLeader) may decide it (`canDecideOverride` takes the record). The justification shows on the Engineering queue row (`priorityOverride` on `EngQueueItem`, a chip) and under "Why this priority?" on the quote. KAMs get no override button and the hint "Need a different priority? Escalate to your sales leader."; their path is the existing escalation.
+- **F-005:** five hand-scored quotes in `packages/domain/src/scoring/golden.test.ts` (against v1 and v2). **No defect found:** the engine matched every hand value, including band edges, the unknown-capital neutral 50 and FP rounding. Weights and bands untouched (D-004, FB-10). "Quote needed by" drives `timing` in model v2 (tested). The only snapshot change is the additive `provisional` flag.
+- **F-073:** nothing seeded. `strategic_fit.map.bySegment` (`{ by, values }`) is accepted; segment beats market beats default. The breakdown flags `provisional: true` while a map has no values; the panel shows "Market: <label>" and a "provisional" chip. Segment fact (`market_segment`) does not exist yet: D-004 chooses segment vs market (see `feedback/inputs/9-box.md`).
+- **F-022 / V-055:** `ZERO_CER` relabelled and `SHARED` added (provisional, sort 50) with `meta.helpText`, shown as an "ⓘ What do the funding options mean?" popover in the terms editor. Data migration 0029.
+- **F-076:** setting `salesforce_instance_url` seeded empty (the Salesforce integration only knows a *login* URL, so it is not used as a default). New setting `sf_outcome_stage_names` (provisional) maps the G5 outcome to the SF stage named in the reminder, instead of deriving it from `sf_stage_map` (several SF stages share one CCQ hint, so a derived name would be ambiguous): awarded → Verbal Award, negotiating → Negotiating, lost and expired → Closed Lost, requote → Quoting. Reminder is client-only and dismissible; dismissing writes nothing. No new routes.
+- **Provisional values seeded:** `sf_outcome_stage_names`; `SHARED`; the ZERO_CER wording is Oleg's (D-023, decided).
+- **Left for later:** strategic-fit points and segment list (FB-10 / D-004).
+- Local verification used Postgres 16 without Docker.
 
 ### FB-05: Notifications for hand-offs, returns and comments · **Wave 2 (after FB-01)** · Ben (Sonnet 5.5 · high)
 - **Why:**

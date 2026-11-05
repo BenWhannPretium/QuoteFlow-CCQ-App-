@@ -2,6 +2,7 @@ import type { QualificationWarning, QuotePriority } from '@ccq/contracts';
 import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useValueList } from '@/config/public-config';
 import { cn } from '@/lib/utils';
 
 import { ScorePill } from './ScorePill';
@@ -18,6 +19,7 @@ export function ScoreBreakdownTable({
   priority: QuotePriority;
   className?: string;
 }) {
+  const markets = useValueList('market');
   if (!priority.visible) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -52,6 +54,20 @@ export function ScoreBreakdownTable({
             <tr key={b.key} className="border-t align-top">
               <th scope="row" className="py-1.5 pr-2 font-normal">
                 <span className="font-medium">{b.label}</span>
+                {b.provisional && (
+                  <span
+                    className="bg-secondary text-foreground-2 rounded-pill ml-2 px-1.5 py-0.5 text-[0.6875rem] font-medium"
+                    data-testid={`score-provisional-${b.key}`}
+                    title="No points are set for this attribute yet (decision D-004 is open), so every value scores the neutral default."
+                  >
+                    provisional
+                  </span>
+                )}
+                {b.key === 'strategic_fit' && b.raw !== null && (
+                  <span className="text-foreground-2 block" data-testid="score-market">
+                    Market: {markets.find((m) => m.code === String(b.raw))?.label ?? String(b.raw)}
+                  </span>
+                )}
                 <span className={cn('text-muted-foreground block', b.unknown && 'italic')}>
                   {b.explanation}
                 </span>

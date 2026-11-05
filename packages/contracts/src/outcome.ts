@@ -104,6 +104,8 @@ export const CustomerDecisionDetail = z.object({
   /** The caller may name a closure owner other than the default (outcome.assignOwner). */
   canAssignClosureOwner: z.boolean(),
   receivingRoles: z.array(CodeLabel),
+  /** FB-04 (F-076): outcome key → the Salesforce stage named in the "update the opportunity" reminder. */
+  sfStageByOutcome: z.record(z.string(), z.string()),
   acceptanceEvidenceOptions: z.array(CodeLabel),
 });
 export type CustomerDecisionDetail = z.infer<typeof CustomerDecisionDetail>;

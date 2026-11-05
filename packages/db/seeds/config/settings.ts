@@ -11,6 +11,7 @@ import {
   ENG_QUEUE_SETTINGS_SEED,
   HANDOFF_RECEIVING_ROLES_SEED,
   VALIDITY_WARNING_DAYS_SEED,
+  SF_OUTCOME_STAGE_NAMES_SEED,
   OVERRIDE_SETTINGS_SEED,
   PRICING_REF_FORMATS_SEED,
   SCORING_MODEL_V1_INPUT,
@@ -131,6 +132,19 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: VALIDITY_WARNING_DAYS_SEED,
     description:
       'The proposal validity countdown turns amber at this many days left or fewer (red once expired). The daily expiry job flags lapsed quotes and tells the KAM; nothing auto-closes (D-12 open).',
+  },
+  // ── FB-04 (F-076): the Salesforce link and the reminder after a G5 outcome. Provisional.
+  {
+    key: 'salesforce_instance_url',
+    value: '',
+    description:
+      'FB-04 (F-076): the Salesforce Lightning base URL, e.g. https://pretium.lightning.force.com (not a secret). Empty: the quote header shows the plain opportunity ID. Set by an Admin; the Salesforce connection itself only knows a login URL.',
+  },
+  {
+    key: 'sf_outcome_stage_names',
+    value: SF_OUTCOME_STAGE_NAMES_SEED,
+    description:
+      'FB-04 (F-076): the Salesforce stage named in the reminder shown after a G5 outcome is saved (CCQ outcome key to a name in sf_stage_map). Nothing is written to Salesforce. Provisional until the KAMs confirm which stage they use.',
   },
   {
     key: 'handoff_receiving_roles',

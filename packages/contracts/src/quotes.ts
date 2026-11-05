@@ -20,6 +20,8 @@ export const ScoreBreakdownItem = z.object({
   explanation: z.string(),
   unknown: z.boolean(),
   sensitive: z.boolean(),
+  /** FB-04: the attribute's map is empty, so the points are the neutral default until D-004 is decided. */
+  provisional: z.boolean().optional(),
 });
 export type ScoreBreakdownItem = z.infer<typeof ScoreBreakdownItem>;
 
@@ -237,6 +239,8 @@ export const QuoteDetail = QuoteSummary.extend({
   quoting: QuotingDetail,
   /** B-13: the Customer Decision header (validity countdown, SF stage), the closure and the hand-off. */
   customerDecision: CustomerDecisionDetail,
+  /** FB-04 (F-076): the Lightning link to the Salesforce opportunity; null until `salesforce_instance_url` is set. */
+  sfOpportunityUrl: z.string().nullable(),
   /** B-26: capital flag, commercial terms, Legal review, hold owner and escalations. */
   commercial: CommercialDetail,
 });
