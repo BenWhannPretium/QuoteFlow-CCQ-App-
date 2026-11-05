@@ -740,6 +740,269 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 
 ---
 
+## User feedback updates (FB-01 to FB-10, added 2026-11-05)
+
+**This section is separate from the original build (B-00 to B-27).** It turns the stakeholder walkthroughs into build steps: Data & Architecture (Oct 26), Pricing (Oct 30), KAMs (Nov 2), Engineering & Supply Chain (Nov 3), Sales & Marketing leadership (Nov 3) and the Sponsor 1:1 (Nov 3). Steps are numbered **FB-xx**. Prompts are in [`prompts/feedback/`](prompts/feedback/). The decisions they wait on are in `04-decisions-and-risks.md` §2a. What was built is recorded in [`feedback-change-log.md`](feedback-change-log.md) and in the tracker's Change Log tab.
+
+**Sources** (SharePoint `PMO › General › Projects › FY26 - Commercial Capital Quoting › 3. Design › Quote Flow`):
+- **QuoteFlow Feedback Tracker.xlsx** is the source of truth. Use the Build Backlog (F-), Test Scenarios (T-), Decision Log (D-), Q&A (Q-) and Action Items (A-) tabs. Tracker IDs are not the PRD's F-01…F-17.
+- QuoteFlow_Feedback_Synthesis_and_MVP_Prioritization (Ben's version, Nov 4) for the reasoning behind each item; its register IDs (A1, B2…) are cross-referenced in the tracker notes.
+- QuoteFlow_Field_Inventory.docx for the fields as built and the new neck lists from Jim Zweifel (A-001).
+
+### Readiness: what can be built now
+
+Read on 2026-11-05 against the code on `main` (`afd6597`). There are 58 Build Backlog items: 47 are P0 and 11 are P1.
+
+| Bucket | Meaning | Items |
+|---|---|---|
+| **Built: verify only** | Already in the build; retest in UAT | F-003 (lead notified on submit: L-9, `quote.submitted_to_lead`), F-004 (pricing lead assigns, B-26 A6), F-028 (pricer submits to the lead, L-9). FB-01 adds the missing tests and checks the UI copy |
+| **A · Build now** | Decided, validated, and the inputs are in hand | F-001, F-007, F-008, F-009, F-010, F-011, F-013, F-014, F-015, F-016, F-017, F-022, F-023, F-027, F-029, F-030, F-034, F-055, F-057 (EBM wheel and cavitation), F-059, F-061 (P1, cheap to add while in the code), F-064, F-065, F-067, F-069, F-076, F-079 |
+| **B · Build now as provisional config** | The mechanism can be built today. The open decision only sets a value, which an Admin changes later without a rebuild (CLAUDE.md rule 4) | F-005 (fix the calculation now; weights wait for D-004), F-073 (per-market strategic fit already exists as an empty map; FB-04 loads provisional points and shows them), F-075 (variant note, the recommended interim for D-017), "Shared" funding option (V-055, part of D-003), the no-drawing minimum list (D-018 decided; A-024 may add layer structure and a photo), the utilization run-days basis (D-021) |
+| **C · Wait for a decision or input** | Building now would hard-code an open business rule or guess at a missing input | F-012, F-019 (D-016) · F-021, F-068 (D-003, D-029) · F-024 (D-007) · F-025 (validation pending) · F-026 (needs the engineering estimate workbook) · F-031, F-032, F-074 (D-001) · F-057 plant list (Jim) · F-058 (A-003, Kal's BOM template) · F-062 (D-008) · F-020 (lists from each function) |
+| **D · Not a code step** | People, IT or rollout work | F-040 (prod hosting tier and backups: IT, B-22), F-041 (pilot test access and load test: B-21, B-23), F-077 (portal link: portal owner) |
+| **P1 · after the pilot starts** | Valuable, not needed for the pilot | F-035 (SF write-back, D-014), F-056 (D-017), F-060 (D-021), F-063, F-066 (D-004), F-070 (quote template), F-071 (D-022), F-072 (D-020), F-078 (may be met by Fabric, Q-026) |
+
+**Bottom line:** of the 47 P0 items, **26 can be built now** (bucket A) and **3 more as provisional config** (bucket B: F-005, F-073, F-075). Three are already built and only need verifying, 13 wait on a decision or input (bucket C), and 2 are not code (bucket D). F-061 (P1) rides along with FB-03 because it touches the same code. They fit in **5 prompts** (FB-01 to FB-05). The remaining P0 work fits in **5 prompts** (FB-06 to FB-10), each held until its decision or input arrives. Each of those prompts begins with a stop check.
+
+### How to run them
+
+**Grouping rule:** each prompt covers one area of the code (workflow engine, intake, engineering, qualification, notifications). Items that touch the same files share a PR, so two parallel sessions don't edit the same file. That gives 5 PRs for the work that can start now, not 27.
+
+| Step | Scope | Tracker items | Wave | Model / effort | Why this model |
+|---|---|---|---|---|---|
+| **FB-01** | Workflow integrity: locks, send-back paths, Final Review unblock, exception notes | F-001, F-027, F-029, F-030, F-069; verify F-003, F-004, F-028 | 1 | **Opus 5.5 · high** | Changes the gate engine, the lock rules and the permission matrix. A wrong rule there lets data change after approval. This step has the most cross-cutting risk |
+| **FB-02** | Intake overhaul (everything the KAM fills in) | F-007, F-008, F-009, F-010, F-011, F-013, F-014, F-015, F-016, F-017, F-023, F-055, F-067, F-075; T-003 | 1 | **Opus 5.5 · high** | 14 items over the contracts, DB, domain validation and the wizard, plus a data migration for neck finishes. Splitting it would mean two PRs on the same files |
+| **FB-03** | Engineering review and capacity | F-057 (part), F-059, F-061, F-064; F-023 display | 1 | **Sonnet 5.5 · high** | One area of the code, a clear formula, well-specified fields |
+| **FB-04** | Qualification, funding wording, Salesforce link | F-005 (calculation), F-022, F-065, F-073 (mechanism), F-076, V-055 | 2 | **Sonnet 5.5 · medium** | Mostly config, settings and copy, with clear acceptance criteria |
+| **FB-05** | Notifications: hand-offs, returns, comments | F-034, F-079 (+ F-003 check) | 2 | **Sonnet 5.5 · high** | The notification framework exists; this step wires the declared targets. It needs FB-01's new outcomes |
+| FB-06 | Engineering roles, BOM, two-step, pack-out, estimate workbook | F-024, F-025, F-026, F-058, F-062 | 3 (gated) | Sonnet 5.5 · high (**Opus 5.5 · high** if D-008 chooses several engineers per quote) | Several assignees changes assignment, locks and lead review |
+| FB-07 | Costing, pricing and ROI structure; cost model upload and versions | F-031, F-032, F-074 | 3 (gated) | **Opus 5.5 · high** | A new gate or parallel steps in the stage model, plus workbook extraction |
+| FB-08 | Commercial terms and Final Review | F-021, F-068, T-007, T-031; D-002 tiers | 3 (gated) | **Opus 5.5 · high** | Moves edit rights between roles and adds an approval route |
+| FB-09 | Data standards and value lists | F-012, F-019, F-020, F-057 (plants); D-006 mandatory list | 3 (gated) | **Sonnet 5.5 · medium** | Seeds, settings and caps |
+| FB-10 | Priority calibration | F-005 (weights), F-073 (points), F-066 (P1 guardrails) | 3 (gated) | **Sonnet 5.5 · medium** | Config values with a preview and tests |
+
+**Effort:** don't use *low* in this repo. Every change has to keep the RLS, permission-matrix and Fabric guard tests green, and low effort tends to skip them. Medium is right only where the prompt is mostly config. Fable 5.1 isn't needed for any step.
+
+**Order and parallel runs:**
+1. **Wave 1: start FB-01, FB-02 and FB-03 together** in three sessions. They touch different code. Merge them in the order **FB-01 → FB-03 → FB-02**: the smallest diffs first, and FB-02 rebases last because it is the largest.
+2. **Wave 2: start FB-04 and FB-05 together after FB-01 merges.** FB-05 needs FB-01's new outcomes. FB-04 is independent, but waiting keeps it off the gate-service files while FB-01 is open.
+3. **Wave 3: run each of FB-06 to FB-10 as soon as its decision is recorded** in the tracker (Decision Log → Decided) and in `04` §2a. Expected: D-001 and D-003 at the ROI & capital session on Nov 9; the Engineering items after Kal's BOM session (Nov 6) and the roles session; D-004 and D-016 at the decision session with Oleg.
+
+**Migration numbering:** the three Wave 1 prompts each add a migration. Each prompt uses the next free number when it starts. Before opening or merging the PR, the session fetches `main`. If another migration has landed, it rebases and renumbers its own: the file name, its `meta/NNNN_snapshot.json`, and its `idx` and `tag` in `meta/_journal.json`. Then it re-runs `pnpm test:integration`. Every prompt contains this rule.
+
+**Fewer CI waits:** CI runs on pull requests and on pushes to `main` (`.github/workflows/ci.yml`), not on every branch push. Each prompt therefore runs `pnpm verify` locally (Postgres via `docker compose up -d db`) **before** opening the PR, so CI should pass on the first run. A session that cannot run Docker says so in the PR, and CI runs the integration tests instead.
+
+### Change-log procedure (every FB prompt ends with this)
+
+1. **Build docs, in the same PR:**
+   - Tick the step's boxes below.
+   - Add "Built <date>. Notes and deviations" under the step.
+   - Update §2a in `04` if a decision was used or a provisional value set.
+   - Update the `05-path-to-mvp.md` §1 row "User feedback updates".
+   - Update `01-architecture.md` where the workflow, roles or data model changed.
+   - Run `pnpm db:dictionary` if the schema changed.
+2. **Repo change log, in the same PR:** add one row per tracker item to `feedback-change-log.md` with these columns:
+   - Date (US Central)
+   - Type `Build change`
+   - Step
+   - What was built (plain words a stakeholder understands)
+   - Feedback IDs (F-, plus the T-/V-/D- it closes or follows)
+   - Raised by (people and function, from the tracker)
+   - Rationale: why this change and why this way. Cite the feedback, the decision, what was deliberately left out, and any provisional value.
+   - Status `In PR`
+   - The PR link
+   
+   Also change earlier rows whose PRs have since merged to `Merged`.
+3. **Tracker Change Log tab, after the PR is open:** append the same rows to **`QuoteFlow Change Log.csv`** in the same SharePoint folder as the tracker. Use the Microsoft 365 connector in this order:
+   1. `sharepoint_search` for "QuoteFlow Change Log.csv".
+   2. `read_resource` to read it.
+   3. Append the rows.
+   4. `sharepoint_update_file` with the full text.
+   
+   If the file doesn't exist, create it with `sharepoint_upload_file` in the Quote Flow folder, with the header row `Date,Type,Step,Change,Feedback IDs,Raised by,Rationale,Status,PR`. **Never upload or overwrite the `.xlsx`:** the connector can't edit a workbook in place, and rewriting it would destroy the tracker's formulas and charts. The tracker's Change Log tab reads the CSV through Power Query (one-time setup, below). If the connector isn't available in the session, put the rows in the final reply as tab-separated lines for Ben to paste.
+
+**One-time setup for the Change Log tab (Ben, about 5 minutes, Excel desktop):**
+1. Open the tracker.
+2. Go to Data → Get Data → From File → From SharePoint Folder, and enter `https://pretiumpkg.sharepoint.com/sites/ProgramManagementOffice`.
+3. Filter to `QuoteFlow Change Log.csv` → Combine & Load To… → the existing **Change Log** sheet, cell A1, as a table.
+4. Whenever you want the latest rows: Data → Refresh All.
+
+If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV and `feedback-change-log.md` stay the record either way.
+
+---
+
+### FB-01: Workflow integrity: locks, send-back paths, Final Review unblock, exception notes · **Wave 1** · Ben (Opus 5.5 · high)
+- **Why:** these are the four workflow gaps the demos exposed. Fields stayed editable after approval (F-001, Kyle Arnold, Gemma Cebolla). Pricing could only send back to Engineering (F-029), and a KAM's fix re-ran Engineering (F-030, Kyle Arnold). The Final Review approver was blocked by fields other roles own (F-069, seen in the Nov 3 demo). Pricing and the PMO also asked for notes on exception decisions (F-027, D-015).
+- **What the code does today:**
+  - Engineering and pricing edits are already limited to their stage and to the lead-review lock.
+  - The **terms and capital flag stay editable until close** (`apps/api/src/services/commercial.ts` `canEdit: open && …`).
+  - G3 has no path to the KAM.
+  - A KAM resubmission always re-enters INTAKE and G1 (`apps/api/src/services/intake.ts` ~670-722).
+  - G4 Approve requires `terms_checked_at` and, when triggered, `legal_reviewed_on` (`OFFER_READY`, `hybrid.ts` ~111-119), and the Final Review screen doesn't show either one.
+  - Only `lost:other`, `requote:other` and `not_authorized:other` require a note.
+- **People:** Kyle Arnold and Gemma Cebolla (Pricing) retest T-001, T-005, T-016 and T-026.
+- **Done when:**
+  - [ ] **F-001** a section is read-only for every role once its gate is decided, until a send-back reopens it:
+    - Engineering (G2), Pricing (G3), and terms plus the capital flag after G4 Approve.
+    - The server refuses the write (`409 SECTION_LOCKED`, problem+json) and the UI shows a lock with who decided it and when.
+    - The rules are one domain function per section (`packages/domain/src/locks`), unit-tested.
+  - [ ] **F-029** G3 offers "Rework (back to KAM)" with a reason (rework context) and a required note.
+  - [ ] **F-030** a KAM resubmission after a G3 rework goes **straight back to Quoting** unless the KAM ticks "Scope changed". If ticked, it routes as a new submission (G1 if enabled, then Engineering).
+    - The resume target is outcome config (`resumeAt: origin | intake`), seeded `origin` for G3 only. G1 and G2 rework are unchanged.
+    - Audited, with the scope-change answer on the timeline.
+  - [ ] **F-069** the approver can complete G4 without fields other roles own:
+    - The terms check and the Legal review become a **configurable** G4 condition (`g4_required_checks`, seeded `[]`, provisional), shown on the Final Review screen as warnings with links.
+    - Legal review is optional (tracker acceptance; synthesis E13).
+    - The Final Review screen shows the terms and Legal section read-only.
+  - [ ] **F-027** a note is required for advance-with-risk, capital required, hold (every gate), rework (every gate), redirect and stop.
+    - This is set in the outcome config (`requiresNote`), and a data migration updates existing environments.
+    - A plain Advance needs no note.
+  - [ ] **F-003, F-004, F-028 verified:** integration tests for submit → lead notified, lead assigns a pricer → the pricer is notified, pricer submits → the lead approves or returns. Findings recorded under T-014, T-015 and T-016.
+  - [ ] permission-matrix tests (allowed and denied for every role) for each changed route; Playwright happy path for the G3 → KAM → Quoting loop
+  - [ ] change-log procedure done (repo, CSV)
+- **Prompt:** `prompts/feedback/FB-01-workflow-integrity.md`
+
+### FB-02: Intake overhaul · **Wave 1** · Ben (Opus 5.5 · high)
+- **Why:** most of the feedback (30 of 72 points in the synthesis) is about what the KAM enters. The KAMs (Nov 2), Engineering (Nov 3) and Sales leadership (Nov 3) agreed on most of it, and D-011, D-012 and D-018 are decided.
+- **What the code does today** (`apps/web/src/intake/Steps.tsx`, `packages/contracts/src/intake.ts`):
+  - A "new customer" sub-form takes a name, location and contact.
+  - An editable expected close date is pre-filled from Salesforce.
+  - One neck-finish list has 5 values plus Other.
+  - One resin code and no PCR %.
+  - Components have no decoration and no follow-ups.
+  - Attachment kinds are drawing, spec, photo and other.
+  - The drawing is only a nudge.
+  - The ship-to comes from the SF Account.
+  - Every request class can be submitted, with only a warning.
+- **People:** Jordan Albin and John Kraus (KAM retest); Jim Zweifel and Danielle Leu (the minimum list, A-005 and A-024).
+- **Done when:**
+  - [ ] **F-007** no new-customer form.
+    - The customer is always the Salesforce Account on the opportunity.
+    - "Not yet established" stays as one checkbox, meaning not yet set up in ERP (CLAUDE.md rule 7, DEC-27). It still drives the new-customer Legal trigger.
+    - No account fields are typed. Existing rows keep their data.
+  - [ ] **F-008** fields already in Salesforce pre-fill and aren't re-entered. The **SF close date shows read-only from the latest sync** (live, not a snapshot), which answers T-009.
+  - [ ] **F-009** required **Quote needed by** and **Product needed by** dates replace the editable close date. Quote needed by feeds the `timing` attribute of the priority score.
+  - [ ] **F-010** neck as **Neck diameter**, **Neck finish** and **Special feature** pick-lists, using Jim Zweifel's lists (Field Inventory, A-001):
+    - "Other" is renamed "Custom" and opens a required short description.
+    - Existing `neck_finish` values migrate (e.g. `28-410` → 28 + 410).
+    - All lists are provisional.
+  - [ ] **F-011** "Customer-specified resin" checkbox, which reveals a required supplier/grade field (≤ 120). **F-055** PCR % from a value list (0, 25, 50, 100; provisional).
+  - [ ] **F-023** color (Natural / Custom + short description) and additives (short note) at intake.
+  - [ ] **F-013** a Decoration component plus follow-ups:
+    - liner spec
+    - label purchased by (customer / Pretium)
+    - decoration type and number of print colors
+  - [ ] **F-014** attachment kinds Bid file, Project brief and Competitor/incumbent drawing, plus an optional RFP/portal link (https only). **T-003** file names with commas or slashes are stored safely and open for every role.
+  - [ ] **F-015** "Modify an existing mold": the existing mold or part number, the reference drawing or part, and what changes. Visible to Engineering.
+  - [ ] **F-016** a quote can't be submitted without a drawing attachment **or** every field in the minimum spec set:
+    - The set is the `intake_min_spec_fields` setting, seeded from D-018: height, width or diameter, depth, gram weight, neck finish, resin, color. It is provisional; A-024 may add layer structure and a photo.
+    - Enforced in the domain, the API and the wizard.
+  - [ ] **F-017** ship/fill destination city and state required, pre-filled from Salesforce, and shown to Engineering.
+  - [ ] **F-067** only CCQ can be submitted. Other classes show a configurable message pointing to the pricing application (`intake_redirect_message`, provisional; D-030 may change where pack-out changes go).
+  - [ ] **F-075** optional "Quote variants requested" note (≤ 300, provisional), shown to Engineering and Pricing.
+  - [ ] Fabric-safe schema (rule 10); the data dictionary is regenerated; Playwright intake happy path plus "no drawing, incomplete spec → blocked"
+  - [ ] change-log procedure done
+- **Prompt:** `prompts/feedback/FB-02-intake-overhaul.md`
+
+### FB-03: Engineering review and capacity · **Wave 1** · Ben (Sonnet 5.5 · high)
+- **Why:** Engineering and Supply Chain (Nov 3) asked for the following:
+  - drop "buffer" (three people defined it three ways)
+  - show utilization before and after the new business, calculated rather than guessed
+  - be able to export the evidence for a later CER
+  - never let a budgetary quote read as CER-ready (Paul Slomkowski and Kal Kaliszewski: "burned way too many times")
+  - fix the dropdowns
+- **What the code does today:**
+  - Capacity evidence rows have `bufferPct` and a typed `utilizationPct`, with no export.
+  - Machine types include `EBM_WHEEL`.
+  - Cavitation accepts 1–512.
+  - Engineering shows "Preliminary capital (USD)".
+  - Pricing has an optional "CER reference".
+- **People:** Faron Ipox (formula, A-023), Paul Slomkowski, Kal Kaliszewski.
+- **Done when:**
+  - [ ] **F-059** Buffer % removed from the UI and API:
+    - The column is kept, deprecated and no longer written, because of Fabric and the audit history.
+    - Each evidence row has **utilization before** (entered) and **utilization after**, calculated with Faron's formula shape (Q-035): annual capacity = (86,400 ÷ cycle s) × cavities × effectiveness % × scheduled run days, and added load = allocated annual volume ÷ annual capacity.
+    - Run days come from the `capacity_basis` setting (provisional, D-021). The UI says the basis is provisional until A-023 is confirmed.
+  - [ ] **F-061** (P1, cheap here) export capacity evidence as CSV (audited as an export), and attach supporting files with a new `capacity_analysis` attachment kind
+  - [ ] **F-064** capital labelled "Budgetary capital estimate (preliminary, incl. contingency)":
+    - The CER reference is removed from Quoting (the column is kept and read-only for history).
+    - A **"Ready for CER development"** checkbox is added at Commit & Hand Off (Stage 6, after award), audited.
+  - [ ] **F-057** `EBM_WHEEL` deactivated: existing quotes still show it, and nobody can pick it. Cavitation is limited to whole numbers 1–99. **The plant list waits for Jim (FB-09).**
+  - [ ] **F-023** resin grade, PCR %, color and additives from intake (FB-02) shown in the Engineering review header. If FB-02 hasn't merged, show the fields that exist and leave a follow-up note.
+  - [ ] unit tests for the formula with Faron's worked example; Playwright: enter two lines and export
+  - [ ] change-log procedure done
+- **Prompt:** `prompts/feedback/FB-03-engineering-capacity.md`
+
+### FB-04: Qualification, funding wording and the Salesforce link · **Wave 2** · Ben (Sonnet 5.5 · medium)
+- **Why:**
+  - Sales leadership and the PMO decided that only sales leaders override priority (D-028, F-065).
+  - Melanie Rasche wants strategic fit by market from the 9-box (F-073).
+  - The priority score calculation was reported as off (F-005).
+  - Oleg defined $0 CER (D-023, F-022), and Jennifer Wulf asked for a "Shared" funding option (V-055).
+  - Pricing and Sales leadership asked for a Salesforce link and a reminder until write-back ships (F-076).
+- **What the code does today:**
+  - `overridable_fields.priority_tier` can be requested by KAM, SalesLeader, EngLead and Pricing.
+  - `strategic_fit` maps by market with an **empty map** (everything scores 50).
+  - The SF opportunity ID is plain text, and there is no prompt when an outcome is recorded.
+- **Done when:**
+  - [ ] **F-065** only SalesLeader overrides `priority_tier`. It is self-applied with a justification (≥ 15 characters) that shows on the Engineering queue and quote. KAM, EngLead and Pricing can't request it; KAMs use escalation. The setting is changed by a data migration.
+  - [ ] **F-005** the score is recomputed by hand for 5 test quotes against `SCORING_MODEL_V1`. Any defect is fixed, and a golden test is added. **Weights are not changed** (D-004).
+  - [ ] **F-073** strategic-fit points come from the market map:
+    - Seeded from Melanie's 9-box if Ben drops it into `docs/build-guide/feedback/inputs/`. Otherwise the seed stays as is and the step records that it's waiting.
+    - Values stay provisional.
+    - The "Why this priority" panel shows the market and the points (T-036).
+  - [ ] **F-022** "$0 CER" relabelled "$0 CER (customer-reimbursed capital)" with Oleg's definition as help text. **"Shared"** is added as a provisional funding option.
+  - [ ] **F-076** the quote header links to the Salesforce opportunity (`salesforce_instance_url` setting). Recording a G5 outcome shows a reminder to update the opportunity, with the link (T-035).
+  - [ ] permission-matrix tests for the override change; change-log procedure done
+- **Prompt:** `prompts/feedback/FB-04-qualification-funding-sf-link.md`
+
+### FB-05: Notifications for hand-offs, returns and comments · **Wave 2 (after FB-01)** · Ben (Sonnet 5.5 · high)
+- **Why:**
+  - John Kraus: "we don't know where it stands" (V-015).
+  - Jim Zweifel and Jennifer Wulf asked for automatic notice to everyone when a task is ready for hand-off (V-078, V-084).
+  - Three functions raised it (F-079), and the KAMs want comment alerts (F-034).
+- **What the code does today:**
+  - Outcomes declare `notify` targets, but the generic after-commit hook **only logs them** (`apps/api/src/app.ts` ~357-363).
+  - Only a few helpers write notifications.
+  - Comments notify @mentions only.
+- **Done when:**
+  - [ ] **F-079** every gate decision, send-back, hold and closure notifies the **next owner** (the role or assignee for the target stage) and the **quote's KAM**, in-app and by email with a link.
+    - It respects user preferences and dedupes when one person holds both parts.
+    - Wording says "returned" vs "ready".
+    - FB-01's G3 → KAM loop is included.
+  - [ ] **F-034** a comment notifies the KAM, the current assignee and the earlier commenters (not the author). The email never contains the comment text (existing rule).
+  - [ ] the generic hook delivers the declared targets instead of logging; existing helpers aren't duplicated
+  - [ ] **F-003** rechecked end to end (T-014). T-010 and T-037 pass in integration tests.
+  - [ ] change-log procedure done
+- **Prompt:** `prompts/feedback/FB-05-notifications.md`
+
+### FB-06: Engineering roles, equipment BOM, two-step, pack-out, estimate workbook · **Wave 3, gated** · Ben
+- **Stop until:** D-008 is decided (roles), A-003 is in (Kal's BOM template and component list), and D-007 is decided (two-step). F-025 also needs Engineering to confirm it (A-014), and F-026 needs the engineering estimate workbook from Paul Slomkowski. The `Engineering Projects Template - Copy.xlsx` in the folder is a post-award project/CER template, not the estimate workbook.
+- **Done when:** each item's tracker acceptance criteria pass (F-024, F-025, F-026, F-058, F-062; T-008, T-033); change-log procedure done.
+- **Prompt:** `prompts/feedback/FB-06-engineering-roles-bom.md`
+
+### FB-07: Costing, pricing and ROI structure; cost model upload and versions · **Wave 3, gated** · Ben
+- **Stop until:** D-001 is decided at the ROI & capital session (Oleg, Gemma Cebolla, Stacy Slocum; Nov 9), and Pricing has supplied the standard cost-model template.
+- **Done when:** F-031, F-032 and F-074 acceptance criteria pass (T-017, T-034); the stage model change ships as config with a migration; change-log procedure done.
+- **Prompt:** `prompts/feedback/FB-07-costing-pricing-roi.md`
+
+### FB-08: Commercial terms and Final Review · **Wave 3, gated** · Ben
+- **Stop until:** D-003 and D-029 are decided (owners, standard payment term, exception approver, milestone terms). D-002 is needed for tiers; without it, ship terms and leave the tier hook off.
+- **Done when:** F-021 and F-068 acceptance criteria pass (T-007, T-031); change-log procedure done.
+- **Prompt:** `prompts/feedback/FB-08-commercial-terms-final-review.md`
+
+### FB-09: Data standards and value lists · **Wave 3, gated** · Ben
+- **Stop until:** D-016 is decided (packaging, caps, "Other"), D-006 is decided (mandatory list), and the lists have arrived (plants and machine types from Jim; resin, market and product family from Danielle; plant pack-out standards, A-028).
+- **Done when:** F-012, F-019, F-020 and the F-057 plant list pass; lists marked approved (`provisional=false`, `approved_by`) only for those a named owner signed off; change-log procedure done.
+- **Prompt:** `prompts/feedback/FB-09-data-standards-value-lists.md`
+
+### FB-10: Priority calibration · **Wave 3, gated** · Ben
+- **Stop until:** D-004 is decided (bands, weights, 9-box points, guardrail thresholds).
+- **Done when:** F-005 (weights), F-073 (points) and F-066 (guardrail warnings, P1) pass T-011, T-025 and T-036; the score preview in the admin console shows the change on real quotes before it is saved; change-log procedure done.
+- **Prompt:** `prompts/feedback/FB-10-priority-calibration.md`
+
+---
+
 ## Post-MVP backlog (P1 / P2, not before Nov 13)
 
 | Item | Priority | Blocked by |
@@ -760,3 +1023,12 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 | Governed proposal templates | P1 | Pricing + Legal; D-25 |
 | Tiered or same-sitting G3 + G4 approvals | P1 | D-10 tiers |
 | Migrating legacy ERF records into CCQ | Decide before scale | D-29 |
+| *From the Nov 2026 feedback tracker (P1):* Salesforce write-back of stage and outcome (F-035) | P1 | D-014 (after the pilot starts); FB-04 ships the link and reminder |
+| Structured multi-scenario quotes, e.g. PCR levels or plants (F-056) | P1 | Tracker D-017; FB-02 ships the variants note |
+| Utilization basis on capacity evidence (F-060) | P1 | Tracker D-021 |
+| Stocking program and returnable dunnage at intake (F-063) | P1 | Pricing to confirm |
+| Customer quote document from a template (F-070) | P1 | Template (Pricing, Legal) |
+| Operations alignment check on large projects (F-071) | P1 | Tracker D-022 |
+| Expected turnaround by priority and a missed-timeline KPI (F-072) | P1 | Tracker D-020 |
+| QuoteFlow link in the Pretium portal (F-077) | P1 | Portal owner |
+| Market Development view of opportunities by market (F-078) | P1 | May be met by the Fabric analytics path (Q-026) |
