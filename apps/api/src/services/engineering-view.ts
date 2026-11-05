@@ -13,6 +13,7 @@ import {
   ENG_QUEUE_SETTINGS_SEED,
   ENG_QUEUE_STAGE_KEY,
   can,
+  neckSummary,
   canAssignEngQueue,
   canEditEngReview,
   canSeeCommercialFields,
@@ -30,6 +31,7 @@ import {
   type QuoteState,
 } from '@ccq/domain';
 
+import { intakeFactsDto } from './intake-facts';
 import { leadReviewView } from './lead-review';
 import { sectionLockView } from './locks';
 
@@ -58,19 +60,48 @@ export async function loadCapacityBasis(db: DbOrTx): Promise<CapacityBasis> {
 }
 
 /**
- * F-023: what the intake says about the product, for the Engineering review header. Today only the resin
- * exists on the quote; FB-02 adds the customer-specified grade, PCR %, colour, additives and the variants
- * note, and each becomes one more entry here (the tab renders whatever list it is given).
+ * F-023: what the intake says about the product, for the Engineering review header: the resin (with the
+ * customer-specified supplier / grade, F-011), the neck (F-010), PCR % (F-055), colour and additives
+ * (F-023) and the variants note (F-075). The tab renders whatever list it is given.
  */
 async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
   const facts: ProductFact[] = [];
+  const f = intakeFactsDto(q);
+  const label = async (
+    list: Parameters<typeof listValueList>[1],
+    code: string | null,
+    custom?: string | null,
+  ) => {
+    if (!code) return null;
+    const entry = (await listValueList(db, list, { activeOnly: false })).find(
+      (v) => v.code === code,
+    );
+    if ((entry?.meta as { freeText?: boolean } | undefined)?.freeText === true) {
+      return custom ?? entry!.label;
+    }
+    return entry?.label ?? code;
+  };
   if (q.resin) {
-    const resins = await listValueList(db, 'resin', { activeOnly: false });
+    const resin = await label('resin', q.resin);
     facts.push({
       key: 'resin',
       label: 'Resin',
-      value: resins.find((r) => r.code === q.resin)?.label ?? q.resin,
+      value: [resin, f.resinCustomerSpecified ? f.resinGrade : null].filter(Boolean).join(' · '),
     });
+  }
+  const neck = neckSummary({
+    diameter: await label('neck_diameter', f.neckDiameter, f.neckDiameterCustom),
+    finish: await label('neck_finish_type', f.neckFinishType, f.neckFinishTypeCustom),
+    feature: await label('neck_special_feature', f.neckSpecialFeature, f.neckSpecialFeatureCustom),
+  });
+  if (neck) facts.push({ key: 'neck', label: 'Neck', value: neck });
+  const pcr = await label('pcr_level', f.pcrLevel);
+  if (pcr) facts.push({ key: 'pcr', label: 'PCR', value: pcr });
+  const color = await label('color_type', f.colorType, f.colorDescription);
+  if (color) facts.push({ key: 'color', label: 'Colour', value: color });
+  if (f.additives) facts.push({ key: 'additives', label: 'Additives', value: f.additives });
+  if (f.quoteVariantsNote) {
+    facts.push({ key: 'variants', label: 'Variants requested', value: f.quoteVariantsNote });
   }
   return facts;
 }

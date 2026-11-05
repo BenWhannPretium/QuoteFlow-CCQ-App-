@@ -165,3 +165,64 @@ export function Pill({ children, className }: { children: ReactNode; className?:
     </span>
   );
 }
+
+/** FB-02 (F-008): marks a value pre-filled from Salesforce (read-only unless the field allows a change). */
+export function SfTag({ testId }: { testId?: string }) {
+  return (
+    <Pill className="bg-muted text-muted-foreground font-medium">
+      <span data-testid={testId}>from Salesforce</span>
+    </Pill>
+  );
+}
+
+/** A read-only value with its "from Salesforce" tag, labelled for screen readers like a field. */
+export function ReadOnlyValue({
+  id,
+  label,
+  value,
+  help,
+  testId,
+}: {
+  id: string;
+  label: string;
+  value: ReactNode;
+  help?: string | undefined;
+  /** Accepted (and ignored) so field props from config can be spread in. */
+  required?: boolean;
+  testId?: string;
+}) {
+  return (
+    <div className="grid min-w-0 gap-1.5" data-field={id}>
+      <span id={`${id}-label`} className="flex flex-wrap items-center gap-2 text-sm font-medium">
+        {label} <SfTag />
+      </span>
+      <p
+        id={id}
+        aria-labelledby={`${id}-label`}
+        data-testid={testId}
+        className="bg-muted/50 min-h-9 rounded-md px-3 py-2 text-sm break-words"
+      >
+        {value}
+      </p>
+      {help && (
+        <p id={`${id}-help`} className="text-muted-foreground text-xs">
+          {help}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A conditional field group (FB-02): mounted only while it applies, so hidden fields are neither
+ * tabbable nor read out; it eases in with the design system's enter animation (none when the user
+ * prefers reduced motion).
+ */
+export function Reveal({ when, children }: { when: boolean; children: ReactNode }) {
+  if (!when) return null;
+  return (
+    <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-4 motion-reduce:animate-none">
+      {children}
+    </div>
+  );
+}

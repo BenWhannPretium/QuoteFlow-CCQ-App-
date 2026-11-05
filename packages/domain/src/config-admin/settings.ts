@@ -15,6 +15,7 @@ import { DomainError } from '../errors';
 import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
 import { intakeConfigSchema } from '../intake/intake';
+import { MIN_SPEC_KEYS } from '../intake/product-facts';
 import { parseReceivingRoles } from '../outcome/handoff';
 import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
@@ -216,6 +217,35 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Default request class code',
     'text',
     z_('intake_default_request_class', z.string().trim().min(1)),
+  ),
+  // FB-02 (F-067): only these request classes are submitted to CCQ; the message points elsewhere (D-030).
+  spec(
+    'intake_allowed_request_classes',
+    'intake',
+    'Request classes that can be submitted to CCQ',
+    'json',
+    z_('intake_allowed_request_classes', intakeConfigSchema.shape.allowedRequestClasses),
+  ),
+  spec(
+    'intake_variants_note_max_length',
+    'intake',
+    'Longest "Quote variants requested" note (characters)',
+    'integer',
+    z_('intake_variants_note_max_length', intakeConfigSchema.shape.variantsNoteMaxLength),
+  ),
+  spec(
+    'intake_min_spec_fields',
+    'intake',
+    'Minimum spec required when no drawing is attached',
+    'json',
+    z_('intake_min_spec_fields', z.array(z.enum(MIN_SPEC_KEYS))),
+  ),
+  spec(
+    'intake_redirect_message',
+    'intake',
+    'Message shown for a request class that is not submitted to CCQ',
+    'text',
+    z_('intake_redirect_message', z.string().trim().min(1).max(500)),
   ),
   spec(
     'intake_description_template',

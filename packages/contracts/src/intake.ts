@@ -10,6 +10,11 @@ import { z } from 'zod';
  */
 
 const text = (max: number) => z.string().max(max).nullable().optional();
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+  .nullable()
+  .optional();
 
 export const IntakeAddress = z.object({
   line1: text(200),
@@ -23,17 +28,16 @@ export type IntakeAddress = z.infer<typeof IntakeAddress>;
 export const CUSTOMER_STATUSES = ['existing', 'not_yet_established'] as const;
 
 /**
- * `existing`: from the SF Account. `not_yet_established`: name, location and contact only. No credit
- * check and no account request (DEC-27).
+ * FB-02 (F-007, D-011): the customer is always the Salesforce Account on the picked opportunity (new
+ * accounts start in Salesforce). Nothing about the customer is typed: `name` is a display copy of the
+ * Account name. `status` is the one KAM answer: `not_yet_established` = "Not yet a Pretium customer (no
+ * ERP account)" (DEC-27, CLAUDE.md rule 7); it drives the `new_customer` Legal review trigger. The
+ * name / location / contact columns of a not-yet-established customer are deprecated (kept, not written).
  */
 export const IntakeCustomer = z.object({
   status: z.enum(CUSTOMER_STATUSES),
   sfAccountId: text(18),
   name: text(200),
-  location: text(200),
-  contactName: text(120),
-  contactEmail: text(200),
-  contactPhone: text(40),
 });
 export type IntakeCustomer = z.infer<typeof IntakeCustomer>;
 
@@ -46,9 +50,26 @@ export const IntakeDraftData = z.object({
     .optional(),
   /** Display copy of the picked opportunity (name, account, amount…) so a resumed draft renders offline. */
   sfOpportunityName: text(300),
+  /**
+   * FB-02 (F-008): the product facts the opportunity's Salesforce product specification supplied when
+   * it was picked. The wizard shows these read-only with a "from Salesforce" tag (no double entry);
+   * a null entry means SF had nothing usable and the KAM enters it.
+   */
+  sfPrefill: z
+    .object({
+      resin: text(60),
+      neckDiameter: text(60),
+      neckFinishType: text(60),
+      neckFinishTypeCustom: text(120),
+      estAnnualVolume: z.number().nullable().optional(),
+      containerSize: text(60),
+    })
+    .nullable()
+    .optional(),
 
-  // Step 2: customer and ship-to
+  // Step 2: customer and ship / fill destination
   customer: IntakeCustomer.nullable().optional(),
+  /** FB-02 (F-017, D-012): the ship / fill destination; city and state are required (config). */
   shipTo: IntakeAddress.nullable().optional(),
   /** The customer default the ship-to was pre-filled from. Kept when the KAM changes the ship-to. */
   shipToDefault: IntakeAddress.nullable().optional(),
@@ -59,11 +80,47 @@ export const IntakeDraftData = z.object({
   requestClass: text(60),
   productFamily: text(60),
   components: z.array(z.string().max(60)).max(20).optional(),
+  /**
+   * FB-02 (F-013): follow-ups of the picked components (`component` value-list meta `followUps`):
+   * shown only while the component is picked, required then, cleared when it is not.
+   */
+  linerSpec: text(120),
+  /** labels_purchased_by code (Customer / Pretium). */
+  labelsPurchasedBy: text(60),
+  /** decoration_type code. */
+  decorationType: text(60),
+  /** Whole number 1–12 (checked by the domain). */
+  decorationPrintColors: z.number().nullable().optional(),
   market: text(60),
   resin: text(60),
-  /** neck_finish code; when the code's meta has `freeText`, `neckFinishOther` holds the finish. */
-  neckFinish: text(60),
-  neckFinishOther: text(120),
+  /** FB-02 (F-011): the customer specifies the resin; `resinGrade` (supplier / grade) is then required. */
+  resinCustomerSpecified: z.boolean().optional(),
+  /** e.g. "LyondellBasell Pro-fax 6331". */
+  resinGrade: text(120),
+  /** FB-02 (F-055): pcr_level code (0 / 25 / 50 / 100 %, provisional). */
+  pcrLevel: text(60),
+  /**
+   * FB-02 (F-010, Jim Zweifel's lists): the neck as three pick-lists. "Custom" (value-list meta
+   * `freeText`) needs the matching short description. The old single `neckFinish` list is retired.
+   */
+  neckDiameter: text(60),
+  neckDiameterCustom: text(120),
+  neckFinishType: text(60),
+  neckFinishTypeCustom: text(120),
+  /** Optional. */
+  neckSpecialFeature: text(60),
+  neckSpecialFeatureCustom: text(120),
+  /** FB-02 (F-023): color_type code (Natural / Custom color); Custom needs `colorDescription`. */
+  colorType: text(60),
+  colorDescription: text(120),
+  /** FB-02 (F-023): optional short note on additives (cost drivers for Pricing). */
+  additives: text(200),
+  /**
+   * FB-02 (F-075, interim answer to D-017 option B): the variants the customer wants priced, e.g.
+   * "0/25/50% PCR; near-site vs ideal-site". The limit is the provisional setting
+   * `intake_variants_note_max_length` (300), checked by the domain.
+   */
+  quoteVariantsNote: text(2000),
   packagingType: text(60),
   packagingNotes: text(2000),
   /** Units per year. */
@@ -74,12 +131,14 @@ export const IntakeDraftData = z.object({
   estAnnualRevenue: z.number().nullable().optional(),
   /** The SF amount it was pre-filled from (kept when edited). */
   estAnnualRevenueSf: z.number().nullable().optional(),
-  /** YYYY-MM-DD; from SF, editable. */
-  expectedCloseDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
-    .nullable()
-    .optional(),
+  /**
+   * FB-02 (F-009): when the customer needs the quote (YYYY-MM-DD, after today). Feeds the `timing`
+   * attribute of the priority score. Replaces the editable expected close date: the SF close date is
+   * shown read-only from the latest sync (`IntakeDraft.sfCloseDate`) and not stored on the quote.
+   */
+  quoteNeededBy: isoDate,
+  /** FB-02 (F-009): best estimate of the customer's launch need (YYYY-MM-DD), on or after quoteNeededBy. */
+  productNeededBy: isoDate,
   /** Container size as Sales describes it (e.g. "16 oz"). Feeds the standard description. */
   containerSize: text(60),
   /** Standard description (suggested from the template, editable). */
@@ -87,8 +146,26 @@ export const IntakeDraftData = z.object({
   /** Free text. */
   description: text(4000),
 
+  /**
+   * FB-02 (F-016, D-018): product dimensions, mm and grams (2 decimals). Without a bottle or competitor
+   * drawing attached, the fields in `intake_min_spec_fields` must all be filled to submit.
+   */
+  heightMm: z.number().nullable().optional(),
+  widthOrDiameterMm: z.number().nullable().optional(),
+  depthMm: z.number().nullable().optional(),
+  gramWeightG: z.number().nullable().optional(),
+  /**
+   * FB-02 (F-015): modify an existing mold (in scope when capital or engineering review is needed).
+   * When ticked, the existing mold / part number and what changes are required.
+   */
+  modifyExistingMold: z.boolean().optional(),
+  existingMoldRef: text(60),
+  moldChangeDescription: text(500),
+
   // Step 4: drawing and notes
   drawingStatus: text(60),
+  /** FB-02 (F-014): optional customer RFP / portal link (https only, ≤ 500; checked by the domain). */
+  rfpLink: text(500),
   commentsForEngineering: text(4000),
 });
 export type IntakeDraftData = z.infer<typeof IntakeDraftData>;
@@ -98,6 +175,8 @@ export const IntakeIssue = z.object({
   /** snake_case field the issue is about (dotted for nested values, comma-separated for alternatives). */
   field: z.string(),
   message: z.string(),
+  /** FB-02 (F-016): for DRAWING_OR_MIN_SPEC_REQUIRED, the minimum-spec fields still missing. */
+  missing: z.array(z.string()).optional(),
 });
 export type IntakeIssue = z.infer<typeof IntakeIssue>;
 
@@ -126,6 +205,11 @@ export const IntakeDraft = z.object({
   step: z.number().int().min(1).max(4),
   data: IntakeDraftData,
   evaluation: IntakeEvaluation,
+  /**
+   * FB-02 (F-008, T-009): the opportunity's close date from the latest Salesforce sync, shown read-only
+   * ("updates with Salesforce"). Never stored on the draft or the quote.
+   */
+  sfCloseDate: z.string().nullable(),
   /** Set when the draft's opportunity already has an active quote: offer "Open existing". */
   activeQuote: ActiveQuoteRef.nullable(),
   /** Set when the draft reworks a quote returned at a gate (B-08): submit updates that quote. */
@@ -257,6 +341,10 @@ export const INTAKE_PROBLEM_CODES = {
   notOwner: 'not_draft_owner',
   /** The quote is not back with its KAM for rework (or the caller is not its KAM). */
   notReturned: 'quote_not_returned',
+  /** FB-02 (F-067): the request class can't be submitted to CCQ (422; `blocking` lists it). */
+  requestClassNotAllowed: 'REQUEST_CLASS_NOT_ALLOWED',
+  /** FB-02 (F-016): no drawing and an incomplete minimum spec (422; `missing` names the fields). */
+  drawingOrMinSpecRequired: 'DRAWING_OR_MIN_SPEC_REQUIRED',
 } as const;
 
 // ── Draft → domain values ────────────────────────────────────────────────────────────────────────
@@ -264,16 +352,6 @@ export const INTAKE_PROBLEM_CODES = {
 // feed the domain's `evaluateIntake` the same snake_case values.
 
 const blank = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
-
-/** The neck finish as stored: the code, or the typed finish when the code is a free-text one. */
-export function resolvedNeckFinish(
-  data: IntakeDraftData,
-  freeTextCodes: readonly string[],
-): string | null {
-  const code = blank(data.neckFinish);
-  if (code && freeTextCodes.includes(code)) return blank(data.neckFinishOther);
-  return code;
-}
 
 export const intakeAddress = (a: IntakeDraftData['shipTo']) =>
   a
@@ -286,21 +364,17 @@ export const intakeAddress = (a: IntakeDraftData['shipTo']) =>
       }
     : null;
 
-/** The draft's fields in the domain's snake_case shape (`evaluateIntake` input). */
-export function intakeValues(data: IntakeDraftData, freeTextNeckFinishes: readonly string[]) {
+/**
+ * The draft's fields in the domain's snake_case shape (`evaluateIntake` input). `hasDrawingAttachment`
+ * (FB-02, F-016) says whether a bottle or competitor drawing is attached to the draft (or, for a
+ * rework, to the quote); the caller knows its files.
+ */
+export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boolean) {
   const c = data.customer;
   return {
     sf_opportunity_id: data.sfOpportunityId ?? null,
     customer: c
-      ? {
-          status: c.status,
-          sf_account_id: c.sfAccountId ?? null,
-          name: c.name ?? null,
-          location: c.location ?? null,
-          contact_name: c.contactName ?? null,
-          contact_email: c.contactEmail ?? null,
-          contact_phone: c.contactPhone ?? null,
-        }
+      ? { status: c.status, sf_account_id: c.sfAccountId ?? null, name: c.name ?? null }
       : null,
     ship_to: intakeAddress(data.shipTo),
     ship_to_default: intakeAddress(data.shipToDefault),
@@ -310,13 +384,39 @@ export function intakeValues(data: IntakeDraftData, freeTextNeckFinishes: readon
     components: data.components ?? [],
     market: data.market ?? null,
     resin: data.resin ?? null,
-    neck_finish: resolvedNeckFinish(data, freeTextNeckFinishes),
+    resin_customer_specified: data.resinCustomerSpecified ?? false,
+    resin_grade: blank(data.resinGrade),
+    pcr_level: data.pcrLevel ?? null,
+    neck_diameter: data.neckDiameter ?? null,
+    neck_diameter_custom: blank(data.neckDiameterCustom),
+    neck_finish_type: data.neckFinishType ?? null,
+    neck_finish_type_custom: blank(data.neckFinishTypeCustom),
+    neck_special_feature: data.neckSpecialFeature ?? null,
+    neck_special_feature_custom: blank(data.neckSpecialFeatureCustom),
+    color_type: data.colorType ?? null,
+    color_description: blank(data.colorDescription),
+    additives: blank(data.additives),
+    quote_variants_note: blank(data.quoteVariantsNote),
+    liner_spec: blank(data.linerSpec),
+    labels_purchased_by: data.labelsPurchasedBy ?? null,
+    decoration_type: data.decorationType ?? null,
+    decoration_print_colors: data.decorationPrintColors ?? null,
+    height_mm: data.heightMm ?? null,
+    width_or_diameter_mm: data.widthOrDiameterMm ?? null,
+    depth_mm: data.depthMm ?? null,
+    gram_weight_g: data.gramWeightG ?? null,
+    modify_existing_mold: data.modifyExistingMold ?? false,
+    existing_mold_ref: blank(data.existingMoldRef),
+    mold_change_description: blank(data.moldChangeDescription),
+    rfp_link: blank(data.rfpLink),
+    ...(hasDrawingAttachment === undefined ? {} : { has_drawing_attachment: hasDrawingAttachment }),
     packaging_type: data.packagingType ?? null,
     packaging_notes: data.packagingNotes ?? null,
     est_annual_volume: data.estAnnualVolume ?? null,
     est_annual_volume_confirmed: data.estAnnualVolumeConfirmed ?? false,
     est_annual_revenue: data.estAnnualRevenue ?? null,
-    expected_close_date: data.expectedCloseDate ?? null,
+    quote_needed_by: data.quoteNeededBy ?? null,
+    product_needed_by: data.productNeededBy ?? null,
     container_size: data.containerSize ?? null,
     standard_description: data.standardDescription ?? null,
     description: data.description ?? null,

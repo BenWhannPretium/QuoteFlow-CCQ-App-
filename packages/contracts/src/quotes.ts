@@ -120,6 +120,10 @@ export const QuoteSummary = z.object({
   resin: z.string().nullable(),
   estAnnualVolume: z.number().nullable(),
   estAnnualRevenue: z.number().nullable(),
+  /**
+   * FB-02 (F-008, T-009): the Salesforce close date from the latest sync ("updates with Salesforce").
+   * Quotes from before FB-02 with no synced date show the deprecated close date stored at intake.
+   */
   expectedCloseDate: z.string().nullable(),
   /** Null while the quote is back with the KAM for rework. */
   submittedAt: z.string().nullable(),
@@ -158,6 +162,51 @@ export const ReworkRequest = z.object({
 });
 export type ReworkRequest = z.infer<typeof ReworkRequest>;
 
+/**
+ * FB-02: the product and timing facts the KAM entered at intake, for every role that reads the quote
+ * (Engineering and Pricing included). Codes are value-list codes; the UI shows their labels.
+ */
+export const QuoteIntakeFacts = z.object({
+  /** F-009: when the customer needs the quote, and the best estimate of the launch need. */
+  quoteNeededBy: z.string().nullable(),
+  productNeededBy: z.string().nullable(),
+  /** F-010: the neck (value-list codes; a Custom value carries its description). */
+  neckDiameter: z.string().nullable(),
+  neckDiameterCustom: z.string().nullable(),
+  neckFinishType: z.string().nullable(),
+  neckFinishTypeCustom: z.string().nullable(),
+  neckSpecialFeature: z.string().nullable(),
+  neckSpecialFeatureCustom: z.string().nullable(),
+  /** F-011: customer-specified resin and its supplier / grade (T-013). */
+  resinCustomerSpecified: z.boolean(),
+  resinGrade: z.string().nullable(),
+  /** F-055 */
+  pcrLevel: z.string().nullable(),
+  /** F-023 */
+  colorType: z.string().nullable(),
+  colorDescription: z.string().nullable(),
+  additives: z.string().nullable(),
+  /** F-075 */
+  quoteVariantsNote: z.string().nullable(),
+  /** F-013: component follow-ups. */
+  linerSpec: z.string().nullable(),
+  labelsPurchasedBy: z.string().nullable(),
+  decorationType: z.string().nullable(),
+  decorationPrintColors: z.number().int().nullable(),
+  /** F-016: dimensions (mm) and gram weight (g). */
+  heightMm: z.number().nullable(),
+  widthOrDiameterMm: z.number().nullable(),
+  depthMm: z.number().nullable(),
+  gramWeightG: z.number().nullable(),
+  /** F-015: modify an existing mold (the Engineering queue shows a "Mold modification" chip). */
+  modifyExistingMold: z.boolean(),
+  existingMoldRef: z.string().nullable(),
+  moldChangeDescription: z.string().nullable(),
+  /** F-014: the customer's RFP / portal link (https), for every role that reads the quote. */
+  rfpLink: z.string().nullable(),
+});
+export type QuoteIntakeFacts = z.infer<typeof QuoteIntakeFacts>;
+
 export const QuoteDetail = QuoteSummary.extend({
   description: z.string().nullable(),
   standardDescription: z.string().nullable(),
@@ -168,6 +217,8 @@ export const QuoteDetail = QuoteSummary.extend({
   packagingNotes: z.string().nullable(),
   commentsForEngineering: z.string().nullable(),
   shipTo: IntakeAddress.nullable(),
+  /** FB-02: product and timing facts from intake. */
+  intakeFacts: QuoteIntakeFacts,
   outcome: z.string().nullable(),
   outcomeReasonCode: z.string().nullable(),
   closedAt: z.string().nullable(),

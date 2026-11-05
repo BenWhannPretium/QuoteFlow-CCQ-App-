@@ -25,6 +25,7 @@ import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { CommercialPanel } from '@/components/commercial/CommercialPanel';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
+import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import {
   ClosureCard,
   CustomerDecisionHeader,
@@ -304,7 +305,9 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
             {
               label: 'Customer status',
               value:
-                quote.customerStatus === 'not_yet_established' ? 'Not yet established' : 'Existing',
+                quote.customerStatus === 'not_yet_established'
+                  ? 'Not yet a Pretium customer (no ERP account)'
+                  : 'Pretium customer',
             },
             { label: 'Opportunity', value: quote.opportunityName },
             // B-23: testers tie quotes out against Salesforce (U5) by this id.
@@ -325,7 +328,8 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
               label: 'Components',
               value: quote.components.map((c) => label('component', c)).join(', '),
             },
-            { label: 'Neck finish', value: label('neck_finish', quote.neckFinish) },
+            // FB-02: the product facts (neck, resin grade, PCR, color, follow-ups, need-by dates…).
+            ...intakeFactItems(config?.valueLists, quote.intakeFacts, quote.neckFinish),
             {
               label: 'Annual volume',
               value: quote.estAnnualVolume?.toLocaleString('en-US'),
@@ -337,12 +341,13 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
                   ? `$${quote.estAnnualRevenue.toLocaleString('en-US')}`
                   : null,
             },
-            { label: 'Expected close', value: quote.expectedCloseDate },
+            // FB-02 (T-009): Salesforce's close date (latest sync), and the KAM's need-by dates.
+            { label: 'Salesforce close date', value: quote.expectedCloseDate },
             { label: 'Drawing', value: label('drawing_status', quote.drawingStatus) },
             { label: 'Packaging', value: label('packaging_type', quote.packagingType) },
             {
               id: 'ship-to',
-              label: 'Ship-to',
+              label: 'Ship / fill destination',
               value: (
                 <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span data-testid="ship-to-value">

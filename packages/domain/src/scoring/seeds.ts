@@ -100,3 +100,25 @@ export const SCORING_MODEL_V1_INPUT = {
 } satisfies ScoringModelInput;
 
 export const scoringModelV1: ScoringModel = parseScoringModel(SCORING_MODEL_V1_INPUT);
+
+/**
+ * Scoring model v2 (FB-02, F-009): v1 with the `timing` attribute reading the KAM's "Quote needed by"
+ * date instead of the Salesforce close date, which intake no longer stores. Weights, bands and every
+ * other attribute are unchanged (D-004 open): all still PROVISIONAL.
+ */
+export const SCORING_MODEL_V2_INPUT = {
+  ...SCORING_MODEL_V1_INPUT,
+  version: 2,
+  attributes: SCORING_MODEL_V1_INPUT.attributes.map((a) =>
+    a.key === 'timing'
+      ? {
+          ...a,
+          label: 'Timing (days to quote needed by)',
+          input: 'days_to_quote_needed',
+          unknownExplanation: 'Quote needed by date not given',
+        }
+      : a,
+  ),
+} satisfies ScoringModelInput;
+
+export const scoringModelV2: ScoringModel = parseScoringModel(SCORING_MODEL_V2_INPUT);

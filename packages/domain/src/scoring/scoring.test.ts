@@ -12,7 +12,7 @@ import {
   qualificationWarnings,
 } from './qualification';
 import { redactScore, score, tierFor } from './score';
-import { SCORING_MODEL_V1_INPUT, scoringModelV1 } from './seeds';
+import { SCORING_MODEL_V1_INPUT, scoringModelV1, scoringModelV2 } from './seeds';
 import { canSeePriorityScore } from './visibility';
 
 // NOW = 2026-10-20T15:00Z
@@ -401,7 +401,11 @@ describe('inputs', () => {
   });
 
   it('the resolver registry is the extension point', () => {
-    expect(Object.keys(INPUT_RESOLVERS).sort()).toEqual(['days_to_close', 'map']);
+    expect(Object.keys(INPUT_RESOLVERS).sort()).toEqual([
+      'days_to_close',
+      'days_to_quote_needed',
+      'map',
+    ]);
   });
 
   it('describes open-ended bands', () => {
@@ -506,3 +510,38 @@ describe('canSeePriorityScore (kam_can_see_peer_scores)', () => {
     expect(canSeePriorityScore(makeActor(['KAM', 'SalesLeader']), KAM_ID, false)).toBe(true);
   });
 });
+
+describe('scoring model v2 (FB-02, F-009)', () => {
+  const timing = (model: typeof scoringModelV1, quote: Record<string, unknown>) =>
+    score(model, { quote, customer: {}, eng_review: {} }, NOW).breakdown.find(
+      (b) => b.key === 'timing',
+    )!;
+
+  it("timing reads Quote needed by, with v1's bands and weight", () => {
+    const t = timing(scoringModelV2, {
+      quote_needed_by: daysFromNow(20),
+      expected_close_date: daysFromNow(400),
+    });
+    expect(t.raw).toBe(20);
+    expect(t.points).toBe(100);
+    expect(t.weight).toBe(0.1);
+    expect(t.label).toBe('Timing (days to quote needed by)');
+    expect(timing(scoringModelV2, { quote_needed_by: daysFromNow(120) }).points).toBe(40);
+  });
+
+  it('no date is unknown (neutral), and v1 still reads the old close date', () => {
+    expect(timing(scoringModelV2, { expected_close_date: daysFromNow(10) }).unknown).toBe(true);
+    expect(timing(scoringModelV1, { expected_close_date: daysFromNow(10) }).points).toBe(100);
+  });
+
+  it('only the timing attribute changed', () => {
+    const strip = (m: typeof scoringModelV1) =>
+      m.attributes.filter((a) => a.key !== 'timing').map((a) => JSON.stringify(a));
+    expect(strip(scoringModelV2)).toEqual(strip(scoringModelV1));
+    expect(scoringModelV2.tiers).toEqual(scoringModelV1.tiers);
+  });
+});
+
+function daysFromNow(days: number): string {
+  return new Date(NOW.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+}

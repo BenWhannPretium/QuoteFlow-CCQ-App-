@@ -61,16 +61,39 @@ describe('config seeds', () => {
       resin: 11,
       market: 8,
       product_family: 7,
-      component: 5,
+      component: 6, // FB-02 (F-013): + Decoration
       request_class: 4,
       drawing_status: 4,
       packaging_type: 5,
       plant: 3,
+      // FB-02: Jim Zweifel's neck lists (F-010), PCR (F-055), color (F-023), component follow-ups (F-013).
+      neck_diameter: 29,
+      neck_finish_type: 18,
+      neck_special_feature: 5,
+      pcr_level: 4,
+      color_type: 2,
+      labels_purchased_by: 2,
+      decoration_type: 4,
     });
-    const [other] = await q<{ meta: unknown }>(
-      sql`select meta from value_list where list_key = 'neck_finish' and code = 'OTHER'`,
+    // F-010: the old single list is kept for history, not pickable; "Custom" asks for a description.
+    const neck = await q<{ active: boolean }>(
+      sql`select active from value_list where list_key = 'neck_finish'`,
     );
-    expect(other!.meta).toEqual({ freeText: true });
+    expect(neck.length).toBeGreaterThan(0);
+    expect(neck.every((r) => !r.active)).toBe(true);
+    const custom = await q<{ list_key: string; meta: unknown }>(
+      sql`select list_key, meta from value_list where code = 'CUSTOM' order by list_key`,
+    );
+    expect(custom).toEqual([
+      { list_key: 'color_type', meta: { freeText: true } },
+      { list_key: 'neck_diameter', meta: { freeText: true } },
+      { list_key: 'neck_finish_type', meta: { freeText: true } },
+      { list_key: 'neck_special_feature', meta: { freeText: true } },
+    ]);
+    const [decoration] = await q<{ meta: unknown }>(
+      sql`select meta from value_list where list_key = 'component' and code = 'DECORATION'`,
+    );
+    expect(decoration!.meta).toEqual({ followUps: ['decoration_type', 'decoration_print_colors'] });
   });
 
   it('settings, scoring v1 and sf_stage_map are seeded', async () => {
@@ -95,6 +118,26 @@ describe('config seeds', () => {
     ]);
     // Provisional PRD weights (D-19) that sum to 1; the row parses back into the domain model.
     expect(model!.attributes.reduce((n, a) => n + a.weight, 0)).toBeCloseTo(1, 6);
+    // FB-02 (F-009): v2 times on "Quote needed by"; nothing else changed.
+    const [v2] = await q<{ attributes: { key: string; input: string; weight: number }[] }>(
+      sql`select attributes from scoring_model where model_version = 2`,
+    );
+    expect(v2!.attributes.find((a) => a.key === 'timing')).toMatchObject({
+      input: 'days_to_quote_needed',
+      weight: 0.1,
+    });
+    // FB-02 settings (provisional).
+    expect(await getSetting(db, 'intake_allowed_request_classes')).toEqual(['CCQ']);
+    expect(await getSetting(db, 'intake_variants_note_max_length')).toBe(300);
+    expect(await getSetting(db, 'intake_min_spec_fields')).toEqual([
+      'height',
+      'widthOrDiameter',
+      'depth',
+      'gramWeight',
+      'neck',
+      'resin',
+      'color',
+    ]);
     expect(await getSetting(db, 'qualification_exception_note_outcomes')).toEqual(['G1:advance']);
     // The org's 14 active OpportunityStage rows (read 2026-10-24).
     expect(await count('sf_stage_map')).toBe(14);
@@ -193,9 +236,10 @@ describe('synthetic data', () => {
   });
 
   it('every quote carries an engine score; G1 rework quotes are back with the KAM', async () => {
+    // FB-02: a new database scores with model v2 (timing on Quote needed by) from v1's date.
     const tiers = await q<{ priority_tier: string; n: number }>(
       sql`select priority_tier, count(*)::int as n from quote
-          where priority_score is null or scoring_model_version is distinct from 1 group by 1`,
+          where priority_score is null or scoring_model_version is distinct from 2 group by 1`,
     );
     expect(tiers).toEqual([]);
     const keys = await q<{ priority_tier: string }>(sql`select distinct priority_tier from quote`);

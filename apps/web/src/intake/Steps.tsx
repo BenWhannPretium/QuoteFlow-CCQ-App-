@@ -1,6 +1,12 @@
 import type { IntakeAddress, IntakeDraftData } from '@ccq/contracts';
-import type { IntakeEvaluation } from '@ccq/domain';
-import { PencilIcon, Undo2Icon } from 'lucide-react';
+import {
+  activeFollowUps,
+  COMPONENT_FOLLOW_UP_FIELDS,
+  todayInCentral,
+  type ComponentFollowUpField,
+  type IntakeEvaluation,
+} from '@ccq/domain';
+import { CheckCircle2Icon, PencilIcon, Undo2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
@@ -12,19 +18,25 @@ import {
   formatAddress,
   formatDate,
   formatUsd,
+  isCustom,
   issueLabel,
   issueStep,
+  neckLabel,
   suggestedDescription,
   valueLabel,
   type WizardConfig,
 } from './model';
-import { Field, Notice, Pill, Section } from './ui';
+import { Field, Notice, ReadOnlyValue, Reveal, Section, SfTag } from './ui';
 
 export interface StepProps {
   data: IntakeDraftData;
   update: (patch: Partial<IntakeDraftData>) => void;
   cfg: WizardConfig;
   evaluation: IntakeEvaluation;
+  /** FB-02 (T-009): the opportunity's close date from the latest Salesforce sync (read-only). */
+  sfCloseDate?: string | null | undefined;
+  /** FB-02 (F-016): a bottle or competitor drawing is attached. */
+  hasDrawing?: boolean;
 }
 
 const fid = (field: string) => `intake-${field.replace(/[._]/g, '-')}`;
@@ -41,6 +53,20 @@ function meta(cfg: WizardConfig, field: string) {
 
 const nullIfBlank = (v: string) => (v.trim() === '' ? null : v);
 
+/** YYYY-MM-DD of the day after `iso` (for the date pickers' `min`). */
+const isoDayAfter = (iso: string) =>
+  new Date(Date.parse(`${iso}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/** A blocking issue shown under its field (role=alert so it is announced when it appears). */
+function FieldError({ issue }: { issue: { message: string } | undefined }) {
+  if (!issue) return null;
+  return (
+    <p role="alert" className="text-destructive text-xs font-medium">
+      {issue.message}
+    </p>
+  );
+}
+
 function Select({
   id,
   listKey,
@@ -48,6 +74,7 @@ function Select({
   onChange,
   cfg,
   placeholder = 'Choose…',
+  invalid,
 }: {
   id: string;
   listKey: string;
@@ -55,11 +82,13 @@ function Select({
   onChange: (v: string | null) => void;
   cfg: WizardConfig;
   placeholder?: string;
+  invalid?: boolean;
 }) {
   return (
     <NativeSelect
       id={id}
       aria-describedby={`${id}-help`}
+      aria-invalid={invalid || undefined}
       value={value ?? ''}
       onChange={(e) => onChange(nullIfBlank(e.target.value))}
     >
@@ -84,142 +113,86 @@ const ADDRESS_PARTS: { key: keyof IntakeAddress; label: string; autoComplete: st
 ];
 
 export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
-  const customer = data.customer ?? { status: 'not_yet_established' as const };
-  const isNew = customer.status === 'not_yet_established';
-  // The SF account the opportunity came with, so "new customer" can be undone.
-  const [sfAccount] = useState(() => (customer.status === 'existing' ? customer : null));
+  const customer = data.customer ?? { status: 'existing' as const };
+  const notYetCustomer = customer.status === 'not_yet_established';
   const hasDefault = Boolean(formatAddress(data.shipToDefault));
   const [editingShipTo, setEditingShipTo] = useState(
     !hasDefault || Boolean(data.shipToOverrideReason),
   );
   const reasonBlocking = evaluation.blocking.some((b) => b.code === 'SHIP_TO_REASON_REQUIRED');
+  const noAccount = evaluation.blocking.find((b) => b.code === 'SF_ACCOUNT_REQUIRED');
 
-  const setNew = (on: boolean) => {
-    if (on) {
-      update({
-        customer: {
-          status: 'not_yet_established',
-          sfAccountId: null,
-          name: customer.status === 'existing' ? '' : (customer.name ?? ''),
-        },
-      });
-    } else if (sfAccount) {
-      update({ customer: sfAccount });
-    }
-  };
-  const setCustomer = (patch: Partial<NonNullable<IntakeDraftData['customer']>>) =>
-    update({ customer: { ...customer, ...patch } });
   const setShipTo = (key: keyof IntakeAddress, value: string) =>
     update({ shipTo: { ...(data.shipTo ?? {}), [key]: nullIfBlank(value) } });
 
   return (
     <div className="grid gap-4">
-      <Section
-        title="Customer"
-        action={
-          <Pill
-            className={
-              isNew ? 'bg-warning text-warning-foreground' : 'bg-primary text-primary-foreground'
-            }
-          >
-            {isNew ? 'Not yet established' : 'Existing customer'}
-          </Pill>
-        }
-      >
-        {!isNew && (
+      {/* FB-02 (F-007, D-011): the customer is the opportunity's Salesforce Account; nothing is typed. */}
+      <Section title="Customer" action={<SfTag />}>
+        {noAccount ? (
+          <Notice tone="blocking" testId="no-sf-account">
+            {noAccount.message}
+          </Notice>
+        ) : (
           <div className="grid gap-1">
             <p className="font-semibold" data-testid="customer-name">
               {customer.name}
             </p>
-            <p className="text-muted-foreground text-xs">From the Salesforce account.</p>
+            <p className="text-muted-foreground text-xs">
+              The Salesforce Account on the opportunity. New accounts start in Salesforce.
+            </p>
           </div>
         )}
-        {(sfAccount || !isNew) && (
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="size-5"
-              checked={isNew}
-              onChange={(e) => setNew(e.target.checked)}
-            />
-            This is a new customer, not yet established with Pretium
-          </label>
-        )}
-        {isNew && (
-          <div className="grid gap-4">
-            <Notice tone="info">
-              Just the basics: no account request or credit check is needed to quote.
-            </Notice>
-            <Field {...meta(cfg, 'customer.name')} help={cfg.help.customer}>
-              <Input
-                id={fid('customer.name')}
-                value={customer.name ?? ''}
-                onChange={(e) => setCustomer({ name: e.target.value })}
-                autoComplete="organization"
-              />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field id={fid('customer.location')} label="Location (city, state / country)">
-                <Input
-                  id={fid('customer.location')}
-                  value={customer.location ?? ''}
-                  onChange={(e) => setCustomer({ location: e.target.value })}
-                />
-              </Field>
-              <Field id={fid('customer.contact_name')} label="Contact name">
-                <Input
-                  id={fid('customer.contact_name')}
-                  value={customer.contactName ?? ''}
-                  onChange={(e) => setCustomer({ contactName: e.target.value })}
-                  autoComplete="name"
-                />
-              </Field>
-              <Field id={fid('customer.contact_email')} label="Contact email">
-                <Input
-                  id={fid('customer.contact_email')}
-                  type="email"
-                  value={customer.contactEmail ?? ''}
-                  onChange={(e) => setCustomer({ contactEmail: e.target.value })}
-                  autoComplete="email"
-                />
-              </Field>
-              <Field id={fid('customer.contact_phone')} label="Contact phone">
-                <Input
-                  id={fid('customer.contact_phone')}
-                  type="tel"
-                  value={customer.contactPhone ?? ''}
-                  onChange={(e) => setCustomer({ contactPhone: e.target.value })}
-                  autoComplete="tel"
-                />
-              </Field>
-            </div>
-          </div>
+        <label className="flex min-h-11 items-center gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="size-5"
+            data-testid="not-yet-customer"
+            aria-describedby={`${fid('customer')}-help`}
+            checked={notYetCustomer}
+            onChange={(e) =>
+              update({
+                customer: {
+                  ...customer,
+                  status: e.target.checked ? 'not_yet_established' : 'existing',
+                },
+              })
+            }
+          />
+          Not yet a Pretium customer (no ERP account)
+        </label>
+        {cfg.help.customer && (
+          <p id={`${fid('customer')}-help`} className="text-muted-foreground text-xs">
+            {cfg.help.customer}
+          </p>
         )}
       </Section>
 
+      {/* FB-02 (F-017, D-012): Engineering picks the plant with this as input. */}
       <Section
-        title="Ship-to / fill location"
+        title="Ship / fill destination"
         action={
           hasDefault && !editingShipTo ? (
             <Button variant="outline" size="sm" onClick={() => setEditingShipTo(true)}>
-              <PencilIcon aria-hidden /> Change ship-to
+              <PencilIcon aria-hidden /> Change destination
             </Button>
           ) : undefined
         }
       >
         {cfg.help.ship_to && <p className="text-muted-foreground text-xs">{cfg.help.ship_to}</p>}
         {!editingShipTo ? (
-          <p data-testid="ship-to" className="text-sm">
-            {formatAddress(data.shipTo)}
-            <span className="text-muted-foreground block text-xs">
-              Default from the customer record.
+          <p data-testid="ship-to" className="flex flex-wrap items-center gap-2 text-sm">
+            <span>{formatAddress(data.shipTo)}</span>
+            <SfTag />
+            <span className="text-muted-foreground block w-full text-xs">
+              The Salesforce Account&apos;s shipping address.
             </span>
           </p>
         ) : (
           <div className="grid gap-4">
             {hasDefault && (
               <p className="text-muted-foreground text-sm" data-testid="ship-to-original">
-                Original: {formatAddress(data.shipToDefault)}
+                From Salesforce: {formatAddress(data.shipToDefault)}
               </p>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -260,7 +233,7 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
                       setEditingShipTo(false);
                     }}
                   >
-                    <Undo2Icon aria-hidden /> Use the default ship-to
+                    <Undo2Icon aria-hidden /> Use the Salesforce address
                   </Button>
                 </div>
               </>
@@ -304,10 +277,459 @@ function NumberInput({
   );
 }
 
-export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
-  const neckEntry = cfg.lists.neck_finish?.find((e) => e.code === data.neckFinish);
+/** A short text field shown only when it applies (a Custom value, a checkbox), required while shown. */
+function ConditionalText({
+  when,
+  field,
+  value,
+  onChange,
+  cfg,
+  evaluation,
+  max,
+  label,
+  placeholder,
+}: {
+  when: boolean;
+  field: string;
+  value: string | null | undefined;
+  onChange: (v: string | null) => void;
+  cfg: WizardConfig;
+  evaluation: IntakeEvaluation;
+  max: number;
+  label?: string;
+  placeholder?: string;
+}) {
+  const issue = evaluation.blocking.find((b) => b.field === field);
+  return (
+    <Reveal when={when}>
+      <Field {...meta(cfg, field)} {...(label ? { label } : {})} required>
+        <Input
+          id={fid(field)}
+          aria-describedby={`${fid(field)}-help`}
+          aria-invalid={issue ? true : undefined}
+          aria-required
+          maxLength={max}
+          placeholder={placeholder}
+          value={value ?? ''}
+          onChange={(e) => onChange(nullIfBlank(e.target.value))}
+        />
+        {issue?.code === 'INVALID_VALUE' && <FieldError issue={issue} />}
+      </Field>
+    </Reveal>
+  );
+}
+
+/** F-011 / F-055: resin (read-only when SF supplied it), customer-specified grade, PCR %. */
+function ResinFields({ data, update, cfg, evaluation }: StepProps) {
+  const sf = data.sfPrefill ?? {};
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {sf.resin ? (
+          <ReadOnlyValue
+            {...meta(cfg, 'resin')}
+            value={valueLabel(cfg, 'resin', data.resin)}
+            testId="sf-resin"
+          />
+        ) : (
+          <Field {...meta(cfg, 'resin')}>
+            <Select
+              id={fid('resin')}
+              listKey="resin"
+              value={data.resin}
+              onChange={(v) => update({ resin: v })}
+              cfg={cfg}
+            />
+          </Field>
+        )}
+        <Field {...meta(cfg, 'pcr_level')}>
+          <Select
+            id={fid('pcr_level')}
+            listKey="pcr_level"
+            value={data.pcrLevel}
+            onChange={(v) => update({ pcrLevel: v })}
+            cfg={cfg}
+          />
+        </Field>
+      </div>
+      <label className="flex min-h-11 items-center gap-3 text-sm">
+        <input
+          id={fid('resin_customer_specified')}
+          type="checkbox"
+          className="size-5"
+          aria-describedby={`${fid('resin_customer_specified')}-help`}
+          checked={data.resinCustomerSpecified === true}
+          onChange={(e) =>
+            update(
+              e.target.checked
+                ? { resinCustomerSpecified: true }
+                : { resinCustomerSpecified: false, resinGrade: null },
+            )
+          }
+        />
+        Customer-specified resin
+      </label>
+      {cfg.help.resin_customer_specified && (
+        <p
+          id={`${fid('resin_customer_specified')}-help`}
+          className="text-muted-foreground -mt-3 text-xs"
+        >
+          {cfg.help.resin_customer_specified}
+        </p>
+      )}
+      <ConditionalText
+        when={data.resinCustomerSpecified === true}
+        field="resin_grade"
+        value={data.resinGrade}
+        onChange={(v) => update({ resinGrade: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={120}
+        placeholder="e.g. LyondellBasell Pro-fax 6331"
+      />
+    </div>
+  );
+}
+
+const NECK_LISTS = [
+  { list: 'neck_diameter', key: 'neckDiameter', custom: 'neckDiameterCustom' },
+  { list: 'neck_finish_type', key: 'neckFinishType', custom: 'neckFinishTypeCustom' },
+  { list: 'neck_special_feature', key: 'neckSpecialFeature', custom: 'neckSpecialFeatureCustom' },
+] as const;
+
+/** F-010: neck diameter, finish and (optional) special feature; Custom reveals a description. */
+function NeckFields({ data, update, cfg, evaluation }: StepProps) {
+  const sf = data.sfPrefill ?? {};
+  const fromSf = Boolean(sf.neckDiameter && sf.neckFinishType);
+  return (
+    <fieldset className="grid gap-4" data-field={fid('neck')}>
+      <legend className="mb-1.5 flex flex-wrap items-center gap-2 text-sm font-medium">
+        Neck {fromSf && <SfTag />}
+      </legend>
+      {fromSf && (
+        <ReadOnlyValue
+          id={fid('neck_from_sf')}
+          label="Neck diameter / finish"
+          value={neckLabel(cfg, data)}
+          testId="sf-neck"
+        />
+      )}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {NECK_LISTS.filter((n) => !fromSf || n.list === 'neck_special_feature').map((n) => (
+          <Field key={n.list} {...meta(cfg, n.list)}>
+            <Select
+              id={fid(n.list)}
+              listKey={n.list}
+              value={data[n.key]}
+              placeholder={n.list === 'neck_special_feature' ? 'None' : 'Choose…'}
+              onChange={(v) =>
+                update({
+                  [n.key]: v,
+                  // Leaving Custom clears its description (it no longer applies).
+                  ...(isCustom(cfg, n.list, v) ? {} : { [n.custom]: null }),
+                })
+              }
+              cfg={cfg}
+            />
+          </Field>
+        ))}
+      </div>
+      {NECK_LISTS.map((n) => (
+        <ConditionalText
+          key={n.custom}
+          when={
+            isCustom(cfg, n.list, data[n.key]) && !(fromSf && n.list !== 'neck_special_feature')
+          }
+          field={`${n.list}_custom`}
+          value={data[n.custom]}
+          onChange={(v) => update({ [n.custom]: v })}
+          cfg={cfg}
+          evaluation={evaluation}
+          max={120}
+        />
+      ))}
+    </fieldset>
+  );
+}
+
+/** F-023: color (Custom reveals a description) and an additives note. */
+function ColorFields({ data, update, cfg, evaluation }: StepProps) {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field {...meta(cfg, 'color_type')}>
+          <Select
+            id={fid('color_type')}
+            listKey="color_type"
+            value={data.colorType}
+            onChange={(v) =>
+              update({
+                colorType: v,
+                ...(isCustom(cfg, 'color_type', v) ? {} : { colorDescription: null }),
+              })
+            }
+            cfg={cfg}
+          />
+        </Field>
+        <Field {...meta(cfg, 'additives')}>
+          <Input
+            id={fid('additives')}
+            aria-describedby={`${fid('additives')}-help`}
+            maxLength={200}
+            placeholder="e.g. UV inhibitor"
+            value={data.additives ?? ''}
+            onChange={(e) => update({ additives: nullIfBlank(e.target.value) })}
+          />
+        </Field>
+      </div>
+      <ConditionalText
+        when={isCustom(cfg, 'color_type', data.colorType)}
+        field="color_description"
+        value={data.colorDescription}
+        onChange={(v) => update({ colorDescription: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={120}
+        placeholder="e.g. Pantone 286 C blue"
+      />
+    </div>
+  );
+}
+
+/** F-013: draft keys of the component follow-up fields. */
+const FOLLOW_UP_KEYS = {
+  liner_spec: 'linerSpec',
+  labels_purchased_by: 'labelsPurchasedBy',
+  decoration_type: 'decorationType',
+  decoration_print_colors: 'decorationPrintColors',
+} as const satisfies Record<ComponentFollowUpField, keyof IntakeDraftData>;
+
+/** F-013: the picked components' follow-ups, required while shown. */
+function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
+  const active = activeFollowUps(data.components, cfg.intake.componentFollowUps);
+  const on = (f: ComponentFollowUpField) => active.includes(f);
+  const issue = (f: string) => evaluation.blocking.find((b) => b.field === f);
+  return (
+    <div className="grid gap-4" data-testid="component-follow-ups">
+      <ConditionalText
+        when={on('liner_spec')}
+        field="liner_spec"
+        value={data.linerSpec}
+        onChange={(v) => update({ linerSpec: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={120}
+        placeholder="e.g. induction seal, foam"
+      />
+      <Reveal when={on('labels_purchased_by')}>
+        <Field {...meta(cfg, 'labels_purchased_by')} required>
+          <Select
+            id={fid('labels_purchased_by')}
+            listKey="labels_purchased_by"
+            value={data.labelsPurchasedBy}
+            onChange={(v) => update({ labelsPurchasedBy: v })}
+            cfg={cfg}
+            invalid={Boolean(issue('labels_purchased_by'))}
+          />
+        </Field>
+      </Reveal>
+      <Reveal when={on('decoration_type') || on('decoration_print_colors')}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {on('decoration_type') && (
+            <Field {...meta(cfg, 'decoration_type')} required>
+              <Select
+                id={fid('decoration_type')}
+                listKey="decoration_type"
+                value={data.decorationType}
+                onChange={(v) => update({ decorationType: v })}
+                cfg={cfg}
+                invalid={Boolean(issue('decoration_type'))}
+              />
+            </Field>
+          )}
+          {on('decoration_print_colors') && (
+            <Field {...meta(cfg, 'decoration_print_colors')} required>
+              <Input
+                id={fid('decoration_print_colors')}
+                aria-describedby={`${fid('decoration_print_colors')}-help`}
+                aria-invalid={issue('decoration_print_colors') ? true : undefined}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={12}
+                step={1}
+                value={data.decorationPrintColors ?? ''}
+                onChange={(e) =>
+                  update({
+                    decorationPrintColors: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              />
+              {issue('decoration_print_colors')?.code === 'INVALID_VALUE' && (
+                <FieldError issue={issue('decoration_print_colors')} />
+              )}
+            </Field>
+          )}
+        </div>
+      </Reveal>
+    </div>
+  );
+}
+
+/** F-015: modify an existing mold; reveals the mold / part number and what changes. */
+function MoldFields({ data, update, cfg, evaluation }: StepProps) {
+  const on = data.modifyExistingMold === true;
+  const issue = (f: string) => evaluation.blocking.find((b) => b.field === f);
+  return (
+    <div className="grid gap-4">
+      <label className="flex min-h-11 items-center gap-3 text-sm">
+        <input
+          id={fid('modify_existing_mold')}
+          type="checkbox"
+          className="size-5"
+          data-testid="modify-existing-mold"
+          aria-describedby={`${fid('modify_existing_mold')}-help`}
+          checked={on}
+          onChange={(e) =>
+            update(
+              e.target.checked
+                ? { modifyExistingMold: true }
+                : { modifyExistingMold: false, existingMoldRef: null, moldChangeDescription: null },
+            )
+          }
+        />
+        Modify an existing mold
+      </label>
+      {cfg.help.modify_existing_mold && (
+        <p
+          id={`${fid('modify_existing_mold')}-help`}
+          className="text-muted-foreground -mt-3 text-xs"
+        >
+          {cfg.help.modify_existing_mold}
+        </p>
+      )}
+      <ConditionalText
+        when={on}
+        field="existing_mold_ref"
+        value={data.existingMoldRef}
+        onChange={(v) => update({ existingMoldRef: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={60}
+        placeholder="e.g. M-10421"
+      />
+      <Reveal when={on}>
+        <Field {...meta(cfg, 'mold_change_description')} required>
+          <Textarea
+            id={fid('mold_change_description')}
+            aria-describedby={`${fid('mold_change_description')}-help`}
+            aria-invalid={issue('mold_change_description') ? true : undefined}
+            aria-required
+            maxLength={500}
+            placeholder="e.g. finish change 28-410 → 28-400"
+            value={data.moldChangeDescription ?? ''}
+            onChange={(e) => update({ moldChangeDescription: nullIfBlank(e.target.value) })}
+            className="min-h-16"
+          />
+        </Field>
+        <Notice tone="info">
+          Attach the reference drawing or a photo of the part in step 4 (Drawing and files).
+        </Notice>
+      </Reveal>
+    </div>
+  );
+}
+
+const DIMENSIONS = [
+  { field: 'height_mm', key: 'heightMm', unit: 'mm' },
+  { field: 'width_or_diameter_mm', key: 'widthOrDiameterMm', unit: 'mm' },
+  { field: 'depth_mm', key: 'depthMm', unit: 'mm' },
+  { field: 'gram_weight_g', key: 'gramWeightG', unit: 'g' },
+] as const;
+
+/** F-016: dimensions and gram weight (part of the minimum spec when there is no drawing). */
+function DimensionFields({ data, update, cfg, evaluation }: StepProps) {
+  return (
+    <fieldset className="grid gap-2" data-field={fid('dimensions')}>
+      <legend className="mb-1.5 text-sm font-medium">Dimensions</legend>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {DIMENSIONS.map((d) => {
+          const issue = evaluation.blocking.find(
+            (b) => b.field === d.field && b.code === 'INVALID_VALUE',
+          );
+          return (
+            <Field key={d.field} {...meta(cfg, d.field)}>
+              <div className="relative">
+                <DecimalInput
+                  id={fid(d.field)}
+                  value={data[d.key]}
+                  invalid={Boolean(issue)}
+                  onChange={(v) => update({ [d.key]: v })}
+                />
+                <span
+                  aria-hidden
+                  className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs"
+                >
+                  {d.unit}
+                </span>
+              </div>
+              <FieldError issue={issue} />
+            </Field>
+          );
+        })}
+      </div>
+      {cfg.help.dimensions && (
+        <p className="text-muted-foreground text-xs">{cfg.help.dimensions}</p>
+      )}
+    </fieldset>
+  );
+}
+
+/** A decimal number field (mm, g): what was typed while focused, the value otherwise. */
+function DecimalInput({
+  id,
+  value,
+  onChange,
+  invalid,
+}: {
+  id: string;
+  value: number | null | undefined;
+  onChange: (v: number | null) => void;
+  invalid?: boolean;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const text = editing ?? (value == null ? '' : String(value));
+  return (
+    <Input
+      id={id}
+      aria-describedby={`${id}-help`}
+      aria-invalid={invalid || undefined}
+      inputMode="decimal"
+      className="pr-9"
+      value={text}
+      onFocus={() => setEditing(text)}
+      onBlur={() => setEditing(null)}
+      onChange={(e) => {
+        setEditing(e.target.value);
+        const clean = e.target.value.replace(/[,\s]/g, '');
+        const n = Number(clean);
+        onChange(clean === '' || Number.isNaN(n) ? null : n);
+      }}
+    />
+  );
+}
+
+export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: StepProps) {
+  const invalidIssue = (field: string) =>
+    evaluation.blocking.find((b) => b.code === 'INVALID_VALUE' && b.field === field);
+  const invalid = (field: string) => Boolean(invalidIssue(field));
+  const tomorrow = isoDayAfter(todayInCentral(new Date()));
+  // F-008: what the opportunity's SF product spec supplied is read-only (fix it in Salesforce).
+  const sf = data.sfPrefill ?? {};
+  const variantsMax = cfg.intake.variantsNoteMaxLength;
   const placeholder = evaluation.warnings.find((w) => w.code === 'VOLUME_PLACEHOLDER');
-  const redirect = evaluation.warnings.find((w) => w.code === 'REQUEST_CLASS_REDIRECT');
+  // F-067: a class other than CCQ shows where it goes instead, and Submit stays disabled.
+  const notAllowed = evaluation.blocking.find((b) => b.code === 'REQUEST_CLASS_NOT_ALLOWED');
   const suggestion = suggestedDescription(data, cfg);
 
   // Keep the standard description in step with the suggestion until the KAM edits it.
@@ -327,9 +749,16 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
     const set = new Set(data.components ?? []);
     if (on) set.add(code);
     else set.delete(code);
-    update({
-      components: (cfg.lists.component ?? []).map((e) => e.code).filter((c) => set.has(c)),
-    });
+    const components = (cfg.lists.component ?? []).map((e) => e.code).filter((c) => set.has(c));
+    // F-013: a deselected component's follow-ups are cleared.
+    const active = activeFollowUps(components, cfg.intake.componentFollowUps);
+    const cleared = Object.fromEntries(
+      COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)).map((f) => [
+        FOLLOW_UP_KEYS[f],
+        null,
+      ]),
+    );
+    update({ components, ...cleared });
   };
 
   const revenueChanged =
@@ -338,15 +767,24 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
   return (
     <div className="grid gap-4">
       <Section title="Request">
-        <Field {...meta(cfg, 'request_class')} note={redirect ? redirect.message : undefined}>
+        <Field {...meta(cfg, 'request_class')}>
           <Select
             id={fid('request_class')}
             listKey="request_class"
             value={data.requestClass}
             onChange={(v) => update({ requestClass: v })}
             cfg={cfg}
+            invalid={Boolean(notAllowed)}
           />
+          {notAllowed && (
+            <div role="alert">
+              <Notice tone="blocking" testId="request-class-redirect">
+                {notAllowed.message}
+              </Notice>
+            </div>
+          )}
         </Field>
+        <MoldFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
       <Section title="Product">
@@ -360,24 +798,23 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
               cfg={cfg}
             />
           </Field>
-          <Field {...meta(cfg, 'container_size')}>
-            <Input
-              id={fid('container_size')}
-              aria-describedby={`${fid('container_size')}-help`}
-              placeholder="e.g. 16 oz"
-              value={data.containerSize ?? ''}
-              onChange={(e) => update({ containerSize: nullIfBlank(e.target.value) })}
+          {sf.containerSize ? (
+            <ReadOnlyValue
+              {...meta(cfg, 'container_size')}
+              value={data.containerSize}
+              testId="sf-container-size"
             />
-          </Field>
-          <Field {...meta(cfg, 'resin')}>
-            <Select
-              id={fid('resin')}
-              listKey="resin"
-              value={data.resin}
-              onChange={(v) => update({ resin: v })}
-              cfg={cfg}
-            />
-          </Field>
+          ) : (
+            <Field {...meta(cfg, 'container_size')}>
+              <Input
+                id={fid('container_size')}
+                aria-describedby={`${fid('container_size')}-help`}
+                placeholder="e.g. 16 oz"
+                value={data.containerSize ?? ''}
+                onChange={(e) => update({ containerSize: nullIfBlank(e.target.value) })}
+              />
+            </Field>
+          )}
           <Field {...meta(cfg, 'market')}>
             <Select
               id={fid('market')}
@@ -413,26 +850,11 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
             <p className="text-muted-foreground text-xs">{cfg.help.components}</p>
           )}
         </fieldset>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field {...meta(cfg, 'neck_finish')}>
-            <Select
-              id={fid('neck_finish')}
-              listKey="neck_finish"
-              value={data.neckFinish}
-              onChange={(v) => update({ neckFinish: v })}
-              cfg={cfg}
-            />
-          </Field>
-          {neckEntry?.meta.freeText === true && (
-            <Field id={fid('neck_finish_other')} label="Describe the neck finish">
-              <Input
-                id={fid('neck_finish_other')}
-                value={data.neckFinishOther ?? ''}
-                onChange={(e) => update({ neckFinishOther: nullIfBlank(e.target.value) })}
-              />
-            </Field>
-          )}
-        </div>
+        <ComponentFollowUps data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <ResinFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <NeckFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <ColorFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <DimensionFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
       <Section title="Packaging">
@@ -477,11 +899,21 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
               ) : undefined
             }
           >
-            <NumberInput
-              id={fid('est_annual_volume')}
-              value={data.estAnnualVolume}
-              onChange={(v) => update({ estAnnualVolume: v, estAnnualVolumeConfirmed: false })}
-            />
+            {sf.estAnnualVolume != null ? (
+              <p
+                id={fid('est_annual_volume')}
+                data-testid="sf-volume"
+                className="bg-muted/50 flex min-h-9 flex-wrap items-center gap-2 rounded-md px-3 py-2 text-sm"
+              >
+                {data.estAnnualVolume?.toLocaleString()} <SfTag />
+              </p>
+            ) : (
+              <NumberInput
+                id={fid('est_annual_volume')}
+                value={data.estAnnualVolume}
+                onChange={(v) => update({ estAnnualVolume: v, estAnnualVolumeConfirmed: false })}
+              />
+            )}
           </Field>
           <Field {...meta(cfg, 'est_annual_revenue')} label="Estimated annual revenue (USD)">
             <NumberInput
@@ -491,7 +923,7 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
             />
             {data.estAnnualRevenueSf != null && (
               <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-                Salesforce amount: {formatUsd(data.estAnnualRevenueSf)}
+                Salesforce amount: {formatUsd(data.estAnnualRevenueSf)} <SfTag />
                 {revenueChanged && (
                   <Button
                     variant="link"
@@ -505,16 +937,60 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
               </p>
             )}
           </Field>
-          <Field {...meta(cfg, 'expected_close_date')}>
+          <ReadOnlyValue
+            id={fid('sf_close_date')}
+            label="Salesforce close date (updates with Salesforce)"
+            value={sfCloseDate ? formatDate(sfCloseDate) : 'Not set in Salesforce'}
+            testId="sf-close-date"
+          />
+          <Field {...meta(cfg, 'quote_needed_by')}>
             <Input
-              id={fid('expected_close_date')}
-              aria-describedby={`${fid('expected_close_date')}-help`}
+              id={fid('quote_needed_by')}
+              aria-describedby={`${fid('quote_needed_by')}-help`}
+              aria-invalid={invalid('quote_needed_by') || undefined}
               type="date"
-              value={data.expectedCloseDate ?? ''}
-              onChange={(e) => update({ expectedCloseDate: nullIfBlank(e.target.value) })}
+              min={tomorrow}
+              value={data.quoteNeededBy ?? ''}
+              onChange={(e) => update({ quoteNeededBy: nullIfBlank(e.target.value) })}
             />
+            <FieldError issue={invalidIssue('quote_needed_by')} />
+          </Field>
+          <Field
+            {...meta(cfg, 'product_needed_by')}
+            label="Product needed by (best estimate of launch need)"
+          >
+            <Input
+              id={fid('product_needed_by')}
+              aria-describedby={`${fid('product_needed_by')}-help`}
+              aria-invalid={invalid('product_needed_by') || undefined}
+              type="date"
+              min={data.quoteNeededBy ?? tomorrow}
+              value={data.productNeededBy ?? ''}
+              onChange={(e) => update({ productNeededBy: nullIfBlank(e.target.value) })}
+            />
+            <FieldError issue={invalidIssue('product_needed_by')} />
           </Field>
         </div>
+      </Section>
+
+      <Section title="Quote variants">
+        <Field
+          {...meta(cfg, 'quote_variants_note')}
+          label={`Quote variants requested (optional, up to ${variantsMax} characters)`}
+        >
+          <Textarea
+            id={fid('quote_variants_note')}
+            aria-describedby={`${fid('quote_variants_note')}-help ${fid('quote_variants_note')}-count`}
+            maxLength={variantsMax}
+            placeholder="e.g. price at 0/25/50% PCR; near-site vs ideal-site"
+            value={data.quoteVariantsNote ?? ''}
+            onChange={(e) => update({ quoteVariantsNote: nullIfBlank(e.target.value) })}
+            className="min-h-16"
+          />
+          <p id={`${fid('quote_variants_note')}-count`} className="text-muted-foreground text-xs">
+            {(data.quoteVariantsNote ?? '').length} / {variantsMax}
+          </p>
+        </Field>
       </Section>
 
       <Section title="Description">
@@ -554,24 +1030,113 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
 
 // ── Step 4: drawing, notes and review ────────────────────────────────────────────────────────────
 
+/**
+ * F-016 (D-018): which path lets the quote advance, a drawing or the minimum spec, and what is
+ * missing. Announced politely when it changes (an upload or a field filled in).
+ */
+function DrawingOrSpec({
+  evaluation,
+  cfg,
+  hasDrawing,
+  goTo,
+}: {
+  evaluation: IntakeEvaluation;
+  cfg: WizardConfig;
+  hasDrawing: boolean;
+  goTo: (step: number) => void;
+}) {
+  const blocked = evaluation.blocking.find((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED');
+  const missing = blocked?.missing ?? [];
+  return (
+    <div
+      aria-live="polite"
+      data-testid="drawing-or-spec"
+      data-state={hasDrawing ? 'drawing' : blocked ? 'missing' : 'spec'}
+    >
+      {hasDrawing ? (
+        <Notice tone="info">
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <CheckCircle2Icon aria-hidden className="text-primary size-4" /> Drawing attached
+          </span>{' '}
+          The minimum spec is not required.
+        </Notice>
+      ) : blocked ? (
+        <Notice tone="blocking">
+          <p className="font-semibold">Attach a drawing, or complete the minimum spec</p>
+          <p className="text-sm">
+            Engineering needs a bottle or competitor drawing to quote. Without one, fill in:
+          </p>
+          <ul className="mt-1 grid gap-1">
+            {missing.map((f) => (
+              <li key={f} className="flex flex-wrap items-center gap-x-2">
+                <span data-testid="min-spec-missing">{FIELD_META[f]?.label ?? f}</span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto min-h-0 px-0"
+                  onClick={() => goTo(FIELD_META[f]?.step ?? 3)}
+                >
+                  Fix
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Notice>
+      ) : (
+        <Notice tone="info">
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <CheckCircle2Icon aria-hidden className="text-primary size-4" /> Minimum spec complete
+          </span>{' '}
+          No drawing attached:{' '}
+          {cfg.intake.minSpecFields.length > 0
+            ? 'the quote can advance on the spec'
+            : 'none required'}
+          , but it may take longer.
+        </Notice>
+      )}
+    </div>
+  );
+}
+
 export function ReviewStep({
   data,
   update,
   cfg,
   evaluation,
+  sfCloseDate,
+  hasDrawing = false,
   goTo,
   draftId,
 }: StepProps & { goTo: (step: number) => void; draftId: string }) {
   const drawingMissing = evaluation.warnings.find((w) => w.code === 'DRAWING_MISSING');
+  const rfpIssue = evaluation.blocking.find(
+    (b) => b.field === 'rfp_link' && b.code === 'INVALID_VALUE',
+  );
   const other = evaluation.warnings.filter((w) => w.code !== 'ENRICH');
   const enrich = evaluation.warnings.filter((w) => w.code === 'ENRICH');
   const label = (list: string, code: string | null | undefined) =>
     valueLabel(cfg, list, code) || '—';
-  const neck =
-    cfg.lists.neck_finish?.find((e) => e.code === data.neckFinish)?.meta.freeText === true
-      ? data.neckFinishOther
-      : label('neck_finish', data.neckFinish);
 
+  const active = activeFollowUps(data.components, cfg.intake.componentFollowUps);
+  const followUpRows: [string, string | null | undefined][] = [
+    ...(active.includes('liner_spec')
+      ? [['Liner spec', data.linerSpec] as [string, string | null | undefined]]
+      : []),
+    ...(active.includes('labels_purchased_by')
+      ? [
+          ['Labels purchased by', label('labels_purchased_by', data.labelsPurchasedBy)] as [
+            string,
+            string,
+          ],
+        ]
+      : []),
+    ...(active.includes('decoration_type')
+      ? [['Decoration', label('decoration_type', data.decorationType)] as [string, string]]
+      : []),
+    ...(active.includes('decoration_print_colors')
+      ? [['Print colors', data.decorationPrintColors?.toString()] as [string, string | undefined]]
+      : []),
+  ];
   const rows: { step: number; title: string; items: [string, string | null | undefined][] }[] = [
     {
       step: 1,
@@ -580,17 +1145,17 @@ export function ReviewStep({
     },
     {
       step: 2,
-      title: 'Customer & ship-to',
+      title: 'Customer & destination',
       items: [
         [
           'Customer',
           data.customer?.name
-            ? `${data.customer.name} (${data.customer.status === 'existing' ? 'existing' : 'not yet established'})`
+            ? `${data.customer.name} (${data.customer.status === 'existing' ? 'Pretium customer' : 'not yet a Pretium customer'})`
             : null,
         ],
-        ['Ship-to', formatAddress(data.shipTo)],
+        ['Ship / fill destination', formatAddress(data.shipTo)],
         ...(data.shipToOverrideReason
-          ? ([['Ship-to changed because', data.shipToOverrideReason]] as [string, string][])
+          ? ([['Destination changed because', data.shipToOverrideReason]] as [string, string][])
           : []),
       ],
     },
@@ -601,9 +1166,39 @@ export function ReviewStep({
         ['Request class', label('request_class', data.requestClass)],
         ['Product family', label('product_family', data.productFamily)],
         ['Components', (data.components ?? []).map((c) => label('component', c)).join(', ')],
+        ...followUpRows,
         ['Market', label('market', data.market)],
         ['Resin', label('resin', data.resin)],
-        ['Neck finish', neck],
+        [
+          'Customer-specified resin',
+          data.resinCustomerSpecified ? (data.resinGrade ?? 'Yes') : 'No',
+        ],
+        ['PCR %', label('pcr_level', data.pcrLevel)],
+        ['Neck', neckLabel(cfg, data) || null],
+        [
+          'Color',
+          isCustom(cfg, 'color_type', data.colorType)
+            ? (data.colorDescription ?? 'Custom')
+            : label('color_type', data.colorType),
+        ],
+        ['Additives', data.additives],
+        [
+          'Dimensions',
+          [
+            data.heightMm != null ? `H ${data.heightMm} mm` : null,
+            data.widthOrDiameterMm != null ? `W/Ø ${data.widthOrDiameterMm} mm` : null,
+            data.depthMm != null ? `D ${data.depthMm} mm` : null,
+            data.gramWeightG != null ? `${data.gramWeightG} g` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null,
+        ],
+        [
+          'Modify an existing mold',
+          data.modifyExistingMold
+            ? [data.existingMoldRef, data.moldChangeDescription].filter(Boolean).join(': ') || 'Yes'
+            : 'No',
+        ],
         ['Packaging', label('packaging_type', data.packagingType)],
         ['Packaging requirements', data.packagingNotes],
         [
@@ -611,7 +1206,19 @@ export function ReviewStep({
           data.estAnnualVolume != null ? `${data.estAnnualVolume.toLocaleString()} units` : null,
         ],
         ['Annual revenue', data.estAnnualRevenue != null ? formatUsd(data.estAnnualRevenue) : null],
-        ['Expected close', data.expectedCloseDate ? formatDate(data.expectedCloseDate) : null],
+        ['Salesforce close date', sfCloseDate ? formatDate(sfCloseDate) : null],
+        ['Quote needed by', data.quoteNeededBy ? formatDate(data.quoteNeededBy) : null],
+        ['Product needed by', data.productNeededBy ? formatDate(data.productNeededBy) : null],
+        ['Quote variants requested', data.quoteVariantsNote],
+        ['Customer RFP / portal link', data.rfpLink],
+        [
+          'Drawing or minimum spec',
+          hasDrawing
+            ? 'Drawing attached'
+            : evaluation.blocking.some((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED')
+              ? 'Missing: attach a drawing or complete the minimum spec'
+              : 'Minimum spec complete (no drawing)',
+        ],
         ['Standard description', data.standardDescription],
         ['Description', data.description],
       ],
@@ -620,9 +1227,11 @@ export function ReviewStep({
 
   return (
     <div className="grid gap-4">
-      <Section title="Drawing and notes">
+      <Section title="Drawing and files">
+        <DrawingOrSpec evaluation={evaluation} cfg={cfg} hasDrawing={hasDrawing} goTo={goTo} />
         <Field
           {...meta(cfg, 'drawing_status')}
+          label="Drawing status"
           note={drawingMissing ? drawingMissing.message : undefined}
         >
           <Select
@@ -640,6 +1249,21 @@ export function ReviewStep({
           headingLevel={3}
           onDrawingStatus={(code) => update({ drawingStatus: code })}
         />
+        {/* F-014: the customer's RFP or bid portal (https only). */}
+        <Field {...meta(cfg, 'rfp_link')} label="Customer RFP / portal link (optional)">
+          <Input
+            id={fid('rfp_link')}
+            type="url"
+            inputMode="url"
+            aria-describedby={`${fid('rfp_link')}-help`}
+            aria-invalid={rfpIssue ? true : undefined}
+            maxLength={500}
+            placeholder="https://"
+            value={data.rfpLink ?? ''}
+            onChange={(e) => update({ rfpLink: nullIfBlank(e.target.value) })}
+          />
+          <FieldError issue={rfpIssue} />
+        </Field>
         <Field {...meta(cfg, 'comments_for_engineering')}>
           <Textarea
             id={fid('comments_for_engineering')}

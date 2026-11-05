@@ -14,6 +14,7 @@ import {
   OVERRIDE_SETTINGS_SEED,
   PRICING_REF_FORMATS_SEED,
   SCORING_MODEL_V1_INPUT,
+  SCORING_MODEL_V2_INPUT,
 } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
@@ -23,14 +24,41 @@ import { appSetting, scoringModel, sfStageMap } from '../../src/schema/index';
 
 const present = (field: string) => ({ field, op: 'present' });
 
-/** Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship-to, product family, resin, volume. */
+/**
+ * Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship/fill destination city
+ * and state (FB-02, F-017), product family, resin, volume, and the two need-by dates (FB-02, F-009).
+ * Existing environments get the FB-02 changes from migration 0028.
+ */
 export const INTAKE_REQUIRED_FIELDS = [
   present('sf_opportunity_id'),
   present('customer.name'),
-  { anyOf: [present('ship_to.line1'), present('ship_to.city')] },
+  present('ship_to.city'),
+  present('ship_to.state'),
   present('product_family'),
   present('resin'),
   present('est_annual_volume'),
+  present('quote_needed_by'),
+  present('product_needed_by'),
+];
+
+/** FB-02 (F-067): only CCQ is submitted here for MVP (provisional). */
+export const INTAKE_ALLOWED_REQUEST_CLASSES = ['CCQ'];
+export const INTAKE_REDIRECT_MESSAGE =
+  'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
+
+/**
+ * FB-02 (F-016): the minimum spec without a drawing (D-018 decided; the list is provisional).
+ * TODO(A-024): Jim Zweifel / Danielle Leu may add 'layerStructure' and a container photo; add the
+ * fields first, then the keys (MIN_SPEC_KEYS in the domain).
+ */
+export const INTAKE_MIN_SPEC_FIELDS = [
+  'height',
+  'widthOrDiameter',
+  'depth',
+  'gramWeight',
+  'neck',
+  'resin',
+  'color',
 ];
 
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
@@ -38,28 +66,48 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   sf_opportunity_id:
     'Every CCQ quote starts from a Salesforce opportunity, so pipeline and outcomes stay linked.',
   customer:
-    'Engineering and Pricing size the work differently for a new versus an established customer.',
-  ship_to: 'Freight and the plant that can fill the order both depend on where the product ships.',
+    'The customer is the Salesforce Account on the opportunity. Tick "Not yet a Pretium customer" when it has no ERP account yet.',
+  ship_to:
+    'Where the product ships or is filled (city and state). Engineering uses it to choose the plant and freight.',
   ship_to_override_reason:
     'A ship-to that differs from the account default changes the quote, so we record why.',
   request_class:
-    'CCQ is new business that needs engineering or capital; stock and price checks take a faster route.',
+    'CCQ is new business that needs engineering or capital. Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application.',
   product_family: 'Tells Engineering which product line and tooling family to look at.',
   components: 'Closures, liners and labels change tooling, sourcing and the price build.',
   market: 'Market drives material, regulatory and cleanliness requirements.',
   resin: 'Resin decides the process, the machine and much of the cost.',
   neck_finish: 'The neck finish is one of the details Engineering most often has to chase.',
+  neck_diameter:
+    'Neck diameter in mm. Pick Custom and describe it if it is not on the list. Engineering most often has to chase the neck.',
+  neck_finish_type: 'The finish (thread or closure style). Pick Custom and describe it if needed.',
+  neck_special_feature: 'Optional: continuous thread, multi lead, tamper evident, vented.',
+  resin_customer_specified:
+    'Pricing needs the exact material when the customer dictates it, not just "polypropylene".',
+  pcr_level: 'Post-consumer recycled content, from the standard levels.',
+  color_type: 'Color and additives drive material cost. Describe a custom color.',
+  additives: 'Anything added to the resin (UV, slip, antistatic…). Optional.',
+  quote_variants_note:
+    'Variants the customer wants priced, e.g. "0/25/50% PCR; near-site vs ideal-site". Optional.',
   packaging_type: 'How it ships (bulk, bagged, trayed) changes pack-out, labour and freight.',
   packaging_notes: 'Pallet, case and labelling rules are a common reason quotes come back.',
   est_annual_volume:
     "Volume sizes the machine, cavitation and capacity. Please use the customer's real number.",
   est_annual_revenue: 'Revenue helps rank the request; it starts from the Salesforce amount.',
-  expected_close_date: 'Lets Engineering plan around when the customer needs an answer.',
+  quote_needed_by:
+    'When the customer needs the quote. It sets the timing part of the priority score, so be realistic.',
+  product_needed_by:
+    'Your best estimate of when the customer needs product (launch). On or after Quote needed by.',
   container_size: 'Size, with the container type and resin, makes up the standard description.',
   standard_description: 'A consistent description makes requests easy to compare and search.',
   description: 'Anything else about the request, in your own words.',
   drawing_status:
-    'A drawing is the fastest way to an accurate quote; without one it usually takes longer.',
+    'A drawing is the fastest way to an accurate quote. Without a bottle or competitor drawing attached, the minimum spec is required.',
+  dimensions:
+    'Height, width or diameter, depth and gram weight. Required (with neck, resin and color) when no drawing is attached.',
+  modify_existing_mold:
+    'Changing a mold we already run (e.g. a finish change). Attach the reference drawing or a photo of the part.',
+  rfp_link: 'The customer’s RFP or bid portal page, if there is one (https link).',
   comments_for_engineering: 'Context only you know: the customer, competitors, history, deadlines.',
 };
 
@@ -156,8 +204,32 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
   {
     key: 'intake_default_request_class',
     value: 'CCQ',
+    description: 'The request_class code a new intake starts with.',
+  },
+  // ── FB-02 intake overhaul (Nov 2–3 walkthroughs). All provisional.
+  {
+    key: 'intake_allowed_request_classes',
+    value: INTAKE_ALLOWED_REQUEST_CLASSES,
     description:
-      'Default request_class code at intake. Any other class shows "This may be redirected at qualification".',
+      'FB-02 (F-067): the request_class codes that can be submitted to CCQ. Any other class shows intake_redirect_message and Submit is disabled; the API answers 422 REQUEST_CLASS_NOT_ALLOWED. Provisional (Matthew Graden, Tania Nazario).',
+  },
+  {
+    key: 'intake_variants_note_max_length',
+    value: 300,
+    description:
+      'FB-02 (F-075): longest "Quote variants requested" note (characters). The note is the interim answer to D-017 (option B); structured scenarios are F-056 (P1).',
+  },
+  {
+    key: 'intake_min_spec_fields',
+    value: INTAKE_MIN_SPEC_FIELDS,
+    description:
+      'FB-02 (F-016, D-018 decided: Paul Slomkowski, Jim Zweifel, Matthew Graden, Tania Nazario): without a bottle or competitor drawing attached, every one of these must be filled to submit (422 DRAWING_OR_MIN_SPEC_REQUIRED). Keys: height, widthOrDiameter, depth, gramWeight, neck (diameter + finish), resin, color. Provisional: A-024 may add layer structure and a container photo.',
+  },
+  {
+    key: 'intake_redirect_message',
+    value: INTAKE_REDIRECT_MESSAGE,
+    description:
+      'FB-02 (F-067): shown when a non-CCQ request class is chosen. D-030 (open) may change where pack-out changes go.',
   },
   {
     key: 'intake_description_template',
@@ -295,8 +367,44 @@ export const SCORING_MODEL_V1 = scoringModelRow(SCORING_MODEL_V1_INPUT, {
     'Seed v1: the PRD F-05 attribute set with provisional weights and bands, pending D-19 (M4).',
 });
 
-export const seedScoringModel = (db: DbOrTx) =>
-  upsertConfig(db, scoringModel, [{ ...SCORING_MODEL_V1, provisional: true }], ['modelVersion']);
+/**
+ * FB-02 (F-009): v2 scores timing on the KAM's "Quote needed by" date. Same weights and bands as v1
+ * (D-004 open). In a new database it is in effect from the same date as v1, so every score uses it
+ * (intake no longer stores the close date v1 reads). Existing environments get it from migration 0028
+ * (as max version + 1, copied from the model in effect, effective at the migration); here it is only
+ * inserted when no model reads the need-by date yet, so a re-seed never rewrites a version an admin made.
+ */
+export const SCORING_MODEL_V2 = scoringModelRow(SCORING_MODEL_V2_INPUT, {
+  effectiveFrom: new Date('2026-10-01T00:00:00Z'),
+  changeReason:
+    "FB-02 (F-009): timing reads the KAM's Quote needed by date instead of the Salesforce close date. Weights and bands unchanged (D-004 open).",
+});
+
+export async function seedScoringModel(db: DbOrTx): Promise<void> {
+  await upsertConfig(
+    db,
+    scoringModel,
+    [{ ...SCORING_MODEL_V1, provisional: true }],
+    ['modelVersion'],
+  );
+  // Only when no model already reads the need-by date (migration 0028 may have made it as another version).
+  const models = await db
+    .select({ version: scoringModel.modelVersion, attributes: scoringModel.attributes })
+    .from(scoringModel);
+  const readsNeedBy = models.some(
+    (m) =>
+      m.version === SCORING_MODEL_V2.modelVersion ||
+      (m.attributes as { key?: string; input?: string }[]).some(
+        (a) => a.key === 'timing' && a.input === 'days_to_quote_needed',
+      ),
+  );
+  if (!readsNeedBy) {
+    await db
+      .insert(scoringModel)
+      .values({ ...SCORING_MODEL_V2, provisional: true })
+      .onConflictDoNothing();
+  }
+}
 
 /**
  * Salesforce stages (architecture §4.2) with the CCQ stage they usually line up with. The names and

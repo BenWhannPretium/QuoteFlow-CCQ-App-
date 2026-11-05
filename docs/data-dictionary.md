@@ -462,16 +462,16 @@ Customer an opportunity is for. Existing (SF account) or not yet established.
 | `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
-| `sf_account_id` | text | yes |  |  | Salesforce Account id; null for a not-yet-established customer. | Salesforce (read-only) |
+| `sf_account_id` | text | yes |  |  | Salesforce Account id. Every customer from intake has one since FB-02 (F-007, D-011: new accounts start in Salesforce); null only on rows typed at intake before FB-02. | Salesforce (read-only) |
 | `name` | text | no |  |  | Customer name. | Salesforce (read-only) |
-| `status` | text | no |  |  | existing \| not_yet_established (DEC-27: no account creation at intake). | KAM |
+| `status` | text | no |  |  | existing \| not_yet_established (DEC-27: no account creation at intake). FB-02: not_yet_established = "Not yet a Pretium customer (no ERP account)", the KAM's answer at intake; it drives the new_customer Legal review trigger. | KAM |
 | `default_ship_to` | jsonb | yes |  |  | Default ship-to address {line1, city, state, postal, country}. | Salesforce (read-only) |
 | `source` | text | no | "salesforce" |  | Where the row came from: salesforce \| intake \| synthetic. | CCQ (system) |
 | `last_synced_at` | timestamp with time zone | yes |  |  | Last refresh from Salesforce. | CCQ (system) |
-| `location` | text | yes |  |  | Not-yet-established customers: where they are (city, state / country), as typed at intake. | KAM |
-| `contact` | jsonb | yes |  |  | Not-yet-established customers: business contact {name, email, phone} typed at intake. | KAM |
+| `location` | text | yes |  |  | Deprecated (FB-02, F-007): where a not-yet-established customer is, as typed at intake before FB-02. Kept for history; no longer written. | KAM |
+| `contact` | jsonb | yes |  |  | Deprecated (FB-02, F-007): a not-yet-established customer's contact {name, email, phone} typed at intake before FB-02. Kept for history; no longer written. | KAM |
 
-**Checks:** `customer_status_check`, `customer_sf_account_matches_status_check`
+**Checks:** `customer_status_check`, `customer_existing_has_sf_account_check`
 
 **Indexes:** `customer_name_idx`, `customer_name_trgm_idx`
 
@@ -664,15 +664,42 @@ The CCQ quote: the workflow record CCQ owns.
 | `est_annual_revenue` | numeric(14, 2) | yes |  |  | Estimated annual revenue (USD). | KAM |
 | `est_annual_revenue_sf` | numeric(14, 2) | yes |  |  | The SF opportunity amount the revenue was pre-filled from (kept when the KAM edits it). | Salesforce (read-only) |
 | `est_annual_volume_confirmed` | boolean | no | false |  | The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real. | KAM |
-| `expected_close_date` | date | yes |  |  | Expected close date. | KAM |
+| `expected_close_date` | date | yes |  |  | Deprecated (FB-02, F-008 / T-009): the close date the KAM edited at intake before FB-02. Kept for history and analytics; no longer written. The live value is sf_opportunity_snapshot.close_date. | KAM |
+| `quote_needed_by` | date | yes |  |  | FB-02 (F-009): when the customer needs the quote (after the submit date). Feeds the timing attribute of the priority score. | KAM |
+| `product_needed_by` | date | yes |  |  | FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by. | KAM |
 | `drawing_status` | text | yes |  |  | value_list drawing_status code. | KAM |
-| `neck_finish` | text | yes |  |  | value_list neck_finish code, or free text when "Other". | KAM |
+| `neck_finish` | text | yes |  |  | Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0028 split it into neck_diameter / neck_finish_type. | KAM |
+| `neck_diameter` | text | yes |  |  | FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM). | KAM |
+| `neck_diameter_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise. | KAM |
+| `neck_finish_type` | text | yes |  |  | FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM). | KAM |
+| `neck_finish_type_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise. | KAM |
+| `neck_special_feature` | text | yes |  |  | FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM). | KAM |
+| `neck_special_feature_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise. | KAM |
+| `resin_customer_specified` | boolean | no | false |  | FB-02 (F-011): the customer specifies the resin; resin_grade names it. | KAM |
+| `resin_grade` | text | yes |  |  | FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". | KAM |
+| `pcr_level` | text | yes |  |  | FB-02 (F-055): value_list pcr_level code (0 / 25 / 50 / 100 %). | KAM |
+| `color_type` | text | yes |  |  | FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM). | KAM |
+| `color_description` | text | yes |  |  | FB-02 (F-023): the custom color (≤ 120); null for Natural. | KAM |
+| `additives` | text | yes |  |  | FB-02 (F-023): additives note (≤ 200). | KAM |
+| `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec (≤ 120) when a Liner is picked. | KAM |
+| `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. | KAM |
+| `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |
+| `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. | KAM |
+| `height_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product height (mm). | KAM |
+| `width_or_diameter_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product width or diameter (mm). | KAM |
+| `depth_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product depth (mm). | KAM |
+| `gram_weight_g` | numeric(10, 2) | yes |  |  | FB-02 (F-016): gram weight (g). | KAM |
+| `modify_existing_mold` | boolean | no | false |  | FB-02 (F-015): the request modifies an existing mold (Engineering queue chip). | KAM |
+| `existing_mold_ref` | text | yes |  |  | FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold. | KAM |
+| `mold_change_description` | text | yes |  |  | FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400". | KAM |
+| `rfp_link` | text | yes |  |  | FB-02 (F-014): customer RFP / portal link (https only, ≤ 500). | KAM |
+| `quote_variants_note` | text | yes |  |  | FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056. | KAM |
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
 | `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |
 | `comments_for_engineering` | text | yes |  |  | Notes from the KAM to Engineering. | KAM |
 | `submitted_at` | timestamp with time zone | yes |  |  | When the KAM submitted the intake (the quote was created). | CCQ (system) |
-| `ship_to` | jsonb | yes |  |  | Ship-to address used for the quote. | KAM |
+| `ship_to` | jsonb | yes |  |  | Ship / fill destination used for the quote {line1, city, state, postal, country}; city and state required at intake (FB-02, F-017). | KAM |
 | `ship_to_overridden` | boolean | no | false |  | True when it differs from the customer default. | KAM |
 | `ship_to_original` | jsonb | yes |  |  | The customer default ship-to the intake was pre-filled with (kept when overridden). | KAM |
 | `ship_to_override_reason` | text | yes |  |  | Why the ship-to differs: the justification of the applied ship_to override (the override row is the record). | KAM |
@@ -732,7 +759,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 

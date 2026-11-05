@@ -54,13 +54,13 @@ export const customer = documented(
       ...baseColumns(),
       sfAccountId: c(
         text('sf_account_id').unique(),
-        'Salesforce Account id; null for a not-yet-established customer.',
+        'Salesforce Account id. Every customer from intake has one since FB-02 (F-007, D-011: new accounts start in Salesforce); null only on rows typed at intake before FB-02.',
         SF,
       ),
       name: c(text('name').notNull(), 'Customer name.', SF),
       status: c(
         text('status').notNull(),
-        'existing | not_yet_established (DEC-27: no account creation at intake).',
+        'existing | not_yet_established (DEC-27: no account creation at intake). FB-02: not_yet_established = "Not yet a Pretium customer (no ERP account)", the KAM\'s answer at intake; it drives the new_customer Legal review trigger.',
         KAM,
       ),
       defaultShipTo: c(
@@ -76,20 +76,22 @@ export const customer = documented(
       lastSyncedAt: c(timestamptz('last_synced_at'), 'Last refresh from Salesforce.', SYSTEM),
       location: c(
         text('location'),
-        'Not-yet-established customers: where they are (city, state / country), as typed at intake.',
+        'Deprecated (FB-02, F-007): where a not-yet-established customer is, as typed at intake before FB-02. Kept for history; no longer written.',
         KAM,
       ),
       contact: c(
         jsonb('contact'),
-        'Not-yet-established customers: business contact {name, email, phone} typed at intake.',
+        "Deprecated (FB-02, F-007): a not-yet-established customer's contact {name, email, phone} typed at intake before FB-02. Kept for history; no longer written.",
         KAM,
       ),
     },
     (t) => [
       check('customer_status_check', inList(t.status, CUSTOMER_STATUSES)),
+      // FB-02 (F-007): an existing customer has an SF account; a not-yet-established one (no ERP account)
+      // now has one too, except rows typed at intake before FB-02.
       check(
-        'customer_sf_account_matches_status_check',
-        sql`(${t.status} = 'existing') = (${t.sfAccountId} is not null)`,
+        'customer_existing_has_sf_account_check',
+        sql`${t.status} <> 'existing' or ${t.sfAccountId} is not null`,
       ),
       index('customer_name_idx').on(t.name),
       // B-14 pipeline search (`q`: ILIKE '%…%' on the account name).
@@ -243,13 +245,150 @@ export const quote = documented(
       ),
       expectedCloseDate: c(
         date('expected_close_date', { mode: 'string' }),
-        'Expected close date.',
+        'Deprecated (FB-02, F-008 / T-009): the close date the KAM edited at intake before FB-02. Kept for history and analytics; no longer written. The live value is sf_opportunity_snapshot.close_date.',
+        KAM,
+      ),
+      quoteNeededBy: c(
+        date('quote_needed_by', { mode: 'string' }),
+        'FB-02 (F-009): when the customer needs the quote (after the submit date). Feeds the timing attribute of the priority score.',
+        KAM,
+      ),
+      productNeededBy: c(
+        date('product_needed_by', { mode: 'string' }),
+        "FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by.",
         KAM,
       ),
       drawingStatus: c(text('drawing_status'), 'value_list drawing_status code.', KAM),
       neckFinish: c(
         text('neck_finish'),
-        'value_list neck_finish code, or free text when "Other".',
+        'Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0028 split it into neck_diameter / neck_finish_type.',
+        KAM,
+      ),
+      // FB-02 (F-010): the neck as three pick-lists (Jim Zweifel's lists, provisional).
+      neckDiameter: c(
+        text('neck_diameter'),
+        'FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM).',
+        KAM,
+      ),
+      neckDiameterCustom: c(
+        text('neck_diameter_custom'),
+        'FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise.',
+        KAM,
+      ),
+      neckFinishType: c(
+        text('neck_finish_type'),
+        'FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM).',
+        KAM,
+      ),
+      neckFinishTypeCustom: c(
+        text('neck_finish_type_custom'),
+        'FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise.',
+        KAM,
+      ),
+      neckSpecialFeature: c(
+        text('neck_special_feature'),
+        'FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM).',
+        KAM,
+      ),
+      neckSpecialFeatureCustom: c(
+        text('neck_special_feature_custom'),
+        'FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise.',
+        KAM,
+      ),
+      // FB-02 (F-011, F-055, F-023, F-075): resin grade, PCR, color, additives, variants.
+      resinCustomerSpecified: c(
+        boolean('resin_customer_specified').notNull().default(false),
+        'FB-02 (F-011): the customer specifies the resin; resin_grade names it.',
+        KAM,
+      ),
+      resinGrade: c(
+        text('resin_grade'),
+        'FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331".',
+        KAM,
+      ),
+      pcrLevel: c(
+        text('pcr_level'),
+        'FB-02 (F-055): value_list pcr_level code (0 / 25 / 50 / 100 %).',
+        KAM,
+      ),
+      colorType: c(
+        text('color_type'),
+        'FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM).',
+        KAM,
+      ),
+      colorDescription: c(
+        text('color_description'),
+        'FB-02 (F-023): the custom color (≤ 120); null for Natural.',
+        KAM,
+      ),
+      additives: c(text('additives'), 'FB-02 (F-023): additives note (≤ 200).', KAM),
+      // FB-02 (F-013): component follow-ups (written only while the component is picked).
+      linerSpec: c(
+        text('liner_spec'),
+        'FB-02 (F-013): liner spec (≤ 120) when a Liner is picked.',
+        KAM,
+      ),
+      labelsPurchasedBy: c(
+        text('labels_purchased_by'),
+        'FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked.',
+        KAM,
+      ),
+      decorationType: c(
+        text('decoration_type'),
+        'FB-02 (F-013): value_list decoration_type code when Decoration is picked.',
+        KAM,
+      ),
+      decorationPrintColors: c(
+        integer('decoration_print_colors'),
+        'FB-02 (F-013): number of print colors (1–12) when Decoration is picked.',
+        KAM,
+      ),
+      // FB-02 (F-016, D-018): dimensions for the drawing-or-minimum-spec rule.
+      heightMm: c(
+        numeric('height_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product height (mm).',
+        KAM,
+      ),
+      widthOrDiameterMm: c(
+        numeric('width_or_diameter_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product width or diameter (mm).',
+        KAM,
+      ),
+      depthMm: c(
+        numeric('depth_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product depth (mm).',
+        KAM,
+      ),
+      gramWeightG: c(
+        numeric('gram_weight_g', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): gram weight (g).',
+        KAM,
+      ),
+      // FB-02 (F-015): modify an existing mold.
+      modifyExistingMold: c(
+        boolean('modify_existing_mold').notNull().default(false),
+        'FB-02 (F-015): the request modifies an existing mold (Engineering queue chip).',
+        KAM,
+      ),
+      existingMoldRef: c(
+        text('existing_mold_ref'),
+        'FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold.',
+        KAM,
+      ),
+      moldChangeDescription: c(
+        text('mold_change_description'),
+        'FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400".',
+        KAM,
+      ),
+      // FB-02 (F-014)
+      rfpLink: c(
+        text('rfp_link'),
+        'FB-02 (F-014): customer RFP / portal link (https only, ≤ 500).',
+        KAM,
+      ),
+      quoteVariantsNote: c(
+        text('quote_variants_note'),
+        'FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056.',
         KAM,
       ),
       packagingType: c(text('packaging_type'), 'value_list packaging_type code.', KAM),
@@ -266,7 +405,11 @@ export const quote = documented(
         SYSTEM,
       ),
       // Ship-to
-      shipTo: c(jsonb('ship_to'), 'Ship-to address used for the quote.', KAM),
+      shipTo: c(
+        jsonb('ship_to'),
+        'Ship / fill destination used for the quote {line1, city, state, postal, country}; city and state required at intake (FB-02, F-017).',
+        KAM,
+      ),
       shipToOverridden: c(
         boolean('ship_to_overridden').notNull().default(false),
         'True when it differs from the customer default.',
@@ -542,6 +685,20 @@ export const quote = documented(
       check('quote_quote_number_format_check', sql`${t.quoteNumber} ~ '^CCQ-[0-9]{4}-[0-9]{5}$'`),
       check('quote_version_check', sql`${t.version} >= 1`),
       check('quote_priority_score_check', sql`${t.priorityScore} between 0 and 100`),
+      check(
+        'quote_dimensions_positive_check',
+        sql`(${t.heightMm} is null or ${t.heightMm} > 0) and (${t.widthOrDiameterMm} is null or ${t.widthOrDiameterMm} > 0) and (${t.depthMm} is null or ${t.depthMm} > 0) and (${t.gramWeightG} is null or ${t.gramWeightG} > 0)`,
+      ),
+      check('quote_rfp_link_https_check', sql`${t.rfpLink} is null or ${t.rfpLink} ~* '^https://'`),
+      check(
+        'quote_decoration_print_colors_check',
+        sql`${t.decorationPrintColors} is null or ${t.decorationPrintColors} between 1 and 12`,
+      ),
+      // FB-02 (F-009): the product is needed on or after the quote. The domain checks it first.
+      check(
+        'quote_need_by_order_check',
+        sql`${t.productNeededBy} is null or ${t.quoteNeededBy} is null or ${t.productNeededBy} >= ${t.quoteNeededBy}`,
+      ),
       check(
         'quote_closed_consistency_check',
         sql`(${t.status} = 'closed') = (${t.closedAt} is not null)`,

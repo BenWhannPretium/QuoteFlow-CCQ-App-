@@ -49,6 +49,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { finalReviewChecks } from './commercial';
 import { engineeringView } from './engineering-view';
+import { intakeFactsDto } from './intake-facts';
 import { persistNotifications } from './notificationService';
 import { quotingView, recordValues } from './pricing-view';
 import { ServiceProblem } from './problem';
@@ -316,6 +317,7 @@ export class FinalReviewService {
           packagingNotes: q.packagingNotes,
           commentsForEngineering: q.commentsForEngineering,
           shipTo: (q.shipTo as ReviewSummary['intake']['shipTo']) ?? null,
+          facts: intakeFactsDto(q),
         },
         engineering,
         quoting,

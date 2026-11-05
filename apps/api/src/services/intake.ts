@@ -22,7 +22,10 @@ import {
   getQuoteDraft,
   getQuoteDraftForUpdate,
   getSetting,
+  getSfOpportunity,
   insertActivityEvent,
+  listAttachments,
+  listDraftAttachments,
   insertAuditEvent,
   insertCustomer,
   insertQuote,
@@ -43,7 +46,10 @@ import {
 import {
   asksScopeChange,
   availableActions,
+  CUSTOM_LIST_FIELDS,
+  DRAWING_ATTACHMENT_KINDS,
   evaluateIntake,
+  inapplicableIntakeFields,
   ENG_QUEUE_STAGE_KEY,
   evaluateTransition,
   planResubmitRoute,
@@ -93,36 +99,82 @@ const notFound = () =>
   new IntakeError(404, INTAKE_PROBLEM_CODES.notFound, 'No intake draft with this id');
 
 /** Reads the intake config from app settings and value-list meta. Throws if a setting is missing. */
-export async function loadIntakeConfig(
-  db: DbOrTx,
-): Promise<IntakeConfig & { freeTextNeckFinishes: string[] }> {
-  const [requiredFields, volumePlaceholder, defaultRequestClass, drawing, neck] = await Promise.all(
-    [
-      getSetting(db, 'intake_required_fields'),
-      getSetting(db, 'intake_volume_placeholder'),
-      getSetting(db, 'intake_default_request_class'),
-      listValueList(db, 'drawing_status'),
-      listValueList(db, 'neck_finish'),
-    ],
-  );
-  if (requiredFields === undefined || volumePlaceholder === undefined || !defaultRequestClass) {
+export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
+  const [
+    requiredFields,
+    volumePlaceholder,
+    defaultRequestClass,
+    allowedRequestClasses,
+    redirectMessage,
+    variantsNoteMaxLength,
+    minSpecFields,
+    drawing,
+    components,
+    ...customLists
+  ] = await Promise.all([
+    getSetting(db, 'intake_required_fields'),
+    getSetting(db, 'intake_volume_placeholder'),
+    getSetting(db, 'intake_default_request_class'),
+    getSetting(db, 'intake_allowed_request_classes'),
+    getSetting(db, 'intake_redirect_message'),
+    getSetting(db, 'intake_variants_note_max_length'),
+    getSetting(db, 'intake_min_spec_fields'),
+    listValueList(db, 'drawing_status'),
+    listValueList(db, 'component'),
+    ...CUSTOM_LIST_FIELDS.map((list) => listValueList(db, list)),
+  ]);
+  if (
+    requiredFields === undefined ||
+    volumePlaceholder === undefined ||
+    !defaultRequestClass ||
+    allowedRequestClasses === undefined ||
+    !redirectMessage
+  ) {
     throw new Error('intake settings are not seeded (run pnpm db:seed)');
   }
-  const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
-  return {
-    ...parseIntakeConfig({
-      requiredFields: requiredFields as never,
-      volumePlaceholder: volumePlaceholder ?? {},
-      defaultRequestClass: typeof defaultRequestClass === 'string' ? defaultRequestClass : '',
-      drawingProvidedCodes: drawing
-        .filter((v) => meta(v.meta).hasDrawing === true)
-        .map((v) => v.code),
-    }),
-    freeTextNeckFinishes: neck.filter((v) => meta(v.meta).freeText === true).map((v) => v.code),
-  };
+  return parseIntakeConfig({
+    requiredFields: requiredFields as never,
+    volumePlaceholder: volumePlaceholder ?? {},
+    defaultRequestClass: typeof defaultRequestClass === 'string' ? defaultRequestClass : '',
+    allowedRequestClasses: allowedRequestClasses as never,
+    redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
+    ...(typeof variantsNoteMaxLength === 'number' ? { variantsNoteMaxLength } : {}),
+    ...(Array.isArray(minSpecFields) ? { minSpecFields: minSpecFields as never } : {}),
+    drawingProvidedCodes: drawing
+      .filter((v) => meta(v.meta).hasDrawing === true)
+      .map((v) => v.code),
+    customCodes: Object.fromEntries(
+      CUSTOM_LIST_FIELDS.map((list, i) => [
+        list,
+        customLists[i]!.filter((v) => meta(v.meta).freeText === true).map((v) => v.code),
+      ]),
+    ),
+    componentFollowUps: Object.fromEntries(
+      components
+        .filter((v) => Array.isArray(meta(v.meta).followUps))
+        .map((v) => [v.code, meta(v.meta).followUps as never]),
+    ),
+  });
+}
+
+const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
+
+/**
+ * FB-02 (F-016): a bottle or competitor drawing is attached to the draft or, for a rework, already on
+ * the quote. RLS applies (the caller is the draft's owner).
+ */
+async function hasDrawingAttachment(db: DbOrTx, draft: QuoteDraftRow): Promise<boolean> {
+  const files = [
+    ...(await listDraftAttachments(db, draft.id)),
+    ...(draft.reworkOfQuoteId ? await listAttachments(db, draft.reworkOfQuoteId) : []),
+  ];
+  return files.some((f) => (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(f.kind));
 }
 
 const blankToNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
+
+/** numeric(10,2): stored to the cent. */
+const round2 = (v: number | null) => (v === null ? null : Math.round(v * 100) / 100);
 
 const activeRef = (
   row: { quoteNumber: string; stageKey: string; status: string } | undefined,
@@ -166,17 +218,26 @@ export class IntakeService {
   private async toDto(tx: DbOrTx, row: QuoteDraftRow): Promise<IntakeDraft> {
     const config = await loadIntakeConfig(tx);
     const data = row.data as IntakeDraftData;
-    const evaluation = evaluateIntake(intakeValues(data, config.freeTextNeckFinishes), config);
+    const evaluation = evaluateIntake(
+      intakeValues(data, await hasDrawingAttachment(tx, row)),
+      config,
+      this.now(),
+    );
     const active =
       row.sfOpportunityId && !row.submittedQuoteId
         ? await getActiveQuoteForOpportunity(tx, row.sfOpportunityId)
         : undefined;
+    // FB-02 (T-009): the SF close date is read from the latest sync, never stored on the draft.
+    const opportunity = row.sfOpportunityId
+      ? await getSfOpportunity(tx, row.sfOpportunityId)
+      : undefined;
     return {
       id: row.id,
       ownerUserId: row.ownerUserId,
       step: row.step,
       data,
       evaluation,
+      sfCloseDate: opportunity?.closeDate ?? null,
       activeQuote: row.reworkOfQuoteId ? null : activeRef(active),
       rework: row.reworkOfQuoteId ? await this.reworkInfo(tx, row.reworkOfQuoteId) : null,
       createdAt: row.createdAt.toISOString(),
@@ -446,23 +507,30 @@ export class IntakeService {
     return result;
   }
 
-  /** Links the SF Account's customer row, or records a not-yet-established one (DEC-27). */
+  /**
+   * FB-02 (F-007, D-011): the customer is always the opportunity's Salesforce Account. Links its
+   * customer row (or mirrors it from the draft's SF copy), and records the KAM's one answer, "Not yet a
+   * Pretium customer (no ERP account)" (DEC-27), as the customer's status: it drives the new_customer
+   * Legal review trigger. A changed status is audited. Nothing is created in Salesforce or the ERP.
+   */
   private async resolveCustomer(
     tx: Tx,
     actor: Actor,
     data: IntakeDraftData,
     now: Date,
+    audit: { ip: string | null; userAgent: string | null; requestId: string | null },
+    quoteId: string | null,
   ): Promise<string> {
-    // Mirrored, not created in SF. No account request, no credit check (DEC-27).
     const c = data.customer!;
-    if (c.status === 'existing' && c.sfAccountId) {
-      const known = await getCustomerBySfAccountId(tx, c.sfAccountId);
-      if (known) return known.id;
+    const sfAccountId = c.sfAccountId!;
+    const status = c.status;
+    const known = await getCustomerBySfAccountId(tx, sfAccountId);
+    if (!known) {
       return (
         await insertCustomer(tx, {
-          sfAccountId: c.sfAccountId,
+          sfAccountId,
           name: c.name!,
-          status: 'existing',
+          status,
           defaultShipTo: address(data.shipToDefault),
           source: 'salesforce',
           lastSyncedAt: now,
@@ -470,22 +538,26 @@ export class IntakeService {
         })
       ).id;
     }
-    return (
-      await insertCustomer(tx, {
-        sfAccountId: null,
-        name: c.name!,
-        status: 'not_yet_established',
-        location: blankToNull(c.location),
-        contact: {
-          name: blankToNull(c.contactName),
-          email: blankToNull(c.contactEmail),
-          phone: blankToNull(c.contactPhone),
-        },
-        defaultShipTo: address(data.shipTo),
-        source: 'intake',
+    if (known.status !== status) {
+      await tx
+        .update(schema.customer)
+        .set({ status, updatedAt: now })
+        .where(eq(schema.customer.id, known.id));
+      await insertAuditEvent(tx, {
+        at: now,
+        actorId: actor.userId,
+        actorRoles: [...actor.roles],
+        action: 'update',
+        entity: 'customer',
+        entityId: known.id,
+        quoteId,
+        before: { status: known.status },
+        after: { status, source: 'intake' },
+        ...audit,
         createdBy: actor.userId,
-      })
-    ).id;
+      });
+    }
+    return known.id;
   }
 
   private async submitInTx(
@@ -499,18 +571,10 @@ export class IntakeService {
     const draft = await this.ownDraft(tx, actor, id, true);
     const data = draft.data as IntakeDraftData;
     const config = await loadIntakeConfig(tx);
-    const values = intakeValues(data, config.freeTextNeckFinishes);
-    const evaluation: IntakeEvaluation = evaluateIntake(values, config);
+    const values = intakeValues(data, await hasDrawingAttachment(tx, draft));
+    const evaluation: IntakeEvaluation = evaluateIntake(values, config, now);
     if (!evaluation.ready) {
-      throw new IntakeError(
-        422,
-        INTAKE_PROBLEM_CODES.incomplete,
-        'The intake is missing required information',
-        {
-          errors: evaluation.blocking.map((b) => ({ path: b.field, message: b.message })),
-          blocking: evaluation.blocking,
-        },
-      );
+      throw incompleteError(evaluation);
     }
     const sfOpportunityId = data.sfOpportunityId!;
     const audit = {
@@ -557,10 +621,19 @@ export class IntakeService {
       }
     }
 
-    const customerId = await this.resolveCustomer(tx, actor, data, now);
+    const customerId = await this.resolveCustomer(
+      tx,
+      actor,
+      data,
+      now,
+      audit,
+      reworkOf?.id ?? null,
+    );
     const kam = await findUserById(tx, actor.userId);
     const shipToOverridden =
       Boolean(blankToNull(data.shipToOverrideReason)) && values.ship_to !== null;
+    const cleared = new Set(inapplicableIntakeFields(values, config));
+    const keep = <T>(field: string, value: T): T | null => (cleared.has(field) ? null : value);
     const fields = {
       customerId,
       description: blankToNull(data.description),
@@ -579,9 +652,42 @@ export class IntakeService {
       estAnnualVolumeConfirmed: data.estAnnualVolumeConfirmed ?? false,
       estAnnualRevenue: data.estAnnualRevenue ?? null,
       estAnnualRevenueSf: data.estAnnualRevenueSf ?? null,
-      expectedCloseDate: data.expectedCloseDate ?? null,
+      // FB-02 (F-009): the need-by dates replace the close date (expected_close_date is no longer written).
+      quoteNeededBy: data.quoteNeededBy ?? null,
+      productNeededBy: data.productNeededBy ?? null,
       drawingStatus: data.drawingStatus ?? null,
-      neckFinish: values.neck_finish,
+      // FB-02 (F-010, F-011, F-055, F-023, F-075): product facts. A description of a value that isn't
+      // "Custom", or a grade without the checkbox, is cleared. The old neck_finish is no longer written.
+      neckDiameter: values.neck_diameter,
+      neckDiameterCustom: keep('neck_diameter_custom', values.neck_diameter_custom),
+      neckFinishType: values.neck_finish_type,
+      neckFinishTypeCustom: keep('neck_finish_type_custom', values.neck_finish_type_custom),
+      neckSpecialFeature: values.neck_special_feature,
+      neckSpecialFeatureCustom: keep(
+        'neck_special_feature_custom',
+        values.neck_special_feature_custom,
+      ),
+      resinCustomerSpecified: values.resin_customer_specified,
+      resinGrade: keep('resin_grade', values.resin_grade),
+      pcrLevel: values.pcr_level,
+      colorType: values.color_type,
+      colorDescription: keep('color_description', values.color_description),
+      additives: values.additives,
+      quoteVariantsNote: values.quote_variants_note,
+      // F-013: a component's follow-ups are kept only while the component is picked.
+      linerSpec: keep('liner_spec', values.liner_spec),
+      labelsPurchasedBy: keep('labels_purchased_by', values.labels_purchased_by),
+      decorationType: keep('decoration_type', values.decoration_type),
+      decorationPrintColors: keep('decoration_print_colors', values.decoration_print_colors),
+      // F-016 dimensions (2 decimals), F-015 mold modification, F-014 RFP link.
+      heightMm: round2(values.height_mm),
+      widthOrDiameterMm: round2(values.width_or_diameter_mm),
+      depthMm: round2(values.depth_mm),
+      gramWeightG: round2(values.gram_weight_g),
+      modifyExistingMold: values.modify_existing_mold,
+      existingMoldRef: keep('existing_mold_ref', values.existing_mold_ref),
+      moldChangeDescription: keep('mold_change_description', values.mold_change_description),
+      rfpLink: values.rfp_link,
       packagingType: data.packagingType ?? null,
       packagingNotes: blankToNull(data.packagingNotes),
       requestClass: data.requestClass ?? null,
@@ -823,6 +929,30 @@ export class IntakeService {
   }
 }
 
+/**
+ * 422 for a blocked submit. The problem `code` names the rule when one decides it (FB-02): a request
+ * class that isn't CCQ (F-067) whatever else is open, or the drawing-or-minimum-spec rule (F-016)
+ * when it is the only thing left; otherwise `intake_incomplete`. `blocking` lists every issue.
+ */
+function incompleteError(evaluation: IntakeEvaluation): IntakeError {
+  const has = (code: string) => evaluation.blocking.some((b) => b.code === code);
+  const only = (code: string) => evaluation.blocking.every((b) => b.code === code);
+  const [code, title] = has('REQUEST_CLASS_NOT_ALLOWED')
+    ? [INTAKE_PROBLEM_CODES.requestClassNotAllowed, 'This request class is not submitted to CCQ']
+    : only('DRAWING_OR_MIN_SPEC_REQUIRED')
+      ? [
+          INTAKE_PROBLEM_CODES.drawingOrMinSpecRequired,
+          'Attach a drawing or complete the minimum spec',
+        ]
+      : [INTAKE_PROBLEM_CODES.incomplete, 'The intake is missing required information'];
+  const minSpec = evaluation.blocking.find((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED');
+  return new IntakeError(422, code, title, {
+    errors: evaluation.blocking.map((b) => ({ path: b.field, message: b.message })),
+    blocking: evaluation.blocking,
+    ...(minSpec?.missing ? { missing: minSpec.missing } : {}),
+  });
+}
+
 /** FB-01 (F-030): the rework record a gate decision left on the quote. */
 function reworkOfQuote(q: Quote) {
   return {
@@ -868,7 +998,31 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     market: q.market,
     resin: q.resin,
     components: q.components,
-    neckFinish: q.neckFinish,
+    neckDiameter: q.neckDiameter,
+    neckDiameterCustom: q.neckDiameterCustom,
+    neckFinishType: q.neckFinishType,
+    neckFinishTypeCustom: q.neckFinishTypeCustom,
+    neckSpecialFeature: q.neckSpecialFeature,
+    neckSpecialFeatureCustom: q.neckSpecialFeatureCustom,
+    resinCustomerSpecified: q.resinCustomerSpecified,
+    resinGrade: q.resinGrade,
+    pcrLevel: q.pcrLevel,
+    colorType: q.colorType,
+    colorDescription: q.colorDescription,
+    additives: q.additives,
+    quoteVariantsNote: q.quoteVariantsNote,
+    linerSpec: q.linerSpec,
+    labelsPurchasedBy: q.labelsPurchasedBy,
+    decorationType: q.decorationType,
+    decorationPrintColors: q.decorationPrintColors,
+    heightMm: q.heightMm,
+    widthOrDiameterMm: q.widthOrDiameterMm,
+    depthMm: q.depthMm,
+    gramWeightG: q.gramWeightG,
+    modifyExistingMold: q.modifyExistingMold,
+    existingMoldRef: q.existingMoldRef,
+    moldChangeDescription: q.moldChangeDescription,
+    rfpLink: q.rfpLink,
     packagingType: q.packagingType,
     packagingNotes: q.packagingNotes,
     requestClass: q.requestClass,
@@ -876,7 +1030,8 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     estAnnualVolumeConfirmed: q.estAnnualVolumeConfirmed,
     estAnnualRevenue: q.estAnnualRevenue,
     estAnnualRevenueSf: q.estAnnualRevenueSf,
-    expectedCloseDate: q.expectedCloseDate,
+    quoteNeededBy: q.quoteNeededBy,
+    productNeededBy: q.productNeededBy,
     drawingStatus: q.drawingStatus,
     description: q.description,
     standardDescription: structured.standard ?? null,
@@ -899,14 +1054,9 @@ async function customerForDraft(
     .where(eq(schema.customer.id, customerId))
     .limit(1);
   if (!c) return null;
-  const contact = (c.contact ?? {}) as { name?: string; email?: string; phone?: string };
   return {
     status: c.status as 'existing' | 'not_yet_established',
     sfAccountId: c.sfAccountId,
     name: c.name,
-    location: c.location,
-    contactName: contact.name ?? null,
-    contactEmail: contact.email ?? null,
-    contactPhone: contact.phone ?? null,
   };
 }

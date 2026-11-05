@@ -3,6 +3,7 @@ import {
   ATTACHMENT_KINDS,
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_EXTENSIONS,
+  DRAWING_ATTACHMENT_KINDS,
   fileTypeForName,
   sniffMatches,
   type AttachmentFileType,
@@ -167,16 +168,17 @@ export function attachmentRemoval(
 }
 
 /**
- * Uploading a bottle drawing marks the quote as having one: the first `drawing_status` code whose
- * value-list meta says `hasDrawing` (HAVE_DRAWING in the seed), unless it already has such a code.
- * Null = no change.
+ * Uploading a bottle drawing (or, FB-02, a competitor / incumbent drawing) marks the quote as having
+ * one: the first `drawing_status` code whose value-list meta says `hasDrawing` (HAVE_DRAWING in the
+ * seed), unless it already has such a code. Null = no change.
  */
 export function drawingStatusAfterUpload(
   kind: string,
   current: string | null,
   hasDrawingCodes: readonly string[],
 ): string | null {
-  if (kind !== 'bottle_drawing' || hasDrawingCodes.length === 0) return null;
+  if (!(DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(kind)) return null;
+  if (hasDrawingCodes.length === 0) return null;
   if (current !== null && hasDrawingCodes.includes(current)) return null;
   return hasDrawingCodes[0]!;
 }

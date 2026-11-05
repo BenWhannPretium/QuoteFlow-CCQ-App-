@@ -474,18 +474,21 @@ describe('engineering completeness', () => {
     requiredFields: [{ field: 'product_family', op: 'present' }],
     volumePlaceholder: { values: [1_000_000], roundMultiple: null },
     defaultRequestClass: 'CCQ',
+    allowedRequestClasses: ['CCQ'],
+    redirectMessage: 'Submit it in the pricing application.',
     drawingProvidedCodes: ['HAVE_DRAWING'],
   });
-  it('lists what Engineering may chase, without the G1 redirect note', () => {
+  it('lists what Engineering may chase, without the intake-only request class block', () => {
     const codes = engineeringCompleteness(
       { product_family: 'BOTTLE', request_class: 'STOCK', est_annual_volume: 1_000_000 },
       config,
+      NOW,
     ).map((w) => `${w.code}:${w.field}`);
     expect(codes).toContain('VOLUME_PLACEHOLDER:est_annual_volume');
     expect(codes).toContain('DRAWING_MISSING:drawing_status');
-    expect(codes).toContain('ENRICH:neck_finish');
-    expect(codes.some((c) => c.startsWith('REQUEST_CLASS_REDIRECT'))).toBe(false);
-    expect(engineeringCompleteness({}, config)[0]).toMatchObject({
+    expect(codes).toContain('ENRICH:neck_diameter');
+    expect(codes.some((c) => c.startsWith('REQUEST_CLASS_NOT_ALLOWED'))).toBe(false);
+    expect(engineeringCompleteness({}, config, NOW)[0]).toMatchObject({
       code: 'MISSING_FIELD',
       field: 'product_family',
     });

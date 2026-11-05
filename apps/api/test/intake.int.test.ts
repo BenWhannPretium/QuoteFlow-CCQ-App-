@@ -57,13 +57,22 @@ async function prefill(sfOpportunityId: string): Promise<IntakeDraftData> {
     components: ['CONTAINER', 'CLOSURE'],
     market: 'FOOD',
     resin: 'HDPE',
-    neckFinish: '38-400',
+    neckDiameter: '38',
+    neckFinishType: '400',
+    pcrLevel: '0',
+    colorType: 'NATURAL',
+    // F-016: the minimum spec, so these intakes submit without a drawing file.
+    heightMm: 180,
+    widthOrDiameterMm: 65,
+    depthMm: 65,
+    gramWeightG: 24,
     packagingType: 'BULK',
     packagingNotes: 'Corner boards',
     estAnnualVolume: 750_000,
     estAnnualRevenue: sf.opportunity.amount,
     estAnnualRevenueSf: sf.opportunity.amount,
-    expectedCloseDate: sf.opportunity.closeDate,
+    quoteNeededBy: '2026-12-15',
+    productNeededBy: '2027-03-01',
     containerSize: '16 oz',
     standardDescription: '16 oz Bottle, HDPE with Container, Closure',
     drawingStatus: 'HAVE_DRAWING',
@@ -119,7 +128,25 @@ describe('create → autosave → submit (happy path)', () => {
     expect(res.statusCode, res.body).toBe(200);
     const draft = IntakeDraft.parse(res.json());
     expect(draft.step).toBe(3);
-    expect(draft.evaluation).toEqual({ blocking: [], warnings: [], ready: true });
+    // FB-02 (F-016): the minimum spec carries it; with no drawing file attached it is amber only.
+    expect(draft.evaluation).toEqual({
+      blocking: [],
+      warnings: [
+        {
+          code: 'DRAWING_MISSING',
+          field: 'drawing_status',
+          message: 'Quotes without a drawing usually take longer.',
+        },
+      ],
+      ready: true,
+    });
+    // T-009: the SF close date is read from the latest synced snapshot, never from the draft.
+    const [snap] = await db.db
+      .select()
+      .from(schema.sfOpportunitySnapshot)
+      .where(eq(schema.sfOpportunitySnapshot.sfOpportunityId, oppId));
+    expect(draft.sfCloseDate).toBe(snap!.closeDate);
+    expect(draft.data).not.toHaveProperty('expectedCloseDate');
 
     // A partial patch replaces only the keys it sends.
     const partial = await kam().patch(`/api/v1/quotes/drafts/${draftId}`, {
@@ -147,7 +174,7 @@ describe('create → autosave → submit (happy path)', () => {
     expect(body.priorityScore).toEqual(expect.any(Number));
     expect(body.priorityTier).toMatch(/^(CRITICAL|HIGH|STANDARD|LOW)$/);
     expect(body.resubmitted).toBe(false);
-    expect(body.warnings).toEqual([]);
+    expect(body.warnings.map((w) => w.code)).toEqual(['DRAWING_MISSING']);
 
     const [quote] = await db.db
       .select()
@@ -158,13 +185,25 @@ describe('create → autosave → submit (happy path)', () => {
       stageKey: 'INTAKE',
       productFamily: 'BOTTLE',
       resin: 'HDPE',
-      neckFinish: '38-400',
+      neckDiameter: '38',
+      neckFinishType: '400',
+      pcrLevel: '0',
+      colorType: 'NATURAL',
+      // F-016: the minimum spec, so these intakes submit without a drawing file.
+      heightMm: 180,
+      widthOrDiameterMm: 65,
+      depthMm: 65,
+      gramWeightG: 24,
       estAnnualVolume: 750_000,
       requestClass: 'CCQ',
       shipToOverridden: false,
+      // FB-02 (F-009 / T-009): the need-by dates are stored; no close date is (SF's stays in SF).
+      quoteNeededBy: '2026-12-15',
+      productNeededBy: '2027-03-01',
+      expectedCloseDate: null,
       priorityScore: body.priorityScore,
       priorityTier: body.priorityTier,
-      scoringModelVersion: 1,
+      scoringModelVersion: 2, // FB-02 (F-009): timing on Quote needed by
     });
     expect(quote!.submittedAt).toEqual(clock);
     expect(quote!.customerId).not.toBeNull();
@@ -237,6 +276,8 @@ describe('blocking vs warning (domain decides, config-driven)', () => {
     expect(res.json<{ blocking: { field: string }[] }>().blocking.map((b) => b.field)).toEqual([
       'resin',
       'est_annual_volume',
+      // F-016: resin is in the minimum spec too, and no drawing is attached.
+      'drawing_or_min_spec',
     ]);
     // Free opportunities may carry closed historic quotes, but no active one was created.
     const active = await db.db
@@ -246,19 +287,23 @@ describe('blocking vs warning (domain decides, config-driven)', () => {
     expect(active).toHaveLength(0);
   });
 
-  it('the required-field setting is honoured: drop resin from it and the same intake submits', async () => {
-    const setting = sql`update app_setting set value = value - 4 where key = 'intake_required_fields'`;
-    // index 4 = present('resin') in the seed
+  it('the required-field setting is honoured: drop product family from it and the same intake submits', async () => {
     const [before] = await db.db.execute<{ value: unknown }>(
       sql`select value from app_setting where key = 'intake_required_fields'`,
     );
-    await db.db.execute(setting);
+    // (Resin is also in the FB-02 minimum spec, so product family shows the setting alone at work.)
+    const without = (before!.value as { field?: string }[]).filter(
+      (r) => r.field !== 'product_family',
+    );
+    await db.db.execute(
+      sql`update app_setting set value = ${JSON.stringify(without)}::jsonb where key = 'intake_required_fields'`,
+    );
     try {
-      const { resin: _r, ...data } = await prefill(nextFree());
+      const { productFamily: _p, ...data } = await prefill(nextFree());
       const draft = await createDraft(data);
       expect(draft.evaluation.ready).toBe(true);
       expect(draft.evaluation.warnings.map((w) => `${w.code}:${w.field}`)).toContain(
-        'ENRICH:resin',
+        'ENRICH:product_family',
       );
       expect((await submit(draft.id)).statusCode).toBe(201);
     } finally {
@@ -326,17 +371,15 @@ describe('customer and ship-to', () => {
     expect(overrides[0]!.requestedValue).toMatchObject({ line1: '99 Co-packer Way' });
   });
 
-  it('a not-yet-established customer gets name, location and contact only (DEC-27)', async () => {
+  it('"not yet a Pretium customer" keeps the SF Account and marks the customer (F-007, DEC-27)', async () => {
     const data = await prefill(nextFree());
+    const [before] = await db.db
+      .select()
+      .from(schema.customer)
+      .where(eq(schema.customer.sfAccountId, data.customer!.sfAccountId!));
     const draft = await createDraft({
       ...data,
-      customer: {
-        status: 'not_yet_established',
-        name: 'Brand New Beverage Co (synthetic)',
-        location: 'Austin, TX',
-        contactName: 'Pat Buyer',
-        contactEmail: 'pat@example.com',
-      },
+      customer: { ...data.customer!, status: 'not_yet_established' },
     });
     const res = await submit(draft.id);
     expect(res.statusCode, res.body).toBe(201);
@@ -346,13 +389,82 @@ describe('customer and ship-to', () => {
       .select()
       .from(schema.customer)
       .where(eq(schema.customer.id, quote!.customerId!));
+    // Nothing typed: the SF Account is the customer, with the KAM's "no ERP account" answer.
     expect(customer).toMatchObject({
       status: 'not_yet_established',
-      sfAccountId: null,
-      source: 'intake',
-      location: 'Austin, TX',
-      contact: { name: 'Pat Buyer', email: 'pat@example.com', phone: null },
+      sfAccountId: data.customer!.sfAccountId,
+      location: null,
+      contact: null,
     });
+    // An already-mirrored account that changes status is audited (before → after).
+    const audit = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(
+        and(eq(schema.auditEvent.entity, 'customer'), eq(schema.auditEvent.entityId, customer!.id)),
+      );
+    if (before && before.status === 'existing') {
+      expect(audit.map((a) => [a.before, a.after])).toContainEqual([
+        { status: 'existing' },
+        { status: 'not_yet_established', source: 'intake' },
+      ]);
+    } else {
+      expect(before?.id ?? customer!.id).toBe(customer!.id);
+    }
+  });
+
+  it('only CCQ can be submitted: another class is 422 REQUEST_CLASS_NOT_ALLOWED (F-067, T-027)', async () => {
+    const data = await prefill(nextFree());
+    const draft = await createDraft({ ...data, requestClass: 'STOCK' });
+    expect(draft.evaluation.blocking).toEqual([
+      {
+        code: 'REQUEST_CLASS_NOT_ALLOWED',
+        field: 'request_class',
+        message:
+          'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.',
+      },
+    ]);
+    const res = await submit(draft.id);
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toMatchObject({
+      code: INTAKE_PROBLEM_CODES.requestClassNotAllowed,
+      blocking: [{ code: 'REQUEST_CLASS_NOT_ALLOWED' }],
+    });
+    // No quote was created; switching back to CCQ submits.
+    await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, { data: { requestClass: 'CCQ' } });
+    expect((await submit(draft.id)).statusCode).toBe(201);
+  });
+
+  it('need-by dates: Quote needed by after today, Product needed by on or after it (F-009)', async () => {
+    const data = await prefill(nextFree());
+    const past = await createDraft({ ...data, quoteNeededBy: '2026-10-16' });
+    expect(past.evaluation.blocking.map((b) => `${b.code}:${b.field}`)).toEqual([
+      'INVALID_VALUE:quote_needed_by',
+    ]);
+    expect((await submit(past.id)).statusCode).toBe(422);
+    const order = await kam().patch(`/api/v1/quotes/drafts/${past.id}`, {
+      data: { quoteNeededBy: '2027-01-10', productNeededBy: '2027-01-09' },
+    });
+    expect(
+      IntakeDraft.parse(order.json()).evaluation.blocking.map((b) => `${b.code}:${b.field}`),
+    ).toEqual(['INVALID_VALUE:product_needed_by']);
+    const missing = await kam().patch(`/api/v1/quotes/drafts/${past.id}`, {
+      data: { quoteNeededBy: null, productNeededBy: null },
+    });
+    expect(
+      IntakeDraft.parse(missing.json()).evaluation.blocking.map((b) => `${b.code}:${b.field}`),
+    ).toEqual(['MISSING_FIELD:quote_needed_by', 'MISSING_FIELD:product_needed_by']);
+  });
+
+  it('an opportunity with no Salesforce Account cannot be submitted (F-007, D-011)', async () => {
+    const data = await prefill(nextFree());
+    const draft = await createDraft({
+      ...data,
+      customer: { status: 'existing', sfAccountId: null, name: 'Typed name' },
+    });
+    expect(draft.evaluation.blocking.map((b) => b.code)).toContain('SF_ACCOUNT_REQUIRED');
+    const res = await submit(draft.id);
+    expect(res.statusCode).toBe(422);
   });
 });
 

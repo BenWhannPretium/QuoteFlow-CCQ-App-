@@ -42,6 +42,7 @@ import {
   drawingStatusAfterUpload,
   parseAttachmentSettings,
   renderFolderTemplate,
+  displayFileName,
   sanitizeFileName,
   type Actor,
   type AttachmentSettings,
@@ -323,7 +324,9 @@ export class AttachmentService {
       });
     }
     const { kind, note, size } = fields.data;
-    const checked = checkUploadRequest({ fileName: part.fileName, size, kind });
+    // T-003: the name as the user sees it (a "/" is kept); the stored key is sanitized separately.
+    const fileName = displayFileName(part.fileName);
+    const checked = checkUploadRequest({ fileName, size, kind });
     if (checked.errors.length || !checked.type) {
       drain(part.stream);
       const tooLarge = size > ATTACHMENT_MAX_BYTES;
@@ -370,7 +373,7 @@ export class AttachmentService {
     }
 
     // 4. Stream into the store.
-    const storedName = sanitizeFileName(part.fileName);
+    const storedName = sanitizeFileName(fileName);
     let stored: StoredFile;
     try {
       stored = await this.store.upload(
@@ -411,7 +414,7 @@ export class AttachmentService {
           quoteId,
           draftId: 'draftId' in target ? target.draftId : null,
           kind,
-          fileName: part.fileName,
+          fileName,
           storedName: stored.name,
           size,
           mime: type.mime,
@@ -435,7 +438,7 @@ export class AttachmentService {
           quoteId,
           after: {
             kind,
-            fileName: part.fileName,
+            fileName,
             storedName: stored.name,
             size,
             mime: type.mime,
@@ -465,7 +468,7 @@ export class AttachmentService {
             at: now,
             payload: {
               attachmentId: row.id,
-              fileName: part.fileName,
+              fileName,
               kind,
               size,
               ...(drawingStatus ? { drawingStatus } : {}),

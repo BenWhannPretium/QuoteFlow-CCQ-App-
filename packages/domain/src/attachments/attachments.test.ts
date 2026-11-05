@@ -17,6 +17,7 @@ import {
   isSafeFolderPath,
   parseAttachmentSettings,
   renderFolderTemplate,
+  displayFileName,
   sanitizeFileName,
   sniffMatches,
   type FileFormat,
@@ -150,10 +151,23 @@ describe('checkUploadRequest / checkFileContent', () => {
   });
 });
 
+describe('displayFileName (T-003)', () => {
+  it.each([
+    ['P&G, bottle 1/2 rev.pdf', 'P&G, bottle 1/2 rev.pdf'],
+    ['C:\\fakepath\\Bottle drawing.pdf', 'Bottle drawing.pdf'],
+    ['  tab\there\u0007.png ', 'tab here.png'],
+    ['', 'file'],
+  ])('%j → %j', (input, expected) => {
+    expect(displayFileName(input)).toBe(expected);
+  });
+});
+
 describe('sanitizeFileName', () => {
   it.each([
     ['Bottle drawing v2.PDF', 'Bottle drawing v2.pdf'],
-    ['../../etc/passwd.pdf', 'passwd.pdf'],
+    // A "/" is part of the name (T-003), never a path: it becomes "_" in the key.
+    ['../../etc/passwd.pdf', '_.._etc_passwd.pdf'],
+    ['P&G, bottle 1/2 rev.pdf', 'P&G, bottle 1_2 rev.pdf'],
     ['C:\\Users\\kam\\spec.xlsx', 'spec.xlsx'],
     ['a:b*c?"d<e>f|g#h%i.pdf', 'a_b_c__d_e_f_g_h_i.pdf'],
     ['  .hidden name. .pdf', 'hidden name.pdf'],

@@ -154,6 +154,8 @@ export const intakeRoutes: FastifyPluginAsyncZod<{ service: IntakeService }> = a
         tags,
         summary:
           'Submit: creates CCQ-YYYY-NNNNN in Intake, then routes to G1 (if enabled) or the engineering queue. 409 if the opportunity already has an active quote. FB-01: resubmitting a quote Pricing sent back needs `scopeChanged`; false goes straight back to Quoting',
+        description:
+          'Blocked submits are 422 problem+json with `blocking` (every issue). `code` is REQUEST_CLASS_NOT_ALLOWED when the request class is not one of `intake_allowed_request_classes` (FB-02, F-067), DRAWING_OR_MIN_SPEC_REQUIRED (with `missing`) when the only thing blocking is no bottle or competitor drawing and an empty field of `intake_min_spec_fields` (F-016), otherwise intake_incomplete.',
         security,
         params: IntakeDraftParams,
         body: SubmitIntakeBody,

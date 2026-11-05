@@ -117,6 +117,22 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(quote.drawingStatus, code);
     case 'neck_finish':
       return eq(quote.neckFinish, code);
+    // FB-02 (F-010, F-055, F-023, F-013)
+    case 'neck_diameter':
+      return eq(quote.neckDiameter, code);
+    case 'neck_finish_type':
+      return eq(quote.neckFinishType, code);
+    case 'neck_special_feature':
+      return eq(quote.neckSpecialFeature, code);
+    case 'pcr_level':
+      return eq(quote.pcrLevel, code);
+    case 'color_type':
+      return eq(quote.colorType, code);
+    case 'labels_purchased_by':
+      return eq(quote.labelsPurchasedBy, code);
+    case 'decoration_type':
+      return eq(quote.decorationType, code);
+
     case 'packaging_type':
       return eq(quote.packagingType, code);
     case 'request_class':

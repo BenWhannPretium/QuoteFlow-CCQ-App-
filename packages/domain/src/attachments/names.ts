@@ -11,13 +11,27 @@ const CONTROL = /[\u0000-\u001f\u007f]/g;
 const RESERVED = /^(con|prn|aux|nul|com\d|lpt\d|desktop\.ini|\.lock)$/i;
 
 /**
- * The name a file is stored under: no path, no characters SharePoint refuses, no leading `~$` or
- * `_vti_`, no reserved device names, at most 120 characters, with its (lower-case) extension. The
- * original name is kept in the database as metadata.
+ * The name users see (FB-02, T-003): what was uploaded, minus a Windows path an old browser may send
+ * (`C:\\fakepath\\x.pdf`) and control characters. A `/` is part of the name, not a path: macOS allows
+ * it, so "P&G, bottle 1/2 rev.pdf" stays whole. Never used as a storage key (see `sanitizeFileName`).
+ */
+export function displayFileName(original: string): string {
+  const leaf = (original.split('\\').pop() ?? '')
+    .replace(/[\t\n\r]+/g, ' ')
+    .replace(CONTROL, '')
+    .normalize('NFC')
+    .trim();
+  return leaf || 'file';
+}
+
+/**
+ * The name a file is stored under: no path, no characters SharePoint refuses (a `/` in the name
+ * becomes `_`), no leading `~$` or `_vti_`, no reserved device names, at most 120 characters, with
+ * its (lower-case) extension. The display name (`displayFileName`) is kept in the database as metadata.
  */
 export function sanitizeFileName(original: string): string {
-  const ext = fileExtension(original);
-  const leaf = (original.split(/[\\/]/).pop() ?? '').normalize('NFC');
+  const leaf = displayFileName(original);
+  const ext = fileExtension(leaf);
   let base = ext ? leaf.slice(0, leaf.length - ext.length - 1) : leaf;
   base = base
     .replace(/\s+/g, ' ')

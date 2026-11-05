@@ -22,6 +22,7 @@ import {
 import { AssignDialog, engQueueQueryKey } from '@/components/engineering/AssignDialog';
 import { BulkReassignDialog } from '@/components/engineering/BulkReassignDialog';
 import { businessDays } from '@/components/engineering/format';
+import { MoldModificationChip } from '@/components/intake/IntakeFacts';
 import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -447,6 +448,8 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
                   ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
                   : statusLabel(q)}
               </span>
+              {/* FB-02 (F-015, T-012) */}
+              <MoldModificationChip show={q.moldModification} />
             </span>
           );
         },
@@ -494,6 +497,17 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
             </span>
           );
         },
+      },
+      // FB-02 (F-017): where it ships or fills, Engineering's input to the plant choice (D-012).
+      {
+        id: 'destination',
+        header: 'Destination',
+        accessorFn: (q) => [q.shipCity, q.shipState].filter(Boolean).join(', '),
+        cell: ({ row }) => (
+          <span className="text-xs whitespace-nowrap" data-testid="queue-destination">
+            {[row.original.shipCity, row.original.shipState].filter(Boolean).join(', ') || '–'}
+          </span>
+        ),
       },
       { id: 'kam', header: 'KAM', accessorFn: (q) => q.kamName ?? '' },
       {

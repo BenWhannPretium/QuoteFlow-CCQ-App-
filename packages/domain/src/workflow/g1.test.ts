@@ -14,6 +14,9 @@ const intake = makeQuote('INTAKE', {
     product_family: 'BOTTLE',
     resin: 'HDPE',
     est_annual_volume: 500_000,
+    // FB-02 (F-009): INTAKE_COMPLETE needs the two need-by dates.
+    quote_needed_by: '2026-12-15',
+    product_needed_by: '2027-03-01',
     submitted_at: '2026-10-19T10:00:00Z',
   },
 });

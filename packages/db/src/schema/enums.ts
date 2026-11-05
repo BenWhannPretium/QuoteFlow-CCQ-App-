@@ -69,6 +69,16 @@ export const VALUE_LIST_KEYS = [
   'packaging_type',
   // B-26: the Stage 3 tooling funding model (deck slide 12).
   'tooling_funding_model',
+  // FB-02 (F-010): the neck as three lists (Jim Zweifel, A-001); `neck_finish` above is retired.
+  'neck_diameter',
+  'neck_finish_type',
+  'neck_special_feature',
+  // FB-02 (F-055, F-023): PCR level and color.
+  'pcr_level',
+  'color_type',
+  // FB-02 (F-013): component follow-ups.
+  'labels_purchased_by',
+  'decoration_type',
 ] as const;
 
 /** FB-01 (F-030): where a KAM's resubmission resumes after a rework (`gate_outcome_definition.resume_at`). */

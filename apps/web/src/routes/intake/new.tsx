@@ -1,4 +1,5 @@
 import type { IntakeDraft, SfOpportunitySummary, SubmitIntakeResponse } from '@ccq/contracts';
+import { DRAWING_ATTACHMENT_KINDS } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -12,6 +13,7 @@ import {
 import { useId, useMemo, useState } from 'react';
 
 import { RequirePermission } from '@/auth';
+import { attachmentsQueryKey } from '@/components/attachments/Attachments';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ErrorState } from '@/components/ErrorState';
 import { PageHeader } from '@/components/PageHeader';
@@ -223,7 +225,21 @@ function SaveStatus({ state, savedAt }: { state: SaveState; savedAt: Date | null
 function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
   const draft = useIntakeDraft(initial);
   const { data, step, update } = draft;
-  const evaluation = useMemo(() => evaluateDraft(data, cfg), [data, cfg]);
+  // F-016: is a bottle or competitor drawing attached (to the draft, or already on a reworked quote)?
+  const draftFiles = useQuery({
+    queryKey: attachmentsQueryKey({ draftId: draft.id }),
+    queryFn: () => api.draftAttachments(draft.id),
+  });
+  const reworkNumber = initial.rework?.quoteNumber ?? '';
+  const quoteFiles = useQuery({
+    queryKey: attachmentsQueryKey({ quoteNumber: reworkNumber }),
+    queryFn: () => api.quoteAttachments(reworkNumber),
+    enabled: Boolean(reworkNumber),
+  });
+  const hasDrawing = [...(draftFiles.data?.items ?? []), ...(quoteFiles.data?.items ?? [])].some(
+    (f) => (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(f.kind),
+  );
+  const evaluation = useMemo(() => evaluateDraft(data, cfg, hasDrawing), [data, cfg, hasDrawing]);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: config } = usePublicConfig();
@@ -337,7 +353,14 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
     );
   }
 
-  const stepProps = { data, update, cfg, evaluation };
+  const stepProps = {
+    data,
+    update,
+    cfg,
+    evaluation,
+    sfCloseDate: draft.sfCloseDate,
+    hasDrawing,
+  };
 
   return (
     <div className="grid gap-4" data-testid="intake-wizard" data-step={step}>

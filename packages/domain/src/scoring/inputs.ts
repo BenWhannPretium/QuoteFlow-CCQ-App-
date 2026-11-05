@@ -90,11 +90,21 @@ export const INPUT_RESOLVERS: Readonly<Record<string, InputResolver>> = {
       return { raw: null, detail: `"${raw}" is not listed` };
     },
   },
-  /** Days from today to `quote.expected_close_date`; banded. */
+  /**
+   * Days from today to `quote.expected_close_date`; banded. Scoring model v1 only: FB-02 (F-009)
+   * stopped writing the close date, so later models read `days_to_quote_needed`.
+   */
   days_to_close: {
     resolve: (_attribute, facts, now) => {
       const days = daysUntil(getFact(facts, 'quote.expected_close_date'), now);
       return { raw: days };
+    },
+  },
+  /** FB-02 (F-009): days from today to `quote.quote_needed_by` (the KAM's date); banded. */
+  days_to_quote_needed: {
+    resolve: (_attribute, facts, now) => {
+      const days = daysUntil(getFact(facts, 'quote.quote_needed_by'), now);
+      return { raw: days, ...(days !== null ? { detail: `${days} days to quote needed by` } : {}) };
     },
   },
 };

@@ -79,30 +79,43 @@ describe('auth contracts', () => {
 });
 
 describe('intake contracts', () => {
-  it('maps a draft to the domain values, resolving a free-text neck finish', async () => {
+  it('maps a draft to the domain values (FB-02 neck, resin, color; blank text is null)', async () => {
     const { intakeValues, IntakeDraftData } = await import('./intake');
     const data = IntakeDraftData.parse({
       sfOpportunityId: '006SYN000000000001',
+      // A typed location from an old draft is dropped (F-007: nothing about the customer is typed).
       customer: { status: 'not_yet_established', name: 'New Co', location: 'Austin, TX' },
-      neckFinish: 'OTHER',
-      neckFinishOther: '  53mm lug ',
+      neckDiameter: '53',
+      neckFinishType: 'CUSTOM',
+      neckFinishTypeCustom: '  lug ',
+      resinCustomerSpecified: true,
+      resinGrade: ' Pro-fax 6331 ',
+      colorType: 'NATURAL',
+      colorDescription: '   ',
       components: ['CONTAINER'],
     });
-    const values = intakeValues(data, ['OTHER']);
+    expect(data.customer).toEqual({ status: 'not_yet_established', name: 'New Co' });
+    const values = intakeValues(data);
     expect(values).toMatchObject({
       sf_opportunity_id: '006SYN000000000001',
       customer: { status: 'not_yet_established', name: 'New Co', sf_account_id: null },
-      neck_finish: '53mm lug',
+      neck_diameter: '53',
+      neck_finish_type: 'CUSTOM',
+      neck_finish_type_custom: 'lug',
+      resin_customer_specified: true,
+      resin_grade: 'Pro-fax 6331',
+      color_type: 'NATURAL',
+      color_description: null,
       components: ['CONTAINER'],
       ship_to: null,
       est_annual_volume_confirmed: false,
     });
-    expect(intakeValues({ neckFinish: '28-410' }, ['OTHER']).neck_finish).toBe('28-410');
+    expect(intakeValues({}).resin_customer_specified).toBe(false);
   });
 
   it('rejects a malformed opportunity id or date in a draft', async () => {
     const { IntakeDraftData } = await import('./intake');
     expect(IntakeDraftData.safeParse({ sfOpportunityId: 'nope' }).success).toBe(false);
-    expect(IntakeDraftData.safeParse({ expectedCloseDate: '10/23/2026' }).success).toBe(false);
+    expect(IntakeDraftData.safeParse({ quoteNeededBy: '10/23/2026' }).success).toBe(false);
   });
 });

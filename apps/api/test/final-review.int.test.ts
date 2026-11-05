@@ -114,11 +114,20 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
     components: ['CONTAINER'],
     market: 'FOOD',
     resin: 'HDPE',
-    neckFinish: '38-400',
+    neckDiameter: '38',
+    neckFinishType: '400',
+    pcrLevel: '0',
+    colorType: 'NATURAL',
+    // F-016: the minimum spec, so these intakes submit without a drawing file.
+    heightMm: 180,
+    widthOrDiameterMm: 65,
+    depthMm: 65,
+    gramWeightG: 24,
     packagingType: 'BULK',
     estAnnualVolume: 750_000,
     estAnnualRevenue: 150_000,
-    expectedCloseDate: '2026-12-15',
+    quoteNeededBy: '2026-12-15',
+    productNeededBy: '2027-03-01',
     containerSize: '16 oz',
     standardDescription: '16 oz Bottle, HDPE',
     drawingStatus: 'HAVE_DRAWING',
@@ -459,7 +468,7 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     // intake summary
     expect(dto.intake).toMatchObject({
       standardDescription: '16 oz Bottle, HDPE',
-      neckFinish: '38-400',
+      facts: { neckDiameter: '38', neckFinishType: '400' },
       packagingType: 'BULK',
       shipTo: { city: 'Testville' },
     });

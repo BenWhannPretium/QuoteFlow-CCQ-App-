@@ -38,6 +38,7 @@ import {
 import { commercialView, loadCommercialSettings, type CommercialSettings } from './commercial';
 import { engineeringView, loadEngQueueSettings } from './engineering-view';
 import { loadReleaseSettings, type ReleaseSettings } from './final-review-view';
+import { intakeFactsDto } from './intake-facts';
 import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from './outcome-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
@@ -155,7 +156,8 @@ export function summaryDto(row: QuoteSummaryRow, ctx: QuoteViewContext): QuoteSu
     resin: q.resin,
     estAnnualVolume: q.estAnnualVolume,
     estAnnualRevenue: q.estAnnualRevenue,
-    expectedCloseDate: q.expectedCloseDate,
+    // FB-02 (T-009): Salesforce's close date (latest sync); the stored one is deprecated history.
+    expectedCloseDate: row.sfCloseDate ?? q.expectedCloseDate,
     submittedAt: iso(q.submittedAt),
     reviewDate: q.reviewDate,
     priority: priorityDto(q, ctx),
@@ -336,6 +338,7 @@ export class QuoteReadService {
       packagingNotes: q.packagingNotes,
       commentsForEngineering: q.commentsForEngineering,
       shipTo: shipTo ?? null,
+      intakeFacts: intakeFactsDto(q),
       outcome: q.outcome,
       outcomeReasonCode: q.outcomeReasonCode,
       closedAt: iso(q.closedAt),

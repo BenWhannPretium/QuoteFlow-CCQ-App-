@@ -12,8 +12,21 @@ export const ATTACHMENT_KINDS = [
   'sample_photo',
   'capacity_analysis',
   'other',
+  // FB-02 (F-014): KAMs and Engineering asked for these (Jordan Albin, Jeff Curry, Jim Zweifel).
+  'bid_file',
+  'project_brief',
+  'competitor_drawing',
 ] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
+
+/**
+ * FB-02 (F-016, D-018): the kinds that count as "a drawing" for the drawing-or-minimum-spec rule (and
+ * mark the quote as having one on upload): the bottle drawing or a competitor / incumbent drawing.
+ */
+export const DRAWING_ATTACHMENT_KINDS: readonly AttachmentKind[] = [
+  'bottle_drawing',
+  'competitor_drawing',
+];
 
 /** 100 MB: the largest file the API accepts (and Graph's upload session is sized for). */
 export const ATTACHMENT_MAX_BYTES = 100 * 1024 * 1024;
