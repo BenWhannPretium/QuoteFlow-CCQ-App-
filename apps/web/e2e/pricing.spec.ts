@@ -96,7 +96,8 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await ok(
     request.post(`/api/v1/quotes/${quoteNumber}/gates/G2/decisions`, {
       headers: as('eng-lead'),
-      data: { outcomeKey: 'capital_required' },
+      // FB-01 (F-027): an exception decision needs a note.
+      data: { outcomeKey: 'capital_required', note: 'Second cavity set needed' },
     }),
     201,
   );

@@ -50,6 +50,7 @@ import {
   type WorkflowConfig,
 } from '@ccq/domain';
 
+import { finalReviewChecks } from './commercial';
 import { onEngQueueArrival } from './engineering-arrival';
 import { onFinalReviewDecided } from './final-review';
 import type { AuditMeta } from './intake';
@@ -271,6 +272,34 @@ export class GateService {
       if (gateKey === RELEASE_GATE_KEY && ctx.release.tiersError) {
         extraErrors.push(new DomainErrorClass('INVALID_CONFIG', ctx.release.tiersError));
       }
+      // FB-01 (F-069): open checks owned by other roles (terms, Legal) are warnings for the approver,
+      // not blockers (unless `g4_required_checks` names them). The decision records the warnings the
+      // approver saw; a screen that is out of date (a warning it did not show) is refused.
+      let reviewChecks: Awaited<ReturnType<typeof finalReviewChecks>> | null = null;
+      if (gateKey === RELEASE_GATE_KEY) {
+        reviewChecks = await finalReviewChecks(tx, ctx.commercial, row.quote, state);
+        const open = reviewChecks.warnings.map((w) => w.code);
+        const seen = body.acknowledgedWarnings;
+        const unseen = seen ? open.filter((code) => !seen.includes(code)) : [];
+        if (unseen.length > 0) {
+          extraErrors.push(
+            new DomainErrorClass(
+              'STALE_WARNINGS',
+              `The quote changed: reload to see ${unseen.join(', ')} before deciding`,
+              'acknowledgedWarnings',
+            ),
+          );
+        }
+        request.payload = { ...request.payload, acknowledgedWarnings: open };
+      } else if (body.acknowledgedWarnings !== undefined) {
+        extraErrors.push(
+          new DomainErrorClass(
+            'INVALID_VALUE',
+            'acknowledgedWarnings applies only to Final Review (G4)',
+            'acknowledgedWarnings',
+          ),
+        );
+      }
       if (proposal) {
         request.payload = {
           ...request.payload,
@@ -334,7 +363,16 @@ export class GateService {
               }
             : {}),
           ...(gateKey === RELEASE_GATE_KEY
-            ? { review: { warnings: finalReviewWarnings(state, before.warnings) } }
+            ? {
+                review: {
+                  warnings: [
+                    ...(reviewChecks?.warnings ?? []),
+                    ...finalReviewWarnings(state, before.warnings),
+                  ],
+                  // FB-01 (F-069): the terms and Legal review as the approver saw them.
+                  termsAndLegal: reviewChecks?.termsAndLegal ?? null,
+                },
+              }
             : {}),
           // B-13: what the KAM saw at the customer's decision (validity countdown, proposal date).
           ...(atCustomer

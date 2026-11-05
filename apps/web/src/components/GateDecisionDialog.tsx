@@ -74,6 +74,7 @@ export function GateDecisionDialog({
   onDecided,
   initialOutcomeKey = '',
   initialTargetStageKey = '',
+  acknowledgedWarnings,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,6 +85,8 @@ export function GateDecisionDialog({
   initialOutcomeKey?: string;
   /** Preselect the target stage of an outcome with several (B-14: the board column it was dropped on). */
   initialTargetStageKey?: string;
+  /** FB-01 (F-069), G4: the warning codes the review screen showed; recorded on the decision. */
+  acknowledgedWarnings?: string[];
 }) {
   const queryClient = useQueryClient();
   const { data: config } = usePublicConfig();
@@ -127,6 +130,7 @@ export function GateDecisionDialog({
     owner: useId(),
     holdOwner: useId(),
     errors: useId(),
+    noteHint: useId(),
   };
 
   const action = actions.find((a) => a.outcomeKey === outcomeKey);
@@ -323,6 +327,7 @@ export function GateDecisionDialog({
                       ? { competitor: competitor.trim() }
                       : {}),
                     ...(canPickOwner && ownerChoice === 'me' ? { closureOwnerId: me.user.id } : {}),
+                    ...(acknowledgedWarnings ? { acknowledgedWarnings } : {}),
                   });
                 }}
               >
@@ -553,13 +558,23 @@ export function GateDecisionDialog({
                       ? 'Strategic exception note (required)'
                       : `Note ${needsNote ? '(required)' : '(optional)'}`}
                   </label>
+                  {/* FB-01 (F-027, D-015): notes are for exception decisions only. */}
+                  {action?.requiresNote && (
+                    <p id={ids.noteHint} className="text-muted-foreground text-xs">
+                      Required for exception decisions
+                    </p>
+                  )}
                   <Textarea
                     id={ids.note}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     aria-invalid={submitted && needsNote && note.trim() === ''}
+                    aria-required={needsNote}
+                    {...(action?.requiresNote ? { 'aria-describedby': ids.noteHint } : {})}
                     placeholder={
-                      action?.outcomeKey === 'rework' ? 'What should the KAM fix?' : undefined
+                      action?.outcomeKey === 'rework' || action?.outcomeKey === 'rework_kam'
+                        ? 'What should the KAM fix?'
+                        : undefined
                     }
                   />
                 </div>

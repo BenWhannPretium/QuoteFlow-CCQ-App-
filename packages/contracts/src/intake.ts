@@ -137,6 +137,13 @@ export const IntakeDraft = z.object({
       note: z.string().nullable(),
       decidedAt: z.string(),
       decidedByName: z.string().nullable(),
+      /** FB-01 (F-030): the stage it was sent back from (e.g. QUOTING). */
+      originStageKey: z.string().nullable(),
+      /**
+       * FB-01 (F-030): the KAM must answer "Did the scope change?" on submit (`scopeChanged`). No: it
+       * goes straight back to `originStageKey`. Yes: it routes as a new submission.
+       */
+      askScopeChange: z.boolean(),
     })
     .nullable(),
   createdAt: z.string(),
@@ -192,6 +199,9 @@ export const ReturnedQuoteSummary = z.object({
   returnedAt: z.string(),
   /** The open rework draft, once the KAM has started fixing it. */
   draftId: z.string().nullable(),
+  /** FB-01 (F-030): the stage it was sent back from, and whether resubmitting asks about scope. */
+  originStageKey: z.string().nullable(),
+  askScopeChange: z.boolean(),
 });
 export type ReturnedQuoteSummary = z.infer<typeof ReturnedQuoteSummary>;
 
@@ -202,7 +212,20 @@ export const IntakeDraftListResponse = z.object({
 });
 export type IntakeDraftListResponse = z.infer<typeof IntakeDraftListResponse>;
 
-/** POST /api/v1/quotes/drafts/:id/submit */
+/** POST /api/v1/quotes/drafts/:id/submit (body optional). */
+export const SubmitIntakeBody = z
+  .object({
+    /**
+     * FB-01 (F-030): required when resubmitting a quote Pricing sent back to the KAM (the draft's
+     * `rework.askScopeChange`). false: straight back to Quoting with the same pricer. true: a new
+     * submission (G1 if enabled, then Engineering). Ignored otherwise.
+     */
+    scopeChanged: z.boolean().optional(),
+  })
+  // No body at all is the usual submit (Fastify hands it over as null).
+  .nullish();
+export type SubmitIntakeBody = z.infer<typeof SubmitIntakeBody>;
+
 export const SubmitIntakeResponse = z.object({
   quoteId: z.string(),
   quoteNumber: z.string(),
@@ -215,6 +238,10 @@ export const SubmitIntakeResponse = z.object({
   priorityTier: z.string().nullable(),
   /** True when the submit resubmitted a quote returned for rework. */
   resubmitted: z.boolean(),
+  /** FB-01 (F-030): the KAM's scope answer (null when it was not asked). */
+  scopeChanged: z.boolean().nullable(),
+  /** FB-01 (F-030): the stage a no-scope-change resubmission resumed at (e.g. QUOTING); else null. */
+  resumedAt: z.string().nullable(),
   warnings: z.array(IntakeIssue),
   /** B-16: files that came with the draft (now on the quote). */
   attachments: z.number().int(),

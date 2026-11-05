@@ -190,7 +190,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | D-012 | Engineering decides the plant, with KAM input on destination and logistics (Nov 2) | FB-02 (F-017) |
 | D-013 | MVP cost model = upload the standard template and extract a one-page summary; in-app model later (Oct 30) | FB-07 (F-031), after D-001 |
 | D-014 | Salesforce write-back deferred to Phase 1 (Oct 26) | P1 backlog (F-035); FB-04 ships the link-and-prompt stopgap (F-076) |
-| D-015 | Minimise free text; notes only on exceptions (Oct 30) | FB-01 (F-027); caps wait for D-016 (FB-09) |
+| D-015 | Minimise free text; notes only on exceptions (Oct 30) | FB-01 (F-027), built 2026-11-05: a note on every exception outcome, none on a plain Advance; caps wait for D-016 (FB-09) |
 | D-018 | A drawing, or a required minimum spec set (height, diameter/width/depth, gram weight, neck finish, resin, color), to advance (Nov 3). Final list: Jim Zweifel / Danielle Leu (A-005, A-024) | FB-02 (F-016), list as provisional config |
 | D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3) | FB-04 (F-022) |
 | D-028 | Only sales leaders override priority, with the justification passed to Engineering; KAMs use escalation (Bailey, Nov 3; confirm with KAMs before the pilot) | FB-04 (F-065) |
@@ -211,6 +211,15 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | **D-020** | Quote turnaround standards | Oleg | Decision session with Oleg | F-072 (P1) | Aging only |
 | **D-021** | Standard utilization basis; confirm Faron's formula (A-023: trending OEE appears twice as emailed) | Faron Ipox with leadership | Supply Chain follow-up | F-060 (P1); the run-days basis in FB-03 | FB-03 calculates with Faron's formula shape and a provisional `capacity_basis` setting |
 | **D-005**, **D-019**, **D-022**, **D-030** | Bid scope rules; innovation projects; operations alignment on large projects; where stock / stock-plus requests go | Bailey; sales leadership; Engineering | See the tracker | P1 (T-006, T-028, T-029, F-071); F-067 ships with a configurable redirect message | Bid file attached to a single-item quote; CCQ-only request class |
+
+**Provisional values FB-01 seeded (built 2026-11-05, awaiting sign-off; all `provisional: true`, changed by config, not code):**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.g4_required_checks`: which checks block G4 Advance | `[]`: neither the terms check nor the Legal review blocks the approver; both show as warnings on the Final Review screen (F-069) | **D-003** (who owns and finalizes terms); FB-08 (F-068) | Oleg Yarovinski, with Gemma Cebolla and Sales leadership |
+| G3 "Rework (back to KAM)" (`rework_kam`): label, help text, `rework` reasons, note required, `resume_at = origin` (F-029 / F-030) | Seeded as described in `03` → FB-01 | Pricing confirms the wording and the reason list (D-15 taxonomy still provisional) | Kyle Arnold, Gemma Cebolla |
+| The scope-change question ("product, volume, resin, drawing or plant changed") that decides whether a KAM's fix skips Engineering | That wording, in the intake screen | Pricing and Engineering agree what counts as a scope change | Kyle Arnold; Jim Zweifel |
+| The exception-note set (`requires_note`) per D-015 | Advance with risk, Capital required, Hold, Rework / Return / Re-quote / Re-cost, Redirect, Stop / Decline, In negotiation | D-015 is decided; the rows stay provisional until Bailey approves the list (Admin → Workflow) | Bailey Schmitt |
 
 **Inputs the business still has to send (tracker Action Items):**
 

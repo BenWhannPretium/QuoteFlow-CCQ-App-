@@ -50,12 +50,12 @@ describe('pricing-app reference formats', () => {
 
 describe('who edits the Quoting tab', () => {
   it('Pricing, while the quote is in Quoting and open', () => {
-    expect(canEditQuoting(pricing, quoting)).toBe(true);
-    expect(canEditQuoting(pricing, { ...quoting, status: 'on_hold' })).toBe(true);
-    expect(canEditQuoting(pricing, { ...quoting, status: 'closed' })).toBe(false);
-    expect(canEditQuoting(pricing, makeQuote('FINAL_REVIEW'))).toBe(false);
+    expect(canEditQuoting(pricing, quoting, hybridConfig)).toBe(true);
+    expect(canEditQuoting(pricing, { ...quoting, status: 'on_hold' }, hybridConfig)).toBe(true);
+    expect(canEditQuoting(pricing, { ...quoting, status: 'closed' }, hybridConfig)).toBe(false);
+    expect(canEditQuoting(pricing, makeQuote('FINAL_REVIEW'), hybridConfig)).toBe(false);
     for (const role of ['KAM', 'Engineer', 'EngLead', 'Approver', 'Leadership', 'Admin'] as const) {
-      expect(canEditQuoting(makeActor(role), quoting), role).toBe(false);
+      expect(canEditQuoting(makeActor(role), quoting, hybridConfig), role).toBe(false);
     }
   });
 
@@ -471,7 +471,7 @@ describe('G3 (hybrid seed)', () => {
       );
     expect(
       !run('hold').ok && (run('hold') as { errors: { code: string }[] }).errors.map((e) => e.code),
-    ).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'REASON_REQUIRED']);
+    ).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'NOTE_REQUIRED', 'REASON_REQUIRED']);
     const hold = validCase(hybridConfig, 'G3', 'hold');
     expect(
       evaluateTransition(
@@ -483,8 +483,9 @@ describe('G3 (hybrid seed)', () => {
       ).ok,
     ).toBe(true);
 
+    // FB-01 (F-027): every rework needs a note.
     const rework = validCase(hybridConfig, 'G3', 'rework');
-    expect(rework.request.note).toBeUndefined();
+    expect(rework.request.note).toBeDefined();
     const r = evaluateTransition(hybridConfig, makeQuote('QUOTING'), lead, rework.request, NOW);
     expect(r.ok && [r.effects.nextStageKey, r.effects.nextVersion]).toEqual(['ENG_REVIEW', 2]);
     expect(run('rework').ok).toBe(false);

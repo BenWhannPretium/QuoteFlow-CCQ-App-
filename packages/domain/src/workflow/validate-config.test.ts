@@ -55,6 +55,7 @@ describe('validateWorkflowConfig', () => {
       requiredFields: [],
       notify: [],
       helpText: null,
+      resumeAt: 'intake',
       provisional: true,
     });
     c.transitions.push({

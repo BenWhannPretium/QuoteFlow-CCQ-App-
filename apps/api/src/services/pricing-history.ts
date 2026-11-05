@@ -45,6 +45,7 @@ import {
   type PricingHistoryRow,
 } from '@ccq/integrations';
 
+import { lockConfig } from './locks';
 import { recordValues } from './pricing-view';
 import { ServiceProblem } from './problem';
 import { erfLinkage } from './salesforce';
@@ -246,7 +247,7 @@ export class PricingHistoryService {
         customerMatch: key ? matchName : null,
         customerErfs: customerErfs.map((r) => toErf(stored(r))),
         sprHistory: sprHistory.map((r) => toSpr(stored(r))),
-        canUseAsReference: state ? canEditQuoting(actor, state) : false,
+        canUseAsReference: state ? canEditQuoting(actor, state, await lockConfig(tx)) : false,
       };
       return { quoteId: q.id, context: redact(context, actor) };
     });

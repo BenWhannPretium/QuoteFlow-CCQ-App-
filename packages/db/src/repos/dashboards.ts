@@ -123,8 +123,9 @@ export interface ReturnedRow extends DashboardQuoteRow {
 }
 
 /**
- * Quotes sent back to the KAM (a G1 / G2 Rework puts the quote back in Intake with `submitted_at`
- * cleared), each with the latest rework decision's reason and note, and the rework draft if started.
+ * Quotes sent back to the KAM (a G1 / G2 Rework, or since FB-01 a G3 "Rework (back to KAM)", puts the
+ * quote back in Intake with `submitted_at` cleared), each with the latest decision that sent it to
+ * Intake (its reason and note), and the rework draft if started.
  */
 export function returnedToKam(db: DbOrTx, userId: string): Promise<ReturnedRow[]> {
   return rows(
@@ -152,8 +153,8 @@ export function returnedToKam(db: DbOrTx, userId: string): Promise<ReturnedRow[]
     ) st on true
     left join lateral (
       select gd.* from gate_decision gd
-      where gd.quote_id = q.id and gd.outcome_key = 'rework' and gd.gate_key in ('G1', 'G2')
-      order by gd.decided_at desc limit 1
+      where gd.quote_id = q.id and gd.target_stage_key = 'INTAKE'
+      order by gd.decided_at desc, gd.created_at desc limit 1
     ) g on true
     left join reason_code rc on rc.context = 'rework' and rc.code = g.reason_code
     left join app_user gu on gu.id = g.decided_by

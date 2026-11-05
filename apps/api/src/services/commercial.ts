@@ -5,6 +5,8 @@ import {
   type EscalationBody,
   type EscalationResponse,
   type QuoteDetail,
+  type ReviewSummary,
+  type ReviewWarning,
   type TermsBody,
 } from '@ccq/contracts';
 import type { DbOrTx, Tx } from '@ccq/db';
@@ -22,6 +24,8 @@ import {
 import {
   CAPITAL_NOTICE_SEED,
   ESCALATION_ROUTES_SEED,
+  G4_CHECKS,
+  G4_REQUIRED_CHECKS_SEED,
   LEGAL_REVIEW_TRIGGERS_SEED,
   LEGAL_TRIGGER_LABELS,
   MARKET_DEV_NOTICE_SEED,
@@ -29,7 +33,9 @@ import {
   PROCESS_OWNER_SEED,
   can,
   derivedDecisionFields,
+  g4CheckWarnings,
   parseCapitalNotice,
+  parseG4RequiredChecks,
   parseEscalationRoutes,
   parseLegalReviewTriggers,
   parseMarketDevNotice,
@@ -40,12 +46,15 @@ import {
   planEscalation,
   planMarketDevNotice,
   planTerms,
+  sectionLock,
   type Actor,
   type CapitalNoticeSetting,
   type DerivedFieldSettings,
   type DomainError,
   type EscalationRoute,
+  type G4Check,
   type LegalTrigger,
+  type LockConfig,
   type MarketDevNoticeSetting,
   type ProcessOwnerSetting,
   type QuoteState,
@@ -53,6 +62,7 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { assertSectionUnlocked, lockConfig, lockView } from './locks';
 import { persistNotifications } from './notificationService';
 import { ServiceProblem, problemErrors } from './problem';
 import type { QuoteReadService } from './quotes';
@@ -98,19 +108,33 @@ export interface CommercialSettings {
   processOwner: ProcessOwnerSetting;
 }
 
+/**
+ * FB-01 (F-069): `g4_required_checks`. A malformed value must not silently stop blocking: it fails
+ * closed (both checks block G4 Advance) and the quote still renders.
+ */
+function g4RequiredChecks(input: unknown): G4Check[] {
+  try {
+    return parseG4RequiredChecks(input ?? G4_REQUIRED_CHECKS_SEED);
+  } catch {
+    return [...G4_CHECKS];
+  }
+}
+
 export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSettings> {
-  const [legal, passThrough, capital, marketDev, routes, owner] = await Promise.all([
+  const [legal, passThrough, capital, marketDev, routes, owner, g4Checks] = await Promise.all([
     getSetting(db, 'legal_review_triggers'),
     getSetting(db, 'pricing_pass_through'),
     getSetting(db, 'capital_management_notice'),
     getSetting(db, 'market_development_notice'),
     getSetting(db, 'escalation_routes'),
     getSetting(db, 'process_owner'),
+    getSetting(db, 'g4_required_checks'),
   ]);
   return {
     derived: {
       legalReviewTriggers: parseLegalReviewTriggers(legal ?? LEGAL_REVIEW_TRIGGERS_SEED),
       passThrough: parsePassThrough(passThrough ?? PASS_THROUGH_SEED),
+      g4RequiredChecks: g4RequiredChecks(g4Checks),
     },
     capitalNotice: parseCapitalNotice(capital ?? CAPITAL_NOTICE_SEED),
     marketDev: parseMarketDevNotice(marketDev ?? MARKET_DEV_NOTICE_SEED),
@@ -137,6 +161,56 @@ function termsValues(q: Quote): TermsValues {
   };
 }
 
+/**
+ * FB-01 (F-069): the Final Review screen's read-only Terms and Legal section and the open checks that
+ * do not block (warnings with a link to the Commercial panel). The G4 decision records the same codes.
+ */
+export async function finalReviewChecks(
+  db: DbOrTx,
+  settings: CommercialSettings,
+  q: Quote,
+  state: QuoteState,
+): Promise<{ termsAndLegal: ReviewSummary['termsAndLegal']; warnings: ReviewWarning[] }> {
+  const derived = derivedDecisionFields(state.fields, settings.derived);
+  const checks = settings.derived.g4RequiredChecks;
+  const [people, funding] = await Promise.all([
+    listUsersByIds(db, q.termsCheckedBy ? [q.termsCheckedBy] : []),
+    q.toolingFundingModel ? listValueList(db, 'tooling_funding_model', { activeOnly: false }) : [],
+  ]);
+  const warnings = g4CheckWarnings({
+    checks,
+    termsCheckedAt: q.termsCheckedAt,
+    legalReviewRequired: derived.legal_review_required,
+    legalReviewedOn: q.legalReviewedOn,
+  }).map((w) => ({ ...w, link: 'commercial' as const }));
+  return {
+    termsAndLegal: {
+      toolingFundingModel: q.toolingFundingModel,
+      toolingFundingModelLabel:
+        funding.find((v) => v.code === q.toolingFundingModel)?.label ?? null,
+      termsToolingCommitment: q.termsToolingCommitment,
+      termsMoq: q.termsMoq,
+      termsPaymentTerms: q.termsPaymentTerms,
+      termsNonstandard: q.termsNonstandard,
+      termsNotes: q.termsNotes,
+      checkedAt: iso(q.termsCheckedAt),
+      checkedByName: people[0]?.displayName ?? null,
+      legal: {
+        required: derived.legal_review_required,
+        reasons: derived.legal_review_reasons.map((code) => ({
+          code,
+          label: LEGAL_TRIGGER_LABELS[code as LegalTrigger] ?? code,
+        })),
+        reviewedOn: q.legalReviewedOn,
+        reviewerName: q.legalReviewerName,
+        note: q.legalReviewNote,
+      },
+      requiredChecks: [...checks],
+    },
+    warnings,
+  };
+}
+
 /** `QuoteDetail.commercial`. Nothing here is commercial-sensitive (no figures). */
 export async function commercialView(
   db: DbOrTx,
@@ -144,6 +218,8 @@ export async function commercialView(
   settings: CommercialSettings,
   q: Quote,
   state: QuoteState,
+  /** FB-01 (F-001): the workflow config the section locks read. */
+  workflow: LockConfig,
 ): Promise<CommercialDetail> {
   const people = await listUsersByIds(
     db,
@@ -159,13 +235,17 @@ export async function commercialView(
     (id && people.find((p) => p.id === id)?.displayName) || null;
   const derived = derivedDecisionFields(state.fields, settings.derived);
   const open = q.status !== 'closed';
+  // FB-01 (F-001): the terms and the capital flag are read-only after G4 Advance.
+  const capitalLock = sectionLock('capitalFlag', workflow, state);
+  const termsLock = sectionLock('commercialTerms', workflow, state);
   return {
     capital: {
       likely: q.capitalLikely,
       setByName: name(q.capitalLikelySetBy),
       setAt: iso(q.capitalLikelySetAt),
       noticeSentAt: iso(q.capitalNoticeSentAt),
-      canEdit: open && can(actor, 'capitalFlag.edit', state),
+      canEdit: open && !capitalLock.locked && can(actor, 'capitalFlag.edit', state),
+      lock: await lockView(db, workflow, capitalLock),
     },
     terms: {
       toolingFundingModel: q.toolingFundingModel,
@@ -176,7 +256,8 @@ export async function commercialView(
       termsNotes: q.termsNotes,
       checkedAt: iso(q.termsCheckedAt),
       checkedByName: name(q.termsCheckedBy),
-      canEdit: open && can(actor, 'terms.edit', state),
+      canEdit: open && !termsLock.locked && can(actor, 'terms.edit', state),
+      lock: await lockView(db, workflow, termsLock),
     },
     legal: {
       required: derived.legal_review_required,
@@ -312,6 +393,8 @@ export class CommercialService {
     const now = this.now();
     return withTx(async (tx) => {
       const { q, state } = await this.load(tx, quoteNumber);
+      // FB-01 (F-001): first, so every role gets the same answer once G4 is decided.
+      await assertSectionUnlocked(tx, 'capitalFlag', state, await lockConfig(tx));
       if (!can(actor, 'capitalFlag.edit', state)) {
         fail([{ code: 'NOT_PERMITTED', message: 'Requires capitalFlag.edit' } as DomainError]);
       }
@@ -361,6 +444,8 @@ export class CommercialService {
     const now = this.now();
     return withTx(async (tx) => {
       const { q, state } = await this.load(tx, quoteNumber);
+      // FB-01 (F-001): first, so every role gets the same answer once G4 is decided.
+      await assertSectionUnlocked(tx, 'commercialTerms', state, await lockConfig(tx));
       if (!can(actor, 'terms.edit', state)) {
         fail([{ code: 'NOT_PERMITTED', message: 'Requires terms.edit' } as DomainError]);
       }

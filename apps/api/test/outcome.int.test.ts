@@ -619,13 +619,19 @@ describe('G5 No response / Expired: "silence is not a loss"', () => {
 });
 
 describe('G5 On hold', () => {
-  it('needs a reason and a review date; the hold time is excluded from time in stage (CR-57)', async () => {
+  it('needs a reason, a note (F-027) and a review date; the hold time is excluded from time in stage (CR-57)', async () => {
     const qn = await inCustomerDecision();
     let res = await g5(qn, { outcomeKey: 'on_hold' });
-    expect(errorCodes(res)).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'REASON_REQUIRED']);
+    expect(errorCodes(res)).toEqual([
+      'MISSING_FIELD',
+      'MISSING_FIELD',
+      'NOTE_REQUIRED',
+      'REASON_REQUIRED',
+    ]);
     res = await g5(qn, {
       outcomeKey: 'on_hold',
       reasonCode: 'customer_requested_delay',
+      note: 'Customer pushed the launch',
       holdUntil: addCalendarDays(today(), 14),
       holdOwnerId: await userId('kam'),
     });
@@ -657,7 +663,8 @@ describe('G5 Re-quote (CR-38)', () => {
     const qn = await inCustomerDecision();
     const before = await decisions(qn);
     let res = await g5(qn, { outcomeKey: 'requote' });
-    expect(errorCodes(res)).toEqual(['REASON_REQUIRED', 'TARGET_REQUIRED']);
+    // FB-01 (F-027): a re-quote is an exception decision: it needs a note.
+    expect(errorCodes(res)).toEqual(['NOTE_REQUIRED', 'REASON_REQUIRED', 'TARGET_REQUIRED']);
     res = await g5(qn, { outcomeKey: 'requote', reasonCode: 'other', targetStageKey: 'QUOTING' });
     expect(errorCodes(res)).toEqual(['NOTE_REQUIRED']);
     res = await g5(qn, {
@@ -762,6 +769,7 @@ describe('B-26: G6 Commit & Hand Off (deck slide 15)', () => {
         {
           outcomeKey: 'hold',
           reasonCode: 'awaiting_capital_decision',
+          note: 'CER is with the approvers',
           holdUntil: addCalendarDays(today(), 10),
           holdOwnerId: await userId('kam'),
         },
@@ -772,7 +780,12 @@ describe('B-26: G6 Commit & Hand Off (deck slide 15)', () => {
     const back = await decide(
       qn,
       'G6',
-      { outcomeKey: 'requote', reasonCode: 'volume_change', targetStageKey: 'QUOTING' },
+      {
+        outcomeKey: 'requote',
+        reasonCode: 'volume_change',
+        targetStageKey: 'QUOTING',
+        note: 'Volume changed since the quote',
+      },
       'kam',
     );
     ok(back);
@@ -812,7 +825,7 @@ describe('the closure rule (CR-39/40): every terminal path', () => {
         'G1 Redirect',
         submitted,
         'G1',
-        { outcomeKey: 'redirect', reasonCode: 'stock_item' },
+        { outcomeKey: 'redirect', reasonCode: 'stock_item', note: 'Catalog item' },
         'sales-leader',
         'REDIRECTED',
       ],
@@ -991,6 +1004,7 @@ describe('the daily validity expiry job', () => {
         outcomeKey: 'requote',
         reasonCode: 'terms_change',
         targetStageKey: 'QUOTING',
+        note: 'Payment terms changed',
       }),
     );
     await recordPrice(qn);

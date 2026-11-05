@@ -16,6 +16,7 @@ import {
   CLOSURE_OWNER_DEFAULTS,
   QUOTE_STATUSES,
   REASON_CONTEXTS,
+  RESUME_AT,
   ROLES,
   SEGREGATION_DENY,
   VALUE_LIST_KEYS,
@@ -163,9 +164,14 @@ export const gateOutcomeDefinition = documented(
       ),
       notify: c(jsonb('notify').notNull().default([]), 'Notifications to plan: [{type, to}].'),
       sort: c(integer('sort').notNull().default(0), 'Display order within the gate.'),
+      resumeAt: c(
+        text('resume_at').notNull().default('intake'),
+        "FB-01 (F-030): for an outcome that returns the quote to the KAM, where the KAM's resubmission goes: intake (a new submission, G1 then Engineering) | origin (straight back to the stage it came from unless the KAM says the scope changed).",
+      ),
     },
     (t) => [
       unique('gate_outcome_definition_gate_key_key_uq').on(t.gateKey, t.key),
+      check('gate_outcome_definition_resume_at_check', inList(t.resumeAt, RESUME_AT)),
       check(
         'gate_outcome_definition_reason_context_check',
         inList(t.reasonContext, REASON_CONTEXTS),

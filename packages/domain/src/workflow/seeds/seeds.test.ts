@@ -72,7 +72,15 @@ describe('hybrid seed matches architecture §4.1', () => {
       'redirect',
       'stop',
     ]);
-    expect(outcomes('G3')).toEqual(['submit', 'hold', 'recost', 'rework', 'redirect', 'stop']);
+    expect(outcomes('G3')).toEqual([
+      'submit',
+      'hold',
+      'recost',
+      'rework',
+      'rework_kam',
+      'redirect',
+      'stop',
+    ]);
     expect(outcomes('G4')).toEqual(['approve', 'hold', 'return', 'decline']);
     expect(outcomes('G5')).toEqual([
       'awarded',

@@ -85,9 +85,11 @@ describe('pricing pass-through (B-26, D-24)', () => {
 });
 
 describe('derived decision fields', () => {
+  // FB-01 (F-069): both G4 checks switched on here; `g4-checks.test.ts` covers the seeded `[]`.
   const settings = {
     legalReviewTriggers: LEGAL_REVIEW_TRIGGERS_SEED,
     passThrough: { maxAnnualRevenueUsd: 100_000 },
+    g4RequiredChecks: ['terms_checked', 'legal_review'] as const,
   };
 
   it('derives legal_review_required and pass_through_eligible from config', () => {
@@ -100,10 +102,12 @@ describe('derived decision fields', () => {
       legal_review_required: true,
       legal_review_reasons: ['nonstandard_terms'],
       pass_through_eligible: true,
+      g4_terms_check_required: true,
+      g4_legal_review_check_required: true,
     });
   });
 
-  it('G4 Advance needs the terms check, and the Legal review only when triggered', () => {
+  it('G4 Advance needs the terms check, and the Legal review only when triggered (both checks on)', () => {
     const c = validCase(hybridConfig, 'G4', 'approve');
     const decide = (fields: Record<string, unknown>, customerStatus: string | null) =>
       evaluateTransition(
@@ -121,7 +125,7 @@ describe('derived decision fields', () => {
     expect(decide(checked, 'existing').ok).toBe(true);
     const newCustomer = decide(checked, 'not_yet_established');
     expect(!newCustomer.ok && newCustomer.errors.map((e) => e.field)).toEqual([
-      'legal_review_required,legal_reviewed_on',
+      'legal_review_required,g4_legal_review_check_required,legal_reviewed_on',
     ]);
     expect(decide({ ...checked, legal_reviewed_on: '2026-10-19' }, 'not_yet_established').ok).toBe(
       true,

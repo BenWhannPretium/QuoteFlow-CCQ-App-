@@ -27,6 +27,7 @@ import {
   OVERRIDE_APPROVAL_MODES,
   OVERRIDE_STATUSES,
   QUOTE_STATUSES,
+  RESUME_AT,
   SF_STATUS_FLAGS,
 } from './enums';
 import { appUser, baseColumns, timestamptz } from './identity';
@@ -392,6 +393,17 @@ export const quote = documented(
         'Lead review: what the lead asked the pricer to change.',
         PRICING,
       ),
+      // FB-01 (F-030): where a rework came from and where the KAM's resubmission resumes.
+      reworkOriginStageKey: c(
+        text('rework_origin_stage_key'),
+        'FB-01 (F-030): the stage a gate decision sent the quote back to the KAM from (e.g. QUOTING for G3 "Rework (back to KAM)"). Set on rework, cleared on resubmit.',
+        SYSTEM,
+      ),
+      reworkResumeAt: c(
+        text('rework_resume_at'),
+        "FB-01 (F-030): origin | intake, from the outcome's resume_at. origin: the KAM's resubmission goes straight back to the origin stage unless they say the scope changed. Cleared on resubmit.",
+        SYSTEM,
+      ),
       // B-26: capital awareness (deck slide 9, "Aware")
       capitalLikely: c(
         boolean('capital_likely').notNull().default(false),
@@ -542,6 +554,10 @@ export const quote = documented(
       check(
         'quote_sf_status_flag_check',
         sql`${t.sfStatusFlag} is null or ${inList(t.sfStatusFlag, SF_STATUS_FLAGS)}`,
+      ),
+      check(
+        'quote_rework_resume_at_check',
+        sql`${t.reworkResumeAt} is null or ${inList(t.reworkResumeAt, RESUME_AT)}`,
       ),
       index('quote_stage_priority_idx').on(t.stageKey, t.priorityScore.desc()),
       index('quote_kam_user_id_idx').on(t.kamUserId),

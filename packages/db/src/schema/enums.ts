@@ -71,6 +71,9 @@ export const VALUE_LIST_KEYS = [
   'tooling_funding_model',
 ] as const;
 
+/** FB-01 (F-030): where a KAM's resubmission resumes after a rework (`gate_outcome_definition.resume_at`). */
+export const RESUME_AT = ['origin', 'intake'] as const;
+
 export const REASON_CONTEXTS = [
   'rework',
   'redirect',

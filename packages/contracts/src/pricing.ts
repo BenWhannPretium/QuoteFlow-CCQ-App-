@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { LeadReviewView } from './lead-review';
+import { SectionLockView } from './problem';
 
 // B-11: no imports from quotes.ts here; QuoteDetail embeds QuotingDetail and the queue item extends
 // QuoteSummary in pricing-queue.ts.
@@ -115,6 +116,8 @@ export const QuotingDetail = z.object({
   /** Commercial details were withheld from this response. */
   commercialRedacted: z.boolean(),
   canEdit: z.boolean(),
+  /** FB-01 (F-001): read-only after G3 is decided, until a send-back reopens it. */
+  lock: SectionLockView,
   /** The pricer the pricing lead assigned (B-26), like the Engineering tab's assigned engineer. */
   assignedPricerId: z.string().nullable(),
   assignedPricerName: z.string().nullable(),
