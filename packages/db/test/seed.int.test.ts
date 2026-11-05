@@ -236,9 +236,10 @@ describe('synthetic data', () => {
   });
 
   it('every quote carries an engine score; G1 rework quotes are back with the KAM', async () => {
+    // FB-02: a new database scores with model v2 (timing on Quote needed by) from v1's date.
     const tiers = await q<{ priority_tier: string; n: number }>(
       sql`select priority_tier, count(*)::int as n from quote
-          where priority_score is null or scoring_model_version is distinct from 1 group by 1`,
+          where priority_score is null or scoring_model_version is distinct from 2 group by 1`,
     );
     expect(tiers).toEqual([]);
     const keys = await q<{ priority_tier: string }>(sql`select distinct priority_tier from quote`);
