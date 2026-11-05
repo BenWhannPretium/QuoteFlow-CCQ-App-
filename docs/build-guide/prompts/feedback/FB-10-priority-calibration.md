@@ -36,6 +36,10 @@ This step is **gated**. Before writing code:
 - **Before opening the PR, run `pnpm verify`** (lint, typecheck, unit, integration, build) with `docker compose up -d db`. If the session can't run Docker, say so in the PR body and let CI run the integration tests. Fix every failure. Never skip or weaken a test to get green.
 - Conventional Commits (`feat(intake): …`), a draft PR, and the repo's PR template.
 
+## Inputs already in the repo
+- `docs/build-guide/feedback/inputs/9-box.md`: the Where-to-Play tiers and segments. Confirm the cell placement and points with Melanie Rasche and decide segment vs market (D-004).
+- `docs/build-guide/feedback/inputs/platform-guide.md`: size, minimum program (1M or 3M units) and tooling time per platform. Confirm the column mapping with Danielle Leu. Map the platforms to `process_type` as shown there.
+
 ## Context
 - **The engine:** `packages/domain/src/scoring/`.
   - Weights and tiers are in the `scoring_model` table: v1 weights are revenue .20, volume .15, strategic_fit .15, capital_exposure .15, customer_risk .10, product_fit .15, timing .10; tiers Critical ≥80, High ≥60, Standard ≥40.

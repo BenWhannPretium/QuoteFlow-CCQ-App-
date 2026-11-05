@@ -52,10 +52,12 @@ These are small, well-defined changes from the Sales & Marketing leadership sess
 - Check that FB-02's "Quote needed by" now drives `timing`, if FB-02 has merged.
 
 ## 3. F-073: strategic fit by market (mechanism and display now; points wait for D-004)
+
 - Today `strategic_fit` maps by `market` with an **empty map** (every quote scores 50).
-- If `docs/build-guide/feedback/inputs/9-box*.{csv,xlsx,md}` exists (Melanie Rasche's grid, A-009), seed the market → points map from it **as provisional**, with a data migration that creates a new scoring-model version (don't edit v1 in place if the model is versioned; follow the existing pattern).
-- If it doesn't exist, change no values. Record "waiting for the 9-box file" in the notes and in `04` §2a.
-- Either way, the **"Why this priority" panel** shows the market and the strategic-fit points it contributed (T-036). Add a unit test with a non-empty map that proves two markets score differently.
+- Read `docs/build-guide/feedback/inputs/9-box.md`. It holds the Where-to-Play tiers and segments, but the placement of segments in cells is unconfirmed, no points are defined, and the grid is **by segment** while QuoteFlow's `market` list is coarse. So **seed no strategic-fit values in this step.** Record in the notes and in `04` §2a that the points wait for D-004 (segment vs market, and points per cell).
+- Build what doesn't depend on the values:
+  - The **"Why this priority" panel** shows the market and the strategic-fit points it contributed (T-036), and labels them "provisional" while the map is empty.
+  - The scoring config accepts an optional **segment-level map** (`strategic_fit.bySegment`) next to `byMarket`, so FB-10 can load the 9-box as data if D-004 chooses segments. The domain prefers segment over market over the default. Unit tests use a non-empty test map and prove two markets (and two segments) score differently.
 
 ## 4. F-022 and V-055: funding options (D-023 decided; "Shared" provisional under D-003)
 - Relabel the `tooling_funding_model` value **ZERO_CER** as **"$0 CER (customer-reimbursed capital)"**, with help text (Oleg Yarovinski, Nov 3, D-023): "Follows the standard quoting process. The capital is reimbursed by the customer as a lump sum or through amortization, and is approved after award like company-funded capital. At purchasing, the customer invoice or contract goes with the mold PO." Show it as an ⓘ next to the option. No separate workflow path.
