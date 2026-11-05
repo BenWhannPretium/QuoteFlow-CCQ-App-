@@ -22,6 +22,7 @@ import {
 import { AssignDialog, engQueueQueryKey } from '@/components/engineering/AssignDialog';
 import { BulkReassignDialog } from '@/components/engineering/BulkReassignDialog';
 import { businessDays } from '@/components/engineering/format';
+import { MoldModificationChip } from '@/components/intake/IntakeFacts';
 import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -447,6 +448,8 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
                   ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
                   : statusLabel(q)}
               </span>
+              {/* FB-02 (F-015, T-012) */}
+              <MoldModificationChip show={q.moldModification} />
             </span>
           );
         },

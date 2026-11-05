@@ -1,5 +1,5 @@
 {
-  "id": "d43340f1-d020-4df8-bf51-f753bfe11dcb",
+  "id": "c081519b-c610-4314-9f42-41bc0d2baa4e",
   "prevId": "313772fc-bb9e-46c1-a1cf-dd433bcc4cf9",
   "version": "7",
   "dialect": "postgresql",
@@ -2288,7 +2288,7 @@
       "checkConstraints": {
         "attachment_kind_check": {
           "name": "attachment_kind_check",
-          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'other')"
+          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'other', 'bid_file', 'project_brief', 'competitor_drawing')"
         },
         "attachment_size_check": {
           "name": "attachment_size_check",
@@ -4108,6 +4108,55 @@
           "primaryKey": false,
           "notNull": false
         },
+        "height_mm": {
+          "name": "height_mm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "width_or_diameter_mm": {
+          "name": "width_or_diameter_mm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "depth_mm": {
+          "name": "depth_mm",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gram_weight_g": {
+          "name": "gram_weight_g",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modify_existing_mold": {
+          "name": "modify_existing_mold",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "existing_mold_ref": {
+          "name": "existing_mold_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mold_change_description": {
+          "name": "mold_change_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rfp_link": {
+          "name": "rfp_link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "quote_variants_note": {
           "name": "quote_variants_note",
           "type": "text",
@@ -4875,6 +4924,14 @@
         "quote_priority_score_check": {
           "name": "quote_priority_score_check",
           "value": "\"quote\".\"priority_score\" between 0 and 100"
+        },
+        "quote_dimensions_positive_check": {
+          "name": "quote_dimensions_positive_check",
+          "value": "(\"quote\".\"height_mm\" is null or \"quote\".\"height_mm\" > 0) and (\"quote\".\"width_or_diameter_mm\" is null or \"quote\".\"width_or_diameter_mm\" > 0) and (\"quote\".\"depth_mm\" is null or \"quote\".\"depth_mm\" > 0) and (\"quote\".\"gram_weight_g\" is null or \"quote\".\"gram_weight_g\" > 0)"
+        },
+        "quote_rfp_link_https_check": {
+          "name": "quote_rfp_link_https_check",
+          "value": "\"quote\".\"rfp_link\" is null or \"quote\".\"rfp_link\" ~* '^https://'"
         },
         "quote_decoration_print_colors_check": {
           "name": "quote_decoration_print_colors_check",

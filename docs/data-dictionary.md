@@ -678,6 +678,14 @@ The CCQ quote: the workflow record CCQ owns.
 | `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. | KAM |
 | `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |
 | `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. | KAM |
+| `height_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product height (mm). | KAM |
+| `width_or_diameter_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product width or diameter (mm). | KAM |
+| `depth_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product depth (mm). | KAM |
+| `gram_weight_g` | numeric(10, 2) | yes |  |  | FB-02 (F-016): gram weight (g). | KAM |
+| `modify_existing_mold` | boolean | no | false |  | FB-02 (F-015): the request modifies an existing mold (Engineering queue chip). | KAM |
+| `existing_mold_ref` | text | yes |  |  | FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold. | KAM |
+| `mold_change_description` | text | yes |  |  | FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400". | KAM |
+| `rfp_link` | text | yes |  |  | FB-02 (F-014): customer RFP / portal link (https only, ≤ 500). | KAM |
 | `quote_variants_note` | text | yes |  |  | FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056. | KAM |
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
 | `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
@@ -742,7 +750,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 

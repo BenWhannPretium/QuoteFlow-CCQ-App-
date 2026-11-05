@@ -342,6 +342,49 @@ export const quote = documented(
         'FB-02 (F-013): number of print colors (1–12) when Decoration is picked.',
         KAM,
       ),
+      // FB-02 (F-016, D-018): dimensions for the drawing-or-minimum-spec rule.
+      heightMm: c(
+        numeric('height_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product height (mm).',
+        KAM,
+      ),
+      widthOrDiameterMm: c(
+        numeric('width_or_diameter_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product width or diameter (mm).',
+        KAM,
+      ),
+      depthMm: c(
+        numeric('depth_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product depth (mm).',
+        KAM,
+      ),
+      gramWeightG: c(
+        numeric('gram_weight_g', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): gram weight (g).',
+        KAM,
+      ),
+      // FB-02 (F-015): modify an existing mold.
+      modifyExistingMold: c(
+        boolean('modify_existing_mold').notNull().default(false),
+        'FB-02 (F-015): the request modifies an existing mold (Engineering queue chip).',
+        KAM,
+      ),
+      existingMoldRef: c(
+        text('existing_mold_ref'),
+        'FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold.',
+        KAM,
+      ),
+      moldChangeDescription: c(
+        text('mold_change_description'),
+        'FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400".',
+        KAM,
+      ),
+      // FB-02 (F-014)
+      rfpLink: c(
+        text('rfp_link'),
+        'FB-02 (F-014): customer RFP / portal link (https only, ≤ 500).',
+        KAM,
+      ),
       quoteVariantsNote: c(
         text('quote_variants_note'),
         'FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056.',
@@ -630,6 +673,11 @@ export const quote = documented(
       check('quote_quote_number_format_check', sql`${t.quoteNumber} ~ '^CCQ-[0-9]{4}-[0-9]{5}$'`),
       check('quote_version_check', sql`${t.version} >= 1`),
       check('quote_priority_score_check', sql`${t.priorityScore} between 0 and 100`),
+      check(
+        'quote_dimensions_positive_check',
+        sql`(${t.heightMm} is null or ${t.heightMm} > 0) and (${t.widthOrDiameterMm} is null or ${t.widthOrDiameterMm} > 0) and (${t.depthMm} is null or ${t.depthMm} > 0) and (${t.gramWeightG} is null or ${t.gramWeightG} > 0)`,
+      ),
+      check('quote_rfp_link_https_check', sql`${t.rfpLink} is null or ${t.rfpLink} ~* '^https://'`),
       check(
         'quote_decoration_print_colors_check',
         sql`${t.decorationPrintColors} is null or ${t.decorationPrintColors} between 1 and 12`,

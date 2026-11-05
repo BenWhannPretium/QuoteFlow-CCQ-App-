@@ -28,7 +28,7 @@ export const STEPS = [
   { n: 1, key: 'opportunity', title: 'Opportunity' },
   { n: 2, key: 'customer', title: 'Customer & destination' },
   { n: 3, key: 'product', title: 'Product & volume' },
-  { n: 4, key: 'review', title: 'Drawing, notes & review' },
+  { n: 4, key: 'review', title: 'Drawing, files & review' },
 ] as const;
 export type StepNumber = (typeof STEPS)[number]['n'];
 
@@ -65,6 +65,15 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   labels_purchased_by: { label: 'Labels purchased by', step: 3 },
   decoration_type: { label: 'Decoration type', step: 3 },
   decoration_print_colors: { label: 'Number of print colors', step: 3 },
+  height_mm: { label: 'Height (mm)', step: 3 },
+  width_or_diameter_mm: { label: 'Width or diameter (mm)', step: 3 },
+  depth_mm: { label: 'Depth (mm)', step: 3 },
+  gram_weight_g: { label: 'Gram weight (g)', step: 3 },
+  modify_existing_mold: { label: 'Modify an existing mold', step: 3 },
+  existing_mold_ref: { label: 'Existing mold / part number', step: 3 },
+  mold_change_description: { label: 'What changes', step: 3 },
+  drawing_or_min_spec: { label: 'Drawing or minimum spec', step: 4 },
+  rfp_link: { label: 'Customer RFP / portal link', step: 4 },
   packaging_type: { label: 'Packaging type', step: 3 },
   packaging_notes: { label: 'Packaging requirements', step: 3 },
   est_annual_volume: { label: 'Estimated annual volume', step: 3 },
@@ -117,6 +126,9 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
       ...(typeof s.intake_variants_note_max_length === 'number'
         ? { variantsNoteMaxLength: s.intake_variants_note_max_length }
         : {}),
+      ...(Array.isArray(s.intake_min_spec_fields)
+        ? { minSpecFields: s.intake_min_spec_fields as never }
+        : {}),
       drawingProvidedCodes: (lists.drawing_status ?? [])
         .filter((e) => meta(e, 'hasDrawing'))
         .map((e) => e.code),
@@ -154,9 +166,15 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
   }
 }
 
-/** The same evaluation the API runs at submit, for instant feedback (the API stays the authority). */
-export const evaluateDraft = (data: IntakeDraftData, cfg: WizardConfig): IntakeEvaluation =>
-  evaluateIntake(intakeValues(data), cfg.intake, new Date());
+/**
+ * The same evaluation the API runs at submit, for instant feedback (the API stays the authority).
+ * `hasDrawing`: a bottle or competitor drawing is attached (FB-02, F-016).
+ */
+export const evaluateDraft = (
+  data: IntakeDraftData,
+  cfg: WizardConfig,
+  hasDrawing: boolean,
+): IntakeEvaluation => evaluateIntake(intakeValues(data, hasDrawing), cfg.intake, new Date());
 
 /** The value-list entry for a code (its label and meta). */
 export const listEntry = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>

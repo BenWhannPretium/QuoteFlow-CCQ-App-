@@ -75,6 +75,11 @@ async function prefill(
     neckFinishType: '400',
     pcrLevel: '0',
     colorType: 'NATURAL',
+    // F-016: the minimum spec, so these intakes submit without a drawing file.
+    heightMm: 180,
+    widthOrDiameterMm: 65,
+    depthMm: 65,
+    gramWeightG: 24,
     packagingType: 'BULK',
     estAnnualVolume: 750_000,
     estAnnualRevenue: 150_000,
@@ -151,7 +156,7 @@ describe('scoring and the quote read', () => {
       tier: q.priorityTier,
       computedTier: q.priorityTier,
       tierOverridden: false,
-      modelVersion: 1,
+      modelVersion: 2, // FB-02: v2 times on Quote needed by
     });
     expect(d.priority.breakdown.map((b) => b.key)).toEqual([
       'revenue',
@@ -262,7 +267,7 @@ describe('G1 decisions through the generic route', () => {
     const evidence = decision!.evidence as Record<string, unknown>;
     expect(evidence).toMatchObject({
       stageKey: 'INTAKE',
-      priority: { score: q.priorityScore, tier: q.priorityTier, modelVersion: 1 },
+      priority: { score: q.priorityScore, tier: q.priorityTier, modelVersion: 2 },
       warnings: [],
       intake: { quoteNumber: q.quoteNumber, productFamily: 'BOTTLE', resin: 'HDPE' },
     });

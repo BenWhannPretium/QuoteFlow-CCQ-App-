@@ -5,8 +5,14 @@ import {
   COMPONENT_FOLLOW_UP_FIELDS,
   CUSTOM_DESCRIPTION_FIELDS,
   CUSTOM_LIST_FIELDS,
+  DIMENSION_FIELDS,
+  DIMENSION_MAX,
   INTAKE_TEXT_LIMITS,
+  MIN_SPEC_FIELD_LABELS,
+  MIN_SPEC_FIELDS,
+  MIN_SPEC_KEYS,
   PRINT_COLORS_RANGE,
+  RFP_LINK_PATTERN,
 } from './product-facts';
 import type { QuoteStatus } from '../types/quote';
 import { requiredRuleSchema } from '../types/workflow-config';
@@ -97,6 +103,11 @@ export const intakeConfigSchema = z
       .default({}),
     /** FB-02 (F-075): longest "Quote variants requested" note (app_setting `intake_variants_note_max_length`). */
     variantsNoteMaxLength: z.number().int().positive().default(300),
+    /**
+     * FB-02 (F-016, D-018): without a bottle or competitor drawing attached, every one of these must be
+     * filled to submit (app_setting `intake_min_spec_fields`, provisional). Empty = no minimum spec.
+     */
+    minSpecFields: z.array(z.enum(MIN_SPEC_KEYS)).default([...MIN_SPEC_KEYS]),
   })
   .strict();
 
@@ -300,6 +311,71 @@ export function productFactIssues(values: FieldValues, config: IntakeConfig): In
 }
 
 /**
+ * F-016: is there a drawing (`has_drawing_attachment`: a bottle or competitor drawing on the draft or
+ * quote), and which minimum-spec fields are still empty. Where attachments aren't known (a stored
+ * quote's completeness check), a drawing status from `drawingProvidedCodes` stands in for the file.
+ */
+export function drawingOrSpecStatus(
+  values: FieldValues,
+  config: IntakeConfig,
+): { drawingAttached: boolean; missing: string[]; specComplete: boolean; satisfied: boolean } {
+  const attached = values.has_drawing_attachment;
+  const drawingAttached =
+    typeof attached === 'boolean'
+      ? attached
+      : typeof values.drawing_status === 'string' &&
+        config.drawingProvidedCodes.includes(values.drawing_status);
+  const missing = config.minSpecFields
+    .flatMap((key) => MIN_SPEC_FIELDS[key])
+    .filter((field) => !isPresent(values[field]));
+  const specComplete = missing.length === 0;
+  return { drawingAttached, missing, specComplete, satisfied: drawingAttached || specComplete };
+}
+
+/** F-015, F-016, F-014: mold modification details, dimensions and the RFP link. */
+export function moldAndLinkIssues(values: FieldValues): IntakeIssue[] {
+  const issues: IntakeIssue[] = [];
+  if (values.modify_existing_mold === true) {
+    for (const field of ['existing_mold_ref', 'mold_change_description']) {
+      if (!isPresent(values[field])) {
+        issues.push({ code: 'MISSING_FIELD', field, message: `${field} is required` });
+      }
+    }
+  }
+  for (const field of ['existing_mold_ref', 'mold_change_description', 'rfp_link'] as const) {
+    if (tooLong(values[field], INTAKE_TEXT_LIMITS[field])) {
+      issues.push({
+        code: 'INVALID_VALUE',
+        field,
+        message: `Keep it to ${INTAKE_TEXT_LIMITS[field]} characters`,
+      });
+    }
+  }
+  for (const field of DIMENSION_FIELDS) {
+    const v = values[field];
+    if (
+      isPresent(v) &&
+      !(typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= DIMENSION_MAX)
+    ) {
+      issues.push({
+        code: 'INVALID_VALUE',
+        field,
+        message: 'Enter a number above zero',
+      });
+    }
+  }
+  const link = values.rfp_link;
+  if (isPresent(link) && !(typeof link === 'string' && RFP_LINK_PATTERN.test(link.trim()))) {
+    issues.push({
+      code: 'INVALID_VALUE',
+      field: 'rfp_link',
+      message: 'Use a full https:// link',
+    });
+  }
+  return issues;
+}
+
+/**
  * Fields whose value no longer applies and is cleared when the intake is stored: a description for a
  * value that isn't "Custom", the resin grade without the checkbox, a follow-up of a component that
  * isn't picked (F-013 "cleared when it is deselected").
@@ -313,6 +389,9 @@ export function inapplicableIntakeFields(values: FieldValues, config: IntakeConf
     }
   }
   if (values.resin_customer_specified !== true) out.push('resin_grade');
+  if (values.modify_existing_mold !== true) {
+    out.push('existing_mold_ref', 'mold_change_description');
+  }
   const active = activeFollowUps(values.components, config.componentFollowUps);
   out.push(...COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)));
   return out;
@@ -353,6 +432,19 @@ export function evaluateIntake(
 
   blocking.push(...needByDateIssues(values, now));
   blocking.push(...productFactIssues(values, config));
+  blocking.push(...moldAndLinkIssues(values));
+
+  // F-016 (D-018): a drawing, or the minimum spec, to advance.
+  const drawingOrSpec = drawingOrSpecStatus(values, config);
+  if (!drawingOrSpec.satisfied) {
+    const words = drawingOrSpec.missing.map((f) => MIN_SPEC_FIELD_LABELS[f] ?? f).join(', ');
+    blocking.push({
+      code: 'DRAWING_OR_MIN_SPEC_REQUIRED',
+      field: 'drawing_or_min_spec',
+      message: `Attach a bottle or competitor drawing, or complete the minimum spec. Missing: ${words}.`,
+      missing: drawingOrSpec.missing,
+    });
+  }
 
   const volume = values.est_annual_volume;
   if (
@@ -397,9 +489,9 @@ export function evaluateIntake(
     });
   }
 
-  // The drawing prompt never blocks (Danielle Leu).
-  const drawing = values.drawing_status;
-  if (typeof drawing !== 'string' || !config.drawingProvidedCodes.includes(drawing)) {
+  // No drawing on file is amber even when the minimum spec carries the submit (Danielle Leu: quotes
+  // without a drawing take longer). A drawing status alone no longer counts (F-016).
+  if (!drawingOrSpec.drawingAttached) {
     warnings.push({
       code: 'DRAWING_MISSING',
       field: 'drawing_status',

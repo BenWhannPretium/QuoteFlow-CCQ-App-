@@ -198,6 +198,11 @@ function OpportunityCard({
             </Link>
           </Button>
         </div>
+      ) : !o.accountId ? (
+        // FB-02 (F-007, D-011): the customer is the opportunity's SF Account; add it in Salesforce first.
+        <p className="text-muted-foreground max-w-56 text-xs" data-testid="no-sf-account">
+          Add the account to this opportunity in Salesforce, then pick it.
+        </p>
       ) : (
         <Button
           onClick={onPick}

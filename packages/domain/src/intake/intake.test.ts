@@ -6,6 +6,7 @@ import {
   isPlaceholderVolume,
   parseIntakeConfig,
   renderDescriptionTemplate,
+  inapplicableIntakeFields,
   shipToChanged,
   todayInCentral,
 } from './intake';
@@ -86,6 +87,8 @@ describe('evaluateIntake', () => {
       'MISSING_FIELD:product_family',
       'MISSING_FIELD:resin',
       'MISSING_FIELD:est_annual_volume',
+      // F-016: no drawing and no minimum spec.
+      'DRAWING_OR_MIN_SPEC_REQUIRED:drawing_or_min_spec',
       // F-067: only CCQ is submitted, so a blank class blocks too (a domain rule, not config).
       'MISSING_FIELD:request_class',
     ]);
@@ -170,21 +173,156 @@ describe('evaluateIntake', () => {
     expect(ev({ ...complete, est_annual_revenue: 0 }, config).ready).toBe(true);
   });
 
-  describe('drawing', () => {
-    it.each([['NONE'], ['COMING'], ['SAMPLE_ONLY'], [null]])(
-      '%s warns but never blocks',
+  describe('drawing or minimum spec (F-016, D-018)', () => {
+    const spec = {
+      height_mm: 180,
+      width_or_diameter_mm: 65.5,
+      depth_mm: 65.5,
+      gram_weight_g: 24,
+      neck_diameter: '28',
+      neck_finish_type: '410',
+      resin: 'HDPE',
+      color_type: 'NATURAL',
+    };
+    const noDrawing = { ...complete, has_drawing_attachment: false, drawing_status: 'NONE' };
+
+    it.each([['NONE'], ['COMING'], ['SAMPLE_ONLY'], [null], ['HAVE_DRAWING']])(
+      'a drawing status (%s) without a drawing file and without the spec blocks',
       (status) => {
-        const result = ev({ ...complete, drawing_status: status }, config);
-        expect(result.ready).toBe(true);
-        expect(result.warnings).toEqual([
+        const result = ev({ ...noDrawing, drawing_status: status });
+        expect(result.ready).toBe(false);
+        expect(result.blocking).toEqual([
           {
-            code: 'DRAWING_MISSING',
-            field: 'drawing_status',
-            message: 'Quotes without a drawing usually take longer.',
+            code: 'DRAWING_OR_MIN_SPEC_REQUIRED',
+            field: 'drawing_or_min_spec',
+            missing: ['height_mm', 'width_or_diameter_mm', 'depth_mm', 'gram_weight_g'],
+            message:
+              'Attach a bottle or competitor drawing, or complete the minimum spec. Missing: height, width or diameter, depth, gram weight.',
           },
         ]);
       },
     );
+
+    it('the full minimum spec submits without a drawing (amber: it takes longer)', () => {
+      const result = ev({ ...noDrawing, ...spec });
+      expect(result.ready).toBe(true);
+      expect(codes(result.warnings)).toEqual(['DRAWING_MISSING:drawing_status']);
+    });
+
+    it('a drawing file submits without the spec, and nothing is amber', () => {
+      const result = ev({ ...complete, has_drawing_attachment: true, drawing_status: 'NONE' });
+      expect(result.ready).toBe(true);
+      expect(result.warnings).toEqual([]);
+    });
+
+    it('names exactly what is missing: no drawing and no gram weight', () => {
+      const { gram_weight_g: _g, ...rest } = spec;
+      const result = ev({ ...noDrawing, ...rest });
+      expect(result.blocking).toHaveLength(1);
+      expect(result.blocking[0]!.missing).toEqual(['gram_weight_g']);
+      expect(result.blocking[0]!.message).toContain('Missing: gram weight.');
+    });
+
+    it.each([
+      ['height', ['height_mm']],
+      ['widthOrDiameter', ['width_or_diameter_mm']],
+      ['depth', ['depth_mm']],
+      ['gramWeight', ['gram_weight_g']],
+      ['neck', ['neck_diameter', 'neck_finish_type']],
+      ['resin', ['resin']],
+      ['color', ['color_type']],
+    ] as const)('key %s needs %j', (key, fields) => {
+      const only = { ...config, requiredFields: [], minSpecFields: [key] };
+      const without = Object.fromEntries(fields.map((f) => [f, null]));
+      const issue = ev({ ...noDrawing, ...spec, ...without }, only).blocking.find(
+        (b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED',
+      );
+      expect(issue?.missing).toEqual([...fields]);
+      expect(ev({ ...noDrawing, ...spec }, only).ready).toBe(true);
+    });
+
+    it('"neck" means diameter and finish: one of the two is not enough', () => {
+      const only = { ...config, minSpecFields: ['neck' as const] };
+      expect(
+        ev({ ...noDrawing, ...spec, neck_finish_type: null }, only).blocking[0]?.missing,
+      ).toEqual(['neck_finish_type']);
+    });
+
+    it('the set is config: an empty list never blocks', () => {
+      expect(ev(noDrawing, { ...config, minSpecFields: [] }).ready).toBe(true);
+      expect(() =>
+        parseIntakeConfig({
+          requiredFields: [],
+          volumePlaceholder: {},
+          defaultRequestClass: 'CCQ',
+          allowedRequestClasses: ['CCQ'],
+          redirectMessage: 'x',
+          drawingProvidedCodes: [],
+          minSpecFields: ['layerStructure' as never],
+        }),
+      ).toThrow();
+    });
+
+    it('dimensions are numbers above zero', () => {
+      for (const bad of [0, -1, '12', 1e9]) {
+        expect(codes(ev({ ...complete, height_mm: bad }).blocking)).toEqual([
+          'INVALID_VALUE:height_mm',
+        ]);
+      }
+      expect(ev({ ...complete, gram_weight_g: 0.01 }).ready).toBe(true);
+    });
+  });
+
+  describe('modify an existing mold (F-015)', () => {
+    it('needs the mold / part number and what changes', () => {
+      expect(codes(ev({ ...complete, modify_existing_mold: true }).blocking)).toEqual([
+        'MISSING_FIELD:existing_mold_ref',
+        'MISSING_FIELD:mold_change_description',
+      ]);
+      expect(
+        ev({
+          ...complete,
+          modify_existing_mold: true,
+          existing_mold_ref: 'M-1234',
+          mold_change_description: 'finish change 28-410 → 28-400',
+        }).ready,
+      ).toBe(true);
+    });
+
+    it('caps the texts (60 and 500) and ignores them when unticked', () => {
+      expect(
+        codes(
+          ev({
+            ...complete,
+            modify_existing_mold: true,
+            existing_mold_ref: 'x'.repeat(61),
+            mold_change_description: 'x'.repeat(501),
+          }).blocking,
+        ),
+      ).toEqual(['INVALID_VALUE:existing_mold_ref', 'INVALID_VALUE:mold_change_description']);
+      expect(ev({ ...complete, modify_existing_mold: false, existing_mold_ref: null }).ready).toBe(
+        true,
+      );
+      expect(inapplicableIntakeFields({ modify_existing_mold: false }, config)).toEqual(
+        expect.arrayContaining(['existing_mold_ref', 'mold_change_description']),
+      );
+    });
+  });
+
+  describe('customer RFP / portal link (F-014)', () => {
+    it.each([
+      ['https://ariba.example.com/rfp/123', true],
+      ['https://portal.example.co.uk', true],
+      ['  https://example.com/a?b=c#d  ', true],
+      ['http://example.com/rfp', false],
+      ['javascript:alert(1)', false],
+      ['https://', false],
+      ['https://exa mple.com', false],
+      ['example.com/rfp', false],
+      [`https://example.com/${'x'.repeat(490)}`, false],
+    ])('%s → %s', (link, ok) => {
+      expect(ev({ ...complete, rfp_link: link }).ready).toBe(ok);
+    });
   });
 
   describe('request class (F-067)', () => {

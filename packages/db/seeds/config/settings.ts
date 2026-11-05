@@ -44,6 +44,21 @@ export const INTAKE_ALLOWED_REQUEST_CLASSES = ['CCQ'];
 export const INTAKE_REDIRECT_MESSAGE =
   'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
 
+/**
+ * FB-02 (F-016): the minimum spec without a drawing (D-018 decided; the list is provisional).
+ * TODO(A-024): Jim Zweifel / Danielle Leu may add 'layerStructure' and a container photo; add the
+ * fields first, then the keys (MIN_SPEC_KEYS in the domain).
+ */
+export const INTAKE_MIN_SPEC_FIELDS = [
+  'height',
+  'widthOrDiameter',
+  'depth',
+  'gramWeight',
+  'neck',
+  'resin',
+  'color',
+];
+
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
 export const INTAKE_FIELD_HELP: Record<string, string> = {
   sf_opportunity_id:
@@ -85,7 +100,12 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   standard_description: 'A consistent description makes requests easy to compare and search.',
   description: 'Anything else about the request, in your own words.',
   drawing_status:
-    'A drawing is the fastest way to an accurate quote; without one it usually takes longer.',
+    'A drawing is the fastest way to an accurate quote. Without a bottle or competitor drawing attached, the minimum spec is required.',
+  dimensions:
+    'Height, width or diameter, depth and gram weight. Required (with neck, resin and color) when no drawing is attached.',
+  modify_existing_mold:
+    'Changing a mold we already run (e.g. a finish change). Attach the reference drawing or a photo of the part.',
+  rfp_link: 'The customer’s RFP or bid portal page, if there is one (https link).',
   comments_for_engineering: 'Context only you know: the customer, competitors, history, deadlines.',
 };
 
@@ -196,6 +216,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: 300,
     description:
       'FB-02 (F-075): longest "Quote variants requested" note (characters). The note is the interim answer to D-017 (option B); structured scenarios are F-056 (P1).',
+  },
+  {
+    key: 'intake_min_spec_fields',
+    value: INTAKE_MIN_SPEC_FIELDS,
+    description:
+      'FB-02 (F-016, D-018 decided: Paul Slomkowski, Jim Zweifel, Matthew Graden, Tania Nazario): without a bottle or competitor drawing attached, every one of these must be filled to submit (422 DRAWING_OR_MIN_SPEC_REQUIRED). Keys: height, widthOrDiameter, depth, gramWeight, neck (diameter + finish), resin, color. Provisional: A-024 may add layer structure and a container photo.',
   },
   {
     key: 'intake_redirect_message',
@@ -327,12 +353,13 @@ export const SCORING_MODEL_V1 = scoringModelRow(SCORING_MODEL_V1_INPUT, {
 
 /**
  * FB-02 (F-009): v2 scores timing on the KAM's "Quote needed by" date. Same weights and bands as v1
- * (D-004 open). Existing environments get it from migration 0026 (as max version + 1, copied from the
- * model in effect); here it is only inserted when version 2 doesn't exist yet, so a re-seed never
- * rewrites a version an admin made.
+ * (D-004 open). In a new database it is in effect from the same date as v1, so every score uses it
+ * (intake no longer stores the close date v1 reads). Existing environments get it from migration 0026
+ * (as max version + 1, copied from the model in effect, effective at the migration); here it is only
+ * inserted when no model reads the need-by date yet, so a re-seed never rewrites a version an admin made.
  */
 export const SCORING_MODEL_V2 = scoringModelRow(SCORING_MODEL_V2_INPUT, {
-  effectiveFrom: new Date('2026-11-05T00:00:00Z'),
+  effectiveFrom: new Date('2026-10-01T00:00:00Z'),
   changeReason:
     "FB-02 (F-009): timing reads the KAM's Quote needed by date instead of the Salesforce close date. Weights and bands unchanged (D-004 open).",
 });

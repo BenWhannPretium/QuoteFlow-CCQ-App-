@@ -1,4 +1,5 @@
 ALTER TABLE "value_list" DROP CONSTRAINT "value_list_list_key_check";--> statement-breakpoint
+ALTER TABLE "attachment" DROP CONSTRAINT "attachment_kind_check";--> statement-breakpoint
 ALTER TABLE "customer" DROP CONSTRAINT "customer_sf_account_matches_status_check";--> statement-breakpoint
 ALTER TABLE "quote" ADD COLUMN "quote_needed_by" date;--> statement-breakpoint
 ALTER TABLE "quote" ADD COLUMN "product_needed_by" date;--> statement-breakpoint
@@ -18,9 +19,20 @@ ALTER TABLE "quote" ADD COLUMN "liner_spec" text;--> statement-breakpoint
 ALTER TABLE "quote" ADD COLUMN "labels_purchased_by" text;--> statement-breakpoint
 ALTER TABLE "quote" ADD COLUMN "decoration_type" text;--> statement-breakpoint
 ALTER TABLE "quote" ADD COLUMN "decoration_print_colors" integer;--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "height_mm" numeric(10, 2);--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "width_or_diameter_mm" numeric(10, 2);--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "depth_mm" numeric(10, 2);--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "gram_weight_g" numeric(10, 2);--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "modify_existing_mold" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "existing_mold_ref" text;--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "mold_change_description" text;--> statement-breakpoint
+ALTER TABLE "quote" ADD COLUMN "rfp_link" text;--> statement-breakpoint
 ALTER TABLE "quote" ADD COLUMN "quote_variants_note" text;--> statement-breakpoint
 ALTER TABLE "value_list" ADD CONSTRAINT "value_list_list_key_check" CHECK ("value_list"."list_key" in ('product_family', 'market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'labels_purchased_by', 'decoration_type'));--> statement-breakpoint
+ALTER TABLE "attachment" ADD CONSTRAINT "attachment_kind_check" CHECK ("attachment"."kind" in ('bottle_drawing', 'spec', 'sample_photo', 'other', 'bid_file', 'project_brief', 'competitor_drawing'));--> statement-breakpoint
 ALTER TABLE "customer" ADD CONSTRAINT "customer_existing_has_sf_account_check" CHECK ("customer"."status" <> 'existing' or "customer"."sf_account_id" is not null);--> statement-breakpoint
+ALTER TABLE "quote" ADD CONSTRAINT "quote_dimensions_positive_check" CHECK (("quote"."height_mm" is null or "quote"."height_mm" > 0) and ("quote"."width_or_diameter_mm" is null or "quote"."width_or_diameter_mm" > 0) and ("quote"."depth_mm" is null or "quote"."depth_mm" > 0) and ("quote"."gram_weight_g" is null or "quote"."gram_weight_g" > 0));--> statement-breakpoint
+ALTER TABLE "quote" ADD CONSTRAINT "quote_rfp_link_https_check" CHECK ("quote"."rfp_link" is null or "quote"."rfp_link" ~* '^https://');--> statement-breakpoint
 ALTER TABLE "quote" ADD CONSTRAINT "quote_decoration_print_colors_check" CHECK ("quote"."decoration_print_colors" is null or "quote"."decoration_print_colors" between 1 and 12);--> statement-breakpoint
 ALTER TABLE "quote" ADD CONSTRAINT "quote_need_by_order_check" CHECK ("quote"."product_needed_by" is null or "quote"."quote_needed_by" is null or "quote"."product_needed_by" >= "quote"."quote_needed_by");--> statement-breakpoint
 -- ── FB-02 data migration (hand-written) ─────────────────────────────────────────────────────────────
@@ -193,3 +205,18 @@ FROM (VALUES
 ) AS v(code, follow_ups)
 WHERE "value_list"."list_key" = 'component' AND "value_list"."code" = v.code
   AND NOT ("value_list"."meta" ? 'followUps');
+--> statement-breakpoint
+-- F-014 / F-015 / F-016 help (an admin's own text is kept; the drawing line is updated only while it
+-- is still the seed's).
+UPDATE "app_setting" SET "value" = jsonb_build_object(
+  'dimensions', 'Height, width or diameter, depth and gram weight. Required (with neck, resin and color) when no drawing is attached.',
+  'modify_existing_mold', 'Changing a mold we already run (e.g. a finish change). Attach the reference drawing or a photo of the part.',
+  'rfp_link', 'The customer’s RFP or bid portal page, if there is one (https link).'
+) || "value", "updated_at" = now()
+WHERE "key" = 'intake_field_help' AND jsonb_typeof("value") = 'object';
+--> statement-breakpoint
+UPDATE "app_setting" SET "value" = "value" || jsonb_build_object(
+  'drawing_status', 'A drawing is the fastest way to an accurate quote. Without a bottle or competitor drawing attached, the minimum spec is required.'
+), "updated_at" = now()
+WHERE "key" = 'intake_field_help'
+  AND "value"->>'drawing_status' = 'A drawing is the fastest way to an accurate quote; without one it usually takes longer.';

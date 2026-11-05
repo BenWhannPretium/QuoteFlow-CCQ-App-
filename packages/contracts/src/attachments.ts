@@ -2,7 +2,16 @@ import { z } from 'zod';
 
 // ── Attachments (F-13, B-16) ───────────────────────────────────────────────────────────────────────
 
-export const ATTACHMENT_KIND_VALUES = ['bottle_drawing', 'spec', 'sample_photo', 'other'] as const;
+export const ATTACHMENT_KIND_VALUES = [
+  'bottle_drawing',
+  'spec',
+  'sample_photo',
+  'other',
+  // FB-02 (F-014)
+  'bid_file',
+  'project_brief',
+  'competitor_drawing',
+] as const;
 export const AttachmentKindSchema = z.enum(ATTACHMENT_KIND_VALUES);
 export type AttachmentKindValue = z.infer<typeof AttachmentKindSchema>;
 
@@ -11,6 +20,9 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   spec: 'Specification',
   sample_photo: 'Sample photo',
   other: 'Other',
+  bid_file: 'Bid file',
+  project_brief: 'Project brief',
+  competitor_drawing: 'Competitor / incumbent drawing',
 };
 
 /** One file on a quote (or on an intake draft before submit). */
@@ -50,7 +62,7 @@ export type AttachmentListResponse = z.infer<typeof AttachmentListResponse>;
 /** POST …/attachments (multipart: `kind`, `note?`, `size`, then `file`). */
 export const AttachmentUploadResponse = z.object({
   item: Attachment,
-  /** Uploading a bottle drawing marks the quote (or draft) as having one. */
+  /** Uploading a bottle (or competitor) drawing marks the quote (or draft) as having one. */
   drawingStatus: z.object({ from: z.string().nullable(), to: z.string() }).nullable(),
 });
 export type AttachmentUploadResponse = z.infer<typeof AttachmentUploadResponse>;

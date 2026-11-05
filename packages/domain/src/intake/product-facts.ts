@@ -153,3 +153,55 @@ export function neckSummary(parts: {
     .filter((p): p is string => typeof p === 'string' && p.trim() !== '')
     .join(' / ');
 }
+
+// ── Drawing or minimum spec (F-016, D-018 decided) ────────────────────────────────────────────────
+
+/**
+ * The minimum-spec keys `intake_min_spec_fields` may list (D-018: Paul Slomkowski, Jim Zweifel,
+ * Matthew Graden, Tania Nazario). "Neck" means diameter and finish.
+ * A-024 may add `layerStructure` and a container photo: not fields yet, so not keys yet.
+ */
+export const MIN_SPEC_KEYS = [
+  'height',
+  'widthOrDiameter',
+  'depth',
+  'gramWeight',
+  'neck',
+  'resin',
+  'color',
+] as const;
+export type MinSpecKey = (typeof MIN_SPEC_KEYS)[number];
+
+/** The intake fields (snake_case) behind each key, with the words the message uses. */
+export const MIN_SPEC_FIELDS: Readonly<Record<MinSpecKey, readonly string[]>> = {
+  height: ['height_mm'],
+  widthOrDiameter: ['width_or_diameter_mm'],
+  depth: ['depth_mm'],
+  gramWeight: ['gram_weight_g'],
+  neck: ['neck_diameter', 'neck_finish_type'],
+  resin: ['resin'],
+  color: ['color_type'],
+};
+
+export const MIN_SPEC_FIELD_LABELS: Readonly<Record<string, string>> = {
+  height_mm: 'height',
+  width_or_diameter_mm: 'width or diameter',
+  depth_mm: 'depth',
+  gram_weight_g: 'gram weight',
+  neck_diameter: 'neck diameter',
+  neck_finish_type: 'neck finish',
+  resin: 'resin',
+  color_type: 'color',
+};
+
+/** F-016: product dimensions in mm and grams, numeric(10,2) in the database. */
+export const DIMENSION_FIELDS = [
+  'height_mm',
+  'width_or_diameter_mm',
+  'depth_mm',
+  'gram_weight_g',
+] as const;
+export const DIMENSION_MAX = 99_999_999.99;
+
+/** F-014: an optional customer RFP / portal link: https only, ≤ 500 characters, no spaces. */
+export const RFP_LINK_PATTERN = /^https:\/\/[^\s/?#]+\.[^\s/?#]+(?:[/?#]\S*)?$/i;

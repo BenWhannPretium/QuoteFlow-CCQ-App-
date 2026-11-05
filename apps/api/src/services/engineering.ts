@@ -222,6 +222,7 @@ export class EngineeringService {
       drawingStatus: q.drawingStatus,
       sfCloseDate: row.sfCloseDate ?? null,
       ...shipCityState(q.shipTo),
+      moldModification: q.modifyExistingMold,
       completeness,
       canEdit: canEditEngReview(qc.ctx.actor, state),
       entry: {

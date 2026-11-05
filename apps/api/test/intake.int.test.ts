@@ -2,7 +2,6 @@ import {
   INTAKE_PROBLEM_CODES,
   IntakeDraft,
   IntakeDraftListResponse,
-  QuoteDetail,
   SfOpportunityDetail,
   SfOpportunitySearchResponse,
   SubmitIntakeResponse,
@@ -62,6 +61,11 @@ async function prefill(sfOpportunityId: string): Promise<IntakeDraftData> {
     neckFinishType: '400',
     pcrLevel: '0',
     colorType: 'NATURAL',
+    // F-016: the minimum spec, so these intakes submit without a drawing file.
+    heightMm: 180,
+    widthOrDiameterMm: 65,
+    depthMm: 65,
+    gramWeightG: 24,
     packagingType: 'BULK',
     packagingNotes: 'Corner boards',
     estAnnualVolume: 750_000,
@@ -124,7 +128,18 @@ describe('create → autosave → submit (happy path)', () => {
     expect(res.statusCode, res.body).toBe(200);
     const draft = IntakeDraft.parse(res.json());
     expect(draft.step).toBe(3);
-    expect(draft.evaluation).toEqual({ blocking: [], warnings: [], ready: true });
+    // FB-02 (F-016): the minimum spec carries it; with no drawing file attached it is amber only.
+    expect(draft.evaluation).toEqual({
+      blocking: [],
+      warnings: [
+        {
+          code: 'DRAWING_MISSING',
+          field: 'drawing_status',
+          message: 'Quotes without a drawing usually take longer.',
+        },
+      ],
+      ready: true,
+    });
     // T-009: the SF close date is read from the latest synced snapshot, never from the draft.
     const [snap] = await db.db
       .select()
@@ -159,7 +174,7 @@ describe('create → autosave → submit (happy path)', () => {
     expect(body.priorityScore).toEqual(expect.any(Number));
     expect(body.priorityTier).toMatch(/^(CRITICAL|HIGH|STANDARD|LOW)$/);
     expect(body.resubmitted).toBe(false);
-    expect(body.warnings).toEqual([]);
+    expect(body.warnings.map((w) => w.code)).toEqual(['DRAWING_MISSING']);
 
     const [quote] = await db.db
       .select()
@@ -174,6 +189,11 @@ describe('create → autosave → submit (happy path)', () => {
       neckFinishType: '400',
       pcrLevel: '0',
       colorType: 'NATURAL',
+      // F-016: the minimum spec, so these intakes submit without a drawing file.
+      heightMm: 180,
+      widthOrDiameterMm: 65,
+      depthMm: 65,
+      gramWeightG: 24,
       estAnnualVolume: 750_000,
       requestClass: 'CCQ',
       shipToOverridden: false,
@@ -183,7 +203,7 @@ describe('create → autosave → submit (happy path)', () => {
       expectedCloseDate: null,
       priorityScore: body.priorityScore,
       priorityTier: body.priorityTier,
-      scoringModelVersion: 1,
+      scoringModelVersion: 2, // FB-02 (F-009): timing on Quote needed by
     });
     expect(quote!.submittedAt).toEqual(clock);
     expect(quote!.customerId).not.toBeNull();
@@ -256,6 +276,8 @@ describe('blocking vs warning (domain decides, config-driven)', () => {
     expect(res.json<{ blocking: { field: string }[] }>().blocking.map((b) => b.field)).toEqual([
       'resin',
       'est_annual_volume',
+      // F-016: resin is in the minimum spec too, and no drawing is attached.
+      'drawing_or_min_spec',
     ]);
     // Free opportunities may carry closed historic quotes, but no active one was created.
     const active = await db.db
@@ -265,20 +287,23 @@ describe('blocking vs warning (domain decides, config-driven)', () => {
     expect(active).toHaveLength(0);
   });
 
-  it('the required-field setting is honoured: drop resin from it and the same intake submits', async () => {
+  it('the required-field setting is honoured: drop product family from it and the same intake submits', async () => {
     const [before] = await db.db.execute<{ value: unknown }>(
       sql`select value from app_setting where key = 'intake_required_fields'`,
     );
-    const withoutResin = (before!.value as { field?: string }[]).filter((r) => r.field !== 'resin');
+    // (Resin is also in the FB-02 minimum spec, so product family shows the setting alone at work.)
+    const without = (before!.value as { field?: string }[]).filter(
+      (r) => r.field !== 'product_family',
+    );
     await db.db.execute(
-      sql`update app_setting set value = ${JSON.stringify(withoutResin)}::jsonb where key = 'intake_required_fields'`,
+      sql`update app_setting set value = ${JSON.stringify(without)}::jsonb where key = 'intake_required_fields'`,
     );
     try {
-      const { resin: _r, ...data } = await prefill(nextFree());
+      const { productFamily: _p, ...data } = await prefill(nextFree());
       const draft = await createDraft(data);
       expect(draft.evaluation.ready).toBe(true);
       expect(draft.evaluation.warnings.map((w) => `${w.code}:${w.field}`)).toContain(
-        'ENRICH:resin',
+        'ENRICH:product_family',
       );
       expect((await submit(draft.id)).statusCode).toBe(201);
     } finally {
@@ -440,112 +465,6 @@ describe('customer and ship-to', () => {
     expect(draft.evaluation.blocking.map((b) => b.code)).toContain('SF_ACCOUNT_REQUIRED');
     const res = await submit(draft.id);
     expect(res.statusCode).toBe(422);
-  });
-});
-
-describe('product facts (FB-02 §3–4: F-010, F-011, F-055, F-023, F-075, F-013)', () => {
-  it('stores the neck lists, resin grade, PCR, color, variants and follow-ups; Engineering and Pricing see them (T-013)', async () => {
-    const data = {
-      ...(await prefill(nextFree())),
-      neckDiameter: 'CUSTOM',
-      neckDiameterCustom: '31 mm',
-      neckFinishType: 'SNAP',
-      neckSpecialFeature: 'TAMPER_EVIDENT',
-      resinCustomerSpecified: true,
-      resinGrade: 'LyondellBasell Pro-fax 6331',
-      pcrLevel: '25',
-      colorType: 'CUSTOM',
-      colorDescription: 'Pantone 286 C',
-      additives: 'UV inhibitor',
-      quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
-      components: ['CONTAINER', 'LINER', 'DECORATION'],
-      linerSpec: 'Induction seal',
-      decorationType: 'SILK_SCREEN',
-      decorationPrintColors: 2,
-    };
-    const draft = await createDraft(data);
-    expect(draft.evaluation.blocking).toEqual([]);
-    const res = await submit(draft.id);
-    expect(res.statusCode, res.body).toBe(201);
-    const { quoteId, quoteNumber } = SubmitIntakeResponse.parse(res.json());
-    const [quote] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, quoteId));
-    expect(quote).toMatchObject({
-      neckDiameter: 'CUSTOM',
-      neckDiameterCustom: '31 mm',
-      neckFinishType: 'SNAP',
-      neckFinishTypeCustom: null,
-      neckSpecialFeature: 'TAMPER_EVIDENT',
-      neckFinish: null, // the old single field is no longer written
-      resinCustomerSpecified: true,
-      resinGrade: 'LyondellBasell Pro-fax 6331',
-      pcrLevel: '25',
-      colorType: 'CUSTOM',
-      colorDescription: 'Pantone 286 C',
-      additives: 'UV inhibitor',
-      quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
-      linerSpec: 'Induction seal',
-      labelsPurchasedBy: null,
-      decorationType: 'SILK_SCREEN',
-      decorationPrintColors: 2,
-    });
-    for (const role of ['Engineer', 'EngLead', 'Pricing', 'PricingLead'] as const) {
-      const detail = await asRole(app, role).get(`/api/v1/quotes/${quoteNumber}`);
-      expect(detail.statusCode, `${role} ${detail.body}`).toBe(200);
-      expect(QuoteDetail.parse(detail.json()).intakeFacts).toMatchObject({
-        resinCustomerSpecified: true,
-        resinGrade: 'LyondellBasell Pro-fax 6331',
-        colorDescription: 'Pantone 286 C',
-        additives: 'UV inhibitor',
-        quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
-      });
-    }
-  });
-
-  it('a Custom value, a customer-specified resin and a picked component each need their field', async () => {
-    const data = {
-      ...(await prefill(nextFree())),
-      neckFinishType: 'CUSTOM',
-      resinCustomerSpecified: true,
-      colorType: 'CUSTOM',
-      components: ['LABEL', 'DECORATION'],
-      decorationPrintColors: 13,
-    };
-    const draft = await createDraft(data);
-    expect(draft.evaluation.blocking.map((b) => `${b.code}:${b.field}`)).toEqual([
-      'MISSING_FIELD:neck_finish_type_custom',
-      'MISSING_FIELD:color_description',
-      'MISSING_FIELD:resin_grade',
-      'MISSING_FIELD:labels_purchased_by',
-      'MISSING_FIELD:decoration_type',
-      'INVALID_VALUE:decoration_print_colors',
-    ]);
-    expect((await submit(draft.id)).statusCode).toBe(422);
-  });
-
-  it('values that no longer apply are cleared on submit (deselected component, unticked resin)', async () => {
-    const data = {
-      ...(await prefill(nextFree())),
-      // Left over from earlier edits in the draft:
-      neckFinishTypeCustom: 'stale',
-      colorType: 'NATURAL',
-      colorDescription: 'stale blue',
-      resinCustomerSpecified: false,
-      resinGrade: 'stale grade',
-      components: ['CONTAINER'],
-      linerSpec: 'stale liner',
-      decorationPrintColors: 3,
-    };
-    const draft = await createDraft(data);
-    expect(draft.evaluation.blocking).toEqual([]);
-    const { quoteId } = SubmitIntakeResponse.parse((await submit(draft.id)).json());
-    const [quote] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, quoteId));
-    expect(quote).toMatchObject({
-      neckFinishTypeCustom: null,
-      colorDescription: null,
-      resinGrade: null,
-      linerSpec: null,
-      decorationPrintColors: null,
-    });
   });
 });
 

@@ -154,7 +154,7 @@ export const intakeRoutes: FastifyPluginAsyncZod<{ service: IntakeService }> = a
         summary:
           'Submit: creates CCQ-YYYY-NNNNN in Intake, then routes to G1 (if enabled) or the engineering queue. 409 if the opportunity already has an active quote',
         description:
-          'Blocked submits are 422 problem+json with `blocking` (every issue). `code` is REQUEST_CLASS_NOT_ALLOWED when the request class is not one of `intake_allowed_request_classes` (FB-02, F-067), DRAWING_OR_MIN_SPEC_REQUIRED (with `missing`) when there is no bottle or competitor drawing and a field of `intake_min_spec_fields` is empty (F-016), otherwise intake_incomplete.',
+          'Blocked submits are 422 problem+json with `blocking` (every issue). `code` is REQUEST_CLASS_NOT_ALLOWED when the request class is not one of `intake_allowed_request_classes` (FB-02, F-067), DRAWING_OR_MIN_SPEC_REQUIRED (with `missing`) when the only thing blocking is no bottle or competitor drawing and an empty field of `intake_min_spec_fields` (F-016), otherwise intake_incomplete.',
         security,
         params: IntakeDraftParams,
         response: { 201: SubmitIntakeResponse },

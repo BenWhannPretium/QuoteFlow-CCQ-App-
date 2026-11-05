@@ -364,6 +364,31 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
     expect(downloads.every((d) => d.quote_id === quoteId)).toBe(true);
   });
 
+  it('T-003: a name with an ampersand, comma and slash uploads, is stored safely, keeps its display name and downloads for Engineering', async () => {
+    const name = 'P&G, bottle 1/2 rev.pdf';
+    const res = await upload(`/api/v1/quotes/${qn}/attachments`, { name, content: PDF });
+    expect(res.statusCode, res.body).toBe(201);
+    const { item } = AttachmentUploadResponse.parse(res.json());
+    expect(item.fileName).toBe(name); // the display name, exactly as uploaded
+    expect(item.storedName).toBe('P&G, bottle 1_2 rev.pdf'); // no path separator in the key
+    expect(await readFile(join(filesRoot, 'local', 'CCQ', qn, item.storedName!))).toEqual(PDF);
+
+    const listed = (await list('Engineer')).body!.items.find((i) => i.id === item.id);
+    expect(listed?.fileName).toBe(name);
+    const link = AttachmentDownloadResponse.parse(
+      (
+        await asRole(app, 'Engineer').get(`/api/v1/attachments/${item.id}/download?format=json`)
+      ).json(),
+    );
+    expect(link.fileName).toBe(name);
+    const file = await app.inject({ method: 'GET', url: link.url });
+    expect(file.statusCode).toBe(200);
+    expect(file.rawPayload).toEqual(PDF);
+    expect(file.headers['content-disposition']).toContain(
+      `filename*=UTF-8''P%26G%2C%20bottle%201%2F2%20rev.pdf`,
+    );
+  });
+
   it("an owner-scoped KAM can neither list nor download another KAM's files (404, nothing audited)", async () => {
     const [item] = (await list()).body!.items;
     const ownerKam = await userId(app, 'KAM', 'owner');
@@ -492,6 +517,8 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
         market: 'FOOD',
         resin: 'HDPE',
         estAnnualVolume: 750_000,
+        quoteNeededBy: '2026-12-15',
+        productNeededBy: '2027-03-01',
         drawingStatus: 'COMING',
       };
     }

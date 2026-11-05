@@ -93,6 +93,11 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
     neckFinishType: '400',
     pcrLevel: '0',
     colorType: 'NATURAL',
+    // F-016: the minimum spec, so these intakes submit without a drawing file.
+    heightMm: 180,
+    widthOrDiameterMm: 65,
+    depthMm: 65,
+    gramWeightG: 24,
     packagingType: 'BULK',
     estAnnualVolume: 750_000,
     estAnnualRevenue: 150_000,
@@ -284,11 +289,23 @@ describe('the queue', () => {
     expect((await as('EngLead').get('/api/v1/queue/engineering?bucket=nope')).statusCode).toBe(400);
   });
 
+  it('shows the ship / fill destination and a "Mold modification" chip (F-017, F-015, T-012)', async () => {
+    const qn = await inQueue({
+      modifyExistingMold: true,
+      existingMoldRef: 'M-10421',
+      moldChangeDescription: 'finish change 28-410 → 28-400',
+    });
+    const item = find(await queue(), qn)!;
+    expect(item).toMatchObject({ shipCity: 'Testville', shipState: 'MO', moldModification: true });
+    const plainQn = await inQueue();
+    expect(find(await queue(), plainQn)!.moldModification).toBe(false);
+  });
+
   it('flags what Engineering may have to chase (completeness warnings)', async () => {
-    const qn = await inQueue({ drawingStatus: 'COMING', neckDiameter: null, neckFinishType: null });
+    const qn = await inQueue({ drawingStatus: 'COMING', market: null });
     const codes = find(await queue(), qn)!.completeness.map((c) => `${c.code}:${c.field}`);
     expect(codes).toContain('DRAWING_MISSING:drawing_status');
-    expect(codes).toContain('ENRICH:neck_diameter');
+    expect(codes).toContain('ENRICH:market');
   });
 
   it('who sees it: EngLead the whole queue and the picker; Engineer read-only; Leadership read; others 403', async () => {

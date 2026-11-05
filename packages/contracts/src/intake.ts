@@ -146,8 +146,26 @@ export const IntakeDraftData = z.object({
   /** Free text. */
   description: text(4000),
 
+  /**
+   * FB-02 (F-016, D-018): product dimensions, mm and grams (2 decimals). Without a bottle or competitor
+   * drawing attached, the fields in `intake_min_spec_fields` must all be filled to submit.
+   */
+  heightMm: z.number().nullable().optional(),
+  widthOrDiameterMm: z.number().nullable().optional(),
+  depthMm: z.number().nullable().optional(),
+  gramWeightG: z.number().nullable().optional(),
+  /**
+   * FB-02 (F-015): modify an existing mold (in scope when capital or engineering review is needed).
+   * When ticked, the existing mold / part number and what changes are required.
+   */
+  modifyExistingMold: z.boolean().optional(),
+  existingMoldRef: text(60),
+  moldChangeDescription: text(500),
+
   // Step 4: drawing and notes
   drawingStatus: text(60),
+  /** FB-02 (F-014): optional customer RFP / portal link (https only, ≤ 500; checked by the domain). */
+  rfpLink: text(500),
   commentsForEngineering: text(4000),
 });
 export type IntakeDraftData = z.infer<typeof IntakeDraftData>;
@@ -319,8 +337,12 @@ export const intakeAddress = (a: IntakeDraftData['shipTo']) =>
       }
     : null;
 
-/** The draft's fields in the domain's snake_case shape (`evaluateIntake` input). */
-export function intakeValues(data: IntakeDraftData) {
+/**
+ * The draft's fields in the domain's snake_case shape (`evaluateIntake` input). `hasDrawingAttachment`
+ * (FB-02, F-016) says whether a bottle or competitor drawing is attached to the draft (or, for a
+ * rework, to the quote); the caller knows its files.
+ */
+export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boolean) {
   const c = data.customer;
   return {
     sf_opportunity_id: data.sfOpportunityId ?? null,
@@ -352,6 +374,15 @@ export function intakeValues(data: IntakeDraftData) {
     labels_purchased_by: data.labelsPurchasedBy ?? null,
     decoration_type: data.decorationType ?? null,
     decoration_print_colors: data.decorationPrintColors ?? null,
+    height_mm: data.heightMm ?? null,
+    width_or_diameter_mm: data.widthOrDiameterMm ?? null,
+    depth_mm: data.depthMm ?? null,
+    gram_weight_g: data.gramWeightG ?? null,
+    modify_existing_mold: data.modifyExistingMold ?? false,
+    existing_mold_ref: blank(data.existingMoldRef),
+    mold_change_description: blank(data.moldChangeDescription),
+    rfp_link: blank(data.rfpLink),
+    ...(hasDrawingAttachment === undefined ? {} : { has_drawing_attachment: hasDrawingAttachment }),
     packaging_type: data.packagingType ?? null,
     packaging_notes: data.packagingNotes ?? null,
     est_annual_volume: data.estAnnualVolume ?? null,

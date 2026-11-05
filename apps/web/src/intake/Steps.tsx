@@ -6,7 +6,7 @@ import {
   type ComponentFollowUpField,
   type IntakeEvaluation,
 } from '@ccq/domain';
-import { PencilIcon, Undo2Icon } from 'lucide-react';
+import { CheckCircle2Icon, PencilIcon, Undo2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
@@ -35,6 +35,8 @@ export interface StepProps {
   evaluation: IntakeEvaluation;
   /** FB-02 (T-009): the opportunity's close date from the latest Salesforce sync (read-only). */
   sfCloseDate?: string | null | undefined;
+  /** FB-02 (F-016): a bottle or competitor drawing is attached. */
+  hasDrawing?: boolean;
 }
 
 const fid = (field: string) => `intake-${field.replace(/[._]/g, '-')}`;
@@ -574,6 +576,149 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
   );
 }
 
+/** F-015: modify an existing mold; reveals the mold / part number and what changes. */
+function MoldFields({ data, update, cfg, evaluation }: StepProps) {
+  const on = data.modifyExistingMold === true;
+  const issue = (f: string) => evaluation.blocking.find((b) => b.field === f);
+  return (
+    <div className="grid gap-4">
+      <label className="flex min-h-11 items-center gap-3 text-sm">
+        <input
+          id={fid('modify_existing_mold')}
+          type="checkbox"
+          className="size-5"
+          data-testid="modify-existing-mold"
+          aria-describedby={`${fid('modify_existing_mold')}-help`}
+          checked={on}
+          onChange={(e) =>
+            update(
+              e.target.checked
+                ? { modifyExistingMold: true }
+                : { modifyExistingMold: false, existingMoldRef: null, moldChangeDescription: null },
+            )
+          }
+        />
+        Modify an existing mold
+      </label>
+      {cfg.help.modify_existing_mold && (
+        <p
+          id={`${fid('modify_existing_mold')}-help`}
+          className="text-muted-foreground -mt-3 text-xs"
+        >
+          {cfg.help.modify_existing_mold}
+        </p>
+      )}
+      <ConditionalText
+        when={on}
+        field="existing_mold_ref"
+        value={data.existingMoldRef}
+        onChange={(v) => update({ existingMoldRef: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={60}
+        placeholder="e.g. M-10421"
+      />
+      <Reveal when={on}>
+        <Field {...meta(cfg, 'mold_change_description')} required>
+          <Textarea
+            id={fid('mold_change_description')}
+            aria-describedby={`${fid('mold_change_description')}-help`}
+            aria-invalid={issue('mold_change_description') ? true : undefined}
+            aria-required
+            maxLength={500}
+            placeholder="e.g. finish change 28-410 → 28-400"
+            value={data.moldChangeDescription ?? ''}
+            onChange={(e) => update({ moldChangeDescription: nullIfBlank(e.target.value) })}
+            className="min-h-16"
+          />
+        </Field>
+        <Notice tone="info">
+          Attach the reference drawing or a photo of the part in step 4 (Drawing and files).
+        </Notice>
+      </Reveal>
+    </div>
+  );
+}
+
+const DIMENSIONS = [
+  { field: 'height_mm', key: 'heightMm', unit: 'mm' },
+  { field: 'width_or_diameter_mm', key: 'widthOrDiameterMm', unit: 'mm' },
+  { field: 'depth_mm', key: 'depthMm', unit: 'mm' },
+  { field: 'gram_weight_g', key: 'gramWeightG', unit: 'g' },
+] as const;
+
+/** F-016: dimensions and gram weight (part of the minimum spec when there is no drawing). */
+function DimensionFields({ data, update, cfg, evaluation }: StepProps) {
+  return (
+    <fieldset className="grid gap-2" data-field={fid('dimensions')}>
+      <legend className="mb-1.5 text-sm font-medium">Dimensions</legend>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {DIMENSIONS.map((d) => {
+          const issue = evaluation.blocking.find(
+            (b) => b.field === d.field && b.code === 'INVALID_VALUE',
+          );
+          return (
+            <Field key={d.field} {...meta(cfg, d.field)}>
+              <div className="relative">
+                <DecimalInput
+                  id={fid(d.field)}
+                  value={data[d.key]}
+                  invalid={Boolean(issue)}
+                  onChange={(v) => update({ [d.key]: v })}
+                />
+                <span
+                  aria-hidden
+                  className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs"
+                >
+                  {d.unit}
+                </span>
+              </div>
+              <FieldError issue={issue} />
+            </Field>
+          );
+        })}
+      </div>
+      {cfg.help.dimensions && (
+        <p className="text-muted-foreground text-xs">{cfg.help.dimensions}</p>
+      )}
+    </fieldset>
+  );
+}
+
+/** A decimal number field (mm, g): what was typed while focused, the value otherwise. */
+function DecimalInput({
+  id,
+  value,
+  onChange,
+  invalid,
+}: {
+  id: string;
+  value: number | null | undefined;
+  onChange: (v: number | null) => void;
+  invalid?: boolean;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const text = editing ?? (value == null ? '' : String(value));
+  return (
+    <Input
+      id={id}
+      aria-describedby={`${id}-help`}
+      aria-invalid={invalid || undefined}
+      inputMode="decimal"
+      className="pr-9"
+      value={text}
+      onFocus={() => setEditing(text)}
+      onBlur={() => setEditing(null)}
+      onChange={(e) => {
+        setEditing(e.target.value);
+        const clean = e.target.value.replace(/[,\s]/g, '');
+        const n = Number(clean);
+        onChange(clean === '' || Number.isNaN(n) ? null : n);
+      }}
+    />
+  );
+}
+
 export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: StepProps) {
   const invalidIssue = (field: string) =>
     evaluation.blocking.find((b) => b.code === 'INVALID_VALUE' && b.field === field);
@@ -639,6 +784,7 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             </div>
           )}
         </Field>
+        <MoldFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
       <Section title="Product">
@@ -708,6 +854,7 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
         <ResinFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
         <NeckFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
         <ColorFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <DimensionFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
       <Section title="Packaging">
@@ -883,16 +1030,88 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
 
 // ── Step 4: drawing, notes and review ────────────────────────────────────────────────────────────
 
+/**
+ * F-016 (D-018): which path lets the quote advance, a drawing or the minimum spec, and what is
+ * missing. Announced politely when it changes (an upload or a field filled in).
+ */
+function DrawingOrSpec({
+  evaluation,
+  cfg,
+  hasDrawing,
+  goTo,
+}: {
+  evaluation: IntakeEvaluation;
+  cfg: WizardConfig;
+  hasDrawing: boolean;
+  goTo: (step: number) => void;
+}) {
+  const blocked = evaluation.blocking.find((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED');
+  const missing = blocked?.missing ?? [];
+  return (
+    <div
+      aria-live="polite"
+      data-testid="drawing-or-spec"
+      data-state={hasDrawing ? 'drawing' : blocked ? 'missing' : 'spec'}
+    >
+      {hasDrawing ? (
+        <Notice tone="info">
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <CheckCircle2Icon aria-hidden className="text-primary size-4" /> Drawing attached
+          </span>{' '}
+          The minimum spec is not required.
+        </Notice>
+      ) : blocked ? (
+        <Notice tone="blocking">
+          <p className="font-semibold">Attach a drawing, or complete the minimum spec</p>
+          <p className="text-sm">
+            Engineering needs a bottle or competitor drawing to quote. Without one, fill in:
+          </p>
+          <ul className="mt-1 grid gap-1">
+            {missing.map((f) => (
+              <li key={f} className="flex flex-wrap items-center gap-x-2">
+                <span data-testid="min-spec-missing">{FIELD_META[f]?.label ?? f}</span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto min-h-0 px-0"
+                  onClick={() => goTo(FIELD_META[f]?.step ?? 3)}
+                >
+                  Fix
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Notice>
+      ) : (
+        <Notice tone="info">
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <CheckCircle2Icon aria-hidden className="text-primary size-4" /> Minimum spec complete
+          </span>{' '}
+          No drawing attached:{' '}
+          {cfg.intake.minSpecFields.length > 0
+            ? 'the quote can advance on the spec'
+            : 'none required'}
+          , but it may take longer.
+        </Notice>
+      )}
+    </div>
+  );
+}
+
 export function ReviewStep({
   data,
   update,
   cfg,
   evaluation,
   sfCloseDate,
+  hasDrawing = false,
   goTo,
   draftId,
 }: StepProps & { goTo: (step: number) => void; draftId: string }) {
   const drawingMissing = evaluation.warnings.find((w) => w.code === 'DRAWING_MISSING');
+  const rfpIssue = evaluation.blocking.find(
+    (b) => b.field === 'rfp_link' && b.code === 'INVALID_VALUE',
+  );
   const other = evaluation.warnings.filter((w) => w.code !== 'ENRICH');
   const enrich = evaluation.warnings.filter((w) => w.code === 'ENRICH');
   const label = (list: string, code: string | null | undefined) =>
@@ -963,6 +1182,23 @@ export function ReviewStep({
             : label('color_type', data.colorType),
         ],
         ['Additives', data.additives],
+        [
+          'Dimensions',
+          [
+            data.heightMm != null ? `H ${data.heightMm} mm` : null,
+            data.widthOrDiameterMm != null ? `W/Ø ${data.widthOrDiameterMm} mm` : null,
+            data.depthMm != null ? `D ${data.depthMm} mm` : null,
+            data.gramWeightG != null ? `${data.gramWeightG} g` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null,
+        ],
+        [
+          'Modify an existing mold',
+          data.modifyExistingMold
+            ? [data.existingMoldRef, data.moldChangeDescription].filter(Boolean).join(': ') || 'Yes'
+            : 'No',
+        ],
         ['Packaging', label('packaging_type', data.packagingType)],
         ['Packaging requirements', data.packagingNotes],
         [
@@ -974,6 +1210,15 @@ export function ReviewStep({
         ['Quote needed by', data.quoteNeededBy ? formatDate(data.quoteNeededBy) : null],
         ['Product needed by', data.productNeededBy ? formatDate(data.productNeededBy) : null],
         ['Quote variants requested', data.quoteVariantsNote],
+        ['Customer RFP / portal link', data.rfpLink],
+        [
+          'Drawing or minimum spec',
+          hasDrawing
+            ? 'Drawing attached'
+            : evaluation.blocking.some((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED')
+              ? 'Missing: attach a drawing or complete the minimum spec'
+              : 'Minimum spec complete (no drawing)',
+        ],
         ['Standard description', data.standardDescription],
         ['Description', data.description],
       ],
@@ -982,9 +1227,11 @@ export function ReviewStep({
 
   return (
     <div className="grid gap-4">
-      <Section title="Drawing and notes">
+      <Section title="Drawing and files">
+        <DrawingOrSpec evaluation={evaluation} cfg={cfg} hasDrawing={hasDrawing} goTo={goTo} />
         <Field
           {...meta(cfg, 'drawing_status')}
+          label="Drawing status"
           note={drawingMissing ? drawingMissing.message : undefined}
         >
           <Select
@@ -1002,6 +1249,21 @@ export function ReviewStep({
           headingLevel={3}
           onDrawingStatus={(code) => update({ drawingStatus: code })}
         />
+        {/* F-014: the customer's RFP or bid portal (https only). */}
+        <Field {...meta(cfg, 'rfp_link')} label="Customer RFP / portal link (optional)">
+          <Input
+            id={fid('rfp_link')}
+            type="url"
+            inputMode="url"
+            aria-describedby={`${fid('rfp_link')}-help`}
+            aria-invalid={rfpIssue ? true : undefined}
+            maxLength={500}
+            placeholder="https://"
+            value={data.rfpLink ?? ''}
+            onChange={(e) => update({ rfpLink: nullIfBlank(e.target.value) })}
+          />
+          <FieldError issue={rfpIssue} />
+        </Field>
         <Field {...meta(cfg, 'comments_for_engineering')}>
           <Textarea
             id={fid('comments_for_engineering')}

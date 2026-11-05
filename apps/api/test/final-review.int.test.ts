@@ -118,6 +118,11 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
     neckFinishType: '400',
     pcrLevel: '0',
     colorType: 'NATURAL',
+    // F-016: the minimum spec, so these intakes submit without a drawing file.
+    heightMm: 180,
+    widthOrDiameterMm: 65,
+    depthMm: 65,
+    gramWeightG: 24,
     packagingType: 'BULK',
     estAnnualVolume: 750_000,
     estAnnualRevenue: 150_000,

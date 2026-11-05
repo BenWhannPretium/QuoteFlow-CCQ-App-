@@ -14,6 +14,7 @@ import { DomainError } from '../errors';
 import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
 import { intakeConfigSchema } from '../intake/intake';
+import { MIN_SPEC_KEYS } from '../intake/product-facts';
 import { parseReceivingRoles } from '../outcome/handoff';
 import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
@@ -230,6 +231,13 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Longest "Quote variants requested" note (characters)',
     'integer',
     z_('intake_variants_note_max_length', intakeConfigSchema.shape.variantsNoteMaxLength),
+  ),
+  spec(
+    'intake_min_spec_fields',
+    'intake',
+    'Minimum spec required when no drawing is attached',
+    'json',
+    z_('intake_min_spec_fields', z.array(z.enum(MIN_SPEC_KEYS))),
   ),
   spec(
     'intake_redirect_message',

@@ -4,7 +4,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { seriousViolations } from './axe';
 import { signInAs } from './personas';
-import { asKam, freeOpportunities, submitQuote } from './quotes';
+import { asKam, freeOpportunities, isoDaysFromNow, submitQuote } from './quotes';
 
 // B-16 (F-13): drawings and documents on a quote and on an intake draft, stored by the API's
 // FILESTORE_MODE (local in e2e; SharePoint in Azure). Drawings are requested, never required.
@@ -50,6 +50,9 @@ async function readyDraft(request: APIRequestContext): Promise<string> {
           resin: 'HDPE',
           packagingType: 'BULK',
           estAnnualVolume: 750_000,
+          // FB-02 (F-009): need-by dates; the drawing uploaded below satisfies F-016.
+          quoteNeededBy: isoDaysFromNow(30),
+          productNeededBy: isoDaysFromNow(120),
           drawingStatus: 'COMING',
         },
       },

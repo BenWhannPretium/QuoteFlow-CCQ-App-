@@ -27,6 +27,7 @@ import {
   type ServerError,
 } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
+import { IntakeFactsHeader } from '../intake/IntakeFacts';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewPanel } from '../LeadReviewPanel';
 import { FieldOverride, timelineQueryKey } from '../Overrides';
@@ -48,9 +49,16 @@ export function EngineeringTab({
   onDecide: (outcomeKey?: string) => void;
 }) {
   const eng = quote.engineering;
+  const { data: config } = usePublicConfig();
   const canDecideG2 = quote.availableActions.some((a) => a.gateKey === 'G2');
   return (
     <div className="grid gap-6" data-testid="engineering-tab">
+      {/* FB-02: destination, mold modification and product facts from intake. */}
+      <IntakeFactsHeader
+        facts={quote.intakeFacts}
+        shipTo={quote.shipTo}
+        lists={config?.valueLists}
+      />
       <AssignmentCard quote={quote} canDecideG2={canDecideG2} onDecide={onDecide} />
       <EngLeadReview quote={quote} />
       {eng.commercialRedacted && eng.canEdit && (

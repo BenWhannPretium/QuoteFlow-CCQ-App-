@@ -24,6 +24,8 @@ import {
   getSetting,
   getSfOpportunity,
   insertActivityEvent,
+  listAttachments,
+  listDraftAttachments,
   insertAuditEvent,
   insertCustomer,
   insertQuote,
@@ -43,6 +45,7 @@ import {
 import {
   availableActions,
   CUSTOM_LIST_FIELDS,
+  DRAWING_ATTACHMENT_KINDS,
   evaluateIntake,
   inapplicableIntakeFields,
   ENG_QUEUE_STAGE_KEY,
@@ -99,6 +102,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     allowedRequestClasses,
     redirectMessage,
     variantsNoteMaxLength,
+    minSpecFields,
     drawing,
     components,
     ...customLists
@@ -109,6 +113,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     getSetting(db, 'intake_allowed_request_classes'),
     getSetting(db, 'intake_redirect_message'),
     getSetting(db, 'intake_variants_note_max_length'),
+    getSetting(db, 'intake_min_spec_fields'),
     listValueList(db, 'drawing_status'),
     listValueList(db, 'component'),
     ...CUSTOM_LIST_FIELDS.map((list) => listValueList(db, list)),
@@ -129,6 +134,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     allowedRequestClasses: allowedRequestClasses as never,
     redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
     ...(typeof variantsNoteMaxLength === 'number' ? { variantsNoteMaxLength } : {}),
+    ...(Array.isArray(minSpecFields) ? { minSpecFields: minSpecFields as never } : {}),
     drawingProvidedCodes: drawing
       .filter((v) => meta(v.meta).hasDrawing === true)
       .map((v) => v.code),
@@ -148,7 +154,22 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
 
 const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
 
+/**
+ * FB-02 (F-016): a bottle or competitor drawing is attached to the draft or, for a rework, already on
+ * the quote. RLS applies (the caller is the draft's owner).
+ */
+async function hasDrawingAttachment(db: DbOrTx, draft: QuoteDraftRow): Promise<boolean> {
+  const files = [
+    ...(await listDraftAttachments(db, draft.id)),
+    ...(draft.reworkOfQuoteId ? await listAttachments(db, draft.reworkOfQuoteId) : []),
+  ];
+  return files.some((f) => (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(f.kind));
+}
+
 const blankToNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
+
+/** numeric(10,2): stored to the cent. */
+const round2 = (v: number | null) => (v === null ? null : Math.round(v * 100) / 100);
 
 const activeRef = (
   row: { quoteNumber: string; stageKey: string; status: string } | undefined,
@@ -192,7 +213,11 @@ export class IntakeService {
   private async toDto(tx: DbOrTx, row: QuoteDraftRow): Promise<IntakeDraft> {
     const config = await loadIntakeConfig(tx);
     const data = row.data as IntakeDraftData;
-    const evaluation = evaluateIntake(intakeValues(data), config, this.now());
+    const evaluation = evaluateIntake(
+      intakeValues(data, await hasDrawingAttachment(tx, row)),
+      config,
+      this.now(),
+    );
     const active =
       row.sfOpportunityId && !row.submittedQuoteId
         ? await getActiveQuoteForOpportunity(tx, row.sfOpportunityId)
@@ -533,7 +558,7 @@ export class IntakeService {
     const draft = await this.ownDraft(tx, actor, id, true);
     const data = draft.data as IntakeDraftData;
     const config = await loadIntakeConfig(tx);
-    const values = intakeValues(data);
+    const values = intakeValues(data, await hasDrawingAttachment(tx, draft));
     const evaluation: IntakeEvaluation = evaluateIntake(values, config, now);
     if (!evaluation.ready) {
       throw incompleteError(evaluation);
@@ -627,6 +652,15 @@ export class IntakeService {
       labelsPurchasedBy: keep('labels_purchased_by', values.labels_purchased_by),
       decorationType: keep('decoration_type', values.decoration_type),
       decorationPrintColors: keep('decoration_print_colors', values.decoration_print_colors),
+      // F-016 dimensions (2 decimals), F-015 mold modification, F-014 RFP link.
+      heightMm: round2(values.height_mm),
+      widthOrDiameterMm: round2(values.width_or_diameter_mm),
+      depthMm: round2(values.depth_mm),
+      gramWeightG: round2(values.gram_weight_g),
+      modifyExistingMold: values.modify_existing_mold,
+      existingMoldRef: keep('existing_mold_ref', values.existing_mold_ref),
+      moldChangeDescription: keep('mold_change_description', values.mold_change_description),
+      rfpLink: values.rfp_link,
       packagingType: data.packagingType ?? null,
       packagingNotes: blankToNull(data.packagingNotes),
       requestClass: data.requestClass ?? null,
@@ -806,14 +840,15 @@ export class IntakeService {
 
 /**
  * 422 for a blocked submit. The problem `code` names the rule when one decides it (FB-02): a request
- * class that isn't CCQ (F-067) first, then no drawing and an incomplete minimum spec (F-016);
- * otherwise `intake_incomplete`. `blocking` always lists every issue.
+ * class that isn't CCQ (F-067) whatever else is open, or the drawing-or-minimum-spec rule (F-016)
+ * when it is the only thing left; otherwise `intake_incomplete`. `blocking` lists every issue.
  */
 function incompleteError(evaluation: IntakeEvaluation): IntakeError {
   const has = (code: string) => evaluation.blocking.some((b) => b.code === code);
+  const only = (code: string) => evaluation.blocking.every((b) => b.code === code);
   const [code, title] = has('REQUEST_CLASS_NOT_ALLOWED')
     ? [INTAKE_PROBLEM_CODES.requestClassNotAllowed, 'This request class is not submitted to CCQ']
-    : has('DRAWING_OR_MIN_SPEC_REQUIRED')
+    : only('DRAWING_OR_MIN_SPEC_REQUIRED')
       ? [
           INTAKE_PROBLEM_CODES.drawingOrMinSpecRequired,
           'Attach a drawing or complete the minimum spec',
@@ -881,6 +916,14 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     labelsPurchasedBy: q.labelsPurchasedBy,
     decorationType: q.decorationType,
     decorationPrintColors: q.decorationPrintColors,
+    heightMm: q.heightMm,
+    widthOrDiameterMm: q.widthOrDiameterMm,
+    depthMm: q.depthMm,
+    gramWeightG: q.gramWeightG,
+    modifyExistingMold: q.modifyExistingMold,
+    existingMoldRef: q.existingMoldRef,
+    moldChangeDescription: q.moldChangeDescription,
+    rfpLink: q.rfpLink,
     packagingType: q.packagingType,
     packagingNotes: q.packagingNotes,
     requestClass: q.requestClass,

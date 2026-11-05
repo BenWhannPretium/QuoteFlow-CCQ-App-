@@ -193,6 +193,17 @@ export const QuoteIntakeFacts = z.object({
   labelsPurchasedBy: z.string().nullable(),
   decorationType: z.string().nullable(),
   decorationPrintColors: z.number().int().nullable(),
+  /** F-016: dimensions (mm) and gram weight (g). */
+  heightMm: z.number().nullable(),
+  widthOrDiameterMm: z.number().nullable(),
+  depthMm: z.number().nullable(),
+  gramWeightG: z.number().nullable(),
+  /** F-015: modify an existing mold (the Engineering queue shows a "Mold modification" chip). */
+  modifyExistingMold: z.boolean(),
+  existingMoldRef: z.string().nullable(),
+  moldChangeDescription: z.string().nullable(),
+  /** F-014: the customer's RFP / portal link (https), for every role that reads the quote. */
+  rfpLink: z.string().nullable(),
 });
 export type QuoteIntakeFacts = z.infer<typeof QuoteIntakeFacts>;
 

@@ -261,8 +261,11 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   });
   // B-16 uploads: one file per request, streamed. The limit is one byte over the 100 MB cap, so a
   // body that runs past its declared size is caught by the store (413) before the parser cuts it.
+  // FB-02 (T-003): keep the uploaded name whole. Busboy's default cuts it at the last "/" (a macOS
+  // name like "P&G, bottle 1/2 rev.pdf" became "2 rev.pdf"); the domain makes the stored key safe.
   await app.register(multipart, {
     limits: { fileSize: ATTACHMENT_MAX_BYTES + 1, files: 1, fields: 5, fieldSize: 2_000, parts: 6 },
+    preservePath: true,
   });
 
   if (!isProd) {
