@@ -133,7 +133,7 @@ async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required
         site: 'PLANT_01',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
-        utilizationPct: 62,
+        utilizationBeforePct: 62,
         analysisDate: '2026-10-26',
         analystId: await userId('Engineer'),
       },

@@ -311,7 +311,9 @@ describe('GET /quotes/export.csv', () => {
     );
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/csv/);
-    expect(lines[0]).toBe('"Quote","Amount (SF)","Prelim capital (USD)","Capital readiness"');
+    expect(lines[0]).toBe(
+      '"Quote","Amount (SF)","Budgetary capital estimate (USD): preliminary, includes contingency","Capital readiness"',
+    );
     const l = await list('pricing', 'stage=QUOTING&sort=amount');
     expect(lines.slice(1).map((line) => JSON.parse(line.split(',')[0]!) as string)).toEqual(
       numbers(l.items),
@@ -334,7 +336,9 @@ describe('GET /quotes/export.csv', () => {
       'kam-owner',
       'columns=quoteNumber,prelimCapitalUsd,capitalReadiness,kamName',
     );
-    expect(lines[0]).toBe('"Quote","Prelim capital (USD)","Capital readiness","KAM"');
+    expect(lines[0]).toBe(
+      '"Quote","Budgetary capital estimate (USD): preliminary, includes contingency","Capital readiness","KAM"',
+    );
     const own = await list('kam-owner');
     expect(lines).toHaveLength(own.total + 1);
   });

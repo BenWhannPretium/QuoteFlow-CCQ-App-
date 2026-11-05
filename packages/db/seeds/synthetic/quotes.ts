@@ -5,6 +5,9 @@ import {
   evaluateTransition,
   score,
   withDerivedFields,
+  CAPACITY_BASIS_SEED,
+  computeUtilization,
+  storedUtilizationPct,
 } from '@ccq/domain';
 import type { Actor, ScoringModel, TransitionRequest, WorkflowConfig } from '@ccq/domain';
 
@@ -574,7 +577,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
         case 'engineering': {
           const analyst = engineer ?? persona('engineer');
           const processType = rng.pick(PROCESS_FOR[productFamily] ?? ['OTHER']);
-          await upsertEngReview(db, {
+          const review = await upsertEngReview(db, {
             quoteId,
             acceptedAt: at,
             acceptedBy: analyst.id,
@@ -601,15 +604,36 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             capacitySignoffAt: at,
           });
           const evidenceCount = rng.chance(0.25) ? 2 : 1;
+          const quoteVolume = (await getQuoteById(db, quoteId))?.estAnnualVolume ?? null;
           for (let k = 0; k < evidenceCount; k++) {
+            const site = rng.pick(['PLANT_01', 'PLANT_02', 'PLANT_03']);
+            const lineAsset = `Line ${rng.int(1, 12)}`;
+            const assumedEffectivenessPct = rng.float(60, 85, 1);
+            const cycleTimeS = rng.float(6, 28, 1);
+            const utilizationBeforePct = rng.float(35, 95, 1);
+            // FB-03: "buffer" is gone; the draw is kept so the rest of the data set is unchanged.
+            discard(rng.chance(0.7) ? rng.float(5, 20, 1) : null);
+            // The volume is split across the rows, and the after-utilization is calculated like the app does.
+            const allocatedAnnualVolume =
+              quoteVolume === null ? null : Math.round(quoteVolume / evidenceCount);
+            const calc = computeUtilization({
+              cycleTimeS,
+              cavitation: review.cavitation,
+              effectivenessPct: assumedEffectivenessPct,
+              scheduledRunDaysPerYear: CAPACITY_BASIS_SEED.scheduledRunDaysPerYear,
+              allocatedAnnualVolume,
+              utilizationBeforePct,
+            });
             await insertCapacityEvidence(db, {
               quoteId,
-              site: rng.pick(['PLANT_01', 'PLANT_02', 'PLANT_03']),
-              lineAsset: `Line ${rng.int(1, 12)}`,
-              assumedEffectivenessPct: rng.float(60, 85, 1),
-              cycleTimeS: rng.float(6, 28, 1),
-              utilizationPct: rng.float(35, 95, 1),
-              bufferPct: rng.chance(0.7) ? rng.float(5, 20, 1) : null,
+              site,
+              lineAsset,
+              assumedEffectivenessPct,
+              cycleTimeS,
+              utilizationBeforePct,
+              allocatedAnnualVolume,
+              scheduledRunDaysPerYear: CAPACITY_BASIS_SEED.scheduledRunDaysPerYear,
+              utilizationAfterPct: calc.ok ? storedUtilizationPct(calc.utilizationAfterPct) : null,
               analysisDate: at.toISOString().slice(0, 10),
               analystId: analyst.id,
               notes: 'Assumptions stated by the analyst; no OEE default applied.',

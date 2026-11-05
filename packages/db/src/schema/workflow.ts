@@ -761,7 +761,7 @@ export const engReview = documented(
         text('plant_code'),
         'value_list plant code. Decided by Engineering + Ops + Supply Chain, never the KAM (DF-10).',
       ),
-      cavitation: c(integer('cavitation'), 'Mould cavitation.'),
+      cavitation: c(integer('cavitation'), 'Mould cavitation: a whole number, 1 to 99 (FB-03).'),
       cycleTimeS: c(
         numeric('cycle_time_s', { precision: 8, scale: 2, mode: 'number' }),
         'Cycle time (seconds).',
@@ -769,7 +769,8 @@ export const engReview = documented(
       toolingNotes: c(text('tooling_notes'), 'Tooling notes (mold, hot runner).'),
       prelimCapitalUsd: c(
         money('prelim_capital_usd'),
-        'Preliminary capital estimate (USD).' + COMMERCIAL,
+        'Budgetary capital estimate (USD): preliminary, includes contingency; refined after award, before any CER (FB-03, F-064).' +
+          COMMERCIAL,
       ),
       downstreamEquipmentNotes: c(
         text('downstream_equipment_notes'),
@@ -803,7 +804,9 @@ export const engReview = documented(
       ),
     },
     (t) => [
-      check('eng_review_cavitation_check', sql`${t.cavitation} > 0`),
+      // FB-03 (F-057): whole numbers 1-99. Added NOT VALID in migration 0026 so existing rows over 99
+      // are not rejected (new writes are still checked).
+      check('eng_review_cavitation_check', sql`${t.cavitation} between 1 and 99`),
       check(
         'eng_review_capacity_signoff_status_check',
         sql`${t.capacitySignoffStatus} is null or ${inList(t.capacitySignoffStatus, CAPACITY_SIGNOFF_STATUSES)}`,
@@ -830,12 +833,32 @@ export const capacityEvidence = documented(
         'Cycle time (s).' + COMMERCIAL,
       ),
       utilizationPct: c(
-        numeric('utilization_pct', { precision: 5, scale: 2, mode: 'number' }).notNull(),
-        'Current utilization %.' + COMMERCIAL,
+        numeric('utilization_pct', { precision: 5, scale: 2, mode: 'number' }),
+        'Deprecated (FB-03): replaced by utilization_before_pct. Kept for history and Fabric; no longer written.' +
+          COMMERCIAL,
       ),
       bufferPct: c(
         numeric('buffer_pct', { precision: 5, scale: 2, mode: 'number' }),
-        'Capacity buffer %.' + COMMERCIAL,
+        'Deprecated (FB-03, F-059): "buffer" was defined three ways by Engineering. Kept for history and Fabric; no longer written.' +
+          COMMERCIAL,
+      ),
+      utilizationBeforePct: c(
+        numeric('utilization_before_pct', { precision: 7, scale: 2, mode: 'number' }).notNull(),
+        "Utilization before the new business, %: the line's current load, entered (0-100). Replaces utilization_pct (FB-03, F-059)." +
+          COMMERCIAL,
+      ),
+      allocatedAnnualVolume: c(
+        bigint('allocated_annual_volume', { mode: 'number' }),
+        "Annual volume (units) of this quote allocated to this line. Defaults to the quote's estimated annual volume; the engineer sets each row's share when the business is split across lines or plants (FB-03, T-030).",
+      ),
+      scheduledRunDaysPerYear: c(
+        integer('scheduled_run_days_per_year'),
+        'Scheduled run days per year for this line. Defaults from app_setting capacity_basis (provisional, D-021).',
+      ),
+      utilizationAfterPct: c(
+        numeric('utilization_after_pct', { precision: 7, scale: 2, mode: 'number' }),
+        'Utilization after the new business, %. CALCULATED by the server (domain capacity.ts) from cavitation, cycle time, effectiveness, run days and allocated volume; stored for reporting, never typed. Null until every input is present (FB-03).' +
+          COMMERCIAL,
       ),
       analysisDate: c(date('analysis_date', { mode: 'string' }).notNull(), 'Date of the analysis.'),
       analystId: c(userRef('analyst_id').notNull(), 'Analyst who did it.'),
@@ -845,7 +868,11 @@ export const capacityEvidence = documented(
       index('capacity_evidence_quote_idx').on(t.quoteId),
       check(
         'capacity_evidence_pct_check',
-        sql`${t.assumedEffectivenessPct} between 0 and 100 and ${t.utilizationPct} between 0 and 100 and (${t.bufferPct} is null or ${t.bufferPct} between 0 and 100)`,
+        sql`${t.assumedEffectivenessPct} between 0 and 100 and (${t.utilizationPct} is null or ${t.utilizationPct} between 0 and 100) and (${t.bufferPct} is null or ${t.bufferPct} between 0 and 100)`,
+      ),
+      check(
+        'capacity_evidence_utilization_check',
+        sql`${t.utilizationBeforePct} between 0 and 100 and (${t.allocatedAnnualVolume} is null or ${t.allocatedAnnualVolume} >= 0) and (${t.scheduledRunDaysPerYear} is null or ${t.scheduledRunDaysPerYear} between 1 and 366) and (${t.utilizationAfterPct} is null or ${t.utilizationAfterPct} >= 0)`,
       ),
     ],
   ),
@@ -987,7 +1014,10 @@ export const attachment = documented(
         'Intake draft the file was uploaded to (B-16); kept after submit for provenance. Null once a deleted draft took its (removed) files with it.',
         KAM,
       ),
-      kind: c(text('kind').notNull(), 'bottle_drawing | spec | sample_photo | other.'),
+      kind: c(
+        text('kind').notNull(),
+        "bottle_drawing | spec | sample_photo | capacity_analysis | other (capacity_analysis: FB-03, the engineer's capacity analysis).",
+      ),
       fileName: c(
         text('file_name').notNull(),
         'Original file name (metadata; the stored name is sanitized).',
@@ -1132,9 +1162,21 @@ export const handoffRecord = documented(
         'B-13: when someone ticked "Hand-off complete" (B-26: "Hand-off accepted", G6b); null while open.',
       ),
       completedBy: c(userRef('completed_by'), 'B-13: who confirmed the hand-off complete.'),
+      cerReadyAt: c(
+        timestamptz('cer_ready_at'),
+        'FB-03 (F-064): when someone ticked "Ready for CER development" (only after G5 Awarded); null while not ready.',
+      ),
+      cerReadyBy: c(
+        userRef('cer_ready_by'),
+        'FB-03 (F-064): who ticked "Ready for CER development".',
+      ),
       updatedBy: c(userRef('updated_by'), 'B-13: who last edited the record.'),
     },
     (t) => [
+      check(
+        'handoff_record_cer_ready_consistency_check',
+        sql`(${t.cerReadyAt} is null) = (${t.cerReadyBy} is null)`,
+      ),
       check(
         'handoff_record_acceptance_evidence_check',
         inList(t.acceptanceEvidence, ACCEPTANCE_EVIDENCE),

@@ -52,7 +52,7 @@ async function quoteInFinalReview(
         site: 'PLANT_01',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
-        utilizationPct: 62,
+        utilizationBeforePct: 62,
         analysisDate: '2026-10-26',
         analystId: engineerId,
       },
@@ -143,7 +143,7 @@ test('an Approver approves one quote and declines another from a phone', async (
   const risky = page.locator(`[data-testid="final-review-item"][data-quote="${declineMe}"]`);
   await expect(risky).toHaveCount(1);
   await expect(risky.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
-  await expect(risky.getByTestId('capital-readiness')).toHaveText('Pending');
+  await expect(risky.getByTestId('capital-readiness')).toHaveText('Capital pending (budgetary)');
   await expect(risky.getByTestId('approval-status')).toContainText('Approved');
   await expect(risky.getByTestId('waiting')).toContainText('Waiting');
   expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
@@ -153,7 +153,9 @@ test('an Approver approves one quote and declines another from a phone', async (
   const card = page.locator(`[data-testid="final-review-item"][data-quote="${approveMe}"]`);
   await expect(card).toHaveCount(1);
   await expect(card.getByTestId('g2-outcome')).toHaveText('Advance');
-  await expect(card.getByTestId('capital-readiness')).toHaveText('Pre-approved');
+  await expect(card.getByTestId('capital-readiness')).toHaveText(
+    'Capital pre-approved (budgetary)',
+  );
 
   // ── The review: one page, the decision bar stays in reach ──
   await card.getByRole('link', { name: `Review & decide ${approveMe}` }).click();
@@ -166,7 +168,9 @@ test('an Approver approves one quote and declines another from a phone', async (
   await expect(page.getByTestId('review-capacity')).toContainText('70%');
   await expect(page.getByTestId('review-pricing')).toContainText('March CDI, FOB Chicago');
   await expect(page.getByTestId('review-pricing')).toContainText('Hold the list price');
-  await expect(page.getByTestId('review-capital')).toContainText('Pre-approved');
+  await expect(page.getByTestId('review-capital')).toContainText(
+    'Capital pre-approved (budgetary)',
+  );
   await expect(page.getByTestId('review-attachments')).toContainText('No files are attached');
   await expect(page.getByTestId('review-decisions')).toContainText('G3');
   await expect(page.getByTestId('full-timeline-link')).toBeVisible();

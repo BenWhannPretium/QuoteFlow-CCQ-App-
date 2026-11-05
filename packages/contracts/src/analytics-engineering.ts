@@ -7,7 +7,7 @@ import { QueueHealth } from './dashboards';
 //
 // `GET /api/v1/analytics/engineering` (engQueue.read). What helps upfront engineering run the queue,
 // as opposed to the leadership report: load per engineer, aging, capacity sign-offs, G2 outcomes and
-// time in Engineering Review. No commercial figures (prelim capital and capacity numbers stay on the
+// time in Engineering Review. No commercial figures (budgetary capital and capacity numbers stay on the
 // quote, behind quote.read.commercialFields).
 
 const days = z.number().nullable();

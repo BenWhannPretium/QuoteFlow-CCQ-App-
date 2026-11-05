@@ -78,7 +78,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
             site: 'PLANT_01',
             assumedEffectivenessPct: 70,
             cycleTimeS: 14.5,
-            utilizationPct: 62,
+            utilizationBeforePct: 62,
             analysisDate: '2026-10-26',
             analystId: engineerId,
           },
@@ -109,6 +109,14 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
     }),
   );
 
+  // F-064: a CER reference saved before the field was removed is kept and shown read-only (checked below).
+  await ok(
+    request.put(`/api/v1/quotes/${quoteNumber}/capital-readiness`, {
+      headers: as('pricing'),
+      data: { capitalReadiness: 'pending', cerReference: 'CER-4410' },
+    }),
+  );
+
   const open = async (persona: string): Promise<Page> => {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -128,7 +136,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   const row = pricing.getByRole('row').filter({ hasText: quoteNumber });
   await expect(row).toHaveCount(1);
   await expect(row.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
-  await expect(row.getByTestId('capital-readiness')).toHaveText('Pending');
+  await expect(row.getByTestId('capital-readiness')).toHaveText('Capital pending (budgetary)');
   await expect(row.getByTestId('approval-status')).toHaveText('Awaiting approval');
   await expect(row.getByTestId('assigned-pricer')).toBeVisible(); // assigned by the pricing lead
   expect(await seriousViolations(pricing)).toEqual([]);
@@ -209,7 +217,9 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   const capital = tab.getByTestId('capital-form');
   await expect(capital.getByLabel('Status')).toHaveValue('pending');
   await capital.getByLabel('Pending-capital justification').fill('CER goes to the board Nov 10');
-  await capital.getByLabel('CER reference').fill('CER-4410');
+  // F-064: no CER reference is needed to quote, and none can be typed here.
+  await expect(capital.getByLabel('CER reference')).toHaveCount(0);
+  await expect(capital).toContainText('No CER reference is needed to quote');
   await capital.getByRole('button', { name: 'Save capital readiness' }).click();
   await expect(pricing.getByText('Capital readiness saved')).toBeVisible();
   await expect(tab.getByTestId('quoting-warnings')).toContainText('Capital is still pending');
@@ -251,6 +261,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
     'March CDI',
     'Hold the list price',
     'ERF26-211',
+    'Legacy CER reference',
     'CER-4410',
     'board Nov 10',
   ]) {
@@ -326,7 +337,7 @@ test('the pricing lead assigns a pricer from the Quoting tab and from the queue'
             site: 'PLANT_01',
             assumedEffectivenessPct: 70,
             cycleTimeS: 14.5,
-            utilizationPct: 62,
+            utilizationBeforePct: 62,
             analysisDate: '2026-10-26',
             analystId: engineerId,
           },

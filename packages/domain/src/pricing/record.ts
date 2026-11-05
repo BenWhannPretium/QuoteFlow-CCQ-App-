@@ -28,11 +28,15 @@ export const CAPITAL_READINESS_VALUES = [
 ] as const;
 export type CapitalReadiness = (typeof CAPITAL_READINESS_VALUES)[number];
 
+/**
+ * FB-03 (F-064): the capital figure at quoting is budgetary, so no label says a CER is ready. The codes are
+ * unchanged (D-001 may restructure capital readiness, FB-07).
+ */
 export const CAPITAL_READINESS_LABELS: Record<CapitalReadiness, string> = {
-  not_required: 'Not required',
-  pending: 'Pending',
-  pre_approved: 'Pre-approved',
-  not_approved: 'Not approved',
+  not_required: 'Capital not required',
+  pending: 'Capital pending (budgetary)',
+  pre_approved: 'Capital pre-approved (budgetary)',
+  not_approved: 'Capital not approved (budgetary)',
 };
 
 // ── Pricing-app reference formats (config) ───────────────────────────────────────────────────────

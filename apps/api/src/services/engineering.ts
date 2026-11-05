@@ -22,6 +22,7 @@ import {
   insertCapacityEvidence,
   listAssignableEngineers,
   listCapacityEvidence,
+  listCapacityEvidenceWithNames,
   listEngQueueRows,
   listHolds,
   listHoldsForQuotes,
@@ -46,6 +47,7 @@ import {
   businessDaysBetween,
   can,
   canAssignEngQueue,
+  annualCapacityUnits,
   canEditEngReview,
   lockedFor,
   computeTimeInStage,
@@ -58,7 +60,12 @@ import {
   planAssignment,
   planCapacityEvidence,
   planCapacitySignoff,
+  roundPct,
   sortEngQueue,
+  storedUtilizationPct,
+  computeUtilization,
+  utilizationLevel,
+  EXCEEDS_CAPACITY_MESSAGE,
   summarizeStageTimes,
   type Actor,
   type DomainError,
@@ -70,7 +77,8 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
-import { loadEngQueueSettings, engineeringView } from './engineering-view';
+import { csvCell } from './auditAdmin';
+import { loadCapacityBasis, loadEngQueueSettings, engineeringView } from './engineering-view';
 import { loadIntakeConfig } from './intake';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
 import { persistNotifications } from './notificationService';
@@ -724,6 +732,10 @@ export class EngineeringService {
       if (changed.includes('prelimCapitalUsd')) {
         await this.opts.scoring.recalculate(tx, q.id, actor.userId, now, 'input_change');
       }
+      // F-059: utilization after depends on the cavitation, so the stored figures follow it.
+      if (changed.includes('cavitation')) {
+        await this.recalculateUtilization(tx, actor, q, next.cavitation ?? null, meta, now);
+      }
       return this.detail(tx, actor, quoteNumber);
     });
   }
@@ -762,6 +774,7 @@ export class EngineeringService {
           });
         }
       });
+      const [eng, basis] = await Promise.all([getEngReview(tx, q.id), loadCapacityBasis(tx)]);
       const plan = planCapacityEvidence(
         actor,
         body.rows,
@@ -769,9 +782,15 @@ export class EngineeringService {
           id: r.id,
           assumedEffectivenessPct: r.assumedEffectivenessPct,
           cycleTimeS: r.cycleTimeS,
-          utilizationPct: r.utilizationPct,
-          bufferPct: r.bufferPct,
+          utilizationBeforePct: r.utilizationBeforePct,
+          allocatedAnnualVolume: r.allocatedAnnualVolume,
+          scheduledRunDaysPerYear: r.scheduledRunDaysPerYear,
         })),
+        {
+          cavitation: eng?.cavitation ?? null,
+          quoteAnnualVolume: q.estAnnualVolume ?? null,
+          basis,
+        },
       );
       if (!plan.ok) {
         errors.push(
@@ -811,7 +830,13 @@ export class EngineeringService {
         type: 'capacity_evidence_updated',
         actorId: actor.userId,
         at: now,
-        payload: { added, updated, removed, rows: plan.upsert.length },
+        payload: {
+          added,
+          updated,
+          removed,
+          rows: plan.upsert.length,
+          ...(plan.allocationWarning ? { allocationWarning: true } : {}),
+        },
         createdBy: actor.userId,
       });
       await recordAudit(tx, actor, meta, {
@@ -824,6 +849,145 @@ export class EngineeringService {
         at: now,
       });
       return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /**
+   * F-059: re-derive every capacity row's stored utilization after, because the review's cavitation
+   * changed. Only rows whose figure actually moves are written; the change is audited like any other.
+   */
+  private async recalculateUtilization(
+    tx: Tx,
+    actor: Actor,
+    q: Quote,
+    cavitation: number | null,
+    meta: AuditMeta,
+    now: Date,
+  ): Promise<void> {
+    const rows = await listCapacityEvidence(tx, q.id);
+    const before: { id: string; utilizationAfterPct: number | null }[] = [];
+    const after: { id: string; utilizationAfterPct: number | null }[] = [];
+    for (const r of rows) {
+      const calc = computeUtilization({
+        cycleTimeS: r.cycleTimeS,
+        cavitation,
+        effectivenessPct: r.assumedEffectivenessPct,
+        scheduledRunDaysPerYear: r.scheduledRunDaysPerYear,
+        allocatedAnnualVolume: r.allocatedAnnualVolume,
+        utilizationBeforePct: r.utilizationBeforePct,
+      });
+      const next = calc.ok ? storedUtilizationPct(calc.utilizationAfterPct) : null;
+      if (next === (r.utilizationAfterPct ?? null)) continue;
+      await updateCapacityEvidence(tx, r.id, { utilizationAfterPct: next });
+      before.push({ id: r.id, utilizationAfterPct: r.utilizationAfterPct ?? null });
+      after.push({ id: r.id, utilizationAfterPct: next });
+    }
+    if (after.length === 0) return;
+    await recordAudit(tx, actor, meta, {
+      action: 'update',
+      entity: 'capacity_evidence',
+      entityId: null,
+      quoteId: q.id,
+      before,
+      after,
+      changeReason: 'Utilization after recalculated: the review cavitation changed',
+      at: now,
+    });
+  }
+
+  /**
+   * GET /quotes/:qn/capacity-evidence.csv (F-061): the capacity evidence as a CSV that can support a later
+   * CER. One line per row with the calculated utilization after, the basis label, the quote number and
+   * when it was generated. The export is audited (`action = 'export'`). Same read permission as the tab.
+   */
+  async capacityCsv(
+    withTx: EngWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    meta: AuditMeta,
+  ): Promise<{ fileName: string; lines: string[]; rows: number }> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      const { q } = await this.loadQuote(tx, quoteNumber);
+      const [rows, eng, basis] = await Promise.all([
+        listCapacityEvidenceWithNames(tx, q.id),
+        getEngReview(tx, q.id),
+        loadCapacityBasis(tx),
+      ]);
+      const cavitation = eng?.cavitation ?? null;
+      const generatedAt = now.toISOString();
+      const header = [
+        'quote_number',
+        'generated_at_utc',
+        'basis',
+        'site',
+        'line_asset',
+        'assumed_effectiveness_pct',
+        'cycle_time_s',
+        'cavitation',
+        'scheduled_run_days_per_year',
+        'allocated_annual_volume',
+        'annual_capacity_units',
+        'utilization_before_pct',
+        'utilization_after_pct',
+        'status',
+        'analysis_date',
+        'analyst',
+        'notes',
+      ];
+      const lines = [
+        header.map(csvCell).join(','),
+        ...rows.map(({ row, analystName }) => {
+          const capacity = annualCapacityUnits({
+            cycleTimeS: row.cycleTimeS,
+            cavitation,
+            effectivenessPct: row.assumedEffectivenessPct,
+            scheduledRunDaysPerYear: row.scheduledRunDaysPerYear,
+          });
+          const level =
+            row.utilizationAfterPct === null
+              ? null
+              : utilizationLevel(row.utilizationAfterPct, basis);
+          const status =
+            level === 'over'
+              ? EXCEEDS_CAPACITY_MESSAGE
+              : level === 'warn'
+                ? `above ${basis.warnAbovePct}%`
+                : level === 'ok'
+                  ? 'within limit'
+                  : 'not calculated';
+          return [
+            q.quoteNumber,
+            generatedAt,
+            basis.basisLabel,
+            row.site,
+            row.lineAsset,
+            row.assumedEffectivenessPct,
+            row.cycleTimeS,
+            cavitation,
+            row.scheduledRunDaysPerYear,
+            row.allocatedAnnualVolume,
+            capacity === null ? null : Math.round(capacity),
+            row.utilizationBeforePct,
+            row.utilizationAfterPct === null ? null : roundPct(row.utilizationAfterPct, 1),
+            status,
+            row.analysisDate,
+            analystName,
+            row.notes,
+          ]
+            .map(csvCell)
+            .join(',');
+        }),
+      ];
+      await recordAudit(tx, actor, meta, {
+        at: now,
+        action: 'export',
+        entity: 'capacity_evidence',
+        entityId: null,
+        quoteId: q.id,
+        after: { format: 'csv', view: 'capacity_evidence', quoteNumber, rows: rows.length },
+      });
+      return { fileName: `${q.quoteNumber}-capacity-evidence.csv`, lines, rows: rows.length };
     });
   }
 

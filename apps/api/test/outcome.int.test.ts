@@ -160,7 +160,7 @@ async function inEngineering() {
           site: 'PLANT_01',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
-          utilizationPct: 62,
+          utilizationBeforePct: 62,
           analysisDate: '2026-10-26',
           analystId: await userId('engineer'),
         },
@@ -1090,6 +1090,66 @@ describe('the hand-off record (PUT /quotes/:qn/handoff)', () => {
     expect(saved?.completedByName).toBeTruthy();
     expect((await handoffRow(qn))!.completedBy).toBe(ids['sales-leader']);
     expect(await events(qn, 'handoff_completed')).toHaveLength(1);
+  });
+
+  it('F-064: "Ready for CER development" is locked before the award', async () => {
+    const qn = await inCustomerDecision();
+    const res = await put(qn, { cerReady: true });
+    expect(res.statusCode).toBe(409);
+    expect(errorCodes(res)).toEqual(['NOT_AWARDED']);
+    expect((await detail(qn)).customerDecision.handoff).toBeNull();
+  });
+
+  it('F-064: after the award the KAM ticks "Ready for CER development": who and when, on the timeline and in the audit', async () => {
+    const qn = await awarded();
+    expect((await detail(qn)).customerDecision.handoff).toMatchObject({
+      cerReady: false,
+      cerReadyAt: null,
+      cerReadyByName: null,
+    });
+    const res = await put(qn, { cerReady: true });
+    expect(res.statusCode, res.body).toBe(200);
+    const saved = HandoffResponse.parse(res.json()).customerDecision.handoff;
+    expect(saved).toMatchObject({ cerReady: true, cerReadyAt: clock.toISOString() });
+    expect(saved?.cerReadyByName).toBeTruthy();
+    expect(await handoffRow(qn)).toMatchObject({ cerReadyBy: ids['kam'] });
+
+    const [e] = await events(qn, 'handoff_updated');
+    expect(e!.payload).toMatchObject({ fields: ['cerReady'], cerReady: 'ready' });
+    const audits = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(
+        and(
+          eq(schema.auditEvent.entity, 'handoff_record'),
+          eq(schema.auditEvent.quoteId, (await quoteRow(qn)).id),
+        ),
+      );
+    expect(audits.at(-1)).toMatchObject({
+      before: { cerReadyAt: null },
+      after: { cerReadyBy: ids['kam'] },
+    });
+
+    // Another edit keeps who ticked it; a sales leader can clear it.
+    const other = await put(qn, { notes: 'x' }, 'sales-leader');
+    expect(HandoffResponse.parse(other.json()).customerDecision.handoff).toMatchObject({
+      cerReady: true,
+      cerReadyAt: clock.toISOString(),
+    });
+    const cleared = await put(qn, { cerReady: false }, 'sales-leader');
+    expect(HandoffResponse.parse(cleared.json()).customerDecision.handoff).toMatchObject({
+      cerReady: false,
+      cerReadyAt: null,
+      cerReadyByName: null,
+    });
+  });
+
+  it('F-064: only those who can edit the hand-off can tick it', async () => {
+    const qn = await awarded();
+    for (const key of ['eng-lead', 'engineer', 'pricing', 'approver', 'leadership']) {
+      expect((await put(qn, { cerReady: true }, key)).statusCode, key).toBe(403);
+    }
+    expect((await put(qn, { cerReady: true }, 'admin')).statusCode).toBe(200);
   });
 
   it('is editable by the KAM (own), SalesLeader and Admin; nobody else', async () => {

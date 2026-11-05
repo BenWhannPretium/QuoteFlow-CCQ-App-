@@ -239,7 +239,7 @@ describe('capital readiness', () => {
       capitalNotes: 'Apex in review',
       capitalPendingJustification: null,
     });
-    expect(CAPITAL_READINESS_LABELS.pre_approved).toBe('Pre-approved');
+    expect(CAPITAL_READINESS_LABELS.pre_approved).toBe('Capital pre-approved (budgetary)');
   });
 
   it('cannot be "not required" after a G2 "Capital required", nor an unknown value', () => {

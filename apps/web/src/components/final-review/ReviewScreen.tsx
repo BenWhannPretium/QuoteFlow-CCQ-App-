@@ -1,4 +1,4 @@
-import type { ReviewSummary } from '@ccq/contracts';
+import { BUDGETARY_CAPITAL_LABEL, type ReviewSummary } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -341,7 +341,7 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
           { label: 'Engineer', value: e.assignedEngineerName },
           ...(e.commercialRedacted
             ? []
-            : [{ label: 'Preliminary capital', value: money(r.prelimCapitalUsd) }]),
+            : [{ label: BUDGETARY_CAPITAL_LABEL, value: money(r.prelimCapitalUsd) }]),
           { label: 'Downstream equipment', value: r.downstreamEquipmentNotes },
           { label: 'Technical concept', value: r.technicalConceptNotes },
         ]}
@@ -368,8 +368,18 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
                       label: 'Cycle time',
                       value: row.cycleTimeS != null ? `${row.cycleTimeS} s` : null,
                     },
-                    { label: 'Utilization', value: pct(row.utilizationPct) },
-                    { label: 'Buffer', value: pct(row.bufferPct) },
+                    { label: 'Utilization before', value: pct(row.utilizationBeforePct) },
+                    {
+                      label: 'Allocated volume (units / yr)',
+                      value: row.allocatedAnnualVolume?.toLocaleString('en-US') ?? null,
+                    },
+                    {
+                      label: 'Utilization after (calculated)',
+                      value:
+                        row.utilizationAfterPct != null
+                          ? `${pct(row.utilizationAfterPct)}${row.utilizationLevel === 'over' ? ' · exceeds line capacity' : ''}`
+                          : null,
+                    },
                     { label: 'Analysis date', value: row.analysisDate },
                     { label: 'Analyst', value: row.analystName },
                   ]}
@@ -430,14 +440,14 @@ function PricingSection({ s }: { s: ReviewSummary }) {
         {r ? (
           <KeyValueGrid
             items={[
-              { label: 'CER reference', value: r.cerReference },
+              ...(r.cerReference ? [{ label: 'Legacy CER reference', value: r.cerReference }] : []),
               { label: 'Capital notes', value: r.capitalNotes },
               { label: 'Pending justification', value: r.capitalPendingJustification },
               ...(s.engineering.commercialRedacted
                 ? []
                 : [
                     {
-                      label: 'Preliminary capital',
+                      label: BUDGETARY_CAPITAL_LABEL,
                       value: money(s.engineering.review.prelimCapitalUsd),
                     },
                   ]),

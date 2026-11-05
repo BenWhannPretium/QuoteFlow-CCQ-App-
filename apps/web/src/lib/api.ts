@@ -336,6 +336,9 @@ export const api = {
     getJson(`${quotePath(quoteNumber)}/eng-review/accept`, EngineeringDetail, { method: 'POST' }),
   updateEngReview: (quoteNumber: string, body: EngReviewBody) =>
     getJson(`${quotePath(quoteNumber)}/eng-review`, EngineeringDetail, { method: 'PUT', body }),
+  /** F-061: the capacity evidence as a CSV Blob (needs the bearer token; audited server-side). */
+  capacityEvidenceCsv: (quoteNumber: string): Promise<Blob> =>
+    getCsv(`${quotePath(quoteNumber)}/capacity-evidence.csv`),
   updateCapacityEvidence: (quoteNumber: string, body: CapacityEvidenceBody) =>
     getJson(`${quotePath(quoteNumber)}/capacity-evidence`, EngineeringDetail, {
       method: 'PUT',
