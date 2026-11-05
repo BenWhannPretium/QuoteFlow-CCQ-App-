@@ -107,7 +107,7 @@ export function parseNeckText(
   };
 }
 
-/** The pre-FB-02 `neck_finish` codes that split cleanly (migration 0026). */
+/** The pre-FB-02 `neck_finish` codes that split cleanly (migration 0028). */
 export const LEGACY_NECK_SPLITS: Readonly<Record<string, [diameter: string, finish: string]>> = {
   '28-410': ['28', '410'],
   '38-400': ['38', '400'],
@@ -116,7 +116,7 @@ export const LEGACY_NECK_SPLITS: Readonly<Record<string, [diameter: string, fini
 };
 
 /**
- * Migration 0026's rule for a stored pre-FB-02 `neck_finish` (repeated in SQL there; the integration
+ * Migration 0028's rule for a stored pre-FB-02 `neck_finish` (repeated in SQL there; the integration
  * test checks they agree): the four standard codes split into diameter + finish; `120-DC` becomes 120
  * + Custom "DC"; any other text (the old "Other" free text) becomes finish Custom with the text kept.
  */

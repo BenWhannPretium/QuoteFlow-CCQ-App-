@@ -311,17 +311,23 @@ describe('G1 decisions through the generic route', () => {
     expect(errorCodes(again)).toEqual(['WRONG_STAGE']);
   });
 
-  it('Hold needs a review date and a reason; then the quote is on hold with the date recorded', async () => {
+  it('Hold needs a review date, a reason and a note; then the quote is on hold with the date recorded', async () => {
     const q = await submitted();
     const bad = await decide(q.quoteNumber, { outcomeKey: 'hold' });
     expect(bad.statusCode).toBe(422);
-    // B-26: the review date, the reason and the hold owner.
-    expect(errorCodes(bad)).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'REASON_REQUIRED']);
+    // B-26: the review date, the reason and the hold owner. FB-01 (F-027): and a note.
+    expect(errorCodes(bad)).toEqual([
+      'MISSING_FIELD',
+      'MISSING_FIELD',
+      'NOTE_REQUIRED',
+      'REASON_REQUIRED',
+    ]);
     const owner = await userIdOf('SalesLeader');
 
     const res = await decide(q.quoteNumber, {
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
+      note: 'Customer is confirming the volume',
       holdUntil: '2026-11-09',
       holdOwnerId: owner,
     });
@@ -360,17 +366,22 @@ describe('G1 decisions through the generic route', () => {
     expect(res.body).toMatch(/hold owner must be an active/);
   });
 
-  it('Redirect needs a reason and closes as REDIRECTED', async () => {
+  it('Redirect needs a reason and a note (F-027) and closes as REDIRECTED', async () => {
     // FB-02 (F-067): only CCQ can be submitted, so G1 redirects CCQ requests that turn out not to be.
     const q = await submitted();
     const bad = await decide(q.quoteNumber, { outcomeKey: 'redirect' });
-    expect(errorCodes(bad)).toEqual(['REASON_REQUIRED']);
+    expect(errorCodes(bad)).toEqual(['NOTE_REQUIRED', 'REASON_REQUIRED']);
     const wrongContext = await decide(q.quoteNumber, {
       outcomeKey: 'redirect',
       reasonCode: 'not_strategic',
+      note: 'Catalog item',
     });
     expect(errorCodes(wrongContext)).toEqual(['INVALID_REASON']);
-    const res = await decide(q.quoteNumber, { outcomeKey: 'redirect', reasonCode: 'stock_item' });
+    const res = await decide(q.quoteNumber, {
+      outcomeKey: 'redirect',
+      reasonCode: 'stock_item',
+      note: 'Catalog item 4471',
+    });
     expect(res.statusCode, res.body).toBe(201);
     const [row] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, q.quoteId));
     expect(row).toMatchObject({

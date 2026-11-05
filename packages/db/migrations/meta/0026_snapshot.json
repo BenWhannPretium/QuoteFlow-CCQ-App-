@@ -1,5 +1,5 @@
 {
-  "id": "c081519b-c610-4314-9f42-41bc0d2baa4e",
+  "id": "d94d59d0-4b42-4ef9-8d17-f8af4c8e14da",
   "prevId": "313772fc-bb9e-46c1-a1cf-dd433bcc4cf9",
   "version": "7",
   "dialect": "postgresql",
@@ -963,6 +963,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "resume_at": {
+          "name": "resume_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'intake'"
         }
       },
       "indexes": {},
@@ -1020,6 +1027,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "gate_outcome_definition_resume_at_check": {
+          "name": "gate_outcome_definition_resume_at_check",
+          "value": "\"gate_outcome_definition\".\"resume_at\" in ('origin', 'intake')"
+        },
         "gate_outcome_definition_reason_context_check": {
           "name": "gate_outcome_definition_reason_context_check",
           "value": "\"gate_outcome_definition\".\"reason_context\" in ('rework', 'redirect', 'stop', 'decline', 'lost', 'expired', 'hold', 'requote', 'override', 'awarded', 'not_authorized')"
@@ -2039,7 +2050,7 @@
       "checkConstraints": {
         "value_list_list_key_check": {
           "name": "value_list_list_key_check",
-          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'labels_purchased_by', 'decoration_type')"
+          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model')"
         }
       },
       "isRLSEnabled": false
@@ -2288,7 +2299,7 @@
       "checkConstraints": {
         "attachment_kind_check": {
           "name": "attachment_kind_check",
-          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'other', 'bid_file', 'project_brief', 'competitor_drawing')"
+          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'other')"
         },
         "attachment_size_check": {
           "name": "attachment_size_check",
@@ -2739,9 +2750,9 @@
           "name": "customer_status_check",
           "value": "\"customer\".\"status\" in ('existing', 'not_yet_established')"
         },
-        "customer_existing_has_sf_account_check": {
-          "name": "customer_existing_has_sf_account_check",
-          "value": "\"customer\".\"status\" <> 'existing' or \"customer\".\"sf_account_id\" is not null"
+        "customer_sf_account_matches_status_check": {
+          "name": "customer_sf_account_matches_status_check",
+          "value": "(\"customer\".\"status\" = 'existing') = (\"customer\".\"sf_account_id\" is not null)"
         }
       },
       "isRLSEnabled": false
@@ -3987,18 +3998,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "quote_needed_by": {
-          "name": "quote_needed_by",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "product_needed_by": {
-          "name": "product_needed_by",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
         "drawing_status": {
           "name": "drawing_status",
           "type": "text",
@@ -4007,158 +4006,6 @@
         },
         "neck_finish": {
           "name": "neck_finish",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "neck_diameter": {
-          "name": "neck_diameter",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "neck_diameter_custom": {
-          "name": "neck_diameter_custom",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "neck_finish_type": {
-          "name": "neck_finish_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "neck_finish_type_custom": {
-          "name": "neck_finish_type_custom",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "neck_special_feature": {
-          "name": "neck_special_feature",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "neck_special_feature_custom": {
-          "name": "neck_special_feature_custom",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resin_customer_specified": {
-          "name": "resin_customer_specified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "resin_grade": {
-          "name": "resin_grade",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pcr_level": {
-          "name": "pcr_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "color_type": {
-          "name": "color_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "color_description": {
-          "name": "color_description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "additives": {
-          "name": "additives",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "liner_spec": {
-          "name": "liner_spec",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "labels_purchased_by": {
-          "name": "labels_purchased_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decoration_type": {
-          "name": "decoration_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decoration_print_colors": {
-          "name": "decoration_print_colors",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "height_mm": {
-          "name": "height_mm",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "width_or_diameter_mm": {
-          "name": "width_or_diameter_mm",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "depth_mm": {
-          "name": "depth_mm",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "gram_weight_g": {
-          "name": "gram_weight_g",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "modify_existing_mold": {
-          "name": "modify_existing_mold",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "existing_mold_ref": {
-          "name": "existing_mold_ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mold_change_description": {
-          "name": "mold_change_description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rfp_link": {
-          "name": "rfp_link",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "quote_variants_note": {
-          "name": "quote_variants_note",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -4348,6 +4195,18 @@
         },
         "pricing_return_note": {
           "name": "pricing_return_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rework_origin_stage_key": {
+          "name": "rework_origin_stage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rework_resume_at": {
+          "name": "rework_resume_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -4925,22 +4784,6 @@
           "name": "quote_priority_score_check",
           "value": "\"quote\".\"priority_score\" between 0 and 100"
         },
-        "quote_dimensions_positive_check": {
-          "name": "quote_dimensions_positive_check",
-          "value": "(\"quote\".\"height_mm\" is null or \"quote\".\"height_mm\" > 0) and (\"quote\".\"width_or_diameter_mm\" is null or \"quote\".\"width_or_diameter_mm\" > 0) and (\"quote\".\"depth_mm\" is null or \"quote\".\"depth_mm\" > 0) and (\"quote\".\"gram_weight_g\" is null or \"quote\".\"gram_weight_g\" > 0)"
-        },
-        "quote_rfp_link_https_check": {
-          "name": "quote_rfp_link_https_check",
-          "value": "\"quote\".\"rfp_link\" is null or \"quote\".\"rfp_link\" ~* '^https://'"
-        },
-        "quote_decoration_print_colors_check": {
-          "name": "quote_decoration_print_colors_check",
-          "value": "\"quote\".\"decoration_print_colors\" is null or \"quote\".\"decoration_print_colors\" between 1 and 12"
-        },
-        "quote_need_by_order_check": {
-          "name": "quote_need_by_order_check",
-          "value": "\"quote\".\"product_needed_by\" is null or \"quote\".\"quote_needed_by\" is null or \"quote\".\"product_needed_by\" >= \"quote\".\"quote_needed_by\""
-        },
         "quote_closed_consistency_check": {
           "name": "quote_closed_consistency_check",
           "value": "(\"quote\".\"status\" = 'closed') = (\"quote\".\"closed_at\" is not null)"
@@ -4952,6 +4795,10 @@
         "quote_sf_status_flag_check": {
           "name": "quote_sf_status_flag_check",
           "value": "\"quote\".\"sf_status_flag\" is null or \"quote\".\"sf_status_flag\" in ('closed_won', 'closed_lost', 'deleted')"
+        },
+        "quote_rework_resume_at_check": {
+          "name": "quote_rework_resume_at_check",
+          "value": "\"quote\".\"rework_resume_at\" is null or \"quote\".\"rework_resume_at\" in ('origin', 'intake')"
         }
       },
       "isRLSEnabled": false

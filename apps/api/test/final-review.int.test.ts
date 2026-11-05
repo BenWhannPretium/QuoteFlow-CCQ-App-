@@ -189,7 +189,7 @@ async function inFinalReview(o: Opts = {}) {
           site: 'PLANT_01',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
-          utilizationPct: 62,
+          utilizationBeforePct: 62,
           analysisDate: '2026-10-26',
           analystId: await userId('engineer'),
         },
@@ -203,7 +203,7 @@ async function inFinalReview(o: Opts = {}) {
   ok(
     await decide(
       qn,
-      g2 === 'proceed_with_risk' ? { outcomeKey: g2, note: 'Tight on line 4' } : { outcomeKey: g2 },
+      g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Tight on line 4' },
       'EngLead',
       'G2',
     ),
@@ -486,7 +486,7 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     expect(dto.engineering.capacityEvidence).toHaveLength(1);
     expect(dto.engineering.capacityEvidence[0]).toMatchObject({
       assumedEffectivenessPct: 70,
-      utilizationPct: 62,
+      utilizationBeforePct: 62,
     });
     // pricing approval + basis + range note, capital readiness
     expect(dto.quoting.approval).toMatchObject({ approved: true });
@@ -560,8 +560,8 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
       expect(dto.engineering.review.prelimCapitalUsd).toBe(
         lead.dto.engineering.review.prelimCapitalUsd,
       );
-      expect(dto.engineering.capacityEvidence[0]?.utilizationPct).toBe(
-        lead.dto.engineering.capacityEvidence[0]?.utilizationPct,
+      expect(dto.engineering.capacityEvidence[0]?.utilizationBeforePct).toBe(
+        lead.dto.engineering.capacityEvidence[0]?.utilizationBeforePct,
       );
       expect(dto.quoting.approval).toMatchObject({ approved: true });
       expect(dto.warnings).toEqual(lead.dto.warnings);
@@ -1100,11 +1100,16 @@ describe('Final Review and the customer outcome stay separate', () => {
 });
 
 describe('B-26: the offer is ready before it is released (deck slide 13)', () => {
+  // FB-01 (F-069): these checks block only when `g4_required_checks` names them (seeded []). Here both
+  // are switched on; `workflow-integrity.int.test.ts` covers the seeded default.
+  beforeAll(() => setSetting('g4_required_checks', ['terms_checked', 'legal_review']));
+  afterAll(() => setSetting('g4_required_checks', []));
+
   it('G4 Advance needs the terms check; a new customer also needs the Legal review', async () => {
     const qn = await inFinalReview({ terms: false });
     const blocked = await decide(qn, { outcomeKey: 'approve' });
     expect(blocked.statusCode).toBe(422);
-    expect(errorPaths(blocked)).toContain('/terms_checked_at');
+    expect(errorPaths(blocked)).toContain('/g4_terms_check_required,terms_checked_at');
 
     // A KAM cannot check the terms on someone else's quote; Engineering cannot at all.
     const terms = { termsPaymentTerms: 'Net 30', termsToolingCommitment: true, checked: true };
@@ -1119,7 +1124,7 @@ describe('B-26: the offer is ready before it is released (deck slide 13)', () =>
       reasons: [{ code: 'tooling_commitment' }],
     });
     expect(errorPaths(await decide(qn, { outcomeKey: 'approve' }))).toEqual([
-      '/legal_review_required,legal_reviewed_on',
+      '/legal_review_required,g4_legal_review_check_required,legal_reviewed_on',
     ]);
     const legal = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, {
       legal: { reviewedOn: '2026-10-26', reviewerName: 'Pat Counsel' },
@@ -1132,19 +1137,23 @@ describe('B-26: the offer is ready before it is released (deck slide 13)', () =>
     const qn = await inFinalReview();
     const res = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, { termsMoq: '20k' });
     expect(QuoteDetail.parse(res.json()).commercial.terms.checkedAt).toBeNull();
-    expect(errorPaths(await decide(qn, { outcomeKey: 'approve' }))).toContain('/terms_checked_at');
+    expect(errorPaths(await decide(qn, { outcomeKey: 'approve' }))).toContain(
+      '/g4_terms_check_required,terms_checked_at',
+    );
   });
 
-  it('G4 Hold needs a reason, a review date and an owner', async () => {
+  it('G4 Hold needs a reason, a note (F-027), a review date and an owner', async () => {
     const qn = await inFinalReview();
     expect(errorCodes(await decide(qn, { outcomeKey: 'hold' }))).toEqual([
       'MISSING_FIELD',
       'MISSING_FIELD',
+      'NOTE_REQUIRED',
       'REASON_REQUIRED',
     ]);
     const held = await decide(qn, {
       outcomeKey: 'hold',
       reasonCode: 'awaiting_internal_input',
+      note: 'Waiting on the plant manager',
       holdUntil: '2026-11-30',
       holdOwnerId: await userId('approver'),
     });

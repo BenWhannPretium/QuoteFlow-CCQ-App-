@@ -6,6 +6,7 @@ export const ATTACHMENT_KIND_VALUES = [
   'bottle_drawing',
   'spec',
   'sample_photo',
+  'capacity_analysis',
   'other',
   // FB-02 (F-014)
   'bid_file',
@@ -19,6 +20,7 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   bottle_drawing: 'Bottle drawing',
   spec: 'Specification',
   sample_photo: 'Sample photo',
+  capacity_analysis: 'Capacity analysis',
   other: 'Other',
   bid_file: 'Bid file',
   project_brief: 'Project brief',

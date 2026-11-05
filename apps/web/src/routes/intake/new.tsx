@@ -10,7 +10,7 @@ import {
   Trash2Icon,
   RotateCcwIcon,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import { RequirePermission } from '@/auth';
 import { attachmentsQueryKey } from '@/components/attachments/Attachments';
@@ -283,10 +283,18 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
     },
   });
 
+  // FB-01 (F-030): a quote Pricing sent back asks whether the scope changed before it is resubmitted.
+  const askScope = Boolean(initial.rework?.askScopeChange);
+  const [scopeChanged, setScopeChanged] = useState<boolean | null>(null);
+  const scopeIds = { legend: useId(), help: useId() };
+
   const submit = useMutation({
     mutationFn: async () => {
       await draft.flush();
-      return api.submitDraft(draft.id);
+      return api.submitDraft(
+        draft.id,
+        askScope && scopeChanged !== null ? { scopeChanged } : undefined,
+      );
     },
     onSuccess: (res) => {
       setSubmitted(res);
@@ -369,7 +377,9 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
             {initial.rework.reasonLabel ? ` (${initial.rework.reasonLabel})` : ''}.
           </strong>{' '}
           {initial.rework.note ? `What to fix: ${initial.rework.note}. ` : ''}
-          Submitting updates the same quote and sends it back for qualification.
+          {askScope
+            ? 'Submitting updates the same quote. If the scope did not change, it goes straight back to Pricing.'
+            : 'Submitting updates the same quote and sends it back for qualification.'}
         </Notice>
       )}
 
@@ -414,6 +424,40 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
       {step === 2 && <CustomerStep {...stepProps} />}
       {step === 3 && <ProductStep {...stepProps} />}
       {step === 4 && <ReviewStep {...stepProps} goTo={goTo} draftId={draft.id} />}
+      {step === 4 && askScope && (
+        <fieldset
+          className="grid gap-2 rounded-md border p-4"
+          aria-describedby={scopeIds.help}
+          data-testid="scope-change"
+        >
+          <legend id={scopeIds.legend} className="px-1 text-sm font-medium">
+            Did the scope change? (required)
+          </legend>
+          <p id={scopeIds.help} className="text-muted-foreground text-xs">
+            A scope change is a different product, volume, resin, drawing or plant. No: the quote
+            goes straight back to Pricing. Yes: it is qualified and goes through Engineering again.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            {(
+              [
+                [false, 'No, same scope'],
+                [true, 'Yes, the scope changed'],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={label} className="flex min-h-11 items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="scope-changed"
+                  className="size-4 accent-[var(--primary)]"
+                  checked={scopeChanged === value}
+                  onChange={() => setScopeChanged(value)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {submitError && (
         <Notice tone="blocking" testId="submit-error">
@@ -455,7 +499,12 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
           ) : (
             <Button
               onClick={() => submit.mutate()}
-              disabled={!evaluation.ready || submit.isPending || Boolean(draft.activeQuote)}
+              disabled={
+                !evaluation.ready ||
+                submit.isPending ||
+                Boolean(draft.activeQuote) ||
+                (askScope && scopeChanged === null)
+              }
             >
               {submit.isPending ? 'Submitting…' : 'Submit to CCQ'}
             </Button>

@@ -1,4 +1,5 @@
 import { DomainError } from '../errors';
+import { planReworkReturn, type ReworkReturn } from './rework';
 import { evaluateRules, fieldsReferenced, getPath } from './rules';
 import type { FieldValues } from './rules';
 import { approverTierErrors, type ApproverTierRules } from '../final-review/tiers';
@@ -89,6 +90,11 @@ export interface TransitionEffects {
   notifications: PlannedNotification[];
   /** B-13 (CR-39): set exactly when `nextStatus` is closed, with every closure field filled. */
   closure?: ClosureRecord;
+  /**
+   * FB-01 (F-030): set when the decision sends the quote back to the KAM (it enters Intake): where it
+   * came from and where the KAM's resubmission resumes. Null otherwise.
+   */
+  reworkReturn: ReworkReturn | null;
 }
 
 /** Config that lives outside the workflow tables (app_setting) but changes who may decide. */
@@ -449,6 +455,7 @@ export function evaluateTransition(
     notifications: resolveNotifications(config, outcome, quote, nextStageKey),
     ...(transition.closeAs ? { closeAs: transition.closeAs } : {}),
     ...(closure ? { closure } : {}),
+    reworkReturn: entersStage ? planReworkReturn(outcome, quote.stageKey, nextStageKey) : null,
   };
   return { ok: true, effects };
 }

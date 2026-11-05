@@ -49,6 +49,7 @@ export function workflowRows(config: WorkflowConfig = buildHybridConfig({ g1Enab
       reasonContext: o.reasonContext ?? null,
       requiredFields: o.requiredFields,
       notify: o.notify,
+      resumeAt: o.resumeAt,
       sort: (i + 1) * 10,
       provisional: o.provisional,
     })),

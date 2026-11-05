@@ -70,6 +70,8 @@ function handoffColumns(v: HandoffValues) {
     notes: v.notes,
     completedAt: v.completedAt,
     completedBy: v.completedBy,
+    cerReadyAt: v.cerReadyAt,
+    cerReadyBy: v.cerReadyBy,
   };
 }
 
@@ -193,7 +195,7 @@ export class OutcomeService {
       if (plan.changed.includes('cerId')) {
         await updateQuote(tx, q.id, { cerId: plan.values.cerId });
       }
-      if (plan.changed.length > 0 || plan.completion) {
+      if (plan.changed.length > 0 || plan.completion || plan.cerReadyChange) {
         await insertActivityEvent(tx, {
           quoteId: q.id,
           type: plan.completion === 'completed' ? 'handoff_completed' : 'handoff_updated',
@@ -202,6 +204,8 @@ export class OutcomeService {
           payload: {
             fields: plan.changed,
             ...(plan.completion ? { completion: plan.completion } : {}),
+            // F-064: "Ready for CER development" ticked or cleared (who and when are in the audit row).
+            ...(plan.cerReadyChange ? { cerReady: plan.cerReadyChange } : {}),
           },
           createdBy: actor.userId,
         });

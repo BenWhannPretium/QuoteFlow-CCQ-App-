@@ -142,7 +142,7 @@ async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required
         site: 'PLANT_01',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
-        utilizationPct: 62,
+        utilizationBeforePct: 62,
         analysisDate: '2026-10-26',
         analystId: await userId('Engineer'),
       },
@@ -150,8 +150,7 @@ async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required
   });
   expect(cap.statusCode, cap.body).toBe(200);
   await signOff(qn);
-  const body =
-    g2 === 'proceed_with_risk' ? { outcomeKey: g2, note: 'Tight on line 4' } : { outcomeKey: g2 };
+  const body = g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Tight on line 4' };
   const adv = await decide(qn, 'G2', body, 'EngLead');
   expect(adv.statusCode, adv.body).toBe(201);
   tick();
@@ -427,7 +426,7 @@ describe('the price approval record', () => {
     const before = await decide(
       qn,
       'G3',
-      { outcomeKey: 'rework', reasonCode: 'missing_information' },
+      { outcomeKey: 'rework', reasonCode: 'missing_information', note: 'Recheck the cycle time' },
       'PricingLead',
     );
     expect(before.statusCode, before.body).toBe(201);
@@ -714,11 +713,12 @@ describe('G3 Submit to Final Review', () => {
     expect(actions.some((a) => a.gateKey === 'G4')).toBe(true);
   });
 
-  it('Hold needs a reason, a review date and an owner (B-26)', async () => {
+  it('Hold needs a reason, a note (F-027), a review date and an owner (B-26)', async () => {
     const qn = await inQuoting();
     expect(errorCodes(await decide(qn, 'G3', { outcomeKey: 'hold' }, 'PricingLead'))).toEqual([
       'MISSING_FIELD',
       'MISSING_FIELD',
+      'NOTE_REQUIRED',
       'REASON_REQUIRED',
     ]);
     const ok = await decide(
@@ -727,6 +727,7 @@ describe('G3 Submit to Final Review', () => {
       {
         outcomeKey: 'hold',
         reasonCode: 'awaiting_capital_decision',
+        note: 'CER goes to the board on Nov 20',
         holdUntil: '2026-11-20',
         holdOwnerId: await userId('Pricing'),
       },
@@ -767,10 +768,21 @@ describe('G3 Submit to Final Review', () => {
     await putCapital(qn, { capitalReadiness: 'not_required', cerReference: 'CER-5' });
     const [v1] = await records(qn);
     expect((await decide(qn, 'G3', { outcomeKey: 'rework' }, 'PricingLead')).statusCode).toBe(422);
+    // FB-01 (F-027): a rework needs a note.
+    expect(
+      errorCodes(
+        await decide(
+          qn,
+          'G3',
+          { outcomeKey: 'rework', reasonCode: 'missing_information' },
+          'PricingLead',
+        ),
+      ),
+    ).toEqual(['NOTE_REQUIRED']);
     const rework = await decide(
       qn,
       'G3',
-      { outcomeKey: 'rework', reasonCode: 'missing_information' },
+      { outcomeKey: 'rework', reasonCode: 'missing_information', note: 'Trimmer missing' },
       'PricingLead',
     );
     expect(rework.statusCode, rework.body).toBe(201);

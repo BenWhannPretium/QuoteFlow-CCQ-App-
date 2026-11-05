@@ -78,7 +78,7 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['NONE', 'None (quote will take longer)'],
   ],
   // Retired by FB-02 (F-010): kept, inactive, so older quotes still show their label. The neck is now
-  // neck_diameter + neck_finish_type + neck_special_feature (migration 0026 split the stored values).
+  // neck_diameter + neck_finish_type + neck_special_feature (migration 0028 split the stored values).
   neck_finish: [
     ['28-410', '28-410'],
     ['38-400', '38-400'],
@@ -201,6 +201,12 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
 /** Lists kept only for history: their rows are seeded inactive (nobody can pick them). */
 export const RETIRED_VALUE_LISTS: ReadonlySet<ValueListKey> = new Set(['neck_finish']);
 
+/**
+ * Entries kept for old quotes but not offered (`active = false`). FB-03 (F-057): the EBM wheel is gone
+ * from the machine type list. Migration 0027 deactivates it in existing environments.
+ */
+const INACTIVE_VALUES: ReadonlySet<string> = new Set(['machine_type:EBM_WHEEL']);
+
 export function valueListRows() {
   return Object.entries(VALUE_LISTS).flatMap(([listKey, entries]) =>
     entries.map(([code, label, meta], i) => ({
@@ -208,7 +214,9 @@ export function valueListRows() {
       code,
       label,
       sort: (i + 1) * 10,
-      active: !RETIRED_VALUE_LISTS.has(listKey as ValueListKey),
+      active:
+        !RETIRED_VALUE_LISTS.has(listKey as ValueListKey) &&
+        !INACTIVE_VALUES.has(`${listKey}:${code}`),
       meta: meta ?? {},
       provisional: true,
     })),

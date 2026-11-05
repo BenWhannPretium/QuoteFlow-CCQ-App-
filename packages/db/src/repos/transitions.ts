@@ -82,10 +82,13 @@ export async function loadQuoteStates(
         outcomeKey: gateDecision.outcomeKey,
         decidedBy: gateDecision.decidedBy,
         quoteVersion: gateDecision.quoteVersion,
+        decidedAt: gateDecision.decidedAt,
+        targetStageKey: gateDecision.targetStageKey,
+        createdAt: gateDecision.createdAt,
       })
       .from(gateDecision)
       .where(inArray(gateDecision.quoteId, found))
-      .orderBy(desc(gateDecision.decidedAt), desc(gateDecision.id)),
+      .orderBy(desc(gateDecision.decidedAt), desc(gateDecision.createdAt), desc(gateDecision.id)),
     customerIds.length
       ? db
           .select({ id: customer.id, sfAccountId: customer.sfAccountId, status: customer.status })
@@ -165,6 +168,15 @@ export async function loadQuoteStates(
         endedAt: h.endedAt,
       })),
       priceApproverIds,
+      // FB-01 (F-001): the section locks read the whole decision history.
+      decisions: quoteDecisions.map((d) => ({
+        gateKey: d.gateKey,
+        outcomeKey: d.outcomeKey,
+        decidedBy: d.decidedBy,
+        decidedAt: d.decidedAt,
+        targetStageKey: d.targetStageKey,
+        recordedAt: d.createdAt,
+      })),
     });
   }
   return states;
@@ -264,6 +276,13 @@ export async function persistTransition(
       status: effects.nextStatus,
       version: effects.nextVersion,
       ...(backToKam ? { submittedAt: null } : {}),
+      // FB-01 (F-030): where the rework came from and where the KAM's resubmission resumes.
+      ...(backToKam
+        ? {
+            reworkOriginStageKey: effects.reworkReturn?.originStageKey ?? effects.fromStageKey,
+            reworkResumeAt: effects.reworkReturn?.resumeAt ?? 'intake',
+          }
+        : {}),
       ...(effects.nextStatus === 'on_hold' && holdOwnerId ? { holdOwnerId } : {}),
       ...(effects.hold.action === 'end' ? { holdOwnerId: null } : {}),
       // B-13 (CR-39): the domain planned every closure field; the CHECK constraint repeats the rule.
@@ -314,5 +333,90 @@ export async function persistTransition(
     createdBy: record.decidedBy,
   });
 
+  return updated!;
+}
+
+/**
+ * FB-01 (F-030): a KAM's resubmission after a rework that resumes at its origin (G3 "Rework (back to
+ * KAM)", no scope change) goes straight back to that stage. Not a gate decision (nobody decided a gate):
+ * it closes the open Intake stay, opens the origin stage at the quote's current version, moves the quote
+ * and writes the timeline (`stage_changed`, `resumed: true`) and the audit row (`stage_change`), in the
+ * caller's transaction. The domain (`planResubmitRoute`) decided the target.
+ */
+export async function resumeQuoteAtStage(
+  db: DbOrTx,
+  input: {
+    quoteId: string;
+    fromStageKey: string;
+    toStageKey: string;
+    version: number;
+    actorId: string;
+    at: Date;
+    scopeChanged: boolean;
+  },
+  audit: PersistTransitionAudit,
+): Promise<Quote> {
+  const { quoteId, fromStageKey, toStageKey, at, actorId } = input;
+  const open = first(
+    await db
+      .select()
+      .from(stageHistory)
+      .where(and(eq(stageHistory.quoteId, quoteId), isNull(stageHistory.exitedAt))),
+  );
+  if (open) {
+    const holds = await listHolds(db, quoteId);
+    const onHoldMs = computeHoldMs(holds, open.enteredAt, at, at);
+    await db
+      .update(stageHistory)
+      .set({ exitedAt: at, onHoldMs })
+      .where(eq(stageHistory.id, open.id));
+  }
+  await db.insert(stageHistory).values({
+    quoteId,
+    stageKey: toStageKey,
+    enteredAt: at,
+    enteredBy: actorId,
+    quoteVersion: input.version,
+    createdBy: actorId,
+  });
+  const [updated] = await db
+    .update(quote)
+    .set({ stageKey: toStageKey, reworkOriginStageKey: null, reworkResumeAt: null })
+    .where(eq(quote.id, quoteId))
+    .returning();
+  const payload = {
+    from: fromStageKey,
+    to: toStageKey,
+    resumed: true,
+    scopeChanged: input.scopeChanged,
+  };
+  await db.insert(activityEvent).values({
+    quoteId,
+    type: 'stage_changed',
+    actorId,
+    at,
+    payload,
+    createdBy: actorId,
+  });
+  await db.insert(auditEvent).values({
+    at,
+    actorId,
+    actorRoles: [...audit.actorRoles],
+    action: 'stage_change',
+    entity: 'quote',
+    entityId: quoteId,
+    quoteId,
+    before: { stageKey: fromStageKey, version: input.version },
+    after: {
+      stageKey: toStageKey,
+      version: input.version,
+      resumedAt: toStageKey,
+      scopeChanged: input.scopeChanged,
+    },
+    ip: audit.ip ?? null,
+    userAgent: audit.userAgent ?? null,
+    requestId: audit.requestId ?? null,
+    createdBy: actorId,
+  });
   return updated!;
 }

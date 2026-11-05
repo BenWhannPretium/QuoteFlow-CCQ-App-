@@ -169,7 +169,7 @@ async function inEngineering() {
           site: 'PLANT_01',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
-          utilizationPct: 62,
+          utilizationBeforePct: 62,
           analysisDate: '2026-10-26',
           analystId: await userId('engineer'),
         },
@@ -628,13 +628,19 @@ describe('G5 No response / Expired: "silence is not a loss"', () => {
 });
 
 describe('G5 On hold', () => {
-  it('needs a reason and a review date; the hold time is excluded from time in stage (CR-57)', async () => {
+  it('needs a reason, a note (F-027) and a review date; the hold time is excluded from time in stage (CR-57)', async () => {
     const qn = await inCustomerDecision();
     let res = await g5(qn, { outcomeKey: 'on_hold' });
-    expect(errorCodes(res)).toEqual(['MISSING_FIELD', 'MISSING_FIELD', 'REASON_REQUIRED']);
+    expect(errorCodes(res)).toEqual([
+      'MISSING_FIELD',
+      'MISSING_FIELD',
+      'NOTE_REQUIRED',
+      'REASON_REQUIRED',
+    ]);
     res = await g5(qn, {
       outcomeKey: 'on_hold',
       reasonCode: 'customer_requested_delay',
+      note: 'Customer pushed the launch',
       holdUntil: addCalendarDays(today(), 14),
       holdOwnerId: await userId('kam'),
     });
@@ -666,7 +672,8 @@ describe('G5 Re-quote (CR-38)', () => {
     const qn = await inCustomerDecision();
     const before = await decisions(qn);
     let res = await g5(qn, { outcomeKey: 'requote' });
-    expect(errorCodes(res)).toEqual(['REASON_REQUIRED', 'TARGET_REQUIRED']);
+    // FB-01 (F-027): a re-quote is an exception decision: it needs a note.
+    expect(errorCodes(res)).toEqual(['NOTE_REQUIRED', 'REASON_REQUIRED', 'TARGET_REQUIRED']);
     res = await g5(qn, { outcomeKey: 'requote', reasonCode: 'other', targetStageKey: 'QUOTING' });
     expect(errorCodes(res)).toEqual(['NOTE_REQUIRED']);
     res = await g5(qn, {
@@ -771,6 +778,7 @@ describe('B-26: G6 Commit & Hand Off (deck slide 15)', () => {
         {
           outcomeKey: 'hold',
           reasonCode: 'awaiting_capital_decision',
+          note: 'CER is with the approvers',
           holdUntil: addCalendarDays(today(), 10),
           holdOwnerId: await userId('kam'),
         },
@@ -781,7 +789,12 @@ describe('B-26: G6 Commit & Hand Off (deck slide 15)', () => {
     const back = await decide(
       qn,
       'G6',
-      { outcomeKey: 'requote', reasonCode: 'volume_change', targetStageKey: 'QUOTING' },
+      {
+        outcomeKey: 'requote',
+        reasonCode: 'volume_change',
+        targetStageKey: 'QUOTING',
+        note: 'Volume changed since the quote',
+      },
       'kam',
     );
     ok(back);
@@ -821,7 +834,7 @@ describe('the closure rule (CR-39/40): every terminal path', () => {
         'G1 Redirect',
         submitted,
         'G1',
-        { outcomeKey: 'redirect', reasonCode: 'stock_item' },
+        { outcomeKey: 'redirect', reasonCode: 'stock_item', note: 'Catalog item' },
         'sales-leader',
         'REDIRECTED',
       ],
@@ -1000,6 +1013,7 @@ describe('the daily validity expiry job', () => {
         outcomeKey: 'requote',
         reasonCode: 'terms_change',
         targetStageKey: 'QUOTING',
+        note: 'Payment terms changed',
       }),
     );
     await recordPrice(qn);
@@ -1099,6 +1113,66 @@ describe('the hand-off record (PUT /quotes/:qn/handoff)', () => {
     expect(saved?.completedByName).toBeTruthy();
     expect((await handoffRow(qn))!.completedBy).toBe(ids['sales-leader']);
     expect(await events(qn, 'handoff_completed')).toHaveLength(1);
+  });
+
+  it('F-064: "Ready for CER development" is locked before the award', async () => {
+    const qn = await inCustomerDecision();
+    const res = await put(qn, { cerReady: true });
+    expect(res.statusCode).toBe(409);
+    expect(errorCodes(res)).toEqual(['NOT_AWARDED']);
+    expect((await detail(qn)).customerDecision.handoff).toBeNull();
+  });
+
+  it('F-064: after the award the KAM ticks "Ready for CER development": who and when, on the timeline and in the audit', async () => {
+    const qn = await awarded();
+    expect((await detail(qn)).customerDecision.handoff).toMatchObject({
+      cerReady: false,
+      cerReadyAt: null,
+      cerReadyByName: null,
+    });
+    const res = await put(qn, { cerReady: true });
+    expect(res.statusCode, res.body).toBe(200);
+    const saved = HandoffResponse.parse(res.json()).customerDecision.handoff;
+    expect(saved).toMatchObject({ cerReady: true, cerReadyAt: clock.toISOString() });
+    expect(saved?.cerReadyByName).toBeTruthy();
+    expect(await handoffRow(qn)).toMatchObject({ cerReadyBy: ids['kam'] });
+
+    const [e] = await events(qn, 'handoff_updated');
+    expect(e!.payload).toMatchObject({ fields: ['cerReady'], cerReady: 'ready' });
+    const audits = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(
+        and(
+          eq(schema.auditEvent.entity, 'handoff_record'),
+          eq(schema.auditEvent.quoteId, (await quoteRow(qn)).id),
+        ),
+      );
+    expect(audits.at(-1)).toMatchObject({
+      before: { cerReadyAt: null },
+      after: { cerReadyBy: ids['kam'] },
+    });
+
+    // Another edit keeps who ticked it; a sales leader can clear it.
+    const other = await put(qn, { notes: 'x' }, 'sales-leader');
+    expect(HandoffResponse.parse(other.json()).customerDecision.handoff).toMatchObject({
+      cerReady: true,
+      cerReadyAt: clock.toISOString(),
+    });
+    const cleared = await put(qn, { cerReady: false }, 'sales-leader');
+    expect(HandoffResponse.parse(cleared.json()).customerDecision.handoff).toMatchObject({
+      cerReady: false,
+      cerReadyAt: null,
+      cerReadyByName: null,
+    });
+  });
+
+  it('F-064: only those who can edit the hand-off can tick it', async () => {
+    const qn = await awarded();
+    for (const key of ['eng-lead', 'engineer', 'pricing', 'approver', 'leadership']) {
+      expect((await put(qn, { cerReady: true }, key)).statusCode, key).toBe(403);
+    }
+    expect((await put(qn, { cerReady: true }, 'admin')).statusCode).toBe(200);
   });
 
   it('is editable by the KAM (own), SalesLeader and Admin; nobody else', async () => {

@@ -156,16 +156,15 @@ export function MoldModificationChip({ show }: { show: boolean }) {
 
 /**
  * FB-02: what Engineering needs first from intake, above the review: the ship / fill destination
- * (F-017, D-012), a mold modification (F-015) and the product facts in one line each.
+ * (F-017, D-012) and a mold modification (F-015). The product facts (resin, neck, PCR, colour, additives,
+ * variants) are in the Engineering review's product-facts header, built by the server (F-023).
  */
 export function IntakeFactsHeader({
   facts,
   shipTo,
-  lists,
 }: {
   facts: QuoteIntakeFacts;
   shipTo: { city?: string | null | undefined; state?: string | null | undefined } | null;
-  lists: Lists;
 }) {
   const destination = [shipTo?.city, shipTo?.state].filter(Boolean).join(', ');
   return (
@@ -185,23 +184,6 @@ export function IntakeFactsHeader({
         <p>
           <span className="text-muted-foreground">Mold change: </span>
           {[facts.existingMoldRef, facts.moldChangeDescription].filter(Boolean).join(': ')}
-        </p>
-      )}
-      <p className="text-muted-foreground">
-        {[
-          neckText(lists, facts),
-          facts.resinCustomerSpecified && facts.resinGrade ? `Resin: ${facts.resinGrade}` : null,
-          facts.pcrLevel ? `PCR ${factLabel(lists, 'pcr_level', facts.pcrLevel)}` : null,
-          factLabel(lists, 'color_type', facts.colorType, facts.colorDescription),
-          facts.additives ? `Additives: ${facts.additives}` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ') || 'No product facts entered at intake.'}
-      </p>
-      {facts.quoteVariantsNote && (
-        <p>
-          <span className="text-muted-foreground">Variants requested: </span>
-          {facts.quoteVariantsNote}
         </p>
       )}
     </section>

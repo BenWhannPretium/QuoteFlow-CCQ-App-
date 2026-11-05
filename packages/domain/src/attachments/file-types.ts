@@ -10,6 +10,7 @@ export const ATTACHMENT_KINDS = [
   'bottle_drawing',
   'spec',
   'sample_photo',
+  'capacity_analysis',
   'other',
   // FB-02 (F-014): KAMs and Engineering asked for these (Jordan Albin, Jeff Curry, Jim Zweifel).
   'bid_file',

@@ -1,11 +1,13 @@
 import {
   CAPITAL_NOTICE_SEED,
   ESCALATION_ROUTES_SEED,
+  G4_REQUIRED_CHECKS_SEED,
   LEGAL_REVIEW_TRIGGERS_SEED,
   MARKET_DEV_NOTICE_SEED,
   PASS_THROUGH_SEED,
   PROCESS_OWNER_SEED,
   ATTACHMENT_SETTINGS_SEED,
+  CAPACITY_BASIS_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   HANDOFF_RECEIVING_ROLES_SEED,
   VALIDITY_WARNING_DAYS_SEED,
@@ -25,7 +27,7 @@ const present = (field: string) => ({ field, op: 'present' });
 /**
  * Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship/fill destination city
  * and state (FB-02, F-017), product family, resin, volume, and the two need-by dates (FB-02, F-009).
- * Existing environments get the FB-02 changes from migration 0026.
+ * Existing environments get the FB-02 changes from migration 0028.
  */
 export const INTAKE_REQUIRED_FIELDS = [
   present('sf_opportunity_id'),
@@ -266,6 +268,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description:
       'app_user ids who may assign / reassign engineering reviews when the EngLead is out (Op Model R-04). They also get the queue-arrival alert and need a role that can open the queue (engQueue.read).',
   },
+  // ── FB-03 (F-059, D-021 open): the basis for utilization after the new business. Provisional.
+  {
+    key: 'capacity_basis',
+    value: CAPACITY_BASIS_SEED,
+    description:
+      'FB-03 / D-021 (open): the basis for utilization after the new business. scheduledRunDaysPerYear defaults each capacity row; warnAbovePct turns the after-utilization amber (over 100 is always red); basisLabel is shown under the capacity table and in the CSV. Provisional until Faron Ipox and leadership confirm the basis (A-023).',
+  },
   {
     key: 'capital_readiness_on_outcome',
     value: { 'G2:capital_required': 'pending' },
@@ -289,7 +298,14 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'legal_review_triggers',
     value: LEGAL_REVIEW_TRIGGERS_SEED,
     description:
-      'D-25: when any switched-on trigger applies (new customer, nonstandard terms, tooling commitment), G4 Advance needs the Legal review recorded.',
+      'D-25: when any switched-on trigger applies (new customer, nonstandard terms, tooling commitment), a Legal review is due before the offer is released. Whether it blocks G4 Advance is g4_required_checks.',
+  },
+  {
+    // FB-01 (F-069): the approver is no longer blocked by fields other roles own.
+    key: 'g4_required_checks',
+    value: G4_REQUIRED_CHECKS_SEED,
+    description:
+      'FB-01 (F-069, D-003 open): which checks block G4 Advance (release the offer): terms_checked (the KAM / Sales / Pricing terms check) and legal_review (the Legal review, when a legal_review_triggers trigger applies). [] = neither blocks; the Final Review screen shows them to the approver as warnings and the G4 decision records that the approver saw them.',
   },
   {
     key: 'capital_management_notice',
@@ -354,7 +370,7 @@ export const SCORING_MODEL_V1 = scoringModelRow(SCORING_MODEL_V1_INPUT, {
 /**
  * FB-02 (F-009): v2 scores timing on the KAM's "Quote needed by" date. Same weights and bands as v1
  * (D-004 open). In a new database it is in effect from the same date as v1, so every score uses it
- * (intake no longer stores the close date v1 reads). Existing environments get it from migration 0026
+ * (intake no longer stores the close date v1 reads). Existing environments get it from migration 0028
  * (as max version + 1, copied from the model in effect, effective at the migration); here it is only
  * inserted when no model reads the need-by date yet, so a re-seed never rewrites a version an admin made.
  */
@@ -371,7 +387,7 @@ export async function seedScoringModel(db: DbOrTx): Promise<void> {
     [{ ...SCORING_MODEL_V1, provisional: true }],
     ['modelVersion'],
   );
-  // Only when no model already reads the need-by date (migration 0026 may have made it as another version).
+  // Only when no model already reads the need-by date (migration 0028 may have made it as another version).
   const models = await db
     .select({ version: scoringModel.modelVersion, attributes: scoringModel.attributes })
     .from(scoringModel);

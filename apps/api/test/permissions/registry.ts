@@ -370,6 +370,13 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'engReview.edit',
     sampleBody: { rows: [] },
   },
+  // FB-03 (F-061): the capacity evidence as a CSV; the same read floor as the Engineering tab.
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/capacity-evidence.csv',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/capacity-evidence.csv`,
+    permission: 'quote.read',
+  },
   // B-26: the capacity owner's sign-off, and moving one engineer's open work to another.
   {
     method: 'PUT',

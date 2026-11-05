@@ -88,22 +88,32 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await solution.getByLabel('Process type').selectOption({ label: 'EBM' });
   await solution.getByLabel('Machine type').selectOption({ label: 'EBM shuttle' });
   await solution.getByLabel('Plant / site').selectOption({ index: 1 });
+  // F-057: a whole number from 1 to 99.
+  await expect(solution.getByLabel('Cavitation')).toHaveAttribute('max', '99');
+  // F-064: budgetary, not a CER figure.
+  await expect(solution.getByText('A budgetary figure for quoting.')).toBeVisible();
+  // F-057: the EBM wheel is no longer offered.
+  await expect(
+    solution.getByLabel('Machine type').locator('option', { hasText: 'EBM wheel' }),
+  ).toHaveCount(0);
+  // F-023: the intake's resin is in front of Engineering.
+  await expect(eng.getByTestId('product-facts')).toContainText('Resin');
   await solution.getByLabel('Cavitation').fill('8');
   await solution.getByLabel('Cycle time (s)').fill('14.5');
-  await solution.getByLabel('Preliminary capital (USD)').fill('350000');
+  await solution.getByLabel('Budgetary capital estimate (USD)').fill('350000');
   await solution.getByLabel('Downstream equipment').fill('Leak tester, compressed air drop');
   await solution.getByLabel('Equipment BOM').fill('EBM shuttle, 8-cavity mold, leak tester');
   await solution.getByLabel('Supply Chain').fill('Resin from the Midwest hub; freight OK');
   await solution.getByRole('button', { name: 'Save solution' }).click();
   await expect(eng.getByText('Engineering review saved')).toBeVisible();
   // 2026-10-30: the engineer reads back the capital they wrote.
-  await expect(solution.getByLabel('Preliminary capital (USD)')).toHaveValue('350000');
+  await expect(solution.getByLabel('Budgetary capital estimate (USD)')).toHaveValue('350000');
 
   const capacity = eng.getByTestId('capacity-form');
   await capacity.getByRole('button', { name: 'Add capacity row' }).click();
   const capRow = capacity.getByTestId('capacity-row');
   await capRow.getByLabel('Line / asset').fill('Line 4');
-  await capRow.getByLabel('Utilization %').fill('62');
+  await capRow.getByLabel('Utilization before %').fill('62');
   await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
   // No OEE default: the effectiveness assumption must be stated.
   await expect(capRow.getByRole('alert')).toContainText('state the assumed effectiveness %');
@@ -111,12 +121,18 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await capRow.getByLabel('Assumed effectiveness %').fill('70');
   await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
   await expect(eng.getByText('Capacity evidence saved')).toBeVisible();
+  // F-059: utilization after is calculated (read-only), and "buffer" is gone.
+  await expect(capRow.getByTestId('utilization-after')).toContainText('%');
+  await expect(capRow.getByLabel('Buffer %')).toHaveCount(0);
+  await expect(eng.getByTestId('capacity-basis')).toContainText(
+    'Trailing 12 months actual, trending OEE (provisional, D-021)',
+  );
   expect(await seriousViolations(eng)).toEqual([]);
 
   // ── EngLead: signs off capacity (B-26), then decides G2 Advance ──
   await lead.goto(`/quotes/${quoteNumber}?tab=engineering`);
   const leadTab = lead.getByTestId('engineering-tab');
-  await expect(leadTab.getByLabel('Preliminary capital (USD)')).toHaveValue('350000');
+  await expect(leadTab.getByLabel('Budgetary capital estimate (USD)')).toHaveValue('350000');
   const signoff = leadTab.getByTestId('capacity-signoff');
   await expect(signoff.getByTestId('capacity-signoff-status')).toContainText('Not signed off yet');
   await signoff.getByRole('button', { name: 'Approve capacity' }).click();
@@ -196,7 +212,7 @@ test('the engineer submits to the engineering lead, who sends it back with a not
         site: 'PLANT_01',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
-        utilizationPct: 62,
+        utilizationBeforePct: 62,
         analysisDate: '2026-10-26',
         analystId: engineerId,
       },
@@ -244,4 +260,115 @@ test('the engineer submits to the engineering lead, who sends it back with a not
     eng.getByTestId('lead-review').getByRole('button', { name: 'Submit to engineering lead' }),
   ).toBeVisible();
   expect(await seriousViolations(eng)).toEqual([]);
+});
+
+// FB-03 (F-059, F-061; T-023, T-030): one quote runs on two lines. The engineer enters both, sees
+// utilization before and after on each row (after is calculated, red over 100%), is warned (not blocked)
+// when the volumes do not add up to the quote's, and downloads the evidence as a CSV.
+test('the engineer enters two lines, sees before and after, and downloads the CSV', async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
+  const engineerId = (
+    (await (await request.get('/api/v1/me', { headers: as('engineer') })).json()) as {
+      user: { id: string };
+    }
+  ).user.id;
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  const call = async (method: 'post' | 'put', path: string, persona: string, data?: object) => {
+    const res = await request[method](`/api/v1/quotes/${quoteNumber}/${path}`, {
+      headers: as(persona),
+      ...(data ? { data } : {}),
+    });
+    expect(res.status(), await res.text()).toBeLessThan(300);
+  };
+  await call('post', 'gates/G1/decisions', 'sales-leader', { outcomeKey: 'advance' });
+  await call('post', 'assignment', 'eng-lead', { engineerId });
+  await call('post', 'eng-review/accept', 'engineer');
+  // 10 s x 4 cavities x 80 % x 350 days = 9,676,800 units a year; the quote is 750,000 units a year.
+  await call('put', 'eng-review', 'engineer', { cavitation: 4 });
+
+  const page = await (await browser.newContext({ acceptDownloads: true })).newPage();
+  await signInAs(page, 'engineer');
+  await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  const capacity = page.getByTestId('capacity-form');
+  await expect(page.getByTestId('capacity-basis')).toContainText('Run days default to 350');
+
+  const fill = async (
+    index: number,
+    values: { line: string; volume: string; before: string; effectiveness: string; cycle: string },
+  ) => {
+    await capacity.getByRole('button', { name: 'Add capacity row' }).click();
+    const row = capacity.getByTestId('capacity-row').nth(index);
+    await row.getByLabel('Site').selectOption({ index: 1 });
+    await row.getByLabel('Line / asset').fill(values.line);
+    await row.getByLabel('Assumed effectiveness %').fill(values.effectiveness);
+    await row.getByLabel('Cycle time (s)').fill(values.cycle);
+    await row.getByLabel('Utilization before %').fill(values.before);
+    if (values.volume) await row.getByLabel('Allocated annual volume (units)').fill(values.volume);
+    return row;
+  };
+
+  // Line 1 takes 450,000 of the 750,000 units: 40 % + 450,000 / 9,676,800 = 44.7 %.
+  const line1 = await fill(0, {
+    line: 'Line 1',
+    volume: '450000',
+    before: '40',
+    effectiveness: '80',
+    cycle: '10',
+  });
+  await expect(line1.getByTestId('utilization-after')).toHaveText('44.7%');
+  // After is read-only: there is no input for it.
+  await expect(line1.getByLabel('Utilization after %')).toHaveCount(0);
+
+  // Line 2 takes 200,000: the rows add up to 650,000, not 750,000 → a warning, not a block.
+  const line2 = await fill(1, {
+    line: 'Line 2',
+    volume: '200000',
+    before: '90',
+    effectiveness: '80',
+    cycle: '10',
+  });
+  // 90 % + 200,000 / 9,676,800 = 92.1 %: amber.
+  await expect(line2.getByTestId('utilization-after')).toHaveText('92.1% · above 85%');
+  await expect(line2.getByTestId('utilization-after')).toHaveAttribute('data-level', 'warn');
+  await expect(page.getByTestId('allocation-warning')).toContainText('100,000 fewer than');
+
+  // A third line that is over capacity shows red, with the reason.
+  const line3 = await fill(2, {
+    line: 'Line 3',
+    volume: '9700000',
+    before: '30',
+    effectiveness: '80',
+    cycle: '10',
+  });
+  await expect(line3.getByTestId('utilization-after')).toContainText('exceeds line capacity');
+  await expect(line3.getByTestId('utilization-after')).toHaveAttribute('data-level', 'over');
+  await capacity.getByRole('button', { name: 'Remove row 3' }).click();
+
+  // Add the missing 100,000 back to line 2: the warning clears.
+  await line2.getByLabel('Allocated annual volume (units)').fill('300000');
+  await expect(page.getByTestId('allocation-warning')).toHaveCount(0);
+  await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
+  await expect(page.getByText('Capacity evidence saved')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+
+  // Download CSV.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('capacity-csv').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe(`${quoteNumber}-capacity-evidence.csv`);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk as Buffer));
+  const lines = Buffer.concat(chunks).toString('utf8').trim().split('\r\n');
+  expect(lines).toHaveLength(3);
+  expect(lines[1]).toContain(`"${quoteNumber}"`);
+  expect(lines[1]).toContain('"Trailing 12 months actual, trending OEE (provisional, D-021)"');
+  expect(lines[1]).toContain('"Line 1"');
+  expect(lines[1]).toContain('"40","44.7"');
+  expect(lines[2]).toContain('"90","93.1"');
 });

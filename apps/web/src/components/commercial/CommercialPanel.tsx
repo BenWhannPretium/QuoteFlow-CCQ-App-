@@ -23,6 +23,7 @@ import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '..
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
+import { SectionLockLine } from '../SectionLockLine';
 
 // B-26 (CCQ demo and the future-state process deck): the quote's commercial controls. The early
 // "capital likely" flag (Capital Management awareness, not approval), the terms check and Legal review
@@ -34,7 +35,8 @@ const yesNo = (v: boolean | null) => (v === null ? null : v ? 'Yes' : 'No');
 export function CommercialPanel({ quote }: { quote: QuoteDetail }) {
   const c = quote.commercial;
   return (
-    <Card data-testid="commercial-panel">
+    // `id`: the Final Review screen links here for an open terms / Legal check (FB-01, F-069).
+    <Card id="commercial" data-testid="commercial-panel">
       <CardHeader>
         <CardTitle>
           <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">
@@ -107,6 +109,7 @@ function CapitalFlag({ quote }: { quote: QuoteDetail }) {
   });
   return (
     <section aria-label="Capital" className="grid gap-2" data-testid="capital-flag">
+      <SectionLockLine lock={cap.lock} />
       <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
         <input
           type="checkbox"
@@ -249,6 +252,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
   if (!c.terms.canEdit) {
     return (
       <section aria-label="Terms" className="grid gap-4" data-testid="terms">
+        <SectionLockLine lock={c.terms.lock} />
         <KeyValueGrid
           items={[
             {

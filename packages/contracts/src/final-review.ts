@@ -85,6 +85,8 @@ export const ReviewWarning = z.object({
   code: z.string(),
   severity: z.enum(['risk', 'info']),
   message: z.string(),
+  /** FB-01 (F-069): where on the quote the open item is fixed (`commercial`: the Commercial panel). */
+  link: z.enum(['commercial']).optional(),
 });
 export type ReviewWarning = z.infer<typeof ReviewWarning>;
 
@@ -126,6 +128,30 @@ export const ReviewSummary = z.object({
   /** Price approval status for everyone; basis, range note and capital readiness for commercial roles. */
   quoting: QuotingDetail,
   attachments: z.array(ReviewAttachment),
+  /**
+   * FB-01 (F-069): the terms and Legal review, read-only (Sales / Pricing own them). The approver sees
+   * them here; an open check is a warning unless `requiredChecks` names it (`g4_required_checks`).
+   */
+  termsAndLegal: z.object({
+    toolingFundingModel: z.string().nullable(),
+    toolingFundingModelLabel: z.string().nullable(),
+    termsToolingCommitment: z.boolean().nullable(),
+    termsMoq: z.string().nullable(),
+    termsPaymentTerms: z.string().nullable(),
+    termsNonstandard: z.boolean(),
+    termsNotes: z.string().nullable(),
+    checkedAt: z.string().nullable(),
+    checkedByName: z.string().nullable(),
+    legal: z.object({
+      required: z.boolean(),
+      reasons: z.array(z.object({ code: z.string(), label: z.string() })),
+      reviewedOn: z.string().nullable(),
+      reviewerName: z.string().nullable(),
+      note: z.string().nullable(),
+    }),
+    /** `g4_required_checks`: the checks that block G4 Advance (provisional, D-003). */
+    requiredChecks: z.array(z.string()),
+  }),
   /** Everything the approver should weigh that does not block the decision. */
   warnings: z.array(ReviewWarning),
   /** Every gate decision on the quote, newest first (earlier Final Review returns included). */

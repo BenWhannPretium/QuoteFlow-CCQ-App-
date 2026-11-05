@@ -33,6 +33,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 
 import { leadReviewView } from './lead-review';
+import { sectionLockView } from './locks';
 import { persistNotifications } from './notificationService';
 
 type PricingRow = Awaited<ReturnType<typeof listPricingRecords>>[number];
@@ -149,7 +150,7 @@ export async function quotingView(
 
   const g2 = [...decisions].reverse().find((d) => d.decision.gateKey === 'G2');
   const status = priceApprovalStatus(recordValues(current));
-  const canEdit = canEditQuoting(actor, state);
+  const canEdit = canEditQuoting(actor, state, workflow);
   const inQuoting = q.stageKey === PRICING_QUEUE_STAGE_KEY && q.status !== 'closed';
 
   const commercial = redact(
@@ -181,6 +182,7 @@ export async function quotingView(
     ...commercial,
     commercialRedacted: !canSeeCommercialFields(actor),
     canEdit,
+    lock: await sectionLockView(db, workflow, 'pricing', state),
     assignedPricerId: q.assignedPricerId,
     assignedPricerName: name(q.assignedPricerId),
     pricerAssignedAt: iso(q.pricerAssignedAt),
@@ -202,8 +204,11 @@ export async function onPricingArrival(
   quote: { id: string; quoteNumber: string; version: number },
   actorId: string,
   log?: FastifyBaseLogger,
-  /** B-12/B-13: set when Final Review returned the quote here, or the customer asked for a re-quote. */
-  returnedFrom?: 'final_review' | 'customer_requote',
+  /**
+   * B-12/B-13: set when Final Review returned the quote here, or the customer asked for a re-quote.
+   * FB-01 (F-030): `kam_rework`, the KAM fixed what Pricing sent back, with no scope change.
+   */
+  returnedFrom?: 'final_review' | 'customer_requote' | 'kam_rework',
 ): Promise<void> {
   // Lead review: a new stay in Quoting starts a new round (like engineering's acceptance).
   await clearLeadReview(tx, quote.id, 'pricing');
@@ -226,15 +231,20 @@ export async function onPricingArrival(
     planned,
     {
       quoteId: quote.id,
-      title: returnedFrom
-        ? `${quote.quoteNumber} was returned to Quoting`
-        : `${quote.quoteNumber} is ready for pricing`,
-      body:
-        returnedFrom === 'customer_requote'
-          ? 'The customer asked for a re-quote. Open the pricing queue to record the price approval again.'
+      title:
+        returnedFrom === 'kam_rework'
+          ? `${quote.quoteNumber} is back from the KAM`
           : returnedFrom
-            ? 'Final Review returned it for another look. Open the pricing queue to record the price approval again.'
-            : 'Engineering has cleared it. Open the pricing queue to record the price approval.',
+            ? `${quote.quoteNumber} was returned to Quoting`
+            : `${quote.quoteNumber} is ready for pricing`,
+      body:
+        returnedFrom === 'kam_rework'
+          ? 'The KAM fixed what Pricing sent back, with no scope change. It is back in Quoting with the same pricer: record the price approval again.'
+          : returnedFrom === 'customer_requote'
+            ? 'The customer asked for a re-quote. Open the pricing queue to record the price approval again.'
+            : returnedFrom
+              ? 'Final Review returned it for another look. Open the pricing queue to record the price approval again.'
+              : 'Engineering has cleared it. Open the pricing queue to record the price approval.',
       excludeUserId: actorId,
       notifyActorViaRole: true,
     },

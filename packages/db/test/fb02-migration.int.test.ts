@@ -9,13 +9,13 @@ import { INTAKE_REQUIRED_FIELDS } from '../seeds/config/settings';
 import type { Tx } from '../src/client';
 
 /**
- * FB-02 data migration (0026) on a copy of test data: each block of the migration between its markers
+ * FB-02 data migration (0028) on a copy of test data: each block of the migration between its markers
  * is re-run inside a transaction that is rolled back, against rows set up the way an environment
  * before FB-02 has them.
  */
 const { db } = testDb();
 const MIGRATION = readFileSync(
-  new URL('../migrations/0026_fb02_intake_overhaul.sql', import.meta.url),
+  new URL('../migrations/0028_fb02_intake_overhaul.sql', import.meta.url),
   'utf8',
 );
 
@@ -47,7 +47,7 @@ const run = async (tx: Tx, statements: string[]) => {
   for (const s of statements) await tx.execute(sql.raw(s));
 };
 
-describe('0026 neck migration (F-010)', () => {
+describe('0028 neck migration (F-010)', () => {
   const LEGACY = ['28-410', '38-400', '89-400', '110-400', '120-DC', '53mm lug', '  24-415 odd  '];
 
   it('quotes: the SQL splits stored values exactly as migrateLegacyNeckFinish does', async () => {
@@ -128,7 +128,7 @@ describe('0026 neck migration (F-010)', () => {
   });
 });
 
-describe('0026 config migration (F-009, F-017)', () => {
+describe('0028 config migration (F-009, F-017)', () => {
   const OLD_REQUIRED = [
     { field: 'sf_opportunity_id', op: 'present' },
     { field: 'customer.name', op: 'present' },

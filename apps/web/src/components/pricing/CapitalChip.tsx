@@ -17,7 +17,8 @@ export function CapitalChip({ value }: { value: CapitalReadiness | null | undefi
   return (
     <span
       className={cn(
-        'rounded-pill inline-flex px-2 py-0.5 text-xs whitespace-nowrap',
+        // The labels say "budgetary" (F-064), so they can be long: let them wrap on a phone, not scroll.
+        'rounded-pill inline-flex max-w-full px-2 py-0.5 text-xs',
         CAPITAL_STYLE[value],
       )}
       data-testid="capital-readiness"

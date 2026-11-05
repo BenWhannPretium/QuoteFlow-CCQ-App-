@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream';
+
 import {
   AssignmentBody,
   AssignmentResponse,
@@ -15,6 +17,7 @@ import {
 } from '@ccq/contracts';
 import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { auditMeta } from '../../plugins/audit';
 import { requireActor } from '../../plugins/auth';
@@ -197,6 +200,37 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
           auditMeta(req),
         ),
       ),
+  );
+
+  app.get(
+    '/quotes/:quoteNumber/capacity-evidence.csv',
+    {
+      // The same floor as the Engineering tab itself, which every quote reader gets read-only.
+      config: { permission: 'quote.read' },
+      schema: {
+        tags: ['engineering'],
+        summary:
+          'F-061: the capacity evidence as a CSV (every row with the calculated utilization after, the basis label, the quote number and the generation time) that can support a later CER. Audited as an `export`',
+        security,
+        params: QuoteNumberParams,
+        produces: ['text/csv'],
+        response: { 200: z.string() },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, async () => {
+        const { fileName, lines, rows } = await service.capacityCsv(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          auditMeta(req),
+        );
+        return reply
+          .type('text/csv; charset=utf-8')
+          .header('content-disposition', `attachment; filename="${fileName}"`)
+          .header('x-ccq-rows', String(rows))
+          .send(Readable.from(lines.map((line) => `${line}\r\n`)) as unknown as string);
+      }),
   );
 
   app.get(

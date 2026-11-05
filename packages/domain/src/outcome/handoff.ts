@@ -78,6 +78,12 @@ export interface HandoffValues {
   notes: string | null;
   completedAt: Date | null;
   completedBy: string | null;
+  /**
+   * FB-03 (F-064): "Ready for CER development", with who and when. The quoted capital is only a budgetary
+   * figure; the CER is built after award. Null while not ready.
+   */
+  cerReadyAt: Date | null;
+  cerReadyBy: string | null;
 }
 
 /** A PUT body: only the keys sent change; `null` clears an optional field. */
@@ -98,6 +104,11 @@ export interface HandoffInput {
    * and when; false re-opens it.
    */
   complete?: boolean | undefined;
+  /**
+   * FB-03 (F-064): the "Ready for CER development" checkbox. true records who ticked it and when; false
+   * clears it. Available only once the award (G5) has opened the hand-off record.
+   */
+  cerReady?: boolean | undefined;
 }
 
 export type HandoffPlan =
@@ -107,6 +118,8 @@ export type HandoffPlan =
       /** Field names that changed (for the timeline; never values). */
       changed: string[];
       completion: 'completed' | 'reopened' | null;
+      /** F-064: the "Ready for CER development" box was ticked or cleared by this edit. */
+      cerReadyChange: 'ready' | 'not_ready' | null;
     }
   | { ok: false; errors: DomainError[] };
 
@@ -181,6 +194,8 @@ export function handoffFromAward(input: {
     notes: null,
     completedAt: null,
     completedBy: null,
+    cerReadyAt: null,
+    cerReadyBy: null,
   };
 }
 
@@ -225,7 +240,7 @@ export function planHandoff(input: {
     value === undefined ? (current?.[key] ?? null) : value;
   const next: Omit<
     HandoffValues,
-    'acceptanceEvidence' | 'cerStatus' | 'completedAt' | 'completedBy'
+    'acceptanceEvidence' | 'cerStatus' | 'completedAt' | 'completedBy' | 'cerReadyAt' | 'cerReadyBy'
   > = {
     acceptanceDate: pick('acceptanceDate', clean(edit.acceptanceDate)),
     acceptanceDocumentUrl: pick('acceptanceDocumentUrl', clean(edit.acceptanceDocumentUrl)),
@@ -292,6 +307,19 @@ export function planHandoff(input: {
     ...documentUrlErrors(next.acceptanceDocumentUrl, 'acceptanceDocumentUrl'),
   );
 
+  // F-064: "Ready for CER development" only exists once G5 Awarded has opened the record.
+  const wasCerReady = !!current?.cerReadyAt;
+  const cerReady = edit.cerReady ?? wasCerReady;
+  if (edit.cerReady === true && !current) {
+    errors.push(
+      new DomainError(
+        'NOT_AWARDED',
+        '"Ready for CER development" is available only after the award (G5 Awarded)',
+        'cerReady',
+      ),
+    );
+  }
+
   const wasComplete = !!current?.completedAt;
   const complete = edit.complete ?? wasComplete;
   if (complete) {
@@ -318,13 +346,20 @@ export function planHandoff(input: {
     cerStatus,
     completedAt: complete ? (wasComplete ? current.completedAt : now) : null,
     completedBy: complete ? (wasComplete ? current.completedBy : input.actorId) : null,
+    cerReadyAt: cerReady ? (wasCerReady ? current.cerReadyAt : now) : null,
+    cerReadyBy: cerReady ? (wasCerReady ? current.cerReadyBy : input.actorId) : null,
   };
-  const changed = (Object.keys(values) as (keyof HandoffValues)[]).filter((k) => {
-    if (k === 'completedAt' || k === 'completedBy') return false;
+  const changed: string[] = (Object.keys(values) as (keyof HandoffValues)[]).filter((k) => {
+    if (k === 'completedAt' || k === 'completedBy' || k === 'cerReadyAt' || k === 'cerReadyBy') {
+      return false;
+    }
     const before = current?.[k] ?? null;
     return before !== values[k];
   });
+  const cerReadyChange =
+    cerReady && !wasCerReady ? 'ready' : !cerReady && wasCerReady ? 'not_ready' : null;
+  if (cerReadyChange) changed.push('cerReady');
   const completion =
     complete && !wasComplete ? 'completed' : !complete && wasComplete ? 'reopened' : null;
-  return { ok: true, values, changed, completion };
+  return { ok: true, values, changed, completion, cerReadyChange };
 }

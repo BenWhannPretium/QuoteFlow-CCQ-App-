@@ -352,7 +352,7 @@ export class QuoteReadService {
         { actor: ctx.actor, settings: ctx.overrides, kamCanSeePeerScores: ctx.kamCanSeePeerScores },
         { ...q, accountId: state?.accountId ?? null },
       ),
-      engineering: await engineeringView(db, ctx.actor, ctx.engQueue, q, state!),
+      engineering: await engineeringView(db, ctx.actor, ctx.engQueue, q, state!, workflow),
       quoting: await quotingView(db, ctx.actor, workflow, q, state!),
       customerDecision: await customerDecisionView(db, {
         actor: ctx.actor,
@@ -364,7 +364,7 @@ export class QuoteReadService {
         sfStage: row.sfStage,
         decisions: raw,
       }),
-      commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!),
+      commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!, workflow),
     };
   }
 }

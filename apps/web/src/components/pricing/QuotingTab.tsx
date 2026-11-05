@@ -5,6 +5,8 @@ import type {
   QuoteDetail,
   QuotingDetail,
 } from '@ccq/contracts';
+import { BUDGETARY_CAPITAL_LABEL } from '@ccq/contracts';
+import { CAPITAL_READINESS_LABELS, roundPct } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -23,6 +25,7 @@ import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewPanel } from '../LeadReviewPanel';
 import { timelineQueryKey } from '../Overrides';
+import { SectionLockLine } from '../SectionLockLine';
 import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
 import {
   PricingContextPanel,
@@ -32,12 +35,8 @@ import {
 
 export { pricingQueueQueryKey };
 
-export const CAPITAL_LABELS: Record<CapitalReadiness, string> = {
-  not_required: 'Not required',
-  pending: 'Pending',
-  pre_approved: 'Pre-approved',
-  not_approved: 'Not approved',
-};
+/** F-064: capital at quoting is budgetary; none of the labels says a CER is ready. One source: the domain. */
+export const CAPITAL_LABELS: Record<CapitalReadiness, string> = CAPITAL_READINESS_LABELS;
 
 const splitRefs = (text: string) =>
   text
@@ -60,12 +59,17 @@ export function QuotingTab({
 }) {
   const quoting = quote.quoting;
   const canDecideG3 = quote.availableActions.some((a) => a.gateKey === 'G3');
+  // FB-01 (F-029): offered only when the config has the outcome and the caller may decide G3.
+  const canReturnToKam = quote.availableActions.some(
+    (a) => a.gateKey === 'G3' && a.outcomeKey === 'rework_kam',
+  );
   const record = quoting.pricingRecord ?? null;
   return (
     <div className="grid gap-6" data-testid="quoting-tab">
       <ApprovalStatus quoting={quoting} passThrough={quote.commercial.passThroughEligible} />
       <PricerAssignment quote={quote} />
       <PricingLeadReview quote={quote} />
+      <SectionLockLine lock={quoting.lock} />
       {quoting.commercialRedacted ? (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -84,6 +88,15 @@ export function QuotingTab({
               <Button variant="outline" onClick={() => onDecide('rework')}>
                 Return to Engineering…
               </Button>
+              {canReturnToKam && (
+                <Button
+                  variant="outline"
+                  onClick={() => onDecide('rework_kam')}
+                  data-testid="return-to-kam"
+                >
+                  Return to KAM…
+                </Button>
+              )}
               <Button variant="ghost" onClick={() => onDecide()}>
                 Hold or stop…
               </Button>
@@ -310,7 +323,7 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
             { label: 'Cavitation', value: eng.review.cavitation?.toString() },
             { label: 'Cycle time (s)', value: eng.review.cycleTimeS?.toString() },
             {
-              label: 'Preliminary capital',
+              label: BUDGETARY_CAPITAL_LABEL,
               value:
                 eng.review.prelimCapitalUsd != null
                   ? `$${eng.review.prelimCapitalUsd.toLocaleString('en-US')}`
@@ -327,9 +340,12 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
                 <li key={r.id}>
                   {label('plant', r.site)}
                   {r.lineAsset ? ` · ${r.lineAsset}` : ''} · effectiveness{' '}
-                  {r.assumedEffectivenessPct ?? '–'}% · utilization {r.utilizationPct ?? '–'}% ·
-                  cycle {r.cycleTimeS ?? '–'} s
-                  {r.bufferPct != null ? ` · buffer ${r.bufferPct}%` : ''}{' '}
+                  {r.assumedEffectivenessPct ?? '–'}% · utilization {r.utilizationBeforePct ?? '–'}%
+                  before
+                  {r.utilizationAfterPct != null
+                    ? ` → ${roundPct(r.utilizationAfterPct)}% after${r.utilizationLevel === 'over' ? ' (exceeds line capacity)' : ''}`
+                    : ''}{' '}
+                  · cycle {r.cycleTimeS ?? '–'} s{' '}
                   <span className="text-muted-foreground text-xs">
                     ({r.analystName ?? 'Unknown'}, {r.analysisDate})
                   </span>
@@ -572,7 +588,6 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
   const capitalRequired = quoting.g2?.outcomeKey === 'capital_required';
   const [form, setForm] = useState({
     capitalReadiness: record?.capitalReadiness ?? '',
-    cerReference: record?.cerReference ?? '',
     capitalNotes: record?.capitalNotes ?? '',
     capitalPendingJustification: record?.capitalPendingJustification ?? '',
   });
@@ -581,7 +596,6 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
     mutationFn: () =>
       api.updateCapitalReadiness(quote.quoteNumber, {
         capitalReadiness: form.capitalReadiness as CapitalReadiness,
-        cerReference: form.cerReference,
         capitalNotes: form.capitalNotes,
         capitalPendingJustification: form.capitalPendingJustification,
       }),
@@ -608,7 +622,10 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
                 label: 'Status',
                 value: record?.capitalReadiness ? CAPITAL_LABELS[record.capitalReadiness] : null,
               },
-              { label: 'CER reference', value: record?.cerReference },
+              // F-064: no CER is needed to quote. An old value is shown, read-only, only when set.
+              ...(record?.cerReference
+                ? [{ label: 'Legacy CER reference', value: record.cerReference }]
+                : []),
               { id: 'cap-notes', label: 'Notes', value: record?.capitalNotes },
               {
                 id: 'cap-just',
@@ -644,8 +661,8 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
               label="Status"
               hint={
                 capitalRequired
-                  ? 'Engineering said capital is required (G2), so it cannot be "Not required".'
-                  : undefined
+                  ? 'Engineering said capital is required (G2), so it cannot be "Not required". The capital figure is budgetary; it is refined after award, before any CER. No CER reference is needed to quote.'
+                  : 'The capital figure is budgetary. It is refined after award, before any CER. No CER reference is needed to quote.'
               }
               error={errorFor(errors, 'capitalReadiness')}
             >
@@ -669,15 +686,15 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
                 </NativeSelect>
               )}
             </Field>
-            <Field label="CER reference" hint="Optional" error={errorFor(errors, 'cerReference')}>
-              {(id) => (
-                <Input
-                  id={id}
-                  value={form.cerReference}
-                  onChange={(e) => setForm((f) => ({ ...f, cerReference: e.target.value }))}
-                />
-              )}
-            </Field>
+            {record?.cerReference && (
+              <div className="grid gap-1 text-sm" data-testid="legacy-cer-reference">
+                <span className="font-medium">Legacy CER reference</span>
+                <span>{record.cerReference}</span>
+                <span className="text-muted-foreground text-xs">
+                  Read-only. A CER is built after award; it is not needed to quote.
+                </span>
+              </div>
+            )}
           </div>
           {form.capitalReadiness === 'pending' && (
             <Field
@@ -734,7 +751,9 @@ function RecordView({ record }: { record: PricingRecordView }) {
           label: 'Capital readiness',
           value: record.capitalReadiness ? CAPITAL_LABELS[record.capitalReadiness] : null,
         },
-        { label: 'CER reference', value: record.cerReference },
+        ...(record.cerReference
+          ? [{ label: 'Legacy CER reference', value: record.cerReference }]
+          : []),
       ]}
     />
   );

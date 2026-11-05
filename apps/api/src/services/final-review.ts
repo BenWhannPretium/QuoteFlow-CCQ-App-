@@ -47,6 +47,7 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { finalReviewChecks } from './commercial';
 import { engineeringView } from './engineering-view';
 import { intakeFactsDto } from './intake-facts';
 import { persistNotifications } from './notificationService';
@@ -274,7 +275,7 @@ export class FinalReviewService {
       const summary = summaryDto(row, ctx);
       const commercial = canSeeCommercialFields(actor);
       const [engineering, quoting] = await Promise.all([
-        engineeringView(tx, actor, ctx.engQueue, q, quoteState),
+        engineeringView(tx, actor, ctx.engQueue, q, quoteState, workflow),
         quotingView(tx, actor, workflow, q, quoteState),
       ]);
       const uploaders = await listUsersByIds(tx, [
@@ -290,6 +291,8 @@ export class FinalReviewService {
       const availability = finalReviewAvailability(workflow, quoteState, actor, {
         approverTiers: ctx.release.approverTiers,
       });
+      // FB-01 (F-069): terms and Legal, read-only, and the open checks that do not block.
+      const checks = await finalReviewChecks(tx, ctx.commercial, q, quoteState);
       const warnings = reviewWarnings({
         qualification: summary.warnings,
         // The quoting warnings read the pricing record, which is commercial.
@@ -318,6 +321,7 @@ export class FinalReviewService {
         },
         engineering,
         quoting,
+        termsAndLegal: checks.termsAndLegal,
         attachments: attachments.map((a) => ({
           id: a.id,
           kind: a.kind,
@@ -329,7 +333,7 @@ export class FinalReviewService {
           webUrl: a.spWebUrl,
           available: a.storage !== null && a.storageItemId !== null,
         })),
-        warnings,
+        warnings: [...checks.warnings, ...warnings],
         decisions,
         proposal: {
           issuedAt: iso(q.proposalIssuedAt),

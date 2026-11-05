@@ -276,8 +276,12 @@ export const api = {
     getJson(`/api/v1/quotes/drafts/${id}`, IntakeDraft, { method: 'PATCH', body }),
   deleteDraft: (id: string) =>
     getJson(`/api/v1/quotes/drafts/${id}`, z.null(), { method: 'DELETE' }),
-  submitDraft: (id: string) =>
-    getJson(`/api/v1/quotes/drafts/${id}/submit`, SubmitIntakeResponse, { method: 'POST' }),
+  /** FB-01 (F-030): `scopeChanged` answers "Did the scope change?" after a G3 send-back. */
+  submitDraft: (id: string, body?: { scopeChanged?: boolean }) =>
+    getJson(`/api/v1/quotes/drafts/${id}/submit`, SubmitIntakeResponse, {
+      method: 'POST',
+      ...(body ? { body } : {}),
+    }),
 
   // B-08 quotes, gates and rework
   quote: (quoteNumber: string) =>
@@ -336,6 +340,9 @@ export const api = {
     getJson(`${quotePath(quoteNumber)}/eng-review/accept`, EngineeringDetail, { method: 'POST' }),
   updateEngReview: (quoteNumber: string, body: EngReviewBody) =>
     getJson(`${quotePath(quoteNumber)}/eng-review`, EngineeringDetail, { method: 'PUT', body }),
+  /** F-061: the capacity evidence as a CSV Blob (needs the bearer token; audited server-side). */
+  capacityEvidenceCsv: (quoteNumber: string): Promise<Blob> =>
+    getCsv(`${quotePath(quoteNumber)}/capacity-evidence.csv`),
   updateCapacityEvidence: (quoteNumber: string, body: CapacityEvidenceBody) =>
     getJson(`${quotePath(quoteNumber)}/capacity-evidence`, EngineeringDetail, {
       method: 'PUT',

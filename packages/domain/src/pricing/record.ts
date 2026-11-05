@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PRICING_QUEUE_STAGE_KEY } from './queue';
 import { DomainError } from '../errors';
 import { lockedFor } from '../lead-review';
+import { sectionLock, type LockConfig } from '../locks';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
@@ -28,11 +29,15 @@ export const CAPITAL_READINESS_VALUES = [
 ] as const;
 export type CapitalReadiness = (typeof CAPITAL_READINESS_VALUES)[number];
 
+/**
+ * FB-03 (F-064): the capital figure at quoting is budgetary, so no label says a CER is ready. The codes are
+ * unchanged (D-001 may restructure capital readiness, FB-07).
+ */
 export const CAPITAL_READINESS_LABELS: Record<CapitalReadiness, string> = {
-  not_required: 'Not required',
-  pending: 'Pending',
-  pre_approved: 'Pre-approved',
-  not_approved: 'Not approved',
+  not_required: 'Capital not required',
+  pending: 'Capital pending (budgetary)',
+  pre_approved: 'Capital pre-approved (budgetary)',
+  not_approved: 'Capital not approved (budgetary)',
 };
 
 // ── Pricing-app reference formats (config) ───────────────────────────────────────────────────────
@@ -152,6 +157,7 @@ export type PricingQuote = Pick<
   | 'pricingSubmittedAt'
   | 'region'
   | 'accountId'
+  | 'decisions'
 >;
 
 const inQuoting = (quote: PricingQuote) =>
@@ -160,10 +166,14 @@ const inQuoting = (quote: PricingQuote) =>
 /**
  * Pricing edits the Quoting tab while the quote is in Quoting (on hold included). Lead review: once
  * the pricer submits it to the pricing lead, only the lead edits.
+ * FB-01 (F-001): never once G3 is decided with an advancing outcome, until a send-back reopens it.
  */
-export function canEditQuoting(actor: Actor, quote: PricingQuote): boolean {
+export function canEditQuoting(actor: Actor, quote: PricingQuote, config: LockConfig): boolean {
   return (
-    inQuoting(quote) && can(actor, 'quoting.edit', quote) && !lockedFor('pricing', actor, quote)
+    inQuoting(quote) &&
+    !sectionLock('pricing', config, quote).locked &&
+    can(actor, 'quoting.edit', quote) &&
+    !lockedFor('pricing', actor, quote)
   );
 }
 

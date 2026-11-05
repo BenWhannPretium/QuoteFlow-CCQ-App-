@@ -19,7 +19,7 @@ const present = (field: string): RequiredRule => ({ field, op: 'present' });
 
 /**
  * Minimum intake set (D-05, provisional): blocking fields before a quote can leave INTAKE. FB-02 (F-009)
- * adds the two need-by dates (migration 0026 updates existing environments).
+ * adds the two need-by dates (migration 0028 updates existing environments).
  */
 const INTAKE_COMPLETE: RequiredRule[] = [
   present('sf_opportunity_id'),
@@ -112,12 +112,24 @@ const PRICE_APPROVED: RequiredRule[] = [
  * B-26 G4 Advance (deck slide 13): the terms check (tooling commitment, MOQ, payment terms) is recorded,
  * and when a Legal trigger applies (`legal_review_required`, derived by the server from app_setting
  * `legal_review_triggers`, D-25) the Legal review is recorded too. Provisional.
+ *
+ * FB-01 (F-069, Nov 3 demo): the approver was blocked by fields other roles own. Each check now applies
+ * only when app_setting `g4_required_checks` names it (`terms_checked`, `legal_review`); the server
+ * derives `g4_terms_check_required` / `g4_legal_review_check_required` from it. The setting is seeded
+ * `[]` (provisional; who finalizes terms is D-003), so neither blocks; the Final Review screen shows
+ * them as warnings instead. A missing derived field counts as required (fail closed).
  */
 const OFFER_READY: RequiredRule[] = [
-  present('terms_checked_at'),
+  {
+    anyOf: [
+      { field: 'g4_terms_check_required', op: 'equals', value: false },
+      present('terms_checked_at'),
+    ],
+  },
   {
     anyOf: [
       { field: 'legal_review_required', op: 'equals', value: false },
+      { field: 'g4_legal_review_check_required', op: 'equals', value: false },
       present('legal_reviewed_on'),
     ],
   },
@@ -292,6 +304,9 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
     // B-26: every gate offers the deck's standard outcomes where they apply (slide 18): Advance, Hold,
     // Rework, Redirect, Stop. Labels lead with the standard word; the keys are unchanged so earlier
     // decisions keep their meaning. Each outcome's definition is its admin-editable help text.
+    // FB-01 (F-027, D-015: notes are for exceptions only): every exception outcome needs a note:
+    // Advance with risk, Capital required, Hold, Rework / Return / Re-quote / Re-cost, Redirect and
+    // Stop / Decline. A plain Advance, Approve or Awarded does not.
     outcomes: [
       // G1
       outcome('G1', 'advance', 'Advance', {
@@ -301,6 +316,7 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       // B-08: Hold needs a reason and a review date; Rework a reason code and a note (the KAM's "what to fix").
       // B-26: and every hold names an owner.
       outcome('G1', 'hold', 'Hold', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
@@ -312,6 +328,7 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
       outcome('G1', 'redirect', 'Redirect (not CCQ work)', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'redirect',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
@@ -340,10 +357,12 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       // B-10: "Capital required" needs the preliminary capital figure; Pricing's capital readiness
       // starts as pending (app_setting `capital_readiness_on_outcome`).
       outcome('G2', 'capital_required', 'Advance – capital required', {
+        requiresNote: true,
         requiredFields: [present('prelim_capital_usd'), CAPACITY_SIGNED_OFF],
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
       outcome('G2', 'hold', 'Hold', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
@@ -372,6 +391,7 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         notify: [{ type: 'quote.ready_for_final_review', to: { role: 'Approver' } }],
       }),
       outcome('G3', 'hold', 'Hold', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
@@ -384,8 +404,18 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         reasonContext: 'rework',
       }),
       outcome('G3', 'rework', 'Rework (back to Engineering)', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'rework',
+        notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
+      }),
+      // FB-01 (F-029, Kyle Arnold): Pricing sends it to the KAM (missing or wrong commercial input).
+      // F-030: the KAM's fix comes straight back to Quoting unless they say the scope changed.
+      outcome('G3', 'rework_kam', 'Rework (back to KAM)', {
+        requiresNote: true,
+        requiresReasonCode: true,
+        reasonContext: 'rework',
+        resumeAt: 'origin',
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
       // B-26 (slide 12): customer-funded or another capital model. Stays in Quoting.
@@ -408,6 +438,7 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       }),
       // B-26 (slide 13): G4 gains Hold.
       outcome('G4', 'hold', 'Hold', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
@@ -457,12 +488,14 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       }),
       // A customer hold stops the cycle-time clock (quote_hold, CR-57).
       outcome('G5', 'on_hold', 'On hold', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
       }),
       // Back to the affected stage with a version bump; earlier approvals stay as recorded (CR-38).
       outcome('G5', 'requote', 'Re-quote', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'requote',
         notify: [{ type: 'quote.requote', to: { stageOwner: true } }],
@@ -474,12 +507,14 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         requiredFields: COMMITTED,
       }),
       outcome('G6', 'hold', 'Hold (commitment pending)', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
       }),
       // "Changed since quote?" (scope, volume, resin, site, capacity) → re-quote at the affected gate.
       outcome('G6', 'requote', 'Rework (re-quote)', {
+        requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'requote',
         notify: [{ type: 'quote.requote', to: { stageOwner: true } }],
@@ -515,6 +550,7 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       transition('G3', 'hold', hold),
       transition('G3', 'recost', active),
       transition('G3', 'rework', { ...active, targetStageKeys: ['ENG_REVIEW'], versionBump: true }),
+      transition('G3', 'rework_kam', { ...active, targetStageKeys: ['INTAKE'], versionBump: true }),
       transition('G3', 'redirect', active),
       // B-11: a Pricing Stop is an internal "won't pursue", like G1/G2: DECLINED, not a customer loss.
       transition('G3', 'stop', { ...closed, targetStageKeys: ['DECLINED'], closeAs: 'declined' }),

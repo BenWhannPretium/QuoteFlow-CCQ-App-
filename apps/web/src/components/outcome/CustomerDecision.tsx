@@ -198,6 +198,8 @@ type HandoffForm = {
   acceptedOn: string;
   notes: string;
   complete: boolean;
+  /** F-064: "Ready for CER development". */
+  cerReady: boolean;
 };
 
 function formFrom(cd: CustomerDecisionDetail): HandoffForm {
@@ -213,6 +215,7 @@ function formFrom(cd: CustomerDecisionDetail): HandoffForm {
     acceptedOn: h?.acceptedOn ?? '',
     notes: h?.notes ?? '',
     complete: h?.completed ?? false,
+    cerReady: h?.cerReady ?? false,
   };
 }
 
@@ -270,7 +273,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
       const body: HandoffBody = {};
       const changed = (k: keyof HandoffForm) => form[k] !== stored[k];
       const text = (
-        k: Exclude<keyof HandoffForm, 'complete' | 'acceptanceEvidence' | 'cerStatus'>,
+        k: Exclude<keyof HandoffForm, 'complete' | 'cerReady' | 'acceptanceEvidence' | 'cerStatus'>,
       ) => (form[k].trim() === '' ? null : form[k]);
       if (changed('acceptanceEvidence') && form.acceptanceEvidence)
         body.acceptanceEvidence = form.acceptanceEvidence as HandoffBody['acceptanceEvidence'];
@@ -287,6 +290,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
         if (changed(k)) body[k] = text(k);
       }
       if (changed('complete')) body.complete = form.complete;
+      if (changed('cerReady')) body.cerReady = form.cerReady;
       return api.updateHandoff(quote.quoteNumber, body);
     },
     onSuccess: async (res) => {
@@ -326,6 +330,14 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
                 CER: {CER_STATUS_LABELS[h.cerStatus]}
               </span>
             )}
+            {h?.cerReady && (
+              <span
+                data-testid="cer-ready-badge"
+                className="bg-secondary text-foreground rounded-pill px-2 py-0.5 text-xs font-semibold"
+              >
+                Ready for CER development
+              </span>
+            )}
             {h?.completed && (
               <span className="bg-success/15 text-success rounded-pill px-2 py-0.5 text-xs font-semibold">
                 Hand-off accepted
@@ -352,6 +364,13 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
               },
               { id: 'cer', label: 'CER ID (Apex)', value: h?.cerId },
               { id: 'cer-on', label: 'CER approved on', value: h?.cerApprovedOn },
+              {
+                id: 'cer-ready',
+                label: 'Ready for CER development',
+                value: h?.cerReady
+                  ? `Yes${h.cerReadyByName ? ` · ${h.cerReadyByName}` : ''}${h.cerReadyAt ? ` · ${absoluteTime(h.cerReadyAt)}` : ''}`
+                  : 'No',
+              },
               {
                 id: 'role',
                 label: 'Receiving role',
@@ -521,6 +540,28 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
                 Needs the receiving role, contact and accepted-by date.
               </span>
             </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 accent-[var(--primary)]"
+                data-testid="cer-ready-checkbox"
+                checked={form.cerReady}
+                disabled={!h}
+                onChange={(e) => set('cerReady')(e.target.checked)}
+              />
+              Ready for CER development
+              <span className="text-muted-foreground text-xs">
+                {h
+                  ? 'The quoted capital was budgetary; tick this when the CER can be started. Recorded with who and when.'
+                  : 'Available once the award (G5) has opened the hand-off record.'}
+              </span>
+            </label>
+            {h?.cerReady && h.cerReadyByName && (
+              <p className="text-muted-foreground text-xs" data-testid="cer-ready-by">
+                Marked ready by {h.cerReadyByName}
+                {h.cerReadyAt ? ` on ${absoluteTime(h.cerReadyAt)}` : ''}.
+              </p>
+            )}
             {h?.completed && h.completedByName && (
               <p className="text-muted-foreground text-xs" data-testid="handoff-completed-by">
                 Confirmed by {h.completedByName}

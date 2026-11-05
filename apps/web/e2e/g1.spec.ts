@@ -52,12 +52,15 @@ test('a SalesLeader qualifies one quote and redirects another from the G1 queue'
   await expect(page.getByText(`${toAdvance} is now in Engineering Review`)).toBeVisible();
   await expect(advanceCard).toHaveCount(0);
 
-  // Redirect the second: a reason is required.
+  // Redirect the second: a reason and (FB-01, F-027) a note are required.
   await redirectCard.getByRole('button', { name: `Decide ${toRedirect}` }).click();
   await dialog.getByRole('radio', { name: 'Redirect' }).check();
+  await expect(dialog.getByText('Required for exception decisions')).toBeVisible();
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(dialog.getByRole('alert')).toContainText('Choose a reason.');
+  await expect(dialog.getByRole('alert')).toContainText('Add a note.');
   await dialog.getByLabel('Reason (required)').selectOption({ label: 'Stock item' });
+  await dialog.getByLabel('Note (required)').fill('Catalog bottle 4471');
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(redirectCard).toHaveCount(0);

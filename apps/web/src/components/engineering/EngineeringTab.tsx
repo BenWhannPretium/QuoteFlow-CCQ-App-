@@ -1,23 +1,35 @@
-import type {
-  CapacityEvidenceRowBody,
-  EngineeringDetail,
-  EngReviewBody,
-  QuoteDetail,
+import {
+  BUDGETARY_CAPITAL_HELP,
+  BUDGETARY_CAPITAL_LABEL,
+  type CapacityEvidenceRowBody,
+  type EngineeringDetail,
+  type EngReviewBody,
+  type QuoteDetail,
 } from '@ccq/contracts';
+import {
+  EXCEEDS_CAPACITY_MESSAGE,
+  allocationCheck,
+  computeUtilization,
+  roundPct,
+  storedUtilizationPct,
+  utilizationLevel,
+  type UtilizationLevel,
+} from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { EyeOffIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useState } from 'react';
+import { DownloadIcon, EyeOffIcon, PaperclipIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
-import { api } from '@/lib/api';
+import { api, downloadBlob, uploadAttachment } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
+import { attachmentsQueryKey } from '../attachments/Attachments';
 import {
   Field,
   FormErrors,
@@ -31,6 +43,7 @@ import { IntakeFactsHeader } from '../intake/IntakeFacts';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewPanel } from '../LeadReviewPanel';
 import { FieldOverride, timelineQueryKey } from '../Overrides';
+import { SectionLockLine } from '../SectionLockLine';
 
 const DF22_HELP =
   'State your assumption. Quotes have historically assumed 85% vs ~70% demonstrated (DF-22).';
@@ -49,18 +62,15 @@ export function EngineeringTab({
   onDecide: (outcomeKey?: string) => void;
 }) {
   const eng = quote.engineering;
-  const { data: config } = usePublicConfig();
   const canDecideG2 = quote.availableActions.some((a) => a.gateKey === 'G2');
   return (
     <div className="grid gap-6" data-testid="engineering-tab">
-      {/* FB-02: destination, mold modification and product facts from intake. */}
-      <IntakeFactsHeader
-        facts={quote.intakeFacts}
-        shipTo={quote.shipTo}
-        lists={config?.valueLists}
-      />
+      {/* FB-02: destination and mold modification from intake. */}
+      <IntakeFactsHeader facts={quote.intakeFacts} shipTo={quote.shipTo} />
+      <ProductFactsHeader facts={eng.productFacts} />
       <AssignmentCard quote={quote} canDecideG2={canDecideG2} onDecide={onDecide} />
       <EngLeadReview quote={quote} />
+      <SectionLockLine lock={eng.lock} />
       {eng.commercialRedacted && eng.canEdit && (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -78,6 +88,30 @@ export function EngineeringTab({
         quote={quote}
       />
     </div>
+  );
+}
+
+/**
+ * F-023: what the KAM told us about the product, above everything Engineering enters: resin (and the
+ * customer-specified grade), PCR %, colour and additives, and the variants note. The list comes from the
+ * server, so a field the intake gains (FB-02) shows up here without a change to this tab.
+ */
+function ProductFactsHeader({ facts }: { facts: EngineeringDetail['productFacts'] }) {
+  if (facts.length === 0) return null;
+  return (
+    <section
+      aria-label="Product facts from the intake"
+      className="bg-secondary rounded-md px-4 py-3"
+      data-testid="product-facts"
+    >
+      <h2 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+        From the intake
+      </h2>
+      <KeyValueGrid
+        columns={3}
+        items={facts.map((f) => ({ id: f.key, label: f.label, value: f.value }))}
+      />
+    </section>
   );
 }
 
@@ -231,7 +265,6 @@ const NUMERIC: SolutionKey[] = ['cavitation', 'cycleTimeS', 'prelimCapitalUsd'];
 function SolutionCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
   const review = eng.review;
-  const { data: config } = usePublicConfig();
   const refresh = useRefresh(quote.quoteNumber);
   const capitalHidden = !('prelimCapitalUsd' in review);
   const initial = solutionForm(review);
@@ -239,8 +272,6 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
   const set = (k: SolutionKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
 
   const save = useMutation({
     mutationFn: () => {
@@ -274,13 +305,13 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
         <CardContent>
           <KeyValueGrid
             items={[
-              { label: 'Process', value: label('process_type', review.processType) },
-              { label: 'Machine', value: label('machine_type', review.machineType) },
-              { label: 'Plant / site', value: label('plant', review.plantCode) },
+              { label: 'Process', value: eng.selectedLabels.processType },
+              { label: 'Machine', value: eng.selectedLabels.machineType },
+              { label: 'Plant / site', value: eng.selectedLabels.plantCode },
               { label: 'Cavitation', value: review.cavitation?.toString() },
               { label: 'Cycle time (s)', value: review.cycleTimeS?.toString() },
               {
-                label: 'Preliminary capital',
+                label: BUDGETARY_CAPITAL_LABEL,
                 value: capitalHidden ? (
                   <HiddenValue />
                 ) : review.prelimCapitalUsd != null ? (
@@ -328,6 +359,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                   id={id}
                   list="process_type"
                   value={form.processType}
+                  retiredLabel={eng.selectedLabels.processType}
                   onChange={set('processType')}
                 />
               )}
@@ -342,6 +374,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                   id={id}
                   list="machine_type"
                   value={form.machineType}
+                  retiredLabel={eng.selectedLabels.machineType}
                   onChange={set('machineType')}
                 />
               )}
@@ -356,16 +389,22 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                   id={id}
                   list="plant"
                   value={form.plantCode}
+                  retiredLabel={eng.selectedLabels.plantCode}
                   onChange={set('plantCode')}
                 />
               )}
             </Field>
-            <Field label="Cavitation" error={errorFor(errors, 'cavitation')}>
+            <Field
+              label="Cavitation"
+              hint="A whole number, 1 to 99"
+              error={errorFor(errors, 'cavitation')}
+            >
               {(id) => (
                 <Input
                   id={id}
                   type="number"
                   min={1}
+                  max={99}
                   step={1}
                   inputMode="numeric"
                   value={form.cavitation}
@@ -387,11 +426,11 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
               )}
             </Field>
             <Field
-              label="Preliminary capital (USD)"
+              label={BUDGETARY_CAPITAL_LABEL}
               hint={
                 capitalHidden
-                  ? 'Commercial: hidden from your role. Leave blank to keep.'
-                  : 'Commercial. Saving it rescores the quote.'
+                  ? `${BUDGETARY_CAPITAL_HELP} Hidden from your role: leave blank to keep.`
+                  : `${BUDGETARY_CAPITAL_HELP} Saving it rescores the quote.`
               }
               error={errorFor(errors, 'prelimCapitalUsd')}
             >
@@ -600,20 +639,57 @@ interface RowForm {
   lineAsset: string;
   assumedEffectivenessPct: string;
   cycleTimeS: string;
-  utilizationPct: string;
-  bufferPct: string;
+  /** F-059: the line's current load, entered. */
+  utilizationBeforePct: string;
+  /** Blank = the quote's estimated annual volume. */
+  allocatedAnnualVolume: string;
+  /** Blank = the `capacity_basis` default. */
+  scheduledRunDaysPerYear: string;
+  /** What the server last stored; shown only when the entered numbers are hidden from this role. */
+  storedAfterPct: number | null;
   analysisDate: string;
   analystId: string;
   analystName: string | null;
   notes: string;
 }
-const NUMBER_FIELDS = [
-  'assumedEffectivenessPct',
-  'cycleTimeS',
-  'utilizationPct',
-  'bufferPct',
-] as const;
+const NUMBER_FIELDS = ['assumedEffectivenessPct', 'cycleTimeS', 'utilizationBeforePct'] as const;
 const str = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n));
+const num = (v: string): number | null => (v.trim() === '' ? null : Number(v));
+
+const LEVEL_CLASS: Record<UtilizationLevel, string> = {
+  ok: 'text-foreground',
+  warn: 'font-semibold text-amber-700 dark:text-amber-400',
+  over: 'text-destructive font-semibold',
+};
+
+/**
+ * Utilization after the new business: calculated, never typed (F-059). Over 100 % is red with "exceeds line
+ * capacity"; over the basis' warning threshold, amber. One decimal place.
+ */
+function UtilizationAfter({
+  pct,
+  basis,
+  testId = 'utilization-after',
+}: {
+  pct: number | null;
+  basis: EngineeringDetail['capacityBasis'];
+  testId?: string;
+}) {
+  if (pct === null) {
+    return (
+      <span className="text-muted-foreground text-sm" data-testid={testId}>
+        Calculated once cavitation, cycle time, effectiveness and volume are in
+      </span>
+    );
+  }
+  const level = utilizationLevel(pct, basis);
+  return (
+    <span className={LEVEL_CLASS[level]} data-testid={testId} data-level={level}>
+      {roundPct(pct, 1).toFixed(1)}%{level === 'over' && ` · ${EXCEEDS_CAPACITY_MESSAGE}`}
+      {level === 'warn' && ` · above ${basis.warnAbovePct}%`}
+    </span>
+  );
+}
 
 function CapacityCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
@@ -621,6 +697,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
   const refresh = useRefresh(quote.quoteNumber);
   const hidden = eng.commercialRedacted;
+  const basis = eng.capacityBasis;
+  const cavitation = eng.review.cavitation;
   const today = new Date().toISOString().slice(0, 10);
   const initial: RowForm[] = eng.capacityEvidence.map((r) => ({
     key: r.id,
@@ -629,8 +707,10 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
     lineAsset: r.lineAsset ?? '',
     assumedEffectivenessPct: str(r.assumedEffectivenessPct),
     cycleTimeS: str(r.cycleTimeS),
-    utilizationPct: str(r.utilizationPct),
-    bufferPct: str(r.bufferPct),
+    utilizationBeforePct: str(r.utilizationBeforePct),
+    allocatedAnnualVolume: str(r.allocatedAnnualVolume),
+    scheduledRunDaysPerYear: str(r.scheduledRunDaysPerYear),
+    storedAfterPct: r.utilizationAfterPct ?? null,
     analysisDate: r.analysisDate,
     analystId: r.analystId,
     analystName: r.analystName,
@@ -653,8 +733,10 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
         lineAsset: '',
         assumedEffectivenessPct: '',
         cycleTimeS: quote.engineering.review.cycleTimeS?.toString() ?? '',
-        utilizationPct: '',
-        bufferPct: '',
+        utilizationBeforePct: '',
+        allocatedAnnualVolume: '',
+        scheduledRunDaysPerYear: '',
+        storedAfterPct: null,
         analysisDate: today,
         analystId: me.user.id,
         analystName: me.user.displayName,
@@ -662,6 +744,28 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
       },
     ]);
   };
+
+  /** The same calculation the server runs on save (domain `computeUtilization`), so what you see is what is stored. */
+  const volumeOf = (r: RowForm) => num(r.allocatedAnnualVolume) ?? eng.quoteAnnualVolume;
+  const afterOf = (r: RowForm): number | null => {
+    const calc = computeUtilization({
+      cycleTimeS: num(r.cycleTimeS),
+      cavitation,
+      effectivenessPct: num(r.assumedEffectivenessPct),
+      scheduledRunDaysPerYear: num(r.scheduledRunDaysPerYear) ?? basis.scheduledRunDaysPerYear,
+      allocatedAnnualVolume: volumeOf(r),
+      utilizationBeforePct: num(r.utilizationBeforePct),
+    });
+    // The value the server stores (two decimals), so the preview and the saved figure always agree.
+    if (calc.ok) return storedUtilizationPct(calc.utilizationAfterPct);
+    // Numbers hidden from this role and left blank: show what the server stored.
+    return hidden && r.id ? r.storedAfterPct : null;
+  };
+  // T-030: the rows should add up to the quote's volume. A warning, never a block.
+  const allocation = allocationCheck(
+    rows.map((r) => ({ allocatedAnnualVolume: volumeOf(r) })),
+    eng.quoteAnnualVolume,
+  );
 
   const save = useMutation({
     mutationFn: () =>
@@ -671,6 +775,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
             ...(r.id ? { id: r.id } : {}),
             site: r.site,
             lineAsset: r.lineAsset.trim() || null,
+            allocatedAnnualVolume: num(r.allocatedAnnualVolume),
+            scheduledRunDaysPerYear: num(r.scheduledRunDaysPerYear),
             analysisDate: r.analysisDate,
             analystId: r.analystId,
             notes: r.notes.trim() || null,
@@ -679,7 +785,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
             const v = r[f].trim();
             // Blank on an existing row whose numbers are hidden means "keep".
             if (v === '' && hidden && r.id) continue;
-            row[f] = v === '' ? (f === 'bufferPct' ? null : undefined) : Number(v);
+            row[f] = v === '' ? undefined : Number(v);
           }
           return row as CapacityEvidenceRowBody;
         }),
@@ -696,6 +802,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
   const siteLabel = (code: string) =>
     config?.valueLists.plant?.find((v) => v.code === code)?.label ?? code;
 
+  const volumeText = (n: number | null) => (n === null ? null : n.toLocaleString('en-US'));
+
   return (
     <Card>
       <CardHeader>
@@ -703,7 +811,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
           <h2 className="text-base font-semibold">Capacity evidence</h2>
         </CardTitle>
         <p className="text-muted-foreground text-sm">
-          At least one row is needed to Proceed (CR-19). There is no OEE default.
+          At least one row is needed to Proceed (CR-19). There is no OEE default. Enter the line’s
+          utilization before this business; utilization after is calculated.
         </p>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -715,7 +824,11 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
         {!eng.canEdit && rows.length > 0 && (
           <ul className="grid gap-3">
             {rows.map((r) => (
-              <li key={r.key} className="rounded-md border p-3 text-sm">
+              <li
+                key={r.key}
+                className="rounded-md border p-3 text-sm"
+                data-testid="capacity-row-view"
+              >
                 <KeyValueGrid
                   items={[
                     { label: 'Site', value: siteLabel(r.site) },
@@ -725,8 +838,30 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                       value: hidden ? <HiddenValue /> : r.assumedEffectivenessPct,
                     },
                     { label: 'Cycle time (s)', value: hidden ? <HiddenValue /> : r.cycleTimeS },
-                    { label: 'Utilization %', value: hidden ? <HiddenValue /> : r.utilizationPct },
-                    { label: 'Buffer %', value: hidden ? <HiddenValue /> : r.bufferPct || null },
+                    {
+                      label: 'Utilization before %',
+                      value: hidden ? <HiddenValue /> : r.utilizationBeforePct,
+                    },
+                    {
+                      label: 'Allocated annual volume (units)',
+                      value: volumeText(num(r.allocatedAnnualVolume)),
+                    },
+                    {
+                      label: 'Scheduled run days per year',
+                      value: r.scheduledRunDaysPerYear || null,
+                    },
+                    {
+                      label: 'Utilization after % (calculated)',
+                      value: hidden ? (
+                        <HiddenValue />
+                      ) : (
+                        <UtilizationAfter
+                          pct={afterOf(r)}
+                          basis={basis}
+                          testId="utilization-after-view"
+                        />
+                      ),
+                    },
                     { label: 'Analysis date', value: r.analysisDate },
                     { label: 'Analyst', value: r.analystName },
                     { id: 'notes', label: 'Notes', value: r.notes || null },
@@ -746,6 +881,12 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
               save.mutate();
             }}
           >
+            {cavitation === null && rows.length > 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="no-cavitation">
+                Enter the cavitation in the Solution section above: utilization after is calculated
+                from it.
+              </p>
+            )}
             {rows.map((r, i) => (
               <fieldset
                 key={r.key}
@@ -760,6 +901,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                         id={id}
                         list="plant"
                         value={r.site}
+                        retiredLabel={eng.selectedLabels.plantCode}
                         onChange={(v) => update(r.key, { site: v })}
                       />
                     )}
@@ -807,7 +949,11 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                       />
                     )}
                   </Field>
-                  <Field label="Utilization %" error={errorFor(errors, `rows/${i}/utilizationPct`)}>
+                  <Field
+                    label="Utilization before %"
+                    hint="The line’s current load, before this business"
+                    error={errorFor(errors, `rows/${i}/utilizationBeforePct`)}
+                  >
                     {(id) => (
                       <Input
                         id={id}
@@ -817,26 +963,59 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                         step="0.1"
                         inputMode="decimal"
                         placeholder={hidden && r.id ? 'Hidden' : undefined}
-                        value={r.utilizationPct}
-                        onChange={(e) => update(r.key, { utilizationPct: e.target.value })}
+                        value={r.utilizationBeforePct}
+                        onChange={(e) => update(r.key, { utilizationBeforePct: e.target.value })}
                       />
                     )}
                   </Field>
-                  <Field label="Buffer %" error={errorFor(errors, `rows/${i}/bufferPct`)}>
+                  <Field
+                    label="Allocated annual volume (units)"
+                    hint={
+                      eng.quoteAnnualVolume !== null
+                        ? `Blank = the quote’s ${eng.quoteAnnualVolume.toLocaleString('en-US')}. Set each row’s share when the business is split.`
+                        : 'The quote has no estimated volume: enter this line’s share.'
+                    }
+                    error={errorFor(errors, `rows/${i}/allocatedAnnualVolume`)}
+                  >
                     {(id) => (
                       <Input
                         id={id}
                         type="number"
                         min={0}
-                        max={100}
-                        step="0.1"
-                        inputMode="decimal"
-                        placeholder={hidden && r.id ? 'Hidden' : undefined}
-                        value={r.bufferPct}
-                        onChange={(e) => update(r.key, { bufferPct: e.target.value })}
+                        step={1}
+                        inputMode="numeric"
+                        placeholder={volumeText(eng.quoteAnnualVolume) ?? undefined}
+                        value={r.allocatedAnnualVolume}
+                        onChange={(e) => update(r.key, { allocatedAnnualVolume: e.target.value })}
                       />
                     )}
                   </Field>
+                  <Field
+                    label="Scheduled run days per year"
+                    hint={`Blank = ${basis.scheduledRunDaysPerYear}`}
+                    error={errorFor(errors, `rows/${i}/scheduledRunDaysPerYear`)}
+                  >
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="number"
+                        min={1}
+                        max={366}
+                        step={1}
+                        inputMode="numeric"
+                        placeholder={String(basis.scheduledRunDaysPerYear)}
+                        value={r.scheduledRunDaysPerYear}
+                        onChange={(e) => update(r.key, { scheduledRunDaysPerYear: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                  <div className="grid content-start gap-1" data-testid="utilization-after-field">
+                    <span className="text-sm font-medium">Utilization after % (calculated)</span>
+                    <output className="text-sm" aria-live="polite">
+                      <UtilizationAfter pct={afterOf(r)} basis={basis} />
+                    </output>
+                    <span className="text-muted-foreground text-xs">Read-only. Not typed.</span>
+                  </div>
                   <Field label="Analysis date" error={errorFor(errors, `rows/${i}/analysisDate`)}>
                     {(id) => (
                       <Input
@@ -901,6 +1080,15 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                 </div>
               </fieldset>
             ))}
+            {allocation && (
+              <p
+                role="status"
+                className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                data-testid="allocation-warning"
+              >
+                {allocation.message} This is a warning: you can still save.
+              </p>
+            )}
             <FormErrors errors={errors} />
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={add}>
@@ -913,8 +1101,138 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
             </div>
           </form>
         )}
+        {!eng.canEdit && eng.allocationWarning && (
+          <p
+            className="text-sm text-amber-700 dark:text-amber-400"
+            data-testid="allocation-warning-view"
+          >
+            {eng.allocationWarning}
+          </p>
+        )}
+        <p className="text-muted-foreground text-xs" data-testid="capacity-basis">
+          Basis: {basis.basisLabel}. Run days default to {basis.scheduledRunDaysPerYear} a year;
+          utilization after is amber above {basis.warnAbovePct}% and red over 100%. Effectiveness is
+          applied once.
+        </p>
+        <CapacityEvidenceActions
+          quoteNumber={quote.quoteNumber}
+          hasRows={eng.capacityEvidence.length > 0}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * F-061: the evidence can leave QuoteFlow to support a later CER. "Download CSV" is the saved rows with their
+ * calculated utilization (audited on the server); "Attach analysis" stores the engineer's own analysis file
+ * on the quote as a Capacity analysis.
+ */
+function CapacityEvidenceActions({
+  quoteNumber,
+  hasRows,
+}: {
+  quoteNumber: string;
+  hasRows: boolean;
+}) {
+  const qc = useQueryClient();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const attachments = useQuery({
+    queryKey: attachmentsQueryKey({ quoteNumber }),
+    queryFn: () => api.quoteAttachments(quoteNumber),
+  });
+  const analyses = attachments.data?.items.filter((a) => a.kind === 'capacity_analysis') ?? [];
+  const canAttach = attachments.data?.canUpload ?? false;
+
+  const download = useMutation({
+    mutationFn: () => api.capacityEvidenceCsv(quoteNumber),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `${quoteNumber}-capacity-evidence.csv`);
+      toast.success({
+        title: 'Capacity evidence downloaded',
+        description: 'The export is recorded in the audit log.',
+      });
+    },
+    onError: () => toast.error({ title: 'Download failed', description: 'Try again.' }),
+  });
+
+  const attach = (file: File | undefined) => {
+    if (!file) return;
+    const handle = uploadAttachment(
+      { quoteNumber },
+      file,
+      { kind: 'capacity_analysis' },
+      setProgress,
+    );
+    setProgress(0);
+    handle.promise.then(
+      () => {
+        setProgress(null);
+        void qc.invalidateQueries({ queryKey: attachmentsQueryKey({ quoteNumber }) });
+        void qc.invalidateQueries({ queryKey: timelineQueryKey(quoteNumber) });
+        toast.success({ title: `${file.name} attached as a capacity analysis` });
+      },
+      (err: unknown) => {
+        setProgress(null);
+        toast.error({
+          title: 'Could not attach the file',
+          description: err instanceof Error ? err.message : 'Try again.',
+        });
+      },
+    );
+  };
+
+  return (
+    <div className="grid gap-2" data-testid="capacity-actions">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => download.mutate()}
+          disabled={!hasRows || download.isPending}
+          data-testid="capacity-csv"
+        >
+          <DownloadIcon aria-hidden="true" />
+          {download.isPending ? 'Preparing…' : 'Download CSV'}
+        </Button>
+        {canAttach && (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+              disabled={progress !== null}
+              data-testid="capacity-attach"
+            >
+              <PaperclipIcon aria-hidden="true" />
+              {progress === null ? 'Attach analysis' : `Uploading ${Math.round(progress * 100)}%`}
+            </Button>
+            <input
+              ref={fileInput}
+              type="file"
+              className="sr-only"
+              aria-label="Capacity analysis file"
+              data-testid="capacity-attach-input"
+              onChange={(e) => {
+                attach(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+          </>
+        )}
+      </div>
+      {!hasRows && (
+        <p className="text-muted-foreground text-xs">Save at least one row to download the CSV.</p>
+      )}
+      {analyses.length > 0 && (
+        <p className="text-muted-foreground text-xs" data-testid="capacity-analyses">
+          Capacity analysis attached: {analyses.map((a) => a.fileName).join(', ')}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -922,18 +1240,24 @@ function ValueListSelect({
   id,
   list,
   value,
+  retiredLabel,
   onChange,
 }: {
   id: string;
   list: string;
   value: string;
+  /** The label of the stored value, shown when the list no longer offers it (F-057: the EBM wheel). */
+  retiredLabel?: string | null;
   onChange: (v: string) => void;
 }) {
   const { data: config } = usePublicConfig();
+  const options = config?.valueLists[list] ?? [];
+  const retired = value !== '' && !options.some((v) => v.code === value);
   return (
     <NativeSelect id={id} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">Choose…</option>
-      {(config?.valueLists[list] ?? []).map((v) => (
+      {retired && <option value={value}>{`${retiredLabel ?? value} (no longer offered)`}</option>}
+      {options.map((v) => (
         <option key={v.code} value={v.code}>
           {v.label}
         </option>

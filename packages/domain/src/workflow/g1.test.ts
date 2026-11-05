@@ -78,16 +78,18 @@ describe('G1 outcomes', () => {
     expect(r.ok && r.effects.nextStageKey).toBe('ENG_REVIEW');
   });
 
-  it('Hold: needs a reason, a review date and an owner (B-26), stays in INTAKE on hold', () => {
+  it('Hold: needs a reason, a note (F-027), a review date and an owner (B-26), stays in INTAKE on hold', () => {
     expect(codes(decide({ gateKey: 'G1', outcomeKey: 'hold' }))).toEqual([
       'MISSING_FIELD',
       'MISSING_FIELD',
+      'NOTE_REQUIRED',
       'REASON_REQUIRED',
     ]);
     const r = decide({
       gateKey: 'G1',
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
+      note: 'Customer is confirming volumes',
       payload: { review_date: '2026-11-02', hold_owner_id: 'user-owner' },
     });
     expect(r.ok && [r.effects.nextStageKey, r.effects.nextStatus, r.effects.hold.action]).toEqual([
@@ -111,9 +113,17 @@ describe('G1 outcomes', () => {
     expect(r.ok && [r.effects.nextStageKey, r.effects.nextVersion]).toEqual(['INTAKE', 2]);
   });
 
-  it('Redirect: needs a reason, closes as REDIRECTED', () => {
-    expect(codes(decide({ gateKey: 'G1', outcomeKey: 'redirect' }))).toEqual(['REASON_REQUIRED']);
-    const r = decide({ gateKey: 'G1', outcomeKey: 'redirect', reasonCode: 'stock_item' });
+  it('Redirect: needs a reason and a note (F-027), closes as REDIRECTED', () => {
+    expect(codes(decide({ gateKey: 'G1', outcomeKey: 'redirect' }))).toEqual([
+      'NOTE_REQUIRED',
+      'REASON_REQUIRED',
+    ]);
+    const r = decide({
+      gateKey: 'G1',
+      outcomeKey: 'redirect',
+      reasonCode: 'stock_item',
+      note: 'Catalog bottle 4471',
+    });
     expect(r.ok && [r.effects.nextStageKey, r.effects.nextStatus, r.effects.closeAs]).toEqual([
       'REDIRECTED',
       'closed',

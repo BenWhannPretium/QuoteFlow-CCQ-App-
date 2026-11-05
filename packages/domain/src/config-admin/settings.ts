@@ -4,6 +4,7 @@ import { parseAttachmentSettings } from '../attachments/rules';
 import {
   parseCapitalNotice,
   parseEscalationRoutes,
+  parseG4RequiredChecks,
   parseLegalReviewTriggers,
   parseMarketDevNotice,
   parsePassThrough,
@@ -327,6 +328,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Legal review triggers before G4 releases the offer (D-25)',
     'json',
     notNull('legal_review_triggers', parseLegalReviewTriggers),
+  ),
+  // FB-01 (F-069): which of the terms check and the Legal review block G4 Advance (D-003).
+  spec(
+    'g4_required_checks',
+    'final_review',
+    'Checks that block G4 Advance: terms_checked, legal_review ([] = warnings only, D-003)',
+    'json',
+    notNull('g4_required_checks', parseG4RequiredChecks),
   ),
   spec(
     'g4_tier_rules',

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { BUDGETARY_CAPITAL_LABEL } from './eng-review';
 import { CapitalReadiness } from './pricing';
 import { QuoteSummary } from './quotes';
 
@@ -234,7 +235,7 @@ export const QUOTE_LIST_COLUMNS = {
   warnings: 'Warnings',
   validityUntil: 'Valid until',
   updatedAt: 'Updated',
-  prelimCapitalUsd: 'Prelim capital (USD)',
+  prelimCapitalUsd: BUDGETARY_CAPITAL_LABEL,
   capitalReadiness: 'Capital readiness',
 } as const;
 export type QuoteListColumnKey = keyof typeof QUOTE_LIST_COLUMNS;

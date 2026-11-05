@@ -24,7 +24,7 @@ export const OUTCOME_HELP: Record<string, string> = {
   'G2/proceed_with_risk':
     'Feasible, with a stated risk or condition (say what it is). The quote goes to Quoting and the risk travels with it.',
   'G2/capital_required':
-    'Feasible, but capital is needed. Record the preliminary capital estimate; Pricing then confirms capital readiness before any price is released.',
+    'Feasible, but capital is needed. Record the budgetary capital estimate (preliminary, includes contingency); Pricing then confirms capital readiness before any price is released.',
   'G2/hold':
     'Pause it in Engineering Review. The clock stops. Needs a reason, an owner and a review date.',
   'G2/rework':
@@ -42,6 +42,8 @@ export const OUTCOME_HELP: Record<string, string> = {
     'Rework the cost: the quote stays in Quoting and the cost sheet is redone (the costing attestation is cleared).',
   'G3/rework':
     'Back to Engineering to revisit feasibility (Stage 2). The quote version goes up; earlier decisions stay on record.',
+  'G3/rework_kam':
+    'Back to the KAM to fix the commercial input (say exactly what is wrong or missing). When the KAM resubmits without a scope change, it comes straight back to Quoting with the same pricer; a scope change sends it through qualification and Engineering again.',
   'G3/redirect':
     'Use another capital model (for example, customer-funded tooling). The quote stays in Quoting; the note says what changes.',
   'G3/stop': 'Not economically viable. It closes as Declined, with the reason recorded.',

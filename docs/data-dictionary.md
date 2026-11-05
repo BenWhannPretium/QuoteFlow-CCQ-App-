@@ -190,8 +190,9 @@ The choices available at each gate and their constraints.
 | `required_fields` | jsonb | no | [] |  | Required-field rules for this outcome. | Admin / Knowledge Steward |
 | `notify` | jsonb | no | [] |  | Notifications to plan: [{type, to}]. | Admin / Knowledge Steward |
 | `sort` | integer | no | 0 |  | Display order within the gate. | Admin / Knowledge Steward |
+| `resume_at` | text | no | "intake" |  | FB-01 (F-030): for an outcome that returns the quote to the KAM, where the KAM's resubmission goes: intake (a new submission, G1 then Engineering) \| origin (straight back to the stage it came from unless the KAM says the scope changed). | Admin / Knowledge Steward |
 
-**Checks:** `gate_outcome_definition_reason_context_check`
+**Checks:** `gate_outcome_definition_resume_at_check`, `gate_outcome_definition_reason_context_check`
 
 ### reason_code
 
@@ -378,7 +379,7 @@ Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | yes |  | quote.id | Quote. Null while the file sits on an intake draft (set on submit). | Uploader |
 | `draft_id` | uuid | yes |  | quote_draft.id | Intake draft the file was uploaded to (B-16); kept after submit for provenance. Null once a deleted draft took its (removed) files with it. | KAM |
-| `kind` | text | no |  |  | bottle_drawing \| spec \| sample_photo \| other. | Uploader |
+| `kind` | text | no |  |  | bottle_drawing \| spec \| sample_photo \| capacity_analysis \| other (capacity_analysis: FB-03, the engineer's capacity analysis). | Uploader |
 | `file_name` | text | no |  |  | Original file name (metadata; the stored name is sanitized). | Uploader |
 | `stored_name` | text | yes |  |  | Sanitized name in storage (after any conflict rename). | CCQ (system) |
 | `size` | bigint | no |  |  | Size in bytes. | Uploader |
@@ -416,13 +417,17 @@ Capacity evidence with stated assumptions (CR-19).
 | `line_asset` | text | yes |  |  | Line or machine asset. | Engineering (EngLead / Engineer) |
 | `assumed_effectiveness_pct` | numeric(5, 2) | no |  |  | Assumed effectiveness (OEE) %. Always entered, no default (D-08). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
 | `cycle_time_s` | numeric(8, 2) | no |  |  | Cycle time (s). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
-| `utilization_pct` | numeric(5, 2) | no |  |  | Current utilization %. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
-| `buffer_pct` | numeric(5, 2) | yes |  |  | Capacity buffer %. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `utilization_pct` | numeric(5, 2) | yes |  |  | Deprecated (FB-03): replaced by utilization_before_pct. Kept for history and Fabric; no longer written. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `buffer_pct` | numeric(5, 2) | yes |  |  | Deprecated (FB-03, F-059): "buffer" was defined three ways by Engineering. Kept for history and Fabric; no longer written. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `utilization_before_pct` | numeric(7, 2) | no |  |  | Utilization before the new business, %: the line's current load, entered (0-100). Replaces utilization_pct (FB-03, F-059). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `allocated_annual_volume` | bigint | yes |  |  | Annual volume (units) of this quote allocated to this line. Defaults to the quote's estimated annual volume; the engineer sets each row's share when the business is split across lines or plants (FB-03, T-030). | Engineering (EngLead / Engineer) |
+| `scheduled_run_days_per_year` | integer | yes |  |  | Scheduled run days per year for this line. Defaults from app_setting capacity_basis (provisional, D-021). | Engineering (EngLead / Engineer) |
+| `utilization_after_pct` | numeric(7, 2) | yes |  |  | Utilization after the new business, %. CALCULATED by the server (domain capacity.ts) from cavitation, cycle time, effectiveness, run days and allocated volume; stored for reporting, never typed. Null until every input is present (FB-03). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
 | `analysis_date` | date | no |  |  | Date of the analysis. | Engineering (EngLead / Engineer) |
 | `analyst_id` | uuid | no |  | app_user.id | Analyst who did it. | Engineering (EngLead / Engineer) |
 | `notes` | text | yes |  |  | Assumptions and notes. | Engineering (EngLead / Engineer) |
 
-**Checks:** `capacity_evidence_pct_check`
+**Checks:** `capacity_evidence_pct_check`, `capacity_evidence_utilization_check`
 
 **Indexes:** `capacity_evidence_quote_idx`
 
@@ -489,10 +494,10 @@ Engineering Review fields (stage 2).
 | `process_type` | text | yes |  |  | value_list process_type code. | Engineering (EngLead / Engineer) |
 | `machine_type` | text | yes |  |  | value_list machine_type code. | Engineering (EngLead / Engineer) |
 | `plant_code` | text | yes |  |  | value_list plant code. Decided by Engineering + Ops + Supply Chain, never the KAM (DF-10). | Engineering (EngLead / Engineer) |
-| `cavitation` | integer | yes |  |  | Mould cavitation. | Engineering (EngLead / Engineer) |
+| `cavitation` | integer | yes |  |  | Mould cavitation: a whole number, 1 to 99 (FB-03). | Engineering (EngLead / Engineer) |
 | `cycle_time_s` | numeric(8, 2) | yes |  |  | Cycle time (seconds). | Engineering (EngLead / Engineer) |
 | `tooling_notes` | text | yes |  |  | Tooling notes (mold, hot runner). | Engineering (EngLead / Engineer) |
-| `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Preliminary capital estimate (USD). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Budgetary capital estimate (USD): preliminary, includes contingency; refined after award, before any CER (FB-03, F-064). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
 | `downstream_equipment_notes` | text | yes |  |  | Downstream equipment: air, water, electric, inspection / leak detection (DF-37). | Engineering (EngLead / Engineer) |
 | `technical_concept_notes` | text | yes |  |  | Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
 | `equipment_bom_notes` | text | yes |  |  | B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection). | Engineering (EngLead / Engineer) |
@@ -559,9 +564,11 @@ Hand-off record (CR-41/42, B-13): opened by an award, completed in Commit & Hand
 | `notes` | text | yes |  |  | Notes. | KAM |
 | `completed_at` | timestamp with time zone | yes |  |  | B-13: when someone ticked "Hand-off complete" (B-26: "Hand-off accepted", G6b); null while open. | KAM |
 | `completed_by` | uuid | yes |  | app_user.id | B-13: who confirmed the hand-off complete. | KAM |
+| `cer_ready_at` | timestamp with time zone | yes |  |  | FB-03 (F-064): when someone ticked "Ready for CER development" (only after G5 Awarded); null while not ready. | KAM |
+| `cer_ready_by` | uuid | yes |  | app_user.id | FB-03 (F-064): who ticked "Ready for CER development". | KAM |
 | `updated_by` | uuid | yes |  | app_user.id | B-13: who last edited the record. | KAM |
 
-**Checks:** `handoff_record_acceptance_evidence_check`, `handoff_record_cer_status_check`, `handoff_record_completed_consistency_check`
+**Checks:** `handoff_record_cer_ready_consistency_check`, `handoff_record_acceptance_evidence_check`, `handoff_record_cer_status_check`, `handoff_record_completed_consistency_check`
 
 ### override
 
@@ -661,7 +668,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `quote_needed_by` | date | yes |  |  | FB-02 (F-009): when the customer needs the quote (after the submit date). Feeds the timing attribute of the priority score. | KAM |
 | `product_needed_by` | date | yes |  |  | FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by. | KAM |
 | `drawing_status` | text | yes |  |  | value_list drawing_status code. | KAM |
-| `neck_finish` | text | yes |  |  | Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0026 split it into neck_diameter / neck_finish_type. | KAM |
+| `neck_finish` | text | yes |  |  | Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0028 split it into neck_diameter / neck_finish_type. | KAM |
 | `neck_diameter` | text | yes |  |  | FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM). | KAM |
 | `neck_diameter_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise. | KAM |
 | `neck_finish_type` | text | yes |  |  | FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM). | KAM |
@@ -718,6 +725,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `pricing_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the pricer. | Pricing |
 | `pricing_returned_by` | uuid | yes |  | app_user.id | Lead review: the lead who sent it back. | Pricing |
 | `pricing_return_note` | text | yes |  |  | Lead review: what the lead asked the pricer to change. | Pricing |
+| `rework_origin_stage_key` | text | yes |  |  | FB-01 (F-030): the stage a gate decision sent the quote back to the KAM from (e.g. QUOTING for G3 "Rework (back to KAM)"). Set on rework, cleared on resubmit. | CCQ (system) |
+| `rework_resume_at` | text | yes |  |  | FB-01 (F-030): origin \| intake, from the outcome's resume_at. origin: the KAM's resubmission goes straight back to the origin stage unless they say the scope changed. Cleared on resubmit. | CCQ (system) |
 | `capital_likely` | boolean | no | false |  | B-26: significant capital is likely (set at Stage 1 by Sales or upfront Engineering, or by the capital_likely_notice threshold). When set, G3 needs capital readiness confirmed. | KAM |
 | `capital_likely_set_by` | uuid | yes |  | app_user.id | B-26: who last set or cleared capital_likely (null when set by the threshold). | KAM |
 | `capital_likely_set_at` | timestamp with time zone | yes |  |  | B-26: when capital_likely last changed. | KAM |
@@ -750,7 +759,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 

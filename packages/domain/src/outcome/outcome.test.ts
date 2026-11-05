@@ -379,16 +379,18 @@ describe('G5 outcomes (B-13)', () => {
     expect(noted.ok && noted.effects.nextStageKey).toBe('EXPIRED');
   });
 
-  it('On hold needs a reason, a review date and an owner (B-26), and starts the hold clock', () => {
+  it('On hold needs a reason, a note (F-027), a review date and an owner (B-26), and starts the hold clock', () => {
     expect(codes(decide({ gateKey: 'G5', outcomeKey: 'on_hold' }))).toEqual([
       'MISSING_FIELD',
       'MISSING_FIELD',
+      'NOTE_REQUIRED',
       'REASON_REQUIRED',
     ]);
     const r = decide({
       gateKey: 'G5',
       outcomeKey: 'on_hold',
       reasonCode: 'customer_requested_delay',
+      note: 'Customer pushed the launch to Q2',
       payload: { review_date: '2026-11-30', hold_owner_id: KAM_ID },
     });
     expect(r.ok && [r.effects.nextStatus, r.effects.hold.action, r.effects.closure]).toEqual([
@@ -400,12 +402,18 @@ describe('G5 outcomes (B-13)', () => {
 
   it('Re-quote needs a change reason and a target, bumps the version, keeps the decision version', () => {
     const base = { gateKey: 'G5', outcomeKey: 'requote' };
-    expect(codes(decide(base))).toEqual(['REASON_REQUIRED', 'TARGET_REQUIRED']);
+    // FB-01 (F-027): a re-quote is an exception decision, so it always needs a note.
+    expect(codes(decide(base))).toEqual(['NOTE_REQUIRED', 'REASON_REQUIRED', 'TARGET_REQUIRED']);
     expect(codes(decide({ ...base, reasonCode: 'other', targetStageKey: 'QUOTING' }))).toEqual([
       'NOTE_REQUIRED',
     ]);
     const r = decide(
-      { ...base, reasonCode: 'volume_change', targetStageKey: 'ENG_REVIEW' },
+      {
+        ...base,
+        reasonCode: 'volume_change',
+        targetStageKey: 'ENG_REVIEW',
+        note: 'Volume doubled to 1.5M',
+      },
       {},
       { version: 2 },
     );
@@ -799,6 +807,50 @@ describe('hand-off record (Stage 6, minimal)', () => {
       'reopened',
       null,
     ]);
+  });
+
+  describe('F-064: "Ready for CER development"', () => {
+    it('is locked until the award: no stage but Commit & Hand Off / Closed – Won, and no record, no tick', () => {
+      const early = plan({ cerReady: true }, award, 'CUSTOMER_DECISION');
+      expect(!early.ok && early.errors.map((e) => e.code)).toEqual(['NOT_AWARDED']);
+      const noRecord = plan({ cerReady: true }, null, 'COMMIT_HANDOFF');
+      expect(!noRecord.ok && noRecord.errors.map((e) => [e.code, e.field])).toContainEqual([
+        'NOT_AWARDED',
+        'cerReady',
+      ]);
+    });
+
+    it('records who ticked it and when, keeps them on later edits, and clears them when unticked', () => {
+      const ticked = plan({ cerReady: true }, award, 'COMMIT_HANDOFF');
+      expect(ticked.ok && [ticked.cerReadyChange, ticked.changed]).toEqual(['ready', ['cerReady']]);
+      if (!ticked.ok) return;
+      expect([ticked.values.cerReadyBy, ticked.values.cerReadyAt]).toEqual(['user-kam', NOW]);
+      const later = planHandoff({
+        stageKey: 'AWARDED',
+        current: ticked.values,
+        edit: { notes: 'x' },
+        actorId: 'user-admin',
+        now: new Date(NOW.getTime() + 3_600_000),
+        receivingRoles: roles,
+      });
+      expect(
+        later.ok && [later.cerReadyChange, later.values.cerReadyBy, later.values.cerReadyAt],
+      ).toEqual([null, 'user-kam', NOW]);
+      const cleared = plan({ cerReady: false }, ticked.values, 'COMMIT_HANDOFF');
+      expect(
+        cleared.ok && [
+          cleared.cerReadyChange,
+          cleared.values.cerReadyBy,
+          cleared.values.cerReadyAt,
+        ],
+      ).toEqual(['not_ready', null, null]);
+    });
+
+    it('starts unticked when the award opens the record, and does not depend on the CER status', () => {
+      expect(award).toMatchObject({ cerReadyAt: null, cerReadyBy: null });
+      const r = plan({ cerReady: true, cerStatus: 'pending' }, award, 'COMMIT_HANDOFF');
+      expect(r.ok).toBe(true);
+    });
   });
 
   it('drops the "other" team name when the role is not other', () => {

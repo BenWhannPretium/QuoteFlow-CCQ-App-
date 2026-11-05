@@ -82,7 +82,7 @@ describe('parseNeckText (Salesforce Neck_Finish__c pre-fill, F-010)', () => {
   );
 });
 
-describe('migrateLegacyNeckFinish (migration 0026, F-010)', () => {
+describe('migrateLegacyNeckFinish (migration 0028, F-010)', () => {
   it.each([
     ['28-410', '28', '410', null],
     ['38-400', '38', '400', null],
