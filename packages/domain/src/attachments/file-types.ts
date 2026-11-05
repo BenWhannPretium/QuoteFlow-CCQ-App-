@@ -6,7 +6,13 @@
  * canonical MIME type for the extension.
  */
 
-export const ATTACHMENT_KINDS = ['bottle_drawing', 'spec', 'sample_photo', 'other'] as const;
+export const ATTACHMENT_KINDS = [
+  'bottle_drawing',
+  'spec',
+  'sample_photo',
+  'capacity_analysis',
+  'other',
+] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
 /** 100 MB: the largest file the API accepts (and Graph's upload session is sized for). */

@@ -248,6 +248,24 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
     );
   });
 
+  it('F-061: the engineer attaches a capacity analysis (kind capacity_analysis); it never changes the drawing status', async () => {
+    const res = await upload(
+      `/api/v1/quotes/${qn}/attachments`,
+      { name: 'Line 4 capacity analysis.pdf', content: PDF },
+      { kind: 'capacity_analysis' },
+      'Engineer',
+    );
+    expect(res.statusCode, res.body).toBe(201);
+    expect(AttachmentUploadResponse.parse(res.json())).toMatchObject({
+      drawingStatus: null,
+      item: { kind: 'capacity_analysis', fileName: 'Line 4 capacity analysis.pdf' },
+    });
+    const [row] = await db.db.execute<{ kind: string }>(
+      sql`select kind from attachment where quote_id = ${quoteId} and kind = 'capacity_analysis'`,
+    );
+    expect(row?.kind).toBe('capacity_analysis');
+  });
+
   it('lists kind, name, size, uploader and date for every quote.read role', async () => {
     for (const role of [
       'KAM',
@@ -265,6 +283,7 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
         'bottle_drawing',
         'bottle_drawing',
         'sample_photo',
+        'capacity_analysis',
       ]);
       expect(body!.items[0]!.uploadedByName).toBeTruthy();
       expect(body!.canUpload).toBe(

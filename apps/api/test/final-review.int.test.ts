@@ -180,7 +180,7 @@ async function inFinalReview(o: Opts = {}) {
           site: 'PLANT_01',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
-          utilizationPct: 62,
+          utilizationBeforePct: 62,
           analysisDate: '2026-10-26',
           analystId: await userId('engineer'),
         },
@@ -477,7 +477,7 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     expect(dto.engineering.capacityEvidence).toHaveLength(1);
     expect(dto.engineering.capacityEvidence[0]).toMatchObject({
       assumedEffectivenessPct: 70,
-      utilizationPct: 62,
+      utilizationBeforePct: 62,
     });
     // pricing approval + basis + range note, capital readiness
     expect(dto.quoting.approval).toMatchObject({ approved: true });
@@ -551,8 +551,8 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
       expect(dto.engineering.review.prelimCapitalUsd).toBe(
         lead.dto.engineering.review.prelimCapitalUsd,
       );
-      expect(dto.engineering.capacityEvidence[0]?.utilizationPct).toBe(
-        lead.dto.engineering.capacityEvidence[0]?.utilizationPct,
+      expect(dto.engineering.capacityEvidence[0]?.utilizationBeforePct).toBe(
+        lead.dto.engineering.capacityEvidence[0]?.utilizationBeforePct,
       );
       expect(dto.quoting.approval).toMatchObject({ approved: true });
       expect(dto.warnings).toEqual(lead.dto.warnings);

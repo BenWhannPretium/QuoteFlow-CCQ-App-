@@ -7,6 +7,7 @@ import {
   PASS_THROUGH_SEED,
   PROCESS_OWNER_SEED,
   ATTACHMENT_SETTINGS_SEED,
+  CAPACITY_BASIS_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   HANDOFF_RECEIVING_ROLES_SEED,
   VALIDITY_WARNING_DAYS_SEED,
@@ -194,6 +195,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: ENG_QUEUE_SETTINGS_SEED.backupAssignerUserIds,
     description:
       'app_user ids who may assign / reassign engineering reviews when the EngLead is out (Op Model R-04). They also get the queue-arrival alert and need a role that can open the queue (engQueue.read).',
+  },
+  // ── FB-03 (F-059, D-021 open): the basis for utilization after the new business. Provisional.
+  {
+    key: 'capacity_basis',
+    value: CAPACITY_BASIS_SEED,
+    description:
+      'FB-03 / D-021 (open): the basis for utilization after the new business. scheduledRunDaysPerYear defaults each capacity row; warnAbovePct turns the after-utilization amber (over 100 is always red); basisLabel is shown under the capacity table and in the CSV. Provisional until Faron Ipox and leadership confirm the basis (A-023).',
   },
   {
     key: 'capital_readiness_on_outcome',

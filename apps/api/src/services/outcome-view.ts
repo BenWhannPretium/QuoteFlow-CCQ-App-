@@ -137,6 +137,8 @@ export function handoffValues(row: HandoffRecordRow | null | undefined): Handoff
     notes: row.notes,
     completedAt: row.completedAt,
     completedBy: row.completedBy,
+    cerReadyAt: row.cerReadyAt,
+    cerReadyBy: row.cerReadyBy,
   };
 }
 
@@ -217,6 +219,9 @@ function handoffDto(
     completed: row.completedAt !== null,
     completedAt: iso(row.completedAt),
     completedByName: row.completedBy ? (names.get(row.completedBy) ?? null) : null,
+    cerReady: row.cerReadyAt !== null,
+    cerReadyAt: iso(row.cerReadyAt),
+    cerReadyByName: row.cerReadyBy ? (names.get(row.cerReadyBy) ?? null) : null,
     updatedAt: row.updatedAt.toISOString(),
     updatedByName: names.get(row.updatedBy ?? row.createdBy ?? '') ?? null,
   };
@@ -250,9 +255,13 @@ export async function customerDecisionView(
     .sort((a, b) => b.decision.decidedAt.getTime() - a.decision.decidedAt.getTime())[0];
   const people = await listUsersByIds(
     db,
-    [q.closureOwnerId, handoff?.completedBy, handoff?.updatedBy, handoff?.createdBy].filter(
-      (id): id is string => !!id,
-    ),
+    [
+      q.closureOwnerId,
+      handoff?.completedBy,
+      handoff?.cerReadyBy,
+      handoff?.updatedBy,
+      handoff?.createdBy,
+    ].filter((id): id is string => !!id),
   );
   const names = new Map(people.map((p) => [p.id, p.displayName]));
   return {

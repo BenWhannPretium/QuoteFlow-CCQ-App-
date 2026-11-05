@@ -48,6 +48,10 @@ export const COMMERCIAL_FIELDS = {
       'cycle_time_s',
       'utilization_pct',
       'buffer_pct',
+      // FB-03 (F-059): utilization before is entered, after is calculated. Redaction still strips nothing
+      // for any role (CLAUDE.md rule 2).
+      'utilization_before_pct',
+      'utilization_after_pct',
     ],
   } as Readonly<Record<string, readonly string[]>>,
 } as const;

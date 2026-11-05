@@ -5,7 +5,7 @@
 > `routeMatrix.test.ts` fails if this file is stale, and `test/permissions/matrix.int.test.ts` sends
 > every route below as every role (allowed: not 401/403; denied: 403 problem+json) and anonymously (401).
 
-119 routes: 3 public, 6 for any signed-in role, 110 gated by a matrix permission.
+120 routes: 3 public, 6 for any signed-in role, 111 gated by a matrix permission.
 
 Qualified grants (own, assigned, fields, stages) pass the route gate; the service then checks the
 quote with `assertCan`, and Postgres RLS enforces the data scope as the second layer.
@@ -94,6 +94,7 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | GET | `/api/v1/quotes/:quoteNumber/attachments` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | POST | `/api/v1/quotes/:quoteNumber/attachments` | `attachment.upload` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead |  |
 | PUT | `/api/v1/quotes/:quoteNumber/capacity-evidence` | `engReview.edit` | EngLead, Engineer (assigned) |  |
+| GET | `/api/v1/quotes/:quoteNumber/capacity-evidence.csv` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, PostAward (AWARDED) |  |
 | PUT | `/api/v1/quotes/:quoteNumber/capacity-signoff` | `capacity.signoff` | EngLead |  |
 | PUT | `/api/v1/quotes/:quoteNumber/capital-flag` | `capitalFlag.edit` | KAM (own), SalesLeader, EngLead, Engineer (assigned), Pricing, PricingLead |  |
 | PUT | `/api/v1/quotes/:quoteNumber/capital-readiness` | `quoting.edit` | Pricing, PricingLead |  |

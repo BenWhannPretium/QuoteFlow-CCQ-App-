@@ -1,3 +1,10 @@
+import {
+  allocationCheck,
+  computeUtilization,
+  storedUtilizationPct,
+  type AllocationCheck,
+  type CapacityBasis,
+} from './capacity';
 import { DomainError } from '../errors';
 import { ENG_QUEUE_STAGE_KEY, type EngQueueSettings } from './queue';
 import { evaluateIntake, type IntakeConfig, type IntakeIssue } from '../intake/intake';
@@ -131,14 +138,13 @@ export function planAccept(
   return errors.length > 0 ? { ok: false, errors } : { ok: true };
 }
 
-// ── Capacity evidence (CR-19) ────────────────────────────────────────────────────────────────────
+// ── Capacity evidence (CR-19; FB-03 F-059) ───────────────────────────────────────────────────────
 
-/** The numbers architecture §3.3 tags commercial on a capacity row. */
+/** The numbers architecture §3.3 tags commercial on a capacity row (all roles read them: CLAUDE.md rule 2). */
 export const CAPACITY_COMMERCIAL_FIELDS = [
   'assumedEffectivenessPct',
   'cycleTimeS',
-  'utilizationPct',
-  'bufferPct',
+  'utilizationBeforePct',
 ] as const;
 type CommercialField = (typeof CAPACITY_COMMERCIAL_FIELDS)[number];
 
@@ -146,7 +152,7 @@ type CommercialField = (typeof CAPACITY_COMMERCIAL_FIELDS)[number];
 const REQUIRED_NUMBERS: readonly CommercialField[] = [
   'assumedEffectivenessPct',
   'cycleTimeS',
-  'utilizationPct',
+  'utilizationBeforePct',
 ];
 
 export interface CapacityRowInput {
@@ -155,8 +161,12 @@ export interface CapacityRowInput {
   lineAsset?: string | null | undefined;
   assumedEffectivenessPct?: number | null | undefined;
   cycleTimeS?: number | null | undefined;
-  utilizationPct?: number | null | undefined;
-  bufferPct?: number | null | undefined;
+  /** The line's current load (entered). Replaces the typed "Utilization %" (F-059). */
+  utilizationBeforePct?: number | null | undefined;
+  /** Units a year allocated to this line; blank = the quote's estimated annual volume. */
+  allocatedAnnualVolume?: number | null | undefined;
+  /** Scheduled run days a year; blank = the `capacity_basis` default. */
+  scheduledRunDaysPerYear?: number | null | undefined;
   analysisDate: string;
   analystId: string;
   notes?: string | null | undefined;
@@ -166,8 +176,9 @@ export interface CapacityRowStored {
   id: string;
   assumedEffectivenessPct: number;
   cycleTimeS: number;
-  utilizationPct: number;
-  bufferPct: number | null;
+  utilizationBeforePct: number;
+  allocatedAnnualVolume: number | null;
+  scheduledRunDaysPerYear: number | null;
 }
 
 export interface CapacityRowResolved {
@@ -176,36 +187,57 @@ export interface CapacityRowResolved {
   lineAsset: string | null;
   assumedEffectivenessPct: number;
   cycleTimeS: number;
-  utilizationPct: number;
-  bufferPct: number | null;
+  utilizationBeforePct: number;
+  allocatedAnnualVolume: number | null;
+  scheduledRunDaysPerYear: number;
+  /** Calculated (capacity.ts), two decimals; null when the review has no cavitation yet. */
+  utilizationAfterPct: number | null;
   analysisDate: string;
   analystId: string;
   notes: string | null;
 }
 
+/** What the plan needs besides the rows: the review's cavitation, the quote's volume and the basis. */
+export interface CapacityContext {
+  cavitation: number | null;
+  quoteAnnualVolume: number | null;
+  basis: Pick<CapacityBasis, 'scheduledRunDaysPerYear'>;
+}
+
 export type CapacityPlan =
-  | { ok: true; upsert: CapacityRowResolved[]; deleteIds: string[] }
+  | {
+      ok: true;
+      upsert: CapacityRowResolved[];
+      deleteIds: string[];
+      /** T-030: the rows do not add up to the quote's volume (a warning, never a block). */
+      allocationWarning: AllocationCheck | null;
+    }
   | { ok: false; errors: DomainError[] };
 
 const LABELS: Record<CommercialField, string> = {
   assumedEffectivenessPct: 'Assumed effectiveness %',
   cycleTimeS: 'Cycle time (s)',
-  utilizationPct: 'Utilization %',
-  bufferPct: 'Buffer %',
+  utilizationBeforePct: 'Utilization before %',
 };
 
 /**
  * The capacity evidence set as submitted, replacing what is stored: rows with an `id` update that row,
  * rows without one are new, stored rows not sent are deleted.
  *
- * Commercial numbers are WRITE-ONLY for roles without `quote.read.commercialFields` (an assigned
- * Engineer): the API never returns them to that user, so an omitted number on an existing row keeps
- * its stored value. Everyone must state effectiveness, cycle time and utilization on a new row.
+ * Utilization after is never accepted from the caller: it is calculated here (`computeUtilization`) from
+ * the row, the review's cavitation and the allocated volume, and stored for reporting. A blank allocated
+ * volume or run-days value defaults (the quote's volume; the `capacity_basis` setting) so the engineer
+ * only types what differs. Rows that do not add up to the quote's volume raise `allocationWarning`.
+ *
+ * Commercial numbers are WRITE-ONLY for roles without `quote.read.commercialFields` (none today, rule 2):
+ * an omitted number on an existing row keeps its stored value. Everyone must state effectiveness, cycle
+ * time and utilization before on a new row.
  */
 export function planCapacityEvidence(
   actor: Actor,
   incoming: readonly CapacityRowInput[],
   stored: readonly CapacityRowStored[],
+  context: CapacityContext,
 ): CapacityPlan {
   const errors: DomainError[] = [];
   const byId = new Map(stored.map((r) => [r.id, r]));
@@ -246,14 +278,37 @@ export function planCapacityEvidence(
         );
       }
     }
+    // Not commercial: omitted keeps the stored value, blank (null) falls back to the default.
+    const allocated =
+      row.allocatedAnnualVolume ??
+      (row.allocatedAnnualVolume === undefined ? existing?.allocatedAnnualVolume : null) ??
+      context.quoteAnnualVolume;
+    const runDays =
+      row.scheduledRunDaysPerYear ??
+      (row.scheduledRunDaysPerYear === undefined ? existing?.scheduledRunDaysPerYear : null) ??
+      context.basis.scheduledRunDaysPerYear;
+
+    const effectiveness = value('assumedEffectivenessPct') ?? 0;
+    const cycle = value('cycleTimeS') ?? 0;
+    const before = value('utilizationBeforePct') ?? 0;
+    const calc = computeUtilization({
+      cycleTimeS: cycle,
+      cavitation: context.cavitation,
+      effectivenessPct: effectiveness,
+      scheduledRunDaysPerYear: runDays,
+      allocatedAnnualVolume: allocated,
+      utilizationBeforePct: before,
+    });
     upsert.push({
       id: row.id ?? null,
       site: row.site,
       lineAsset: row.lineAsset?.trim() || null,
-      assumedEffectivenessPct: value('assumedEffectivenessPct') ?? 0,
-      cycleTimeS: value('cycleTimeS') ?? 0,
-      utilizationPct: value('utilizationPct') ?? 0,
-      bufferPct: value('bufferPct'),
+      assumedEffectivenessPct: effectiveness,
+      cycleTimeS: cycle,
+      utilizationBeforePct: before,
+      allocatedAnnualVolume: allocated,
+      scheduledRunDaysPerYear: runDays,
+      utilizationAfterPct: calc.ok ? storedUtilizationPct(calc.utilizationAfterPct) : null,
       analysisDate: row.analysisDate,
       analystId: row.analystId,
       notes: row.notes?.trim() || null,
@@ -265,6 +320,7 @@ export function planCapacityEvidence(
     ok: true,
     upsert,
     deleteIds: stored.filter((r) => !seen.has(r.id)).map((r) => r.id),
+    allocationWarning: allocationCheck(upsert, context.quoteAnnualVolume),
   };
 }
 

@@ -2,7 +2,13 @@ import { z } from 'zod';
 
 // ── Attachments (F-13, B-16) ───────────────────────────────────────────────────────────────────────
 
-export const ATTACHMENT_KIND_VALUES = ['bottle_drawing', 'spec', 'sample_photo', 'other'] as const;
+export const ATTACHMENT_KIND_VALUES = [
+  'bottle_drawing',
+  'spec',
+  'sample_photo',
+  'capacity_analysis',
+  'other',
+] as const;
 export const AttachmentKindSchema = z.enum(ATTACHMENT_KIND_VALUES);
 export type AttachmentKindValue = z.infer<typeof AttachmentKindSchema>;
 
@@ -10,6 +16,7 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   bottle_drawing: 'Bottle drawing',
   spec: 'Specification',
   sample_photo: 'Sample photo',
+  capacity_analysis: 'Capacity analysis',
   other: 'Other',
 };
 

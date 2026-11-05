@@ -78,6 +78,10 @@ export const HandoffRecord = z.object({
   completed: z.boolean(),
   completedAt: z.string().nullable(),
   completedByName: z.string().nullable(),
+  /** FB-03 (F-064): "Ready for CER development", with who and when. Only exists after the award (G5). */
+  cerReady: z.boolean(),
+  cerReadyAt: z.string().nullable(),
+  cerReadyByName: z.string().nullable(),
   updatedAt: z.string(),
   updatedByName: z.string().nullable(),
 });
@@ -123,6 +127,8 @@ export const HandoffBody = z
     notes: optionalText(4000),
     /** The "Hand-off accepted" checkbox (G6b: the receiving team accepted it). */
     complete: z.boolean().optional(),
+    /** FB-03 (F-064): the "Ready for CER development" checkbox. Only after G5 Awarded (409 otherwise). */
+    cerReady: z.boolean().optional(),
   })
   .strict();
 export type HandoffBody = z.infer<typeof HandoffBody>;

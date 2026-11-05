@@ -809,6 +809,50 @@ describe('hand-off record (Stage 6, minimal)', () => {
     ]);
   });
 
+  describe('F-064: "Ready for CER development"', () => {
+    it('is locked until the award: no stage but Commit & Hand Off / Closed – Won, and no record, no tick', () => {
+      const early = plan({ cerReady: true }, award, 'CUSTOMER_DECISION');
+      expect(!early.ok && early.errors.map((e) => e.code)).toEqual(['NOT_AWARDED']);
+      const noRecord = plan({ cerReady: true }, null, 'COMMIT_HANDOFF');
+      expect(!noRecord.ok && noRecord.errors.map((e) => [e.code, e.field])).toContainEqual([
+        'NOT_AWARDED',
+        'cerReady',
+      ]);
+    });
+
+    it('records who ticked it and when, keeps them on later edits, and clears them when unticked', () => {
+      const ticked = plan({ cerReady: true }, award, 'COMMIT_HANDOFF');
+      expect(ticked.ok && [ticked.cerReadyChange, ticked.changed]).toEqual(['ready', ['cerReady']]);
+      if (!ticked.ok) return;
+      expect([ticked.values.cerReadyBy, ticked.values.cerReadyAt]).toEqual(['user-kam', NOW]);
+      const later = planHandoff({
+        stageKey: 'AWARDED',
+        current: ticked.values,
+        edit: { notes: 'x' },
+        actorId: 'user-admin',
+        now: new Date(NOW.getTime() + 3_600_000),
+        receivingRoles: roles,
+      });
+      expect(
+        later.ok && [later.cerReadyChange, later.values.cerReadyBy, later.values.cerReadyAt],
+      ).toEqual([null, 'user-kam', NOW]);
+      const cleared = plan({ cerReady: false }, ticked.values, 'COMMIT_HANDOFF');
+      expect(
+        cleared.ok && [
+          cleared.cerReadyChange,
+          cleared.values.cerReadyBy,
+          cleared.values.cerReadyAt,
+        ],
+      ).toEqual(['not_ready', null, null]);
+    });
+
+    it('starts unticked when the award opens the record, and does not depend on the CER status', () => {
+      expect(award).toMatchObject({ cerReadyAt: null, cerReadyBy: null });
+      const r = plan({ cerReady: true, cerStatus: 'pending' }, award, 'COMMIT_HANDOFF');
+      expect(r.ok).toBe(true);
+    });
+  });
+
   it('drops the "other" team name when the role is not other', () => {
     const r = plan({ receivingRole: 'commercial_activation', receivingRoleOther: 'Ops' });
     expect(r.ok && r.values.receivingRoleOther).toBeNull();

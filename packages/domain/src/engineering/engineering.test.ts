@@ -245,40 +245,157 @@ describe('who may assign, accept and edit', () => {
   });
 });
 
-describe('capacity evidence (CR-19)', () => {
+describe('capacity evidence (CR-19, F-059)', () => {
   const row = (over: Partial<CapacityRowInput> = {}): CapacityRowInput => ({
     site: 'PLANT_01',
     lineAsset: ' Line 4 ',
-    assumedEffectivenessPct: 70,
-    cycleTimeS: 12.5,
-    utilizationPct: 60,
-    bufferPct: 10,
+    assumedEffectivenessPct: 80,
+    cycleTimeS: 10,
+    utilizationBeforePct: 40,
     analysisDate: '2026-10-26',
     analystId: ENGINEER_ID,
     notes: '  ',
     ...over,
   });
   const stored = [
-    { id: 'r1', assumedEffectivenessPct: 72, cycleTimeS: 11, utilizationPct: 55, bufferPct: 8 },
-    { id: 'r2', assumedEffectivenessPct: 80, cycleTimeS: 9, utilizationPct: 40, bufferPct: null },
+    {
+      id: 'r1',
+      assumedEffectivenessPct: 72,
+      cycleTimeS: 11,
+      utilizationBeforePct: 55,
+      allocatedAnnualVolume: 500_000,
+      scheduledRunDaysPerYear: 340,
+    },
+    {
+      id: 'r2',
+      assumedEffectivenessPct: 80,
+      cycleTimeS: 9,
+      utilizationBeforePct: 40,
+      allocatedAnnualVolume: null,
+      scheduledRunDaysPerYear: null,
+    },
   ];
+  // 10 s x 4 cavities x 80 % x 350 days = 9 676 800 units a year; the quote's volume is half of that.
+  const context = {
+    cavitation: 4,
+    quoteAnnualVolume: 4_838_400,
+    basis: { scheduledRunDaysPerYear: 350 },
+  };
   const lead = makeActor('EngLead');
   const engineer = makeActor('Engineer', { userId: ENGINEER_ID });
 
   it('replaces the set: updates, inserts and deletes', () => {
-    const plan = planCapacityEvidence(lead, [row({ id: 'r1', utilizationPct: 65 }), row()], stored);
+    const plan = planCapacityEvidence(
+      lead,
+      [row({ id: 'r1', utilizationBeforePct: 65 }), row()],
+      stored,
+      context,
+    );
     expect(plan).toMatchObject({
       ok: true,
       deleteIds: ['r2'],
       upsert: [
-        { id: 'r1', utilizationPct: 65, lineAsset: 'Line 4', notes: null },
-        { id: null, assumedEffectivenessPct: 70 },
+        { id: 'r1', utilizationBeforePct: 65, lineAsset: 'Line 4', notes: null },
+        { id: null, assumedEffectivenessPct: 80 },
       ],
     });
   });
 
+  it('calculates utilization after on the server; a caller cannot supply it', () => {
+    const plan = planCapacityEvidence(lead, [row()], [], context);
+    // 40 % before + 4 838 400 / 9 676 800 = 50 % added
+    expect(plan).toMatchObject({
+      ok: true,
+      upsert: [
+        {
+          allocatedAnnualVolume: 4_838_400,
+          scheduledRunDaysPerYear: 350,
+          utilizationAfterPct: 90,
+        },
+      ],
+      allocationWarning: null,
+    });
+  });
+
+  it('defaults the allocated volume and run days, and honours what the engineer sets', () => {
+    const plan = planCapacityEvidence(
+      lead,
+      [
+        row({
+          allocatedAnnualVolume: 2_419_200,
+          scheduledRunDaysPerYear: 300,
+          utilizationBeforePct: 10,
+        }),
+        row({ allocatedAnnualVolume: null, scheduledRunDaysPerYear: null }),
+      ],
+      [],
+      context,
+    );
+    expect(
+      plan.ok && plan.upsert.map((r) => [r.allocatedAnnualVolume, r.scheduledRunDaysPerYear]),
+    ).toEqual([
+      [2_419_200, 300],
+      [4_838_400, 350],
+    ]);
+    // 2 419 200 / ((86400/10) x 4 x 0.8 x 300 = 8 294 400) = 29.17 % on top of 10 %
+    expect(plan.ok && plan.upsert[0]!.utilizationAfterPct).toBeCloseTo(39.17, 2);
+  });
+
+  it('keeps a stored value that is omitted on an existing row, and defaults a blank one', () => {
+    const plan = planCapacityEvidence(lead, [row({ id: 'r1' })], stored, context);
+    expect(plan.ok && plan.upsert[0]).toMatchObject({
+      allocatedAnnualVolume: 500_000,
+      scheduledRunDaysPerYear: 340,
+    });
+    const blank = planCapacityEvidence(
+      lead,
+      [row({ id: 'r1', allocatedAnnualVolume: null, scheduledRunDaysPerYear: null })],
+      stored,
+      context,
+    );
+    expect(blank.ok && blank.upsert[0]).toMatchObject({
+      allocatedAnnualVolume: 4_838_400,
+      scheduledRunDaysPerYear: 350,
+    });
+  });
+
+  it('leaves utilization after empty until the review has a cavitation', () => {
+    const plan = planCapacityEvidence(lead, [row()], [], { ...context, cavitation: null });
+    expect(plan.ok && plan.upsert[0]!.utilizationAfterPct).toBeNull();
+  });
+
+  it('T-030: warns, and does not block, when the rows do not add up to the quote volume', () => {
+    const plan = planCapacityEvidence(
+      lead,
+      [
+        row({ lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 }),
+        row({ lineAsset: 'Line 2', allocatedAnnualVolume: 1_000_000 }),
+      ],
+      [],
+      context,
+    );
+    expect(plan.ok).toBe(true);
+    expect(plan.ok && plan.allocationWarning).toMatchObject({
+      allocated: 4_000_000,
+      total: 4_838_400,
+      difference: -838_400,
+    });
+    const split = planCapacityEvidence(
+      lead,
+      [row({ allocatedAnnualVolume: 3_000_000 }), row({ allocatedAnnualVolume: 1_838_400 })],
+      [],
+      context,
+    );
+    expect(split.ok && split.allocationWarning).toBeNull();
+  });
+
   it('effectiveness has no default: it must be stated on every new row', () => {
-    const plan = planCapacityEvidence(lead, [row({ assumedEffectivenessPct: undefined })], []);
+    const plan = planCapacityEvidence(
+      lead,
+      [row({ assumedEffectivenessPct: undefined })],
+      [],
+      context,
+    );
     expect(!plan.ok && plan.errors.map((e) => [e.code, e.field, e.message])).toEqual([
       [
         'MISSING_FIELD',
@@ -288,12 +405,13 @@ describe('capacity evidence (CR-19)', () => {
     ]);
     const nulls = planCapacityEvidence(
       engineer,
-      [row({ cycleTimeS: null, utilizationPct: undefined })],
+      [row({ cycleTimeS: null, utilizationBeforePct: undefined })],
       [],
+      context,
     );
     expect(!nulls.ok && nulls.errors.map((e) => e.field)).toEqual([
       'rows/0/cycleTimeS',
-      'rows/0/utilizationPct',
+      'rows/0/utilizationBeforePct',
     ]);
   });
 
@@ -306,27 +424,37 @@ describe('capacity evidence (CR-19)', () => {
           id: 'r1',
           assumedEffectivenessPct: undefined,
           cycleTimeS: undefined,
-          utilizationPct: undefined,
-          bufferPct: undefined,
+          utilizationBeforePct: undefined,
           notes: 'line confirmed',
         }),
-        row({ id: 'r2', bufferPct: 5 }),
+        row({ id: 'r2', utilizationBeforePct: 5 }),
       ],
       stored,
+      context,
     );
     expect(plan).toMatchObject({
       ok: true,
       deleteIds: [],
       upsert: [
-        { id: 'r1', assumedEffectivenessPct: 72, cycleTimeS: 11, utilizationPct: 55, bufferPct: 8 },
-        { id: 'r2', bufferPct: 5 },
+        { id: 'r1', assumedEffectivenessPct: 72, cycleTimeS: 11, utilizationBeforePct: 55 },
+        { id: 'r2', utilizationBeforePct: 5 },
       ],
     });
     // Someone who can see the numbers must send them: omitting one is an error, not "keep".
-    const lead2 = planCapacityEvidence(lead, [row({ id: 'r1', cycleTimeS: undefined })], stored);
+    const lead2 = planCapacityEvidence(
+      lead,
+      [row({ id: 'r1', cycleTimeS: undefined })],
+      stored,
+      context,
+    );
     expect(!lead2.ok && lead2.errors.map((e) => e.field)).toEqual(['rows/0/cycleTimeS']);
     // The assigned Engineer sees the numbers they entered, so the same rule applies to them.
-    const eng2 = planCapacityEvidence(engineer, [row({ id: 'r1', cycleTimeS: undefined })], stored);
+    const eng2 = planCapacityEvidence(
+      engineer,
+      [row({ id: 'r1', cycleTimeS: undefined })],
+      stored,
+      context,
+    );
     expect(!eng2.ok && eng2.errors.map((e) => e.field)).toEqual(['rows/0/cycleTimeS']);
   });
 
@@ -335,6 +463,7 @@ describe('capacity evidence (CR-19)', () => {
       lead,
       [row({ id: 'nope' }), row({ id: 'r1' }), row({ id: 'r1' })],
       stored,
+      context,
     );
     expect(!plan.ok && plan.errors.map((e) => e.field)).toEqual(['rows/0/id', 'rows/2/id']);
   });

@@ -168,8 +168,7 @@ const capacityRow = async (over: Record<string, unknown> = {}) => ({
   lineAsset: 'Line 4',
   assumedEffectivenessPct: 70,
   cycleTimeS: 14.5,
-  utilizationPct: 62,
-  bufferPct: 10,
+  utilizationBeforePct: 62,
   analysisDate: '2026-10-26',
   analystId: await userId('Engineer'),
   notes: 'Demonstrated OEE on line 4 over 13 weeks',
@@ -565,7 +564,7 @@ describe('Engineering Review and capacity evidence', () => {
     expect(updated.payload).toEqual({ fields: Object.keys(SOLUTION) });
   });
 
-  it('prelim capital: the Engineer who enters it and the KAM both read it; saving it rescores the quote', async () => {
+  it('budgetary capital: the Engineer who enters it and the KAM both read it; saving it rescores the quote', async () => {
     const qn = await inQueue();
     const owner = await userId('Engineer', 'owner');
     await assign(qn, owner);
@@ -602,7 +601,7 @@ describe('Engineering Review and capacity evidence', () => {
     const missing = await put([await capacityRow({ assumedEffectivenessPct: undefined })]);
     expect(missing.statusCode).toBe(422);
     expect(errorPaths(missing)).toEqual(['/rows/0/assumedEffectivenessPct']);
-    expect((await put([await capacityRow({ utilizationPct: 120 })])).statusCode).toBe(400);
+    expect((await put([await capacityRow({ utilizationBeforePct: 120 })])).statusCode).toBe(400);
     expect(errorPaths(await put([await capacityRow({ site: 'NOWHERE' })]))).toEqual([
       '/rows/0/site',
     ]);
@@ -615,8 +614,7 @@ describe('Engineering Review and capacity evidence', () => {
     expect(row).toMatchObject({
       assumedEffectivenessPct: 70,
       cycleTimeS: 14.5,
-      utilizationPct: 62,
-      bufferPct: 10,
+      utilizationBeforePct: 62,
     });
 
     // So they resend them on an edit, like every other role: leaving one out is an error.
@@ -632,14 +630,13 @@ describe('Engineering Review and capacity evidence', () => {
         id: row.id,
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
-        utilizationPct: 62,
-        bufferPct: 10,
+        utilizationBeforePct: 62,
         notes: 'Line 4 confirmed',
       }),
     ]);
     const kam = (await detail(qn, 'KAM')).engineering.capacityEvidence[0]!;
     expect(kam.assumedEffectivenessPct).toBe(70);
-    expect(kam.utilizationPct).toBe(62);
+    expect(kam.utilizationBeforePct).toBe(62);
 
     // Replace the set: add one, drop the first.
     const replaced = await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
@@ -648,6 +645,280 @@ describe('Engineering Review and capacity evidence', () => {
     expect(EngineeringDetail.parse(replaced.json()).capacityEvidence).toEqual([
       expect.objectContaining({ site: 'PLANT_02', assumedEffectivenessPct: 68 }),
     ]);
+  });
+});
+
+describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, F-061, F-057)', () => {
+  // 10 s x 4 cavities x 80 % x 350 days = 9 676 800 units a year. The quote's volume is half of that.
+  const VOLUME = 4_838_400;
+  const row = async (over: Record<string, unknown> = {}) =>
+    capacityRow({ cycleTimeS: 10, assumedEffectivenessPct: 80, utilizationBeforePct: 40, ...over });
+
+  async function setup() {
+    const qn = await inQueue({ estAnnualVolume: VOLUME });
+    await assign(qn, await userId('Engineer', 'owner'));
+    const review = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 4 });
+    expect(review.statusCode, review.body).toBe(200);
+    return qn;
+  }
+  const saveRows = (qn: string, rows: unknown[]) =>
+    as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, { rows });
+
+  it('calculates utilization after on the server: defaults to the quote volume and the basis run days', async () => {
+    const qn = await setup();
+    const res = await saveRows(qn, [await row()]);
+    expect(res.statusCode, res.body).toBe(200);
+    const eng = EngineeringDetail.parse(res.json());
+    expect(eng.capacityEvidence).toEqual([
+      expect.objectContaining({
+        utilizationBeforePct: 40,
+        allocatedAnnualVolume: VOLUME,
+        scheduledRunDaysPerYear: 350,
+        // 40 + 4 838 400 / 9 676 800 x 100
+        utilizationAfterPct: 90,
+        utilizationLevel: 'warn',
+      }),
+    ]);
+    expect(eng.quoteAnnualVolume).toBe(VOLUME);
+    expect(eng.allocationWarning).toBeNull();
+    expect(eng.capacityBasis).toEqual({
+      scheduledRunDaysPerYear: 350,
+      warnAbovePct: 85,
+      basisLabel: 'Trailing 12 months actual, trending OEE (provisional, D-021)',
+    });
+  });
+
+  it('is red over 100 and amber over the warning threshold', async () => {
+    const qn = await setup();
+    const res = await saveRows(qn, [
+      await row({ lineAsset: 'A', allocatedAnnualVolume: 9_676_800 }),
+      await row({ lineAsset: 'B', allocatedAnnualVolume: 1_000_000, utilizationBeforePct: 20 }),
+    ]);
+    const rows = EngineeringDetail.parse(res.json()).capacityEvidence;
+    expect(rows.map((r) => [r.utilizationAfterPct, r.utilizationLevel])).toEqual([
+      [140, 'over'],
+      [30.33, 'ok'],
+    ]);
+  });
+
+  it('nobody can type utilization after, and buffer is gone from the contract', async () => {
+    const qn = await setup();
+    expect((await saveRows(qn, [await row({ utilizationAfterPct: 10 })])).statusCode).toBe(400);
+    expect((await saveRows(qn, [await row({ bufferPct: 10 })])).statusCode).toBe(400);
+    expect((await saveRows(qn, [await row({ utilizationPct: 10 })])).statusCode).toBe(400);
+    expect((await saveRows(qn, [await row({ scheduledRunDaysPerYear: 400 })])).statusCode).toBe(
+      400,
+    );
+    expect((await saveRows(qn, [await row({ allocatedAnnualVolume: -1 })])).statusCode).toBe(400);
+    expect(
+      errorPaths(await saveRows(qn, [await row({ utilizationBeforePct: undefined })])),
+    ).toEqual(['/rows/0/utilizationBeforePct']);
+  });
+
+  it('T-030: two lines split the business; a mismatch warns but still saves', async () => {
+    const qn = await setup();
+    const res = await saveRows(qn, [
+      await row({ site: 'PLANT_01', lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 }),
+      await row({
+        site: 'PLANT_02',
+        lineAsset: 'Line 2',
+        allocatedAnnualVolume: 1_000_000,
+        utilizationBeforePct: 20,
+      }),
+    ]);
+    expect(res.statusCode, res.body).toBe(200);
+    const eng = EngineeringDetail.parse(res.json());
+    expect(
+      eng.capacityEvidence.map((r) => [r.site, r.utilizationBeforePct, r.utilizationAfterPct]),
+    ).toEqual([
+      ['PLANT_01', 40, 71],
+      ['PLANT_02', 20, 30.33],
+    ]);
+    expect(eng.allocationWarning).toContain('838,400 fewer than');
+
+    const fixed = await saveRows(qn, [
+      {
+        ...(await row({ site: 'PLANT_01', lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 })),
+        id: eng.capacityEvidence[0]!.id,
+      },
+      {
+        ...(await row({
+          site: 'PLANT_02',
+          lineAsset: 'Line 2',
+          allocatedAnnualVolume: 1_838_400,
+          utilizationBeforePct: 20,
+        })),
+        id: eng.capacityEvidence[1]!.id,
+      },
+    ]);
+    const after = EngineeringDetail.parse(fixed.json());
+    expect(after.allocationWarning).toBeNull();
+    expect(after.capacityEvidence.map((r) => r.utilizationAfterPct)).toEqual([71, 39]);
+  });
+
+  it('changing the cavitation recalculates the stored utilization after, and audits it', async () => {
+    const qn = await setup();
+    await saveRows(qn, [await row()]);
+    const res = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 8 });
+    expect(res.statusCode, res.body).toBe(200);
+    // 8 cavities double the capacity: 40 + 25
+    expect(EngineeringDetail.parse(res.json()).capacityEvidence[0]!.utilizationAfterPct).toBe(65);
+    const quoteId = (await detail(qn)).id;
+    const audits = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(
+        and(
+          eq(schema.auditEvent.quoteId, quoteId),
+          eq(schema.auditEvent.entity, 'capacity_evidence'),
+        ),
+      );
+    expect(audits.some((a) => a.changeReason?.includes('recalculated'))).toBe(true);
+    // Clearing it leaves nothing to calculate with.
+    const cleared = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
+      cavitation: null,
+    });
+    expect(
+      EngineeringDetail.parse(cleared.json()).capacityEvidence[0]!.utilizationAfterPct,
+    ).toBeNull();
+  });
+
+  it('F-057: cavitation is a whole number from 1 to 99', async () => {
+    const qn = await setup();
+    const put = (cavitation: number) =>
+      as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation });
+    expect((await put(99)).statusCode).toBe(200);
+    expect((await put(1)).statusCode).toBe(200);
+    for (const bad of [0, 100, 512, 2.5, -1]) {
+      expect((await put(bad)).statusCode, String(bad)).toBe(400);
+    }
+    // The database says the same, whatever the API does.
+    await expect(
+      db.db.execute(
+        sql`update eng_review set cavitation = 100 where quote_id = ${(await detail(qn)).id}`,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('F-057: the EBM wheel cannot be picked, but a quote that has it keeps and shows it', async () => {
+    const qn = await setup();
+    const quoteId = (await detail(qn)).id;
+    const picked = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
+      machineType: 'EBM_WHEEL',
+    });
+    expect(picked.statusCode).toBe(422);
+    expect(errorPaths(picked)).toEqual(['/machineType']);
+    const [list] = await db.db.execute<{ active: boolean }>(
+      sql`select active from value_list where list_key = 'machine_type' and code = 'EBM_WHEEL'`,
+    );
+    expect(list!.active).toBe(false);
+
+    await db.db.execute(
+      sql`update eng_review set machine_type = 'EBM_WHEEL' where quote_id = ${quoteId}`,
+    );
+    expect((await detail(qn)).engineering.review.machineType).toBe('EBM_WHEEL');
+    // Other edits on that quote still work, and a different type can replace it.
+    expect(
+      (await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 6 })).statusCode,
+    ).toBe(200);
+    expect(
+      (await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { machineType: 'EBM_SHUTTLE' }))
+        .statusCode,
+    ).toBe(200);
+  });
+
+  it('F-023: the product facts the intake holds reach the Engineering tab', async () => {
+    const qn = await setup();
+    const facts = (await detail(qn)).engineering.productFacts;
+    expect(facts.map((f) => [f.key, f.label])).toEqual([['resin', 'Resin']]);
+    expect(facts[0]!.value).toMatch(/HDPE/i);
+  });
+
+  describe('F-061: GET /quotes/:qn/capacity-evidence.csv', () => {
+    it('lists every row with the calculated utilization, the basis, the quote number and the time; audited', async () => {
+      const qn = await setup();
+      await saveRows(qn, [
+        await row({ lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 }),
+        await row({
+          site: 'PLANT_02',
+          lineAsset: 'Line, "2"',
+          allocatedAnnualVolume: 1_838_400,
+          utilizationBeforePct: 20,
+        }),
+      ]);
+      const res = await as('EngLead').get(`/api/v1/quotes/${qn}/capacity-evidence.csv`);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.headers['content-disposition']).toContain(`${qn}-capacity-evidence.csv`);
+      const lines = res.body.trim().split('\r\n');
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toContain('"quote_number","generated_at_utc","basis"');
+      expect(lines[0]).toContain('"utilization_before_pct","utilization_after_pct","status"');
+      expect(lines[1]).toContain(`"${qn}"`);
+      expect(lines[1]).toContain(`"${clock.toISOString()}"`);
+      expect(lines[1]).toContain('"Trailing 12 months actual, trending OEE (provisional, D-021)"');
+      // site, effectiveness, cycle, cavitation, run days, allocated, capacity, before, after
+      expect(lines[1]).toContain('"PLANT_01"');
+      expect(lines[1]).toContain('"9676800"');
+      expect(lines[1]).toContain('"40","71"');
+      expect(lines[2]).toContain('"Line, ""2"""');
+      expect(lines[2]).toContain('"20","39"');
+
+      const quoteId = (await detail(qn)).id;
+      const [audit] = await db.db
+        .select()
+        .from(schema.auditEvent)
+        .where(and(eq(schema.auditEvent.quoteId, quoteId), eq(schema.auditEvent.action, 'export')));
+      expect(audit).toMatchObject({ entity: 'capacity_evidence' });
+      expect(audit!.after).toMatchObject({ format: 'csv', rows: 2 });
+    });
+
+    it('flags a row that exceeds line capacity', async () => {
+      const qn = await setup();
+      await saveRows(qn, [await row({ allocatedAnnualVolume: 9_676_800 })]);
+      const res = await as('EngLead').get(`/api/v1/quotes/${qn}/capacity-evidence.csv`);
+      expect(res.body).toContain('"exceeds line capacity"');
+    });
+
+    it('is a header only when there is no evidence yet, and still audited', async () => {
+      const qn = await setup();
+      const res = await as('EngLead').get(`/api/v1/quotes/${qn}/capacity-evidence.csv`);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.trim().split('\r\n')).toHaveLength(1);
+    });
+
+    it('every role that can read the quote can download it; an unknown quote is 404', async () => {
+      const qn = await setup();
+      await saveRows(qn, [await row()]);
+      const roles: Role[] = [
+        'KAM',
+        'SalesLeader',
+        'EngLead',
+        'Engineer',
+        'Pricing',
+        'PricingLead',
+        'Approver',
+        'Leadership',
+        'Admin',
+      ];
+      for (const role of roles) {
+        const res = await as(role).get(`/api/v1/quotes/${qn}/capacity-evidence.csv`);
+        expect(res.statusCode, role).toBe(200);
+      }
+      const missing = await as('EngLead').get(
+        '/api/v1/quotes/CCQ-2099-99999/capacity-evidence.csv',
+      );
+      expect(missing.statusCode).toBe(404);
+    });
+
+    it('is not available anonymously', async () => {
+      const qn = await setup();
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/quotes/${qn}/capacity-evidence.csv`,
+      });
+      expect(res.statusCode).toBe(401);
+    });
   });
 });
 

@@ -1,22 +1,28 @@
-import type { EngineeringDetail } from '@ccq/contracts';
+import type { CapacityBasisDto, EngineeringDetail, ProductFact } from '@ccq/contracts';
 import type { DbOrTx } from '@ccq/db';
 import {
   getEngReview,
   getSetting,
   listCapacityEvidenceWithNames,
   listUsersByIds,
+  listValueList,
   type Quote,
 } from '@ccq/db/repos';
 import {
+  CAPACITY_BASIS_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   ENG_QUEUE_STAGE_KEY,
   can,
   canAssignEngQueue,
   canEditEngReview,
   canSeeCommercialFields,
+  allocationCheck,
+  parseCapacityBasis,
   parseEngQueueSettings,
   planAccept,
   redact,
+  utilizationLevel,
+  type CapacityBasis,
   sectionLock,
   type Actor,
   type EngQueueSettings,
@@ -41,6 +47,57 @@ export async function loadEngQueueSettings(db: DbOrTx): Promise<EngQueueSettings
   });
 }
 
+/** `app_setting.capacity_basis` (provisional, D-021), falling back to the seed when unset or malformed. */
+export async function loadCapacityBasis(db: DbOrTx): Promise<CapacityBasis> {
+  const value = await getSetting(db, 'capacity_basis');
+  try {
+    return parseCapacityBasis(value);
+  } catch {
+    return { ...CAPACITY_BASIS_SEED };
+  }
+}
+
+/**
+ * F-023: what the intake says about the product, for the Engineering review header. Today only the resin
+ * exists on the quote; FB-02 adds the customer-specified grade, PCR %, colour, additives and the variants
+ * note, and each becomes one more entry here (the tab renders whatever list it is given).
+ */
+async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
+  const facts: ProductFact[] = [];
+  if (q.resin) {
+    const resins = await listValueList(db, 'resin', { activeOnly: false });
+    facts.push({
+      key: 'resin',
+      label: 'Resin',
+      value: resins.find((r) => r.code === q.resin)?.label ?? q.resin,
+    });
+  }
+  return facts;
+}
+
+/** The label of each stored code on the review, retired entries included (the pickers list active ones only). */
+async function selectedLabels(
+  db: DbOrTx,
+  eng:
+    | { processType: string | null; machineType: string | null; plantCode: string | null }
+    | undefined,
+): Promise<EngineeringDetail['selectedLabels']> {
+  const label = async (
+    list: 'process_type' | 'machine_type' | 'plant',
+    code: string | null | undefined,
+  ) =>
+    code
+      ? ((await listValueList(db, list, { activeOnly: false })).find((v) => v.code === code)
+          ?.label ?? code)
+      : null;
+  const [processType, machineType, plantCode] = await Promise.all([
+    label('process_type', eng?.processType),
+    label('machine_type', eng?.machineType),
+    label('plant', eng?.plantCode),
+  ]);
+  return { processType, machineType, plantCode };
+}
+
 /**
  * The quote's Engineering tab: assignment, acceptance, review fields and capacity evidence, with the
  * commercial numbers (prelim capital, capacity figures) stripped by the domain's `redact` for roles
@@ -56,10 +113,13 @@ export async function engineeringView(
   /** FB-01 (F-001): the workflow config the section lock reads. */
   workflow: LockConfig,
 ): Promise<EngineeringDetail> {
-  const [eng, capacity] = await Promise.all([
+  const [eng, capacity, basis, facts] = await Promise.all([
     getEngReview(db, q.id),
     listCapacityEvidenceWithNames(db, q.id),
+    loadCapacityBasis(db),
+    productFacts(db, q),
   ]);
+  const labels = await selectedLabels(db, eng);
   const people = await listUsersByIds(
     db,
     [q.assignedEngineerId, eng?.acceptedBy, eng?.capacitySignoffBy].filter(
@@ -91,8 +151,10 @@ export async function engineeringView(
         lineAsset: row.lineAsset,
         assumedEffectivenessPct: row.assumedEffectivenessPct,
         cycleTimeS: row.cycleTimeS,
-        utilizationPct: row.utilizationPct,
-        bufferPct: row.bufferPct,
+        utilizationBeforePct: row.utilizationBeforePct,
+        allocatedAnnualVolume: row.allocatedAnnualVolume,
+        scheduledRunDaysPerYear: row.scheduledRunDaysPerYear,
+        utilizationAfterPct: row.utilizationAfterPct,
         analysisDate: row.analysisDate,
         analystId: row.analystId,
         analystName: analystName ?? null,
@@ -111,7 +173,22 @@ export async function engineeringView(
     acceptedAt: iso(eng?.acceptedAt),
     acceptedByName: name(eng?.acceptedBy),
     review: visible.review,
-    capacityEvidence: visible.capacityEvidence,
+    capacityEvidence: visible.capacityEvidence.map((row) => ({
+      ...row,
+      utilizationLevel:
+        typeof row.utilizationAfterPct === 'number'
+          ? utilizationLevel(row.utilizationAfterPct, basis)
+          : null,
+    })),
+    quoteAnnualVolume: q.estAnnualVolume ?? null,
+    capacityBasis: basis satisfies CapacityBasisDto,
+    allocationWarning:
+      allocationCheck(
+        capacity.map(({ row }) => ({ allocatedAnnualVolume: row.allocatedAnnualVolume })),
+        q.estAnnualVolume,
+      )?.message ?? null,
+    productFacts: facts,
+    selectedLabels: labels,
     capacitySignoff: {
       status: (eng?.capacitySignoffStatus as 'approved' | 'blocked' | null | undefined) ?? null,
       byName: name(eng?.capacitySignoffBy),

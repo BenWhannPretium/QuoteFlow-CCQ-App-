@@ -53,7 +53,7 @@ async function quoteInCustomerDecision(
         site: 'PLANT_01',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
-        utilizationPct: 62,
+        utilizationBeforePct: 62,
         analysisDate: '2026-10-26',
         analystId: engineerId,
       },
@@ -87,7 +87,12 @@ const quote = async (request: APIRequestContext, quoteNumber: string) =>
     closedAt: string | null;
     customerDecision: {
       closure: { closureOwnerName: string | null; reasonLabel: string | null } | null;
-      handoff: { cerId: string | null; cerStatus: string; completed: boolean } | null;
+      handoff: {
+        cerId: string | null;
+        cerStatus: string;
+        completed: boolean;
+        cerReady: boolean;
+      } | null;
     };
   };
 
@@ -162,8 +167,13 @@ test('a KAM records Awarded, hands off and closes Won at G6, and records Lost wi
   await handoff.getByLabel('Receiving contact', { exact: true }).fill('Amanda Cronkhite');
   await handoff.getByLabel('Accepted-by date', { exact: true }).fill(today);
   await handoff.getByRole('checkbox', { name: /Hand-off accepted/ }).check();
+  // F-064: after the award the capital quoted was budgetary; "Ready for CER development" is ticked here.
+  await expect(handoff.getByTestId('cer-ready-badge')).toHaveCount(0);
+  await handoff.getByRole('checkbox', { name: /Ready for CER development/ }).check();
   await handoff.getByRole('button', { name: 'Save hand-off' }).click();
   await expect(page.getByText('Hand-off accepted').first()).toBeVisible();
+  await expect(handoff.getByTestId('cer-ready-badge')).toHaveText('Ready for CER development');
+  await expect(handoff.getByTestId('cer-ready-by')).toContainText('Marked ready by');
   await expect(handoff.getByTestId('handoff-completed-by')).toContainText('Confirmed by');
 
   // ── G6: commit and close Won ──
@@ -192,6 +202,7 @@ test('a KAM records Awarded, hands off and closes Won at G6, and records Lost wi
     cerId: 'CER-2026-0412',
     cerStatus: 'approved',
     completed: true,
+    cerReady: true,
   });
 
   // ── Lost, from My open proposals ──
