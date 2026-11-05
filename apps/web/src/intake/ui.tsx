@@ -212,3 +212,17 @@ export function ReadOnlyValue({
     </div>
   );
 }
+
+/**
+ * A conditional field group (FB-02): mounted only while it applies, so hidden fields are neither
+ * tabbable nor read out; it eases in with the design system's enter animation (none when the user
+ * prefers reduced motion).
+ */
+export function Reveal({ when, children }: { when: boolean; children: ReactNode }) {
+  if (!when) return null;
+  return (
+    <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-4 motion-reduce:animate-none">
+      {children}
+    </div>
+  );
+}

@@ -661,7 +661,24 @@ The CCQ quote: the workflow record CCQ owns.
 | `quote_needed_by` | date | yes |  |  | FB-02 (F-009): when the customer needs the quote (after the submit date). Feeds the timing attribute of the priority score. | KAM |
 | `product_needed_by` | date | yes |  |  | FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by. | KAM |
 | `drawing_status` | text | yes |  |  | value_list drawing_status code. | KAM |
-| `neck_finish` | text | yes |  |  | value_list neck_finish code, or free text when "Other". | KAM |
+| `neck_finish` | text | yes |  |  | Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0026 split it into neck_diameter / neck_finish_type. | KAM |
+| `neck_diameter` | text | yes |  |  | FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM). | KAM |
+| `neck_diameter_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise. | KAM |
+| `neck_finish_type` | text | yes |  |  | FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM). | KAM |
+| `neck_finish_type_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise. | KAM |
+| `neck_special_feature` | text | yes |  |  | FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM). | KAM |
+| `neck_special_feature_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise. | KAM |
+| `resin_customer_specified` | boolean | no | false |  | FB-02 (F-011): the customer specifies the resin; resin_grade names it. | KAM |
+| `resin_grade` | text | yes |  |  | FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". | KAM |
+| `pcr_level` | text | yes |  |  | FB-02 (F-055): value_list pcr_level code (0 / 25 / 50 / 100 %). | KAM |
+| `color_type` | text | yes |  |  | FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM). | KAM |
+| `color_description` | text | yes |  |  | FB-02 (F-023): the custom color (≤ 120); null for Natural. | KAM |
+| `additives` | text | yes |  |  | FB-02 (F-023): additives note (≤ 200). | KAM |
+| `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec (≤ 120) when a Liner is picked. | KAM |
+| `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. | KAM |
+| `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |
+| `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. | KAM |
+| `quote_variants_note` | text | yes |  |  | FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056. | KAM |
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
 | `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |
@@ -725,7 +742,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 

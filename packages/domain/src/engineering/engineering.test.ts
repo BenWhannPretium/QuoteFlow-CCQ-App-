@@ -350,7 +350,7 @@ describe('engineering completeness', () => {
     ).map((w) => `${w.code}:${w.field}`);
     expect(codes).toContain('VOLUME_PLACEHOLDER:est_annual_volume');
     expect(codes).toContain('DRAWING_MISSING:drawing_status');
-    expect(codes).toContain('ENRICH:neck_finish');
+    expect(codes).toContain('ENRICH:neck_diameter');
     expect(codes.some((c) => c.startsWith('REQUEST_CLASS_NOT_ALLOWED'))).toBe(false);
     expect(engineeringCompleteness({}, config, NOW)[0]).toMatchObject({
       code: 'MISSING_FIELD',

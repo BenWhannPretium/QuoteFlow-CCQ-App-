@@ -54,11 +54,14 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['HANDLEWARE', 'Handleware'],
     ['OTHER', 'Other'],
   ],
+  // FB-02 (F-013): meta.followUps = the fields a picked component asks for (required while picked,
+  // cleared when not). Decoration added. Bailey: Pretium's component list isn't final (V-090).
   component: [
     ['CONTAINER', 'Container'],
     ['CLOSURE', 'Closure'],
-    ['LINER', 'Liner'],
-    ['LABEL', 'Label'],
+    ['LINER', 'Liner', { followUps: ['liner_spec'] }],
+    ['LABEL', 'Label', { followUps: ['labels_purchased_by'] }],
+    ['DECORATION', 'Decoration', { followUps: ['decoration_type', 'decoration_print_colors'] }],
     ['OTHER', 'Other'],
   ],
   request_class: [
@@ -74,7 +77,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['SAMPLE_ONLY', 'Sample only'],
     ['NONE', 'None (quote will take longer)'],
   ],
-  // Free-text capable: choosing OTHER lets the KAM type the finish.
+  // Retired by FB-02 (F-010): kept, inactive, so older quotes still show their label. The neck is now
+  // neck_diameter + neck_finish_type + neck_special_feature (migration 0026 split the stored values).
   neck_finish: [
     ['28-410', '28-410'],
     ['38-400', '38-400'],
@@ -106,6 +110,85 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['INJECTION_PRESS', 'Injection press'],
     ['OTHER', 'Other'],
   ],
+  // FB-02 (F-010): Jim Zweifel's neck lists (Field Inventory, Nov 5; V-073, A-001). "Custom" (meta
+  // freeText) needs a short description. All provisional.
+  neck_diameter: [
+    ...[
+      '13',
+      '15',
+      '18',
+      '20',
+      '22',
+      '24',
+      '28',
+      '30',
+      '33',
+      '35',
+      '38',
+      '40',
+      '53',
+      '58',
+      '60',
+    ].map((d): Entry => [d, `${d} mm`]),
+    ...['63', '66', '70', '75', '83', '89', '100', '110', '120', '135', '155'].map((d): Entry => [
+      d,
+      `${d} mm`,
+    ]),
+    ['409', '409 (120 mm snap)'],
+    ['605D', '605D (155 mm snap)'],
+    ['CUSTOM', 'Custom', { freeText: true }],
+  ],
+  neck_finish_type: [
+    ['400', '400'],
+    ['410', '410'],
+    ['415', '415'],
+    ['485', '485'],
+    ['CRC', 'CRC'],
+    ['BERICAP', 'BeriCap'],
+    ['DBJ', 'DBJ'],
+    ['DEEP_SKIRT', 'Deep Skirt'],
+    ['J_CAP', 'J-Cap'],
+    ['JIGGER', 'Jigger'],
+    ['KERR', 'Kerr'],
+    ['PANO', 'Pano'],
+    ['PCO_1810', 'PCO-1810'],
+    ['PCO_1881', 'PCO-1881 (Super Shorty)'],
+    ['RATCHET', 'Ratchet'],
+    ['ROPP', 'ROPP'],
+    ['SNAP', 'Snap'],
+    ['CUSTOM', 'Custom', { freeText: true }],
+  ],
+  neck_special_feature: [
+    ['CT', 'CT (continuous thread)'],
+    ['MULTI_LEAD', 'Multi Lead'],
+    ['TAMPER_EVIDENT', 'Tamper Evident'],
+    ['VENTED', 'Vented'],
+    ['CUSTOM', 'Custom', { freeText: true }],
+  ],
+  // FB-02 (F-055): standard PCR levels Engineering and Supply Chain agreed as a starting point.
+  pcr_level: [
+    ['0', '0%'],
+    ['25', '25%'],
+    ['50', '50%'],
+    ['100', '100%'],
+  ],
+  // FB-02 (F-023, Kyle Arnold, Tania Nazario): Custom needs a short description.
+  color_type: [
+    ['NATURAL', 'Natural'],
+    ['CUSTOM', 'Custom color', { freeText: true }],
+  ],
+  // FB-02 (F-013): who buys the labels.
+  labels_purchased_by: [
+    ['CUSTOMER', 'Customer'],
+    ['PRETIUM', 'Pretium'],
+  ],
+  // FB-02 (F-013): decoration methods (Bailey: Pretium's component list isn't final, V-090).
+  decoration_type: [
+    ['SILK_SCREEN', 'Silk screen'],
+    ['HOT_STAMP', 'Hot stamp'],
+    ['SHRINK_SLEEVE', 'Shrink sleeve'],
+    ['OTHER', 'Other'],
+  ],
   // B-26 (future-state deck slide 12): how the tooling / capital is funded. Provisional.
   tooling_funding_model: [
     ['COMPANY_FUNDED', 'Company-funded'],
@@ -115,6 +198,9 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   ],
 };
 
+/** Lists kept only for history: their rows are seeded inactive (nobody can pick them). */
+export const RETIRED_VALUE_LISTS: ReadonlySet<ValueListKey> = new Set(['neck_finish']);
+
 export function valueListRows() {
   return Object.entries(VALUE_LISTS).flatMap(([listKey, entries]) =>
     entries.map(([code, label, meta], i) => ({
@@ -122,7 +208,7 @@ export function valueListRows() {
       code,
       label,
       sort: (i + 1) * 10,
-      active: true,
+      active: !RETIRED_VALUE_LISTS.has(listKey as ValueListKey),
       meta: meta ?? {},
       provisional: true,
     })),

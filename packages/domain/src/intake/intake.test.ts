@@ -48,7 +48,10 @@ const complete = {
   components: ['CONTAINER'],
   market: 'FOOD',
   resin: 'HDPE',
-  neck_finish: '28-410',
+  neck_diameter: '28',
+  neck_finish_type: '410',
+  pcr_level: '0',
+  color_type: 'NATURAL',
   packaging_type: 'BULK',
   packaging_notes: 'Max pallet height 96 in',
   est_annual_volume: 750_000,
@@ -100,20 +103,20 @@ describe('evaluateIntake', () => {
   it('a stricter config makes an enrich field blocking (stop vs enrich is config)', () => {
     const strict = {
       ...config,
-      requiredFields: [...config.requiredFields, present('neck_finish')],
+      requiredFields: [...config.requiredFields, present('neck_diameter')],
     };
-    const result = ev({ ...complete, neck_finish: '' }, strict);
-    expect(codes(result.blocking)).toEqual(['MISSING_FIELD:neck_finish']);
-    expect(codes(result.warnings)).not.toContain('ENRICH:neck_finish');
+    const result = ev({ ...complete, neck_diameter: '' }, strict);
+    expect(codes(result.blocking)).toEqual(['MISSING_FIELD:neck_diameter']);
+    expect(codes(result.warnings)).not.toContain('ENRICH:neck_diameter');
   });
 
   it('missing optional fields are amber "Engineering may ask" warnings, never errors', () => {
-    const { neck_finish: _n, packaging_type: _t, market: _m, ...rest } = complete;
+    const { neck_diameter: _n, packaging_type: _t, market: _m, ...rest } = complete;
     const result = ev(rest, config);
     expect(result.ready).toBe(true);
     expect(result.warnings.map((w) => [w.code, w.field, w.message])).toEqual([
       ['ENRICH', 'market', 'Engineering may ask about this.'],
-      ['ENRICH', 'neck_finish', 'Engineering may ask about this.'],
+      ['ENRICH', 'neck_diameter', 'Engineering may ask about this.'],
       ['ENRICH', 'packaging_type', 'Engineering may ask about this.'],
     ]);
   });
@@ -274,6 +277,16 @@ describe('evaluateIntake', () => {
           .ready,
       ).toBe(true);
       expect(todayInCentral(new Date('2026-11-06T03:00:00Z'))).toBe('2026-11-05');
+      // Daylight time (UTC-5) vs standard time (UTC-6).
+      expect(todayInCentral(new Date('2026-07-01T04:30:00Z'))).toBe('2026-06-30');
+      expect(todayInCentral(new Date('2026-07-01T05:30:00Z'))).toBe('2026-07-01');
+      expect(todayInCentral(new Date('2026-12-01T05:30:00Z'))).toBe('2026-11-30');
+      expect(todayInCentral(new Date('2026-12-01T06:30:00Z'))).toBe('2026-12-01');
+      // The switch days: 2026-03-08 (second Sunday of March) and 2026-11-01 (first Sunday of November).
+      expect(todayInCentral(new Date('2026-03-08T07:59:00Z'))).toBe('2026-03-08');
+      expect(todayInCentral(new Date('2026-11-01T05:30:00Z'))).toBe('2026-11-01');
+      expect(todayInCentral(new Date('2026-11-01T06:30:00Z'))).toBe('2026-11-01');
+      expect(todayInCentral(new Date('2026-11-02T05:30:00Z'))).toBe('2026-11-01');
     });
 
     it('Product needed by must be on or after Quote needed by', () => {

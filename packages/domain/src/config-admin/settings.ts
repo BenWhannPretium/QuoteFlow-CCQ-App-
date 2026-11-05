@@ -225,6 +225,13 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     z_('intake_allowed_request_classes', intakeConfigSchema.shape.allowedRequestClasses),
   ),
   spec(
+    'intake_variants_note_max_length',
+    'intake',
+    'Longest "Quote variants requested" note (characters)',
+    'integer',
+    z_('intake_variants_note_max_length', intakeConfigSchema.shape.variantsNoteMaxLength),
+  ),
+  spec(
     'intake_redirect_message',
     'intake',
     'Message shown for a request class that is not submitted to CCQ',

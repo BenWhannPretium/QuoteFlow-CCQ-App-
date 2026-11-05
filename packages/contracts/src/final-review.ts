@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { EngineeringDetail } from './eng-review';
 import { IntakeAddress } from './intake';
 import { CapitalReadiness, QuotingDetail } from './pricing';
-import { AvailableGateAction, GateDecisionSummary, QuoteSummary } from './quotes';
+import { AvailableGateAction, GateDecisionSummary, QuoteIntakeFacts, QuoteSummary } from './quotes';
 
 // ── B-12 Final Review (G4, internal approval; X-88) ──────────────────────────────────────────────
 // G4 approve / decline never set Awarded or Lost: only the customer outcome (G5, B-13) does.
@@ -112,11 +112,14 @@ export const ReviewSummary = z.object({
     standardDescription: z.string().nullable(),
     components: z.array(z.string()),
     drawingStatus: z.string().nullable(),
+    /** Deprecated (FB-02): the pre-FB-02 single neck finish, for older quotes. */
     neckFinish: z.string().nullable(),
     packagingType: z.string().nullable(),
     packagingNotes: z.string().nullable(),
     commentsForEngineering: z.string().nullable(),
     shipTo: IntakeAddress.nullable(),
+    /** FB-02: the product and timing facts from intake (neck, resin grade, PCR, color, …). */
+    facts: QuoteIntakeFacts,
   }),
   /** Solution + capacity evidence; the numbers are commercial and stripped per role. */
   engineering: EngineeringDetail,

@@ -3,6 +3,7 @@ import {
   PASS_THROUGH_SEED,
   asUserId,
   evaluateTransition,
+  migrateLegacyNeckFinish,
   score,
   withDerivedFields,
 } from '@ccq/domain';
@@ -499,6 +500,8 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       productNeededBy: isoDaysAfter(createdAt, 120 + (ordinal % 3) * 30),
       drawingStatus: rng.pick(['HAVE_DRAWING', 'HAVE_DRAWING', 'COMING', 'SAMPLE_ONLY', 'NONE']),
       neckFinish: NECK_CODE[opp.spec.neck] ?? opp.spec.neck,
+      // FB-02 (F-010): the three-list neck, as migration 0026 would have split the old value.
+      ...migrateLegacyNeckFinish(NECK_CODE[opp.spec.neck] ?? opp.spec.neck),
       packagingType: rng.pick(['BULK', 'BAGGED', 'TRAYED', 'PALLETIZED_CUSTOM']),
       packagingNotes: rng.chance(0.3) ? 'Max pallet height 96 in; corner boards required.' : null,
       requestClass: 'CCQ',

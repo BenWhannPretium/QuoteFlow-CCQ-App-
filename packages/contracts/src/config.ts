@@ -98,6 +98,7 @@ export const PUBLIC_SETTING_KEYS = [
   // FB-02 intake overhaul (provisional)
   'intake_allowed_request_classes',
   'intake_redirect_message',
+  'intake_variants_note_max_length',
   'salesforce_new_opportunity_url',
   // B-09 overrides (the per-field config reaches the quote page as QuoteDetail.overridableFields)
   'override_justification_min_length',

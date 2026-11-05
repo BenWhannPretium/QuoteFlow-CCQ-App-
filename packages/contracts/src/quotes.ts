@@ -170,6 +170,29 @@ export const QuoteIntakeFacts = z.object({
   /** F-009: when the customer needs the quote, and the best estimate of the launch need. */
   quoteNeededBy: z.string().nullable(),
   productNeededBy: z.string().nullable(),
+  /** F-010: the neck (value-list codes; a Custom value carries its description). */
+  neckDiameter: z.string().nullable(),
+  neckDiameterCustom: z.string().nullable(),
+  neckFinishType: z.string().nullable(),
+  neckFinishTypeCustom: z.string().nullable(),
+  neckSpecialFeature: z.string().nullable(),
+  neckSpecialFeatureCustom: z.string().nullable(),
+  /** F-011: customer-specified resin and its supplier / grade (T-013). */
+  resinCustomerSpecified: z.boolean(),
+  resinGrade: z.string().nullable(),
+  /** F-055 */
+  pcrLevel: z.string().nullable(),
+  /** F-023 */
+  colorType: z.string().nullable(),
+  colorDescription: z.string().nullable(),
+  additives: z.string().nullable(),
+  /** F-075 */
+  quoteVariantsNote: z.string().nullable(),
+  /** F-013: component follow-ups. */
+  linerSpec: z.string().nullable(),
+  labelsPurchasedBy: z.string().nullable(),
+  decorationType: z.string().nullable(),
+  decorationPrintColors: z.number().int().nullable(),
 });
 export type QuoteIntakeFacts = z.infer<typeof QuoteIntakeFacts>;
 

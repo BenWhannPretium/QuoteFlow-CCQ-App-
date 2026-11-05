@@ -25,6 +25,7 @@ import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { CommercialPanel } from '@/components/commercial/CommercialPanel';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
+import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import {
   ClosureCard,
   CustomerDecisionHeader,
@@ -327,7 +328,8 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
               label: 'Components',
               value: quote.components.map((c) => label('component', c)).join(', '),
             },
-            { label: 'Neck finish', value: label('neck_finish', quote.neckFinish) },
+            // FB-02: the product facts (neck, resin grade, PCR, color, follow-ups, need-by dates…).
+            ...intakeFactItems(config?.valueLists, quote.intakeFacts, quote.neckFinish),
             {
               label: 'Annual volume',
               value: quote.estAnnualVolume?.toLocaleString('en-US'),
@@ -341,8 +343,6 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
             },
             // FB-02 (T-009): Salesforce's close date (latest sync), and the KAM's need-by dates.
             { label: 'Salesforce close date', value: quote.expectedCloseDate },
-            { label: 'Quote needed by', value: quote.intakeFacts.quoteNeededBy },
-            { label: 'Product needed by', value: quote.intakeFacts.productNeededBy },
             { label: 'Drawing', value: label('drawing_status', quote.drawingStatus) },
             { label: 'Packaging', value: label('packaging_type', quote.packagingType) },
             {

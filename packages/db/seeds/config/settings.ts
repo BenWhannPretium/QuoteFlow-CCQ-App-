@@ -61,6 +61,17 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   market: 'Market drives material, regulatory and cleanliness requirements.',
   resin: 'Resin decides the process, the machine and much of the cost.',
   neck_finish: 'The neck finish is one of the details Engineering most often has to chase.',
+  neck_diameter:
+    'Neck diameter in mm. Pick Custom and describe it if it is not on the list. Engineering most often has to chase the neck.',
+  neck_finish_type: 'The finish (thread or closure style). Pick Custom and describe it if needed.',
+  neck_special_feature: 'Optional: continuous thread, multi lead, tamper evident, vented.',
+  resin_customer_specified:
+    'Pricing needs the exact material when the customer dictates it, not just "polypropylene".',
+  pcr_level: 'Post-consumer recycled content, from the standard levels.',
+  color_type: 'Color and additives drive material cost. Describe a custom color.',
+  additives: 'Anything added to the resin (UV, slip, antistatic…). Optional.',
+  quote_variants_note:
+    'Variants the customer wants priced, e.g. "0/25/50% PCR; near-site vs ideal-site". Optional.',
   packaging_type: 'How it ships (bulk, bagged, trayed) changes pack-out, labour and freight.',
   packaging_notes: 'Pallet, case and labelling rules are a common reason quotes come back.',
   est_annual_volume:
@@ -179,6 +190,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: INTAKE_ALLOWED_REQUEST_CLASSES,
     description:
       'FB-02 (F-067): the request_class codes that can be submitted to CCQ. Any other class shows intake_redirect_message and Submit is disabled; the API answers 422 REQUEST_CLASS_NOT_ALLOWED. Provisional (Matthew Graden, Tania Nazario).',
+  },
+  {
+    key: 'intake_variants_note_max_length',
+    value: 300,
+    description:
+      'FB-02 (F-075): longest "Quote variants requested" note (characters). The note is the interim answer to D-017 (option B); structured scenarios are F-056 (P1).',
   },
   {
     key: 'intake_redirect_message',

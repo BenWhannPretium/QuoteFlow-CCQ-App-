@@ -1,5 +1,5 @@
 {
-  "id": "47f0179b-4bb3-4b6a-b0e3-ea743486764d",
+  "id": "d43340f1-d020-4df8-bf51-f753bfe11dcb",
   "prevId": "313772fc-bb9e-46c1-a1cf-dd433bcc4cf9",
   "version": "7",
   "dialect": "postgresql",
@@ -2039,7 +2039,7 @@
       "checkConstraints": {
         "value_list_list_key_check": {
           "name": "value_list_list_key_check",
-          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model')"
+          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'labels_purchased_by', 'decoration_type')"
         }
       },
       "isRLSEnabled": false
@@ -4011,6 +4011,109 @@
           "primaryKey": false,
           "notNull": false
         },
+        "neck_diameter": {
+          "name": "neck_diameter",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neck_diameter_custom": {
+          "name": "neck_diameter_custom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neck_finish_type": {
+          "name": "neck_finish_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neck_finish_type_custom": {
+          "name": "neck_finish_type_custom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neck_special_feature": {
+          "name": "neck_special_feature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neck_special_feature_custom": {
+          "name": "neck_special_feature_custom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resin_customer_specified": {
+          "name": "resin_customer_specified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "resin_grade": {
+          "name": "resin_grade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pcr_level": {
+          "name": "pcr_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "color_type": {
+          "name": "color_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "color_description": {
+          "name": "color_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additives": {
+          "name": "additives",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "liner_spec": {
+          "name": "liner_spec",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "labels_purchased_by": {
+          "name": "labels_purchased_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decoration_type": {
+          "name": "decoration_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decoration_print_colors": {
+          "name": "decoration_print_colors",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quote_variants_note": {
+          "name": "quote_variants_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "packaging_type": {
           "name": "packaging_type",
           "type": "text",
@@ -4772,6 +4875,10 @@
         "quote_priority_score_check": {
           "name": "quote_priority_score_check",
           "value": "\"quote\".\"priority_score\" between 0 and 100"
+        },
+        "quote_decoration_print_colors_check": {
+          "name": "quote_decoration_print_colors_check",
+          "value": "\"quote\".\"decoration_print_colors\" is null or \"quote\".\"decoration_print_colors\" between 1 and 12"
         },
         "quote_need_by_order_check": {
           "name": "quote_need_by_order_check",

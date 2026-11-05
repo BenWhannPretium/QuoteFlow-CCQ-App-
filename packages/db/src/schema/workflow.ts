@@ -260,7 +260,91 @@ export const quote = documented(
       drawingStatus: c(text('drawing_status'), 'value_list drawing_status code.', KAM),
       neckFinish: c(
         text('neck_finish'),
-        'value_list neck_finish code, or free text when "Other".',
+        'Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0026 split it into neck_diameter / neck_finish_type.',
+        KAM,
+      ),
+      // FB-02 (F-010): the neck as three pick-lists (Jim Zweifel's lists, provisional).
+      neckDiameter: c(
+        text('neck_diameter'),
+        'FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM).',
+        KAM,
+      ),
+      neckDiameterCustom: c(
+        text('neck_diameter_custom'),
+        'FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise.',
+        KAM,
+      ),
+      neckFinishType: c(
+        text('neck_finish_type'),
+        'FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM).',
+        KAM,
+      ),
+      neckFinishTypeCustom: c(
+        text('neck_finish_type_custom'),
+        'FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise.',
+        KAM,
+      ),
+      neckSpecialFeature: c(
+        text('neck_special_feature'),
+        'FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM).',
+        KAM,
+      ),
+      neckSpecialFeatureCustom: c(
+        text('neck_special_feature_custom'),
+        'FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise.',
+        KAM,
+      ),
+      // FB-02 (F-011, F-055, F-023, F-075): resin grade, PCR, color, additives, variants.
+      resinCustomerSpecified: c(
+        boolean('resin_customer_specified').notNull().default(false),
+        'FB-02 (F-011): the customer specifies the resin; resin_grade names it.',
+        KAM,
+      ),
+      resinGrade: c(
+        text('resin_grade'),
+        'FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331".',
+        KAM,
+      ),
+      pcrLevel: c(
+        text('pcr_level'),
+        'FB-02 (F-055): value_list pcr_level code (0 / 25 / 50 / 100 %).',
+        KAM,
+      ),
+      colorType: c(
+        text('color_type'),
+        'FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM).',
+        KAM,
+      ),
+      colorDescription: c(
+        text('color_description'),
+        'FB-02 (F-023): the custom color (≤ 120); null for Natural.',
+        KAM,
+      ),
+      additives: c(text('additives'), 'FB-02 (F-023): additives note (≤ 200).', KAM),
+      // FB-02 (F-013): component follow-ups (written only while the component is picked).
+      linerSpec: c(
+        text('liner_spec'),
+        'FB-02 (F-013): liner spec (≤ 120) when a Liner is picked.',
+        KAM,
+      ),
+      labelsPurchasedBy: c(
+        text('labels_purchased_by'),
+        'FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked.',
+        KAM,
+      ),
+      decorationType: c(
+        text('decoration_type'),
+        'FB-02 (F-013): value_list decoration_type code when Decoration is picked.',
+        KAM,
+      ),
+      decorationPrintColors: c(
+        integer('decoration_print_colors'),
+        'FB-02 (F-013): number of print colors (1–12) when Decoration is picked.',
+        KAM,
+      ),
+      quoteVariantsNote: c(
+        text('quote_variants_note'),
+        'FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056.',
         KAM,
       ),
       packagingType: c(text('packaging_type'), 'value_list packaging_type code.', KAM),
@@ -546,6 +630,10 @@ export const quote = documented(
       check('quote_quote_number_format_check', sql`${t.quoteNumber} ~ '^CCQ-[0-9]{4}-[0-9]{5}$'`),
       check('quote_version_check', sql`${t.version} >= 1`),
       check('quote_priority_score_check', sql`${t.priorityScore} between 0 and 100`),
+      check(
+        'quote_decoration_print_colors_check',
+        sql`${t.decorationPrintColors} is null or ${t.decorationPrintColors} between 1 and 12`,
+      ),
       // FB-02 (F-009): the product is needed on or after the quote. The domain checks it first.
       check(
         'quote_need_by_order_check',

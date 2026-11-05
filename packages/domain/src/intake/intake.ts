@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+import {
+  activeFollowUps,
+  COMPONENT_FOLLOW_UP_FIELDS,
+  CUSTOM_DESCRIPTION_FIELDS,
+  CUSTOM_LIST_FIELDS,
+  INTAKE_TEXT_LIMITS,
+  PRINT_COLORS_RANGE,
+} from './product-facts';
 import type { QuoteStatus } from '../types/quote';
 import { requiredRuleSchema } from '../types/workflow-config';
 import { evaluateRules, fieldsReferenced, getPath, isPresent } from '../workflow/rules';
@@ -28,7 +36,11 @@ export const INTAKE_FIELDS = [
   'components',
   'market',
   'resin',
-  'neck_finish',
+  // FB-02 (F-010, F-055, F-023): the neck as diameter + finish, PCR %, color.
+  'neck_diameter',
+  'neck_finish_type',
+  'pcr_level',
+  'color_type',
   'packaging_type',
   'packaging_notes',
   'est_annual_volume',
@@ -72,6 +84,19 @@ export const intakeConfigSchema = z
     redirectMessage: z.string().min(1),
     /** drawing_status codes that mean a drawing exists (value_list meta `hasDrawing`). */
     drawingProvidedCodes: z.array(z.string()),
+    /**
+     * FB-02: the "Custom" codes (value-list meta `freeText`) of the neck and color lists; picking one
+     * needs a short description.
+     */
+    customCodes: z
+      .partialRecord(z.enum(CUSTOM_LIST_FIELDS as [string, ...string[]]), z.array(z.string()))
+      .default({}),
+    /** FB-02 (F-013): component code → the follow-up fields it asks for (`component` meta `followUps`). */
+    componentFollowUps: z
+      .record(z.string(), z.array(z.enum(COMPONENT_FOLLOW_UP_FIELDS)))
+      .default({}),
+    /** FB-02 (F-075): longest "Quote variants requested" note (app_setting `intake_variants_note_max_length`). */
+    variantsNoteMaxLength: z.number().int().positive().default(300),
   })
   .strict();
 
@@ -145,17 +170,25 @@ export function isPlaceholderVolume(
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Day of the month of the `n`th Sunday of `month` (0-based) in `year`. */
+function nthSunday(year: number, month: number, n: number): number {
+  const firstDow = new Date(Date.UTC(year, month, 1)).getUTCDay();
+  return 1 + ((7 - firstDow) % 7) + (n - 1) * 7;
+}
+
 /**
  * Today's calendar date (YYYY-MM-DD) where the need-by dates are judged: US Central, Pretium HQ
- * (CLAUDE.md "Time"). A KAM at 9 PM Central on the 5th is still on the 5th.
+ * (CLAUDE.md "Time"). A KAM at 9 PM Central on the 5th is still on the 5th. US daylight time runs
+ * from 2 AM on the second Sunday of March to 2 AM on the first Sunday of November (CDT = UTC-5,
+ * CST = UTC-6); computed here so the result doesn't depend on the runtime's time-zone data.
  */
 export function todayInCentral(now: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Chicago',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
+  const year = now.getUTCFullYear();
+  const dstStart = Date.UTC(year, 2, nthSunday(year, 2, 2), 8); // 2 AM CST
+  const dstEnd = Date.UTC(year, 10, nthSunday(year, 10, 1), 7); // 2 AM CDT
+  const t = now.getTime();
+  const offsetHours = t >= dstStart && t < dstEnd ? -5 : -6;
+  return new Date(t + offsetHours * 3_600_000).toISOString().slice(0, 10);
 }
 
 /**
@@ -200,6 +233,91 @@ export function needByDateIssues(values: FieldValues, now: Date): IntakeIssue[] 
   return issues;
 }
 
+const tooLong = (v: unknown, max: number) => typeof v === 'string' && v.trim().length > max;
+
+/**
+ * FB-02 product facts: a "Custom" neck or color value needs its description (F-010, F-023), a
+ * customer-specified resin needs the supplier / grade (F-011), picked components need their
+ * follow-ups (F-013), and the short texts stay short.
+ */
+export function productFactIssues(values: FieldValues, config: IntakeConfig): IntakeIssue[] {
+  const issues: IntakeIssue[] = [];
+  const missing = (field: string, message: string) =>
+    issues.push({ code: 'MISSING_FIELD', field, message });
+  const invalid = (field: string, message: string) =>
+    issues.push({ code: 'INVALID_VALUE', field, message });
+
+  for (const field of CUSTOM_LIST_FIELDS) {
+    const code = values[field];
+    const description = CUSTOM_DESCRIPTION_FIELDS[field];
+    if (typeof code === 'string' && (config.customCodes[field] ?? []).includes(code)) {
+      if (!isPresent(values[description])) missing(description, `${description} is required`);
+    }
+    if (tooLong(values[description], INTAKE_TEXT_LIMITS.custom_description)) {
+      invalid(description, `Keep it to ${INTAKE_TEXT_LIMITS.custom_description} characters`);
+    }
+  }
+
+  if (values.resin_customer_specified === true && !isPresent(values.resin_grade)) {
+    missing('resin_grade', 'resin_grade is required');
+  }
+  if (tooLong(values.resin_grade, INTAKE_TEXT_LIMITS.resin_grade)) {
+    invalid('resin_grade', `Keep it to ${INTAKE_TEXT_LIMITS.resin_grade} characters`);
+  }
+  if (tooLong(values.additives, INTAKE_TEXT_LIMITS.additives)) {
+    invalid('additives', `Keep it to ${INTAKE_TEXT_LIMITS.additives} characters`);
+  }
+  if (tooLong(values.quote_variants_note, config.variantsNoteMaxLength)) {
+    invalid(
+      'quote_variants_note',
+      `Keep the variants note to ${config.variantsNoteMaxLength} characters`,
+    );
+  }
+
+  for (const field of activeFollowUps(values.components, config.componentFollowUps)) {
+    const value = values[field];
+    if (!isPresent(value)) {
+      missing(field, `${field} is required`);
+    } else if (
+      field === 'decoration_print_colors' &&
+      !(
+        typeof value === 'number' &&
+        Number.isInteger(value) &&
+        value >= PRINT_COLORS_RANGE.min &&
+        value <= PRINT_COLORS_RANGE.max
+      )
+    ) {
+      invalid(
+        field,
+        `Number of print colors must be a whole number from ${PRINT_COLORS_RANGE.min} to ${PRINT_COLORS_RANGE.max}`,
+      );
+    }
+  }
+  if (tooLong(values.liner_spec, INTAKE_TEXT_LIMITS.liner_spec)) {
+    invalid('liner_spec', `Keep it to ${INTAKE_TEXT_LIMITS.liner_spec} characters`);
+  }
+  return issues;
+}
+
+/**
+ * Fields whose value no longer applies and is cleared when the intake is stored: a description for a
+ * value that isn't "Custom", the resin grade without the checkbox, a follow-up of a component that
+ * isn't picked (F-013 "cleared when it is deselected").
+ */
+export function inapplicableIntakeFields(values: FieldValues, config: IntakeConfig): string[] {
+  const out: string[] = [];
+  for (const field of CUSTOM_LIST_FIELDS) {
+    const code = values[field];
+    if (!(typeof code === 'string' && (config.customCodes[field] ?? []).includes(code))) {
+      out.push(CUSTOM_DESCRIPTION_FIELDS[field]);
+    }
+  }
+  if (values.resin_customer_specified !== true) out.push('resin_grade');
+  const active = activeFollowUps(values.components, config.componentFollowUps);
+  out.push(...COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)));
+  return out;
+}
+
 /** True for a quote that blocks a second CCQ quote on the same SF opportunity. */
 export const isActiveQuoteStatus = (status: QuoteStatus): boolean => status !== 'closed';
 
@@ -234,6 +352,7 @@ export function evaluateIntake(
   }
 
   blocking.push(...needByDateIssues(values, now));
+  blocking.push(...productFactIssues(values, config));
 
   const volume = values.est_annual_volume;
   if (

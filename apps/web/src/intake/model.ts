@@ -7,12 +7,16 @@ import {
   type SfOpportunityDetail,
 } from '@ccq/contracts';
 import {
+  CUSTOM_LIST_FIELDS,
   evaluateIntake,
   fieldsReferenced,
+  neckSummary,
   parseIntakeConfig,
+  parseNeckText,
   renderDescriptionTemplate,
   type IntakeConfig,
   type IntakeEvaluation,
+  type ListEntry,
 } from '@ccq/domain';
 
 /**
@@ -44,7 +48,23 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   components: { label: 'Components', step: 3 },
   market: { label: 'Market', step: 3 },
   resin: { label: 'Resin', step: 3 },
-  neck_finish: { label: 'Neck finish / type', step: 3 },
+  neck_diameter: { label: 'Neck diameter', step: 3 },
+  neck_diameter_custom: { label: 'Custom neck diameter', step: 3 },
+  neck_finish_type: { label: 'Neck finish', step: 3 },
+  neck_finish_type_custom: { label: 'Custom neck finish', step: 3 },
+  neck_special_feature: { label: 'Special feature', step: 3 },
+  neck_special_feature_custom: { label: 'Custom special feature', step: 3 },
+  resin_customer_specified: { label: 'Customer-specified resin', step: 3 },
+  resin_grade: { label: 'Supplier / grade', step: 3 },
+  pcr_level: { label: 'PCR %', step: 3 },
+  color_type: { label: 'Color', step: 3 },
+  color_description: { label: 'Custom color', step: 3 },
+  additives: { label: 'Additives', step: 3 },
+  quote_variants_note: { label: 'Quote variants requested', step: 3 },
+  liner_spec: { label: 'Liner spec', step: 3 },
+  labels_purchased_by: { label: 'Labels purchased by', step: 3 },
+  decoration_type: { label: 'Decoration type', step: 3 },
+  decoration_print_colors: { label: 'Number of print colors', step: 3 },
   packaging_type: { label: 'Packaging type', step: 3 },
   packaging_notes: { label: 'Packaging requirements', step: 3 },
   est_annual_volume: { label: 'Estimated annual volume', step: 3 },
@@ -71,7 +91,6 @@ export const issueStep = (issue: IntakeIssue): StepNumber =>
 
 export interface WizardConfig {
   intake: IntakeConfig;
-  freeTextNeckFinishes: string[];
   /** Fields any blocking rule reads, for the "required" marker. */
   requiredFields: Set<string>;
   help: Record<string, string>;
@@ -95,9 +114,23 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
       allowedRequestClasses: (s.intake_allowed_request_classes ?? []) as never,
       redirectMessage:
         typeof s.intake_redirect_message === 'string' ? s.intake_redirect_message : '',
+      ...(typeof s.intake_variants_note_max_length === 'number'
+        ? { variantsNoteMaxLength: s.intake_variants_note_max_length }
+        : {}),
       drawingProvidedCodes: (lists.drawing_status ?? [])
         .filter((e) => meta(e, 'hasDrawing'))
         .map((e) => e.code),
+      customCodes: Object.fromEntries(
+        CUSTOM_LIST_FIELDS.map((list) => [
+          list,
+          (lists[list] ?? []).filter((e) => meta(e, 'freeText')).map((e) => e.code),
+        ]),
+      ),
+      componentFollowUps: Object.fromEntries(
+        (lists.component ?? [])
+          .filter((e) => Array.isArray(e.meta.followUps))
+          .map((e) => [e.code, e.meta.followUps as never]),
+      ),
     });
     const required = new Set<string>();
     for (const f of intake.requiredFields.flatMap(fieldsReferenced)) {
@@ -106,9 +139,6 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
     }
     return {
       intake,
-      freeTextNeckFinishes: (lists.neck_finish ?? [])
-        .filter((e) => meta(e, 'freeText'))
-        .map((e) => e.code),
       requiredFields: required,
       help: (s.intake_field_help ?? {}) as Record<string, string>,
       descriptionTemplate:
@@ -126,7 +156,50 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
 
 /** The same evaluation the API runs at submit, for instant feedback (the API stays the authority). */
 export const evaluateDraft = (data: IntakeDraftData, cfg: WizardConfig): IntakeEvaluation =>
-  evaluateIntake(intakeValues(data, cfg.freeTextNeckFinishes), cfg.intake, new Date());
+  evaluateIntake(intakeValues(data), cfg.intake, new Date());
+
+/** The value-list entry for a code (its label and meta). */
+export const listEntry = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
+  code ? cfg.lists[listKey]?.find((e) => e.code === code) : undefined;
+
+/** True when `code` is the list's "Custom" value (meta `freeText`): its description is required. */
+export const isCustom = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
+  listEntry(cfg, listKey, code)?.meta.freeText === true;
+
+const asListEntries = (cfg: WizardConfig, listKey: string): ListEntry[] =>
+  (cfg.lists[listKey] ?? []).map((e) => ({
+    code: e.code,
+    label: e.label,
+    freeText: e.meta.freeText === true,
+  }));
+
+/** F-010: an SF Neck_Finish__c text ("28-410", "120 DC") as the three-list neck; null when unparseable. */
+export const neckFromSalesforce = (cfg: WizardConfig, text: string | null | undefined) =>
+  parseNeckText(text, {
+    diameters: asListEntries(cfg, 'neck_diameter'),
+    finishes: asListEntries(cfg, 'neck_finish_type'),
+  });
+
+/** "28 mm / 410 / Tamper Evident" with Custom values shown as their description. */
+export function neckLabel(
+  cfg: WizardConfig,
+  n: {
+    neckDiameter?: string | null | undefined;
+    neckDiameterCustom?: string | null | undefined;
+    neckFinishType?: string | null | undefined;
+    neckFinishTypeCustom?: string | null | undefined;
+    neckSpecialFeature?: string | null | undefined;
+    neckSpecialFeatureCustom?: string | null | undefined;
+  },
+): string {
+  const one = (list: string, code: string | null | undefined, custom: string | null | undefined) =>
+    isCustom(cfg, list, code) ? (custom ?? 'Custom') : valueLabel(cfg, list, code) || null;
+  return neckSummary({
+    diameter: one('neck_diameter', n.neckDiameter, n.neckDiameterCustom),
+    finish: one('neck_finish_type', n.neckFinishType, n.neckFinishTypeCustom),
+    feature: one('neck_special_feature', n.neckSpecialFeature, n.neckSpecialFeatureCustom),
+  });
+}
 
 export const valueLabel = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
   code ? (cfg.lists[listKey]?.find((e) => e.code === code)?.label ?? code) : '';
@@ -172,10 +245,15 @@ export function prefillFromOpportunity(
   // The KAM's "not yet a Pretium customer" answer survives re-picking an opportunity on the same account.
   const sameAccount = current.customer?.sfAccountId === sfAccountId;
   const sfResin = matchCode(cfg, 'resin', spec?.resin);
+  // F-010: SF's Neck_Finish__c by the same rule as the migration; blank when it can't be parsed.
+  const sfNeck = neckFromSalesforce(cfg, spec?.neckFinish);
   const sfVolume = spec?.annualVolume ?? null;
   const sfSize = spec?.capacity?.trim() ? spec.capacity.trim() : null;
   const sfPrefill: NonNullable<IntakeDraftData['sfPrefill']> = {
     resin: sfResin,
+    neckDiameter: sfNeck?.neckDiameter ?? null,
+    neckFinishType: sfNeck?.neckFinishType ?? null,
+    neckFinishTypeCustom: sfNeck?.neckFinishTypeCustom ?? null,
     estAnnualVolume: sfVolume,
     containerSize: sfSize,
   };
@@ -195,6 +273,13 @@ export function prefillFromOpportunity(
     estAnnualRevenue: usableAmount,
     estAnnualRevenueSf: o.amount,
     resin: sfResin ?? current.resin ?? null,
+    ...(sfNeck
+      ? sfNeck
+      : {
+          neckDiameter: current.neckDiameter ?? null,
+          neckFinishType: current.neckFinishType ?? null,
+          neckFinishTypeCustom: current.neckFinishTypeCustom ?? null,
+        }),
     estAnnualVolume: sfVolume ?? current.estAnnualVolume ?? null,
     containerSize: sfSize ?? current.containerSize ?? null,
     sfPrefill,

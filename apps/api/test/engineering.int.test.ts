@@ -89,7 +89,10 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
     components: ['CONTAINER'],
     market: 'FOOD',
     resin: 'HDPE',
-    neckFinish: '38-400',
+    neckDiameter: '38',
+    neckFinishType: '400',
+    pcrLevel: '0',
+    colorType: 'NATURAL',
     packagingType: 'BULK',
     estAnnualVolume: 750_000,
     estAnnualRevenue: 150_000,
@@ -282,10 +285,10 @@ describe('the queue', () => {
   });
 
   it('flags what Engineering may have to chase (completeness warnings)', async () => {
-    const qn = await inQueue({ drawingStatus: 'COMING', neckFinish: null });
+    const qn = await inQueue({ drawingStatus: 'COMING', neckDiameter: null, neckFinishType: null });
     const codes = find(await queue(), qn)!.completeness.map((c) => `${c.code}:${c.field}`);
     expect(codes).toContain('DRAWING_MISSING:drawing_status');
-    expect(codes).toContain('ENRICH:neck_finish');
+    expect(codes).toContain('ENRICH:neck_diameter');
   });
 
   it('who sees it: EngLead the whole queue and the picker; Engineer read-only; Leadership read; others 403', async () => {

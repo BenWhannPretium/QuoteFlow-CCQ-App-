@@ -21,6 +21,7 @@ import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
 import { GateDecisionDialog } from '../GateDecisionDialog';
+import { intakeFactItems } from '../intake/IntakeFacts';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
 import { CapitalChip } from '../pricing/CapitalChip';
@@ -258,7 +259,8 @@ function RequestSection({ s }: { s: ReviewSummary }) {
       label: 'Estimated revenue',
       value: q.estAnnualRevenue != null ? `${money(q.estAnnualRevenue)}/yr` : null,
     },
-    { label: 'Neck finish', value: label('neck_finish', i.neckFinish) },
+    // FB-02: the intake's product facts (neck, resin grade, PCR, color, variants, need-by dates…).
+    ...intakeFactItems(config?.valueLists, i.facts, i.neckFinish),
     {
       label: 'Packaging',
       value: [label('packaging_type', i.packagingType), i.packagingNotes]
@@ -267,7 +269,7 @@ function RequestSection({ s }: { s: ReviewSummary }) {
     },
     { label: 'Drawing', value: label('drawing_status', i.drawingStatus) },
     { label: 'Salesforce close date', value: q.expectedCloseDate },
-    { label: 'Ship-to', value: shipTo },
+    { label: 'Ship / fill destination', value: shipTo },
     { label: 'KAM', value: q.kamName },
   ];
   return (

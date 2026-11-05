@@ -72,7 +72,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { loadEngQueueSettings, engineeringView } from './engineering-view';
 import { loadIntakeConfig } from './intake';
-import { shipCityState } from './intake-facts';
+import { quoteIntakeValues, shipCityState } from './intake-facts';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
 import { persistNotifications } from './notificationService';
 import { ServiceProblem } from './problem';
@@ -190,33 +190,8 @@ export class EngineeringService {
       holds,
       now,
     );
-    const structured = (q.structuredDescription ?? {}) as { standard?: string; size?: string };
     const completeness = engineeringCompleteness(
-      {
-        sf_opportunity_id: q.sfOpportunityId,
-        customer: { name: row.customerName },
-        ship_to: q.shipTo,
-        ship_to_default: q.shipToOriginal,
-        ship_to_override_reason: q.shipToOverrideReason,
-        request_class: q.requestClass,
-        product_family: q.productFamily,
-        components: q.components,
-        market: q.market,
-        resin: q.resin,
-        neck_finish: q.neckFinish,
-        packaging_type: q.packagingType,
-        packaging_notes: q.packagingNotes,
-        est_annual_volume: q.estAnnualVolume,
-        est_annual_volume_confirmed: q.estAnnualVolumeConfirmed,
-        est_annual_revenue: q.estAnnualRevenue,
-        quote_needed_by: q.quoteNeededBy,
-        product_needed_by: q.productNeededBy,
-        container_size: structured.size ?? null,
-        standard_description: structured.standard ?? null,
-        description: q.description,
-        drawing_status: q.drawingStatus,
-        comments_for_engineering: q.commentsForEngineering,
-      },
+      quoteIntakeValues(q, row.customerName),
       qc.intake,
       q.submittedAt ?? now,
     );

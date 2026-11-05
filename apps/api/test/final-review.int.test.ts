@@ -114,7 +114,10 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
     components: ['CONTAINER'],
     market: 'FOOD',
     resin: 'HDPE',
-    neckFinish: '38-400',
+    neckDiameter: '38',
+    neckFinishType: '400',
+    pcrLevel: '0',
+    colorType: 'NATURAL',
     packagingType: 'BULK',
     estAnnualVolume: 750_000,
     estAnnualRevenue: 150_000,
@@ -460,7 +463,7 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     // intake summary
     expect(dto.intake).toMatchObject({
       standardDescription: '16 oz Bottle, HDPE',
-      neckFinish: '38-400',
+      facts: { neckDiameter: '38', neckFinishType: '400' },
       packagingType: 'BULK',
       shipTo: { city: 'Testville' },
     });

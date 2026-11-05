@@ -1,5 +1,11 @@
 import type { IntakeAddress, IntakeDraftData } from '@ccq/contracts';
-import { todayInCentral, type IntakeEvaluation } from '@ccq/domain';
+import {
+  activeFollowUps,
+  COMPONENT_FOLLOW_UP_FIELDS,
+  todayInCentral,
+  type ComponentFollowUpField,
+  type IntakeEvaluation,
+} from '@ccq/domain';
 import { PencilIcon, Undo2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -12,13 +18,15 @@ import {
   formatAddress,
   formatDate,
   formatUsd,
+  isCustom,
   issueLabel,
   issueStep,
+  neckLabel,
   suggestedDescription,
   valueLabel,
   type WizardConfig,
 } from './model';
-import { Field, Notice, ReadOnlyValue, Section, SfTag } from './ui';
+import { Field, Notice, ReadOnlyValue, Reveal, Section, SfTag } from './ui';
 
 export interface StepProps {
   data: IntakeDraftData;
@@ -267,6 +275,305 @@ function NumberInput({
   );
 }
 
+/** A short text field shown only when it applies (a Custom value, a checkbox), required while shown. */
+function ConditionalText({
+  when,
+  field,
+  value,
+  onChange,
+  cfg,
+  evaluation,
+  max,
+  label,
+  placeholder,
+}: {
+  when: boolean;
+  field: string;
+  value: string | null | undefined;
+  onChange: (v: string | null) => void;
+  cfg: WizardConfig;
+  evaluation: IntakeEvaluation;
+  max: number;
+  label?: string;
+  placeholder?: string;
+}) {
+  const issue = evaluation.blocking.find((b) => b.field === field);
+  return (
+    <Reveal when={when}>
+      <Field {...meta(cfg, field)} {...(label ? { label } : {})} required>
+        <Input
+          id={fid(field)}
+          aria-describedby={`${fid(field)}-help`}
+          aria-invalid={issue ? true : undefined}
+          aria-required
+          maxLength={max}
+          placeholder={placeholder}
+          value={value ?? ''}
+          onChange={(e) => onChange(nullIfBlank(e.target.value))}
+        />
+        {issue?.code === 'INVALID_VALUE' && <FieldError issue={issue} />}
+      </Field>
+    </Reveal>
+  );
+}
+
+/** F-011 / F-055: resin (read-only when SF supplied it), customer-specified grade, PCR %. */
+function ResinFields({ data, update, cfg, evaluation }: StepProps) {
+  const sf = data.sfPrefill ?? {};
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {sf.resin ? (
+          <ReadOnlyValue
+            {...meta(cfg, 'resin')}
+            value={valueLabel(cfg, 'resin', data.resin)}
+            testId="sf-resin"
+          />
+        ) : (
+          <Field {...meta(cfg, 'resin')}>
+            <Select
+              id={fid('resin')}
+              listKey="resin"
+              value={data.resin}
+              onChange={(v) => update({ resin: v })}
+              cfg={cfg}
+            />
+          </Field>
+        )}
+        <Field {...meta(cfg, 'pcr_level')}>
+          <Select
+            id={fid('pcr_level')}
+            listKey="pcr_level"
+            value={data.pcrLevel}
+            onChange={(v) => update({ pcrLevel: v })}
+            cfg={cfg}
+          />
+        </Field>
+      </div>
+      <label className="flex min-h-11 items-center gap-3 text-sm">
+        <input
+          id={fid('resin_customer_specified')}
+          type="checkbox"
+          className="size-5"
+          aria-describedby={`${fid('resin_customer_specified')}-help`}
+          checked={data.resinCustomerSpecified === true}
+          onChange={(e) =>
+            update(
+              e.target.checked
+                ? { resinCustomerSpecified: true }
+                : { resinCustomerSpecified: false, resinGrade: null },
+            )
+          }
+        />
+        Customer-specified resin
+      </label>
+      {cfg.help.resin_customer_specified && (
+        <p
+          id={`${fid('resin_customer_specified')}-help`}
+          className="text-muted-foreground -mt-3 text-xs"
+        >
+          {cfg.help.resin_customer_specified}
+        </p>
+      )}
+      <ConditionalText
+        when={data.resinCustomerSpecified === true}
+        field="resin_grade"
+        value={data.resinGrade}
+        onChange={(v) => update({ resinGrade: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={120}
+        placeholder="e.g. LyondellBasell Pro-fax 6331"
+      />
+    </div>
+  );
+}
+
+const NECK_LISTS = [
+  { list: 'neck_diameter', key: 'neckDiameter', custom: 'neckDiameterCustom' },
+  { list: 'neck_finish_type', key: 'neckFinishType', custom: 'neckFinishTypeCustom' },
+  { list: 'neck_special_feature', key: 'neckSpecialFeature', custom: 'neckSpecialFeatureCustom' },
+] as const;
+
+/** F-010: neck diameter, finish and (optional) special feature; Custom reveals a description. */
+function NeckFields({ data, update, cfg, evaluation }: StepProps) {
+  const sf = data.sfPrefill ?? {};
+  const fromSf = Boolean(sf.neckDiameter && sf.neckFinishType);
+  return (
+    <fieldset className="grid gap-4" data-field={fid('neck')}>
+      <legend className="mb-1.5 flex flex-wrap items-center gap-2 text-sm font-medium">
+        Neck {fromSf && <SfTag />}
+      </legend>
+      {fromSf && (
+        <ReadOnlyValue
+          id={fid('neck_from_sf')}
+          label="Neck diameter / finish"
+          value={neckLabel(cfg, data)}
+          testId="sf-neck"
+        />
+      )}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {NECK_LISTS.filter((n) => !fromSf || n.list === 'neck_special_feature').map((n) => (
+          <Field key={n.list} {...meta(cfg, n.list)}>
+            <Select
+              id={fid(n.list)}
+              listKey={n.list}
+              value={data[n.key]}
+              placeholder={n.list === 'neck_special_feature' ? 'None' : 'Choose…'}
+              onChange={(v) =>
+                update({
+                  [n.key]: v,
+                  // Leaving Custom clears its description (it no longer applies).
+                  ...(isCustom(cfg, n.list, v) ? {} : { [n.custom]: null }),
+                })
+              }
+              cfg={cfg}
+            />
+          </Field>
+        ))}
+      </div>
+      {NECK_LISTS.map((n) => (
+        <ConditionalText
+          key={n.custom}
+          when={
+            isCustom(cfg, n.list, data[n.key]) && !(fromSf && n.list !== 'neck_special_feature')
+          }
+          field={`${n.list}_custom`}
+          value={data[n.custom]}
+          onChange={(v) => update({ [n.custom]: v })}
+          cfg={cfg}
+          evaluation={evaluation}
+          max={120}
+        />
+      ))}
+    </fieldset>
+  );
+}
+
+/** F-023: color (Custom reveals a description) and an additives note. */
+function ColorFields({ data, update, cfg, evaluation }: StepProps) {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field {...meta(cfg, 'color_type')}>
+          <Select
+            id={fid('color_type')}
+            listKey="color_type"
+            value={data.colorType}
+            onChange={(v) =>
+              update({
+                colorType: v,
+                ...(isCustom(cfg, 'color_type', v) ? {} : { colorDescription: null }),
+              })
+            }
+            cfg={cfg}
+          />
+        </Field>
+        <Field {...meta(cfg, 'additives')}>
+          <Input
+            id={fid('additives')}
+            aria-describedby={`${fid('additives')}-help`}
+            maxLength={200}
+            placeholder="e.g. UV inhibitor"
+            value={data.additives ?? ''}
+            onChange={(e) => update({ additives: nullIfBlank(e.target.value) })}
+          />
+        </Field>
+      </div>
+      <ConditionalText
+        when={isCustom(cfg, 'color_type', data.colorType)}
+        field="color_description"
+        value={data.colorDescription}
+        onChange={(v) => update({ colorDescription: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={120}
+        placeholder="e.g. Pantone 286 C blue"
+      />
+    </div>
+  );
+}
+
+/** F-013: draft keys of the component follow-up fields. */
+const FOLLOW_UP_KEYS = {
+  liner_spec: 'linerSpec',
+  labels_purchased_by: 'labelsPurchasedBy',
+  decoration_type: 'decorationType',
+  decoration_print_colors: 'decorationPrintColors',
+} as const satisfies Record<ComponentFollowUpField, keyof IntakeDraftData>;
+
+/** F-013: the picked components' follow-ups, required while shown. */
+function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
+  const active = activeFollowUps(data.components, cfg.intake.componentFollowUps);
+  const on = (f: ComponentFollowUpField) => active.includes(f);
+  const issue = (f: string) => evaluation.blocking.find((b) => b.field === f);
+  return (
+    <div className="grid gap-4" data-testid="component-follow-ups">
+      <ConditionalText
+        when={on('liner_spec')}
+        field="liner_spec"
+        value={data.linerSpec}
+        onChange={(v) => update({ linerSpec: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={120}
+        placeholder="e.g. induction seal, foam"
+      />
+      <Reveal when={on('labels_purchased_by')}>
+        <Field {...meta(cfg, 'labels_purchased_by')} required>
+          <Select
+            id={fid('labels_purchased_by')}
+            listKey="labels_purchased_by"
+            value={data.labelsPurchasedBy}
+            onChange={(v) => update({ labelsPurchasedBy: v })}
+            cfg={cfg}
+            invalid={Boolean(issue('labels_purchased_by'))}
+          />
+        </Field>
+      </Reveal>
+      <Reveal when={on('decoration_type') || on('decoration_print_colors')}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {on('decoration_type') && (
+            <Field {...meta(cfg, 'decoration_type')} required>
+              <Select
+                id={fid('decoration_type')}
+                listKey="decoration_type"
+                value={data.decorationType}
+                onChange={(v) => update({ decorationType: v })}
+                cfg={cfg}
+                invalid={Boolean(issue('decoration_type'))}
+              />
+            </Field>
+          )}
+          {on('decoration_print_colors') && (
+            <Field {...meta(cfg, 'decoration_print_colors')} required>
+              <Input
+                id={fid('decoration_print_colors')}
+                aria-describedby={`${fid('decoration_print_colors')}-help`}
+                aria-invalid={issue('decoration_print_colors') ? true : undefined}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={12}
+                step={1}
+                value={data.decorationPrintColors ?? ''}
+                onChange={(e) =>
+                  update({
+                    decorationPrintColors: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              />
+              {issue('decoration_print_colors')?.code === 'INVALID_VALUE' && (
+                <FieldError issue={issue('decoration_print_colors')} />
+              )}
+            </Field>
+          )}
+        </div>
+      </Reveal>
+    </div>
+  );
+}
+
 export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: StepProps) {
   const invalidIssue = (field: string) =>
     evaluation.blocking.find((b) => b.code === 'INVALID_VALUE' && b.field === field);
@@ -274,7 +581,7 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
   const tomorrow = isoDayAfter(todayInCentral(new Date()));
   // F-008: what the opportunity's SF product spec supplied is read-only (fix it in Salesforce).
   const sf = data.sfPrefill ?? {};
-  const neckEntry = cfg.lists.neck_finish?.find((e) => e.code === data.neckFinish);
+  const variantsMax = cfg.intake.variantsNoteMaxLength;
   const placeholder = evaluation.warnings.find((w) => w.code === 'VOLUME_PLACEHOLDER');
   // F-067: a class other than CCQ shows where it goes instead, and Submit stays disabled.
   const notAllowed = evaluation.blocking.find((b) => b.code === 'REQUEST_CLASS_NOT_ALLOWED');
@@ -297,9 +604,16 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
     const set = new Set(data.components ?? []);
     if (on) set.add(code);
     else set.delete(code);
-    update({
-      components: (cfg.lists.component ?? []).map((e) => e.code).filter((c) => set.has(c)),
-    });
+    const components = (cfg.lists.component ?? []).map((e) => e.code).filter((c) => set.has(c));
+    // F-013: a deselected component's follow-ups are cleared.
+    const active = activeFollowUps(components, cfg.intake.componentFollowUps);
+    const cleared = Object.fromEntries(
+      COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)).map((f) => [
+        FOLLOW_UP_KEYS[f],
+        null,
+      ]),
+    );
+    update({ components, ...cleared });
   };
 
   const revenueChanged =
@@ -355,23 +669,6 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
               />
             </Field>
           )}
-          {sf.resin ? (
-            <ReadOnlyValue
-              {...meta(cfg, 'resin')}
-              value={valueLabel(cfg, 'resin', data.resin)}
-              testId="sf-resin"
-            />
-          ) : (
-            <Field {...meta(cfg, 'resin')}>
-              <Select
-                id={fid('resin')}
-                listKey="resin"
-                value={data.resin}
-                onChange={(v) => update({ resin: v })}
-                cfg={cfg}
-              />
-            </Field>
-          )}
           <Field {...meta(cfg, 'market')}>
             <Select
               id={fid('market')}
@@ -407,26 +704,10 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             <p className="text-muted-foreground text-xs">{cfg.help.components}</p>
           )}
         </fieldset>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field {...meta(cfg, 'neck_finish')}>
-            <Select
-              id={fid('neck_finish')}
-              listKey="neck_finish"
-              value={data.neckFinish}
-              onChange={(v) => update({ neckFinish: v })}
-              cfg={cfg}
-            />
-          </Field>
-          {neckEntry?.meta.freeText === true && (
-            <Field id={fid('neck_finish_other')} label="Describe the neck finish">
-              <Input
-                id={fid('neck_finish_other')}
-                value={data.neckFinishOther ?? ''}
-                onChange={(e) => update({ neckFinishOther: nullIfBlank(e.target.value) })}
-              />
-            </Field>
-          )}
-        </div>
+        <ComponentFollowUps data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <ResinFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <NeckFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <ColorFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
       <Section title="Packaging">
@@ -545,6 +826,26 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
         </div>
       </Section>
 
+      <Section title="Quote variants">
+        <Field
+          {...meta(cfg, 'quote_variants_note')}
+          label={`Quote variants requested (optional, up to ${variantsMax} characters)`}
+        >
+          <Textarea
+            id={fid('quote_variants_note')}
+            aria-describedby={`${fid('quote_variants_note')}-help ${fid('quote_variants_note')}-count`}
+            maxLength={variantsMax}
+            placeholder="e.g. price at 0/25/50% PCR; near-site vs ideal-site"
+            value={data.quoteVariantsNote ?? ''}
+            onChange={(e) => update({ quoteVariantsNote: nullIfBlank(e.target.value) })}
+            className="min-h-16"
+          />
+          <p id={`${fid('quote_variants_note')}-count`} className="text-muted-foreground text-xs">
+            {(data.quoteVariantsNote ?? '').length} / {variantsMax}
+          </p>
+        </Field>
+      </Section>
+
       <Section title="Description">
         <Field {...meta(cfg, 'standard_description')}>
           <Input
@@ -596,11 +897,27 @@ export function ReviewStep({
   const enrich = evaluation.warnings.filter((w) => w.code === 'ENRICH');
   const label = (list: string, code: string | null | undefined) =>
     valueLabel(cfg, list, code) || '—';
-  const neck =
-    cfg.lists.neck_finish?.find((e) => e.code === data.neckFinish)?.meta.freeText === true
-      ? data.neckFinishOther
-      : label('neck_finish', data.neckFinish);
 
+  const active = activeFollowUps(data.components, cfg.intake.componentFollowUps);
+  const followUpRows: [string, string | null | undefined][] = [
+    ...(active.includes('liner_spec')
+      ? [['Liner spec', data.linerSpec] as [string, string | null | undefined]]
+      : []),
+    ...(active.includes('labels_purchased_by')
+      ? [
+          ['Labels purchased by', label('labels_purchased_by', data.labelsPurchasedBy)] as [
+            string,
+            string,
+          ],
+        ]
+      : []),
+    ...(active.includes('decoration_type')
+      ? [['Decoration', label('decoration_type', data.decorationType)] as [string, string]]
+      : []),
+    ...(active.includes('decoration_print_colors')
+      ? [['Print colors', data.decorationPrintColors?.toString()] as [string, string | undefined]]
+      : []),
+  ];
   const rows: { step: number; title: string; items: [string, string | null | undefined][] }[] = [
     {
       step: 1,
@@ -630,9 +947,22 @@ export function ReviewStep({
         ['Request class', label('request_class', data.requestClass)],
         ['Product family', label('product_family', data.productFamily)],
         ['Components', (data.components ?? []).map((c) => label('component', c)).join(', ')],
+        ...followUpRows,
         ['Market', label('market', data.market)],
         ['Resin', label('resin', data.resin)],
-        ['Neck finish', neck],
+        [
+          'Customer-specified resin',
+          data.resinCustomerSpecified ? (data.resinGrade ?? 'Yes') : 'No',
+        ],
+        ['PCR %', label('pcr_level', data.pcrLevel)],
+        ['Neck', neckLabel(cfg, data) || null],
+        [
+          'Color',
+          isCustom(cfg, 'color_type', data.colorType)
+            ? (data.colorDescription ?? 'Custom')
+            : label('color_type', data.colorType),
+        ],
+        ['Additives', data.additives],
         ['Packaging', label('packaging_type', data.packagingType)],
         ['Packaging requirements', data.packagingNotes],
         [
@@ -643,6 +973,7 @@ export function ReviewStep({
         ['Salesforce close date', sfCloseDate ? formatDate(sfCloseDate) : null],
         ['Quote needed by', data.quoteNeededBy ? formatDate(data.quoteNeededBy) : null],
         ['Product needed by', data.productNeededBy ? formatDate(data.productNeededBy) : null],
+        ['Quote variants requested', data.quoteVariantsNote],
         ['Standard description', data.standardDescription],
         ['Description', data.description],
       ],

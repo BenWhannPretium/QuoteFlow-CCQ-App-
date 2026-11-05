@@ -60,7 +60,7 @@ export const IntakeDraftData = z.object({
       resin: text(60),
       neckDiameter: text(60),
       neckFinishType: text(60),
-      neckFinishCustom: text(120),
+      neckFinishTypeCustom: text(120),
       estAnnualVolume: z.number().nullable().optional(),
       containerSize: text(60),
     })
@@ -80,11 +80,47 @@ export const IntakeDraftData = z.object({
   requestClass: text(60),
   productFamily: text(60),
   components: z.array(z.string().max(60)).max(20).optional(),
+  /**
+   * FB-02 (F-013): follow-ups of the picked components (`component` value-list meta `followUps`):
+   * shown only while the component is picked, required then, cleared when it is not.
+   */
+  linerSpec: text(120),
+  /** labels_purchased_by code (Customer / Pretium). */
+  labelsPurchasedBy: text(60),
+  /** decoration_type code. */
+  decorationType: text(60),
+  /** Whole number 1–12 (checked by the domain). */
+  decorationPrintColors: z.number().nullable().optional(),
   market: text(60),
   resin: text(60),
-  /** neck_finish code; when the code's meta has `freeText`, `neckFinishOther` holds the finish. */
-  neckFinish: text(60),
-  neckFinishOther: text(120),
+  /** FB-02 (F-011): the customer specifies the resin; `resinGrade` (supplier / grade) is then required. */
+  resinCustomerSpecified: z.boolean().optional(),
+  /** e.g. "LyondellBasell Pro-fax 6331". */
+  resinGrade: text(120),
+  /** FB-02 (F-055): pcr_level code (0 / 25 / 50 / 100 %, provisional). */
+  pcrLevel: text(60),
+  /**
+   * FB-02 (F-010, Jim Zweifel's lists): the neck as three pick-lists. "Custom" (value-list meta
+   * `freeText`) needs the matching short description. The old single `neckFinish` list is retired.
+   */
+  neckDiameter: text(60),
+  neckDiameterCustom: text(120),
+  neckFinishType: text(60),
+  neckFinishTypeCustom: text(120),
+  /** Optional. */
+  neckSpecialFeature: text(60),
+  neckSpecialFeatureCustom: text(120),
+  /** FB-02 (F-023): color_type code (Natural / Custom color); Custom needs `colorDescription`. */
+  colorType: text(60),
+  colorDescription: text(120),
+  /** FB-02 (F-023): optional short note on additives (cost drivers for Pricing). */
+  additives: text(200),
+  /**
+   * FB-02 (F-075, interim answer to D-017 option B): the variants the customer wants priced, e.g.
+   * "0/25/50% PCR; near-site vs ideal-site". The limit is the provisional setting
+   * `intake_variants_note_max_length` (300), checked by the domain.
+   */
+  quoteVariantsNote: text(2000),
   packagingType: text(60),
   packagingNotes: text(2000),
   /** Units per year. */
@@ -272,16 +308,6 @@ export const INTAKE_PROBLEM_CODES = {
 
 const blank = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
-/** The neck finish as stored: the code, or the typed finish when the code is a free-text one. */
-export function resolvedNeckFinish(
-  data: IntakeDraftData,
-  freeTextCodes: readonly string[],
-): string | null {
-  const code = blank(data.neckFinish);
-  if (code && freeTextCodes.includes(code)) return blank(data.neckFinishOther);
-  return code;
-}
-
 export const intakeAddress = (a: IntakeDraftData['shipTo']) =>
   a
     ? {
@@ -294,7 +320,7 @@ export const intakeAddress = (a: IntakeDraftData['shipTo']) =>
     : null;
 
 /** The draft's fields in the domain's snake_case shape (`evaluateIntake` input). */
-export function intakeValues(data: IntakeDraftData, freeTextNeckFinishes: readonly string[]) {
+export function intakeValues(data: IntakeDraftData) {
   const c = data.customer;
   return {
     sf_opportunity_id: data.sfOpportunityId ?? null,
@@ -309,7 +335,23 @@ export function intakeValues(data: IntakeDraftData, freeTextNeckFinishes: readon
     components: data.components ?? [],
     market: data.market ?? null,
     resin: data.resin ?? null,
-    neck_finish: resolvedNeckFinish(data, freeTextNeckFinishes),
+    resin_customer_specified: data.resinCustomerSpecified ?? false,
+    resin_grade: blank(data.resinGrade),
+    pcr_level: data.pcrLevel ?? null,
+    neck_diameter: data.neckDiameter ?? null,
+    neck_diameter_custom: blank(data.neckDiameterCustom),
+    neck_finish_type: data.neckFinishType ?? null,
+    neck_finish_type_custom: blank(data.neckFinishTypeCustom),
+    neck_special_feature: data.neckSpecialFeature ?? null,
+    neck_special_feature_custom: blank(data.neckSpecialFeatureCustom),
+    color_type: data.colorType ?? null,
+    color_description: blank(data.colorDescription),
+    additives: blank(data.additives),
+    quote_variants_note: blank(data.quoteVariantsNote),
+    liner_spec: blank(data.linerSpec),
+    labels_purchased_by: data.labelsPurchasedBy ?? null,
+    decoration_type: data.decorationType ?? null,
+    decoration_print_colors: data.decorationPrintColors ?? null,
     packaging_type: data.packagingType ?? null,
     packaging_notes: data.packagingNotes ?? null,
     est_annual_volume: data.estAnnualVolume ?? null,

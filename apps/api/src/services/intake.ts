@@ -42,7 +42,9 @@ import {
 } from '@ccq/db/repos';
 import {
   availableActions,
+  CUSTOM_LIST_FIELDS,
   evaluateIntake,
+  inapplicableIntakeFields,
   ENG_QUEUE_STAGE_KEY,
   evaluateTransition,
   parseIntakeConfig,
@@ -89,25 +91,27 @@ const notFound = () =>
   new IntakeError(404, INTAKE_PROBLEM_CODES.notFound, 'No intake draft with this id');
 
 /** Reads the intake config from app settings and value-list meta. Throws if a setting is missing. */
-export async function loadIntakeConfig(
-  db: DbOrTx,
-): Promise<IntakeConfig & { freeTextNeckFinishes: string[] }> {
+export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
   const [
     requiredFields,
     volumePlaceholder,
     defaultRequestClass,
     allowedRequestClasses,
     redirectMessage,
+    variantsNoteMaxLength,
     drawing,
-    neck,
+    components,
+    ...customLists
   ] = await Promise.all([
     getSetting(db, 'intake_required_fields'),
     getSetting(db, 'intake_volume_placeholder'),
     getSetting(db, 'intake_default_request_class'),
     getSetting(db, 'intake_allowed_request_classes'),
     getSetting(db, 'intake_redirect_message'),
+    getSetting(db, 'intake_variants_note_max_length'),
     listValueList(db, 'drawing_status'),
-    listValueList(db, 'neck_finish'),
+    listValueList(db, 'component'),
+    ...CUSTOM_LIST_FIELDS.map((list) => listValueList(db, list)),
   ]);
   if (
     requiredFields === undefined ||
@@ -118,21 +122,31 @@ export async function loadIntakeConfig(
   ) {
     throw new Error('intake settings are not seeded (run pnpm db:seed)');
   }
-  const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
-  return {
-    ...parseIntakeConfig({
-      requiredFields: requiredFields as never,
-      volumePlaceholder: volumePlaceholder ?? {},
-      defaultRequestClass: typeof defaultRequestClass === 'string' ? defaultRequestClass : '',
-      allowedRequestClasses: allowedRequestClasses as never,
-      redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
-      drawingProvidedCodes: drawing
-        .filter((v) => meta(v.meta).hasDrawing === true)
-        .map((v) => v.code),
-    }),
-    freeTextNeckFinishes: neck.filter((v) => meta(v.meta).freeText === true).map((v) => v.code),
-  };
+  return parseIntakeConfig({
+    requiredFields: requiredFields as never,
+    volumePlaceholder: volumePlaceholder ?? {},
+    defaultRequestClass: typeof defaultRequestClass === 'string' ? defaultRequestClass : '',
+    allowedRequestClasses: allowedRequestClasses as never,
+    redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
+    ...(typeof variantsNoteMaxLength === 'number' ? { variantsNoteMaxLength } : {}),
+    drawingProvidedCodes: drawing
+      .filter((v) => meta(v.meta).hasDrawing === true)
+      .map((v) => v.code),
+    customCodes: Object.fromEntries(
+      CUSTOM_LIST_FIELDS.map((list, i) => [
+        list,
+        customLists[i]!.filter((v) => meta(v.meta).freeText === true).map((v) => v.code),
+      ]),
+    ),
+    componentFollowUps: Object.fromEntries(
+      components
+        .filter((v) => Array.isArray(meta(v.meta).followUps))
+        .map((v) => [v.code, meta(v.meta).followUps as never]),
+    ),
+  });
 }
+
+const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
 
 const blankToNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
@@ -178,11 +192,7 @@ export class IntakeService {
   private async toDto(tx: DbOrTx, row: QuoteDraftRow): Promise<IntakeDraft> {
     const config = await loadIntakeConfig(tx);
     const data = row.data as IntakeDraftData;
-    const evaluation = evaluateIntake(
-      intakeValues(data, config.freeTextNeckFinishes),
-      config,
-      this.now(),
-    );
+    const evaluation = evaluateIntake(intakeValues(data), config, this.now());
     const active =
       row.sfOpportunityId && !row.submittedQuoteId
         ? await getActiveQuoteForOpportunity(tx, row.sfOpportunityId)
@@ -523,7 +533,7 @@ export class IntakeService {
     const draft = await this.ownDraft(tx, actor, id, true);
     const data = draft.data as IntakeDraftData;
     const config = await loadIntakeConfig(tx);
-    const values = intakeValues(data, config.freeTextNeckFinishes);
+    const values = intakeValues(data);
     const evaluation: IntakeEvaluation = evaluateIntake(values, config, now);
     if (!evaluation.ready) {
       throw incompleteError(evaluation);
@@ -570,6 +580,8 @@ export class IntakeService {
     const kam = await findUserById(tx, actor.userId);
     const shipToOverridden =
       Boolean(blankToNull(data.shipToOverrideReason)) && values.ship_to !== null;
+    const cleared = new Set(inapplicableIntakeFields(values, config));
+    const keep = <T>(field: string, value: T): T | null => (cleared.has(field) ? null : value);
     const fields = {
       customerId,
       description: blankToNull(data.description),
@@ -592,7 +604,29 @@ export class IntakeService {
       quoteNeededBy: data.quoteNeededBy ?? null,
       productNeededBy: data.productNeededBy ?? null,
       drawingStatus: data.drawingStatus ?? null,
-      neckFinish: values.neck_finish,
+      // FB-02 (F-010, F-011, F-055, F-023, F-075): product facts. A description of a value that isn't
+      // "Custom", or a grade without the checkbox, is cleared. The old neck_finish is no longer written.
+      neckDiameter: values.neck_diameter,
+      neckDiameterCustom: keep('neck_diameter_custom', values.neck_diameter_custom),
+      neckFinishType: values.neck_finish_type,
+      neckFinishTypeCustom: keep('neck_finish_type_custom', values.neck_finish_type_custom),
+      neckSpecialFeature: values.neck_special_feature,
+      neckSpecialFeatureCustom: keep(
+        'neck_special_feature_custom',
+        values.neck_special_feature_custom,
+      ),
+      resinCustomerSpecified: values.resin_customer_specified,
+      resinGrade: keep('resin_grade', values.resin_grade),
+      pcrLevel: values.pcr_level,
+      colorType: values.color_type,
+      colorDescription: keep('color_description', values.color_description),
+      additives: values.additives,
+      quoteVariantsNote: values.quote_variants_note,
+      // F-013: a component's follow-ups are kept only while the component is picked.
+      linerSpec: keep('liner_spec', values.liner_spec),
+      labelsPurchasedBy: keep('labels_purchased_by', values.labels_purchased_by),
+      decorationType: keep('decoration_type', values.decoration_type),
+      decorationPrintColors: keep('decoration_print_colors', values.decoration_print_colors),
       packagingType: data.packagingType ?? null,
       packagingNotes: blankToNull(data.packagingNotes),
       requestClass: data.requestClass ?? null,
@@ -830,7 +864,23 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     market: q.market,
     resin: q.resin,
     components: q.components,
-    neckFinish: q.neckFinish,
+    neckDiameter: q.neckDiameter,
+    neckDiameterCustom: q.neckDiameterCustom,
+    neckFinishType: q.neckFinishType,
+    neckFinishTypeCustom: q.neckFinishTypeCustom,
+    neckSpecialFeature: q.neckSpecialFeature,
+    neckSpecialFeatureCustom: q.neckSpecialFeatureCustom,
+    resinCustomerSpecified: q.resinCustomerSpecified,
+    resinGrade: q.resinGrade,
+    pcrLevel: q.pcrLevel,
+    colorType: q.colorType,
+    colorDescription: q.colorDescription,
+    additives: q.additives,
+    quoteVariantsNote: q.quoteVariantsNote,
+    linerSpec: q.linerSpec,
+    labelsPurchasedBy: q.labelsPurchasedBy,
+    decorationType: q.decorationType,
+    decorationPrintColors: q.decorationPrintColors,
     packagingType: q.packagingType,
     packagingNotes: q.packagingNotes,
     requestClass: q.requestClass,
