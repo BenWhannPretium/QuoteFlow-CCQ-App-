@@ -1,3 +1,4 @@
+import { g4CheckFields, type G4Check } from './g4-checks';
 import { passThroughEligible, type PassThroughSetting } from './pass-through';
 import { legalReviewReasons, type LegalReviewTriggers } from './terms';
 import type { QuoteState } from '../types/quote';
@@ -6,12 +7,14 @@ import type { QuoteState } from '../types/quote';
 export interface DerivedFieldSettings {
   legalReviewTriggers: LegalReviewTriggers;
   passThrough: PassThroughSetting;
+  /** FB-01 (F-069): `app_setting.g4_required_checks`, the checks that block G4 Advance. */
+  g4RequiredChecks: readonly G4Check[];
 }
 
 /**
  * B-26: fields the server derives for the gate rules from config, never typed by a user (like B-13's
  * `validity_lapsed`): whether a Legal review is required at G4, and whether a price falls below the
- * pass-through threshold at G3. Added to the quote's fields before any rule is evaluated, so the
+ * pass-through threshold at G3. FB-01 (F-069): and which G4 checks block (`g4_required_checks`). Added to the quote's fields before any rule is evaluated, so the
  * decision dialog's "missing" list and the decision itself agree. The customer's status
  * (`customer_status`: existing | not_yet_established) comes with the quote's state.
  */
@@ -22,6 +25,8 @@ export function derivedDecisionFields(
   legal_review_required: boolean;
   legal_review_reasons: string[];
   pass_through_eligible: boolean;
+  g4_terms_check_required: boolean;
+  g4_legal_review_check_required: boolean;
 } {
   const reasons = legalReviewReasons(settings.legalReviewTriggers, {
     customerStatus: (fields.customer_status as string | null | undefined) ?? null,
@@ -35,6 +40,7 @@ export function derivedDecisionFields(
       settings.passThrough,
       fields.est_annual_revenue as number | null | undefined,
     ),
+    ...g4CheckFields(settings.g4RequiredChecks),
   };
 }
 

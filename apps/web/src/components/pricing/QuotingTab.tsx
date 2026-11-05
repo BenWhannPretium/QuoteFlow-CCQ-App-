@@ -25,6 +25,7 @@ import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewPanel } from '../LeadReviewPanel';
 import { timelineQueryKey } from '../Overrides';
+import { SectionLockLine } from '../SectionLockLine';
 import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
 import {
   PricingContextPanel,
@@ -58,12 +59,17 @@ export function QuotingTab({
 }) {
   const quoting = quote.quoting;
   const canDecideG3 = quote.availableActions.some((a) => a.gateKey === 'G3');
+  // FB-01 (F-029): offered only when the config has the outcome and the caller may decide G3.
+  const canReturnToKam = quote.availableActions.some(
+    (a) => a.gateKey === 'G3' && a.outcomeKey === 'rework_kam',
+  );
   const record = quoting.pricingRecord ?? null;
   return (
     <div className="grid gap-6" data-testid="quoting-tab">
       <ApprovalStatus quoting={quoting} passThrough={quote.commercial.passThroughEligible} />
       <PricerAssignment quote={quote} />
       <PricingLeadReview quote={quote} />
+      <SectionLockLine lock={quoting.lock} />
       {quoting.commercialRedacted ? (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -82,6 +88,15 @@ export function QuotingTab({
               <Button variant="outline" onClick={() => onDecide('rework')}>
                 Return to Engineering…
               </Button>
+              {canReturnToKam && (
+                <Button
+                  variant="outline"
+                  onClick={() => onDecide('rework_kam')}
+                  data-testid="return-to-kam"
+                >
+                  Return to KAM…
+                </Button>
+              )}
               <Button variant="ghost" onClick={() => onDecide()}>
                 Hold or stop…
               </Button>

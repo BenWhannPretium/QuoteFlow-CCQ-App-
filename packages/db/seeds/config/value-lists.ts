@@ -117,7 +117,7 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
 
 /**
  * Entries kept for old quotes but not offered (`active = false`). FB-03 (F-057): the EBM wheel is gone
- * from the machine type list. Migration 0026 deactivates it in existing environments.
+ * from the machine type list. Migration 0027 deactivates it in existing environments.
  */
 const INACTIVE_VALUES: ReadonlySet<string> = new Set(['machine_type:EBM_WHEEL']);
 

@@ -1038,15 +1038,19 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     expect(ok.statusCode, ok.body).toBe(201);
   });
 
-  it('Capital required needs the capital figure and sets capital readiness to pending', async () => {
+  it('Capital required needs the capital figure and a note (F-027), and sets capital readiness to pending', async () => {
     const qn = await ready({ solution: false, capacity: false });
     expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'capital_required' }))).toEqual([
       '/capacity_signoff_status',
+      '/note',
       '/prelim_capital_usd',
     ]);
     await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { prelimCapitalUsd: 650_000 });
     await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
-    const ok = await decide(qn, 'G2', { outcomeKey: 'capital_required' });
+    const ok = await decide(qn, 'G2', {
+      outcomeKey: 'capital_required',
+      note: 'A second cavity set is needed',
+    });
     expect(ok.statusCode, ok.body).toBe(201);
     const quote = GateDecisionResponse.parse(ok.json()).quote;
     expect(quote.stageKey).toBe('QUOTING');
@@ -1057,16 +1061,18 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     expect(pricing!.capitalReadiness).toBe('pending');
   });
 
-  it('Hold needs a reason, a review date and an owner (B-26)', async () => {
+  it('Hold needs a reason, a note (F-027), a review date and an owner (B-26)', async () => {
     const qn = await ready();
     expect(errorCodes(await decide(qn, 'G2', { outcomeKey: 'hold' }))).toEqual([
       'MISSING_FIELD',
       'MISSING_FIELD',
+      'NOTE_REQUIRED',
       'REASON_REQUIRED',
     ]);
     const ok = await decide(qn, 'G2', {
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
+      note: 'Waiting on the customer drawing',
       holdUntil: '2026-12-01',
       holdOwnerId: await userId('EngLead'),
     });
@@ -1258,6 +1264,7 @@ describe('time in stage', () => {
     await decide(qn, 'G2', {
       outcomeKey: 'hold',
       reasonCode: 'awaiting_customer_info',
+      note: 'Waiting on the customer drawing',
       holdUntil: '2027-01-04',
       holdOwnerId: await userId('EngLead'),
     });

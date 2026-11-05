@@ -15,6 +15,21 @@ export interface StageHistoryEntry {
   exitedAt: Date | null;
 }
 
+/** FB-01 (F-001): one gate decision, as the section locks read the history. */
+export interface GateDecisionRef {
+  gateKey: string;
+  outcomeKey: string;
+  decidedBy: string;
+  decidedAt: Date;
+  /** The stage the decision moved the quote to; null when it stayed (hold, redirect, re-cost). */
+  targetStageKey: string | null;
+  /**
+   * When the row was written (the database's clock). Orders two decisions with the same `decidedAt`
+   * (decided within the same millisecond, or a test clock).
+   */
+  recordedAt?: Date;
+}
+
 /** The slice of a quote the engine needs. The service layer builds this from the DB row. */
 export interface QuoteState {
   id: QuoteId;
@@ -41,4 +56,6 @@ export interface QuoteState {
    * decided G3. Read by the `actor_is_price_approver` segregation rule.
    */
   priceApproverIds?: readonly UserId[];
+  /** FB-01 (F-001): every gate decision on the quote (any order); the section locks read it. */
+  decisions?: readonly GateDecisionRef[];
 }

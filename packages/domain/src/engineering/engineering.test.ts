@@ -23,6 +23,7 @@ import {
   type CapacityRowInput,
 } from './review';
 import { asUserId } from '../types/ids';
+import { hybridConfig } from '../workflow/seeds/hybrid';
 import { computeTimeInStage, summarizeStageTimes } from '../workflow/time-in-stage';
 
 const ENGINEER_ID = asUserId('user-engineer');
@@ -182,13 +183,19 @@ describe('who may assign, accept and edit', () => {
   });
 
   it('edit: EngLead, or the assigned Engineer, while in ENG_REVIEW', () => {
-    expect(canEditEngReview(makeActor('EngLead'), quote)).toBe(true);
-    expect(canEditEngReview(engineer, quote)).toBe(true);
-    expect(canEditEngReview(otherEngineer, quote)).toBe(false);
-    expect(canEditEngReview(makeActor('KAM', { userId: KAM_ID }), quote)).toBe(false);
-    expect(canEditEngReview(makeActor('EngLead'), { ...quote, stageKey: 'QUOTING' })).toBe(false);
-    expect(canEditEngReview(makeActor('EngLead'), { ...quote, status: 'closed' })).toBe(false);
-    expect(canEditEngReview(makeActor('EngLead'), { ...quote, status: 'on_hold' })).toBe(true);
+    expect(canEditEngReview(makeActor('EngLead'), quote, hybridConfig)).toBe(true);
+    expect(canEditEngReview(engineer, quote, hybridConfig)).toBe(true);
+    expect(canEditEngReview(otherEngineer, quote, hybridConfig)).toBe(false);
+    expect(canEditEngReview(makeActor('KAM', { userId: KAM_ID }), quote, hybridConfig)).toBe(false);
+    expect(
+      canEditEngReview(makeActor('EngLead'), { ...quote, stageKey: 'QUOTING' }, hybridConfig),
+    ).toBe(false);
+    expect(
+      canEditEngReview(makeActor('EngLead'), { ...quote, status: 'closed' }, hybridConfig),
+    ).toBe(false);
+    expect(
+      canEditEngReview(makeActor('EngLead'), { ...quote, status: 'on_hold' }, hybridConfig),
+    ).toBe(true);
   });
 
   it('planAssignment validates the actor, stage and assignee', () => {

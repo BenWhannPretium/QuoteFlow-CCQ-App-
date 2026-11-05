@@ -23,12 +23,15 @@ import {
   redact,
   utilizationLevel,
   type CapacityBasis,
+  sectionLock,
   type Actor,
   type EngQueueSettings,
+  type LockConfig,
   type QuoteState,
 } from '@ccq/domain';
 
 import { leadReviewView } from './lead-review';
+import { sectionLockView } from './locks';
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -107,6 +110,8 @@ export async function engineeringView(
   settings: EngQueueSettings,
   q: Quote,
   state: QuoteState,
+  /** FB-01 (F-001): the workflow config the section lock reads. */
+  workflow: LockConfig,
 ): Promise<EngineeringDetail> {
   const [eng, capacity, basis, facts] = await Promise.all([
     getEngReview(db, q.id),
@@ -190,9 +195,13 @@ export async function engineeringView(
       at: iso(eng?.capacitySignoffAt),
       note: eng?.capacitySignoffNote ?? null,
     },
-    canSignOffCapacity: inQueue && can(actor, 'capacity.signoff', state),
+    canSignOffCapacity:
+      inQueue &&
+      can(actor, 'capacity.signoff', state) &&
+      !sectionLock('engineering', workflow, state).locked,
     commercialRedacted: !canSeeCommercialFields(actor),
-    canEdit: canEditEngReview(actor, state),
+    canEdit: canEditEngReview(actor, state, workflow),
+    lock: await sectionLockView(db, workflow, 'engineering', state),
     canAccept: planAccept(actor, state, eng?.acceptedAt ?? null).ok,
     canAssign: inQueue && canAssignEngQueue(actor, settings, state),
     leadReview: await leadReviewView(db, actor, 'engineering', q, state),

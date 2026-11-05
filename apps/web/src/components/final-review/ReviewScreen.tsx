@@ -126,11 +126,12 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
 
       <Header s={s} now={summary.dataUpdatedAt} />
       {!s.inFinalReview && <NotInFinalReview s={s} />}
-      <Warnings s={s} />
+      <Warnings s={s} quoteNumber={quoteNumber} />
       <RequestSection s={s} />
       <PrioritySection s={s} />
       <EngineeringSection s={s} />
       <PricingSection s={s} />
+      <TermsLegalSection s={s} quoteNumber={quoteNumber} />
       {/* B-15: read-only pricing history (imported export); renders nothing for roles without commercial access. */}
       <PricingContextPanel quoteNumber={quoteNumber} />
       <AttachmentsSection s={s} />
@@ -146,6 +147,8 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
           gateKey="G4"
           quoteNumber={quoteNumber}
           initialOutcomeKey={deciding}
+          // FB-01 (F-069): the decision records the warnings this screen showed.
+          acknowledgedWarnings={s.warnings.filter((w) => w.link).map((w) => w.code)}
           onDecided={() => void navigate({ to: '/approvals', search: { tab: 'final-review' } })}
         />
       )}
@@ -205,7 +208,7 @@ function NotInFinalReview({ s }: { s: ReviewSummary }) {
   );
 }
 
-function Warnings({ s }: { s: ReviewSummary }) {
+function Warnings({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string }) {
   if (s.warnings.length === 0) return null;
   return (
     <section
@@ -219,8 +222,14 @@ function Warnings({ s }: { s: ReviewSummary }) {
       </h2>
       <ul className="grid gap-1 text-sm">
         {s.warnings.map((w) => (
-          <li key={w.code + w.message} data-severity={w.severity}>
+          <li key={w.code + w.message} data-severity={w.severity} data-code={w.code}>
             {w.message}
+            {w.link === 'commercial' && (
+              <>
+                {' · '}
+                <CommercialLink quoteNumber={quoteNumber} />
+              </>
+            )}
           </li>
         ))}
       </ul>
@@ -228,6 +237,78 @@ function Warnings({ s }: { s: ReviewSummary }) {
         Warnings inform the decision; none of them blocks it.
       </p>
     </section>
+  );
+}
+
+/** FB-01 (F-069): Sales or Pricing records these on the quote's Commercial panel. */
+function CommercialLink({ quoteNumber }: { quoteNumber: string }) {
+  return (
+    <Link
+      to="/quotes/$quoteNumber"
+      params={{ quoteNumber }}
+      hash="commercial"
+      // Inherits the surrounding text colour (contrast on the warning background), underlined.
+      className="font-medium underline underline-offset-2"
+    >
+      Open the Commercial panel
+    </Link>
+  );
+}
+
+/**
+ * FB-01 (F-069): the terms and the Legal review, read-only. Sales and Pricing own them; the approver
+ * sees them here, and an open one is a warning (it blocks only if `g4_required_checks` names it).
+ */
+function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string }) {
+  const t = s.termsAndLegal;
+  const yesNo = (v: boolean | null) => (v === null ? null : v ? 'Yes' : 'No');
+  const required = (check: string) => t.requiredChecks.includes(check);
+  return (
+    <Section
+      id="terms-legal"
+      title="Terms and Legal"
+      aside={<CommercialLink quoteNumber={quoteNumber} />}
+    >
+      <KeyValueGrid
+        items={[
+          {
+            id: 'funding',
+            label: 'Funding model',
+            value: t.toolingFundingModelLabel ?? t.toolingFundingModel,
+          },
+          { id: 'tooling', label: 'Tooling commitment', value: yesNo(t.termsToolingCommitment) },
+          { id: 'moq', label: 'MOQ', value: t.termsMoq },
+          { id: 'payment', label: 'Payment terms', value: t.termsPaymentTerms },
+          { id: 'nonstandard', label: 'Non-standard terms', value: yesNo(t.termsNonstandard) },
+          {
+            id: 'checked',
+            label: `Terms checked${required('terms_checked') ? ' (required)' : ''}`,
+            value: t.checkedAt
+              ? `${t.checkedByName ?? 'Someone'}, ${absoluteTime(t.checkedAt)}`
+              : 'Not checked',
+          },
+        ]}
+      />
+      <div className="grid gap-1 text-sm" data-testid="review-legal">
+        <p className="font-medium">
+          Legal review{required('legal_review') ? ' (required when triggered)' : ' (optional)'}
+        </p>
+        {t.legal.reasons.length > 0 ? (
+          <p>Triggered by: {t.legal.reasons.map((r) => r.label).join(', ')}</p>
+        ) : (
+          <p className="text-muted-foreground">No Legal trigger applies.</p>
+        )}
+        {t.legal.reviewedOn ? (
+          <p>
+            Reviewed {t.legal.reviewedOn}
+            {t.legal.reviewerName ? ` by ${t.legal.reviewerName}` : ''}
+            {t.legal.note ? `: ${t.legal.note}` : ''}
+          </p>
+        ) : (
+          t.legal.required && <p>No review recorded.</p>
+        )}
+      </div>
+    </Section>
   );
 }
 

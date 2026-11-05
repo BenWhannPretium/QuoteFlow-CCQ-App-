@@ -34,16 +34,20 @@ import {
   loadQuoteState,
   loadWorkflowConfigInput,
   persistTransition,
+  resumeQuoteAtStage,
   updateQuote,
   updateQuoteDraft,
   type Quote,
   type QuoteDraftRow,
 } from '@ccq/db/repos';
 import {
+  asksScopeChange,
   availableActions,
   evaluateIntake,
   ENG_QUEUE_STAGE_KEY,
   evaluateTransition,
+  planResubmitRoute,
+  PRICING_QUEUE_STAGE_KEY,
   parseIntakeConfig,
   parseWorkflowConfig,
   type Actor,
@@ -57,6 +61,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { AttachmentService } from './attachments';
 import { onEngQueueArrival } from './engineering-arrival';
 import { recordIntakeShipToOverride } from './overrideService';
+import { onPricingArrival } from './pricing-view';
 import { onQualifyArrival } from './qualify-arrival';
 import type { ScoringService } from './scoring';
 import type { AuditMeta } from '../plugins/audit';
@@ -270,6 +275,8 @@ export class IntakeService {
           note: info.note,
           returnedAt: info.decidedAt,
           draftId: draft?.id ?? null,
+          originStageKey: info.originStageKey,
+          askScopeChange: info.askScopeChange,
         });
       }
       return { items, returned };
@@ -292,6 +299,9 @@ export class IntakeService {
       note: d.decision.note,
       decidedAt: d.decision.decidedAt.toISOString(),
       decidedByName: d.decidedByName ?? null,
+      // FB-01 (F-030): where it came from, and whether the KAM is asked about the scope on submit.
+      originStageKey: q.reworkOriginStageKey,
+      askScopeChange: asksScopeChange(reworkOfQuote(q)),
     };
   }
 
@@ -394,6 +404,8 @@ export class IntakeService {
     actor: Actor,
     id: string,
     meta: AuditMeta,
+    /** FB-01 (F-030): the KAM's answer to "Did the scope change?" (asked after a G3 send-back). */
+    scopeChanged?: boolean,
   ): Promise<SubmitIntakeResponse> {
     // The opportunity must be in the snapshot (FK). A live-search pick is copied in first.
     const peek = await withTx((tx) => this.ownDraft(tx, actor, id));
@@ -413,7 +425,7 @@ export class IntakeService {
 
     let result: SubmitIntakeResponse;
     try {
-      result = await withTx((tx) => this.submitInTx(tx, actor, id, meta));
+      result = await withTx((tx) => this.submitInTx(tx, actor, id, meta, scopeChanged));
     } catch (err) {
       if (pgCode(err) === '23505') {
         // Lost the race with another submit for the same opportunity (unique partial index).
@@ -481,6 +493,7 @@ export class IntakeService {
     actor: Actor,
     id: string,
     meta: AuditMeta,
+    scopeChanged: boolean | undefined,
   ): Promise<SubmitIntakeResponse> {
     const now = this.now();
     const draft = await this.ownDraft(tx, actor, id, true);
@@ -508,6 +521,20 @@ export class IntakeService {
 
     // A rework draft goes back into its own quote (same number); anything else creates a quote.
     const reworkOf = draft.reworkOfQuoteId ? await getQuoteById(tx, draft.reworkOfQuoteId) : null;
+    const workflow = parseWorkflowConfig(await loadWorkflowConfigInput(tx));
+    // FB-01 (F-030): a rework that resumes at its origin (G3 "Rework (back to KAM)") goes straight back
+    // there unless the KAM says the scope changed. The domain decides; the answer is required.
+    const route = planResubmitRoute(
+      workflow,
+      reworkOf ? reworkOfQuote(reworkOf) : null,
+      scopeChanged,
+    );
+    if (!route.ok) {
+      throw new IntakeError(422, INTAKE_PROBLEM_CODES.incomplete, route.errors[0]!.message, {
+        errors: route.errors.map((e) => ({ path: `/${e.field ?? ''}`, message: e.message })),
+      });
+    }
+    const asked = reworkOf ? asksScopeChange(reworkOfQuote(reworkOf)) : false;
     if (reworkOf) {
       assertReturnedTo(reworkOf, actor);
       if (reworkOf.sfOpportunityId !== sfOpportunityId) {
@@ -568,14 +595,27 @@ export class IntakeService {
 
     const warningCodes = evaluation.warnings.map((w) => `${w.code}:${w.field}`);
     let quote: Quote;
+    const resumedAt = route.route === 'origin' ? route.stageKey : null;
+    const scopeAnswer = asked ? Boolean(scopeChanged) : null;
     if (reworkOf) {
-      quote = (await updateQuote(tx, reworkOf.id, fields))!;
+      // FB-01 (F-030): the rework record is cleared on resubmit, whichever way it routes.
+      quote = (await updateQuote(tx, reworkOf.id, {
+        ...fields,
+        reworkOriginStageKey: null,
+        reworkResumeAt: null,
+      }))!;
       await insertActivityEvent(tx, {
         quoteId: quote.id,
         type: 'quote_resubmitted',
         actorId: actor.userId,
         at: now,
-        payload: { draftId: draft.id, version: quote.version, warnings: warningCodes },
+        payload: {
+          draftId: draft.id,
+          version: quote.version,
+          warnings: warningCodes,
+          scopeChanged: scopeAnswer,
+          resumedAt,
+        },
         createdBy: actor.userId,
       });
       await insertAuditEvent(tx, {
@@ -587,7 +627,14 @@ export class IntakeService {
         entityId: quote.id,
         quoteId: quote.id,
         before: { submittedAt: null, version: reworkOf.version },
-        after: { resubmitted: true, draftId: draft.id, shipToOverridden },
+        after: {
+          event: 'quote.resubmitted',
+          resubmitted: true,
+          draftId: draft.id,
+          shipToOverridden,
+          scopeChanged: scopeAnswer,
+          resumedAt,
+        },
         ...audit,
         createdBy: actor.userId,
       });
@@ -667,8 +714,50 @@ export class IntakeService {
       (await this.opts.attachments?.claimDraftFiles(tx, actor, draft.id, quote.id, now)) ?? 0;
     await updateQuoteDraft(tx, draft.id, { submittedQuoteId: quote.id, submittedAt: now });
 
+    // FB-01 (F-030): no scope change after a G3 send-back: straight back to Quoting, same pricer and
+    // pricing lead; the pricing record reopens for the pricer (a new stay starts a new lead review).
+    if (route.route === 'origin') {
+      const moved = await resumeQuoteAtStage(
+        tx,
+        {
+          quoteId: quote.id,
+          fromStageKey: quote.stageKey,
+          toStageKey: route.stageKey,
+          version: quote.version,
+          actorId: actor.userId,
+          at: now,
+          scopeChanged: false,
+        },
+        { actorRoles: actor.roles, ...audit },
+      );
+      if (route.stageKey === PRICING_QUEUE_STAGE_KEY) {
+        await onPricingArrival(
+          tx,
+          { id: quote.id, quoteNumber: quote.quoteNumber, version: quote.version },
+          actor.userId,
+          this.opts.log,
+          'kam_rework',
+        );
+      } else if (route.stageKey === ENG_QUEUE_STAGE_KEY) {
+        await onEngQueueArrival(tx, quote, actor.userId);
+      }
+      return {
+        quoteId: quote.id,
+        quoteNumber: quote.quoteNumber,
+        stageKey: moved.stageKey,
+        status: moved.status,
+        routedTo: moved.stageKey,
+        priorityScore: scored?.total ?? null,
+        priorityTier: scored?.tier ?? null,
+        resubmitted: true,
+        scopeChanged: scopeAnswer,
+        resumedAt,
+        warnings: evaluation.warnings,
+        attachments,
+      };
+    }
+
     // Routing. The KAM's own submit gate (decider quote.create) is enabled only when G1 is off.
-    const workflow = parseWorkflowConfig(await loadWorkflowConfigInput(tx));
     const state = (await loadQuoteState(tx, quote.id))!;
     const submitGate = (gateKey: string) =>
       workflow.gates.find((g) => g.key === gateKey)?.deciderPermission === 'quote.create';
@@ -726,10 +815,20 @@ export class IntakeService {
       priorityScore: scored?.total ?? null,
       priorityTier: scored?.tier ?? null,
       resubmitted: Boolean(reworkOf),
+      scopeChanged: scopeAnswer,
+      resumedAt: null,
       warnings,
       attachments,
     };
   }
+}
+
+/** FB-01 (F-030): the rework record a gate decision left on the quote. */
+function reworkOfQuote(q: Quote) {
+  return {
+    originStageKey: q.reworkOriginStageKey,
+    resumeAt: q.reworkResumeAt as 'origin' | 'intake' | null,
+  };
 }
 
 /** The quote must be back with this KAM for rework (INTAKE, not submitted, not closed). */

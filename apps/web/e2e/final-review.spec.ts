@@ -60,7 +60,12 @@ async function quoteInFinalReview(
   });
   // B-26: the capacity owner signs off before G2.
   await put('capacity-signoff', 'eng-lead', { status: 'approved' });
-  await post('gates/G2/decisions', 'eng-lead', { outcomeKey: g2 });
+  // FB-01 (F-027): "Capital required" is an exception decision: it needs a note.
+  await post(
+    'gates/G2/decisions',
+    'eng-lead',
+    g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Second cavity set needed' },
+  );
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
     pricingBasisNote: 'March CDI, FOB Chicago',

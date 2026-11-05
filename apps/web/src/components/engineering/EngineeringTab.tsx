@@ -42,6 +42,7 @@ import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewPanel } from '../LeadReviewPanel';
 import { FieldOverride, timelineQueryKey } from '../Overrides';
+import { SectionLockLine } from '../SectionLockLine';
 
 const DF22_HELP =
   'State your assumption. Quotes have historically assumed 85% vs ~70% demonstrated (DF-22).';
@@ -66,6 +67,7 @@ export function EngineeringTab({
       <ProductFactsHeader facts={eng.productFacts} />
       <AssignmentCard quote={quote} canDecideG2={canDecideG2} onDecide={onDecide} />
       <EngLeadReview quote={quote} />
+      <SectionLockLine lock={eng.lock} />
       {eng.commercialRedacted && eng.canEdit && (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"

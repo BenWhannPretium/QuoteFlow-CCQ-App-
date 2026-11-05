@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { LeadReviewView } from './lead-review';
+import { SectionLockView } from './problem';
 
 // B-10: no imports from quotes.ts here; QuoteDetail embeds EngineeringDetail.
 
@@ -184,6 +185,8 @@ export const EngineeringDetail = z.object({
   /** Commercial numbers were withheld from this response: inputs for them are write-only. */
   commercialRedacted: z.boolean(),
   canEdit: z.boolean(),
+  /** FB-01 (F-001): read-only after G2 is decided, until a send-back reopens it. */
+  lock: SectionLockView,
   canAccept: z.boolean(),
   canAssign: z.boolean(),
   /** Lead review: the engineer's submission to the engineering lead. */

@@ -1,6 +1,7 @@
 import {
   CAPITAL_NOTICE_SEED,
   ESCALATION_ROUTES_SEED,
+  G4_REQUIRED_CHECKS_SEED,
   LEGAL_REVIEW_TRIGGERS_SEED,
   MARKET_DEV_NOTICE_SEED,
   PASS_THROUGH_SEED,
@@ -225,7 +226,14 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'legal_review_triggers',
     value: LEGAL_REVIEW_TRIGGERS_SEED,
     description:
-      'D-25: when any switched-on trigger applies (new customer, nonstandard terms, tooling commitment), G4 Advance needs the Legal review recorded.',
+      'D-25: when any switched-on trigger applies (new customer, nonstandard terms, tooling commitment), a Legal review is due before the offer is released. Whether it blocks G4 Advance is g4_required_checks.',
+  },
+  {
+    // FB-01 (F-069): the approver is no longer blocked by fields other roles own.
+    key: 'g4_required_checks',
+    value: G4_REQUIRED_CHECKS_SEED,
+    description:
+      'FB-01 (F-069, D-003 open): which checks block G4 Advance (release the offer): terms_checked (the KAM / Sales / Pricing terms check) and legal_review (the Legal review, when a legal_review_triggers trigger applies). [] = neither blocks; the Final Review screen shows them to the approver as warnings and the G4 decision records that the approver saw them.',
   },
   {
     key: 'capital_management_notice',

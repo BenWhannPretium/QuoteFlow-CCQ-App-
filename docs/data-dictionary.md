@@ -190,8 +190,9 @@ The choices available at each gate and their constraints.
 | `required_fields` | jsonb | no | [] |  | Required-field rules for this outcome. | Admin / Knowledge Steward |
 | `notify` | jsonb | no | [] |  | Notifications to plan: [{type, to}]. | Admin / Knowledge Steward |
 | `sort` | integer | no | 0 |  | Display order within the gate. | Admin / Knowledge Steward |
+| `resume_at` | text | no | "intake" |  | FB-01 (F-030): for an outcome that returns the quote to the KAM, where the KAM's resubmission goes: intake (a new submission, G1 then Engineering) \| origin (straight back to the stage it came from unless the KAM says the scope changed). | Admin / Knowledge Steward |
 
-**Checks:** `gate_outcome_definition_reason_context_check`
+**Checks:** `gate_outcome_definition_resume_at_check`, `gate_outcome_definition_reason_context_check`
 
 ### reason_code
 
@@ -697,6 +698,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `pricing_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the pricer. | Pricing |
 | `pricing_returned_by` | uuid | yes |  | app_user.id | Lead review: the lead who sent it back. | Pricing |
 | `pricing_return_note` | text | yes |  |  | Lead review: what the lead asked the pricer to change. | Pricing |
+| `rework_origin_stage_key` | text | yes |  |  | FB-01 (F-030): the stage a gate decision sent the quote back to the KAM from (e.g. QUOTING for G3 "Rework (back to KAM)"). Set on rework, cleared on resubmit. | CCQ (system) |
+| `rework_resume_at` | text | yes |  |  | FB-01 (F-030): origin \| intake, from the outcome's resume_at. origin: the KAM's resubmission goes straight back to the origin stage unless they say the scope changed. Cleared on resubmit. | CCQ (system) |
 | `capital_likely` | boolean | no | false |  | B-26: significant capital is likely (set at Stage 1 by Sales or upfront Engineering, or by the capital_likely_notice threshold). When set, G3 needs capital readiness confirmed. | KAM |
 | `capital_likely_set_by` | uuid | yes |  | app_user.id | B-26: who last set or cleared capital_likely (null when set by the threshold). | KAM |
 | `capital_likely_set_at` | timestamp with time zone | yes |  |  | B-26: when capital_likely last changed. | KAM |
@@ -729,7 +732,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 

@@ -73,6 +73,7 @@ import {
   type EngQueueSettings,
   type IntakeConfig,
   type QuoteState,
+  type WorkflowConfig,
   type Role,
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
@@ -81,6 +82,7 @@ import { csvCell } from './auditAdmin';
 import { loadCapacityBasis, loadEngQueueSettings, engineeringView } from './engineering-view';
 import { loadIntakeConfig } from './intake';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
+import { assertSectionUnlocked, lockConfig } from './locks';
 import { persistNotifications } from './notificationService';
 import { ServiceProblem } from './problem';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
@@ -146,6 +148,7 @@ export interface EngineeringServiceOptions {
 
 interface QueueContext {
   ctx: QuoteViewContext;
+  workflow: WorkflowConfig;
   settings: EngQueueSettings;
   intake: IntakeConfig;
   stageLabel: string;
@@ -173,6 +176,7 @@ export class EngineeringService {
     const tierOrder = [...(ctx.model?.tiers ?? [])].sort((a, b) => b.min - a.min).map((t) => t.key);
     return {
       ctx,
+      workflow,
       settings: ctx.engQueue,
       intake,
       stageLabel:
@@ -252,7 +256,7 @@ export class EngineeringService {
       drawingStatus: q.drawingStatus,
       sfCloseDate: row.sfCloseDate ?? null,
       completeness,
-      canEdit: canEditEngReview(qc.ctx.actor, state),
+      canEdit: canEditEngReview(qc.ctx.actor, state, qc.workflow),
       entry: {
         quoteNumber: q.quoteNumber,
         tier: summary.priority.tier,
@@ -348,7 +352,14 @@ export class EngineeringService {
 
   private async detail(tx: Tx, actor: Actor, quoteNumber: string): Promise<EngineeringDetail> {
     const { q, state } = await this.loadQuote(tx, quoteNumber);
-    return engineeringView(tx, actor, await loadEngQueueSettings(tx), q, state);
+    return engineeringView(
+      tx,
+      actor,
+      await loadEngQueueSettings(tx),
+      q,
+      state,
+      await lockConfig(tx),
+    );
   }
 
   /** POST /quotes/:qn/assignment: assign or reassign; recorded, audited and the engineer is told. */
@@ -492,6 +503,8 @@ export class EngineeringService {
     const now = this.now();
     return withTx(async (tx) => {
       const { q, state } = await this.loadQuote(tx, quoteNumber);
+      // FB-01 (F-001): the capacity sign-off is part of the engineering section, locked after G2.
+      await assertSectionUnlocked(tx, 'engineering', state);
       const plan = planCapacitySignoff(actor, state, { status: body.status, note: body.note });
       if (!plan.ok) fail(plan.errors);
       const eng = await getEngReview(tx, q.id);
@@ -615,7 +628,10 @@ export class EngineeringService {
   private async assertEditable(tx: Tx, actor: Actor, quoteNumber: string) {
     const loaded = await this.loadQuote(tx, quoteNumber);
     const { state } = loaded;
-    if (!canEditEngReview(actor, state)) {
+    // FB-01 (F-001): locked after G2 for every role, until a send-back reopens it.
+    const config = await lockConfig(tx);
+    await assertSectionUnlocked(tx, 'engineering', state, config);
+    if (!canEditEngReview(actor, state, config)) {
       if (can(actor, 'engReview.edit', state) && lockedFor('engineering', actor, state)) {
         throw new EngineeringError(
           409,

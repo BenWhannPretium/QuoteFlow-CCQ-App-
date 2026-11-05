@@ -174,17 +174,17 @@ describe('locked on submit: only the lead edits', () => {
   it('engineering', () => {
     const open = engQuote();
     const sent = engQuote({ engSubmittedAt: NOW });
-    expect(canEditEngReview(engineer, open)).toBe(true);
-    expect(canEditEngReview(engineer, sent)).toBe(false);
+    expect(canEditEngReview(engineer, open, hybridConfig)).toBe(true);
+    expect(canEditEngReview(engineer, sent, hybridConfig)).toBe(false);
     expect(lockedFor('engineering', engineer, sent)).toBe(true);
-    expect(canEditEngReview(engLead, sent)).toBe(true);
+    expect(canEditEngReview(engLead, sent, hybridConfig)).toBe(true);
   });
 
   it('pricing: the pricer, and any other pricer, until it is sent back', () => {
     const sent = pricingQuote({ pricingSubmittedAt: NOW });
-    expect(canEditQuoting(pricer, pricingQuote())).toBe(true);
-    expect(canEditQuoting(pricer, sent)).toBe(false);
-    expect(canEditQuoting(otherPricer, sent)).toBe(false);
-    expect(canEditQuoting(pricingLead, sent)).toBe(true);
+    expect(canEditQuoting(pricer, pricingQuote(), hybridConfig)).toBe(true);
+    expect(canEditQuoting(pricer, sent, hybridConfig)).toBe(false);
+    expect(canEditQuoting(otherPricer, sent, hybridConfig)).toBe(false);
+    expect(canEditQuoting(pricingLead, sent, hybridConfig)).toBe(true);
   });
 });

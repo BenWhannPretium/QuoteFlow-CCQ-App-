@@ -51,12 +51,18 @@ export default defineConfig({
         'notifications.spec.ts',
         'feedback.spec.ts',
         'labels.spec.ts',
+        'workflow-integrity.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },
     {
       name: 'mobile',
-      testMatch: ['mobile.spec.ts', 'final-review.spec.ts', 'dashboards.mobile.spec.ts'],
+      testMatch: [
+        'mobile.spec.ts',
+        'final-review.spec.ts',
+        'final-review-unblock.spec.ts',
+        'dashboards.mobile.spec.ts',
+      ],
       // 390 × 844 (iPhone 12–14 class) on Chromium.
       use: {
         ...devices['Desktop Chrome'],

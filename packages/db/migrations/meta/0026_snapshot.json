@@ -1,5 +1,5 @@
 {
-  "id": "a325111c-d049-438c-89fc-bcc936ad8707",
+  "id": "d94d59d0-4b42-4ef9-8d17-f8af4c8e14da",
   "prevId": "313772fc-bb9e-46c1-a1cf-dd433bcc4cf9",
   "version": "7",
   "dialect": "postgresql",
@@ -963,6 +963,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "resume_at": {
+          "name": "resume_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'intake'"
         }
       },
       "indexes": {},
@@ -1020,6 +1027,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "gate_outcome_definition_resume_at_check": {
+          "name": "gate_outcome_definition_resume_at_check",
+          "value": "\"gate_outcome_definition\".\"resume_at\" in ('origin', 'intake')"
+        },
         "gate_outcome_definition_reason_context_check": {
           "name": "gate_outcome_definition_reason_context_check",
           "value": "\"gate_outcome_definition\".\"reason_context\" in ('rework', 'redirect', 'stop', 'decline', 'lost', 'expired', 'hold', 'requote', 'override', 'awarded', 'not_authorized')"
@@ -2288,7 +2299,7 @@
       "checkConstraints": {
         "attachment_kind_check": {
           "name": "attachment_kind_check",
-          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'capacity_analysis', 'other')"
+          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'other')"
         },
         "attachment_size_check": {
           "name": "attachment_size_check",
@@ -2373,35 +2384,11 @@
           "name": "utilization_pct",
           "type": "numeric(5, 2)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "buffer_pct": {
           "name": "buffer_pct",
           "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "utilization_before_pct": {
-          "name": "utilization_before_pct",
-          "type": "numeric(7, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "allocated_annual_volume": {
-          "name": "allocated_annual_volume",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "scheduled_run_days_per_year": {
-          "name": "scheduled_run_days_per_year",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "utilization_after_pct": {
-          "name": "utilization_after_pct",
-          "type": "numeric(7, 2)",
           "primaryKey": false,
           "notNull": false
         },
@@ -2488,11 +2475,7 @@
       "checkConstraints": {
         "capacity_evidence_pct_check": {
           "name": "capacity_evidence_pct_check",
-          "value": "\"capacity_evidence\".\"assumed_effectiveness_pct\" between 0 and 100 and (\"capacity_evidence\".\"utilization_pct\" is null or \"capacity_evidence\".\"utilization_pct\" between 0 and 100) and (\"capacity_evidence\".\"buffer_pct\" is null or \"capacity_evidence\".\"buffer_pct\" between 0 and 100)"
-        },
-        "capacity_evidence_utilization_check": {
-          "name": "capacity_evidence_utilization_check",
-          "value": "\"capacity_evidence\".\"utilization_before_pct\" between 0 and 100 and (\"capacity_evidence\".\"allocated_annual_volume\" is null or \"capacity_evidence\".\"allocated_annual_volume\" >= 0) and (\"capacity_evidence\".\"scheduled_run_days_per_year\" is null or \"capacity_evidence\".\"scheduled_run_days_per_year\" between 1 and 366) and (\"capacity_evidence\".\"utilization_after_pct\" is null or \"capacity_evidence\".\"utilization_after_pct\" >= 0)"
+          "value": "\"capacity_evidence\".\"assumed_effectiveness_pct\" between 0 and 100 and \"capacity_evidence\".\"utilization_pct\" between 0 and 100 and (\"capacity_evidence\".\"buffer_pct\" is null or \"capacity_evidence\".\"buffer_pct\" between 0 and 100)"
         }
       },
       "isRLSEnabled": false
@@ -2988,7 +2971,7 @@
       "checkConstraints": {
         "eng_review_cavitation_check": {
           "name": "eng_review_cavitation_check",
-          "value": "\"eng_review\".\"cavitation\" between 1 and 99"
+          "value": "\"eng_review\".\"cavitation\" > 0"
         },
         "eng_review_capacity_signoff_status_check": {
           "name": "eng_review_capacity_signoff_status_check",
@@ -3298,18 +3281,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "cer_ready_at": {
-          "name": "cer_ready_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cer_ready_by": {
-          "name": "cer_ready_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "updated_by": {
           "name": "updated_by",
           "type": "uuid",
@@ -3358,19 +3329,6 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "handoff_record_cer_ready_by_app_user_id_fk": {
-          "name": "handoff_record_cer_ready_by_app_user_id_fk",
-          "tableFrom": "handoff_record",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "cer_ready_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "handoff_record_updated_by_app_user_id_fk": {
           "name": "handoff_record_updated_by_app_user_id_fk",
           "tableFrom": "handoff_record",
@@ -3397,10 +3355,6 @@
       },
       "policies": {},
       "checkConstraints": {
-        "handoff_record_cer_ready_consistency_check": {
-          "name": "handoff_record_cer_ready_consistency_check",
-          "value": "(\"handoff_record\".\"cer_ready_at\" is null) = (\"handoff_record\".\"cer_ready_by\" is null)"
-        },
         "handoff_record_acceptance_evidence_check": {
           "name": "handoff_record_acceptance_evidence_check",
           "value": "\"handoff_record\".\"acceptance_evidence\" in ('verbal', 'po', 'loi', 'contract')"
@@ -4245,6 +4199,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "rework_origin_stage_key": {
+          "name": "rework_origin_stage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rework_resume_at": {
+          "name": "rework_resume_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "capital_likely": {
           "name": "capital_likely",
           "type": "boolean",
@@ -4829,6 +4795,10 @@
         "quote_sf_status_flag_check": {
           "name": "quote_sf_status_flag_check",
           "value": "\"quote\".\"sf_status_flag\" is null or \"quote\".\"sf_status_flag\" in ('closed_won', 'closed_lost', 'deleted')"
+        },
+        "quote_rework_resume_at_check": {
+          "name": "quote_rework_resume_at_check",
+          "value": "\"quote\".\"rework_resume_at\" is null or \"quote\".\"rework_resume_at\" in ('origin', 'intake')"
         }
       },
       "isRLSEnabled": false

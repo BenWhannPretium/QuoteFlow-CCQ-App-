@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PRICING_QUEUE_STAGE_KEY } from './queue';
 import { DomainError } from '../errors';
 import { lockedFor } from '../lead-review';
+import { sectionLock, type LockConfig } from '../locks';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
@@ -156,6 +157,7 @@ export type PricingQuote = Pick<
   | 'pricingSubmittedAt'
   | 'region'
   | 'accountId'
+  | 'decisions'
 >;
 
 const inQuoting = (quote: PricingQuote) =>
@@ -164,10 +166,14 @@ const inQuoting = (quote: PricingQuote) =>
 /**
  * Pricing edits the Quoting tab while the quote is in Quoting (on hold included). Lead review: once
  * the pricer submits it to the pricing lead, only the lead edits.
+ * FB-01 (F-001): never once G3 is decided with an advancing outcome, until a send-back reopens it.
  */
-export function canEditQuoting(actor: Actor, quote: PricingQuote): boolean {
+export function canEditQuoting(actor: Actor, quote: PricingQuote, config: LockConfig): boolean {
   return (
-    inQuoting(quote) && can(actor, 'quoting.edit', quote) && !lockedFor('pricing', actor, quote)
+    inQuoting(quote) &&
+    !sectionLock('pricing', config, quote).locked &&
+    can(actor, 'quoting.edit', quote) &&
+    !lockedFor('pricing', actor, quote)
   );
 }
 

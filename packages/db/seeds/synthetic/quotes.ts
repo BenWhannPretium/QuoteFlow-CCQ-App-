@@ -1,4 +1,5 @@
 import {
+  G4_REQUIRED_CHECKS_SEED,
   LEGAL_REVIEW_TRIGGERS_SEED,
   PASS_THROUGH_SEED,
   asUserId,
@@ -115,10 +116,13 @@ const g6 = (outcome: string, extra = {}) => d('G6', outcome, 'kam', extra);
 /** The decision paths that bring a quote to its final stage, with holds and returns sprinkled in. */
 function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete: boolean } {
   const g2Outcome = rng.pick(['proceed', 'proceed', 'proceed_with_risk', 'capital_required']);
+  // FB-01 (F-027): exception decisions carry a note (no extra random draws: same data set).
   const g2Extra =
     g2Outcome === 'proceed_with_risk'
       ? { note: 'Cycle time unproven on this neck finish; trial needed.' }
-      : {};
+      : g2Outcome === 'capital_required'
+        ? { note: 'A second cavity set and a trimmer are needed for this volume.' }
+        : {};
   const toEng: Step[] = [g1()];
   const engWork: Step[] = [
     { kind: 'assign' },
@@ -140,6 +144,7 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
           'customer_requested_delay',
         ]),
         hold: true,
+        note: 'Paused until the open input arrives; review on the date set.',
       },
     );
 
@@ -208,7 +213,11 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
       return {
         steps: [
           ...toCustomer,
-          g5('requote', { reason: 'volume_change', target: 'QUOTING' }),
+          g5('requote', {
+            reason: 'volume_change',
+            target: 'QUOTING',
+            note: 'Customer raised the annual volume; re-price at the new volume.',
+          }),
           { kind: 'pricing' },
           g3(),
           g4(),
@@ -326,6 +335,7 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
         steps: [
           g1('redirect', {
             reason: rng.pick(['stock_item', 'price_inquiry', 'other_capital_route']),
+            note: 'Not CCQ work: routed to the standard quoting path.',
           }),
         ],
         complete: true,
@@ -800,6 +810,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
 const SEED_DERIVED_SETTINGS = {
   legalReviewTriggers: LEGAL_REVIEW_TRIGGERS_SEED,
   passThrough: PASS_THROUGH_SEED,
+  g4RequiredChecks: G4_REQUIRED_CHECKS_SEED,
 };
 
 /** Consume a random draw without using it, so the rows generated after it stay the same. */

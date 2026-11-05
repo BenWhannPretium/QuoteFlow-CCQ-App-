@@ -340,14 +340,18 @@ describe('validation: all errors, in order', () => {
         hybridConfig,
         makeQuote('ENG_REVIEW', { fields }),
         makeActor('EngLead'),
-        { gateKey: 'G2', outcomeKey: 'capital_required' },
+        { gateKey: 'G2', outcomeKey: 'capital_required', ...note },
         NOW,
       );
+    let note: { note?: string } = {};
     const missing = run({});
+    // FB-01 (F-027): "Capital required" is an exception decision, so it needs a note too.
     expect(!missing.ok && missing.errors.map((e) => [e.code, e.field])).toEqual([
       ['MISSING_FIELD', 'prelim_capital_usd'],
       ['MISSING_FIELD', 'capacity_signoff_status'],
+      ['NOTE_REQUIRED', 'note'],
     ]);
+    note = { note: 'Second cavity set needed' };
     const blocked = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'blocked' });
     expect(!blocked.ok && blocked.errors.map((e) => e.field)).toEqual(['capacity_signoff_status']);
     const ok = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'approved' });
@@ -376,6 +380,7 @@ describe('validation: all errors, in order', () => {
     expect(!hold.ok && hold.errors.map((e) => e.code).sort()).toEqual([
       'MISSING_FIELD',
       'MISSING_FIELD',
+      'NOTE_REQUIRED',
       'REASON_REQUIRED',
     ]);
   });
@@ -420,7 +425,12 @@ describe('validation: all errors, in order', () => {
       hybridConfig,
       quote,
       makeActor('SalesLeader'),
-      { gateKey: 'G5', outcomeKey: 'on_hold', reasonCode: 'awaiting_customer_info' },
+      {
+        gateKey: 'G5',
+        outcomeKey: 'on_hold',
+        reasonCode: 'awaiting_customer_info',
+        note: 'Waiting on the drawing',
+      },
       NOW,
     );
     expect(!missing.ok && missing.errors).toMatchObject([
