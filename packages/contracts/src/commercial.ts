@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SectionLockView } from './problem';
+
 /**
  * B-26 (CCQ demo 10/20 and the future-state process deck): the quote's commercial terms, the Legal
  * review, the early "capital likely" flag and escalations. Nothing here is a price, margin or capital
@@ -64,6 +66,8 @@ export const CommercialDetail = z.object({
     /** When Capital Management was given early notice (awareness, not approval). */
     noticeSentAt: z.string().nullable(),
     canEdit: z.boolean(),
+    /** FB-01 (F-001): read-only after G4 Advance, until a send-back reopens it. */
+    lock: SectionLockView,
   }),
   terms: z.object({
     toolingFundingModel: z.string().nullable(),
@@ -75,6 +79,8 @@ export const CommercialDetail = z.object({
     checkedAt: z.string().nullable(),
     checkedByName: z.string().nullable(),
     canEdit: z.boolean(),
+    /** FB-01 (F-001): read-only after G4 Advance, until a send-back reopens it. */
+    lock: SectionLockView,
   }),
   legal: z.object({
     /** A configured trigger applies (app_setting `legal_review_triggers`): G4 Advance needs the review. */

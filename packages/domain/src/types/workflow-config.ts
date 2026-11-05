@@ -61,6 +61,10 @@ export const SEGREGATION_DENY = [
   'actor_is_price_approver',
 ] as const;
 
+/** FB-01 (F-030): where a KAM's resubmission goes after a rework (see `outcome.resumeAt`). */
+export const RESUME_AT = ['origin', 'intake'] as const;
+export type ResumeAt = (typeof RESUME_AT)[number];
+
 /** B-13: whom a closing transition names as the closure owner by default (`transition_rule.closure_owner`). */
 export const CLOSURE_OWNER_DEFAULTS = ['kam', 'decider'] as const;
 
@@ -118,6 +122,13 @@ export const outcomeDefinitionSchema = z
     notify: z.array(z.object({ type: key, to: notificationTargetSchema }).strict()).default([]),
     /** B-26: the outcome's definition shown next to it in the decision dialog (admin-editable). */
     helpText: z.string().nullable().default(null),
+    /**
+     * FB-01 (F-030): where a quote this outcome sends back to the KAM goes when the KAM resubmits.
+     * `intake`: a new submission (G1 if enabled, then Engineering). `origin`: straight back to the stage
+     * it was sent back from, unless the KAM says the scope changed. Only read for outcomes that return
+     * the quote to INTAKE.
+     */
+    resumeAt: z.enum(RESUME_AT).default('intake'),
     provisional: z.boolean().default(true),
   })
   .strict();

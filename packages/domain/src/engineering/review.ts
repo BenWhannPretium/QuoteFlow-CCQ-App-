@@ -2,6 +2,7 @@ import { DomainError } from '../errors';
 import { ENG_QUEUE_STAGE_KEY, type EngQueueSettings } from './queue';
 import { evaluateIntake, type IntakeConfig, type IntakeIssue } from '../intake/intake';
 import { lockedFor } from '../lead-review';
+import { sectionLock, type LockConfig } from '../locks';
 import { can, canSeeCommercialFields, type PolicyResource } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
@@ -20,6 +21,7 @@ export type EngQuote = Pick<
   | 'engSubmittedAt'
   | 'region'
   | 'accountId'
+  | 'decisions'
 >;
 
 const inEngReview = (quote: EngQuote) =>
@@ -41,10 +43,12 @@ export function canAssignEngQueue(
 /**
  * Edit the Engineering Review and capacity evidence: EngLead, or the Engineer assigned, while in
  * ENG_REVIEW. Lead review: once the engineer submits it to the lead, only the lead edits.
+ * FB-01 (F-001): never once G2 is decided with an advancing outcome, until a send-back reopens it.
  */
-export function canEditEngReview(actor: Actor, quote: EngQuote): boolean {
+export function canEditEngReview(actor: Actor, quote: EngQuote, config: LockConfig): boolean {
   return (
     inEngReview(quote) &&
+    !sectionLock('engineering', config, quote).locked &&
     can(actor, 'engReview.edit', quote) &&
     !lockedFor('engineering', actor, quote)
   );

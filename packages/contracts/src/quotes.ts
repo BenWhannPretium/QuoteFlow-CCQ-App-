@@ -228,6 +228,12 @@ export const GateDecisionBody = z.object({
    * outcome, the decider for an internal no-go. Naming anyone else needs `outcome.assignOwner`.
    */
   closureOwnerId: z.uuid().optional(),
+  /**
+   * FB-01 (F-069), G4 only: the warning codes the approver saw on the Final Review screen (e.g.
+   * TERMS_NOT_CHECKED). Recorded on the decision. When sent, it must include every open warning, or the
+   * decision is refused (the screen is stale).
+   */
+  acknowledgedWarnings: z.array(z.string().max(80)).max(50).optional(),
 });
 export type GateDecisionBody = z.infer<typeof GateDecisionBody>;
 

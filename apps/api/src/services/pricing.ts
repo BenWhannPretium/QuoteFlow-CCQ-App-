@@ -58,6 +58,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
+import { assertSectionUnlocked } from './locks';
 import { persistNotifications } from './notificationService';
 import {
   loadPricingRefFormats,
@@ -223,7 +224,7 @@ export class PricingService {
               ? 'returned'
               : 'none',
           submittedAt: iso(q.pricingSubmittedAt),
-          canEdit: canEditQuoting(actor, state),
+          canEdit: canEditQuoting(actor, state, workflow),
         };
         const entry: PricingQueueEntry = {
           quoteNumber: q.quoteNumber,
@@ -582,6 +583,8 @@ export class PricingService {
     const now = this.now();
     return withTx(async (tx) => {
       const loaded = await this.load(tx, quoteNumber);
+      // FB-01 (F-001): locked after G3 for every role, until a send-back reopens it.
+      await assertSectionUnlocked(tx, 'pricing', loaded.state);
       const [formats, team] = await Promise.all([
         loadPricingRefFormats(tx),
         listActiveUsersWithRoles(tx, pricingRoles()),
@@ -658,6 +661,8 @@ export class PricingService {
     const now = this.now();
     return withTx(async (tx) => {
       const loaded = await this.load(tx, quoteNumber);
+      // FB-01 (F-001): locked after G3 for every role, until a send-back reopens it.
+      await assertSectionUnlocked(tx, 'pricing', loaded.state);
       const plan = planCapitalReadiness(
         actor,
         loaded.state,

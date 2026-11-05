@@ -6,6 +6,7 @@ import {
   IntakeDraftParams,
   PatchIntakeDraftBody,
   QuoteNumberParams,
+  SubmitIntakeBody,
   SubmitIntakeResponse,
 } from '@ccq/contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -152,9 +153,10 @@ export const intakeRoutes: FastifyPluginAsyncZod<{ service: IntakeService }> = a
       schema: {
         tags,
         summary:
-          'Submit: creates CCQ-YYYY-NNNNN in Intake, then routes to G1 (if enabled) or the engineering queue. 409 if the opportunity already has an active quote',
+          'Submit: creates CCQ-YYYY-NNNNN in Intake, then routes to G1 (if enabled) or the engineering queue. 409 if the opportunity already has an active quote. FB-01: resubmitting a quote Pricing sent back needs `scopeChanged`; false goes straight back to Quoting',
         security,
         params: IntakeDraftParams,
+        body: SubmitIntakeBody,
         response: { 201: SubmitIntakeResponse },
       },
     },
@@ -165,6 +167,7 @@ export const intakeRoutes: FastifyPluginAsyncZod<{ service: IntakeService }> = a
           requireActor(req),
           req.params.id,
           meta(req),
+          req.body?.scopeChanged,
         );
         return reply.status(201).send(result);
       }),

@@ -38,6 +38,12 @@ export const DOMAIN_ERROR_CODES = [
   'ALREADY_SUBMITTED',
   'NOT_SUBMITTED',
   'LOCKED_FOR_REVIEW',
+  // FB-01 (F-001): the section's gate was decided; only a send-back reopens it.
+  'SECTION_LOCKED',
+  // FB-01 (F-030): the KAM must say whether the scope changed before a rework goes back to its origin.
+  'SCOPE_CHANGE_REQUIRED',
+  // FB-01 (F-069): the warnings the approver acknowledged are not the ones on the quote now.
+  'STALE_WARNINGS',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
