@@ -218,12 +218,12 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design â€º Quote Flow â€
 |---|---|---|---|
 | Standard neck diameters, finishes, special features | Jim Zweifel | A-001 (received 11/4; values in the Field Inventory) | FB-02 (F-010) |
 | No-drawing minimum set, incl. whether layer structure and a container photo join it | Jim Zweifel, Danielle Leu | A-005, A-024 | FB-02 (F-016) |
-| Utilization formula confirmation and basis | Faron Ipox | A-023 | FB-03 (F-059) |
+| Utilization formula confirmation and basis | Faron Ipox | A-023 (email copied to `feedback/inputs/capacity-formula.md`; OEE appears twice) | FB-03 (F-059) |
 | Equipment BOM template and component list | Kal Kaliszewski | A-003 (session 11/6) | FB-06 (F-058) |
 | Engineering estimate workbook (the costing input Engineering fills today) | Engineering (Paul Slomkowski) | new | FB-06 (F-026) |
 | Active plant list (~29) and machine types | Jim Zweifel | F-020 / F-057 | FB-09 |
 | Resin, market, product family, packaging lists | Danielle Leu; Engineering with the plants | F-020, A-028 | FB-09 |
-| 9-box grid; machine platform guide (MOQs) | Melanie Rasche; Danielle Leu | A-009, A-010 (received; saved to SharePoint) | FB-04 mechanism, FB-10 values |
+| 9-box grid; machine platform guide (MOQs) | Melanie Rasche; Danielle Leu | A-009, A-010 (received). Copied 2026-11-05 to `feedback/inputs/9-box.md` (placement and points to confirm; grid is by segment) and `platform-guide.md` (column mapping to confirm) | FB-04 mechanism, FB-10 values |
 | Standard cost-model template | Gemma Cebolla, Kyle Arnold | new | FB-07 (F-031) |
 | Standard payment terms and exceptions | Gemma Cebolla | A-012, A-022 | FB-08 |
 

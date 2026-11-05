@@ -46,7 +46,7 @@ Engineering and Supply Chain (Nov 3) asked for the following:
   - **Allocated annual volume (units)**: defaults to the quote's estimated annual volume. When the business is split across lines or plants (T-030), the engineer sets each row's share. Warn, don't block, when the rows don't add up to the total.
   - **Scheduled run days per year**: defaults from the setting below; editable per row.
   - **Utilization after %**: **calculated, read-only**, stored for reporting.
-- **Formula.** This is the shape of Faron Ipox's Nov 4 email (Q-035); A-023 asks him to confirm it, because as emailed trending OEE appears twice. Put it in `packages/domain/src/engineering/capacity.ts` as a pure function:
+- **Formula.** This is the shape of Faron Ipox's Nov 4 email (Q-035). It is recorded verbatim in `docs/build-guide/feedback/inputs/capacity-formula.md`, including the OEE-applied-twice typo, which A-023 asks him to confirm; apply OEE once. Put it in `packages/domain/src/engineering/capacity.ts` as a pure function:
   ```
   annualCapacityUnits = (86_400 / cycleTimeS) × cavitation × (effectivenessPct / 100) × scheduledRunDaysPerYear
   addedUtilizationPct = allocatedAnnualVolume / annualCapacityUnits × 100
