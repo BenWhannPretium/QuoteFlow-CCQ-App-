@@ -494,6 +494,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       estAnnualRevenue:
         complete && rng.chance(0.8) ? Math.round(opp.amount * rng.float(0.8, 1.6)) : null,
       expectedCloseDate: opp.closeDate,
+      // FB-02 (F-009): need-by dates from the submit date. No draw, so the random stream is unchanged.
+      quoteNeededBy: isoDaysAfter(createdAt, 21 + (ordinal % 4) * 7),
+      productNeededBy: isoDaysAfter(createdAt, 120 + (ordinal % 3) * 30),
       drawingStatus: rng.pick(['HAVE_DRAWING', 'HAVE_DRAWING', 'COMING', 'SAMPLE_ONLY', 'NONE']),
       neckFinish: NECK_CODE[opp.spec.neck] ?? opp.spec.neck,
       packagingType: rng.pick(['BULK', 'BAGGED', 'TRAYED', 'PALLETIZED_CUSTOM']),
@@ -780,6 +783,10 @@ const SEED_DERIVED_SETTINGS = {
 
 /** Consume a random draw without using it, so the rows generated after it stay the same. */
 const discard = (_draw: unknown): false => false;
+
+/** YYYY-MM-DD `days` after `from` (UTC). */
+const isoDaysAfter = (from: Date, days: number) =>
+  new Date(from.getTime() + days * DAY_MS).toISOString().slice(0, 10);
 
 /** Overrides, attachments metadata (no files), comments and a few view audits. */
 async function addExtras(

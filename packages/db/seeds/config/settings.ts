@@ -12,6 +12,7 @@ import {
   OVERRIDE_SETTINGS_SEED,
   PRICING_REF_FORMATS_SEED,
   SCORING_MODEL_V1_INPUT,
+  SCORING_MODEL_V2_INPUT,
 } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
@@ -21,14 +22,21 @@ import { appSetting, scoringModel, sfStageMap } from '../../src/schema/index';
 
 const present = (field: string) => ({ field, op: 'present' });
 
-/** Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship-to, product family, resin, volume. */
+/**
+ * Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship/fill destination city
+ * and state (FB-02, F-017), product family, resin, volume, and the two need-by dates (FB-02, F-009).
+ * Existing environments get the FB-02 changes from migration 0026.
+ */
 export const INTAKE_REQUIRED_FIELDS = [
   present('sf_opportunity_id'),
   present('customer.name'),
-  { anyOf: [present('ship_to.line1'), present('ship_to.city')] },
+  present('ship_to.city'),
+  present('ship_to.state'),
   present('product_family'),
   present('resin'),
   present('est_annual_volume'),
+  present('quote_needed_by'),
+  present('product_needed_by'),
 ];
 
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
@@ -36,8 +44,9 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   sf_opportunity_id:
     'Every CCQ quote starts from a Salesforce opportunity, so pipeline and outcomes stay linked.',
   customer:
-    'Engineering and Pricing size the work differently for a new versus an established customer.',
-  ship_to: 'Freight and the plant that can fill the order both depend on where the product ships.',
+    'The customer is the Salesforce Account on the opportunity. Tick "Not yet a Pretium customer" when it has no ERP account yet.',
+  ship_to:
+    'Where the product ships or is filled (city and state). Engineering uses it to choose the plant and freight.',
   ship_to_override_reason:
     'A ship-to that differs from the account default changes the quote, so we record why.',
   request_class:
@@ -52,7 +61,10 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   est_annual_volume:
     "Volume sizes the machine, cavitation and capacity. Please use the customer's real number.",
   est_annual_revenue: 'Revenue helps rank the request; it starts from the Salesforce amount.',
-  expected_close_date: 'Lets Engineering plan around when the customer needs an answer.',
+  quote_needed_by:
+    'When the customer needs the quote. It sets the timing part of the priority score, so be realistic.',
+  product_needed_by:
+    'Your best estimate of when the customer needs product (launch). On or after Quote needed by.',
   container_size: 'Size, with the container type and resin, makes up the standard description.',
   standard_description: 'A consistent description makes requests easy to compare and search.',
   description: 'Anything else about the request, in your own words.',
@@ -279,8 +291,43 @@ export const SCORING_MODEL_V1 = scoringModelRow(SCORING_MODEL_V1_INPUT, {
     'Seed v1: the PRD F-05 attribute set with provisional weights and bands, pending D-19 (M4).',
 });
 
-export const seedScoringModel = (db: DbOrTx) =>
-  upsertConfig(db, scoringModel, [{ ...SCORING_MODEL_V1, provisional: true }], ['modelVersion']);
+/**
+ * FB-02 (F-009): v2 scores timing on the KAM's "Quote needed by" date. Same weights and bands as v1
+ * (D-004 open). Existing environments get it from migration 0026 (as max version + 1, copied from the
+ * model in effect); here it is only inserted when version 2 doesn't exist yet, so a re-seed never
+ * rewrites a version an admin made.
+ */
+export const SCORING_MODEL_V2 = scoringModelRow(SCORING_MODEL_V2_INPUT, {
+  effectiveFrom: new Date('2026-11-05T00:00:00Z'),
+  changeReason:
+    "FB-02 (F-009): timing reads the KAM's Quote needed by date instead of the Salesforce close date. Weights and bands unchanged (D-004 open).",
+});
+
+export async function seedScoringModel(db: DbOrTx): Promise<void> {
+  await upsertConfig(
+    db,
+    scoringModel,
+    [{ ...SCORING_MODEL_V1, provisional: true }],
+    ['modelVersion'],
+  );
+  // Only when no model already reads the need-by date (migration 0026 may have made it as another version).
+  const models = await db
+    .select({ version: scoringModel.modelVersion, attributes: scoringModel.attributes })
+    .from(scoringModel);
+  const readsNeedBy = models.some(
+    (m) =>
+      m.version === SCORING_MODEL_V2.modelVersion ||
+      (m.attributes as { key?: string; input?: string }[]).some(
+        (a) => a.key === 'timing' && a.input === 'days_to_quote_needed',
+      ),
+  );
+  if (!readsNeedBy) {
+    await db
+      .insert(scoringModel)
+      .values({ ...SCORING_MODEL_V2, provisional: true })
+      .onConflictDoNothing();
+  }
+}
 
 /**
  * Salesforce stages (architecture §4.2) with the CCQ stage they usually line up with. The names and

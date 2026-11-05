@@ -457,16 +457,16 @@ Customer an opportunity is for. Existing (SF account) or not yet established.
 | `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
-| `sf_account_id` | text | yes |  |  | Salesforce Account id; null for a not-yet-established customer. | Salesforce (read-only) |
+| `sf_account_id` | text | yes |  |  | Salesforce Account id. Every customer from intake has one since FB-02 (F-007, D-011: new accounts start in Salesforce); null only on rows typed at intake before FB-02. | Salesforce (read-only) |
 | `name` | text | no |  |  | Customer name. | Salesforce (read-only) |
-| `status` | text | no |  |  | existing \| not_yet_established (DEC-27: no account creation at intake). | KAM |
+| `status` | text | no |  |  | existing \| not_yet_established (DEC-27: no account creation at intake). FB-02: not_yet_established = "Not yet a Pretium customer (no ERP account)", the KAM's answer at intake; it drives the new_customer Legal review trigger. | KAM |
 | `default_ship_to` | jsonb | yes |  |  | Default ship-to address {line1, city, state, postal, country}. | Salesforce (read-only) |
 | `source` | text | no | "salesforce" |  | Where the row came from: salesforce \| intake \| synthetic. | CCQ (system) |
 | `last_synced_at` | timestamp with time zone | yes |  |  | Last refresh from Salesforce. | CCQ (system) |
-| `location` | text | yes |  |  | Not-yet-established customers: where they are (city, state / country), as typed at intake. | KAM |
-| `contact` | jsonb | yes |  |  | Not-yet-established customers: business contact {name, email, phone} typed at intake. | KAM |
+| `location` | text | yes |  |  | Deprecated (FB-02, F-007): where a not-yet-established customer is, as typed at intake before FB-02. Kept for history; no longer written. | KAM |
+| `contact` | jsonb | yes |  |  | Deprecated (FB-02, F-007): a not-yet-established customer's contact {name, email, phone} typed at intake before FB-02. Kept for history; no longer written. | KAM |
 
-**Checks:** `customer_status_check`, `customer_sf_account_matches_status_check`
+**Checks:** `customer_status_check`, `customer_existing_has_sf_account_check`
 
 **Indexes:** `customer_name_idx`, `customer_name_trgm_idx`
 
@@ -657,7 +657,9 @@ The CCQ quote: the workflow record CCQ owns.
 | `est_annual_revenue` | numeric(14, 2) | yes |  |  | Estimated annual revenue (USD). | KAM |
 | `est_annual_revenue_sf` | numeric(14, 2) | yes |  |  | The SF opportunity amount the revenue was pre-filled from (kept when the KAM edits it). | Salesforce (read-only) |
 | `est_annual_volume_confirmed` | boolean | no | false |  | The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real. | KAM |
-| `expected_close_date` | date | yes |  |  | Expected close date. | KAM |
+| `expected_close_date` | date | yes |  |  | Deprecated (FB-02, F-008 / T-009): the close date the KAM edited at intake before FB-02. Kept for history and analytics; no longer written. The live value is sf_opportunity_snapshot.close_date. | KAM |
+| `quote_needed_by` | date | yes |  |  | FB-02 (F-009): when the customer needs the quote (after the submit date). Feeds the timing attribute of the priority score. | KAM |
+| `product_needed_by` | date | yes |  |  | FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by. | KAM |
 | `drawing_status` | text | yes |  |  | value_list drawing_status code. | KAM |
 | `neck_finish` | text | yes |  |  | value_list neck_finish code, or free text when "Other". | KAM |
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
@@ -665,7 +667,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |
 | `comments_for_engineering` | text | yes |  |  | Notes from the KAM to Engineering. | KAM |
 | `submitted_at` | timestamp with time zone | yes |  |  | When the KAM submitted the intake (the quote was created). | CCQ (system) |
-| `ship_to` | jsonb | yes |  |  | Ship-to address used for the quote. | KAM |
+| `ship_to` | jsonb | yes |  |  | Ship / fill destination used for the quote {line1, city, state, postal, country}; city and state required at intake (FB-02, F-017). | KAM |
 | `ship_to_overridden` | boolean | no | false |  | True when it differs from the customer default. | KAM |
 | `ship_to_original` | jsonb | yes |  |  | The customer default ship-to the intake was pre-filled with (kept when overridden). | KAM |
 | `ship_to_override_reason` | text | yes |  |  | Why the ship-to differs: the justification of the applied ship_to override (the override row is the record). | KAM |
@@ -723,7 +725,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 

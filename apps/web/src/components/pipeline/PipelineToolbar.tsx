@@ -189,7 +189,7 @@ export function PipelineToolbar({
               </NativeSelect>
             </div>
             <fieldset className="grid gap-1">
-              <legend className="mb-1 text-sm font-semibold">Expected close date</legend>
+              <legend className="mb-1 text-sm font-semibold">Salesforce close date</legend>
               <div className="grid grid-cols-2 gap-2">
                 <label htmlFor={ids.from} className="grid gap-1 text-xs">
                   From

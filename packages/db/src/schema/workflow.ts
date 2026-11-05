@@ -53,13 +53,13 @@ export const customer = documented(
       ...baseColumns(),
       sfAccountId: c(
         text('sf_account_id').unique(),
-        'Salesforce Account id; null for a not-yet-established customer.',
+        'Salesforce Account id. Every customer from intake has one since FB-02 (F-007, D-011: new accounts start in Salesforce); null only on rows typed at intake before FB-02.',
         SF,
       ),
       name: c(text('name').notNull(), 'Customer name.', SF),
       status: c(
         text('status').notNull(),
-        'existing | not_yet_established (DEC-27: no account creation at intake).',
+        'existing | not_yet_established (DEC-27: no account creation at intake). FB-02: not_yet_established = "Not yet a Pretium customer (no ERP account)", the KAM\'s answer at intake; it drives the new_customer Legal review trigger.',
         KAM,
       ),
       defaultShipTo: c(
@@ -75,20 +75,22 @@ export const customer = documented(
       lastSyncedAt: c(timestamptz('last_synced_at'), 'Last refresh from Salesforce.', SYSTEM),
       location: c(
         text('location'),
-        'Not-yet-established customers: where they are (city, state / country), as typed at intake.',
+        'Deprecated (FB-02, F-007): where a not-yet-established customer is, as typed at intake before FB-02. Kept for history; no longer written.',
         KAM,
       ),
       contact: c(
         jsonb('contact'),
-        'Not-yet-established customers: business contact {name, email, phone} typed at intake.',
+        "Deprecated (FB-02, F-007): a not-yet-established customer's contact {name, email, phone} typed at intake before FB-02. Kept for history; no longer written.",
         KAM,
       ),
     },
     (t) => [
       check('customer_status_check', inList(t.status, CUSTOMER_STATUSES)),
+      // FB-02 (F-007): an existing customer has an SF account; a not-yet-established one (no ERP account)
+      // now has one too, except rows typed at intake before FB-02.
       check(
-        'customer_sf_account_matches_status_check',
-        sql`(${t.status} = 'existing') = (${t.sfAccountId} is not null)`,
+        'customer_existing_has_sf_account_check',
+        sql`${t.status} <> 'existing' or ${t.sfAccountId} is not null`,
       ),
       index('customer_name_idx').on(t.name),
       // B-14 pipeline search (`q`: ILIKE '%…%' on the account name).
@@ -242,7 +244,17 @@ export const quote = documented(
       ),
       expectedCloseDate: c(
         date('expected_close_date', { mode: 'string' }),
-        'Expected close date.',
+        'Deprecated (FB-02, F-008 / T-009): the close date the KAM edited at intake before FB-02. Kept for history and analytics; no longer written. The live value is sf_opportunity_snapshot.close_date.',
+        KAM,
+      ),
+      quoteNeededBy: c(
+        date('quote_needed_by', { mode: 'string' }),
+        'FB-02 (F-009): when the customer needs the quote (after the submit date). Feeds the timing attribute of the priority score.',
+        KAM,
+      ),
+      productNeededBy: c(
+        date('product_needed_by', { mode: 'string' }),
+        "FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by.",
         KAM,
       ),
       drawingStatus: c(text('drawing_status'), 'value_list drawing_status code.', KAM),
@@ -265,7 +277,11 @@ export const quote = documented(
         SYSTEM,
       ),
       // Ship-to
-      shipTo: c(jsonb('ship_to'), 'Ship-to address used for the quote.', KAM),
+      shipTo: c(
+        jsonb('ship_to'),
+        'Ship / fill destination used for the quote {line1, city, state, postal, country}; city and state required at intake (FB-02, F-017).',
+        KAM,
+      ),
       shipToOverridden: c(
         boolean('ship_to_overridden').notNull().default(false),
         'True when it differs from the customer default.',
@@ -530,6 +546,11 @@ export const quote = documented(
       check('quote_quote_number_format_check', sql`${t.quoteNumber} ~ '^CCQ-[0-9]{4}-[0-9]{5}$'`),
       check('quote_version_check', sql`${t.version} >= 1`),
       check('quote_priority_score_check', sql`${t.priorityScore} between 0 and 100`),
+      // FB-02 (F-009): the product is needed on or after the quote. The domain checks it first.
+      check(
+        'quote_need_by_order_check',
+        sql`${t.productNeededBy} is null or ${t.quoteNeededBy} is null or ${t.productNeededBy} >= ${t.quoteNeededBy}`,
+      ),
       check(
         'quote_closed_consistency_check',
         sql`(${t.status} = 'closed') = (${t.closedAt} is not null)`,

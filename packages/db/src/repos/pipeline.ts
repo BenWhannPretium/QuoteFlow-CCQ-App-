@@ -74,6 +74,12 @@ function visiblePriority(column: SQL | typeof quote.priorityScore, ownerOnly?: s
     : sql`${column}`;
 }
 
+/**
+ * FB-02 (F-008, T-009): the close date is Salesforce's (latest sync); quotes from before FB-02 without
+ * a snapshot date fall back to the deprecated stored one. Every query here joins the snapshot.
+ */
+const closeDateSql = sql`coalesce(${sfOpportunitySnapshot.closeDate}, ${quote.expectedCloseDate})`;
+
 function whereFor(opts: PipelineQueryOptions): SQL | undefined {
   const f = opts.filter;
   const where: SQL[] = [];
@@ -114,8 +120,8 @@ function whereFor(opts: PipelineQueryOptions): SQL | undefined {
   if (f.enteredStageBefore) {
     where.push(sql`${stageEnteredAtSql} < ${f.enteredStageBefore.toISOString()}::timestamptz`);
   }
-  if (f.closeDateFrom) where.push(gte(quote.expectedCloseDate, f.closeDateFrom));
-  if (f.closeDateTo) where.push(lte(quote.expectedCloseDate, f.closeDateTo));
+  if (f.closeDateFrom) where.push(gte(closeDateSql, f.closeDateFrom));
+  if (f.closeDateTo) where.push(lte(closeDateSql, f.closeDateTo));
   return where.length ? and(...where) : undefined;
 }
 
@@ -146,7 +152,7 @@ function orderFor(opts: PipelineQueryOptions): SQL[] {
       primary = [sql`${stageEnteredAtSql} ${opts.dir === 'asc' ? sql`desc` : sql`asc`}`];
       break;
     case 'closeDate':
-      primary = [sql`${quote.expectedCloseDate} ${dir} nulls last`];
+      primary = [sql`${closeDateSql} ${dir} nulls last`];
       break;
     case 'amount':
       primary = [sql`${sfOpportunitySnapshot.amount} ${dir} nulls last`];
@@ -207,6 +213,7 @@ export function listPipelineRows(db: DbOrTx, ids: readonly string[]) {
       accountName: sfOpportunitySnapshot.accountName,
       amount: sfOpportunitySnapshot.amount,
       sfStage: sfOpportunitySnapshot.sfStage,
+      sfCloseDate: sfOpportunitySnapshot.closeDate,
       customerName: customer.name,
       customerStatus: customer.status,
       kamName: appUser.displayName,

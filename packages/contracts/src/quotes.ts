@@ -120,6 +120,10 @@ export const QuoteSummary = z.object({
   resin: z.string().nullable(),
   estAnnualVolume: z.number().nullable(),
   estAnnualRevenue: z.number().nullable(),
+  /**
+   * FB-02 (F-008, T-009): the Salesforce close date from the latest sync ("updates with Salesforce").
+   * Quotes from before FB-02 with no synced date show the deprecated close date stored at intake.
+   */
   expectedCloseDate: z.string().nullable(),
   /** Null while the quote is back with the KAM for rework. */
   submittedAt: z.string().nullable(),
@@ -158,6 +162,17 @@ export const ReworkRequest = z.object({
 });
 export type ReworkRequest = z.infer<typeof ReworkRequest>;
 
+/**
+ * FB-02: the product and timing facts the KAM entered at intake, for every role that reads the quote
+ * (Engineering and Pricing included). Codes are value-list codes; the UI shows their labels.
+ */
+export const QuoteIntakeFacts = z.object({
+  /** F-009: when the customer needs the quote, and the best estimate of the launch need. */
+  quoteNeededBy: z.string().nullable(),
+  productNeededBy: z.string().nullable(),
+});
+export type QuoteIntakeFacts = z.infer<typeof QuoteIntakeFacts>;
+
 export const QuoteDetail = QuoteSummary.extend({
   description: z.string().nullable(),
   standardDescription: z.string().nullable(),
@@ -168,6 +183,8 @@ export const QuoteDetail = QuoteSummary.extend({
   packagingNotes: z.string().nullable(),
   commentsForEngineering: z.string().nullable(),
   shipTo: IntakeAddress.nullable(),
+  /** FB-02: product and timing facts from intake. */
+  intakeFacts: QuoteIntakeFacts,
   outcome: z.string().nullable(),
   outcomeReasonCode: z.string().nullable(),
   closedAt: z.string().nullable(),

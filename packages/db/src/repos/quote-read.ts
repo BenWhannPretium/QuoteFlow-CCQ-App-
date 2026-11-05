@@ -25,6 +25,8 @@ const summaryColumns = {
   processType: engReview.processType,
   /** B-13: the SF stage, shown side by side with the CCQ stage. */
   sfStage: sfOpportunitySnapshot.sfStage,
+  /** FB-02 (F-008, T-009): the SF close date from the latest sync (not stored on the quote). */
+  sfCloseDate: sfOpportunitySnapshot.closeDate,
 };
 
 function summaryQuery(db: DbOrTx) {
@@ -40,11 +42,14 @@ function summaryQuery(db: DbOrTx) {
     .leftJoin(engReview, eq(engReview.quoteId, quote.id));
 }
 
-/** A summary row. `sfStage` is optional so queue rows built by other repos still fit (B-13 reads it). */
+/**
+ * A summary row. `sfStage` and `sfCloseDate` are optional so queue rows built by other repos still fit
+ * (B-13 reads the stage; FB-02 the close date, falling back to the deprecated stored one).
+ */
 export type QuoteSummaryRow = Omit<
   Awaited<ReturnType<typeof getQuoteSummaryByNumber>> & object,
-  'sfStage'
-> & { sfStage?: string | null };
+  'sfStage' | 'sfCloseDate'
+> & { sfStage?: string | null; sfCloseDate?: string | null };
 
 export async function getQuoteSummaryByNumber(db: DbOrTx, quoteNumber: string) {
   const [row] = await summaryQuery(db).where(eq(quote.quoteNumber, quoteNumber)).limit(1);

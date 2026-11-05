@@ -103,6 +103,6 @@ describe('intake contracts', () => {
   it('rejects a malformed opportunity id or date in a draft', async () => {
     const { IntakeDraftData } = await import('./intake');
     expect(IntakeDraftData.safeParse({ sfOpportunityId: 'nope' }).success).toBe(false);
-    expect(IntakeDraftData.safeParse({ expectedCloseDate: '10/23/2026' }).success).toBe(false);
+    expect(IntakeDraftData.safeParse({ quoteNeededBy: '10/23/2026' }).success).toBe(false);
   });
 });

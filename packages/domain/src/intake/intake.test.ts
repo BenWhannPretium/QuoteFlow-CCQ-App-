@@ -7,6 +7,7 @@ import {
   parseIntakeConfig,
   renderDescriptionTemplate,
   shipToChanged,
+  todayInCentral,
 } from './intake';
 import type { IntakeConfig } from './intake';
 
@@ -50,23 +51,29 @@ const complete = {
   packaging_notes: 'Max pallet height 96 in',
   est_annual_volume: 750_000,
   est_annual_revenue: 120_000,
-  expected_close_date: '2027-03-01',
+  quote_needed_by: '2026-12-15',
+  product_needed_by: '2027-03-01',
   container_size: '16 oz',
   standard_description: '16 oz Bottle, HDPE',
   drawing_status: 'HAVE_DRAWING',
 };
+
+/** A fixed "now" (US Central: 2026-11-05) so the need-by date checks don't age. */
+const NOW = new Date('2026-11-05T15:00:00Z');
+const ev = (values: Record<string, unknown>, cfg: IntakeConfig = config, now = NOW) =>
+  evaluateIntake(values, cfg, now);
 
 const codes = (issues: { code: string; field: string }[]) =>
   issues.map((i) => `${i.code}:${i.field}`);
 
 describe('evaluateIntake', () => {
   it('a complete intake is ready with no warnings', () => {
-    const result = evaluateIntake(complete, config);
+    const result = ev(complete, config);
     expect(result).toEqual({ blocking: [], warnings: [], ready: true });
   });
 
   it('honours the configured required fields (blocking) and nothing else', () => {
-    const result = evaluateIntake({}, config);
+    const result = ev({}, config);
     expect(codes(result.blocking)).toEqual([
       'MISSING_FIELD:sf_opportunity_id',
       'MISSING_FIELD:customer.name',
@@ -81,7 +88,7 @@ describe('evaluateIntake', () => {
   it('a field that is not in the config never blocks, it warns instead', () => {
     const lenient = { ...config, requiredFields: [present('sf_opportunity_id')] };
     const { resin: _r, product_family: _p, ...rest } = complete;
-    const result = evaluateIntake(rest, lenient);
+    const result = ev(rest, lenient);
     expect(result.ready).toBe(true);
     expect(codes(result.warnings)).toEqual(['ENRICH:product_family', 'ENRICH:resin']);
   });
@@ -91,14 +98,14 @@ describe('evaluateIntake', () => {
       ...config,
       requiredFields: [...config.requiredFields, present('neck_finish')],
     };
-    const result = evaluateIntake({ ...complete, neck_finish: '' }, strict);
+    const result = ev({ ...complete, neck_finish: '' }, strict);
     expect(codes(result.blocking)).toEqual(['MISSING_FIELD:neck_finish']);
     expect(codes(result.warnings)).not.toContain('ENRICH:neck_finish');
   });
 
   it('missing optional fields are amber "Engineering may ask" warnings, never errors', () => {
     const { neck_finish: _n, packaging_type: _t, market: _m, ...rest } = complete;
-    const result = evaluateIntake(rest, config);
+    const result = ev(rest, config);
     expect(result.ready).toBe(true);
     expect(result.warnings.map((w) => [w.code, w.field, w.message])).toEqual([
       ['ENRICH', 'market', 'Engineering may ask about this.'],
@@ -108,21 +115,18 @@ describe('evaluateIntake', () => {
   });
 
   it('free-text description and comments are never nudged', () => {
-    const result = evaluateIntake(
-      { ...complete, description: '', comments_for_engineering: null },
-      config,
-    );
+    const result = ev({ ...complete, description: '', comments_for_engineering: null }, config);
     expect(result.warnings).toEqual([]);
   });
 
   describe('placeholder volume', () => {
     it('warns on exactly 1,000,000 until the KAM confirms it', () => {
-      const result = evaluateIntake({ ...complete, est_annual_volume: 1_000_000 }, config);
+      const result = ev({ ...complete, est_annual_volume: 1_000_000 }, config);
       expect(result.ready).toBe(true);
       expect(codes(result.warnings)).toEqual(['VOLUME_PLACEHOLDER:est_annual_volume']);
       expect(result.warnings[0]!.message).toMatch(/real annual volume/);
 
-      const confirmed = evaluateIntake(
+      const confirmed = ev(
         { ...complete, est_annual_volume: 1_000_000, est_annual_volume_confirmed: true },
         config,
       );
@@ -147,23 +151,23 @@ describe('evaluateIntake', () => {
   });
 
   it('rejects a non-positive or fractional volume and negative revenue', () => {
-    expect(codes(evaluateIntake({ ...complete, est_annual_volume: 0 }, config).blocking)).toEqual([
+    expect(codes(ev({ ...complete, est_annual_volume: 0 }, config).blocking)).toEqual([
       'INVALID_VALUE:est_annual_volume',
     ]);
-    expect(
-      codes(evaluateIntake({ ...complete, est_annual_volume: 12.5 }, config).blocking),
-    ).toEqual(['INVALID_VALUE:est_annual_volume']);
-    expect(codes(evaluateIntake({ ...complete, est_annual_revenue: -1 }, config).blocking)).toEqual(
-      ['INVALID_VALUE:est_annual_revenue'],
-    );
-    expect(evaluateIntake({ ...complete, est_annual_revenue: 0 }, config).ready).toBe(true);
+    expect(codes(ev({ ...complete, est_annual_volume: 12.5 }, config).blocking)).toEqual([
+      'INVALID_VALUE:est_annual_volume',
+    ]);
+    expect(codes(ev({ ...complete, est_annual_revenue: -1 }, config).blocking)).toEqual([
+      'INVALID_VALUE:est_annual_revenue',
+    ]);
+    expect(ev({ ...complete, est_annual_revenue: 0 }, config).ready).toBe(true);
   });
 
   describe('drawing', () => {
     it.each([['NONE'], ['COMING'], ['SAMPLE_ONLY'], [null]])(
       '%s warns but never blocks',
       (status) => {
-        const result = evaluateIntake({ ...complete, drawing_status: status }, config);
+        const result = ev({ ...complete, drawing_status: status }, config);
         expect(result.ready).toBe(true);
         expect(result.warnings).toEqual([
           {
@@ -177,7 +181,7 @@ describe('evaluateIntake', () => {
   });
 
   it('a request class other than the default warns about redirection', () => {
-    const result = evaluateIntake({ ...complete, request_class: 'STOCK' }, config);
+    const result = ev({ ...complete, request_class: 'STOCK' }, config);
     expect(result.ready).toBe(true);
     expect(codes(result.warnings)).toEqual(['REQUEST_CLASS_REDIRECT:request_class']);
   });
@@ -186,12 +190,12 @@ describe('evaluateIntake', () => {
     const moved = { ...address, line1: '99 Dock Rd' };
 
     it('a changed ship-to needs a reason', () => {
-      const result = evaluateIntake({ ...complete, ship_to: moved }, config);
+      const result = ev({ ...complete, ship_to: moved }, config);
       expect(codes(result.blocking)).toEqual(['SHIP_TO_REASON_REQUIRED:ship_to_override_reason']);
     });
 
     it('with a reason it is accepted', () => {
-      const result = evaluateIntake(
+      const result = ev(
         { ...complete, ship_to: moved, ship_to_override_reason: 'Co-packer fills this SKU' },
         config,
       );
@@ -207,12 +211,68 @@ describe('evaluateIntake', () => {
     });
   });
 
-  it('a not-yet-established customer satisfies the customer rule with a name', () => {
-    const result = evaluateIntake(
-      { ...complete, customer: { status: 'not_yet_established', name: 'New Brand Co' } },
+  it('"not yet a Pretium customer" keeps the SF Account and satisfies the customer rule (F-007)', () => {
+    const result = ev(
+      {
+        ...complete,
+        customer: { status: 'not_yet_established', sf_account_id: '001SYN', name: 'New Brand Co' },
+      },
       config,
     );
     expect(result.ready).toBe(true);
+  });
+
+  it('an opportunity without a Salesforce Account blocks (F-007, D-011)', () => {
+    const result = ev({ ...complete, customer: { status: 'existing', name: 'Typed Co' } });
+    expect(codes(result.blocking)).toEqual(['SF_ACCOUNT_REQUIRED:customer.sf_account_id']);
+    // No opportunity yet: the missing opportunity is the only thing to say.
+    const { sf_opportunity_id: _o, ...noOpp } = complete;
+    expect(codes(ev({ ...noOpp, customer: null }).blocking)).not.toContain(
+      'SF_ACCOUNT_REQUIRED:customer.sf_account_id',
+    );
+  });
+
+  describe('need-by dates (F-009)', () => {
+    it('Quote needed by must be after today (US Central)', () => {
+      expect(codes(ev({ ...complete, quote_needed_by: '2026-11-05' }).blocking)).toEqual([
+        'INVALID_VALUE:quote_needed_by',
+      ]);
+      expect(codes(ev({ ...complete, quote_needed_by: '2026-11-01' }).blocking)).toEqual([
+        'INVALID_VALUE:quote_needed_by',
+      ]);
+      expect(ev({ ...complete, quote_needed_by: '2026-11-06' }).ready).toBe(true);
+      // 03:00 UTC on the 6th is still the 5th in Central: the 6th is tomorrow there.
+      expect(
+        ev({ ...complete, quote_needed_by: '2026-11-06' }, config, new Date('2026-11-06T03:00:00Z'))
+          .ready,
+      ).toBe(true);
+      expect(todayInCentral(new Date('2026-11-06T03:00:00Z'))).toBe('2026-11-05');
+    });
+
+    it('Product needed by must be on or after Quote needed by', () => {
+      expect(codes(ev({ ...complete, product_needed_by: '2026-12-14' }).blocking)).toEqual([
+        'INVALID_VALUE:product_needed_by',
+      ]);
+      expect(ev({ ...complete, product_needed_by: '2026-12-15' }).ready).toBe(true);
+    });
+
+    it('rejects malformed dates; presence is config', () => {
+      expect(codes(ev({ ...complete, quote_needed_by: '12/15/2026' }).blocking)).toEqual([
+        'INVALID_VALUE:quote_needed_by',
+      ]);
+      expect(codes(ev({ ...complete, product_needed_by: 'soon' }).blocking)).toEqual([
+        'INVALID_VALUE:product_needed_by',
+      ]);
+      const required = {
+        ...config,
+        requiredFields: [present('quote_needed_by'), present('product_needed_by')],
+      };
+      const { quote_needed_by: _q, product_needed_by: _p, ...rest } = complete;
+      expect(codes(ev(rest, required).blocking)).toEqual([
+        'MISSING_FIELD:quote_needed_by',
+        'MISSING_FIELD:product_needed_by',
+      ]);
+    });
   });
 });
 

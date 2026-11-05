@@ -10,7 +10,7 @@ import type { FieldValues } from '../workflow/rules';
  * machine, capital, engineer, channel, product class or priority field here (REQ-04, X-90).
  *
  * Values are keyed in snake_case like the workflow rules, with two nested objects:
- * `customer { status, sf_account_id, name, location, contact_name, contact_email, contact_phone }` and
+ * `customer { status, sf_account_id, name }` (FB-02, F-007: always the opportunity's SF Account) and
  * `ship_to` / `ship_to_default { line1, city, state, postal, country }`.
  *
  * Which fields BLOCK a submit is config (`intake_required_fields`, the required-field DSL), not code:
@@ -33,7 +33,9 @@ export const INTAKE_FIELDS = [
   'packaging_notes',
   'est_annual_volume',
   'est_annual_revenue',
-  'expected_close_date',
+  // FB-02 (F-009): the two need-by dates replace the editable close date (the SF close date is read-only).
+  'quote_needed_by',
+  'product_needed_by',
   'container_size',
   'standard_description',
   'description',
@@ -76,6 +78,8 @@ export const INTAKE_ISSUE_CODES = [
   'MISSING_FIELD',
   'SHIP_TO_REASON_REQUIRED',
   'INVALID_VALUE',
+  /** FB-02 (F-007, D-011): the opportunity has no Salesforce Account; the customer always comes from SF. */
+  'SF_ACCOUNT_REQUIRED',
   // warnings
   'VOLUME_PLACEHOLDER',
   'DRAWING_MISSING',
@@ -126,20 +130,97 @@ export function isPlaceholderVolume(
   return guard.roundMultiple !== null && volume % guard.roundMultiple === 0;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Today's calendar date (YYYY-MM-DD) where the need-by dates are judged: US Central, Pretium HQ
+ * (CLAUDE.md "Time"). A KAM at 9 PM Central on the 5th is still on the 5th.
+ */
+export function todayInCentral(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+/**
+ * FB-02 (F-009): "Quote needed by" must be after today; "Product needed by" (best estimate of launch
+ * need) on or after it. Presence is config (`intake_required_fields`); this only checks the order.
+ */
+export function needByDateIssues(values: FieldValues, now: Date): IntakeIssue[] {
+  const issues: IntakeIssue[] = [];
+  const quoteBy = values.quote_needed_by;
+  const productBy = values.product_needed_by;
+  const quoteOk = typeof quoteBy === 'string' && ISO_DATE.test(quoteBy);
+  if (isPresent(quoteBy)) {
+    if (!quoteOk) {
+      issues.push({
+        code: 'INVALID_VALUE',
+        field: 'quote_needed_by',
+        message: 'Quote needed by must be a date (YYYY-MM-DD)',
+      });
+    } else if (typeof quoteBy === 'string' && quoteBy <= todayInCentral(now)) {
+      issues.push({
+        code: 'INVALID_VALUE',
+        field: 'quote_needed_by',
+        message: 'Quote needed by must be after today',
+      });
+    }
+  }
+  if (isPresent(productBy)) {
+    if (typeof productBy !== 'string' || !ISO_DATE.test(productBy)) {
+      issues.push({
+        code: 'INVALID_VALUE',
+        field: 'product_needed_by',
+        message: 'Product needed by must be a date (YYYY-MM-DD)',
+      });
+    } else if (quoteOk && typeof quoteBy === 'string' && productBy < quoteBy) {
+      issues.push({
+        code: 'INVALID_VALUE',
+        field: 'product_needed_by',
+        message: 'Product needed by must be on or after Quote needed by',
+      });
+    }
+  }
+  return issues;
+}
+
 /** True for a quote that blocks a second CCQ quote on the same SF opportunity. */
 export const isActiveQuoteStatus = (status: QuoteStatus): boolean => status !== 'closed';
 
 /**
  * Blocking vs warning for an intake. Pure: the API calls it on every autosave (to show the review)
- * and again inside the submit transaction (the authority).
+ * and again inside the submit transaction (the authority). `now` judges the need-by dates.
  */
-export function evaluateIntake(values: FieldValues, config: IntakeConfig): IntakeEvaluation {
+export function evaluateIntake(
+  values: FieldValues,
+  config: IntakeConfig,
+  now: Date,
+): IntakeEvaluation {
   const blocking: IntakeIssue[] = evaluateRules(config.requiredFields, values).map((e) => ({
     code: 'MISSING_FIELD',
     field: e.field ?? '',
     message: e.message,
   }));
   const warnings: IntakeIssue[] = [];
+
+  // F-007 (D-011): new accounts start in Salesforce, so the customer is always the opportunity's SF
+  // Account. An opportunity without one is fixed in Salesforce, not typed here.
+  if (
+    isPresent(values.sf_opportunity_id) &&
+    !isPresent(getPath(values, 'customer.sf_account_id'))
+  ) {
+    blocking.push({
+      code: 'SF_ACCOUNT_REQUIRED',
+      field: 'customer.sf_account_id',
+      message:
+        'This opportunity has no Salesforce Account. Add the account to the opportunity in Salesforce, then pick it again.',
+    });
+  }
+
+  blocking.push(...needByDateIssues(values, now));
 
   const volume = values.est_annual_volume;
   if (

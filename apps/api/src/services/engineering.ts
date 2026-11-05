@@ -72,6 +72,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { loadEngQueueSettings, engineeringView } from './engineering-view';
 import { loadIntakeConfig } from './intake';
+import { shipCityState } from './intake-facts';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
 import { persistNotifications } from './notificationService';
 import { ServiceProblem } from './problem';
@@ -208,7 +209,8 @@ export class EngineeringService {
         est_annual_volume: q.estAnnualVolume,
         est_annual_volume_confirmed: q.estAnnualVolumeConfirmed,
         est_annual_revenue: q.estAnnualRevenue,
-        expected_close_date: q.expectedCloseDate,
+        quote_needed_by: q.quoteNeededBy,
+        product_needed_by: q.productNeededBy,
         container_size: structured.size ?? null,
         standard_description: structured.standard ?? null,
         description: q.description,
@@ -216,6 +218,7 @@ export class EngineeringService {
         comments_for_engineering: q.commentsForEngineering,
       },
       qc.intake,
+      q.submittedAt ?? now,
     );
     const pinned = q.queuePositionOverridden && q.queuePosition !== null;
     const state = {
@@ -243,6 +246,7 @@ export class EngineeringService {
       queuePosition: pinned ? q.queuePosition : null,
       drawingStatus: q.drawingStatus,
       sfCloseDate: row.sfCloseDate ?? null,
+      ...shipCityState(q.shipTo),
       completeness,
       canEdit: canEditEngReview(qc.ctx.actor, state),
       entry: {

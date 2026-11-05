@@ -22,6 +22,7 @@ import {
   getQuoteDraft,
   getQuoteDraftForUpdate,
   getSetting,
+  getSfOpportunity,
   insertActivityEvent,
   insertAuditEvent,
   insertCustomer,
@@ -161,17 +162,26 @@ export class IntakeService {
   private async toDto(tx: DbOrTx, row: QuoteDraftRow): Promise<IntakeDraft> {
     const config = await loadIntakeConfig(tx);
     const data = row.data as IntakeDraftData;
-    const evaluation = evaluateIntake(intakeValues(data, config.freeTextNeckFinishes), config);
+    const evaluation = evaluateIntake(
+      intakeValues(data, config.freeTextNeckFinishes),
+      config,
+      this.now(),
+    );
     const active =
       row.sfOpportunityId && !row.submittedQuoteId
         ? await getActiveQuoteForOpportunity(tx, row.sfOpportunityId)
         : undefined;
+    // FB-02 (T-009): the SF close date is read from the latest sync, never stored on the draft.
+    const opportunity = row.sfOpportunityId
+      ? await getSfOpportunity(tx, row.sfOpportunityId)
+      : undefined;
     return {
       id: row.id,
       ownerUserId: row.ownerUserId,
       step: row.step,
       data,
       evaluation,
+      sfCloseDate: opportunity?.closeDate ?? null,
       activeQuote: row.reworkOfQuoteId ? null : activeRef(active),
       rework: row.reworkOfQuoteId ? await this.reworkInfo(tx, row.reworkOfQuoteId) : null,
       createdAt: row.createdAt.toISOString(),
@@ -434,23 +444,30 @@ export class IntakeService {
     return result;
   }
 
-  /** Links the SF Account's customer row, or records a not-yet-established one (DEC-27). */
+  /**
+   * FB-02 (F-007, D-011): the customer is always the opportunity's Salesforce Account. Links its
+   * customer row (or mirrors it from the draft's SF copy), and records the KAM's one answer, "Not yet a
+   * Pretium customer (no ERP account)" (DEC-27), as the customer's status: it drives the new_customer
+   * Legal review trigger. A changed status is audited. Nothing is created in Salesforce or the ERP.
+   */
   private async resolveCustomer(
     tx: Tx,
     actor: Actor,
     data: IntakeDraftData,
     now: Date,
+    audit: { ip: string | null; userAgent: string | null; requestId: string | null },
+    quoteId: string | null,
   ): Promise<string> {
-    // Mirrored, not created in SF. No account request, no credit check (DEC-27).
     const c = data.customer!;
-    if (c.status === 'existing' && c.sfAccountId) {
-      const known = await getCustomerBySfAccountId(tx, c.sfAccountId);
-      if (known) return known.id;
+    const sfAccountId = c.sfAccountId!;
+    const status = c.status;
+    const known = await getCustomerBySfAccountId(tx, sfAccountId);
+    if (!known) {
       return (
         await insertCustomer(tx, {
-          sfAccountId: c.sfAccountId,
+          sfAccountId,
           name: c.name!,
-          status: 'existing',
+          status,
           defaultShipTo: address(data.shipToDefault),
           source: 'salesforce',
           lastSyncedAt: now,
@@ -458,22 +475,26 @@ export class IntakeService {
         })
       ).id;
     }
-    return (
-      await insertCustomer(tx, {
-        sfAccountId: null,
-        name: c.name!,
-        status: 'not_yet_established',
-        location: blankToNull(c.location),
-        contact: {
-          name: blankToNull(c.contactName),
-          email: blankToNull(c.contactEmail),
-          phone: blankToNull(c.contactPhone),
-        },
-        defaultShipTo: address(data.shipTo),
-        source: 'intake',
+    if (known.status !== status) {
+      await tx
+        .update(schema.customer)
+        .set({ status, updatedAt: now })
+        .where(eq(schema.customer.id, known.id));
+      await insertAuditEvent(tx, {
+        at: now,
+        actorId: actor.userId,
+        actorRoles: [...actor.roles],
+        action: 'update',
+        entity: 'customer',
+        entityId: known.id,
+        quoteId,
+        before: { status: known.status },
+        after: { status, source: 'intake' },
+        ...audit,
         createdBy: actor.userId,
-      })
-    ).id;
+      });
+    }
+    return known.id;
   }
 
   private async submitInTx(
@@ -487,7 +508,7 @@ export class IntakeService {
     const data = draft.data as IntakeDraftData;
     const config = await loadIntakeConfig(tx);
     const values = intakeValues(data, config.freeTextNeckFinishes);
-    const evaluation: IntakeEvaluation = evaluateIntake(values, config);
+    const evaluation: IntakeEvaluation = evaluateIntake(values, config, now);
     if (!evaluation.ready) {
       throw new IntakeError(
         422,
@@ -530,7 +551,14 @@ export class IntakeService {
       }
     }
 
-    const customerId = await this.resolveCustomer(tx, actor, data, now);
+    const customerId = await this.resolveCustomer(
+      tx,
+      actor,
+      data,
+      now,
+      audit,
+      reworkOf?.id ?? null,
+    );
     const kam = await findUserById(tx, actor.userId);
     const shipToOverridden =
       Boolean(blankToNull(data.shipToOverrideReason)) && values.ship_to !== null;
@@ -552,7 +580,9 @@ export class IntakeService {
       estAnnualVolumeConfirmed: data.estAnnualVolumeConfirmed ?? false,
       estAnnualRevenue: data.estAnnualRevenue ?? null,
       estAnnualRevenueSf: data.estAnnualRevenueSf ?? null,
-      expectedCloseDate: data.expectedCloseDate ?? null,
+      // FB-02 (F-009): the need-by dates replace the close date (expected_close_date is no longer written).
+      quoteNeededBy: data.quoteNeededBy ?? null,
+      productNeededBy: data.productNeededBy ?? null,
       drawingStatus: data.drawingStatus ?? null,
       neckFinish: values.neck_finish,
       packagingType: data.packagingType ?? null,
@@ -777,7 +807,8 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     estAnnualVolumeConfirmed: q.estAnnualVolumeConfirmed,
     estAnnualRevenue: q.estAnnualRevenue,
     estAnnualRevenueSf: q.estAnnualRevenueSf,
-    expectedCloseDate: q.expectedCloseDate,
+    quoteNeededBy: q.quoteNeededBy,
+    productNeededBy: q.productNeededBy,
     drawingStatus: q.drawingStatus,
     description: q.description,
     standardDescription: structured.standard ?? null,
@@ -800,14 +831,9 @@ async function customerForDraft(
     .where(eq(schema.customer.id, customerId))
     .limit(1);
   if (!c) return null;
-  const contact = (c.contact ?? {}) as { name?: string; email?: string; phone?: string };
   return {
     status: c.status as 'existing' | 'not_yet_established',
     sfAccountId: c.sfAccountId,
     name: c.name,
-    location: c.location,
-    contactName: contact.name ?? null,
-    contactEmail: contact.email ?? null,
-    contactPhone: contact.phone ?? null,
   };
 }

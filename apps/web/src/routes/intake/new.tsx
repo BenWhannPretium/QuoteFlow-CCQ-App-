@@ -329,7 +329,7 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
     );
   }
 
-  const stepProps = { data, update, cfg, evaluation };
+  const stepProps = { data, update, cfg, evaluation, sfCloseDate: draft.sfCloseDate };
 
   return (
     <div className="grid gap-4" data-testid="intake-wizard" data-step={step}>

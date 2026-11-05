@@ -17,13 +17,18 @@ export interface HybridOptions {
 
 const present = (field: string): RequiredRule => ({ field, op: 'present' });
 
-/** Minimum intake set (D-05, provisional): blocking fields before a quote can leave INTAKE. */
+/**
+ * Minimum intake set (D-05, provisional): blocking fields before a quote can leave INTAKE. FB-02 (F-009)
+ * adds the two need-by dates (migration 0026 updates existing environments).
+ */
 const INTAKE_COMPLETE: RequiredRule[] = [
   present('sf_opportunity_id'),
   present('customer_id'),
   present('product_family'),
   present('resin'),
   { anyOf: [present('est_annual_volume'), present('est_annual_revenue')] },
+  present('quote_needed_by'),
+  present('product_needed_by'),
 ];
 
 /**

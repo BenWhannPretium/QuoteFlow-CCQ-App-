@@ -75,7 +75,8 @@ async function prefill(
     packagingType: 'BULK',
     estAnnualVolume: 750_000,
     estAnnualRevenue: 150_000,
-    expectedCloseDate: '2026-12-15',
+    quoteNeededBy: '2026-12-15',
+    productNeededBy: '2027-03-01',
     containerSize: '16 oz',
     standardDescription: '16 oz Bottle, HDPE',
     drawingStatus: 'HAVE_DRAWING',
@@ -465,7 +466,7 @@ describe('Rework: back to the KAM, fixed, resubmitted', () => {
       data: {
         estAnnualVolume: 3_000_000,
         estAnnualRevenue: 400_000,
-        expectedCloseDate: '2026-11-10',
+        quoteNeededBy: '2026-11-10',
       },
     });
     const res = await kam().post(`/api/v1/quotes/drafts/${draft.id}/submit`);

@@ -63,7 +63,8 @@ async function prefill(sfOpportunityId: string): Promise<IntakeDraftData> {
     estAnnualVolume: 750_000,
     estAnnualRevenue: sf.opportunity.amount,
     estAnnualRevenueSf: sf.opportunity.amount,
-    expectedCloseDate: sf.opportunity.closeDate,
+    quoteNeededBy: '2026-12-15',
+    productNeededBy: '2027-03-01',
     containerSize: '16 oz',
     standardDescription: '16 oz Bottle, HDPE with Container, Closure',
     drawingStatus: 'HAVE_DRAWING',
@@ -120,6 +121,13 @@ describe('create → autosave → submit (happy path)', () => {
     const draft = IntakeDraft.parse(res.json());
     expect(draft.step).toBe(3);
     expect(draft.evaluation).toEqual({ blocking: [], warnings: [], ready: true });
+    // T-009: the SF close date is read from the latest synced snapshot, never from the draft.
+    const [snap] = await db.db
+      .select()
+      .from(schema.sfOpportunitySnapshot)
+      .where(eq(schema.sfOpportunitySnapshot.sfOpportunityId, oppId));
+    expect(draft.sfCloseDate).toBe(snap!.closeDate);
+    expect(draft.data).not.toHaveProperty('expectedCloseDate');
 
     // A partial patch replaces only the keys it sends.
     const partial = await kam().patch(`/api/v1/quotes/drafts/${draftId}`, {
@@ -162,6 +170,10 @@ describe('create → autosave → submit (happy path)', () => {
       estAnnualVolume: 750_000,
       requestClass: 'CCQ',
       shipToOverridden: false,
+      // FB-02 (F-009 / T-009): the need-by dates are stored; no close date is (SF's stays in SF).
+      quoteNeededBy: '2026-12-15',
+      productNeededBy: '2027-03-01',
+      expectedCloseDate: null,
       priorityScore: body.priorityScore,
       priorityTier: body.priorityTier,
       scoringModelVersion: 1,
@@ -247,12 +259,13 @@ describe('blocking vs warning (domain decides, config-driven)', () => {
   });
 
   it('the required-field setting is honoured: drop resin from it and the same intake submits', async () => {
-    const setting = sql`update app_setting set value = value - 4 where key = 'intake_required_fields'`;
-    // index 4 = present('resin') in the seed
     const [before] = await db.db.execute<{ value: unknown }>(
       sql`select value from app_setting where key = 'intake_required_fields'`,
     );
-    await db.db.execute(setting);
+    const withoutResin = (before!.value as { field?: string }[]).filter((r) => r.field !== 'resin');
+    await db.db.execute(
+      sql`update app_setting set value = ${JSON.stringify(withoutResin)}::jsonb where key = 'intake_required_fields'`,
+    );
     try {
       const { resin: _r, ...data } = await prefill(nextFree());
       const draft = await createDraft(data);
@@ -326,17 +339,15 @@ describe('customer and ship-to', () => {
     expect(overrides[0]!.requestedValue).toMatchObject({ line1: '99 Co-packer Way' });
   });
 
-  it('a not-yet-established customer gets name, location and contact only (DEC-27)', async () => {
+  it('"not yet a Pretium customer" keeps the SF Account and marks the customer (F-007, DEC-27)', async () => {
     const data = await prefill(nextFree());
+    const [before] = await db.db
+      .select()
+      .from(schema.customer)
+      .where(eq(schema.customer.sfAccountId, data.customer!.sfAccountId!));
     const draft = await createDraft({
       ...data,
-      customer: {
-        status: 'not_yet_established',
-        name: 'Brand New Beverage Co (synthetic)',
-        location: 'Austin, TX',
-        contactName: 'Pat Buyer',
-        contactEmail: 'pat@example.com',
-      },
+      customer: { ...data.customer!, status: 'not_yet_established' },
     });
     const res = await submit(draft.id);
     expect(res.statusCode, res.body).toBe(201);
@@ -346,13 +357,60 @@ describe('customer and ship-to', () => {
       .select()
       .from(schema.customer)
       .where(eq(schema.customer.id, quote!.customerId!));
+    // Nothing typed: the SF Account is the customer, with the KAM's "no ERP account" answer.
     expect(customer).toMatchObject({
       status: 'not_yet_established',
-      sfAccountId: null,
-      source: 'intake',
-      location: 'Austin, TX',
-      contact: { name: 'Pat Buyer', email: 'pat@example.com', phone: null },
+      sfAccountId: data.customer!.sfAccountId,
+      location: null,
+      contact: null,
     });
+    // An already-mirrored account that changes status is audited (before → after).
+    const audit = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(
+        and(eq(schema.auditEvent.entity, 'customer'), eq(schema.auditEvent.entityId, customer!.id)),
+      );
+    if (before && before.status === 'existing') {
+      expect(audit.map((a) => [a.before, a.after])).toContainEqual([
+        { status: 'existing' },
+        { status: 'not_yet_established', source: 'intake' },
+      ]);
+    } else {
+      expect(before?.id ?? customer!.id).toBe(customer!.id);
+    }
+  });
+
+  it('need-by dates: Quote needed by after today, Product needed by on or after it (F-009)', async () => {
+    const data = await prefill(nextFree());
+    const past = await createDraft({ ...data, quoteNeededBy: '2026-10-16' });
+    expect(past.evaluation.blocking.map((b) => `${b.code}:${b.field}`)).toEqual([
+      'INVALID_VALUE:quote_needed_by',
+    ]);
+    expect((await submit(past.id)).statusCode).toBe(422);
+    const order = await kam().patch(`/api/v1/quotes/drafts/${past.id}`, {
+      data: { quoteNeededBy: '2027-01-10', productNeededBy: '2027-01-09' },
+    });
+    expect(
+      IntakeDraft.parse(order.json()).evaluation.blocking.map((b) => `${b.code}:${b.field}`),
+    ).toEqual(['INVALID_VALUE:product_needed_by']);
+    const missing = await kam().patch(`/api/v1/quotes/drafts/${past.id}`, {
+      data: { quoteNeededBy: null, productNeededBy: null },
+    });
+    expect(
+      IntakeDraft.parse(missing.json()).evaluation.blocking.map((b) => `${b.code}:${b.field}`),
+    ).toEqual(['MISSING_FIELD:quote_needed_by', 'MISSING_FIELD:product_needed_by']);
+  });
+
+  it('an opportunity with no Salesforce Account cannot be submitted (F-007, D-011)', async () => {
+    const data = await prefill(nextFree());
+    const draft = await createDraft({
+      ...data,
+      customer: { status: 'existing', sfAccountId: null, name: 'Typed name' },
+    });
+    expect(draft.evaluation.blocking.map((b) => b.code)).toContain('SF_ACCOUNT_REQUIRED');
+    const res = await submit(draft.id);
+    expect(res.statusCode).toBe(422);
   });
 });
 

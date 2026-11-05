@@ -266,7 +266,7 @@ function RequestSection({ s }: { s: ReviewSummary }) {
         .join(': '),
     },
     { label: 'Drawing', value: label('drawing_status', i.drawingStatus) },
-    { label: 'Expected close', value: q.expectedCloseDate },
+    { label: 'Salesforce close date', value: q.expectedCloseDate },
     { label: 'Ship-to', value: shipTo },
     { label: 'KAM', value: q.kamName },
   ];

@@ -344,12 +344,13 @@ describe('engineering completeness', () => {
     const codes = engineeringCompleteness(
       { product_family: 'BOTTLE', request_class: 'STOCK', est_annual_volume: 1_000_000 },
       config,
+      NOW,
     ).map((w) => `${w.code}:${w.field}`);
     expect(codes).toContain('VOLUME_PLACEHOLDER:est_annual_volume');
     expect(codes).toContain('DRAWING_MISSING:drawing_status');
     expect(codes).toContain('ENRICH:neck_finish');
     expect(codes.some((c) => c.startsWith('REQUEST_CLASS_REDIRECT'))).toBe(false);
-    expect(engineeringCompleteness({}, config)[0]).toMatchObject({
+    expect(engineeringCompleteness({}, config, NOW)[0]).toMatchObject({
       code: 'MISSING_FIELD',
       field: 'product_family',
     });

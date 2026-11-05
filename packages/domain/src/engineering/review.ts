@@ -270,9 +270,23 @@ export function planCapacityEvidence(
  * What Engineering may have to chase on a quote: the intake's own warnings (no drawing, round
  * placeholder volume, empty fields), without the request-class note (that is G1's concern).
  */
-export function engineeringCompleteness(values: FieldValues, config: IntakeConfig): IntakeIssue[] {
-  const { blocking, warnings } = evaluateIntake(values, config);
-  return [...blocking, ...warnings].filter((w) => w.code !== 'REQUEST_CLASS_REDIRECT');
+/**
+ * FB-02: judged as of the submit (`asOf`), so a need-by date that has since passed isn't reported as
+ * missing information; the intake-only checks (request class, SF account) don't apply to a quote.
+ */
+const NOT_COMPLETENESS: readonly string[] = [
+  'REQUEST_CLASS_REDIRECT',
+  'REQUEST_CLASS_NOT_ALLOWED',
+  'SF_ACCOUNT_REQUIRED',
+];
+
+export function engineeringCompleteness(
+  values: FieldValues,
+  config: IntakeConfig,
+  asOf: Date,
+): IntakeIssue[] {
+  const { blocking, warnings } = evaluateIntake(values, config, asOf);
+  return [...blocking, ...warnings].filter((w) => !NOT_COMPLETENESS.includes(w.code));
 }
 
 // ── B-26: the capacity owner's G2 sign-off (deck slide 11) ────────────────────────────────────────

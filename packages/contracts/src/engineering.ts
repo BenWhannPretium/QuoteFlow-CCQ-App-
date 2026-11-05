@@ -64,6 +64,9 @@ export const EngQueueItem = QuoteSummary.extend({
   queuePosition: z.number().int().nullable(),
   drawingStatus: z.string().nullable(),
   sfCloseDate: z.string().nullable(),
+  /** FB-02 (F-017): the ship / fill destination city and state (input to the plant choice, D-012). */
+  shipCity: z.string().nullable(),
+  shipState: z.string().nullable(),
   completeness: z.array(CompletenessWarning),
   /** The caller may edit this quote's Engineering Review. */
   canEdit: z.boolean(),

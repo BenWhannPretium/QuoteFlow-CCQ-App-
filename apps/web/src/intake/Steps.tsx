@@ -1,5 +1,5 @@
 import type { IntakeAddress, IntakeDraftData } from '@ccq/contracts';
-import type { IntakeEvaluation } from '@ccq/domain';
+import { todayInCentral, type IntakeEvaluation } from '@ccq/domain';
 import { PencilIcon, Undo2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -18,13 +18,15 @@ import {
   valueLabel,
   type WizardConfig,
 } from './model';
-import { Field, Notice, Pill, Section } from './ui';
+import { Field, Notice, ReadOnlyValue, Section, SfTag } from './ui';
 
 export interface StepProps {
   data: IntakeDraftData;
   update: (patch: Partial<IntakeDraftData>) => void;
   cfg: WizardConfig;
   evaluation: IntakeEvaluation;
+  /** FB-02 (T-009): the opportunity's close date from the latest Salesforce sync (read-only). */
+  sfCloseDate?: string | null | undefined;
 }
 
 const fid = (field: string) => `intake-${field.replace(/[._]/g, '-')}`;
@@ -40,6 +42,20 @@ function meta(cfg: WizardConfig, field: string) {
 }
 
 const nullIfBlank = (v: string) => (v.trim() === '' ? null : v);
+
+/** YYYY-MM-DD of the day after `iso` (for the date pickers' `min`). */
+const isoDayAfter = (iso: string) =>
+  new Date(Date.parse(`${iso}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/** A blocking issue shown under its field (role=alert so it is announced when it appears). */
+function FieldError({ issue }: { issue: { message: string } | undefined }) {
+  if (!issue) return null;
+  return (
+    <p role="alert" className="text-destructive text-xs font-medium">
+      {issue.message}
+    </p>
+  );
+}
 
 function Select({
   id,
@@ -84,142 +100,86 @@ const ADDRESS_PARTS: { key: keyof IntakeAddress; label: string; autoComplete: st
 ];
 
 export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
-  const customer = data.customer ?? { status: 'not_yet_established' as const };
-  const isNew = customer.status === 'not_yet_established';
-  // The SF account the opportunity came with, so "new customer" can be undone.
-  const [sfAccount] = useState(() => (customer.status === 'existing' ? customer : null));
+  const customer = data.customer ?? { status: 'existing' as const };
+  const notYetCustomer = customer.status === 'not_yet_established';
   const hasDefault = Boolean(formatAddress(data.shipToDefault));
   const [editingShipTo, setEditingShipTo] = useState(
     !hasDefault || Boolean(data.shipToOverrideReason),
   );
   const reasonBlocking = evaluation.blocking.some((b) => b.code === 'SHIP_TO_REASON_REQUIRED');
+  const noAccount = evaluation.blocking.find((b) => b.code === 'SF_ACCOUNT_REQUIRED');
 
-  const setNew = (on: boolean) => {
-    if (on) {
-      update({
-        customer: {
-          status: 'not_yet_established',
-          sfAccountId: null,
-          name: customer.status === 'existing' ? '' : (customer.name ?? ''),
-        },
-      });
-    } else if (sfAccount) {
-      update({ customer: sfAccount });
-    }
-  };
-  const setCustomer = (patch: Partial<NonNullable<IntakeDraftData['customer']>>) =>
-    update({ customer: { ...customer, ...patch } });
   const setShipTo = (key: keyof IntakeAddress, value: string) =>
     update({ shipTo: { ...(data.shipTo ?? {}), [key]: nullIfBlank(value) } });
 
   return (
     <div className="grid gap-4">
-      <Section
-        title="Customer"
-        action={
-          <Pill
-            className={
-              isNew ? 'bg-warning text-warning-foreground' : 'bg-primary text-primary-foreground'
-            }
-          >
-            {isNew ? 'Not yet established' : 'Existing customer'}
-          </Pill>
-        }
-      >
-        {!isNew && (
+      {/* FB-02 (F-007, D-011): the customer is the opportunity's Salesforce Account; nothing is typed. */}
+      <Section title="Customer" action={<SfTag />}>
+        {noAccount ? (
+          <Notice tone="blocking" testId="no-sf-account">
+            {noAccount.message}
+          </Notice>
+        ) : (
           <div className="grid gap-1">
             <p className="font-semibold" data-testid="customer-name">
               {customer.name}
             </p>
-            <p className="text-muted-foreground text-xs">From the Salesforce account.</p>
+            <p className="text-muted-foreground text-xs">
+              The Salesforce Account on the opportunity. New accounts start in Salesforce.
+            </p>
           </div>
         )}
-        {(sfAccount || !isNew) && (
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="size-5"
-              checked={isNew}
-              onChange={(e) => setNew(e.target.checked)}
-            />
-            This is a new customer, not yet established with Pretium
-          </label>
-        )}
-        {isNew && (
-          <div className="grid gap-4">
-            <Notice tone="info">
-              Just the basics: no account request or credit check is needed to quote.
-            </Notice>
-            <Field {...meta(cfg, 'customer.name')} help={cfg.help.customer}>
-              <Input
-                id={fid('customer.name')}
-                value={customer.name ?? ''}
-                onChange={(e) => setCustomer({ name: e.target.value })}
-                autoComplete="organization"
-              />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field id={fid('customer.location')} label="Location (city, state / country)">
-                <Input
-                  id={fid('customer.location')}
-                  value={customer.location ?? ''}
-                  onChange={(e) => setCustomer({ location: e.target.value })}
-                />
-              </Field>
-              <Field id={fid('customer.contact_name')} label="Contact name">
-                <Input
-                  id={fid('customer.contact_name')}
-                  value={customer.contactName ?? ''}
-                  onChange={(e) => setCustomer({ contactName: e.target.value })}
-                  autoComplete="name"
-                />
-              </Field>
-              <Field id={fid('customer.contact_email')} label="Contact email">
-                <Input
-                  id={fid('customer.contact_email')}
-                  type="email"
-                  value={customer.contactEmail ?? ''}
-                  onChange={(e) => setCustomer({ contactEmail: e.target.value })}
-                  autoComplete="email"
-                />
-              </Field>
-              <Field id={fid('customer.contact_phone')} label="Contact phone">
-                <Input
-                  id={fid('customer.contact_phone')}
-                  type="tel"
-                  value={customer.contactPhone ?? ''}
-                  onChange={(e) => setCustomer({ contactPhone: e.target.value })}
-                  autoComplete="tel"
-                />
-              </Field>
-            </div>
-          </div>
+        <label className="flex min-h-11 items-center gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="size-5"
+            data-testid="not-yet-customer"
+            aria-describedby={`${fid('customer')}-help`}
+            checked={notYetCustomer}
+            onChange={(e) =>
+              update({
+                customer: {
+                  ...customer,
+                  status: e.target.checked ? 'not_yet_established' : 'existing',
+                },
+              })
+            }
+          />
+          Not yet a Pretium customer (no ERP account)
+        </label>
+        {cfg.help.customer && (
+          <p id={`${fid('customer')}-help`} className="text-muted-foreground text-xs">
+            {cfg.help.customer}
+          </p>
         )}
       </Section>
 
+      {/* FB-02 (F-017, D-012): Engineering picks the plant with this as input. */}
       <Section
-        title="Ship-to / fill location"
+        title="Ship / fill destination"
         action={
           hasDefault && !editingShipTo ? (
             <Button variant="outline" size="sm" onClick={() => setEditingShipTo(true)}>
-              <PencilIcon aria-hidden /> Change ship-to
+              <PencilIcon aria-hidden /> Change destination
             </Button>
           ) : undefined
         }
       >
         {cfg.help.ship_to && <p className="text-muted-foreground text-xs">{cfg.help.ship_to}</p>}
         {!editingShipTo ? (
-          <p data-testid="ship-to" className="text-sm">
-            {formatAddress(data.shipTo)}
-            <span className="text-muted-foreground block text-xs">
-              Default from the customer record.
+          <p data-testid="ship-to" className="flex flex-wrap items-center gap-2 text-sm">
+            <span>{formatAddress(data.shipTo)}</span>
+            <SfTag />
+            <span className="text-muted-foreground block w-full text-xs">
+              The Salesforce Account&apos;s shipping address.
             </span>
           </p>
         ) : (
           <div className="grid gap-4">
             {hasDefault && (
               <p className="text-muted-foreground text-sm" data-testid="ship-to-original">
-                Original: {formatAddress(data.shipToDefault)}
+                From Salesforce: {formatAddress(data.shipToDefault)}
               </p>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -260,7 +220,7 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
                       setEditingShipTo(false);
                     }}
                   >
-                    <Undo2Icon aria-hidden /> Use the default ship-to
+                    <Undo2Icon aria-hidden /> Use the Salesforce address
                   </Button>
                 </div>
               </>
@@ -304,7 +264,13 @@ function NumberInput({
   );
 }
 
-export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
+export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: StepProps) {
+  const invalidIssue = (field: string) =>
+    evaluation.blocking.find((b) => b.code === 'INVALID_VALUE' && b.field === field);
+  const invalid = (field: string) => Boolean(invalidIssue(field));
+  const tomorrow = isoDayAfter(todayInCentral(new Date()));
+  // F-008: what the opportunity's SF product spec supplied is read-only (fix it in Salesforce).
+  const sf = data.sfPrefill ?? {};
   const neckEntry = cfg.lists.neck_finish?.find((e) => e.code === data.neckFinish);
   const placeholder = evaluation.warnings.find((w) => w.code === 'VOLUME_PLACEHOLDER');
   const redirect = evaluation.warnings.find((w) => w.code === 'REQUEST_CLASS_REDIRECT');
@@ -360,24 +326,40 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
               cfg={cfg}
             />
           </Field>
-          <Field {...meta(cfg, 'container_size')}>
-            <Input
-              id={fid('container_size')}
-              aria-describedby={`${fid('container_size')}-help`}
-              placeholder="e.g. 16 oz"
-              value={data.containerSize ?? ''}
-              onChange={(e) => update({ containerSize: nullIfBlank(e.target.value) })}
+          {sf.containerSize ? (
+            <ReadOnlyValue
+              {...meta(cfg, 'container_size')}
+              value={data.containerSize}
+              testId="sf-container-size"
             />
-          </Field>
-          <Field {...meta(cfg, 'resin')}>
-            <Select
-              id={fid('resin')}
-              listKey="resin"
-              value={data.resin}
-              onChange={(v) => update({ resin: v })}
-              cfg={cfg}
+          ) : (
+            <Field {...meta(cfg, 'container_size')}>
+              <Input
+                id={fid('container_size')}
+                aria-describedby={`${fid('container_size')}-help`}
+                placeholder="e.g. 16 oz"
+                value={data.containerSize ?? ''}
+                onChange={(e) => update({ containerSize: nullIfBlank(e.target.value) })}
+              />
+            </Field>
+          )}
+          {sf.resin ? (
+            <ReadOnlyValue
+              {...meta(cfg, 'resin')}
+              value={valueLabel(cfg, 'resin', data.resin)}
+              testId="sf-resin"
             />
-          </Field>
+          ) : (
+            <Field {...meta(cfg, 'resin')}>
+              <Select
+                id={fid('resin')}
+                listKey="resin"
+                value={data.resin}
+                onChange={(v) => update({ resin: v })}
+                cfg={cfg}
+              />
+            </Field>
+          )}
           <Field {...meta(cfg, 'market')}>
             <Select
               id={fid('market')}
@@ -477,11 +459,21 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
               ) : undefined
             }
           >
-            <NumberInput
-              id={fid('est_annual_volume')}
-              value={data.estAnnualVolume}
-              onChange={(v) => update({ estAnnualVolume: v, estAnnualVolumeConfirmed: false })}
-            />
+            {sf.estAnnualVolume != null ? (
+              <p
+                id={fid('est_annual_volume')}
+                data-testid="sf-volume"
+                className="bg-muted/50 flex min-h-9 flex-wrap items-center gap-2 rounded-md px-3 py-2 text-sm"
+              >
+                {data.estAnnualVolume?.toLocaleString()} <SfTag />
+              </p>
+            ) : (
+              <NumberInput
+                id={fid('est_annual_volume')}
+                value={data.estAnnualVolume}
+                onChange={(v) => update({ estAnnualVolume: v, estAnnualVolumeConfirmed: false })}
+              />
+            )}
           </Field>
           <Field {...meta(cfg, 'est_annual_revenue')} label="Estimated annual revenue (USD)">
             <NumberInput
@@ -491,7 +483,7 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
             />
             {data.estAnnualRevenueSf != null && (
               <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-                Salesforce amount: {formatUsd(data.estAnnualRevenueSf)}
+                Salesforce amount: {formatUsd(data.estAnnualRevenueSf)} <SfTag />
                 {revenueChanged && (
                   <Button
                     variant="link"
@@ -505,14 +497,38 @@ export function ProductStep({ data, update, cfg, evaluation }: StepProps) {
               </p>
             )}
           </Field>
-          <Field {...meta(cfg, 'expected_close_date')}>
+          <ReadOnlyValue
+            id={fid('sf_close_date')}
+            label="Salesforce close date (updates with Salesforce)"
+            value={sfCloseDate ? formatDate(sfCloseDate) : 'Not set in Salesforce'}
+            testId="sf-close-date"
+          />
+          <Field {...meta(cfg, 'quote_needed_by')}>
             <Input
-              id={fid('expected_close_date')}
-              aria-describedby={`${fid('expected_close_date')}-help`}
+              id={fid('quote_needed_by')}
+              aria-describedby={`${fid('quote_needed_by')}-help`}
+              aria-invalid={invalid('quote_needed_by') || undefined}
               type="date"
-              value={data.expectedCloseDate ?? ''}
-              onChange={(e) => update({ expectedCloseDate: nullIfBlank(e.target.value) })}
+              min={tomorrow}
+              value={data.quoteNeededBy ?? ''}
+              onChange={(e) => update({ quoteNeededBy: nullIfBlank(e.target.value) })}
             />
+            <FieldError issue={invalidIssue('quote_needed_by')} />
+          </Field>
+          <Field
+            {...meta(cfg, 'product_needed_by')}
+            label="Product needed by (best estimate of launch need)"
+          >
+            <Input
+              id={fid('product_needed_by')}
+              aria-describedby={`${fid('product_needed_by')}-help`}
+              aria-invalid={invalid('product_needed_by') || undefined}
+              type="date"
+              min={data.quoteNeededBy ?? tomorrow}
+              value={data.productNeededBy ?? ''}
+              onChange={(e) => update({ productNeededBy: nullIfBlank(e.target.value) })}
+            />
+            <FieldError issue={invalidIssue('product_needed_by')} />
           </Field>
         </div>
       </Section>
@@ -559,6 +575,7 @@ export function ReviewStep({
   update,
   cfg,
   evaluation,
+  sfCloseDate,
   goTo,
   draftId,
 }: StepProps & { goTo: (step: number) => void; draftId: string }) {
@@ -580,17 +597,17 @@ export function ReviewStep({
     },
     {
       step: 2,
-      title: 'Customer & ship-to',
+      title: 'Customer & destination',
       items: [
         [
           'Customer',
           data.customer?.name
-            ? `${data.customer.name} (${data.customer.status === 'existing' ? 'existing' : 'not yet established'})`
+            ? `${data.customer.name} (${data.customer.status === 'existing' ? 'Pretium customer' : 'not yet a Pretium customer'})`
             : null,
         ],
-        ['Ship-to', formatAddress(data.shipTo)],
+        ['Ship / fill destination', formatAddress(data.shipTo)],
         ...(data.shipToOverrideReason
-          ? ([['Ship-to changed because', data.shipToOverrideReason]] as [string, string][])
+          ? ([['Destination changed because', data.shipToOverrideReason]] as [string, string][])
           : []),
       ],
     },
@@ -611,7 +628,9 @@ export function ReviewStep({
           data.estAnnualVolume != null ? `${data.estAnnualVolume.toLocaleString()} units` : null,
         ],
         ['Annual revenue', data.estAnnualRevenue != null ? formatUsd(data.estAnnualRevenue) : null],
-        ['Expected close', data.expectedCloseDate ? formatDate(data.expectedCloseDate) : null],
+        ['Salesforce close date', sfCloseDate ? formatDate(sfCloseDate) : null],
+        ['Quote needed by', data.quoteNeededBy ? formatDate(data.quoteNeededBy) : null],
+        ['Product needed by', data.productNeededBy ? formatDate(data.productNeededBy) : null],
         ['Standard description', data.standardDescription],
         ['Description', data.description],
       ],

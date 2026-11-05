@@ -6,6 +6,10 @@ import { expect, type APIRequestContext } from '@playwright/test';
 export const DEV_USER_HEADER = 'x-dev-user';
 export const asKam = { [DEV_USER_HEADER]: 'kam' };
 
+/** YYYY-MM-DD `days` from today (UTC), for the intake's need-by dates. */
+export const isoDaysFromNow = (days: number) =>
+  new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+
 export async function freeOpportunities(
   request: APIRequestContext,
   count: number,
@@ -73,7 +77,9 @@ export async function submitQuote(
           packagingType: 'BULK',
           estAnnualVolume: 750_000,
           estAnnualRevenue: 150_000,
-          expectedCloseDate: sf.opportunity.closeDate,
+          // FB-02 (F-009): the need-by dates replace the close date (after today; product on or after).
+          quoteNeededBy: isoDaysFromNow(30),
+          productNeededBy: isoDaysFromNow(120),
           drawingStatus: 'HAVE_DRAWING',
           ...over,
         },

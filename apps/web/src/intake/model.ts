@@ -22,7 +22,7 @@ import {
 
 export const STEPS = [
   { n: 1, key: 'opportunity', title: 'Opportunity' },
-  { n: 2, key: 'customer', title: 'Customer & ship-to' },
+  { n: 2, key: 'customer', title: 'Customer & destination' },
   { n: 3, key: 'product', title: 'Product & volume' },
   { n: 4, key: 'review', title: 'Drawing, notes & review' },
 ] as const;
@@ -32,11 +32,13 @@ export type StepNumber = (typeof STEPS)[number]['n'];
 export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   sf_opportunity_id: { label: 'Salesforce opportunity', step: 1 },
   customer: { label: 'Customer', step: 2 },
-  'customer.name': { label: 'Customer name', step: 2 },
-  ship_to: { label: 'Ship-to / fill location', step: 2 },
-  'ship_to.line1': { label: 'Ship-to street', step: 2 },
-  'ship_to.city': { label: 'Ship-to city', step: 2 },
-  ship_to_override_reason: { label: 'Reason for changing the ship-to', step: 2 },
+  'customer.name': { label: 'Customer (Salesforce Account)', step: 2 },
+  'customer.sf_account_id': { label: 'Salesforce Account', step: 1 },
+  ship_to: { label: 'Ship / fill destination', step: 2 },
+  'ship_to.line1': { label: 'Destination street', step: 2 },
+  'ship_to.city': { label: 'Destination city', step: 2 },
+  'ship_to.state': { label: 'Destination state', step: 2 },
+  ship_to_override_reason: { label: 'Reason for changing the destination', step: 2 },
   request_class: { label: 'Request class', step: 3 },
   product_family: { label: 'Product family', step: 3 },
   components: { label: 'Components', step: 3 },
@@ -47,7 +49,8 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   packaging_notes: { label: 'Packaging requirements', step: 3 },
   est_annual_volume: { label: 'Estimated annual volume', step: 3 },
   est_annual_revenue: { label: 'Estimated annual revenue', step: 3 },
-  expected_close_date: { label: 'Expected close date', step: 3 },
+  quote_needed_by: { label: 'Quote needed by', step: 3 },
+  product_needed_by: { label: 'Product needed by', step: 3 },
   container_size: { label: 'Container size', step: 3 },
   standard_description: { label: 'Standard description', step: 3 },
   description: { label: 'Description', step: 3 },
@@ -120,7 +123,7 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
 
 /** The same evaluation the API runs at submit, for instant feedback (the API stays the authority). */
 export const evaluateDraft = (data: IntakeDraftData, cfg: WizardConfig): IntakeEvaluation =>
-  evaluateIntake(intakeValues(data, cfg.freeTextNeckFinishes), cfg.intake);
+  evaluateIntake(intakeValues(data, cfg.freeTextNeckFinishes), cfg.intake, new Date());
 
 export const valueLabel = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
   code ? (cfg.lists[listKey]?.find((e) => e.code === code)?.label ?? code) : '';
@@ -144,9 +147,12 @@ function matchCode(cfg: WizardConfig, listKey: string, text: string | null | und
 }
 
 /**
- * Everything SF already knows, so the KAM never re-keys it: customer (or not yet established when
- * the opportunity has no Account), default ship-to, amount → revenue, close date, and best-effort
- * resin / neck finish / volume from the first product specification.
+ * Everything SF already knows, so the KAM never re-keys it (FB-02, F-008): the customer (always the
+ * opportunity's SF Account, F-007), the default ship / fill destination, amount → revenue, and
+ * best-effort resin / neck / volume / container size from the first product specification. What came
+ * from SF is recorded in `sfPrefill` and shown read-only with a "from Salesforce" tag; only revenue
+ * and the destination (with a reason) can be changed. The SF close date is never copied: the draft
+ * shows the latest synced one read-only.
  */
 export function prefillFromOpportunity(
   detail: SfOpportunityDetail,
@@ -159,24 +165,36 @@ export function prefillFromOpportunity(
   const shipTo = account?.shipTo ?? null;
   const usableAmount =
     o.amount !== null && !o.dataQuality.includes('amount_suspect') ? o.amount : null;
+  const sfAccountId = account?.id ?? o.accountId ?? null;
+  // The KAM's "not yet a Pretium customer" answer survives re-picking an opportunity on the same account.
+  const sameAccount = current.customer?.sfAccountId === sfAccountId;
+  const sfResin = matchCode(cfg, 'resin', spec?.resin);
+  const sfVolume = spec?.annualVolume ?? null;
+  const sfSize = spec?.capacity?.trim() ? spec.capacity.trim() : null;
+  const sfPrefill: NonNullable<IntakeDraftData['sfPrefill']> = {
+    resin: sfResin,
+    estAnnualVolume: sfVolume,
+    containerSize: sfSize,
+  };
   return {
     ...current,
     sfOpportunityId: o.id,
     sfOpportunityName: o.name,
-    customer: account
-      ? { status: 'existing', sfAccountId: account.id, name: account.name }
-      : { status: 'not_yet_established', sfAccountId: null, name: o.accountName ?? null },
+    customer: {
+      status: sameAccount && current.customer ? current.customer.status : 'existing',
+      sfAccountId,
+      name: account?.name ?? o.accountName ?? null,
+    },
     shipTo,
     shipToDefault: shipTo,
     shipToOverrideReason: null,
     requestClass: current.requestClass ?? cfg.intake.defaultRequestClass,
     estAnnualRevenue: usableAmount,
     estAnnualRevenueSf: o.amount,
-    expectedCloseDate: o.closeDate,
-    resin: current.resin ?? matchCode(cfg, 'resin', spec?.resin),
-    neckFinish: current.neckFinish ?? matchCode(cfg, 'neck_finish', spec?.neckFinish),
-    estAnnualVolume: current.estAnnualVolume ?? spec?.annualVolume ?? null,
-    containerSize: current.containerSize ?? spec?.capacity ?? null,
+    resin: sfResin ?? current.resin ?? null,
+    estAnnualVolume: sfVolume ?? current.estAnnualVolume ?? null,
+    containerSize: sfSize ?? current.containerSize ?? null,
+    sfPrefill,
   };
 }
 

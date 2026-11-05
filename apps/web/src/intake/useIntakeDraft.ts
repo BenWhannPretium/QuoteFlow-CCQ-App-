@@ -19,6 +19,8 @@ export function useIntakeDraft(initial: IntakeDraft) {
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [activeQuote, setActiveQuote] = useState(initial.activeQuote);
+  // FB-02 (T-009): the SF close date as of the latest sync; refreshed by every save (re-picks too).
+  const [sfCloseDate, setSfCloseDate] = useState(initial.sfCloseDate);
 
   // What the next save sends; kept in step with every edit (never written during render).
   const latest = useRef({ data: initial.data, step: initial.step });
@@ -36,6 +38,7 @@ export function useIntakeDraft(initial: IntakeDraft) {
       .then((saved) => {
         savedRevision.current = target;
         setActiveQuote(saved.activeQuote);
+        setSfCloseDate(saved.sfCloseDate);
         setSavedAt(new Date());
         setSaveState(revision.current === target ? 'saved' : 'dirty');
       })
@@ -98,6 +101,7 @@ export function useIntakeDraft(initial: IntakeDraft) {
     saveState,
     savedAt,
     activeQuote,
+    sfCloseDate,
   };
 }
 

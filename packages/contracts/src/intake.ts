@@ -10,6 +10,11 @@ import { z } from 'zod';
  */
 
 const text = (max: number) => z.string().max(max).nullable().optional();
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+  .nullable()
+  .optional();
 
 export const IntakeAddress = z.object({
   line1: text(200),
@@ -23,17 +28,16 @@ export type IntakeAddress = z.infer<typeof IntakeAddress>;
 export const CUSTOMER_STATUSES = ['existing', 'not_yet_established'] as const;
 
 /**
- * `existing`: from the SF Account. `not_yet_established`: name, location and contact only. No credit
- * check and no account request (DEC-27).
+ * FB-02 (F-007, D-011): the customer is always the Salesforce Account on the picked opportunity (new
+ * accounts start in Salesforce). Nothing about the customer is typed: `name` is a display copy of the
+ * Account name. `status` is the one KAM answer: `not_yet_established` = "Not yet a Pretium customer (no
+ * ERP account)" (DEC-27, CLAUDE.md rule 7); it drives the `new_customer` Legal review trigger. The
+ * name / location / contact columns of a not-yet-established customer are deprecated (kept, not written).
  */
 export const IntakeCustomer = z.object({
   status: z.enum(CUSTOMER_STATUSES),
   sfAccountId: text(18),
   name: text(200),
-  location: text(200),
-  contactName: text(120),
-  contactEmail: text(200),
-  contactPhone: text(40),
 });
 export type IntakeCustomer = z.infer<typeof IntakeCustomer>;
 
@@ -46,9 +50,26 @@ export const IntakeDraftData = z.object({
     .optional(),
   /** Display copy of the picked opportunity (name, account, amount…) so a resumed draft renders offline. */
   sfOpportunityName: text(300),
+  /**
+   * FB-02 (F-008): the product facts the opportunity's Salesforce product specification supplied when
+   * it was picked. The wizard shows these read-only with a "from Salesforce" tag (no double entry);
+   * a null entry means SF had nothing usable and the KAM enters it.
+   */
+  sfPrefill: z
+    .object({
+      resin: text(60),
+      neckDiameter: text(60),
+      neckFinishType: text(60),
+      neckFinishCustom: text(120),
+      estAnnualVolume: z.number().nullable().optional(),
+      containerSize: text(60),
+    })
+    .nullable()
+    .optional(),
 
-  // Step 2: customer and ship-to
+  // Step 2: customer and ship / fill destination
   customer: IntakeCustomer.nullable().optional(),
+  /** FB-02 (F-017, D-012): the ship / fill destination; city and state are required (config). */
   shipTo: IntakeAddress.nullable().optional(),
   /** The customer default the ship-to was pre-filled from. Kept when the KAM changes the ship-to. */
   shipToDefault: IntakeAddress.nullable().optional(),
@@ -74,12 +95,14 @@ export const IntakeDraftData = z.object({
   estAnnualRevenue: z.number().nullable().optional(),
   /** The SF amount it was pre-filled from (kept when edited). */
   estAnnualRevenueSf: z.number().nullable().optional(),
-  /** YYYY-MM-DD; from SF, editable. */
-  expectedCloseDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
-    .nullable()
-    .optional(),
+  /**
+   * FB-02 (F-009): when the customer needs the quote (YYYY-MM-DD, after today). Feeds the `timing`
+   * attribute of the priority score. Replaces the editable expected close date: the SF close date is
+   * shown read-only from the latest sync (`IntakeDraft.sfCloseDate`) and not stored on the quote.
+   */
+  quoteNeededBy: isoDate,
+  /** FB-02 (F-009): best estimate of the customer's launch need (YYYY-MM-DD), on or after quoteNeededBy. */
+  productNeededBy: isoDate,
   /** Container size as Sales describes it (e.g. "16 oz"). Feeds the standard description. */
   containerSize: text(60),
   /** Standard description (suggested from the template, editable). */
@@ -126,6 +149,11 @@ export const IntakeDraft = z.object({
   step: z.number().int().min(1).max(4),
   data: IntakeDraftData,
   evaluation: IntakeEvaluation,
+  /**
+   * FB-02 (F-008, T-009): the opportunity's close date from the latest Salesforce sync, shown read-only
+   * ("updates with Salesforce"). Never stored on the draft or the quote.
+   */
+  sfCloseDate: z.string().nullable(),
   /** Set when the draft's opportunity already has an active quote: offer "Open existing". */
   activeQuote: ActiveQuoteRef.nullable(),
   /** Set when the draft reworks a quote returned at a gate (B-08): submit updates that quote. */
@@ -265,15 +293,7 @@ export function intakeValues(data: IntakeDraftData, freeTextNeckFinishes: readon
   return {
     sf_opportunity_id: data.sfOpportunityId ?? null,
     customer: c
-      ? {
-          status: c.status,
-          sf_account_id: c.sfAccountId ?? null,
-          name: c.name ?? null,
-          location: c.location ?? null,
-          contact_name: c.contactName ?? null,
-          contact_email: c.contactEmail ?? null,
-          contact_phone: c.contactPhone ?? null,
-        }
+      ? { status: c.status, sf_account_id: c.sfAccountId ?? null, name: c.name ?? null }
       : null,
     ship_to: intakeAddress(data.shipTo),
     ship_to_default: intakeAddress(data.shipToDefault),
@@ -289,7 +309,8 @@ export function intakeValues(data: IntakeDraftData, freeTextNeckFinishes: readon
     est_annual_volume: data.estAnnualVolume ?? null,
     est_annual_volume_confirmed: data.estAnnualVolumeConfirmed ?? false,
     est_annual_revenue: data.estAnnualRevenue ?? null,
-    expected_close_date: data.expectedCloseDate ?? null,
+    quote_needed_by: data.quoteNeededBy ?? null,
+    product_needed_by: data.productNeededBy ?? null,
     container_size: data.containerSize ?? null,
     standard_description: data.standardDescription ?? null,
     description: data.description ?? null,
