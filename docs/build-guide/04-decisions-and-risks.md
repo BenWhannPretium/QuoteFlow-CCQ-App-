@@ -178,6 +178,57 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 
 ---
 
+## 2a. User-feedback decisions (Feedback Tracker, Nov 2026)
+
+These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow › QuoteFlow Feedback Tracker.xlsx`, Decision Log tab). Tracker IDs have three digits (**D-001**…) and are a different series from the build-guide IDs above (D-02…D-30). The build steps they unblock are FB-01 to FB-11 in `03-build-steps.md` → "User feedback updates". Status as read on 2026-11-05.
+
+**Decided in the feedback sessions (build follows these):**
+
+| Tracker ID | Decision | Built in |
+|---|---|---|
+| D-011 | No ERP account setup until the business is won; new accounts start in Salesforce; remove the QuoteFlow new-customer form (Nov 2) | FB-02 (F-007) |
+| D-012 | Engineering decides the plant, with KAM input on destination and logistics (Nov 2) | FB-02 (F-017) |
+| D-013 | MVP cost model = upload the standard template and extract a one-page summary; in-app model later (Oct 30) | FB-08 (F-031), after D-001 |
+| D-014 | Salesforce write-back deferred to Phase 1 (Oct 26) | P1 backlog (F-035); FB-05 ships the link-and-prompt stopgap (F-076) |
+| D-015 | Minimise free text; notes only on exceptions (Oct 30) | FB-01 (F-027); caps wait for D-016 (FB-10) |
+| D-018 | A drawing, or a required minimum spec set (height, diameter/width/depth, gram weight, neck finish, resin, color), to advance (Nov 3). Final list: Jim Zweifel / Danielle Leu (A-005, A-024) | FB-03 (F-016), list as provisional config |
+| D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3) | FB-05 (F-022) |
+| D-028 | Only sales leaders override priority, with the justification passed to Engineering; KAMs use escalation (Bailey, Nov 3; confirm with KAMs before the pilot) | FB-05 (F-065) |
+
+**Open, and what each one blocks:**
+
+| Tracker ID | Decision needed | Owner | Raise in | Blocks | What ships until it is decided |
+|---|---|---|---|---|---|
+| **D-001** | Costing vs pricing/ROI structure (separate Costing gate, Pricing + ROI in parallel?) and the minimum ROI fields | Oleg Yarovinski (Gemma Cebolla, Stacy Slocum) | ROI & capital session, Mon Nov 9 | FB-08 (F-031, F-032, F-074) | Today's G3 (price approval, costing attestation, capital readiness) |
+| **D-002** | Final Review approval tiers | Oleg; sales leadership | Decision session with Oleg | FB-09 (tiers part) | One approver group (build-guide D-10 fallback) |
+| **D-003** + **D-029** | Who owns commercial terms (MOQ and tooling funding to Engineering?), the standard payment term (Net 15 or 30), exception approval, milestone payment terms | Oleg; Gemma Cebolla; Bailey | ROI & capital session (Nov 9); Bailey/Gemma call (A-022) | FB-09 (F-021, F-068, T-007, T-031) | Today's terms check (KAM, free-text payment terms); "Shared" funding option added as provisional in FB-05 |
+| **D-004** | Qualification bands, scoring weights, 9-box strategic-fit points by market, guardrail thresholds | Sales/Marketing leadership (Matthew Graden, Jennifer Wulf, Tania Nazario, Melanie Rasche) | Decision session with Oleg | FB-11 values (F-005 weights, F-073 points, F-066 thresholds) | FB-05 builds the per-market strategic-fit mechanism with provisional points; current weights stay provisional |
+| **D-006** | The mandatory-field list | Bailey Schmitt | Decision session with Oleg | FB-10 | Today's required fields plus FB-03's drawing-or-minimum-spec rule |
+| **D-007** | Does two-step (preform) continue across plants? | Engineering | Engineering follow-up (A-014) | FB-07 (F-024) | Pricing carries it in the costing workbook |
+| **D-008** | Engineering and capacity roles: who is lead, one or several engineers, who owns capacity | Paul Slomkowski; Danielle Leu | Engineering roles session. *A-006 (Nov 4): Paul is the Engineering Lead; Randy Neiberger and Rafael Pasillas are assigned by project × request type (e.g. PET × ISBM)* | FB-07 (F-062, capacity owner) | One assignee; EngLead signs capacity |
+| **D-016** | Data standards: packaging list ("Plant specified" vs "not acceptable"), free-text caps, where "Other" is allowed | Bailey Schmitt | Engineering follow-up (A-028) | FB-10 (F-012, F-019) | Current packaging list and text limits |
+| **D-017** | Multi-scenario quotes | Bailey Schmitt | Decision session with Oleg | F-056 (P1). F-075's short variant note is built in FB-03 as the recommended interim (option B) | The variant note |
+| **D-020** | Quote turnaround standards | Oleg | Decision session with Oleg | F-072 (P1) | Aging only |
+| **D-021** | Standard utilization basis; confirm Faron's formula (A-023: trending OEE appears twice as emailed) | Faron Ipox with leadership | Supply Chain follow-up | F-060 (P1); the run-days basis in FB-04 | FB-04 calculates with Faron's formula shape and a provisional `capacity_basis` setting |
+| **D-005**, **D-019**, **D-022**, **D-030** | Bid scope rules; innovation projects; operations alignment on large projects; where stock / stock-plus requests go | Bailey; sales leadership; Engineering | See the tracker | P1 (T-006, T-028, T-029, F-071); F-067 ships with a configurable redirect message | Bid file attached to a single-item quote; CCQ-only request class |
+
+**Inputs the business still has to send (tracker Action Items):**
+
+| Input | From | Action | Used by |
+|---|---|---|---|
+| Standard neck diameters, finishes, special features | Jim Zweifel | A-001 (received 11/4; values in the Field Inventory) | FB-03 (F-010) |
+| No-drawing minimum set, incl. whether layer structure and a container photo join it | Jim Zweifel, Danielle Leu | A-005, A-024 | FB-03 (F-016) |
+| Utilization formula confirmation and basis | Faron Ipox | A-023 | FB-04 (F-059) |
+| Equipment BOM template and component list | Kal Kaliszewski | A-003 (session 11/6) | FB-07 (F-058) |
+| Engineering estimate workbook (the costing input Engineering fills today) | Engineering (Paul Slomkowski) | new | FB-07 (F-026) |
+| Active plant list (~29) and machine types | Jim Zweifel | F-020 / F-057 | FB-10 |
+| Resin, market, product family, packaging lists | Danielle Leu; Engineering with the plants | F-020, A-028 | FB-10 |
+| 9-box grid; machine platform guide (MOQs) | Melanie Rasche; Danielle Leu | A-009, A-010 (received; saved to SharePoint) | FB-05 mechanism, FB-11 values |
+| Standard cost-model template | Gemma Cebolla, Kyle Arnold | new | FB-08 (F-031) |
+| Standard payment terms and exceptions | Gemma Cebolla | A-012, A-022 | FB-09 |
+
+---
+
 ## 3. PRD v1 → v1.1 corrections the build already applies (send to Bailey for A-03)
 
 1. **"ERS" → "ERF"** everywhere (X-33). **SPR** is historical only: no SPR connector feature, history panel only (X-96).
