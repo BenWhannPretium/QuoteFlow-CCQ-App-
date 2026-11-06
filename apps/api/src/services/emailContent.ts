@@ -60,7 +60,9 @@ export class EmailContentBuilder {
     const n = encodeURIComponent(quoteNumber);
     if (type === 'quote.ready_for_final_review') return this.url(`/quotes/${n}/review`);
     // Lead review and pricing assignment: the tab of the work in question.
-    if (type === 'quote.pricing_assigned') return this.url(`/quotes/${n}?tab=quoting`);
+    if (type === 'quote.pricing_assigned' || type === 'quote.ready_for_quoting') {
+      return this.url(`/quotes/${n}?tab=quoting`);
+    }
     if (type === 'quote.submitted_to_lead' || type === 'quote.returned_by_lead') {
       return this.url(`/quotes/${n}?tab=${payload.kind === 'pricing' ? 'quoting' : 'engineering'}`);
     }

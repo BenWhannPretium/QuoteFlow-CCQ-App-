@@ -30,6 +30,11 @@ describe('notification catalogue', () => {
       'quote.ready_for_final_review',
       'quote.approved_for_customer',
       'quote.declined',
+      'quote.ready_for_quoting',
+      'quote.progress',
+      'quote.on_hold',
+      'quote.closed',
+      'comment.posted',
       'comment.mention',
       'quote.validity_expiring',
       'quote.validity_expired',
@@ -38,13 +43,13 @@ describe('notification catalogue', () => {
     expect(emailDeliveryFor('quote.to_qualify')).toBe('daily_digest');
   });
 
-  it('keeps overrides, pricing arrival and integration failures in-app only', () => {
+  it('keeps overrides, the KAM lead-review notice and integration failures in-app only', () => {
     for (const t of [
       'override.requested',
       'override.approved',
       'override.rejected',
       'override.reverted',
-      'quote.ready_for_quoting',
+      'quote.lead_review_update',
       'integration.failed',
       'notification.delivery_failed',
       'something.unknown',

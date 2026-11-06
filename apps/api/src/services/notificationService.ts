@@ -59,6 +59,11 @@ export interface NotificationDraft {
   dedupeKey?: string;
   /** The event time. Default: now. */
   at?: Date;
+  /**
+   * Hold the email back this long (ms) so a burst can be sent as one (FB-05: comments). The in-app row
+   * is not delayed. Only the dispatcher's collapse step may merge rows; this just sets the due time.
+   */
+  emailDelayMs?: number;
 }
 
 export const EMAIL_ENABLED_SETTING = 'email_notifications_enabled';
@@ -105,7 +110,9 @@ function rowFor(d: NotificationDraft, channel: 'in_app' | 'email'): NewNotificat
     channel,
     createdAt: at,
     updatedAt: at,
-    ...(channel === 'email' ? { nextAttemptAt: at } : {}),
+    ...(channel === 'email'
+      ? { nextAttemptAt: new Date(at.getTime() + (d.emailDelayMs ?? 0)) }
+      : {}),
   };
 }
 

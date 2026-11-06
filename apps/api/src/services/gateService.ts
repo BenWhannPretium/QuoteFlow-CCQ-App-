@@ -52,17 +52,11 @@ import {
 
 import { finalReviewChecks } from './commercial';
 import { onEngQueueArrival } from './engineering-arrival';
-import { onFinalReviewDecided } from './final-review';
+import { deliverDecisionNotifications } from './handoff-notifications';
 import type { AuditMeta } from './intake';
 import { onCustomerOutcome } from './outcome';
-import {
-  onFinalReviewArrival,
-  onPricingArrival,
-  recordColumns,
-  recordValues,
-} from './pricing-view';
+import { onPricingArrival, recordColumns, recordValues } from './pricing-view';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
-import { onReturnedToKam } from './returned-to-kam';
 import type { ScoringService } from './scoring';
 
 export type GateWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
@@ -81,8 +75,9 @@ export class GateError extends Error {
 }
 
 /**
- * Where planned notifications go. B-18 replaces the default (log only) with in-app + email delivery.
- * Called after the decision's transaction commits, so a failed send never undoes a decision.
+ * After-commit observer of what a decision planned (declared `notify` targets). The notifications
+ * themselves are written inside the decision's transaction (FB-05, `deliverDecisionNotifications`); this
+ * hook only lets the app log them or a test observe them. A failure here never undoes a decision.
  */
 export type NotificationHook = (
   notifications: readonly PlannedNotification[],
@@ -456,17 +451,6 @@ export class GateService {
           createdBy: actor.userId,
         });
       }
-      // B-12: notices for the Final Review decisions (in-app + email, B-18). A Return is announced
-      // by the arrival alert of the stage it goes back to.
-      if (gateKey === RELEASE_GATE_KEY) {
-        await onFinalReviewDecided(tx, {
-          quote: { id: row.quote.id, quoteNumber },
-          actorId: actor.userId,
-          effects,
-          workflow,
-          proposal,
-        });
-      }
       // B-13: an award opens the hand-off record (evidence, acceptance date, document link).
       if (atCustomer) {
         await onCustomerOutcome(tx, {
@@ -478,32 +462,35 @@ export class GateService {
           now,
         });
       }
-      // B-18: a quote returned to its KAM (G1 / G2 rework) tells the KAM, in-app and by email.
-      await onReturnedToKam(tx, {
-        quote: { id: row.quote.id, quoteNumber },
-        actorId: actor.userId,
-        effects,
-        workflow,
-      });
-      // B-10: the EngLead's arrival alert (in-app + email, B-18) whenever a quote enters the queue.
+      // B-10: a quote entering Engineering Review waits for acceptance again (the review fields are kept)
+      // and may tell Market Development.
       if (effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
-        await onEngQueueArrival(tx, row.quote, actor.userId, undefined, returnedFrom(gateKey));
+        await onEngQueueArrival(tx, row.quote, actor.userId);
       }
-      // B-11: entering Quoting starts this version's pricing record (references carried forward) and
-      // tells Pricing; G3 Submit tells the Approver group (in-app + email, B-18).
+      // B-11: entering Quoting starts this version's pricing record (references carried forward) and a
+      // new lead-review round.
       const entered = effects.stageHistory.enter?.stageKey;
       if (entered === PRICING_QUEUE_STAGE_KEY) {
         await onPricingArrival(
           tx,
           { id: row.quote.id, quoteNumber, version: effects.nextVersion },
           actor.userId,
-          undefined,
-          returnedFrom(gateKey),
         );
       }
-      if (entered === 'FINAL_REVIEW' && gateKey === 'G3') {
-        await onFinalReviewArrival(tx, row.quote, actor.userId);
-      }
+      // FB-05 (F-079): the declared `notify` targets, the next owner and the KAM are told, once each,
+      // in-app and by email (B-18), in this transaction: a rolled-back decision leaves nothing behind.
+      await deliverDecisionNotifications(
+        tx,
+        {
+          quote: { id: row.quote.id, quoteNumber },
+          actorId: actor.userId,
+          state,
+          effects,
+          workflow,
+          proposal,
+        },
+        undefined,
+      );
       // B-10: e.g. G2 "Capital required" starts Pricing's capital readiness on pending (config).
       const readiness = ((await getSetting<Record<string, string>>(
         tx,
@@ -572,13 +559,6 @@ export class GateService {
     });
   }
 }
-
-/**
- * A G4 decision that re-enters Engineering or Quoting is a Return, a G5 one a customer Re-quote: the
- * arrival alert says so.
- */
-const returnedFrom = (gateKey: string): 'final_review' | 'customer_requote' | undefined =>
-  gateKey === RELEASE_GATE_KEY ? 'final_review' : gateKey === 'G5' ? 'customer_requote' : undefined;
 
 /** What the approver was told to weigh, as it stood at the G4 decision. */
 function finalReviewWarnings(

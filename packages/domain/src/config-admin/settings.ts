@@ -16,6 +16,7 @@ import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
 import { intakeConfigSchema } from '../intake/intake';
 import { MIN_SPEC_KEYS } from '../intake/product-facts';
+import { COMMENT_EMAIL_COLLAPSE_MINUTES_MAX } from '../notifications/events';
 import { parseReceivingRoles } from '../outcome/handoff';
 import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome/sf-stage';
 import { parseValidityWarningDays } from '../outcome/validity';
@@ -379,6 +380,16 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Send notification emails',
     'boolean',
     z_('email_notifications_enabled', z.boolean()),
+  ),
+  spec(
+    'comment_email_collapse_minutes',
+    'notifications',
+    'Minutes comment emails wait so several go out as one (0 = send each at once)',
+    'number',
+    z_(
+      'comment_email_collapse_minutes',
+      z.number().int().min(0).max(COMMENT_EMAIL_COLLAPSE_MINUTES_MAX),
+    ),
   ),
   // Integrations and data
   spec(

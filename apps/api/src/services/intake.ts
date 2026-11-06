@@ -66,6 +66,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { AttachmentService } from './attachments';
 import { onEngQueueArrival } from './engineering-arrival';
+import { deliverDecisionNotifications, deliverResumeNotifications } from './handoff-notifications';
 import { recordIntakeShipToOverride } from './overrideService';
 import { onPricingArrival } from './pricing-view';
 import { onQualifyArrival } from './qualify-arrival';
@@ -841,12 +842,23 @@ export class IntakeService {
           tx,
           { id: quote.id, quoteNumber: quote.quoteNumber, version: quote.version },
           actor.userId,
-          this.opts.log,
-          'kam_rework',
         );
       } else if (route.stageKey === ENG_QUEUE_STAGE_KEY) {
-        await onEngQueueArrival(tx, quote, actor.userId);
+        await onEngQueueArrival(tx, quote, actor.userId, this.opts.log);
       }
+      // FB-05 (F-079): "back from the KAM, no scope change": the assigned pricer or engineer and the
+      // stage's lead are told.
+      await deliverResumeNotifications(
+        tx,
+        {
+          quote: { id: quote.id, quoteNumber: quote.quoteNumber },
+          actorId: actor.userId,
+          state: (await loadQuoteState(tx, quote.id))!,
+          originStageKey: route.stageKey,
+          workflow,
+        },
+        this.opts.log,
+      );
       return {
         quoteId: quote.id,
         quoteNumber: quote.quoteNumber,
@@ -902,10 +914,22 @@ export class IntakeService {
       stageKey = moved.stageKey;
       status = moved.status;
       routedTo = moved.stageKey;
-      // B-10: the EngLead's arrival alert (in-app + email, B-18).
       if (result.effects.stageHistory.enter?.stageKey === ENG_QUEUE_STAGE_KEY) {
-        await onEngQueueArrival(tx, quote, actor.userId);
+        await onEngQueueArrival(tx, quote, actor.userId, this.opts.log);
       }
+      // B-10 / FB-05: the EngLead's arrival alert (in-app + email, B-18), the same notices as G1 Advance.
+      await deliverDecisionNotifications(
+        tx,
+        {
+          quote: { id: quote.id, quoteNumber: quote.quoteNumber },
+          actorId: actor.userId,
+          state,
+          effects: result.effects,
+          workflow,
+          proposal: null,
+        },
+        this.opts.log,
+      );
     } else if (qualifyGate) {
       // B-18: waiting at G1: tell the gate's deciders (in-app now, the 7:00 AM Central digest by email).
       await onQualifyArrival(tx, quote, qualifyGate, actor.userId, Boolean(reworkOf));

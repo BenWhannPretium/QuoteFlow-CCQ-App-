@@ -39,18 +39,13 @@ import {
   sortFinalReviewQueue,
   type Actor,
   type FinalReviewEntry,
-  type PlannedNotification,
-  type ProposalReleasePlan,
   type QuoteState,
-  type TransitionEffects,
   type WorkflowConfig,
 } from '@ccq/domain';
-import type { FastifyBaseLogger } from 'fastify';
 
 import { finalReviewChecks } from './commercial';
 import { engineeringView } from './engineering-view';
 import { intakeFactsDto } from './intake-facts';
-import { persistNotifications } from './notificationService';
 import { quotingView, recordValues } from './pricing-view';
 import { ServiceProblem } from './problem';
 import { decisionDto, gateActionsFor, summaryDto, type QuoteReadService } from './quotes';
@@ -352,71 +347,4 @@ export class FinalReviewService {
       return result;
     });
   }
-}
-
-/**
- * Notices for a Final Review decision (in-app + email, B-18), written in the decision's transaction:
- * - Approve → the KAM and the **pricing approver** (who approved the price at G3): the validity date.
- * - Decline → the KAM, Pricing and the pricing approver, with the decline reason (the note stays on the
- *   decision; it is free text and never goes by email).
- * A Return is announced by the arrival alert of the stage it goes back to.
- */
-export async function onFinalReviewDecided(
-  tx: DbOrTx,
-  input: {
-    quote: { id: string; quoteNumber: string };
-    actorId: string;
-    effects: TransitionEffects;
-    workflow: WorkflowConfig;
-    proposal: Extract<ProposalReleasePlan, { ok: true }> | null;
-  },
-  log?: FastifyBaseLogger,
-): Promise<number> {
-  const { quote, effects, workflow, proposal } = input;
-  const decided = proposal !== null || effects.nextStatus === 'closed';
-  if (!decided) return 0;
-
-  // The person who approved the price at G3 hears of the decision too (config plans the rest).
-  const approver = (await getPricingRecord(tx, quote.id))?.priceApprovedBy;
-  const type = effects.notifications[0]?.type;
-  const planned: PlannedNotification[] = [
-    ...effects.notifications,
-    ...(approver && type
-      ? [{ type, recipient: { kind: 'user' as const, userId: asUserId(approver) } }]
-      : []),
-  ];
-
-  if (proposal) {
-    return persistNotifications(
-      tx,
-      planned,
-      {
-        quoteId: quote.id,
-        title: `${quote.quoteNumber} is approved: issue the proposal`,
-        body: `Approved; issue the proposal. It is valid until ${proposal.validityUntil}.`,
-        excludeUserId: input.actorId,
-        payload: { validityUntil: proposal.validityUntil },
-      },
-      log,
-    );
-  }
-  const record = effects.gateDecisionRecord;
-  const outcome = workflow.outcomes.find(
-    (o) => o.gateKey === record.gateKey && o.key === record.outcomeKey,
-  );
-  const reason = workflow.reasonCodes.find(
-    (r) => r.code === record.reasonCode && r.context === outcome?.reasonContext,
-  )?.label;
-  return persistNotifications(
-    tx,
-    planned,
-    {
-      quoteId: quote.id,
-      title: `${quote.quoteNumber} was declined at Final Review`,
-      body: `Reason: ${reason ?? record.reasonCode ?? 'not given'}. Open the quote for the approver's note.`,
-      excludeUserId: input.actorId,
-      ...(reason ? { payload: { reason } } : {}),
-    },
-    log,
-  );
 }

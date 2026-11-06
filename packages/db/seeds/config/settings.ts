@@ -16,6 +16,7 @@ import {
   PRICING_REF_FORMATS_SEED,
   SCORING_MODEL_V1_INPUT,
   SCORING_MODEL_V2_INPUT,
+  COMMENT_EMAIL_COLLAPSE_MINUTES_SEED,
 } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
@@ -125,6 +126,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: true,
     description:
       'Send notification emails (B-18). false = in-app notifications only (the documented fallback if the shared mailbox is not ready). Turning it off stops new email rows and drops the ones still queued (the dispatcher skips them; they are not sent later).',
+  },
+  {
+    key: 'comment_email_collapse_minutes',
+    value: COMMENT_EMAIL_COLLAPSE_MINUTES_SEED,
+    description:
+      'FB-05 (F-034): comment emails wait this many minutes so several comments on a quote go out as one email to each person ("3 new comments on CCQ-…"). 0 sends each comment at once. The in-app notification is never delayed. Provisional.',
   },
   // ── B-13 customer decision (D-12, D-15, R3). All provisional.
   {

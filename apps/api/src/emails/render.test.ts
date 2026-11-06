@@ -44,6 +44,16 @@ const FIXTURES: Record<string, Record<string, string>> = {
     actor: 'Jim Lead',
     note: 'Check the cavitation',
   },
+  // FB-05 (F-079, F-034)
+  'quote.ready_for_quoting': { returnedFrom: 'kam_rework' },
+  'quote.progress': { direction: 'advanced', fromStage: 'Engineering Review', stage: 'Quoting' },
+  'quote.on_hold': {
+    owner: 'you',
+    reason: 'Awaiting customer information',
+    reviewDate: '2026-12-01',
+  },
+  'quote.closed': { outcome: 'Declined', reason: 'Not strategic' },
+  'comment.posted': { actor: 'Dana Whitfield', count: '3' },
 };
 
 describe('subjects', () => {
@@ -72,6 +82,11 @@ describe('subjects', () => {
     ['quote.pricing_assigned', '[QuoteFlow] CCQ-2026-00042 is assigned to you: Quoting'],
     ['quote.submitted_to_lead', '[QuoteFlow] CCQ-2026-00042 is ready for your review: Lead review'],
     ['quote.returned_by_lead', '[QuoteFlow] CCQ-2026-00042 was sent back to you: Lead review'],
+    ['quote.ready_for_quoting', '[QuoteFlow] CCQ-2026-00042 is back from the KAM: Quoting'],
+    ['quote.progress', '[QuoteFlow] CCQ-2026-00042 moved on: Where your quote stands'],
+    ['quote.on_hold', '[QuoteFlow] CCQ-2026-00042 is on hold: Hold'],
+    ['quote.closed', '[QuoteFlow] CCQ-2026-00042 was closed: Outcome recorded'],
+    ['comment.posted', '[QuoteFlow] CCQ-2026-00042 has 3 new comments: Comments'],
   ])('%s', (type, subject) => {
     expect(renderEmail(model(type, { payload: FIXTURES[type] ?? {} })).subject).toBe(subject);
   });
@@ -98,6 +113,29 @@ describe('content', () => {
 
   it('has a template for every emailed type', () => {
     expect([...EMAIL_TYPES].sort()).toEqual([...Object.keys(FIXTURES), 'quote.to_qualify'].sort());
+  });
+
+  it('FB-05: says "returned from Pricing", a count of comments, and who owns a hold', () => {
+    const back = renderEmail(
+      model('quote.ready_for_eng_review', { payload: { returnedFrom: 'pricing' } }),
+    );
+    expect(back.subject).toContain('was returned to Engineering');
+    expect(back.text).toContain('Pricing sent it back to Engineering.');
+    const mine = renderEmail(
+      model('quote.ready_for_eng_review', {
+        payload: { returnedFrom: 'pricing', assignee: 'yes' },
+      }),
+    );
+    expect(mine.text).toContain('It is back with you: open the engineering review');
+    expect(
+      renderEmail(model('comment.posted', { payload: { actor: 'Dana Whitfield' } })).text,
+    ).toContain('1 new comment on this quote, from Dana Whitfield.');
+    expect(renderEmail(model('comment.posted', { payload: { count: '4' } })).text).toContain(
+      '4 new comments on this quote.',
+    );
+    const hold = renderEmail(model('quote.on_hold', { payload: FIXTURES['quote.on_hold']! }));
+    expect(hold.text).toContain('You are the hold owner.');
+    expect(hold.text).toContain('Review date: 2026-12-01.');
   });
 
   it('says why a quote came back and what the action is', () => {

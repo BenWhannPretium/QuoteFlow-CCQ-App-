@@ -20,8 +20,9 @@ export interface NotificationEventDef {
 export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
   {
     type: 'quote.ready_for_eng_review',
-    label: 'A quote enters the engineering queue',
-    description: 'Engineering leads and backup assigners: a quote is waiting to be assigned.',
+    label: 'A quote is ready for engineering review',
+    description:
+      'Engineering leads, backup assigners and the assigned engineer: a quote is waiting to be assigned, or came back from Pricing, Final Review or the customer.',
     email: 'immediate',
   },
   {
@@ -33,7 +34,8 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
   {
     type: 'quote.reworked',
     label: 'A quote is returned to you for rework',
-    description: 'KAMs: qualification or engineering sent your intake back with what to fix.',
+    description:
+      'KAMs: qualification, engineering or pricing sent your intake back with the reason and what to fix.',
     email: 'immediate',
   },
   {
@@ -58,6 +60,13 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     type: 'quote.declined',
     label: 'Final Review declined a quote',
     description: 'KAMs and Pricing: the proposition was declined with a reason.',
+    email: 'immediate',
+  },
+  {
+    type: 'comment.posted',
+    label: 'Someone comments on a quote you follow',
+    description:
+      'The quote’s KAM, the assigned engineer or pricer, the stage lead and earlier commenters. The email says how many new comments and links to them; it never repeats the text. Several comments within a few minutes arrive as one email.',
     email: 'immediate',
   },
   {
@@ -119,11 +128,39 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     description: 'Market Development: a large opportunity has entered engineering.',
     email: 'immediate',
   },
-  // In-app only (P0): listed so every type the app writes has a home in the catalogue.
+  // FB-05 (F-079): hand-offs, holds and closures reach the next owner and the KAM.
   {
     type: 'quote.ready_for_quoting',
     label: 'A quote is ready for pricing',
-    description: 'Pricing: engineering has cleared the quote.',
+    description:
+      'Pricing leads, pricers and the assigned pricer: engineering cleared the quote, or it came back to Quoting (from Final Review, the customer, or the KAM with no scope change).',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.progress',
+    label: 'Your quote moves or a decision is recorded',
+    description:
+      'KAMs: the quote advanced to the next stage, was sent back to Engineering or Pricing, or a gate recorded a decision that keeps it where it is.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.on_hold',
+    label: 'A quote is put on hold',
+    description: 'The hold owner and the KAM: who owns the hold and the review date.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.closed',
+    label: 'Your quote is closed',
+    description:
+      'KAMs: stopped, redirected, declined, lost, expired, commitment not authorized, or won.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.lead_review_update',
+    label: 'Your quote is in lead review',
+    description:
+      'KAMs, in-app only: engineering or pricing was submitted to the lead, or the lead sent it back.',
     email: 'none',
   },
   {
@@ -190,4 +227,22 @@ const BACKOFF_MS = [60_000, 300_000] as const;
 export function emailRetryDelayMs(attempts: number): number | null {
   if (attempts >= EMAIL_MAX_ATTEMPTS) return null;
   return BACKOFF_MS[Math.max(0, attempts - 1)] ?? BACKOFF_MS[BACKOFF_MS.length - 1]!;
+}
+
+/**
+ * FB-05 (F-034): comment emails wait this many minutes so a burst of comments goes out as one email
+ * ("3 new comments on CCQ-…"). `app_setting.comment_email_collapse_minutes`, provisional; 0 = send each
+ * one as it is posted. The in-app notification is never delayed.
+ */
+export const COMMENT_EMAIL_COLLAPSE_MINUTES_SEED = 10;
+export const COMMENT_EMAIL_COLLAPSE_MINUTES_MAX = 120;
+
+/** The configured window in minutes; anything that is not a whole number from 0 to 120 falls back to the seed. */
+export function parseCommentCollapseMinutes(value: unknown): number {
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= COMMENT_EMAIL_COLLAPSE_MINUTES_MAX
+    ? value
+    : COMMENT_EMAIL_COLLAPSE_MINUTES_SEED;
 }

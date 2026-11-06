@@ -18,9 +18,10 @@ import {
   canSubmitToLead,
   leadReviewStatus,
   parseWorkflowConfig,
+  planLeadReturned,
+  planLeadSubmitted,
   planReturnToAssignee,
   planSubmitToLead,
-  rolesWithPermission,
   withDerivedFields,
   type Actor,
   type DomainError,
@@ -29,7 +30,7 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
-import { persistNotifications } from './notificationService';
+import { deliverPlanned } from './handoff-notifications';
 import type { QuoteReadService } from './quotes';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
 
@@ -137,20 +138,25 @@ export async function submitToLead(
     at: now,
   });
   const spec = LEAD_REVIEW[kind];
-  await persistNotifications(
+  // The lead is told (in-app and email). FB-05 (F-079): the KAM sees the quote reach the lead, in-app only.
+  await deliverPlanned(
     tx,
-    rolesWithPermission(spec.leadPermission).map((role) => ({
-      type: 'quote.submitted_to_lead',
-      recipient: { kind: 'role' as const, role },
-    })),
-    {
-      quoteId: q.id,
-      title: `${quoteNumber} is ready for your review`,
-      body: `${actorName ?? `The ${spec.noun.assignee}`} submitted the ${workName(kind)}. Review it, then decide ${spec.gateKey} or send it back.`,
-      excludeUserId: actor.userId,
-      payload: { kind, ...(actorName ? { actor: actorName } : {}) },
-    },
-    deps.log,
+    planLeadSubmitted(kind, state),
+    actor.userId,
+    (d) =>
+      d.type === 'quote.submitted_to_lead'
+        ? {
+            title: `${quoteNumber} is ready for your review`,
+            body: `${actorName ?? `The ${spec.noun.assignee}`} submitted the ${workName(kind)}. Review it, then decide ${spec.gateKey} or send it back.`,
+            payload: { kind, ...(actorName ? { actor: actorName } : {}) },
+          }
+        : {
+            title: `${quoteNumber}: the ${workName(kind)} is with the ${spec.noun.lead}`,
+            body: `${actorName ?? `The ${spec.noun.assignee}`} submitted the ${workName(kind)} to the ${spec.noun.lead} for review.`,
+            payload: { kind, ...(actorName ? { actor: actorName } : {}) },
+          },
+    q.id,
+    { log: deps.log },
   );
 }
 
@@ -208,19 +214,26 @@ export async function returnToAssignee(
     },
     at: now,
   });
-  if (assignee) {
-    const leadName = nameOf(actor.userId);
-    await persistNotifications(
-      tx,
-      [{ type: 'quote.returned_by_lead', recipient: { kind: 'user', userId: asUserId(assignee) } }],
-      {
-        quoteId: q.id,
-        title: `${quoteNumber} was sent back to you`,
-        body: `${leadName ?? `The ${LEAD_REVIEW[kind].noun.lead}`} asked for changes: ${trimmed}`,
-        excludeUserId: actor.userId,
-        payload: { kind, note: trimmed, ...(leadName ? { actor: leadName } : {}) },
-      },
-      deps.log,
-    );
-  }
+  const leadName = nameOf(actor.userId);
+  // The assignee is told with the note (in-app and email). FB-05 (F-079): the KAM sees the send-back,
+  // in-app only, without the note's detail in any email (there is none for that type).
+  await deliverPlanned(
+    tx,
+    planLeadReturned(assignee ? asUserId(assignee) : null, state),
+    actor.userId,
+    (d) =>
+      d.type === 'quote.returned_by_lead'
+        ? {
+            title: `${quoteNumber} was sent back to you`,
+            body: `${leadName ?? `The ${LEAD_REVIEW[kind].noun.lead}`} asked for changes: ${trimmed}`,
+            payload: { kind, note: trimmed, ...(leadName ? { actor: leadName } : {}) },
+          }
+        : {
+            title: `${quoteNumber}: the ${workName(kind)} was sent back to the ${LEAD_REVIEW[kind].noun.assignee}`,
+            body: `${leadName ?? `The ${LEAD_REVIEW[kind].noun.lead}`} asked for changes: ${trimmed}`,
+            payload: { kind, ...(leadName ? { actor: leadName } : {}) },
+          },
+    q.id,
+    { log: deps.log },
+  );
 }

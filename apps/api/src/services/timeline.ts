@@ -11,7 +11,9 @@ import type { Tx } from '@ccq/db';
 import {
   findUserById,
   getQuoteByNumber,
+  getSetting,
   insertComment,
+  listCommentAuthorIds,
   listOverridesWithContext,
   listTimeline,
   listUsersByIds,
@@ -23,6 +25,8 @@ import {
   canSeePriorityScore,
   COMMENT_MAX_MENTIONS,
   overrideActions,
+  parseCommentCollapseMinutes,
+  planCommentRecipients,
   plainTextOf,
   resolveMentions,
   sanitizeCommentBody,
@@ -33,6 +37,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 
 import { decodeCursor, page } from './cursor';
+import { deliverPlanned } from './handoff-notifications';
 import { persistNotifications } from './notificationService';
 import { overrideQuoteOf, overrideRecordOf } from './overrides-view';
 import { ServiceProblem } from './problem';
@@ -246,6 +251,40 @@ export class TimelineService {
           payload: { actor: author },
         },
         this.opts.log,
+      );
+      // FB-05 (F-034): everyone following the quote hears there is a new comment: its KAM, the current
+      // assignee and stage lead, and earlier commenters. Not the author; a mentioned user gets the
+      // mention instead. The email is held back a few minutes so a burst goes out as one ("3 new
+      // comments"); it never carries the comment text.
+      const collapseMinutes = parseCommentCollapseMinutes(
+        await getSetting(tx, 'comment_email_collapse_minutes'),
+      );
+      await deliverPlanned(
+        tx,
+        planCommentRecipients({
+          stageKey: quote.stageKey,
+          quote: {
+            kamUserId: asUserId(quote.kamUserId),
+            assignedEngineerId: quote.assignedEngineerId
+              ? asUserId(quote.assignedEngineerId)
+              : null,
+            assignedPricerId: quote.assignedPricerId ? asUserId(quote.assignedPricerId) : null,
+          },
+          previousCommenters: (await listCommentAuthorIds(tx, quote.id)).map(asUserId),
+        }),
+        actor.userId,
+        () => ({
+          title: `${author} commented on ${quote.quoteNumber}`,
+          body: 'A new comment was posted. Open the quote to read it.',
+          payload: { actor: author },
+        }),
+        quote.id,
+        {
+          exclude: new Set([actor.userId, ...mentions.map((m) => m.userId)]),
+          log: this.opts.log,
+          emailDelayMs: collapseMinutes * 60_000,
+          at,
+        },
       );
       const [item] = await this.items(tx, ctx, quote, [
         {

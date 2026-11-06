@@ -7,11 +7,14 @@ import {
   listEmailOptOuts,
   listGateQueue,
   listQuoteNumbersByIds,
+  listPendingSiblingEmails,
   listUsersForEmail,
   loadWorkflowConfigInput,
   markEmailAttemptFailed,
   markEmailSent,
   markEmailSkipped,
+  setEmailPayload,
+  type NotificationRow,
 } from '@ccq/db/repos';
 import {
   EMAIL_MAX_ATTEMPTS,
@@ -90,6 +93,8 @@ const EMPTY: DispatchResult = {
 const DIGEST_GATE_KEY = 'G1';
 const DIGEST_TYPE = 'quote.to_qualify';
 const DEFAULT_BATCH = 50;
+/** Emails of this type for one person and quote are folded into one (FB-05). */
+const FOLDED_TYPE = 'comment.posted';
 
 /** A mail failure worth another try. A refused message (bad address) or a blocked one will not fix itself. */
 const retryable = (err: unknown): boolean =>
@@ -177,9 +182,26 @@ async function dispatchOne(deps: DispatchDeps, now: () => Date): Promise<RowOutc
       return skip('recipient opted out');
     }
 
+    // FB-05 (F-034): comments on one quote that wait for the same person go out as one email. The other
+    // waiting rows are folded into this one (skipped, with the reason); the count stays on this row
+    // so a retry still says how many.
+    let built: NotificationRow = row;
+    if (row.type === FOLDED_TYPE) {
+      const siblings = await listPendingSiblingEmails(tx, row);
+      const stored = Number((row.payload as Record<string, unknown> | null)?.count);
+      const count = (Number.isInteger(stored) && stored > 0 ? stored : 1) + siblings.length;
+      for (const s of siblings) await markEmailSkipped(tx, s.id, at, 'folded into one email');
+      const payload = {
+        ...((row.payload as Record<string, unknown> | null) ?? {}),
+        count: String(count),
+      };
+      if (count > 1 || siblings.length > 0) await setEmailPayload(tx, row.id, payload, at);
+      built = { ...row, payload };
+    }
+
     const attempts = row.attempts + 1;
     try {
-      const model = await deps.content.build(row);
+      const model = await deps.content.build(built);
       if (!model) return skip('nothing to send');
       const email = renderEmail(model);
       await deps.transport.send({
