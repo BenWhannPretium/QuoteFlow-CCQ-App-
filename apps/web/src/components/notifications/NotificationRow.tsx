@@ -67,6 +67,16 @@ export function NotificationRow({
         >
           {content}
         </Link>
+      ) : kind === 'quoting' ? (
+        <Link
+          to="/quotes/$quoteNumber"
+          params={params}
+          search={{ tab: 'quoting' }}
+          onClick={open}
+          className={rowClass}
+        >
+          {content}
+        </Link>
       ) : (
         <Link to="/quotes/$quoteNumber" params={params} onClick={open} className={rowClass}>
           {content}

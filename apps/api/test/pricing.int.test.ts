@@ -324,6 +324,7 @@ describe('the pricing queue', () => {
         and(
           eq(schema.notification.quoteId, await quoteId(qn)),
           eq(schema.notification.type, 'quote.ready_for_quoting'),
+          eq(schema.notification.channel, 'in_app'),
         ),
       );
     // B-26: the Pricing team includes the pricing lead.
@@ -567,19 +568,22 @@ describe('G3 Submit to Final Review', () => {
         ),
       );
     expect(emails.map((n) => n.userId).sort()).toEqual(approvers.map((a) => a.id).sort());
-    // Pricing's own arrival alert ("ready for pricing") stays in-app only.
+    // FB-05 (F-079): Pricing's arrival alert ("ready for pricing") is emailed too: the pricing lead
+    // and the pricers, once each.
     expect(
-      await db.db
-        .select()
-        .from(schema.notification)
-        .where(
-          and(
-            eq(schema.notification.quoteId, quote.id),
-            eq(schema.notification.type, 'quote.ready_for_quoting'),
-            eq(schema.notification.channel, 'email'),
-          ),
-        ),
-    ).toHaveLength(0);
+      (
+        await db.db
+          .select()
+          .from(schema.notification)
+          .where(
+            and(
+              eq(schema.notification.quoteId, quote.id),
+              eq(schema.notification.type, 'quote.ready_for_quoting'),
+              eq(schema.notification.channel, 'email'),
+            ),
+          )
+      ).length,
+    ).toBeGreaterThan(0);
 
     // The decision keeps what Pricing was warned about; the record is closed to edits now.
     const [decision] = await db.db

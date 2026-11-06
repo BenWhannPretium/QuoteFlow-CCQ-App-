@@ -35,7 +35,7 @@ export interface RenderedEmail {
 
 interface Copy {
   /** After the quote number in the subject: `<number> <phrase>: <context>`. */
-  phrase: string;
+  phrase: string | ((p: Readonly<Record<string, string>>) => string);
   context: string;
   heading: string;
   action: (p: Readonly<Record<string, string>>) => string;
@@ -48,17 +48,23 @@ const sentence = (...parts: (string | false | undefined)[]) =>
 const RETURNED: Record<string, string> = {
   final_review: 'Final Review returned it for another look.',
   customer_requote: 'The customer asked for a re-quote.',
+  commitment: 'Commit & Hand Off sent it back: something changed since the quote.',
+  pricing: 'Pricing sent it back to Engineering.',
+  in_place: 'The lead sent the work back for rework.',
+  kam_rework: 'The KAM fixed what Pricing sent back, with no scope change.',
 };
 
 const COPY: Record<string, Copy> = {
   'quote.ready_for_eng_review': {
-    phrase: 'needs your review',
+    phrase: (p) => (p.returnedFrom ? 'was returned to Engineering' : 'needs your review'),
     context: 'Engineering queue',
     heading: 'A quote is in the engineering queue',
     action: (p) =>
       sentence(
         p.returnedFrom ? RETURNED[p.returnedFrom] : undefined,
-        'Open the engineering queue to assign it to an engineer.',
+        p.assignee === 'yes'
+          ? 'It is back with you: open the engineering review to pick it up.'
+          : 'Open the engineering queue to assign it to an engineer.',
       ),
     cta: 'Open the engineering queue',
   },
@@ -109,12 +115,98 @@ const COPY: Record<string, Copy> = {
       ),
     cta: 'Open the quote',
   },
+  // FB-05 (F-079): hand-offs, holds and closures. No note text and no figures: a link and the facts.
+  'quote.ready_for_quoting': {
+    phrase: (p) =>
+      p.returnedFrom === 'kam_rework'
+        ? 'is back from the KAM'
+        : p.returnedFrom
+          ? 'was returned to Quoting'
+          : 'is ready for pricing',
+    context: 'Quoting',
+    heading: 'A quote is ready for pricing',
+    action: (p) =>
+      p.returnedFrom === 'kam_rework'
+        ? 'The KAM fixed what Pricing sent back, with no scope change. It is back in Quoting: record the price approval again.'
+        : sentence(
+            p.returnedFrom ? RETURNED[p.returnedFrom] : 'Engineering has cleared it.',
+            p.assignee === 'yes'
+              ? 'It is with you: open Quoting to record the price approval.'
+              : 'Open the pricing queue to assign it or record the price approval.',
+          ),
+    cta: 'Open Quoting',
+  },
+  'quote.progress': {
+    phrase: (p) =>
+      p.direction === 'advanced'
+        ? 'moved on'
+        : p.direction === 'returned'
+          ? 'was sent back'
+          : 'has a decision',
+    context: 'Where your quote stands',
+    heading: 'Your quote has moved',
+    action: (p) =>
+      p.direction === 'advanced'
+        ? sentence(
+            p.actor ? `${p.actor} advanced it` : 'It was advanced',
+            p.fromStage && p.stage ? `from ${p.fromStage} to ${p.stage}.` : '.',
+          )
+        : p.direction === 'returned'
+          ? sentence(
+              p.returnedFrom ? RETURNED[p.returnedFrom] : undefined,
+              p.reason ? `Reason: ${p.reason}.` : undefined,
+              p.stage ? `It is back in ${p.stage}.` : undefined,
+            )
+          : sentence(
+              p.outcome ? `${p.outcome} was recorded` : 'A decision was recorded',
+              p.fromStage ? `at ${p.fromStage}.` : '.',
+            ),
+    cta: 'Open the quote',
+  },
+  'quote.on_hold': {
+    phrase: 'is on hold',
+    context: 'Hold',
+    heading: 'A quote was put on hold',
+    action: (p) =>
+      sentence(
+        p.owner === 'you' ? 'You are the hold owner.' : 'It was put on hold.',
+        p.reason ? `Reason: ${p.reason}.` : undefined,
+        p.reviewDate ? `Review date: ${p.reviewDate}.` : undefined,
+      ),
+    cta: 'Open the quote',
+  },
+  'quote.closed': {
+    phrase: 'was closed',
+    context: 'Outcome recorded',
+    heading: 'Your quote was closed',
+    action: (p) =>
+      sentence(
+        p.outcome ? `It is now: ${p.outcome}.` : 'It was closed.',
+        p.reason ? `Reason: ${p.reason}.` : undefined,
+        'Open the quote for the details.',
+      ),
+    cta: 'Open the quote',
+  },
+  'comment.posted': {
+    phrase: (p) => (Number(p.count) > 1 ? `has ${p.count} new comments` : 'has a new comment'),
+    context: 'Comments',
+    heading: 'New comments on a quote',
+    action: (p) => {
+      const n = Number(p.count) > 1 ? Number(p.count) : 1;
+      return sentence(
+        `${n} new comment${n === 1 ? '' : 's'} on this quote${p.actor && n === 1 ? `, from ${p.actor}` : ''}.`,
+        'Open the quote to read them.',
+      );
+    },
+    cta: 'Read the comments',
+  },
   'quote.reworked': {
     phrase: 'was returned to you',
     context: 'Rework needed',
     heading: 'A quote was returned to you for rework',
     action: (p) =>
       sentence(
+        p.from ? `${p.from} sent it back.` : undefined,
         p.reason ? `Reason: ${p.reason}.` : undefined,
         'Open the quote to see what to fix, then resubmit it.',
       ),
@@ -247,7 +339,7 @@ function build(model: EmailModel): RenderedEmail {
     preferencesUrl: model.preferencesUrl,
   });
   return {
-    subject: `[QuoteFlow] ${q.number} ${copy.phrase}: ${copy.context}`,
+    subject: `[QuoteFlow] ${q.number} ${typeof copy.phrase === 'function' ? copy.phrase(payload) : copy.phrase}: ${copy.context}`,
     ...laid,
   };
 }

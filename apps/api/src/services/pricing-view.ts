@@ -24,17 +24,14 @@ import {
   rolesWithPermission,
   type Actor,
   type CapitalReadiness,
-  type PlannedNotification,
   type PricingRecordValues,
   type PricingRefFormats,
   type QuoteState,
   type WorkflowConfig,
 } from '@ccq/domain';
-import type { FastifyBaseLogger } from 'fastify';
 
 import { leadReviewView } from './lead-review';
 import { sectionLockView } from './locks';
-import { persistNotifications } from './notificationService';
 
 type PricingRow = Awaited<ReturnType<typeof listPricingRecords>>[number];
 
@@ -194,21 +191,16 @@ export async function quotingView(
 }
 
 /**
- * A quote entering Quoting (G2 Proceed / Capital required, G4 Return, G5 Re-quote): its version gets a
- * pricing record carrying forward the pricing-app and CER references of the latest earlier version
- * (the approval is recorded afresh, CR-38), and the Pricing team is told in-app (email is B-18).
- * Runs in the transition's transaction.
+ * A quote entering Quoting (G2 Proceed / Capital required, G4 Return, G5 Re-quote, a KAM resubmission
+ * with no scope change): its version gets a pricing record carrying forward the pricing-app and CER
+ * references of the latest earlier version (the approval is recorded afresh, CR-38), and a new stay
+ * starts a new lead-review round. Runs in the transition's transaction. The notifications are FB-05's
+ * (`handoff-notifications.ts`): the pricer and the pricing lead, once each.
  */
 export async function onPricingArrival(
   tx: DbOrTx,
   quote: { id: string; quoteNumber: string; version: number },
   actorId: string,
-  log?: FastifyBaseLogger,
-  /**
-   * B-12/B-13: set when Final Review returned the quote here, or the customer asked for a re-quote.
-   * FB-01 (F-030): `kam_rework`, the KAM fixed what Pricing sent back, with no scope change.
-   */
-  returnedFrom?: 'final_review' | 'customer_requote' | 'kam_rework',
 ): Promise<void> {
   // Lead review: a new stay in Quoting starts a new round (like engineering's acceptance).
   await clearLeadReview(tx, quote.id, 'pricing');
@@ -222,56 +214,4 @@ export async function onPricingArrival(
       createdBy: actorId,
     });
   }
-  const planned: PlannedNotification[] = pricingRoles().map((role) => ({
-    type: 'quote.ready_for_quoting',
-    recipient: { kind: 'role', role },
-  }));
-  await persistNotifications(
-    tx,
-    planned,
-    {
-      quoteId: quote.id,
-      title:
-        returnedFrom === 'kam_rework'
-          ? `${quote.quoteNumber} is back from the KAM`
-          : returnedFrom
-            ? `${quote.quoteNumber} was returned to Quoting`
-            : `${quote.quoteNumber} is ready for pricing`,
-      body:
-        returnedFrom === 'kam_rework'
-          ? 'The KAM fixed what Pricing sent back, with no scope change. It is back in Quoting with the same pricer: record the price approval again.'
-          : returnedFrom === 'customer_requote'
-            ? 'The customer asked for a re-quote. Open the pricing queue to record the price approval again.'
-            : returnedFrom
-              ? 'Final Review returned it for another look. Open the pricing queue to record the price approval again.'
-              : 'Engineering has cleared it. Open the pricing queue to record the price approval.',
-      excludeUserId: actorId,
-      notifyActorViaRole: true,
-    },
-    log,
-  );
-}
-
-/** G3 Submit: the Approver group is told in-app that a quote waits for Final Review (B-18: email). */
-export async function onFinalReviewArrival(
-  tx: DbOrTx,
-  quote: { id: string; quoteNumber: string },
-  actorId: string,
-  log?: FastifyBaseLogger,
-): Promise<void> {
-  const planned: PlannedNotification[] = rolesWithPermission('gate.G4.decide').map((role) => ({
-    type: 'quote.ready_for_final_review',
-    recipient: { kind: 'role', role },
-  }));
-  await persistNotifications(
-    tx,
-    planned,
-    {
-      quoteId: quote.id,
-      title: `${quote.quoteNumber} is ready for Final Review`,
-      body: 'Pricing has approved the price. Open Approvals to release or return the proposition.',
-      excludeUserId: actorId,
-    },
-    log,
-  );
 }

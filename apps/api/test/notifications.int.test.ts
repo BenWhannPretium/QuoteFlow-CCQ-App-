@@ -190,6 +190,11 @@ beforeAll(async () => {
     { db, now: clock, mail },
   );
   await app.ready();
+  // These tests count and time emails: comment emails go out at once here (the 10 minute window that
+  // folds a burst into one email is tested in fb05-notifications.int.test.ts).
+  await db.db.execute(
+    sql`update app_setting set value = '0'::jsonb where key = 'comment_email_collapse_minutes'`,
+  );
   // Every user gets an address, so who is emailed depends on the rules under test, not on the seed.
   await db.db.execute(sql`
     update app_user set email = lower(replace(display_name, ' ', '.')) || '.' || substr(id::text, 1, 6) || '@pretiumpkg.example'
@@ -315,7 +320,10 @@ describe('returned to the KAM (G1 and G2 rework)', () => {
     const kam = await userId('KAM');
     expect((await rows(qn, 'quote.reworked', 'in_app')).map((r) => r.userId)).toEqual([kam]);
     await dispatch();
-    expect(sentTo(await emailOf(kam), qn)).toHaveLength(1);
+    // The KAM also got the "moved on" notice when G1 advanced it; the return is one more, not two.
+    expect(
+      sentTo(await emailOf(kam), qn).filter((m) => m.subject.includes('was returned to you')),
+    ).toHaveLength(1);
   });
 
   it('a rework that goes to a group (G3 → Engineering) is announced once, by the arrival alert', async () => {
@@ -697,15 +705,20 @@ describe('email preferences', () => {
     expect(p.email.map((e) => e.type).sort()).toEqual(
       [
         'comment.mention',
+        'comment.posted',
         'quote.approved_for_customer',
         'quote.assigned',
         'quote.capital_likely',
+        'quote.closed',
         'quote.declined',
         'quote.escalated',
         'quote.market_dev',
+        'quote.on_hold',
         'quote.pricing_assigned',
+        'quote.progress',
         'quote.ready_for_eng_review',
         'quote.ready_for_final_review',
+        'quote.ready_for_quoting',
         'quote.reworked',
         'quote.returned_by_lead',
         'quote.submitted_to_lead',

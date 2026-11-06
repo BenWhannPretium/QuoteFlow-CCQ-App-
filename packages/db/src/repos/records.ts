@@ -239,6 +239,15 @@ export const claimDraftAttachments = (db: DbOrTx, draftId: string, quoteId: stri
 export const listComments = (db: DbOrTx, quoteId: string) =>
   db.select().from(comment).where(eq(comment.quoteId, quoteId)).orderBy(asc(comment.createdAt));
 
+/** Everyone who has commented on the quote (the author ids, once each). */
+export async function listCommentAuthorIds(db: DbOrTx, quoteId: string): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ authorId: comment.authorId })
+    .from(comment)
+    .where(eq(comment.quoteId, quoteId));
+  return rows.map((r) => r.authorId);
+}
+
 export async function insertComment(db: DbOrTx, values: typeof comment.$inferInsert) {
   const [row] = await db.insert(comment).values(values).returning();
   return row!;

@@ -1,4 +1,17 @@
-import { and, count, desc, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { appUser, notification, quote, userPreference } from '../schema/index';
@@ -146,6 +159,32 @@ export function claimDueEmails(db: DbOrTx, now: Date, limit: number) {
     .for('update', { skipLocked: true });
 }
 
+/**
+ * The recipient's other waiting emails of the same type for the same quote (not sent, not failed): the
+ * dispatcher folds a burst of comments into one email. System context only (it reads other users' rows).
+ */
+export function listPendingSiblingEmails(
+  db: DbOrTx,
+  row: { id: string; userId: string; type: string; quoteId: string | null },
+) {
+  return db
+    .select({ id: notification.id })
+    .from(notification)
+    .where(
+      and(
+        eq(notification.channel, 'email'),
+        eq(notification.userId, row.userId),
+        eq(notification.type, row.type),
+        row.quoteId ? eq(notification.quoteId, row.quoteId) : isNull(notification.quoteId),
+        isNull(notification.sentAt),
+        isNull(notification.failedAt),
+        isNotNull(notification.nextAttemptAt),
+        ne(notification.id, row.id),
+      ),
+    )
+    .orderBy(notification.createdAt, notification.id);
+}
+
 export async function markEmailSent(db: DbOrTx, id: string, at: Date, attempts: number) {
   await db
     .update(notification)
@@ -239,6 +278,16 @@ export async function listQuoteNumbersByIds(
 }
 
 /** A queued email row was passed over (recipient gone, opted out, email switched off): never due again. */
+/** Keep a fact the email is built from (the number of comments folded into it) across retries. */
+export async function setEmailPayload(
+  db: DbOrTx,
+  id: string,
+  payload: Record<string, unknown>,
+  at: Date,
+) {
+  await db.update(notification).set({ payload, updatedAt: at }).where(eq(notification.id, id));
+}
+
 export async function markEmailSkipped(db: DbOrTx, id: string, at: Date, reason: string) {
   await db
     .update(notification)
