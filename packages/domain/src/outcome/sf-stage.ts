@@ -1,3 +1,4 @@
+import { DomainError } from '../errors';
 import { AWARDED_STAGE_KEY, COMMIT_STAGE_KEY } from './report';
 
 /**
@@ -54,4 +55,70 @@ export function compareSfStage(input: {
     mismatch: true,
     reason: `CCQ shows ${label(input.ccqStageKey)} but Salesforce shows "${sfStage}" (${label(hint)})`,
   };
+}
+
+// ── FB-04 (F-076): the Salesforce link and the "update the opportunity" reminder ──────────────────
+
+/**
+ * Provisional seed for `sf_outcome_stage_names`: the Salesforce stage a G5 outcome should leave the
+ * opportunity in (names from `sf_stage_map`). Awarded waits in Commit & Hand Off, so it is the verbal
+ * award stage; Expired and Lost are both Closed Lost. Confirm with the KAMs before pilot.
+ */
+export const SF_OUTCOME_STAGE_NAMES_SEED: Readonly<Record<string, string>> = {
+  awarded: 'Verbal Award',
+  negotiating: 'Negotiating',
+  lost: 'Closed Lost',
+  expired: 'Closed Lost',
+  requote: 'Quoting',
+};
+
+/** Validates `sf_outcome_stage_names`: outcome key → Salesforce stage name. Throws INVALID_CONFIG. */
+export function parseSfOutcomeStageNames(value: unknown): Record<string, string> {
+  const bad = (m: string) => new DomainError('INVALID_CONFIG', `sf_outcome_stage_names: ${m}`);
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw bad('expected an object of outcome key → Salesforce stage name');
+  }
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v !== 'string' || v.trim() === '') throw bad(`"${k}" needs a stage name`);
+    out[k] = v.trim();
+  }
+  return out;
+}
+
+/** The Salesforce stage to name in the reminder after `outcomeKey` is recorded; null when none is configured. */
+export function sfStageForOutcome(
+  outcomeKey: string,
+  names: Readonly<Record<string, string>>,
+): string | null {
+  return names[outcomeKey] ?? null;
+}
+
+/**
+ * Validates `salesforce_instance_url`: empty (not set) or an https origin. A trailing slash and any
+ * path are dropped, so the link is always `${origin}/lightning/r/Opportunity/<id>/view`.
+ */
+export function parseSalesforceInstanceUrl(value: unknown): string {
+  const bad = (m: string) => new DomainError('INVALID_CONFIG', `salesforce_instance_url: ${m}`);
+  if (value === null || value === undefined) return '';
+  if (typeof value !== 'string') throw bad('expected text');
+  const trimmed = value.trim();
+  if (trimmed === '') return '';
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw bad('not a valid URL');
+  }
+  if (url.protocol !== 'https:') throw bad('must start with https://');
+  return url.origin;
+}
+
+/** The Lightning record link for an opportunity, or null when the instance URL is not set. */
+export function salesforceOpportunityUrl(
+  instanceUrl: string | null | undefined,
+  sfOpportunityId: string | null | undefined,
+): string | null {
+  if (!instanceUrl || !sfOpportunityId) return null;
+  return `${instanceUrl.replace(/\/+$/, '')}/lightning/r/Opportunity/${encodeURIComponent(sfOpportunityId)}/view`;
 }

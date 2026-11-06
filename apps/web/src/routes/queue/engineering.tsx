@@ -450,6 +450,16 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
               </span>
               {/* FB-02 (F-015, T-012) */}
               <MoldModificationChip show={q.moldModification} />
+              {/* FB-04 (F-065, T-024): why a sales leader changed the tier. */}
+              {q.priorityOverride && (
+                <span
+                  className="text-emphasis border-emphasis/40 w-fit rounded-full border px-2 text-[11px] font-semibold"
+                  data-testid="queue-priority-override"
+                  title={`${q.priorityOverride.requestedByName ?? 'A sales leader'}: ${q.priorityOverride.justification}`}
+                >
+                  Tier overridden: {q.priorityOverride.justification}
+                </span>
+              )}
             </span>
           );
         },

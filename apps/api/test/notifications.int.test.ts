@@ -580,6 +580,36 @@ describe('proposal validity', () => {
 describe('overrides are in-app only', () => {
   it('alerts the approvers on request and the requester on the decision, without any email', async () => {
     await drain();
+    // FB-04 (F-065): the seed makes the tier SalesLeader-only and self-applied; approver mode is still a
+    // supported configuration, which is the path that notifies approvers, so this test configures it.
+    const original = await db.db.execute<{ value: unknown }>(
+      sql`select value from app_setting where key = 'overridable_fields'`,
+    );
+    const approverFields = (original[0]!.value as Record<string, unknown>[]).map((f) =>
+      f.field === 'priority_tier'
+        ? {
+            ...f,
+            approval: 'approver',
+            requestRoles: ['KAM', 'SalesLeader', 'EngLead', 'Pricing'],
+            approverRoles: ['SalesLeader', 'EngLead'],
+          }
+        : f,
+    );
+    await db.db.execute(
+      sql`update app_setting set value = ${JSON.stringify(approverFields)}::jsonb where key = 'overridable_fields'`,
+    );
+    try {
+      await tierOverrideNotifications();
+    } finally {
+      await db.db.execute(
+        sql`update app_setting set value = ${JSON.stringify(original[0]!.value)}::jsonb where key = 'overridable_fields'`,
+      );
+    }
+  });
+});
+
+async function tierOverrideNotifications() {
+  {
     const qn = await inQueue();
     const [current] = await db.db.execute<{ tier: string }>(
       sql`select priority_tier as tier from quote where quote_number = ${qn}`,
@@ -607,8 +637,8 @@ describe('overrides are in-app only', () => {
       .from(schema.notification)
       .where(and(eq(schema.notification.channel, 'email'), sql`type like 'override.%'`));
     expect(emails).toHaveLength(0);
-  });
-});
+  }
+}
 
 // ── Transactions ────────────────────────────────────────────────────────────────────────────────
 

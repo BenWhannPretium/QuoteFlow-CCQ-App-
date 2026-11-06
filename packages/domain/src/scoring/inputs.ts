@@ -14,6 +14,8 @@ export interface InputResolution {
   points?: number;
   /** Extra words for the explanation, e.g. "45 days to expected close". */
   detail?: string;
+  /** FB-04: set when a `map` has no listed values at all, so the points are only the neutral default. */
+  provisional?: boolean;
 }
 
 export interface InputResolver {
@@ -82,11 +84,30 @@ export const INPUT_RESOLVERS: Readonly<Record<string, InputResolver>> = {
     mapsToPoints: true,
     resolve: (attribute, facts) => {
       const map = attribute.map!;
+      // FB-04 (F-073): segment beats market beats the default.
+      const segment = map.bySegment ? code(getFact(facts, map.bySegment.by)) : null;
+      if (segment !== null && map.bySegment && segment in map.bySegment.values) {
+        return {
+          raw: segment,
+          points: map.bySegment.values[segment]!,
+          detail: 'segment',
+        };
+      }
+      const noValues =
+        Object.keys(map.values).length === 0 &&
+        Object.keys(map.bySegment?.values ?? {}).length === 0;
       const parts = map.by.split('+').map((p) => code(getFact(facts, p.trim())));
       if (parts.some((p) => p === null)) return { raw: null };
       const raw = parts.join('+');
       if (raw in map.values) return { raw, points: map.values[raw]! };
-      if (map.default !== undefined) return { raw, points: map.default, detail: 'not listed' };
+      if (map.default !== undefined) {
+        return {
+          raw,
+          points: map.default,
+          detail: 'not listed',
+          ...(noValues ? { provisional: true } : {}),
+        };
+      }
       return { raw: null, detail: `"${raw}" is not listed` };
     },
   },

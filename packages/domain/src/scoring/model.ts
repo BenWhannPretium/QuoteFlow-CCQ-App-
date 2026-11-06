@@ -28,6 +28,15 @@ export const scoringMapSchema = z
     values: z.record(z.string(), points),
     /** Points for a known value that is not in `values`. Without it, such a value counts as unknown. */
     default: points.optional(),
+    /**
+     * FB-04 (F-073): an optional, finer lookup (e.g. a Where-to-Play segment) tried before `by`/`values`.
+     * A known segment listed in `values` wins; otherwise the market map, then `default`. Empty until D-004
+     * chooses segments vs markets.
+     */
+    bySegment: z
+      .object({ by: z.string().min(1), values: z.record(z.string(), points) })
+      .strict()
+      .optional(),
   })
   .strict();
 

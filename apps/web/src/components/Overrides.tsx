@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightIcon, ClockIcon, PencilIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -134,8 +135,15 @@ export function PendingOverrideBadge({ override }: { override: OverrideDto }) {
  */
 export function FieldOverride({ quote, field }: { quote: QuoteDetail; field: string }) {
   const [open, setOpen] = useState(false);
+  const me = useCurrentUser();
   const f = quote.overridableFields.find((x) => x.field === field);
   if (!f) return null;
+  // FB-04 (F-065, D-028): only a sales leader overrides priority; a KAM's path is the escalation.
+  const showEscalateHint =
+    field === 'priority_tier' &&
+    !f.canRequest &&
+    me.roles.includes('KAM') &&
+    quote.status !== 'closed';
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       {f.applied && <OverriddenMarker override={f.applied} />}
@@ -152,6 +160,11 @@ export function FieldOverride({ quote, field }: { quote: QuoteDetail; field: str
           <PencilIcon aria-hidden="true" />
           Override
         </Button>
+      )}
+      {showEscalateHint && (
+        <span className="text-muted-foreground text-xs" data-testid="priority-escalate-hint">
+          Need a different priority? Escalate to your sales leader.
+        </span>
       )}
       {open && (
         <OverrideDialog open onOpenChange={setOpen} quoteNumber={quote.quoteNumber} field={f} />

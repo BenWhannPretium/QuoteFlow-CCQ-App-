@@ -78,7 +78,8 @@ export const holdsAnyRole = (roles: readonly Role[], list: readonly Role[]) =>
   roles.some((r) => list.includes(r));
 
 /**
- * Seed (provisional until R1): SalesLeader or EngLead approve the priority tier; the KAM self-applies a
+ * Seed (provisional until R1): only a SalesLeader overrides the priority tier, self-applied with a
+ * justification (FB-04, F-065, D-028: KAM, EngLead and Pricing escalate instead); the KAM self-applies a
  * ship-to with a reason (logged); the EngLead pins a quote to the top of the engineering queue.
  */
 export const OVERRIDE_SETTINGS_SEED = {
@@ -86,9 +87,9 @@ export const OVERRIDE_SETTINGS_SEED = {
     {
       field: 'priority_tier',
       label: 'Priority tier',
-      approval: 'approver',
-      requestRoles: ['KAM', 'SalesLeader', 'EngLead', 'Pricing'],
-      approverRoles: ['SalesLeader', 'EngLead'],
+      approval: 'self',
+      requestRoles: ['SalesLeader'],
+      approverRoles: [],
       revertRoles: ['SalesLeader', 'EngLead', 'Admin'],
       ownQuoteOnlyRoles: [],
     },

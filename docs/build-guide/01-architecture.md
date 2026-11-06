@@ -77,8 +77,8 @@ quoteflow-ccq-app-/
 
 | App role (token `roles` claim) | Entra security group (proposed) | Who (PRD §4 + Op Model) | Core abilities |
 |---|---|---|---|
-| `CCQ.KAM` | `SG-CCQ-KAM` | KAMs/CAMs, all regions (~30) | Create intake from an SF opportunity. View pipeline per data scope. Attach docs. Raise override requests. Record customer outcome (G5). Flag capital-likely, check terms (B-26). Decide G6 Commit & Hand Off on own quotes (B-26). **Cannot** approve or qualify their own opportunity. |
-| `CCQ.SalesLeader` | `SG-CCQ-SalesLeader` | Sales leaders (G1 qualifier, candidate per Op Model §6) | G1 decision (pursue / hold / rework / redirect / stop). Approve priority overrides. Verify closure. |
+| `CCQ.KAM` | `SG-CCQ-KAM` | KAMs/CAMs, all regions (~30) | Create intake from an SF opportunity. View pipeline per data scope. Attach docs. Override ship-to on own quotes (FB-04: **not** the priority tier; they escalate). Record customer outcome (G5). Flag capital-likely, check terms (B-26). Decide G6 Commit & Hand Off on own quotes (B-26). **Cannot** approve or qualify their own opportunity. |
+| `CCQ.SalesLeader` | `SG-CCQ-SalesLeader` | Sales leaders (G1 qualifier, candidate per Op Model §6) | G1 decision (pursue / hold / rework / redirect / stop). Override the priority tier (FB-04, D-028: the only role that does; self-applied with a justification ≥ 15 characters, visible to Engineering). Verify closure. |
 | `CCQ.EngLead` | `SG-CCQ-EngLead` | Upfront engineering lead (Jim Zweifel's team) | Owns the engineering queue: assign or reassign (B-26: also in bulk), accept or return, capacity sign-off (B-26), G2 decision. |
 | `CCQ.Engineer` | `SG-CCQ-Engineer` | Assigned product and ops engineers, capacity analyst | Edit Engineering Review fields and capacity evidence on assigned quotes. |
 | `CCQ.Pricing` | `SG-CCQ-Pricing` | Pricing team (Gemma Cebolla's org) | Quoting stage: record price approval, costing attestation, capital-readiness status and the optional legacy ERF number (B-26: BPR retired). Submit to Final Review. **Cannot** approve Final Review. |
@@ -137,7 +137,7 @@ Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future res
 | outcome.record | ✔ (own) | ✔ | | | | | | | |
 | outcome.assignOwner (B-13: name a closure owner other than the default) | | ✔ | | | | | | | |
 | handoff.edit (B-13: the hand-off record; B-26: in Commit & Hand Off) | ✔ (own) | ✔ | | | | | | | ✔ |
-| override.request | ✔ | ✔ | ✔ | | ✔ | ✔ | | | |
+| override.request (the matrix; per field it is narrowed by `overridable_fields`: priority tier = SalesLeader only, FB-04) | ✔ | ✔ | ✔ | | ✔ | ✔ | | | |
 | override.approve | | ✔ | ✔ (priority, queue) | | | | | | ✔ |
 | override.revert | | ✔ | ✔ | | | | | | ✔ |
 | overrideLog.read | | | | | | | | ✔ | ✔ |
@@ -232,7 +232,7 @@ CCQ owns operational stages. Salesforce stages are read and shown side by side:
 - Closed Won – Product Shipping
 - Closed Lost
 
-The mapping table `sf_stage_map` is config, so mismatches can be flagged; for example, CCQ shows Awarded while SF still shows Quoting. B-26: "Verbal Award" and "PO(s) in hand" hint at `COMMIT_HANDOFF`, and SF "Closed Won" agrees with a quote in Commit & Hand Off or Closed – Won.
+The mapping table `sf_stage_map` is config, so mismatches can be flagged; for example, CCQ shows Awarded while SF still shows Quoting. FB-04 (F-076): the quote header links to its opportunity (`salesforce_instance_url` + `/lightning/r/Opportunity/<id>/view`), and after a G5 outcome is saved a dismissible reminder names the SF stage to set (`sf_outcome_stage_names`); nothing is written to Salesforce. B-26: "Verbal Award" and "PO(s) in hand" hint at `COMMIT_HANDOFF`, and SF "Closed Won" agrees with a quote in Commit & Hand Off or Closed – Won.
 
 ---
 

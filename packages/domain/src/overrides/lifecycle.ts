@@ -127,15 +127,26 @@ export function canRequestOverride(
   );
 }
 
-/** May the actor approve or reject requests on this field? (config approver roles + `override.approve`). */
+/**
+ * May the actor approve or reject requests on this field? (config approver roles + `override.approve`).
+ * FB-04 (F-065): when a field became self-applied, a request raised under the old approver rules can
+ * still be waiting (`record.approvalMode === 'approver'`). It is not auto-rejected: the roles that may
+ * now request (self-apply) the field decide it.
+ */
 export function canDecideOverride(
   config: OverridableField,
   actor: Actor,
   quote: OverrideQuote,
+  record?: Pick<OverrideRecord, 'approvalMode'>,
 ): boolean {
+  const deciders =
+    config.approval === 'approver'
+      ? config.approverRoles
+      : record?.approvalMode === 'approver'
+        ? config.requestRoles
+        : [];
   return (
-    config.approval === 'approver' &&
-    holdsAnyRole(actor.roles, config.approverRoles) &&
+    holdsAnyRole(actor.roles, deciders) &&
     can(actor, 'override.approve', resource(quote, config.field))
   );
 }
@@ -252,7 +263,7 @@ export function planOverrideDecision(
   if (record.status !== 'requested') {
     return fail(new DomainError('INVALID_STATE', `The override is already ${record.status}`));
   }
-  if (!canDecideOverride(config, actor, quote)) {
+  if (!canDecideOverride(config, actor, quote, record)) {
     return fail(
       new DomainError(
         'NOT_PERMITTED',
@@ -353,7 +364,7 @@ export function overrideActions(
       record.status === 'requested' &&
       config !== undefined &&
       record.requestedBy !== actor.userId &&
-      canDecideOverride(config, actor, quote),
+      canDecideOverride(config, actor, quote, record),
     canRevert: record.status === 'applied' && canRevertOverride(config, actor, quote, record),
   };
 }

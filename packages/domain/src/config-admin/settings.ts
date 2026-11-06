@@ -17,6 +17,7 @@ import { parseApproverTierRules } from '../final-review/tiers';
 import { intakeConfigSchema } from '../intake/intake';
 import { MIN_SPEC_KEYS } from '../intake/product-facts';
 import { parseReceivingRoles } from '../outcome/handoff';
+import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome/sf-stage';
 import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
 import { CAPITAL_READINESS_VALUES, parsePricingRefFormats } from '../pricing/record';
@@ -164,6 +165,13 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Hand-off receiving roles',
     'json',
     notNull('handoff_receiving_roles', parseReceivingRoles),
+  ),
+  spec(
+    'sf_outcome_stage_names',
+    'proposal',
+    'Salesforce stage named in the reminder after a customer outcome',
+    'json',
+    notNull('sf_outcome_stage_names', parseSfOutcomeStageNames),
   ),
   // Qualification warnings (D-06)
   spec(
@@ -373,6 +381,13 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     z_('email_notifications_enabled', z.boolean()),
   ),
   // Integrations and data
+  spec(
+    'salesforce_instance_url',
+    'integrations',
+    'Salesforce Lightning URL (blank = show the plain opportunity ID)',
+    'text',
+    parseSalesforceInstanceUrl,
+  ),
   spec(
     'pricing_ref_formats',
     'integrations',

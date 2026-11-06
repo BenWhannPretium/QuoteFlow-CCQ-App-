@@ -1,4 +1,5 @@
 import {
+  EngQueueResponse,
   OverrideResponse,
   MeResponse,
   OverrideDto,
@@ -17,6 +18,10 @@ import { buildApp } from '../src/app';
 import { testConfig } from '../src/test-utils';
 
 /**
+ * FB-04 (F-065, D-028): the seeded rule is now "only a SalesLeader overrides the tier, self-applied". The
+ * request → approve lifecycle is still a supported CONFIGURATION (approval: 'approver'), so the tests that
+ * cover it run under `APPROVER_FIELDS` (the old seed); the F-065 block at the end runs under the real seed.
+ *
  * B-09 governed overrides through the API: the tier (approver) and ship-to (self, logged) lifecycles,
  * 409 on a stale value, exact revert, justification, approver-per-config, segregation, the inbox,
  * notifications, activity + audit rows, and the Leadership/Admin-only override log.
@@ -44,12 +49,13 @@ const quoteRow = async (quoteNumber: string) =>
 
 const used = new Set<string>();
 /** An active, scored quote with no overrides yet (optionally owned by `kamUserId`). */
-async function freshQuote(kamUserId?: string): Promise<string> {
+async function freshQuote(kamUserId?: string, stageKey?: string): Promise<string> {
   const rows = await db.db.execute<{ quote_number: string }>(sql`
     select q.quote_number from quote q
     where q.status = 'active' and q.priority_tier in ('STANDARD', 'LOW', 'HIGH')
       and not exists (select 1 from override o where o.quote_id = q.id)
       ${kamUserId ? sql`and q.kam_user_id = ${kamUserId}` : sql``}
+      ${stageKey ? sql`and q.stage_key = ${stageKey}` : sql``}
     order by q.quote_number`);
   const pick = [...rows].map((r) => r.quote_number).find((n) => !used.has(n));
   if (!pick) throw new Error('no fresh quote left');
@@ -105,6 +111,18 @@ const activityFor = (quoteId: string) =>
     )
     .orderBy(asc(schema.activityEvent.at));
 
+/** The pre-FB-04 seed: KAM / SalesLeader / EngLead / Pricing request the tier; SalesLeader or EngLead approve. */
+const APPROVER_FIELDS = OVERRIDE_SETTINGS_SEED.fields.map((f) =>
+  f.field === 'priority_tier'
+    ? {
+        ...f,
+        approval: 'approver' as const,
+        requestRoles: ['KAM', 'SalesLeader', 'EngLead', 'Pricing'] as Role[],
+        approverRoles: ['SalesLeader', 'EngLead'] as Role[],
+      }
+    : f,
+);
+
 const setFields = (fields: unknown) =>
   db.db.execute(
     sql`update app_setting set value = ${JSON.stringify(fields)}::jsonb where key = 'overridable_fields'`,
@@ -121,7 +139,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   clock = new Date(clock.getTime() + 60_000);
-  await setFields(OVERRIDE_SETTINGS_SEED.fields);
+  await setFields(APPROVER_FIELDS);
 });
 
 describe('priority tier: request → approve → applied → revert', () => {
@@ -325,7 +343,7 @@ describe('priority tier: request → approve → applied → revert', () => {
 });
 
 describe('who approves is config (blueprint gap, R1)', () => {
-  it('seed: SalesLeader or EngLead approve the tier; Admin and the requester may not', async () => {
+  it('approver config: SalesLeader or EngLead approve the tier; Admin and the requester may not', async () => {
     const qn = await freshQuote();
     const { override } = await requestTier(qn, 'SalesLeader');
     // Segregation: the SalesLeader who asked cannot approve their own request.
@@ -351,7 +369,7 @@ describe('who approves is config (blueprint gap, R1)', () => {
 
   it('changing overridable_fields changes who approves, with no code change', async () => {
     await setFields(
-      OVERRIDE_SETTINGS_SEED.fields.map((f) =>
+      APPROVER_FIELDS.map((f) =>
         f.field === 'priority_tier' ? { ...f, approverRoles: ['SalesLeader'] } : f,
       ),
     );
@@ -382,6 +400,121 @@ describe('who approves is config (blueprint gap, R1)', () => {
       'ship_to',
       'queue_position',
     ]);
+  });
+});
+
+describe('F-065: only a SalesLeader overrides the priority tier (seeded rule)', () => {
+  beforeEach(async () => {
+    await setFields(OVERRIDE_SETTINGS_SEED.fields);
+  });
+
+  it.each(['KAM', 'EngLead', 'Pricing'] as const)('%s is denied', async (role) => {
+    const qn = await freshQuote();
+    const res = await request(
+      qn,
+      { field: 'priority_tier', requestedValue: 'HIGH', justification: WHY },
+      role,
+    );
+    expect(res.statusCode, res.body).toBe(403);
+    expect(
+      (await detail(qn, role)).overridableFields.find((f) => f.field === 'priority_tier')
+        ?.canRequest,
+    ).toBe(false);
+  });
+
+  it.each(['Engineer', 'PricingLead', 'Approver', 'Leadership', 'Admin'] as const)(
+    '%s is denied (no override right on the tier)',
+    async (role) => {
+      const qn = await freshQuote();
+      const res = await request(
+        qn,
+        { field: 'priority_tier', requestedValue: 'HIGH', justification: WHY },
+        role,
+      );
+      expect(res.statusCode, res.body).toBe(403);
+    },
+  );
+
+  it('a SalesLeader is refused without a justification of at least 15 characters', async () => {
+    const qn = await freshQuote();
+    const q = await quoteRow(qn);
+    for (const justification of ['', 'too short']) {
+      const res = await request(
+        qn,
+        { field: 'priority_tier', requestedValue: otherTier(q.priorityTier), justification },
+        'SalesLeader',
+      );
+      expect(res.statusCode, res.body).toBe(422);
+    }
+    expect((await quoteRow(qn)).priorityTierOverridden).toBe(false);
+  });
+
+  it('a SalesLeader overrides it at once with a justification; Engineering sees it on the queue row', async () => {
+    const qn = await freshQuote();
+    const { override, original } = await requestTier(qn, 'SalesLeader');
+    expect(override).toMatchObject({
+      status: 'applied',
+      approvalMode: 'self',
+      originalValue: original,
+      justification: WHY,
+    });
+    const row = await quoteRow(qn);
+    expect(row.priorityTierOverridden).toBe(true);
+    expect(row.priorityTier).toBe(override.requestedValue);
+    const audit = (await auditFor(override.id)).map((a) => a.action);
+    expect(audit).toEqual(['override_requested', 'override_applied']);
+    // The quote's priority panel shows who and why.
+    const applied = (await detail(qn)).overridableFields.find(
+      (f) => f.field === 'priority_tier',
+    )!.applied;
+    expect(applied).toMatchObject({ justification: WHY });
+  });
+
+  it('T-024: the justification shows on the Engineering queue row', async () => {
+    const qn = await freshQuote(undefined, 'ENG_REVIEW');
+    await requestTier(qn, 'SalesLeader');
+    const res = await as('EngLead').get('/api/v1/queue/engineering');
+    expect(res.statusCode, res.body).toBe(200);
+    const items = EngQueueResponse.parse(res.json()).items;
+    expect(items.find((i) => i.quoteNumber === qn)?.priorityOverride).toMatchObject({
+      justification: WHY,
+    });
+    // A quote nobody overrode carries none.
+    const plain = items.find((i) => i.quoteNumber !== qn);
+    expect(plain?.priorityOverride ?? null).toBeNull();
+  });
+
+  it('a request raised under the old rules is not auto-rejected: the SalesLeader decides it, EngLead cannot', async () => {
+    await setFields(APPROVER_FIELDS);
+    const qn = await freshQuote();
+    const { override } = await requestTier(qn, 'KAM');
+    expect(override.status).toBe('requested');
+    await setFields(OVERRIDE_SETTINGS_SEED.fields);
+    expect((await quoteRow(qn)).priorityTierOverridden).toBe(false);
+    expect(
+      (await as('EngLead').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
+    ).toBe(403);
+    expect(
+      (await as('KAM').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' })).statusCode,
+    ).toBe(403);
+    const inbox = OverrideListResponse.parse(
+      (await as('SalesLeader').get('/api/v1/overrides')).json(),
+    );
+    expect(inbox.items.map((i) => i.id)).toContain(override.id);
+    expect(
+      (await as('SalesLeader').post(`/api/v1/overrides/${override.id}/approve`, { note: 'ok' }))
+        .statusCode,
+    ).toBe(200);
+  });
+
+  it('ship-to and queue position are unchanged by FB-04', () => {
+    const byField = Object.fromEntries(OVERRIDE_SETTINGS_SEED.fields.map((f) => [f.field, f]));
+    expect(byField.ship_to).toMatchObject({
+      approval: 'self',
+      requestRoles: ['KAM', 'SalesLeader'],
+    });
+    expect(byField.queue_position).toMatchObject({ approval: 'self', requestRoles: ['EngLead'] });
   });
 });
 

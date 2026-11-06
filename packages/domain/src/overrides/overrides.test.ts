@@ -56,10 +56,11 @@ const record = (over: Partial<OverrideRecord> = {}): OverrideRecord => ({
 });
 
 describe('override settings (config)', () => {
-  it('parses the provisional seed: tier needs an approver, ship-to and queue position are self-applied', () => {
+  it('parses the provisional seed: only a SalesLeader overrides the tier (self-applied, D-028); ship-to and queue position are self-applied', () => {
     expect(findOverridableField(settings, 'priority_tier')).toMatchObject({
-      approval: 'approver',
-      approverRoles: ['SalesLeader', 'EngLead'],
+      approval: 'self',
+      requestRoles: ['SalesLeader'],
+      approverRoles: [],
     });
     expect(findOverridableField(settings, 'ship_to')).toMatchObject({
       approval: 'self',
@@ -102,7 +103,7 @@ describe('override settings (config)', () => {
       'approver mode without approvers',
       {
         ...OVERRIDE_SETTINGS_SEED,
-        fields: [{ ...OVERRIDE_SETTINGS_SEED.fields[0], approverRoles: [] }],
+        fields: [{ ...OVERRIDE_SETTINGS_SEED.fields[0], approval: 'approver', approverRoles: [] }],
       },
       /needs approverRoles/,
     ],
@@ -165,7 +166,7 @@ describe('values', () => {
 
 describe('planOverrideRequest', () => {
   const request = (
-    actor = kam,
+    actor = leader,
     input: Partial<{ field: string; requestedValue: unknown; justification: string }> = {},
     current: unknown = 'STANDARD',
     q = quote(),
@@ -181,22 +182,37 @@ describe('planOverrideRequest', () => {
       { openRequestExists },
     );
 
-  it('a tier request waits for an approver and notifies the approver roles', () => {
+  it('F-065: a SalesLeader overrides the tier at once (self-applied, logged) with the justification', () => {
     const r = request();
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.plan).toMatchObject({
-      status: 'requested',
-      apply: false,
+      status: 'applied',
+      apply: true,
+      approvalMode: 'self',
       originalValue: 'STANDARD',
       requestedValue: 'HIGH',
       justification: why,
-      audits: ['override_requested'],
-      activityType: 'override_requested',
+      audits: ['override_requested', 'override_applied'],
+      activityType: 'override_applied',
+      notifications: [],
     });
-    expect(r.plan.notifications).toEqual([
-      { type: 'override.requested', recipient: { kind: 'role', role: 'SalesLeader' } },
-      { type: 'override.requested', recipient: { kind: 'role', role: 'EngLead' } },
+  });
+
+  it.each(['KAM', 'EngLead', 'Pricing'] as const)(
+    'F-065: a %s may not override the priority tier (they escalate instead)',
+    (role) => {
+      expect(codes(request(as(role)))).toEqual(['NOT_PERMITTED']);
+      expect(
+        canRequestOverride(findOverridableField(settings, 'priority_tier')!, as(role), quote()),
+      ).toBe(false);
+    },
+  );
+
+  it('F-065: a SalesLeader without a justification of at least 15 characters is refused', () => {
+    expect(codes(request(leader, { justification: '' }))).toEqual(['JUSTIFICATION_REQUIRED']);
+    expect(codes(request(leader, { justification: 'too short' }))).toEqual([
+      'JUSTIFICATION_REQUIRED',
     ]);
   });
 
@@ -230,14 +246,14 @@ describe('planOverrideRequest', () => {
   });
 
   it('requires a justification of the configured minimum length (trimmed)', () => {
-    expect(codes(request(kam, { justification: '   too short    ' }))).toEqual([
+    expect(codes(request(leader, { justification: '   too short    ' }))).toEqual([
       'JUSTIFICATION_REQUIRED',
     ]);
-    expect(request(kam, { justification: '  exactly fifteen ' }).ok).toBe(true);
+    expect(request(leader, { justification: '  exactly fifteen ' }).ok).toBe(true);
   });
 
   it('reports every input problem at once', () => {
-    expect(codes(request(kam, { justification: 'no', requestedValue: 'MEGA' }))).toEqual([
+    expect(codes(request(leader, { justification: 'no', requestedValue: 'MEGA' }))).toEqual([
       'JUSTIFICATION_REQUIRED',
       'INVALID_VALUE',
     ]);
@@ -253,16 +269,16 @@ describe('planOverrideRequest', () => {
     ['position zero', 'queue_position', 0],
     ['position fractional', 'queue_position', 1.5],
   ])('rejects an invalid value: %s', (_n, field, requestedValue) => {
-    const actor = field === 'queue_position' ? engLead : kam;
+    const actor = field === 'queue_position' ? engLead : field === 'ship_to' ? kam : leader;
     expect(codes(request(actor, { field, requestedValue }, null))).toEqual(['INVALID_VALUE']);
   });
 
   it('rejects a no-op request', () => {
-    expect(codes(request(kam, { requestedValue: 'STANDARD' }))).toEqual(['NO_CHANGE']);
+    expect(codes(request(leader, { requestedValue: 'STANDARD' }))).toEqual(['NO_CHANGE']);
   });
 
   it('rejects a field that is not configured as overridable', () => {
-    expect(codes(request(kam, { field: 'est_annual_revenue', requestedValue: 1 }))).toEqual([
+    expect(codes(request(leader, { field: 'est_annual_revenue', requestedValue: 1 }))).toEqual([
       'NOT_OVERRIDABLE',
     ]);
   });
@@ -289,16 +305,16 @@ describe('planOverrideRequest', () => {
   });
 
   it('refuses a closed quote and a second open request on the same field', () => {
-    expect(codes(request(kam, {}, 'STANDARD', quote({ status: 'closed' })))).toEqual([
+    expect(codes(request(leader, {}, 'STANDARD', quote({ status: 'closed' })))).toEqual([
       'QUOTE_CLOSED',
     ]);
-    expect(codes(request(kam, {}, 'STANDARD', quote(), true))).toEqual(['OVERRIDE_PENDING']);
+    expect(codes(request(leader, {}, 'STANDARD', quote(), true))).toEqual(['OVERRIDE_PENDING']);
   });
 
   it('captures a missing original value as null', () => {
     const r = planOverrideRequest(
       settings,
-      kam,
+      leader,
       quote(),
       { field: 'priority_tier', requestedValue: 'HIGH', justification: why },
       undefined,
@@ -336,8 +352,20 @@ describe('planOverrideDecision', () => {
     });
   });
 
-  it('the EngLead may approve tier overrides (matrix: priority and queue only)', () => {
-    expect(decide(engLead).ok).toBe(true);
+  it('F-065: a request raised under the old rules is left for the SalesLeader to decide (not auto-rejected)', () => {
+    // The seed makes priority_tier self-applied; `record()` is a request that was already waiting.
+    expect(decide(leader).ok).toBe(true);
+    expect(codes(decide(engLead))).toEqual(['NOT_PERMITTED']);
+    expect(codes(decide(kam))).toEqual(['NOT_PERMITTED']);
+    // A self-applied record is never decided by anyone.
+    expect(codes(decide(leader, 'approve', 'STANDARD', record({ approvalMode: 'self' })))).toEqual([
+      'NOT_PERMITTED',
+    ]);
+  });
+
+  it('F-065: the SalesLeader sees a waiting old-rules request as decidable, and the KAM does not', () => {
+    expect(overrideActions(settings, leader, quote(), record()).canDecide).toBe(true);
+    expect(overrideActions(settings, kam, quote(), record()).canDecide).toBe(false);
   });
 
   it('fails with STALE_VALUE when the field changed since the request (→ 409)', () => {
@@ -379,9 +407,9 @@ describe('planOverrideDecision', () => {
   });
 
   it('a self-applied field has no approver; an unconfigured field cannot be decided', () => {
-    expect(codes(decide(leader, 'approve', null, record({ field: 'ship_to' })))).toEqual([
-      'NOT_PERMITTED',
-    ]);
+    expect(
+      codes(decide(leader, 'approve', null, record({ field: 'ship_to', approvalMode: 'self' }))),
+    ).toEqual(['NOT_PERMITTED']);
     expect(codes(decide(leader, 'approve', null, record({ field: 'gone' })))).toEqual([
       'NOT_OVERRIDABLE',
     ]);

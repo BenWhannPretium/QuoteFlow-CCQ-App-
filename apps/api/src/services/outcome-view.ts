@@ -25,6 +25,9 @@ import {
   VALIDITY_WARNING_DAYS_SEED,
   can,
   compareSfStage,
+  parseSalesforceInstanceUrl,
+  parseSfOutcomeStageNames,
+  SF_OUTCOME_STAGE_NAMES_SEED,
   customerOutcomeKeys,
   parseReceivingRoles,
   parseValidityWarningDays,
@@ -52,14 +55,32 @@ export interface OutcomeSettings {
   receivingRoles: ReceivingRoleOption[];
   receivingRolesError: string | null;
   sfStageMap: SfStageMapEntry[];
+  /** FB-04 (F-076): the Lightning base URL ('' = not set) and outcome key → Salesforce stage name. */
+  salesforceInstanceUrl: string;
+  sfOutcomeStageNames: Record<string, string>;
 }
 
 export async function loadOutcomeSettings(db: DbOrTx): Promise<OutcomeSettings> {
-  const [days, roles, map] = await Promise.all([
+  const [days, roles, map, instanceUrl, outcomeStages] = await Promise.all([
     getSetting(db, 'validity_warning_days'),
     getSetting(db, 'handoff_receiving_roles'),
     listSfStageMap(db),
+    getSetting(db, 'salesforce_instance_url'),
+    getSetting(db, 'sf_outcome_stage_names'),
   ]);
+  // Display only: a malformed value hides the link / reminder stage rather than breaking the quote page.
+  let salesforceInstanceUrl = '';
+  try {
+    salesforceInstanceUrl = parseSalesforceInstanceUrl(instanceUrl);
+  } catch {
+    // keep ''
+  }
+  let sfOutcomeStageNames: Record<string, string> = { ...SF_OUTCOME_STAGE_NAMES_SEED };
+  try {
+    if (outcomeStages !== undefined) sfOutcomeStageNames = parseSfOutcomeStageNames(outcomeStages);
+  } catch {
+    // keep the seed
+  }
   let warningDays = VALIDITY_WARNING_DAYS_SEED;
   try {
     warningDays = parseValidityWarningDays(days);
@@ -78,6 +99,8 @@ export async function loadOutcomeSettings(db: DbOrTx): Promise<OutcomeSettings> 
     receivingRoles,
     receivingRolesError,
     sfStageMap: map.map((m) => ({ sfStage: m.sfStage, ccqStageHint: m.ccqStageHint })),
+    salesforceInstanceUrl,
+    sfOutcomeStageNames,
   };
 }
 
@@ -283,6 +306,7 @@ export async function customerDecisionView(
       latestG5?.decision.outcomeKey === NEGOTIATING_OUTCOME,
     canAssignClosureOwner: can(actor, 'outcome.assignOwner', state),
     receivingRoles: settings.receivingRoles,
+    sfStageByOutcome: settings.sfOutcomeStageNames,
     acceptanceEvidenceOptions: acceptanceEvidenceOptions(workflow),
   };
 }

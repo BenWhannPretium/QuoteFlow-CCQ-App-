@@ -119,3 +119,43 @@ export type OverrideWithContext = Awaited<ReturnType<typeof listOverridesWithCon
 
 export const getOverrideWithContext = async (db: DbOrTx, id: string) =>
   first(await contextQuery(db).where(eq(override.id, id)));
+
+/**
+ * FB-04 (F-065, T-024): the applied priority-tier override on each of these quotes (newest first wins), with
+ * who applied it, so Engineering sees the justification on the queue row. Quotes with none are absent.
+ */
+export async function listAppliedOverridesForQuotes(
+  db: DbOrTx,
+  quoteIds: readonly string[],
+  field: string,
+) {
+  if (quoteIds.length === 0) return new Map<string, OverrideWithRequester>();
+  const rows = await db
+    .select({
+      quoteId: override.quoteId,
+      justification: override.justification,
+      requestedValue: override.requestedValue,
+      appliedAt: override.appliedAt,
+      requestedByName: appUser.displayName,
+    })
+    .from(override)
+    .leftJoin(appUser, eq(appUser.id, override.requestedBy))
+    .where(
+      and(
+        inArray(override.quoteId, [...quoteIds]),
+        eq(override.field, field),
+        eq(override.status, 'applied'),
+      ),
+    )
+    .orderBy(desc(override.appliedAt), desc(override.id));
+  const out = new Map<string, OverrideWithRequester>();
+  for (const r of rows) if (!out.has(r.quoteId)) out.set(r.quoteId, r);
+  return out;
+}
+export interface OverrideWithRequester {
+  quoteId: string;
+  justification: string;
+  requestedValue: unknown;
+  appliedAt: Date | null;
+  requestedByName: string | null;
+}

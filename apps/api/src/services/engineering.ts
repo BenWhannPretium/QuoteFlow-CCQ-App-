@@ -23,6 +23,7 @@ import {
   listAssignableEngineers,
   listCapacityEvidence,
   listCapacityEvidenceWithNames,
+  listAppliedOverridesForQuotes,
   listEngQueueRows,
   listHolds,
   listHoldsForQuotes,
@@ -236,6 +237,7 @@ export class EngineeringService {
       ...shipCityState(q.shipTo),
       moldModification: q.modifyExistingMold,
       completeness,
+      priorityOverride: null,
       canEdit: canEditEngReview(qc.ctx.actor, state, qc.workflow),
       entry: {
         quoteNumber: q.quoteNumber,
@@ -275,7 +277,24 @@ export class EngineeringService {
       const byQuote = new Map<string, { startedAt: Date; endedAt: Date | null }[]>();
       for (const h of holds) byQuote.set(h.quoteId, [...(byQuote.get(h.quoteId) ?? []), h]);
 
-      const all = rows.map((r) => this.item(r, qc, byQuote.get(r.quote.id) ?? [], now));
+      // FB-04 (F-065, T-024): the sales leader's justification travels with the overridden tier.
+      const overridden = await listAppliedOverridesForQuotes(
+        tx,
+        rows.filter((r) => r.quote.priorityTierOverridden).map((r) => r.quote.id),
+        'priority_tier',
+      );
+      const all = rows.map((r) => {
+        const item = this.item(r, qc, byQuote.get(r.quote.id) ?? [], now);
+        const o = overridden.get(r.quote.id);
+        if (o) {
+          item.priorityOverride = {
+            justification: o.justification,
+            requestedByName: o.requestedByName,
+            appliedAt: iso(o.appliedAt),
+          };
+        }
+        return item;
+      });
       const sorted = sortEngQueue(
         all.map((i) => ({ ...i.entry, item: i })),
         qc.tierOrder,
