@@ -36,8 +36,8 @@
 <h2>What you'll do</h2>
 <ol>
 <li><strong>Start an intake.</strong> Click <strong>New intake</strong>, find your Salesforce opportunity and click <strong>Use this opportunity</strong>. Four steps: Opportunity, Customer &amp; ship-to, Product &amp; volume, Drawing, notes &amp; review. Click <strong>Submit to CCQ</strong>. You get a quote number like <code>CCQ-2026-00042</code>.</li>
-<li><strong>Attach the drawing.</strong> On step 4, drag files onto <strong>Drawing and other files</strong>, or tap <strong>Add photo</strong> on your phone. A drawing gets the quote to Engineering fastest. It is requested, never required.</li>
-<li><strong>Fix a returned quote.</strong> If a sales leader or Engineering returns it, you get a notification. Open the quote and click <strong>Fix and resubmit</strong>. The quote keeps its number.</li>
+<li><strong>Attach the drawing, or give the minimum spec.</strong> On step 4, drag files onto <strong>Drawing and other files</strong>, or tap <strong>Add photo</strong> on your phone. Without a drawing you must give the minimum spec on step 3 (height, width or diameter, depth, gram weight, neck, resin, color), or the quote cannot be submitted.</li>
+<li><strong>Fix a returned quote.</strong> If a sales leader or Engineering returns it, you get a notification. Open the quote and click <strong>Fix and resubmit</strong>. The quote keeps its number. If Pricing sent it back, you are asked whether the scope changed: <strong>No, same scope</strong> sends it straight back to Pricing; <strong>Yes</strong> sends it through qualification and Engineering again.</li>
 <li><strong>Record the customer's answer.</strong> Go to <strong>My proposals</strong> and click <strong>Record outcome</strong>: <strong>Awarded</strong>, <strong>In negotiation</strong>, <strong>Lost</strong>, <strong>No response / Expired</strong>, <strong>On hold</strong> or <strong>Re-quote</strong>. No response is not a loss.</li>
 <li><strong>Hand off a win.</strong> After <strong>Awarded</strong>, fill the <strong>Commit &amp; hand off</strong> card (CER and receiving team), then click <strong>Commit &amp; hand off</strong> → <strong>Advance (close Won)</strong>.</li>
 </ol>
@@ -45,9 +45,13 @@
 <ul>
 <li>Every quote starts from a Salesforce opportunity. One quote per opportunity.</li>
 <li>You no longer pick the plant, the engineer or the priority. Engineering decides the plant and engineer. The priority score is calculated and advisory.</li>
-<li>You don't create customer accounts. A new customer is marked <strong>Not yet established</strong>.</li>
+<li>The customer is the Salesforce Account on the opportunity. You don't create customer accounts: tick <strong>Not yet a Pretium customer (no ERP account)</strong> if that applies.</li>
+<li>You give <strong>Quote needed by</strong> and <strong>Product needed by</strong> dates. The Salesforce close date is shown but not typed.</li>
+<li>You can't change the priority tier. Ask your sales leader to override it.</li>
 <li>Awarded is the customer's yes. The quote closes Won only after Commit &amp; Hand Off.</li>
-<li>You see that the price is approved, by whom and when. Pricing figures stay with Pricing.</li>
+<li>You can see the price approval, pricing basis and capital figures on your quotes. Only Pricing changes them.</li>
+<li>Once a gate is decided, its section is locked until a send-back reopens it.</li>
+<li>After you record an outcome, QuoteFlow reminds you to update the Salesforce opportunity. It does not write to Salesforce.</li>
 </ul>
 <h2>Who to ask</h2>
 <ul>
@@ -61,11 +65,11 @@
 <section class="role" id="sales-leader">
 <h1>QuoteFlow quick-start: Sales leader</h1>
 <p><strong>What QuoteFlow is for you.</strong> You decide which new opportunities are worth engineering time (gate G1, <strong>Qualify &amp; prioritize</strong>). You approve priority changes and see your team's pipeline and outcomes.</p>
-<p><strong>Your home screen: Sales pipeline.</strong> It shows <strong>To qualify (G1)</strong>, <strong>Pending override requests</strong>, <strong>Team pipeline by stage</strong> and <strong>Proposals with no outcome past validity</strong>. Your menu: <strong>Home</strong>, <strong>New intake</strong>, <strong>My proposals</strong>, <strong>To qualify</strong>, <strong>Pipeline</strong>, <strong>Approvals</strong>, <strong>Analytics</strong>.</p>
+<p><strong>Your home screen: Sales pipeline.</strong> It shows <strong>To qualify (G1)</strong>, <strong>Pending override requests</strong> (only requests raised before the change), <strong>Team pipeline by stage</strong> and <strong>Proposals with no outcome past validity</strong>. Your menu: <strong>Home</strong>, <strong>New intake</strong>, <strong>My proposals</strong>, <strong>To qualify</strong>, <strong>Pipeline</strong>, <strong>Approvals</strong>, <strong>Analytics</strong>.</p>
 <h2>What you'll do</h2>
 <ol>
 <li><strong>Qualify new intakes.</strong> Click <strong>To qualify</strong>. The list is highest priority first. Click <strong>Decide</strong> and choose <strong>Advance</strong>, <strong>Hold</strong>, <strong>Rework (back to KAM)</strong>, <strong>Redirect (not CCQ work)</strong> or <strong>Stop</strong>. Click <strong>Record decision</strong>. The ⓘ next to each choice explains it.</li>
-<li><strong>Approve or reject priority overrides.</strong> <strong>Approvals</strong> → <strong>Overrides</strong>. Add a note and click <strong>Approve</strong> or <strong>Reject</strong>. To undo an override, open the quote's <strong>Timeline</strong> and click <strong>Revert</strong>.</li>
+<li><strong>Override a priority tier.</strong> You are the only role that can. On the quote click <strong>Override priority tier</strong>, pick the tier and give a reason of 15 or more characters. It applies at once and Engineering sees your reason on its queue. To undo it, open the quote's <strong>Timeline</strong> and click <strong>Revert</strong>.</li>
 <li><strong>Watch your team's pipeline.</strong> Use <strong>Pipeline</strong> (List, Prioritization, Board) and <strong>Analytics</strong>. Each chart has an ⓘ with its definition.</li>
 <li><strong>Chase missing outcomes.</strong> <strong>Proposals with no outcome past validity</strong> on your home screen. You can record an outcome for your team.</li>
 </ol>
@@ -74,8 +78,8 @@
 <li>Qualification is a recorded decision with a reason, not an email.</li>
 <li>The priority score orders the list. You decide.</li>
 <li>You cannot qualify a deal where you are the KAM. Another sales leader decides it.</li>
-<li>You cannot approve your own override request.</li>
-<li>Pricing and capital figures are not shown to your role.</li>
+<li>KAMs, Engineering and Pricing can't change the priority tier. They ask you.</li>
+<li>You can read pricing and capital figures on any quote you can open. You cannot change them.</li>
 </ul>
 <h2>Who to ask</h2>
 <ul>
@@ -96,13 +100,16 @@
 <li><strong>Return incomplete intakes.</strong> Row menu → <strong>Return to KAM…</strong>. Say what is missing.</li>
 <li><strong>Sign off capacity.</strong> On the quote's <strong>Engineering</strong> tab click <strong>Approve capacity</strong>, or <strong>Block capacity</strong> with a note. G2 Advance needs capacity approved.</li>
 <li><strong>Decide G2.</strong> <strong>Engineering</strong> tab → <strong>Decide G2…</strong>: <strong>Advance</strong>, <strong>Advance with risk</strong>, <strong>Advance – capital required</strong>, <strong>Hold</strong>, <strong>Rework (back to KAM)</strong>, <strong>Redirect (alternative platform / site)</strong> or <strong>Stop</strong>.</li>
-<li><strong>Keep order.</strong> <strong>Pin to top…</strong> puts a quote first, with a reason. It is logged.</li>
+<li><strong>Keep order.</strong> <strong>Pin to top…</strong> puts a quote first, with a reason. It is logged. You cannot change the priority tier: only a sales leader can.</li>
+<li><strong>Review what your engineers submit.</strong> <strong>Ready for my review</strong> lists quotes they submitted to you. Decide G2, or <strong>Send back to engineer…</strong> with a note.</li>
 </ol>
 <h2>What changed from the ERF</h2>
 <ul>
 <li>The queue is sorted by tier, score and age. You still assign by hand.</li>
 <li>You pick the engineer and the plant. The KAM no longer does.</li>
-<li>Capacity evidence and your sign-off are part of the G2 record.</li>
+<li>Capacity evidence and your sign-off are part of the G2 record. Utilization after the new business is calculated, not typed.</li>
+<li>Once you decide G2, the engineering section is locked until a send-back reopens it.</li>
+<li>A hold, a capital-required decision, advance-with-risk and every send-back need a note.</li>
 <li>Returns go back to the KAM with a reason, and the quote keeps its number.</li>
 </ul>
 <h2>Who to ask</h2>
@@ -121,15 +128,16 @@
 <h2>What you'll do</h2>
 <ol>
 <li><strong>Accept the review.</strong> Open the quote → <strong>Engineering</strong> tab → <strong>Accept (start review)</strong>.</li>
-<li><strong>Record the solution.</strong> Fill <strong>Process type</strong>, <strong>Machine type</strong>, <strong>Plant / site</strong>, <strong>Cavitation</strong>, <strong>Cycle time (s)</strong>, <strong>Preliminary capital (USD)</strong> and the notes. Click <strong>Save solution</strong>.</li>
-<li><strong>Add capacity evidence.</strong> <strong>Add capacity row</strong>: site, line, assumed effectiveness, cycle time, utilization, buffer, analysis date, analyst. Click <strong>Save capacity evidence</strong>.</li>
+<li><strong>Record the solution.</strong> Fill <strong>Process type</strong>, <strong>Machine type</strong>, <strong>Plant / site</strong>, <strong>Cavitation</strong>, <strong>Cycle time (s)</strong>, <strong>Budgetary capital estimate (USD)</strong> and the notes. Click <strong>Save solution</strong>. The product facts from intake are shown at the top: you don't retype them.</li>
+<li><strong>Add capacity evidence.</strong> <strong>Add capacity row</strong>: site, line, utilization before, allocated annual volume, run days, assumed effectiveness, cycle time, analysis date, analyst. Click <strong>Save capacity evidence</strong>. Utilization after is calculated for you. <strong>Download CSV</strong> exports the rows; <strong>Attach analysis</strong> adds your own file.</li>
 <li><strong>Attach files.</strong> <strong>Attachments</strong> tab: drag CAD files, PDFs or photos onto the drop area.</li>
+<li><strong>Submit to your lead.</strong> When your part is ready, click <strong>Submit to engineering lead</strong>. It is locked for you until they decide or send it back.</li>
 </ol>
 <h2>What changed from the ERF</h2>
 <ul>
 <li>Work comes to you by assignment, with an alert, not by email.</li>
 <li>Capacity evidence is recorded with the quote, not in a separate file.</li>
-<li>Capital and capacity figures are commercial. You can enter them but not read them back: they show as <strong>Hidden</strong>. Leave a hidden field blank to keep what is saved.</li>
+<li>You can read back every figure you enter, and the pricing on the quote. Only Pricing changes pricing.</li>
 </ul>
 <h2>Who to ask</h2>
 <ul>
@@ -149,11 +157,13 @@
 <li><strong>Pricing lead: assign pricers.</strong> <strong>Pricing queue</strong> → row menu <strong>…</strong> → <strong>Assign pricer…</strong>. Use <strong>Reassign work…</strong> to balance the load.</li>
 <li><strong>Record the price approval.</strong> Row menu → <strong>Record price approval</strong>. On the <strong>Quoting</strong> tab, check the <strong>Engineering summary</strong> and <strong>Pricing history</strong>. Tick <strong>Costing completed (Cost-to-Serve)</strong>, set <strong>Approved by</strong> and <strong>Approved at</strong>, then <strong>Save price approval</strong>.</li>
 <li><strong>Record capital readiness.</strong> Pick a <strong>Status</strong> (a pending status needs a justification). Click <strong>Save capital readiness</strong>.</li>
-<li><strong>Check the terms.</strong> On <strong>Overview</strong> → <strong>Commercial terms</strong>, fill payment terms and tooling commitment, tick <strong>Terms checked</strong> and <strong>Save terms</strong>. Final Review needs it.</li>
-<li><strong>Decide G3.</strong> <strong>Advance to Final Review…</strong>, <strong>Return to Engineering…</strong>, or <strong>Hold or stop…</strong> (Hold, Rework (re-cost), Redirect, Stop).</li>
+<li><strong>Check the terms.</strong> On <strong>Overview</strong> → <strong>Commercial terms</strong>, fill payment terms and tooling commitment, tick <strong>Terms checked</strong> and <strong>Save terms</strong>. Final Review shows an open warning if it is not done. The funding list includes <strong>$0 CER (customer-reimbursed capital)</strong> and <strong>Shared</strong>.</li>
+<li><strong>Submit to the pricing lead.</strong> Pricers click <strong>Submit to pricing lead</strong>. It is locked for you until the lead decides or sends it back.</li>
+<li><strong>Pricing lead: decide G3.</strong> <strong>Ready for my review</strong> lists what was submitted. Choose <strong>Advance to Final Review…</strong>, <strong>Return to Engineering…</strong>, <strong>Return to KAM…</strong> or <strong>Hold or stop…</strong> (Hold, Rework (re-cost), Redirect, Stop). Every send-back, hold and stop needs a note. Once you advance, the pricing section is locked until a send-back reopens it.</li>
 </ol>
 <h2>What changed from the ERF</h2>
 <ul>
+<li>The preliminary capital figure is now the <strong>Budgetary capital estimate</strong>. There is no CER reference box.</li>
 <li>No price figures are typed into QuoteFlow. You record who approved, when, the basis and the range.</li>
 <li>BPR is retired. The legacy ERF # is optional.</li>
 <li>Cost before price: the costing attestation is needed before G3.</li>
@@ -175,13 +185,14 @@
 <ol>
 <li><strong>Open the queue.</strong> <strong>Approvals</strong> → <strong>Final Review</strong>. Each card shows price approval, capital readiness, the G2 outcome, the KAM and the pricing approver.</li>
 <li><strong>Review.</strong> Click <strong>Review &amp; decide</strong>: the request, the priority, the engineering solution and capacity evidence, the price approval, capital readiness, files and decisions so far.</li>
-<li><strong>Decide.</strong> Use the bar at the bottom: <strong>Advance (release the offer)</strong>, <strong>Hold</strong>, <strong>Rework (back to the affected gate)</strong> or <strong>Stop (withdraw)</strong>. Stop needs a reason and a note. Rework needs a note and where it goes back to.</li>
+<li><strong>Decide.</strong> Use the bar at the bottom: <strong>Advance (release the offer)</strong>, <strong>Hold</strong>, <strong>Rework (back to the affected gate)</strong> or <strong>Stop (withdraw)</strong>. Stop needs a reason and a note. Rework needs a reason, a note and where it goes back to. Hold needs a note and a review date.</li>
 <li><strong>Check the validity.</strong> Advance sets the proposal issue date (now by default) and the valid-until date.</li>
 </ol>
 <h2>What changed from the ERF</h2>
 <ul>
 <li>Final Review is separate from the customer outcome. Advance releases the offer; the KAM records Awarded or Lost later.</li>
-<li>The terms check must be done before you can release the offer.</li>
+<li>An open terms check or Legal review shows as a warning with a link. It does not stop you. Terms and Legal are shown read-only on the review screen.</li>
+<li>After you release the offer, the terms and the capital flag are locked.</li>
 <li>You cannot decide a quote where you are the KAM, or whose price you approved.</li>
 </ul>
 <h2>Who to ask</h2>

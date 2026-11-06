@@ -8,13 +8,14 @@
 
 1. **Open the queue.** **Approvals** → **Final Review**. Each card shows price approval, capital readiness, the G2 outcome, the KAM and the pricing approver.
 2. **Review.** Click **Review & decide**: the request, the priority, the engineering solution and capacity evidence, the price approval, capital readiness, files and decisions so far.
-3. **Decide.** Use the bar at the bottom: **Advance (release the offer)**, **Hold**, **Rework (back to the affected gate)** or **Stop (withdraw)**. Stop needs a reason and a note. Rework needs a note and where it goes back to.
+3. **Decide.** Use the bar at the bottom: **Advance (release the offer)**, **Hold**, **Rework (back to the affected gate)** or **Stop (withdraw)**. Stop needs a reason and a note. Rework needs a reason, a note and where it goes back to. Hold needs a note and a review date.
 4. **Check the validity.** Advance sets the proposal issue date (now by default) and the valid-until date.
 
 ## What changed from the ERF
 
 - Final Review is separate from the customer outcome. Advance releases the offer; the KAM records Awarded or Lost later.
-- The terms check must be done before you can release the offer.
+- An open terms check or Legal review shows as a warning with a link. It does not stop you. Terms and Legal are shown read-only on the review screen.
+- After you release the offer, the terms and the capital flag are locked.
 - You cannot decide a quote where you are the KAM, or whose price you approved.
 
 ## Who to ask

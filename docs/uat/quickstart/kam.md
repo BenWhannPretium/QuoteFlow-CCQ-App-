@@ -7,8 +7,8 @@
 ## What you'll do
 
 1. **Start an intake.** Click **New intake**, find your Salesforce opportunity and click **Use this opportunity**. Four steps: Opportunity, Customer & ship-to, Product & volume, Drawing, notes & review. Click **Submit to CCQ**. You get a quote number like `CCQ-2026-00042`.
-2. **Attach the drawing.** On step 4, drag files onto **Drawing and other files**, or tap **Add photo** on your phone. A drawing gets the quote to Engineering fastest. It is requested, never required.
-3. **Fix a returned quote.** If a sales leader or Engineering returns it, you get a notification. Open the quote and click **Fix and resubmit**. The quote keeps its number.
+2. **Attach the drawing, or give the minimum spec.** On step 4, drag files onto **Drawing and other files**, or tap **Add photo** on your phone. Without a drawing you must give the minimum spec on step 3 (height, width or diameter, depth, gram weight, neck, resin, color), or the quote cannot be submitted.
+3. **Fix a returned quote.** If a sales leader or Engineering returns it, you get a notification. Open the quote and click **Fix and resubmit**. The quote keeps its number. If Pricing sent it back, you are asked whether the scope changed: **No, same scope** sends it straight back to Pricing; **Yes** sends it through qualification and Engineering again.
 4. **Record the customer's answer.** Go to **My proposals** and click **Record outcome**: **Awarded**, **In negotiation**, **Lost**, **No response / Expired**, **On hold** or **Re-quote**. No response is not a loss.
 5. **Hand off a win.** After **Awarded**, fill the **Commit & hand off** card (CER and receiving team), then click **Commit & hand off** → **Advance (close Won)**.
 
@@ -16,9 +16,13 @@
 
 - Every quote starts from a Salesforce opportunity. One quote per opportunity.
 - You no longer pick the plant, the engineer or the priority. Engineering decides the plant and engineer. The priority score is calculated and advisory.
-- You don't create customer accounts. A new customer is marked **Not yet established**.
+- The customer is the Salesforce Account on the opportunity. You don't create customer accounts: tick **Not yet a Pretium customer (no ERP account)** if that applies.
+- You give **Quote needed by** and **Product needed by** dates. The Salesforce close date is shown but not typed.
+- You can't change the priority tier. Ask your sales leader to override it.
 - Awarded is the customer's yes. The quote closes Won only after Commit & Hand Off.
-- You see that the price is approved, by whom and when. Pricing figures stay with Pricing.
+- You can see the price approval, pricing basis and capital figures on your quotes. Only Pricing changes them.
+- Once a gate is decided, its section is locked until a send-back reopens it.
+- After you record an outcome, QuoteFlow reminds you to update the Salesforce opportunity. It does not write to Salesforce.
 
 ## Who to ask
 

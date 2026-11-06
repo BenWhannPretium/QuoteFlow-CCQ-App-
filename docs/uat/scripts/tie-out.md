@@ -95,7 +95,7 @@ Ben runs the CCQ counts with a read-only SQL login on the test Postgres. D&A run
 | 33 | For one quote, compare a `jsonb` field with its `_json` text twin in Fabric (for example the gate decision evidence). | The `_json` text holds the same content. | | |
 | 34 | For `pricing_history_record`, compare one estimate value. | Same value with its decimals (not rounded to a whole number). | | |
 | 35 | Note the time of a new gate decision in CCQ. Check when it shows in Fabric. | It appears. Write the latency in Notes. | | |
-| 36 | Sign in to Fabric as the D&A account that is **not** in a commercial `SG-CCQ-*` group. Query `pricing_record`, `pricing_history_record`, `eng_review.prelim_capital_usd` and the `capacity_evidence` numbers. | Access is denied, or the commercial columns are hidden. | | |
+| 36 | (This is Fabric access control, BR-16. Inside the app every role that reads a quote sees commercial figures.) Sign in to Fabric as the D&A account that is **not** in a commercial `SG-CCQ-*` group. Query `pricing_record`, `pricing_history_record`, `eng_review.prelim_capital_usd` and the `capacity_evidence` numbers. | Access is denied, or the commercial columns are hidden. | | |
 | 37 | Repeat step 36 with an account in a commercial group (for example `SG-CCQ-Pricing`). | The commercial columns are readable. | | |
 | 38 | As the non-commercial account, query the `_json` companions of the tables in step 36 (and `audit_event_fabric`). | No commercial value can be read through a `_json` column either. | | |
 

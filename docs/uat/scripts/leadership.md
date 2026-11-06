@@ -46,7 +46,7 @@
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 17 | **Pipeline** → **Columns**: add **Prelim capital (USD)** and **Capital readiness**. Click **Export CSV**. | "Export ready". The file has the columns you see, including the two commercial ones. | | |
+| 17 | **Pipeline** → **Columns**: add **Budgetary capital estimate** and **Capital readiness**. Click **Export CSV**. | "Export ready". The file has the columns you see, including the two commercial ones. | | |
 | 18 | **Admin** → **Audit log**. Click **Export CSV**. | A CSV of the filtered audit log downloads. | | |
 | 19 | Filter the audit log by **Action** for exports. | Your two exports from steps 17–18 are listed. | | |
 

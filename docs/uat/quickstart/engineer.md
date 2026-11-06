@@ -7,15 +7,16 @@
 ## What you'll do
 
 1. **Accept the review.** Open the quote → **Engineering** tab → **Accept (start review)**.
-2. **Record the solution.** Fill **Process type**, **Machine type**, **Plant / site**, **Cavitation**, **Cycle time (s)**, **Preliminary capital (USD)** and the notes. Click **Save solution**.
-3. **Add capacity evidence.** **Add capacity row**: site, line, assumed effectiveness, cycle time, utilization, buffer, analysis date, analyst. Click **Save capacity evidence**.
+2. **Record the solution.** Fill **Process type**, **Machine type**, **Plant / site**, **Cavitation**, **Cycle time (s)**, **Budgetary capital estimate (USD)** and the notes. Click **Save solution**. The product facts from intake are shown at the top: you don't retype them.
+3. **Add capacity evidence.** **Add capacity row**: site, line, utilization before, allocated annual volume, run days, assumed effectiveness, cycle time, analysis date, analyst. Click **Save capacity evidence**. Utilization after is calculated for you. **Download CSV** exports the rows; **Attach analysis** adds your own file.
 4. **Attach files.** **Attachments** tab: drag CAD files, PDFs or photos onto the drop area.
+5. **Submit to your lead.** When your part is ready, click **Submit to engineering lead**. It is locked for you until they decide or send it back.
 
 ## What changed from the ERF
 
 - Work comes to you by assignment, with an alert, not by email.
 - Capacity evidence is recorded with the quote, not in a separate file.
-- Capital and capacity figures are commercial. You can enter them but not read them back: they show as **Hidden**. Leave a hidden field blank to keep what is saved.
+- You can read back every figure you enter, and the pricing on the quote. Only Pricing changes pricing.
 
 ## Who to ask
 
