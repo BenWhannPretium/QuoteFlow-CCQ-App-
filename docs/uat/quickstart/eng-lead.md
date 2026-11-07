@@ -10,13 +10,16 @@
 2. **Return incomplete intakes.** Row menu → **Return to KAM…**. Say what is missing.
 3. **Sign off capacity.** On the quote's **Engineering** tab click **Approve capacity**, or **Block capacity** with a note. G2 Advance needs capacity approved.
 4. **Decide G2.** **Engineering** tab → **Decide G2…**: **Advance**, **Advance with risk**, **Advance – capital required**, **Hold**, **Rework (back to KAM)**, **Redirect (alternative platform / site)** or **Stop**.
-5. **Keep order.** **Pin to top…** puts a quote first, with a reason. It is logged.
+5. **Keep order.** **Pin to top…** puts a quote first, with a reason. It is logged. You cannot change the priority tier: only a sales leader can.
+6. **Review what your engineers submit.** **Ready for my review** lists quotes they submitted to you. Decide G2, or **Send back to engineer…** with a note.
 
 ## What changed from the ERF
 
 - The queue is sorted by tier, score and age. You still assign by hand.
 - You pick the engineer and the plant. The KAM no longer does.
-- Capacity evidence and your sign-off are part of the G2 record.
+- Capacity evidence and your sign-off are part of the G2 record. Utilization after the new business is calculated, not typed.
+- Once you decide G2, the engineering section is locked until a send-back reopens it.
+- A hold, a capital-required decision, advance-with-risk and every send-back need a note.
 - Returns go back to the KAM with a reason, and the quote keeps its number.
 
 ## Who to ask

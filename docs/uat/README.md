@@ -4,6 +4,19 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 
 > **Source of truth.** The `.md` files are the source. `quickstart/print.html` is a hand-made printable copy of the quick-starts. When you change a quick-start `.md`, change `print.html` the same way.
 
+> **Updated 2026-11-06 for the feedback builds (FB-01 to FB-05) and for the rule that every role sees commercial figures.** Changes testers will notice:
+> - **Intake:** the customer is the Salesforce Account (no new-customer form), a destination city and state are required, two needed-by dates replace the close date, the neck is three lists, and a quote with no drawing needs the minimum spec (KAM script Parts B and C).
+> - **Priority:** only a sales leader overrides the tier, and it applies at once with a reason (KAM Part E, sales-leader Part D).
+> - **Sections lock** after G2, G3 and G4 until a send-back reopens them (engineering Part C, pricing Part D, KAM Part H).
+> - **Pricing sends back to the KAM** (G3), and the KAM answers whether the scope changed (pricing step 22, KAM Part F).
+> - **Lead review:** engineers and pricers submit to their lead, who decides or sends back (engineering Part C, pricing Part D).
+> - **Capacity evidence:** utilization before and after, calculated; no buffer; CSV export (engineering Part B).
+> - **Final Review:** open terms or Legal checks are warnings, not blockers (approver Part C).
+> - **Notifications** for hand-offs, returns, holds, closures and comments (KAM Part I).
+> - **No hidden figures:** every role that can read a quote sees pricing, margin and capital (KAM Part H, pricing Part E, security-access Parts C and E).
+>
+> Labels in the scripts come from the app's code as built; Ben re-checks them against the test site before Nov 9.
+
 ## What is in the pack
 
 | Path | What it is |

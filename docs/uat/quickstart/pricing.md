@@ -9,11 +9,13 @@
 1. **Pricing lead: assign pricers.** **Pricing queue** → row menu **…** → **Assign pricer…**. Use **Reassign work…** to balance the load.
 2. **Record the price approval.** Row menu → **Record price approval**. On the **Quoting** tab, check the **Engineering summary** and **Pricing history**. Tick **Costing completed (Cost-to-Serve)**, set **Approved by** and **Approved at**, then **Save price approval**.
 3. **Record capital readiness.** Pick a **Status** (a pending status needs a justification). Click **Save capital readiness**.
-4. **Check the terms.** On **Overview** → **Commercial terms**, fill payment terms and tooling commitment, tick **Terms checked** and **Save terms**. Final Review needs it.
-5. **Decide G3.** **Advance to Final Review…**, **Return to Engineering…**, or **Hold or stop…** (Hold, Rework (re-cost), Redirect, Stop).
+4. **Check the terms.** On **Overview** → **Commercial terms**, fill payment terms and tooling commitment, tick **Terms checked** and **Save terms**. Final Review shows an open warning if it is not done. The funding list includes **$0 CER (customer-reimbursed capital)** and **Shared**.
+5. **Submit to the pricing lead.** Pricers click **Submit to pricing lead**. It is locked for you until the lead decides or sends it back.
+6. **Pricing lead: decide G3.** **Ready for my review** lists what was submitted. Choose **Advance to Final Review…**, **Return to Engineering…**, **Return to KAM…** or **Hold or stop…** (Hold, Rework (re-cost), Redirect, Stop). Every send-back, hold and stop needs a note. Once you advance, the pricing section is locked until a send-back reopens it.
 
 ## What changed from the ERF
 
+- The preliminary capital figure is now the **Budgetary capital estimate**. There is no CER reference box.
 - No price figures are typed into QuoteFlow. You record who approved, when, the basis and the range.
 - BPR is retired. The legacy ERF # is optional.
 - Cost before price: the costing attestation is needed before G3.
