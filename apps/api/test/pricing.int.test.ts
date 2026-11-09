@@ -17,7 +17,7 @@ import type { Role } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { prepareModels, uploadModel } from './model-helpers';
+import { prepareBom, prepareModels, uploadModel } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -151,6 +151,8 @@ async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required
   });
   expect(cap.statusCode, cap.body).toBe(200);
   await signOff(qn);
+  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
+  if (g2 === 'capital_required') await prepareBom(app, qn);
   const body = g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Tight on line 4' };
   const adv = await decide(qn, 'G2', body, 'EngLead');
   expect(adv.statusCode, adv.body).toBe(201);

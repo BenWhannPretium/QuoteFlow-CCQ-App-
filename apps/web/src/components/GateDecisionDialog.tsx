@@ -46,6 +46,7 @@ export const MISSING_LABELS: Record<string, string> = {
   'capital_likely,pricing_record.capital_readiness':
     'Capital is flagged likely: confirm capital readiness (not required or pre-approved)',
   capacity_signoff_status: 'Capacity sign-off by the capacity owner',
+  equipment_bom_on_file: 'The equipment BOM uploaded on the Engineering tab',
   terms_checked_at: 'The terms check (tooling commitment, MOQ, payment terms)',
   'legal_review_required,legal_reviewed_on': 'The Legal review (a Legal trigger applies)',
   'handoff_record.cer_status': 'The CER approved, or marked not required',

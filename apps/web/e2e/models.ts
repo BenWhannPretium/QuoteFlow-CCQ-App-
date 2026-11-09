@@ -53,3 +53,30 @@ export async function prepareModels(request: APIRequestContext, quoteNumber: str
     await uploadModel(request, quoteNumber, 'roi_model', 'finance');
   }
 }
+
+/**
+ * FB-06 (F-058): Engineering's equipment BOM, uploaded through the API by specs that decide G2
+ * "Capital required" without going through the Engineering tab. The EngLead (or the assigned engineer)
+ * uploads it; the server needs one on file for that outcome.
+ */
+export async function uploadBom(
+  request: APIRequestContext,
+  quoteNumber: string,
+  persona = 'eng-lead',
+  name = 'CSR BOM one-pager.synthetic.xlsx',
+) {
+  const res = await request.post(`/api/v1/quotes/${quoteNumber}/attachments`, {
+    headers: { [DEV_USER_HEADER]: persona },
+    multipart: {
+      kind: 'equipment_bom',
+      size: String(SYNTHETIC_XLSX.length),
+      file: {
+        name,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        buffer: SYNTHETIC_XLSX,
+      },
+    },
+  });
+  expect(res.status(), await res.text()).toBe(201);
+  return res;
+}

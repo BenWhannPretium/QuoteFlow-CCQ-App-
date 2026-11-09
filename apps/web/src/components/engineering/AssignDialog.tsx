@@ -1,4 +1,4 @@
-import type { AssignableEngineer } from '@ccq/contracts';
+import type { AssignableEngineer, SuggestedEngineer } from '@ccq/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 
@@ -20,6 +20,32 @@ import { timelineQueryKey } from '../Overrides';
 
 export const engQueueQueryKey = ['eng-queue'] as const;
 
+export interface QuoteSuggestion {
+  quoteNumber: string;
+  suggested: SuggestedEngineer | null;
+}
+
+/**
+ * FB-06 (F-062): the routing suggestion for the quotes in the dialog. One engineer for all of them →
+ * "Suggested: <name>"; mixed → each quote's own; none of them has one → nothing. Never chosen for you.
+ */
+export function suggestionFor(
+  suggestions: readonly QuoteSuggestion[],
+): { userId: string | null; text: string } | null {
+  const named = suggestions.filter((s) => s.suggested);
+  if (named.length === 0) return null;
+  const ids = new Set(named.map((s) => s.suggested!.userId));
+  const basis = (s: SuggestedEngineer) => [s.processType, s.resin].filter(Boolean).join(' · ');
+  if (ids.size === 1 && named.length === suggestions.length) {
+    const s = named[0]!.suggested!;
+    return { userId: s.userId, text: `Suggested: ${s.name}${basis(s) ? ` (${basis(s)})` : ''}` };
+  }
+  return {
+    userId: null,
+    text: `Suggested: ${named.map((n) => `${n.quoteNumber} → ${n.suggested!.name}`).join('; ')}`,
+  };
+}
+
 /**
  * Assign (or reassign) one or more quotes to an engineer. The picker shows each engineer's open
  * count. A bulk assign sends one request per quote (each is recorded and audited on its own) and
@@ -31,6 +57,7 @@ export function AssignDialog({
   quoteNumbers,
   engineers,
   currentEngineerId,
+  suggestions = [],
   onDone,
 }: {
   open: boolean;
@@ -38,8 +65,11 @@ export function AssignDialog({
   quoteNumbers: string[];
   engineers: AssignableEngineer[];
   currentEngineerId?: string | null;
+  /** FB-06 (F-062): the routing suggestion per quote; the lead still chooses. */
+  suggestions?: readonly QuoteSuggestion[];
   onDone?: () => void;
 }) {
+  const suggestion = suggestionFor(suggestions);
   const queryClient = useQueryClient();
   const id = useId();
   const [engineerId, setEngineerId] = useState(currentEngineerId ?? '');
@@ -124,6 +154,25 @@ export function AssignDialog({
               </option>
             ))}
           </NativeSelect>
+          {suggestion && (
+            <p className="text-muted-foreground text-sm" data-testid="assign-suggestion">
+              {suggestion.text}
+              {suggestion.userId &&
+                suggestion.userId !== engineerId &&
+                engineers.some((e) => e.id === suggestion.userId) && (
+                  <>
+                    {' · '}
+                    <button
+                      type="button"
+                      className="text-foreground underline"
+                      onClick={() => setEngineerId(suggestion.userId!)}
+                    >
+                      Use it
+                    </button>
+                  </>
+                )}
+            </p>
+          )}
           {error && (
             <p role="alert" className="text-destructive text-sm">
               {error}

@@ -63,6 +63,16 @@ const ENG_REVIEW_FIELDS = [
   'capacitySignoffBy',
   'capacitySignoffAt',
   'capacitySignoffNote',
+  // FB-06 (F-024, F-025)
+  'twoStep',
+  'preformPlantCode',
+  'blowPlantCode',
+  'preformNumber',
+  'twoStepFreightNote',
+  'unitsPerBag',
+  'unitsPerTray',
+  'unitsPerCase',
+  'unitsPerPallet',
 ] as const;
 
 export async function upsertEngReview(db: DbOrTx, values: typeof engReview.$inferInsert) {

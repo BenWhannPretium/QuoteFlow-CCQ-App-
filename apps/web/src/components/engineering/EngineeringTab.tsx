@@ -29,6 +29,7 @@ import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
+import { EquipmentBomCard, LegacyNotes, PricingInputsCard } from './EngineeringExtras';
 import { attachmentsQueryKey } from '../attachments/Attachments';
 import {
   Field,
@@ -62,6 +63,7 @@ export function EngineeringTab({
   onDecide: (outcomeKey?: string) => void;
 }) {
   const eng = quote.engineering;
+  const refresh = useRefresh(quote.quoteNumber);
   const canDecideG2 = quote.availableActions.some((a) => a.gateKey === 'G2');
   return (
     <div className="grid gap-6" data-testid="engineering-tab">
@@ -82,6 +84,9 @@ export function EngineeringTab({
         </p>
       )}
       <SolutionCard quote={quote} />
+      <EquipmentBomCard quote={quote} />
+      <PricingInputsCard quote={quote} refresh={refresh} />
+      <LegacyNotes review={eng.review} />
       <CapacityCard key={eng.capacityEvidence.map((r) => r.id).join()} quote={quote} />
       <CapacitySignoffCard
         key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
@@ -250,6 +255,7 @@ function AssignmentCard({
             quoteNumbers={[quote.quoteNumber]}
             engineers={picker.data.engineers}
             currentEngineerId={eng.assignedEngineerId}
+            suggestions={[{ quoteNumber: quote.quoteNumber, suggested: eng.suggestedEngineer }]}
           />
         )}
       </CardContent>
@@ -259,7 +265,18 @@ function AssignmentCard({
 
 // ── Solution ─────────────────────────────────────────────────────────────────────────────────────
 
-type SolutionKey = keyof EngReviewBody;
+/** FB-06: the two-step and pack-out fields have their own card; the legacy notes accept no writes. */
+type ExtrasKey =
+  | 'twoStep'
+  | 'preformPlantCode'
+  | 'blowPlantCode'
+  | 'preformNumber'
+  | 'twoStepFreightNote'
+  | 'unitsPerBag'
+  | 'unitsPerTray'
+  | 'unitsPerCase'
+  | 'unitsPerPallet';
+type SolutionKey = Exclude<keyof EngReviewBody, ExtrasKey>;
 const NUMERIC: SolutionKey[] = ['cavitation', 'cycleTimeS', 'prelimCapitalUsd'];
 
 function SolutionCard({ quote }: { quote: QuoteDetail }) {
@@ -319,13 +336,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                 ) : null,
               },
               { id: 'tooling', label: 'Tooling (mold / hot runner)', value: review.toolingNotes },
-              {
-                id: 'downstream',
-                label: 'Downstream equipment',
-                value: review.downstreamEquipmentNotes,
-              },
               { id: 'concept', label: 'Technical concept', value: review.technicalConceptNotes },
-              { id: 'bom', label: 'Equipment BOM', value: review.equipmentBomNotes },
               { id: 'supply-chain', label: 'Supply Chain', value: review.supplyChainNotes },
             ]}
           />
@@ -457,38 +468,12 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
               />
             )}
           </Field>
-          <Field
-            label="Downstream equipment"
-            hint="Air, water, electric, inspection / leak detection (DF-37)"
-            error={errorFor(errors, 'downstreamEquipmentNotes')}
-          >
-            {(id) => (
-              <Textarea
-                id={id}
-                value={form.downstreamEquipmentNotes}
-                onChange={(e) => set('downstreamEquipmentNotes')(e.target.value)}
-              />
-            )}
-          </Field>
           <Field label="Technical concept" error={errorFor(errors, 'technicalConceptNotes')}>
             {(id) => (
               <Textarea
                 id={id}
                 value={form.technicalConceptNotes}
                 onChange={(e) => set('technicalConceptNotes')(e.target.value)}
-              />
-            )}
-          </Field>
-          <Field
-            label="Equipment BOM"
-            hint="Equipment list for the capital estimate: machine, mold, downstream, auxiliaries (B-26)"
-            error={errorFor(errors, 'equipmentBomNotes')}
-          >
-            {(id) => (
-              <Textarea
-                id={id}
-                value={form.equipmentBomNotes}
-                onChange={(e) => set('equipmentBomNotes')(e.target.value)}
               />
             )}
           </Field>
@@ -525,10 +510,8 @@ function solutionForm(review: EngineeringDetail['review']): Record<SolutionKey, 
     cavitation: review.cavitation?.toString() ?? '',
     cycleTimeS: review.cycleTimeS?.toString() ?? '',
     toolingNotes: review.toolingNotes ?? '',
-    downstreamEquipmentNotes: review.downstreamEquipmentNotes ?? '',
     prelimCapitalUsd: review.prelimCapitalUsd?.toString() ?? '',
     technicalConceptNotes: review.technicalConceptNotes ?? '',
-    equipmentBomNotes: review.equipmentBomNotes ?? '',
     supplyChainNotes: review.supplyChainNotes ?? '',
   };
 }

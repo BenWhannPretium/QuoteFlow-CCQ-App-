@@ -18,6 +18,7 @@ import { absoluteTime, relativeTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
 
 import { AttachmentDownloadLink } from '../attachments/Attachments';
+import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringExtras';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
 import { GateDecisionDialog } from '../GateDecisionDialog';
@@ -427,8 +428,17 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
           ...(e.commercialRedacted
             ? []
             : [{ label: BUDGETARY_CAPITAL_LABEL, value: money(r.prelimCapitalUsd) }]),
-          { label: 'Downstream equipment', value: r.downstreamEquipmentNotes },
           { label: 'Technical concept', value: r.technicalConceptNotes },
+          // FB-06 (F-058): the equipment BOM upload (file, version, uploader, date), no figures.
+          {
+            id: 'equipment-bom',
+            label: 'Equipment BOM',
+            value: <EquipmentBomLine bom={e.equipmentBom} />,
+          },
+          ...pricingInputItems(r, (code) => label('plant', code)),
+          // The pre-FB-06 free-text notes, read-only.
+          { label: 'Downstream equipment (legacy note)', value: r.downstreamEquipmentNotes },
+          { label: 'Equipment BOM (legacy note)', value: r.equipmentBomNotes },
         ]}
       />
       {g2?.note && <p className="text-foreground-2 text-sm whitespace-pre-line">{g2.note}</p>}

@@ -16,6 +16,8 @@ export const ATTACHMENT_KIND_VALUES = [
   'cost_model',
   'roi_model',
   'price_table',
+  // FB-06 (F-058, D-033): Engineering's equipment BOM (the CSR BOM one-pager), versioned.
+  'equipment_bom',
 ] as const;
 export const AttachmentKindSchema = z.enum(ATTACHMENT_KIND_VALUES);
 export type AttachmentKindValue = z.infer<typeof AttachmentKindSchema>;
@@ -32,6 +34,7 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   cost_model: 'Costing model',
   roi_model: 'ROI model',
   price_table: 'Updated price table',
+  equipment_bom: 'Equipment BOM',
 };
 
 /** One file on a quote (or on an intake draft before submit). */

@@ -82,3 +82,36 @@ export async function prepareModels(app: FastifyInstance, quoteNumber: string): 
     if (roi.statusCode !== 201) throw new Error(`roi_model upload: ${roi.statusCode} ${roi.body}`);
   }
 }
+
+/**
+ * FB-06 (F-058): Engineering's equipment BOM, uploaded on the quote's attachments route with its kind
+ * (versioned, like the models). G2 "Capital required" needs one on file.
+ */
+export function uploadBom(
+  app: FastifyInstance,
+  quoteNumber: string,
+  role: Role = 'EngLead',
+  fileName = 'CSR BOM one-pager.xlsx',
+  persona?: string,
+): Promise<LightMyRequestResponse> {
+  const body = multipart(
+    { kind: 'equipment_bom', size: String(XLSX.length) },
+    { name: fileName, content: XLSX },
+  );
+  return app.inject({
+    method: 'POST',
+    url: `/api/v1/quotes/${quoteNumber}/attachments`,
+    headers: {
+      [DEV_USER_HEADER]: persona ?? personaFor(role),
+      'content-type': body.contentType,
+    },
+    payload: body.payload,
+  });
+}
+
+/** Before a test decides G2 "Capital required": the EngLead uploads the BOM. Fails the test on a refusal. */
+export async function prepareBom(app: FastifyInstance, quoteNumber: string): Promise<void> {
+  const res = await uploadBom(app, quoteNumber);
+  if (res.statusCode !== 201)
+    throw new Error(`equipment_bom upload: ${res.statusCode} ${res.body}`);
+}

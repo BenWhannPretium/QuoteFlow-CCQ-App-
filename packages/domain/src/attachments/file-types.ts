@@ -21,6 +21,9 @@ export const ATTACHMENT_KINDS = [
   'cost_model',
   'roi_model',
   'price_table',
+  // FB-06 (F-058, D-033): Engineering's equipment BOM, an upload of the one-page CSR BOM from the
+  // Engineering Program Office workbook (a generic ballpark at quote time).
+  'equipment_bom',
 ] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
@@ -33,6 +36,8 @@ export const VERSIONED_ATTACHMENT_KINDS: readonly AttachmentKind[] = [
   'cost_model',
   'roi_model',
   'price_table',
+  // FB-06 (F-058): the equipment BOM is versioned the same way (Pricing and Final Review see the latest).
+  'equipment_bom',
 ];
 
 export const isVersionedKind = (kind: string): boolean =>
@@ -47,6 +52,17 @@ export type QuotingModelKind = (typeof QUOTING_MODEL_KINDS)[number];
 
 export const isQuotingModelKind = (kind: string): kind is QuotingModelKind =>
   (QUOTING_MODEL_KINDS as readonly string[]).includes(kind);
+
+/**
+ * FB-06 (F-058): files that belong to the Engineering section. They are uploaded on the Engineering tab
+ * only (never on an intake draft), by whoever may edit the Engineering Review (`engReview.edit`: the
+ * EngLead, or the assigned Engineer), and lock with the engineering section after G2.
+ */
+export const ENGINEERING_ATTACHMENT_KINDS = ['equipment_bom'] as const;
+export type EngineeringAttachmentKind = (typeof ENGINEERING_ATTACHMENT_KINDS)[number];
+
+export const isEngineeringKind = (kind: string): kind is EngineeringAttachmentKind =>
+  (ENGINEERING_ATTACHMENT_KINDS as readonly string[]).includes(kind);
 
 /**
  * FB-02 (F-016, D-018): the kinds that count as "a drawing" for the drawing-or-minimum-spec rule (and

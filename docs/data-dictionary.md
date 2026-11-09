@@ -501,16 +501,25 @@ Engineering Review fields (stage 2).
 | `cycle_time_s` | numeric(8, 2) | yes |  |  | Cycle time (seconds). | Engineering (EngLead / Engineer) |
 | `tooling_notes` | text | yes |  |  | Tooling notes (mold, hot runner). | Engineering (EngLead / Engineer) |
 | `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Budgetary capital estimate (USD): preliminary, includes contingency; refined after award, before any CER (FB-03, F-064). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
-| `downstream_equipment_notes` | text | yes |  |  | Downstream equipment: air, water, electric, inspection / leak detection (DF-37). | Engineering (EngLead / Engineer) |
+| `downstream_equipment_notes` | text | yes |  |  | Deprecated (FB-06, F-058): replaced by the equipment BOM upload (attachment kind equipment_bom). Kept for history and Fabric; no longer written. Shown read-only as "Legacy notes". Downstream equipment: air, water, electric, inspection / leak detection (DF-37). | Engineering (EngLead / Engineer) |
 | `technical_concept_notes` | text | yes |  |  | Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
-| `equipment_bom_notes` | text | yes |  |  | B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection). | Engineering (EngLead / Engineer) |
+| `equipment_bom_notes` | text | yes |  |  | Deprecated (FB-06, F-058): replaced by the equipment BOM upload (attachment kind equipment_bom). Kept for history and Fabric; no longer written. Shown read-only as "Legacy notes". B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection). | Engineering (EngLead / Engineer) |
 | `supply_chain_notes` | text | yes |  |  | B-26: Supply Chain network and freight view. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_status` | text | yes |  |  | B-26: approved \| blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved). | Engineering (EngLead / Engineer) |
 | `capacity_signoff_by` | uuid | yes |  | app_user.id | B-26: who signed off capacity. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_at` | timestamp with time zone | yes |  |  | B-26: when capacity was signed off. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_note` | text | yes |  |  | B-26: the capacity owner's note (required to block). | Engineering (EngLead / Engineer) |
+| `two_step` | boolean | no | false |  | FB-06 (F-024): the part is made in two steps (a preform, then blown). Pricing reads it (T-008). | Engineering (EngLead / Engineer) |
+| `preform_plant_code` | text | yes |  |  | FB-06 (F-024): value_list plant code where the preform is made. Only when two_step. | Engineering (EngLead / Engineer) |
+| `blow_plant_code` | text | yes |  |  | FB-06 (F-024): value_list plant code where the preform is blown. Only when two_step. | Engineering (EngLead / Engineer) |
+| `preform_number` | text | yes |  |  | FB-06 (F-024): the preform number, up to 40 characters. Only when two_step. | Engineering (EngLead / Engineer) |
+| `two_step_freight_note` | text | yes |  |  | FB-06 (F-024): freight between the preform and blow plants, up to 300 characters. Only when two_step. | Engineering (EngLead / Engineer) |
+| `units_per_bag` | integer | yes |  |  | FB-06 (F-025): units per bag (whole number, optional). Entered by Engineering, shown to Pricing. | Engineering (EngLead / Engineer) |
+| `units_per_tray` | integer | yes |  |  | FB-06 (F-025): units per tray (whole number, optional). | Engineering (EngLead / Engineer) |
+| `units_per_case` | integer | yes |  |  | FB-06 (F-025): units per case (whole number, optional). | Engineering (EngLead / Engineer) |
+| `units_per_pallet` | integer | yes |  |  | FB-06 (F-025): units per pallet (whole number, optional). | Engineering (EngLead / Engineer) |
 
-**Checks:** `eng_review_cavitation_check`, `eng_review_capacity_signoff_status_check`
+**Checks:** `eng_review_pack_out_check`, `eng_review_cavitation_check`, `eng_review_capacity_signoff_status_check`
 
 ### gate_decision
 

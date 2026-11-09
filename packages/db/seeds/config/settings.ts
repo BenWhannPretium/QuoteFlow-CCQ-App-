@@ -8,6 +8,7 @@ import {
   PROCESS_OWNER_SEED,
   ATTACHMENT_SETTINGS_SEED,
   CAPACITY_BASIS_SEED,
+  ASSIGNMENT_RULES_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   HANDOFF_RECEIVING_ROLES_SEED,
   VALIDITY_WARNING_DAYS_SEED,
@@ -324,6 +325,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: CAPACITY_BASIS_SEED,
     description:
       'FB-03 / D-021 (open): the basis for utilization after the new business. scheduledRunDaysPerYear defaults each capacity row; warnAbovePct turns the after-utilization amber (over 100 is always red); basisLabel is shown under the capacity table and in the CSV. Provisional until Faron Ipox and leadership confirm the basis (A-023).',
+  },
+  // ── FB-06 (F-062, D-008 open, A-006): the suggested engineer in the assign dialog. Provisional.
+  {
+    key: 'engineering_assignment_rules',
+    value: ASSIGNMENT_RULES_SEED,
+    description:
+      'FB-06 (F-062, D-008 open): routing suggestions for the engineering assignment. A rule lists process types and / or resins (value-list codes; an empty list means any) and the engineer by surname or full name; the first matching rule wins and the assign dialog shows "Suggested: <name>". It never assigns: the lead still does. Seeded from the Nov 4 email from Paul Slomkowski (ISBM, RHB, IMM → Neiberger; EBM, IBM → Pasillas); the resin rules are a fallback while the process type is not yet chosen. Provisional until D-008 is decided.',
   },
   {
     key: 'capital_readiness_on_outcome',

@@ -43,7 +43,10 @@ import {
   checkUploadRequest,
   derivedDecisionFields,
   drawingStatusAfterUpload,
+  isEngineeringKind,
   isQuotingModelKind,
+  isVersionedKind,
+  planEquipmentBomUpload,
   planCostModelUploaded,
   planModelUpload,
   planRoiUploaded,
@@ -125,6 +128,23 @@ async function authorizeModel(
     });
   }
   return ctx;
+}
+
+/**
+ * FB-06 (F-058): may the actor upload the equipment BOM now? The engineering section's G2 lock first
+ * (FB-01: 409 SECTION_LOCKED for every role that reaches the service), then the review's editors only:
+ * the EngLead, or the assigned Engineer, in Engineering Review and not submitted to the lead.
+ */
+async function authorizeEngineeringFile(db: DbOrTx, actor: Actor, state: QuoteState) {
+  await assertSectionUnlocked(db, 'engineering', state);
+  const plan = planEquipmentBomUpload(actor, state);
+  if (!plan.ok) {
+    const [first] = plan.errors;
+    if (first!.code === 'NOT_PERMITTED') throw new ServiceProblem(403, 'forbidden', first!.message);
+    throw new ServiceProblem(409, P.conflict, first!.message, {
+      errors: problemErrors(plan.errors),
+    });
+  }
 }
 
 const MODEL_LABEL: Record<QuotingModelKind, string> = {
@@ -414,6 +434,8 @@ export class AttachmentService {
         const { quote, state } = await this.readableQuote(tx, actor, target.quoteNumber);
         if (isQuotingModelKind(kind)) {
           await authorizeModel(tx, actor, kind, state);
+        } else if (isEngineeringKind(kind)) {
+          await authorizeEngineeringFile(tx, actor, state);
         } else if (!canUploadAttachment(actor, state)) {
           throw new ServiceProblem(403, 'forbidden', 'You cannot add files to this quote');
         }
@@ -427,6 +449,16 @@ export class AttachmentService {
           422,
           P.rejected,
           'The costing model, ROI model and price table are uploaded on the Quoting tab, not at intake',
+          {
+            errors: [{ path: '/kind', message: 'Not an intake file kind', code: 'INVALID_VALUE' }],
+          },
+        );
+      }
+      if (isEngineeringKind(kind)) {
+        throw new ServiceProblem(
+          422,
+          P.rejected,
+          'The equipment BOM is uploaded on the Engineering tab, not at intake',
           {
             errors: [{ path: '/kind', message: 'Not an intake file kind', code: 'INVALID_VALUE' }],
           },
@@ -484,6 +516,7 @@ export class AttachmentService {
           quoteNumber = quote.quoteNumber;
           // Checked again here: the quote may have moved on while the bytes streamed.
           if (isQuotingModelKind(kind)) modelCtx = await authorizeModel(tx, actor, kind, state);
+          else if (isEngineeringKind(kind)) await authorizeEngineeringFile(tx, actor, state);
           const to = drawingStatusAfterUpload(kind, quote.drawingStatus, hasDrawing);
           if (to) drawingStatus = { from: quote.drawingStatus, to };
         } else {
@@ -515,10 +548,10 @@ export class AttachmentService {
           createdAt: now,
           createdBy: actor.userId,
         };
-        // FB-07 (F-074): a Quoting model is one record per quote and kind with version history.
+        // FB-07 (F-074), FB-06 (F-058): a versioned kind is one record per quote and kind with history.
         let superseded: { id: string; version: number | null } | null = null;
         let row: AttachmentRow;
-        if (modelCtx && quoteId) {
+        if (isVersionedKind(kind) && quoteId) {
           const v = await insertAttachmentVersion(tx, { ...values, quoteId }, now);
           row = v.row;
           superseded = v.superseded;
@@ -729,6 +762,11 @@ export class AttachmentService {
       if (row.quoteId && isQuotingModelKind(row.kind) && !can(actor, 'attachment.removeAny')) {
         const state = await loadQuoteState(tx, row.quoteId);
         if (state) await assertSectionUnlocked(tx, 'pricing', state);
+      }
+      // FB-06: the equipment BOM locks with the engineering section after G2 (Admin may still remove it).
+      if (row.quoteId && isEngineeringKind(row.kind) && !can(actor, 'attachment.removeAny')) {
+        const state = await loadQuoteState(tx, row.quoteId);
+        if (state) await assertSectionUnlocked(tx, 'engineering', state);
       }
       await this.removeRow(tx, actor, row, settings, now, meta);
       // F-074: removing the current version makes the newest remaining one current again.
