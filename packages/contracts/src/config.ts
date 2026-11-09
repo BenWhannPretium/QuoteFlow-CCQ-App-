@@ -100,6 +100,8 @@ export const PUBLIC_SETTING_KEYS = [
   'intake_redirect_message',
   'intake_variants_note_max_length',
   'intake_min_spec_fields',
+  // FB-11 intake commercial inputs (provisional)
+  'standard_payment_terms',
   'salesforce_new_opportunity_url',
   // B-09 overrides (the per-field config reaches the quote page as QuoteDetail.overridableFields)
   'override_justification_min_length',

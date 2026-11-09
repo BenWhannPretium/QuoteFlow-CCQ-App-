@@ -698,6 +698,13 @@ The CCQ quote: the workflow record CCQ owns.
 | `mold_change_description` | text | yes |  |  | FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400". | KAM |
 | `rfp_link` | text | yes |  |  | FB-02 (F-014): customer RFP / portal link (https only, ≤ 500). | KAM |
 | `quote_variants_note` | text | yes |  |  | FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056. | KAM |
+| `requested_payment_terms` | text | yes |  |  | FB-11 (F-080): value_list requested_payment_terms code the customer asks for. Non-standard when not in app_setting standard_payment_terms (derived, not stored). FB-08 reconciles it with the terms record. | KAM |
+| `requested_payment_terms_other` | text | yes |  |  | FB-11 (F-080): short description (≤ 120) when requested_payment_terms is Other; null otherwise. | KAM |
+| `returnable_dunnage` | boolean | no | false |  | FB-11 (F-063, A-033): the customer wants returnable (multi-trip) dunnage; false = single-trip. Safety stock and stocking programs are not captured (not confirmed). | KAM |
+| `price_basis` | text | yes |  |  | FB-11 (F-080): value_list price_basis code (FOB Pretium plant / Delivered). | KAM |
+| `freight_type` | text | yes |  |  | FB-11 (F-080): value_list freight_type code (flatbed, van, drop trailer, T-bar, other) when the price basis is delivered; cleared otherwise. | KAM |
+| `freight_special_arrangements` | text | yes |  |  | FB-11 (F-080): special freight arrangements (≤ 200), e.g. a drop trailer or T-bars; cleared when the price basis is not delivered. | KAM |
+| `bid_reference` | text | yes |  |  | FB-11 (F-085): optional bid / program reference (≤ 60). A plain reference: it does not link quotes or relax one active quote per opportunity (F-084 is P1). | KAM |
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
 | `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |

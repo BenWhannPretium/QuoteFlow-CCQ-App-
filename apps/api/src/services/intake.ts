@@ -109,8 +109,10 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     redirectMessage,
     variantsNoteMaxLength,
     minSpecFields,
+    standardPaymentTerms,
     drawing,
     components,
+    priceBasis,
     ...customLists
   ] = await Promise.all([
     getSetting(db, 'intake_required_fields'),
@@ -120,8 +122,10 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     getSetting(db, 'intake_redirect_message'),
     getSetting(db, 'intake_variants_note_max_length'),
     getSetting(db, 'intake_min_spec_fields'),
+    getSetting(db, 'standard_payment_terms'),
     listValueList(db, 'drawing_status'),
     listValueList(db, 'component'),
+    listValueList(db, 'price_basis'),
     ...CUSTOM_LIST_FIELDS.map((list) => listValueList(db, list)),
   ]);
   if (
@@ -141,6 +145,13 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
     ...(typeof variantsNoteMaxLength === 'number' ? { variantsNoteMaxLength } : {}),
     ...(Array.isArray(minSpecFields) ? { minSpecFields: minSpecFields as never } : {}),
+    // FB-11 (F-080): a missing setting means no payment terms are flagged (it is seeded, provisional).
+    ...(Array.isArray(standardPaymentTerms)
+      ? { standardPaymentTerms: standardPaymentTerms as never }
+      : {}),
+    deliveredPriceBasisCodes: priceBasis
+      .filter((v) => meta(v.meta).delivered === true)
+      .map((v) => v.code),
     drawingProvidedCodes: drawing
       .filter((v) => meta(v.meta).hasDrawing === true)
       .map((v) => v.code),
@@ -689,6 +700,25 @@ export class IntakeService {
       existingMoldRef: keep('existing_mold_ref', values.existing_mold_ref),
       moldChangeDescription: keep('mold_change_description', values.mold_change_description),
       rfpLink: values.rfp_link,
+      // FB-11 (D-032): commercial inputs. Freight is kept only for a delivered price; the "Other"
+      // description only for Other. The funding answer defaults to the list's default ("Not discussed"),
+      // except on a rework of a quote that already has one.
+      requestedPaymentTerms: values.requested_payment_terms,
+      requestedPaymentTermsOther: keep(
+        'requested_payment_terms_other',
+        values.requested_payment_terms_other,
+      ),
+      toolingFundingModel:
+        values.tooling_funding_model ??
+        (reworkOf ? reworkOf.toolingFundingModel : await defaultFundingCode(tx)),
+      returnableDunnage: values.returnable_dunnage,
+      priceBasis: values.price_basis,
+      freightType: keep('freight_type', values.freight_type),
+      freightSpecialArrangements: keep(
+        'freight_special_arrangements',
+        values.freight_special_arrangements,
+      ),
+      bidReference: values.bid_reference,
       packagingType: data.packagingType ?? null,
       packagingNotes: blankToNull(data.packagingNotes),
       requestClass: data.requestClass ?? null,
@@ -739,6 +769,7 @@ export class IntakeService {
           resubmitted: true,
           draftId: draft.id,
           shipToOverridden,
+          commercialInputs: commercialInputsAudit(fields),
           scopeChanged: scopeAnswer,
           resumedAt,
         },
@@ -787,6 +818,7 @@ export class IntakeService {
           stageKey: 'INTAKE',
           draftId: draft.id,
           shipToOverridden,
+          commercialInputs: commercialInputsAudit(fields),
         },
         ...audit,
         createdBy: actor.userId,
@@ -999,6 +1031,35 @@ function assertReturnedTo(q: Quote, actor: Actor): void {
   }
 }
 
+/** FB-11: the commercial inputs as submitted, for the quote-created and resubmitted audit events. */
+function commercialInputsAudit(f: {
+  requestedPaymentTerms: string | null;
+  requestedPaymentTermsOther: string | null;
+  toolingFundingModel: string | null;
+  returnableDunnage: boolean;
+  priceBasis: string | null;
+  freightType: string | null;
+  freightSpecialArrangements: string | null;
+  bidReference: string | null;
+}) {
+  return {
+    requestedPaymentTerms: f.requestedPaymentTerms,
+    requestedPaymentTermsOther: f.requestedPaymentTermsOther,
+    toolingFundingModel: f.toolingFundingModel,
+    returnableDunnage: f.returnableDunnage,
+    priceBasis: f.priceBasis,
+    freightType: f.freightType,
+    freightSpecialArrangements: f.freightSpecialArrangements,
+    bidReference: f.bidReference,
+  };
+}
+
+/** FB-11: the `tooling_funding_model` code the wizard preselects (list meta `defaultAtIntake`), or null. */
+async function defaultFundingCode(db: DbOrTx): Promise<string | null> {
+  const list = await listValueList(db, 'tooling_funding_model');
+  return list.find((v) => meta(v.meta).defaultAtIntake === true)?.code ?? null;
+}
+
 function reasonLabel(
   workflow: WorkflowConfig,
   d: { gateKey: string; outcomeKey: string; reasonCode: string | null },
@@ -1047,6 +1108,14 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     existingMoldRef: q.existingMoldRef,
     moldChangeDescription: q.moldChangeDescription,
     rfpLink: q.rfpLink,
+    requestedPaymentTerms: q.requestedPaymentTerms,
+    requestedPaymentTermsOther: q.requestedPaymentTermsOther,
+    toolingFundingModel: q.toolingFundingModel,
+    returnableDunnage: q.returnableDunnage,
+    priceBasis: q.priceBasis,
+    freightType: q.freightType,
+    freightSpecialArrangements: q.freightSpecialArrangements,
+    bidReference: q.bidReference,
     packagingType: q.packagingType,
     packagingNotes: q.packagingNotes,
     requestClass: q.requestClass,

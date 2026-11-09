@@ -320,6 +320,23 @@ function QuoteTable({
             const listKey = key === 'productFamily' ? 'product_family' : key;
             return { ...base, cell: ({ row }) => label(listKey, row.original[key]) };
           }
+          // FB-11 (D-032): the intake commercial inputs, as optional columns.
+          case 'requestedPaymentTerms':
+            return {
+              ...base,
+              cell: ({ row }) => label('requested_payment_terms', row.original[key]),
+            };
+          case 'toolingFundingModel':
+            return {
+              ...base,
+              cell: ({ row }) => label('tooling_funding_model', row.original[key]),
+            };
+          case 'priceBasis':
+            return { ...base, cell: ({ row }) => label('price_basis', row.original[key]) };
+          case 'freightType':
+            return { ...base, cell: ({ row }) => label('freight_type', row.original[key]) };
+          case 'returnableDunnage':
+            return { ...base, cell: ({ row }) => (row.original.returnableDunnage ? 'Yes' : 'No') };
           case 'estAnnualVolume':
             return {
               ...base,

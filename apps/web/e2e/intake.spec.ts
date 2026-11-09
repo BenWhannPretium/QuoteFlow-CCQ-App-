@@ -39,7 +39,10 @@ async function fillIfEditable(page: Page, id: string, value: string) {
  * Steps 2 and 3 with Sales-knowable answers and the FB-02 product facts, including the full minimum
  * spec (F-016) so no drawing is needed. `gramWeight: null` leaves the gram weight empty.
  */
-async function fillCustomerAndProduct(page: Page, opts: { gramWeight?: string | null } = {}) {
+async function fillCustomerAndProduct(
+  page: Page,
+  opts: { gramWeight?: string | null; commercial?: boolean } = {},
+) {
   // Step 2: the customer is the opportunity's SF Account (F-007); only "not yet a customer" is asked.
   await expect(page.getByTestId('customer-name')).toBeVisible();
   await expect(page.getByLabel('Not yet a Pretium customer (no ERP account)')).not.toBeChecked();
@@ -98,11 +101,53 @@ async function fillCustomerAndProduct(page: Page, opts: { gramWeight?: string | 
   await page.locator('#intake-quote-needed-by').fill(isoDaysFromNow(30));
   await page.locator('#intake-product-needed-by').fill(isoDaysFromNow(120));
   await page.locator('#intake-quote-variants-note').fill('Price at 0/25/50% PCR');
+  if (opts.commercial !== false) await fillCommercialInputs(page);
+}
+
+/**
+ * FB-11 (D-032): the commercial inputs on step 3: payment terms (non-standard flag), customer funding
+ * (defaults to "Not discussed", sales-tax hint), returnable dunnage, delivered or FOB with the freight
+ * (cleared when the price goes back to FOB) and the bid / program reference. All optional.
+ */
+async function fillCommercialInputs(page: Page) {
+  await page.locator('#intake-bid-reference').fill('RFP-2026-114');
+  await page.getByTestId('returnable-dunnage').check();
+
+  // Payment terms: a standard term shows no flag; Net 60 is non-standard and Pricing will review.
+  await page.locator('#intake-requested-payment-terms').selectOption({ label: 'Net 30' });
+  await expect(page.getByTestId('payment-terms-nonstandard')).toHaveCount(0);
+  await page.locator('#intake-requested-payment-terms').selectOption({ label: 'Net 60' });
+  await expect(page.getByTestId('payment-terms-nonstandard')).toHaveText(
+    'Non-standard: Pricing will review',
+  );
+
+  // Customer funding starts at "Not discussed"; a customer-funded answer shows the sales-tax hint.
+  const funding = page.locator('#intake-tooling-funding-model');
+  await expect(funding.locator('option:checked')).toHaveText('Not discussed');
+  await expect(page.getByTestId('funding-tax-hint')).toHaveCount(0);
+  await funding.selectOption({ label: 'Customer-funded' });
+  await expect(page.getByTestId('funding-tax-hint')).toContainText('sales tax');
+
+  // Delivered reveals the freight fields; going back to FOB hides and clears them.
+  await expect(page.locator('#intake-freight-type')).toHaveCount(0);
+  await page.locator('#intake-price-basis').selectOption({ label: 'Delivered' });
+  await page.locator('#intake-freight-type').selectOption({ label: 'T-bar' });
+  await page.locator('#intake-freight-special-arrangements').fill('stale note');
+  await page.locator('#intake-price-basis').selectOption({ label: 'FOB Pretium plant' });
+  await expect(page.locator('#intake-freight-type')).toHaveCount(0);
+  await page.locator('#intake-price-basis').selectOption({ label: 'Delivered' });
+  await expect(page.locator('#intake-freight-type')).toHaveValue('');
+  await expect(page.locator('#intake-freight-special-arrangements')).toHaveValue('');
+  await page.locator('#intake-freight-type').selectOption({ label: 'Drop trailer' });
+  await page
+    .locator('#intake-freight-special-arrangements')
+    .fill('Drop trailer at the dock for two weeks');
 }
 
 test.describe('KAM intake', () => {
   test('desktop: opportunity → product facts with the full spec and no drawing → submitted, resuming a draft', async ({
     page,
+    browser,
   }) => {
     const started = Date.now();
     await signInAs(page, 'kam');
@@ -145,6 +190,7 @@ test.describe('KAM intake', () => {
     await page.getByRole('button', { name: 'Submit to CCQ' }).click();
     await expect(page.getByTestId('submitted')).toBeVisible();
     await expect(page.getByTestId('quote-number')).toHaveText(/^CCQ-\d{4}-\d{5}$/);
+    const quoteNumber = (await page.getByTestId('quote-number').textContent())!.trim();
     expect(Date.now() - started).toBeLessThan(3 * 60_000);
 
     // Engineering and Pricing see what was entered (T-013).
@@ -154,6 +200,29 @@ test.describe('KAM intake', () => {
       'href',
       'https://portal.example.com/rfp/42',
     );
+    // FB-11: the commercial inputs are on the quote's Intake card for the KAM...
+    await expect(page.getByTestId('fact-bid-reference')).toHaveText('RFP-2026-114');
+    await expect(page.getByTestId('fact-payment-terms')).toContainText('Net 60');
+    await expect(page.getByTestId('fact-payment-terms')).toContainText(
+      'Non-standard: Pricing will review',
+    );
+    await expect(page.getByTestId('fact-funding')).toHaveText('Customer-funded');
+    await expect(page.getByTestId('fact-dunnage')).toHaveText('Returnable (multi-trip)');
+    await expect(page.getByTestId('fact-price-basis')).toHaveText('Delivered');
+    await expect(page.getByTestId('fact-freight-type')).toHaveText('Drop trailer');
+    await expect(page.getByTestId('fact-freight-special')).toContainText('two weeks');
+
+    // ...and for Pricing on the Quoting tab under "From intake".
+    const pricing = await (await browser.newContext()).newPage();
+    await signInAs(pricing, 'pricing');
+    await pricing.goto(`/quotes/${quoteNumber}?tab=quoting`);
+    const fromIntake = pricing.getByTestId('quoting-from-intake');
+    await expect(fromIntake).toBeVisible();
+    await expect(fromIntake.getByTestId('fact-bid-reference')).toHaveText('RFP-2026-114');
+    await expect(fromIntake.getByTestId('payment-terms-nonstandard')).toBeVisible();
+    await expect(fromIntake.getByTestId('fact-freight-type')).toHaveText('Drop trailer');
+    expect(await seriousViolations(pricing)).toEqual([]);
+    await pricing.context().close();
   });
 
   test('no drawing and a missing gram weight: blocked, with the field named (T-022)', async ({
@@ -184,6 +253,27 @@ test.describe('KAM intake', () => {
     await page.locator('#intake-gram-weight-g').fill('24');
     await page.getByRole('button', { name: /^Next/ }).click();
     await expect(page.getByTestId('drawing-or-spec')).toHaveAttribute('data-state', 'spec');
+    await expect(page.getByRole('button', { name: 'Submit to CCQ' })).toBeEnabled();
+    // Clean up: this draft is not needed.
+    await page.getByRole('button', { name: 'Discard draft' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Discard draft' }).click();
+    await expect(page).not.toHaveURL(/draft=/);
+  });
+
+  test('the commercial inputs are optional: a blank one is a warning and Submit stays enabled (FB-11)', async ({
+    page,
+  }) => {
+    await signInAs(page, 'kam');
+    await page.goto('/intake/new');
+    await pickOpportunity(page, 'Canister');
+    await fillCustomerAndProduct(page, { commercial: false });
+    await page.getByRole('button', { name: /^Next/ }).click();
+    await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '4');
+    await page.locator('#intake-drawing-status').selectOption({ label: 'Coming' });
+    await expect(page.getByTestId('blocking-list')).toHaveCount(0);
+    const warnings = page.getByTestId('warning-list');
+    await expect(warnings).toContainText('Payment terms the customer requests is blank.');
+    await expect(warnings).toContainText('Delivered or FOB is blank.');
     await expect(page.getByRole('button', { name: 'Submit to CCQ' })).toBeEnabled();
     // Clean up: this draft is not needed.
     await page.getByRole('button', { name: 'Discard draft' }).click();

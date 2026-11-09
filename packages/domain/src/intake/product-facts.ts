@@ -11,6 +11,8 @@ export const CUSTOM_DESCRIPTION_FIELDS = {
   neck_finish_type: 'neck_finish_type_custom',
   neck_special_feature: 'neck_special_feature_custom',
   color_type: 'color_description',
+  // FB-11 (F-080): "Other" payment terms need a short description.
+  requested_payment_terms: 'requested_payment_terms_other',
 } as const;
 export type CustomListField = keyof typeof CUSTOM_DESCRIPTION_FIELDS;
 export const CUSTOM_LIST_FIELDS = Object.keys(CUSTOM_DESCRIPTION_FIELDS) as CustomListField[];
@@ -24,6 +26,9 @@ export const INTAKE_TEXT_LIMITS = {
   existing_mold_ref: 60,
   mold_change_description: 500,
   rfp_link: 500,
+  // FB-11 (F-085, F-080): the bid / program reference and the freight arrangements note.
+  bid_reference: 60,
+  freight_special_arrangements: 200,
 } as const;
 
 /**

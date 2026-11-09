@@ -123,6 +123,27 @@ export const IntakeDraftData = z.object({
   quoteVariantsNote: text(2000),
   packagingType: text(60),
   packagingNotes: text(2000),
+  /**
+   * FB-11 (D-032): commercial inputs Pricing needs before costing. All optional at submit (D-006 open):
+   * a blank is a warning. `requestedPaymentTerms` is a `requested_payment_terms` code ("Other" needs
+   * `requestedPaymentTermsOther`); it is flagged non-standard when it is not in `standard_payment_terms`.
+   */
+  requestedPaymentTerms: text(60),
+  requestedPaymentTermsOther: text(120),
+  /**
+   * `tooling_funding_model` code: only WHETHER the customer funds any tooling (not how much or how).
+   * The wizard preselects the list's default ("Not discussed"); the Commercial panel edits the same field.
+   */
+  toolingFundingModel: text(40),
+  /** Customer wants returnable (multi-trip) dunnage; false = single-trip (F-063, dunnage only). */
+  returnableDunnage: z.boolean().optional(),
+  /** `price_basis` code (FOB Pretium plant / Delivered). */
+  priceBasis: text(60),
+  /** `freight_type` code, only while the price basis is delivered (cleared otherwise). */
+  freightType: text(60),
+  freightSpecialArrangements: text(200),
+  /** F-085: an optional bid / program reference (≤ 60). A plain reference: it links nothing. */
+  bidReference: text(60),
   /** Units per year. */
   estAnnualVolume: z.number().nullable().optional(),
   /** The KAM confirmed a round/placeholder-looking volume is real. */
@@ -410,6 +431,14 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     mold_change_description: blank(data.moldChangeDescription),
     rfp_link: blank(data.rfpLink),
     ...(hasDrawingAttachment === undefined ? {} : { has_drawing_attachment: hasDrawingAttachment }),
+    requested_payment_terms: data.requestedPaymentTerms ?? null,
+    requested_payment_terms_other: blank(data.requestedPaymentTermsOther),
+    tooling_funding_model: data.toolingFundingModel ?? null,
+    returnable_dunnage: data.returnableDunnage ?? false,
+    price_basis: data.priceBasis ?? null,
+    freight_type: data.freightType ?? null,
+    freight_special_arrangements: blank(data.freightSpecialArrangements),
+    bid_reference: blank(data.bidReference),
     packaging_type: data.packagingType ?? null,
     packaging_notes: data.packagingNotes ?? null,
     est_annual_volume: data.estAnnualVolume ?? null,

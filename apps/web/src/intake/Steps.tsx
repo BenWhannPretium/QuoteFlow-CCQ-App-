@@ -2,6 +2,9 @@ import type { IntakeAddress, IntakeDraftData } from '@ccq/contracts';
 import {
   activeFollowUps,
   COMPONENT_FOLLOW_UP_FIELDS,
+  INTAKE_TEXT_LIMITS,
+  isDeliveredPrice,
+  isNonStandardPaymentTerms,
   todayInCentral,
   type ComponentFollowUpField,
   type IntakeEvaluation,
@@ -10,6 +13,8 @@ import { CheckCircle2Icon, PencilIcon, Undo2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
+import { FundingHelp } from '@/components/commercial/FundingHelp';
+import { NON_STANDARD_TERMS_TEXT } from '@/components/intake/CommercialInputs';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 
@@ -576,6 +581,177 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
   );
 }
 
+/** F-085: an optional bid / program reference. A plain reference: it links nothing. */
+function BidReferenceField({ data, update, cfg, evaluation }: StepProps) {
+  const issue = evaluation.blocking.find((b) => b.field === 'bid_reference');
+  return (
+    <Field {...meta(cfg, 'bid_reference')} label="Bid / program reference (optional)">
+      <Input
+        id={fid('bid_reference')}
+        aria-describedby={`${fid('bid_reference')}-help`}
+        aria-invalid={issue ? true : undefined}
+        maxLength={INTAKE_TEXT_LIMITS.bid_reference}
+        placeholder="e.g. RFP-2026-114"
+        value={data.bidReference ?? ''}
+        onChange={(e) => update({ bidReference: nullIfBlank(e.target.value) })}
+      />
+      <FieldError issue={issue} />
+    </Field>
+  );
+}
+
+/** F-063 (dunnage only): returnable (multi-trip) dunnage; unticked means single-trip. */
+function DunnageField({ data, update, cfg }: StepProps) {
+  return (
+    <div className="grid gap-1.5">
+      <label className="flex min-h-11 items-center gap-3 text-sm">
+        <input
+          id={fid('returnable_dunnage')}
+          type="checkbox"
+          className="size-5"
+          data-testid="returnable-dunnage"
+          aria-describedby={`${fid('returnable_dunnage')}-help`}
+          checked={data.returnableDunnage === true}
+          onChange={(e) => update({ returnableDunnage: e.target.checked })}
+        />
+        Customer wants returnable (multi-trip) dunnage
+      </label>
+      {cfg.help.returnable_dunnage && (
+        <p id={`${fid('returnable_dunnage')}-help`} className="text-muted-foreground -mt-1 text-xs">
+          {cfg.help.returnable_dunnage}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * FB-11 (D-032, F-080): what Pricing needs before costing: the payment terms the customer asks for,
+ * whether the customer funds any tooling, and delivered or FOB with the freight. Every field is optional;
+ * a blank is an amber warning on the review. Payment terms and tooling funding are two separate things.
+ */
+function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
+  const entries = cfg.lists.tooling_funding_model ?? [];
+  const fundingDefault = entries.find((e) => e.meta.defaultAtIntake === true)?.code ?? null;
+  const funding = data.toolingFundingModel ?? fundingDefault;
+  const fundingEntry = entries.find((e) => e.code === funding);
+  const nonStandard = isNonStandardPaymentTerms(
+    data.requestedPaymentTerms,
+    cfg.intake.standardPaymentTerms,
+  );
+  const delivered = isDeliveredPrice(data.priceBasis, cfg.intake.deliveredPriceBasisCodes);
+  const freightIssue = evaluation.blocking.find((b) => b.field === 'freight_special_arrangements');
+
+  // The funding answer starts at the list's default ("Not discussed") and is stored with the draft.
+  useEffect(() => {
+    if (data.toolingFundingModel == null && fundingDefault) {
+      update({ toolingFundingModel: fundingDefault });
+    }
+  }, [data.toolingFundingModel, fundingDefault, update]);
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field {...meta(cfg, 'requested_payment_terms')}>
+          <Select
+            id={fid('requested_payment_terms')}
+            listKey="requested_payment_terms"
+            value={data.requestedPaymentTerms}
+            onChange={(v) =>
+              update({
+                requestedPaymentTerms: v,
+                ...(isCustom(cfg, 'requested_payment_terms', v)
+                  ? {}
+                  : { requestedPaymentTermsOther: null }),
+              })
+            }
+            cfg={cfg}
+          />
+        </Field>
+        <Field {...meta(cfg, 'tooling_funding_model')}>
+          <NativeSelect
+            id={fid('tooling_funding_model')}
+            aria-describedby={`${fid('tooling_funding_model')}-help`}
+            value={funding ?? ''}
+            onChange={(e) => update({ toolingFundingModel: nullIfBlank(e.target.value) })}
+          >
+            {entries.map((e) => (
+              <option key={e.code} value={e.code}>
+                {e.label}
+              </option>
+            ))}
+          </NativeSelect>
+          <FundingHelp options={entries} className="pb-0" />
+        </Field>
+      </div>
+      <ConditionalText
+        when={isCustom(cfg, 'requested_payment_terms', data.requestedPaymentTerms)}
+        field="requested_payment_terms_other"
+        value={data.requestedPaymentTermsOther}
+        onChange={(v) => update({ requestedPaymentTermsOther: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={INTAKE_TEXT_LIMITS.custom_description}
+        placeholder="e.g. Net 75, paid on receipt of goods"
+      />
+      {nonStandard && (
+        <Notice tone="warning" testId="payment-terms-nonstandard">
+          {NON_STANDARD_TERMS_TEXT}
+        </Notice>
+      )}
+      {fundingEntry?.meta.taxHint === true && cfg.help.tooling_funding_tax_hint && (
+        <Notice tone="info" testId="funding-tax-hint">
+          {cfg.help.tooling_funding_tax_hint}
+        </Notice>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field {...meta(cfg, 'price_basis')}>
+          <Select
+            id={fid('price_basis')}
+            listKey="price_basis"
+            value={data.priceBasis}
+            onChange={(v) =>
+              update({
+                priceBasis: v,
+                // Freight only applies to a delivered price: switching away clears it.
+                ...(isDeliveredPrice(v, cfg.intake.deliveredPriceBasisCodes)
+                  ? {}
+                  : { freightType: null, freightSpecialArrangements: null }),
+              })
+            }
+            cfg={cfg}
+          />
+        </Field>
+        <Reveal when={delivered}>
+          <Field {...meta(cfg, 'freight_type')}>
+            <Select
+              id={fid('freight_type')}
+              listKey="freight_type"
+              value={data.freightType}
+              onChange={(v) => update({ freightType: v })}
+              cfg={cfg}
+            />
+          </Field>
+        </Reveal>
+      </div>
+      <Reveal when={delivered}>
+        <Field {...meta(cfg, 'freight_special_arrangements')}>
+          <Input
+            id={fid('freight_special_arrangements')}
+            aria-describedby={`${fid('freight_special_arrangements')}-help`}
+            aria-invalid={freightIssue ? true : undefined}
+            maxLength={INTAKE_TEXT_LIMITS.freight_special_arrangements}
+            placeholder="e.g. drop trailer at the customer dock"
+            value={data.freightSpecialArrangements ?? ''}
+            onChange={(e) => update({ freightSpecialArrangements: nullIfBlank(e.target.value) })}
+          />
+          <FieldError issue={freightIssue} />
+        </Field>
+      </Reveal>
+    </div>
+  );
+}
+
 /** F-015: modify an existing mold; reveals the mold / part number and what changes. */
 function MoldFields({ data, update, cfg, evaluation }: StepProps) {
   const on = data.modifyExistingMold === true;
@@ -784,6 +960,7 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             </div>
           )}
         </Field>
+        <BidReferenceField data={data} update={update} cfg={cfg} evaluation={evaluation} />
         <MoldFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
@@ -877,6 +1054,11 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             className="min-h-16"
           />
         </Field>
+        <DunnageField data={data} update={update} cfg={cfg} evaluation={evaluation} />
+      </Section>
+
+      <Section title="Commercial inputs for Pricing">
+        <CommercialInputsFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
       <Section title="Volume, value and timing">
@@ -1201,6 +1383,39 @@ export function ReviewStep({
         ],
         ['Packaging', label('packaging_type', data.packagingType)],
         ['Packaging requirements', data.packagingNotes],
+        ['Dunnage', data.returnableDunnage ? 'Returnable (multi-trip)' : 'Single-trip'],
+        [
+          'Payment terms requested',
+          isCustom(cfg, 'requested_payment_terms', data.requestedPaymentTerms)
+            ? (data.requestedPaymentTermsOther ?? 'Other')
+            : data.requestedPaymentTerms
+              ? `${label('requested_payment_terms', data.requestedPaymentTerms)}${
+                  isNonStandardPaymentTerms(
+                    data.requestedPaymentTerms,
+                    cfg.intake.standardPaymentTerms,
+                  )
+                    ? ` (${NON_STANDARD_TERMS_TEXT})`
+                    : ''
+                }`
+              : null,
+        ],
+        ['Customer funds any tooling', label('tooling_funding_model', data.toolingFundingModel)],
+        [
+          'Delivered or FOB',
+          data.priceBasis
+            ? [
+                label('price_basis', data.priceBasis),
+                isDeliveredPrice(data.priceBasis, cfg.intake.deliveredPriceBasisCodes)
+                  ? [label('freight_type', data.freightType), data.freightSpecialArrangements]
+                      .filter((p) => p && p !== '—')
+                      .join(': ')
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : null,
+        ],
+        ['Bid / program reference', data.bidReference],
         [
           'Annual volume',
           data.estAnnualVolume != null ? `${data.estAnnualVolume.toLocaleString()} units` : null,

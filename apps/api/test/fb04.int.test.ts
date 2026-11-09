@@ -155,6 +155,8 @@ describe('F-022 / V-055: the funding options', () => {
       'ZERO_CER',
       'AMORTIZED',
       'SHARED',
+      // FB-11 (D-032): the intake default "Not discussed".
+      'NOT_DISCUSSED',
     ]);
     const zero = list.find((v) => v.code === 'ZERO_CER')!;
     expect(zero.label).toBe('$0 CER (customer-reimbursed capital)');

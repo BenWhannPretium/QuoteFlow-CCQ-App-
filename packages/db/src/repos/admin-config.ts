@@ -132,6 +132,13 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(quote.labelsPurchasedBy, code);
     case 'decoration_type':
       return eq(quote.decorationType, code);
+    // FB-11 (F-080)
+    case 'requested_payment_terms':
+      return eq(quote.requestedPaymentTerms, code);
+    case 'price_basis':
+      return eq(quote.priceBasis, code);
+    case 'freight_type':
+      return eq(quote.freightType, code);
 
     case 'packaging_type':
       return eq(quote.packagingType, code);

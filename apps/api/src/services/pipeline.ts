@@ -214,6 +214,12 @@ export class PipelineService {
         stageLabel: label,
       }).mismatch,
       validityUntil: q.validityUntil,
+      bidReference: q.bidReference,
+      requestedPaymentTerms: q.requestedPaymentTerms,
+      toolingFundingModel: q.toolingFundingModel,
+      priceBasis: q.priceBasis,
+      freightType: q.freightType,
+      returnableDunnage: q.returnableDunnage,
       validityExpired: q.status !== 'closed' && isValidityLapsed(q.validityUntil, ctx.now),
       updatedAt: q.updatedAt.toISOString(),
       commercial: canSeeCommercialFields(ctx.actor)
@@ -442,6 +448,8 @@ function exportValue(
       return item.commercial?.prelimCapitalUsd ?? null;
     case 'capitalReadiness':
       return item.commercial?.capitalReadiness ?? null;
+    case 'returnableDunnage':
+      return item.returnableDunnage ? 'Yes' : 'No';
     default:
       return item[column];
   }

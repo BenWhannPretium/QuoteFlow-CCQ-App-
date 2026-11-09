@@ -206,6 +206,21 @@ export const QuoteIntakeFacts = z.object({
   moldChangeDescription: z.string().nullable(),
   /** F-014: the customer's RFP / portal link (https), for every role that reads the quote. */
   rfpLink: z.string().nullable(),
+  /**
+   * FB-11 (D-032): the commercial inputs the KAM gave at intake, for every role that reads the quote
+   * (rule 2). `requestedPaymentTerms` is a value-list code; whether it is non-standard is judged from the
+   * `standard_payment_terms` setting where it is shown. `toolingFundingModel` is the same field the
+   * Commercial panel edits.
+   */
+  requestedPaymentTerms: z.string().nullable(),
+  requestedPaymentTermsOther: z.string().nullable(),
+  toolingFundingModel: z.string().nullable(),
+  returnableDunnage: z.boolean(),
+  priceBasis: z.string().nullable(),
+  freightType: z.string().nullable(),
+  freightSpecialArrangements: z.string().nullable(),
+  /** F-085: the bid / program reference. */
+  bidReference: z.string().nullable(),
 });
 export type QuoteIntakeFacts = z.infer<typeof QuoteIntakeFacts>;
 

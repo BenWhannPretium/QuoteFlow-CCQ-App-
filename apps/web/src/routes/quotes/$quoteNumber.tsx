@@ -25,6 +25,7 @@ import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { CommercialPanel } from '@/components/commercial/CommercialPanel';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
+import { standardTermsFrom } from '@/components/intake/CommercialInputs';
 import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import {
   ClosureCard,
@@ -342,7 +343,12 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
               value: quote.components.map((c) => label('component', c)).join(', '),
             },
             // FB-02: the product facts (neck, resin grade, PCR, color, follow-ups, need-by dates…).
-            ...intakeFactItems(config?.valueLists, quote.intakeFacts, quote.neckFinish),
+            ...intakeFactItems(
+              config?.valueLists,
+              quote.intakeFacts,
+              quote.neckFinish,
+              standardTermsFrom(config),
+            ),
             {
               label: 'Annual volume',
               value: quote.estAnnualVolume?.toLocaleString('en-US'),

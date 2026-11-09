@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { commercialInputIssues, inapplicableCommercialFields } from './commercial-inputs';
 import {
   activeFollowUps,
   COMPONENT_FOLLOW_UP_FIELDS,
@@ -47,6 +48,9 @@ export const INTAKE_FIELDS = [
   'neck_finish_type',
   'pcr_level',
   'color_type',
+  // FB-11 (F-080): what Pricing needs for awareness and negotiation. Optional: a blank is amber.
+  'requested_payment_terms',
+  'price_basis',
   'packaging_type',
   'packaging_notes',
   'est_annual_volume',
@@ -108,6 +112,13 @@ export const intakeConfigSchema = z
      * filled to submit (app_setting `intake_min_spec_fields`, provisional). Empty = no minimum spec.
      */
     minSpecFields: z.array(z.enum(MIN_SPEC_KEYS)).default([...MIN_SPEC_KEYS]),
+    /**
+     * FB-11 (F-080): payment terms that are standard (app_setting `standard_payment_terms`, seeded
+     * ["NET_15","NET_30"], provisional; A-012). Anything else is flagged "Non-standard: Pricing will review".
+     */
+    standardPaymentTerms: z.array(z.string().min(1)).default([]),
+    /** FB-11 (F-080): `price_basis` codes whose meta says `delivered`; the freight fields apply to them. */
+    deliveredPriceBasisCodes: z.array(z.string().min(1)).default([]),
   })
   .strict();
 
@@ -394,6 +405,8 @@ export function inapplicableIntakeFields(values: FieldValues, config: IntakeConf
   }
   const active = activeFollowUps(values.components, config.componentFollowUps);
   out.push(...COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)));
+  // FB-11 (F-080): freight applies only to a delivered price.
+  out.push(...inapplicableCommercialFields(values, config.deliveredPriceBasisCodes));
   return out;
 }
 
@@ -433,6 +446,12 @@ export function evaluateIntake(
   blocking.push(...needByDateIssues(values, now));
   blocking.push(...productFactIssues(values, config));
   blocking.push(...moldAndLinkIssues(values));
+  const commercial = commercialInputIssues(values, {
+    standardPaymentTerms: config.standardPaymentTerms,
+    deliveredPriceBasisCodes: config.deliveredPriceBasisCodes,
+  });
+  blocking.push(...commercial.blocking);
+  warnings.push(...commercial.warnings);
 
   // F-016 (D-018): a drawing, or the minimum spec, to advance.
   const drawingOrSpec = drawingOrSpecStatus(values, config);

@@ -57,6 +57,9 @@ async function prefill(sfOpportunityId: string): Promise<IntakeDraftData> {
     components: ['CONTAINER', 'CLOSURE'],
     market: 'FOOD',
     resin: 'HDPE',
+    // FB-11: optional, but a blank one is an amber warning, so a complete intake gives them.
+    requestedPaymentTerms: 'NET_30',
+    priceBasis: 'FOB_PLANT',
     neckDiameter: '38',
     neckFinishType: '400',
     pcrLevel: '0',

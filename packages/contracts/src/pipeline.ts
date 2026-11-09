@@ -102,6 +102,13 @@ export const QuoteListItem = QuoteSummary.extend({
   sfStage: z.string().nullable(),
   sfMismatch: z.boolean(),
   validityUntil: z.string().nullable(),
+  /** FB-11 (D-032, F-085): intake commercial inputs (codes) and the bid / program reference, for optional columns. */
+  bidReference: z.string().nullable(),
+  requestedPaymentTerms: z.string().nullable(),
+  toolingFundingModel: z.string().nullable(),
+  priceBasis: z.string().nullable(),
+  freightType: z.string().nullable(),
+  returnableDunnage: z.boolean(),
   /** B-13: the proposal's validity has passed with no outcome recorded. */
   validityExpired: z.boolean(),
   updatedAt: z.string(),
@@ -237,6 +244,13 @@ export const QUOTE_LIST_COLUMNS = {
   updatedAt: 'Updated',
   prelimCapitalUsd: BUDGETARY_CAPITAL_LABEL,
   capitalReadiness: 'Capital readiness',
+  // FB-11 (D-032, F-085): optional columns, not in the default set.
+  bidReference: 'Bid / program reference',
+  requestedPaymentTerms: 'Requested payment terms',
+  toolingFundingModel: 'Customer tooling funding',
+  priceBasis: 'Delivered / FOB',
+  freightType: 'Freight type',
+  returnableDunnage: 'Returnable dunnage',
 } as const;
 export type QuoteListColumnKey = keyof typeof QUOTE_LIST_COLUMNS;
 export const QUOTE_LIST_COLUMN_KEYS = Object.keys(QUOTE_LIST_COLUMNS) as QuoteListColumnKey[];
