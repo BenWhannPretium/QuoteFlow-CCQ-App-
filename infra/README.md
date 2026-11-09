@@ -6,8 +6,9 @@ built for test by CLI on 2026-10-21, parameterised for prod. It also carries the
 prerequisites (B-27, [`01-architecture.md` §6.1](../docs/build-guide/01-architecture.md)) so a rebuild
 doesn't lose them.
 
-**Status (2026-10-26): written and compiled, not yet applied.** The first apply is a `what-if` against
-`rg-ccq-test` (see [First apply against test](#first-apply-against-rg-ccq-test)). Ben has Contributor
+**Status (2026-11-09): written and compiled, not yet applied.** The first `what-if` against `rg-ccq-test`
+ran on 2026-11-09 with the placeholders filled; its diff and the open points before an apply are recorded
+in `03-build-steps.md` B-20 (see also [First apply against test](#first-apply-against-rg-ccq-test)). Ben has Contributor
 (runbook B9 deviation, 2026-11-02), so he runs the what-if and the test apply himself.
 
 ## Files
