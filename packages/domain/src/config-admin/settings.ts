@@ -15,6 +15,7 @@ import { engQueueSettingsSchema } from '../engineering/queue';
 import { DomainError } from '../errors';
 import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
+import { intakeGuardrailsSchema } from '../intake/guardrails';
 import { intakeConfigSchema } from '../intake/intake';
 import { MIN_SPEC_KEYS } from '../intake/product-facts';
 import { COMMENT_EMAIL_COLLAPSE_MINUTES_MAX } from '../notifications/events';
@@ -24,6 +25,7 @@ import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
 import { CAPITAL_READINESS_VALUES, parsePricingRefFormats } from '../pricing/record';
 import { parseRoiRequiredWhen } from '../quoting-steps';
+import { volumeRoutingSchema } from '../scoring/volume-routing';
 import { requiredRuleSchema } from '../types/workflow-config';
 
 /**
@@ -199,6 +201,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'json',
     z_('qualification_exception_note_outcomes', z.array(gateOutcomePair)),
   ),
+  // FB-10 (T-011, D-004 open): volume-band routing at intake, seeded OFF.
+  spec(
+    'g1_volume_routing',
+    'qualification',
+    'Volume-band routing at intake: outside the band goes to the sales leader (G1), in the band straight to Engineering. Off until D-004 sets the band',
+    'json',
+    z_('g1_volume_routing', volumeRoutingSchema),
+  ),
   // Scoring visibility
   spec(
     'kam_can_see_peer_scores',
@@ -279,6 +289,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     '"Why we ask" help per intake field',
     'json',
     z_('intake_field_help', z.record(z.string().min(1), z.string())),
+  ),
+  // FB-10 (F-066, D-004 open): the platform-minimum warning, seeded OFF.
+  spec(
+    'intake_guardrails',
+    'intake',
+    'Platform-minimum warning (non-blocking): minimum annual volume per process type. Off until the platform guide is confirmed',
+    'json',
+    z_('intake_guardrails', intakeGuardrailsSchema),
   ),
   // Engineering queue (DEC-26, R-04)
   spec(

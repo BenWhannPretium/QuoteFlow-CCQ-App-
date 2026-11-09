@@ -17,6 +17,8 @@ export async function onQualifyArrival(
   actorId: string,
   resubmitted: boolean,
   log?: FastifyBaseLogger,
+  /** FB-10 (T-011): why volume-band routing sent it here, when it did. */
+  routingReason?: string | null,
 ): Promise<number> {
   const planned: PlannedNotification[] = rolesWithPermission(gate.deciderPermission).map(
     (role) => ({
@@ -32,7 +34,9 @@ export async function onQualifyArrival(
       title: resubmitted
         ? `${quote.quoteNumber} was resubmitted and is waiting to qualify`
         : `${quote.quoteNumber} is waiting to qualify`,
-      body: 'Open To qualify to advance, hold, return or stop it.',
+      body: routingReason
+        ? `${routingReason}. Open To qualify to advance, hold, return or stop it.`
+        : 'Open To qualify to advance, hold, return or stop it.',
       excludeUserId: actorId,
     },
     log,

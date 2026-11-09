@@ -42,6 +42,7 @@ export function intakeFactsDto(q: Quote): QuoteIntakeFacts {
     freightType: q.freightType,
     freightSpecialArrangements: q.freightSpecialArrangements,
     bidReference: q.bidReference,
+    guardrailWarning: q.guardrailWarning,
   };
 }
 

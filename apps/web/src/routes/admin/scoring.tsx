@@ -104,6 +104,8 @@ function ScoringPage() {
     !!model && !!selected && JSON.stringify(toBody(model)) !== JSON.stringify(selected.model);
 
   const [dialog, setDialog] = useState<null | 'create' | 'save' | 'activate' | 'discard'>(null);
+  // FB-10: rescoring open quotes on activation is the Admin's choice (default yes).
+  const [rescoreOpen, setRescoreOpen] = useState(true);
 
   return (
     <div data-testid="page" data-page-title="Scoring model">
@@ -111,7 +113,7 @@ function ScoringPage() {
       <PageHeader
         eyebrow="Configuration"
         title="Scoring model"
-        description="Advisory priority scoring (F-05, D-19). Versions are never edited in place: create a new version, preview it on the last 50 quotes, then activate it."
+        description="Advisory priority scoring (F-05, D-19). Versions are never edited in place: create a new version, preview it on the open quotes (old tier, new tier, points moved), then activate it."
         actions={
           canEdit &&
           !draft &&
@@ -218,7 +220,12 @@ function ScoringPage() {
                 onChange={setModel}
               />
               {(selected.status === 'draft' || editable) && (
-                <Preview model={model} valid={!problem} />
+                <Preview
+                  model={model}
+                  valid={!problem}
+                  saved={selected.status === 'draft' && !dirty}
+                  draftVersion={selected.modelVersion}
+                />
               )}
             </section>
           )}
@@ -253,18 +260,37 @@ function ScoringPage() {
         open={dialog === 'activate'}
         onOpenChange={(o) => !o && setDialog(null)}
         title={`Activate v${selected?.modelVersion ?? ''}`}
-        description="It applies from now. Open quotes are rescored in the background (a timeline event for each tier that changes). Closed quotes, past decisions and older versions are not touched."
+        description="It applies from now to every new score. Closed quotes, past decisions and older versions are not touched, and the previous version stays in the list."
         submitLabel="Activate"
         destructive
         onSubmit={async (s) => {
           const res = await api.admin.activateScoringDraft({
             version: selected!.version,
             changeReason: s.changeReason,
+            rescoreOpen,
           });
           setSelectedId(null);
           return res;
         }}
-      />
+      >
+        <label className="flex items-start gap-2 text-sm" htmlFor="rescore-open">
+          <input
+            id="rescore-open"
+            type="checkbox"
+            className="mt-1"
+            checked={rescoreOpen}
+            onChange={(e) => setRescoreOpen(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Rescore the open quotes now</span>
+            <span className="text-muted-foreground block">
+              A timeline event is written for each quote whose tier changes, and a summary goes to
+              the decision log. Untick it to leave open quotes on their current score until their
+              next recalculation.
+            </span>
+          </span>
+        </label>
+      </ChangeDialog>
       <ChangeDialog
         open={dialog === 'discard'}
         onOpenChange={(o) => !o && setDialog(null)}
@@ -605,22 +631,39 @@ function AttrDetail({
   );
 }
 
-/** Live preview: the last 50 quotes under the active model and this one (debounced). */
-function Preview({ model, valid }: { model: Model; valid: boolean }) {
+/**
+ * FB-10: the open quotes under the live model and this one, side by side: old tier, new tier, points moved
+ * and what moved them. The saved draft uses its own read; unsaved edits are previewed as typed (debounced).
+ * Nothing is written.
+ */
+function Preview({
+  model,
+  valid,
+  saved,
+  draftVersion,
+}: {
+  model: Model;
+  valid: boolean;
+  saved: boolean;
+  draftVersion: number;
+}) {
   const body = useMemo(() => toBody(model), [model]);
   const debounced = useDebounced(body, 400);
   const preview = useQuery({
-    queryKey: adminKey('scoring-preview', JSON.stringify(debounced)),
-    queryFn: () => api.admin.previewScoring(debounced),
+    queryKey: saved
+      ? adminKey('scoring-preview', 'draft', String(draftVersion))
+      : adminKey('scoring-preview', JSON.stringify(debounced)),
+    queryFn: () => (saved ? api.admin.previewScoringDraft() : api.admin.previewScoring(debounced)),
     enabled: valid,
     placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
   const p = preview.data;
+  const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
   return (
     <section aria-labelledby="preview" className="grid gap-3" data-testid="scoring-preview">
       <h3 id="preview" className="font-display text-lg">
-        Preview on the last 50 quotes
+        Preview on the open quotes
       </h3>
       {!valid ? (
         <p className="text-muted-foreground text-sm">Fix the model to see the preview.</p>
@@ -631,10 +674,16 @@ function Preview({ model, valid }: { model: Model; valid: boolean }) {
       ) : (
         <>
           <p className="text-sm" data-testid="preview-summary">
-            Against v{p.activeVersion ?? '—'}: <strong>{p.summary.tierChanges}</strong> tier change
+            {p.summary.quotes} of {p.openQuotes} open quote{p.openQuotes === 1 ? '' : 's'}, against
+            v{p.activeVersion ?? '—'}: <strong>{p.summary.tierChanges}</strong> tier change
             {p.summary.tierChanges === 1 ? '' : 's'}, {p.summary.rankChanges} rank change
             {p.summary.rankChanges === 1 ? '' : 's'} ({p.summary.movedUp} up, {p.summary.movedDown}{' '}
-            down).
+            down). Points moved: average {signed(p.summary.avgPointsMoved)}, biggest rise{' '}
+            {signed(p.summary.maxPointsUp)}, biggest fall {signed(p.summary.maxPointsDown)}.
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Nothing is saved or rescored by this preview. Closed quotes are not shown: they keep
+            their score.
           </p>
           <div className="flex flex-wrap gap-3 text-sm">
             {p.summary.byTier.map((t) => (
@@ -646,12 +695,16 @@ function Preview({ model, valid }: { model: Model; valid: boolean }) {
           </div>
           <div className="bg-card rounded-card max-h-96 overflow-auto border">
             <table className="w-full text-sm">
-              <caption className="sr-only">Quotes whose tier or rank changes</caption>
+              <caption className="sr-only">
+                Open quotes: old tier and score, new tier and score, points moved and why
+              </caption>
               <thead className="text-muted-foreground bg-card sticky top-0 text-left text-xs">
                 <tr>
                   <th className="p-2 font-medium">Quote</th>
-                  <th className="p-2 font-medium">Before</th>
-                  <th className="p-2 font-medium">After</th>
+                  <th className="p-2 font-medium">Old tier</th>
+                  <th className="p-2 font-medium">New tier</th>
+                  <th className="p-2 text-right font-medium">Points moved</th>
+                  <th className="p-2 font-medium">What moved</th>
                   <th className="p-2 font-medium">Rank</th>
                 </tr>
               </thead>
@@ -660,10 +713,15 @@ function Preview({ model, valid }: { model: Model; valid: boolean }) {
                   .sort(
                     (a, b) =>
                       Number(b.tierChanged) - Number(a.tierChanged) ||
+                      Math.abs(b.pointsMoved) - Math.abs(a.pointsMoved) ||
                       Math.abs(b.rankDelta) - Math.abs(a.rankDelta),
                   )
                   .map((r) => (
-                    <tr key={r.quoteNumber} className={cn(r.tierChanged && 'bg-warning/30')}>
+                    <tr
+                      key={r.quoteNumber}
+                      className={cn(r.tierChanged && 'bg-warning/30')}
+                      data-testid="preview-row"
+                    >
                       <td className="p-2">
                         <Link
                           to="/quotes/$quoteNumber"
@@ -674,7 +732,7 @@ function Preview({ model, valid }: { model: Model; valid: boolean }) {
                         </Link>
                         <span className="text-muted-foreground block text-xs">
                           {r.stageKey}
-                          {r.status === 'closed' ? ' · closed (not rescored)' : ''}
+                          {r.market ? ` · ${r.market}` : ''}
                         </span>
                       </td>
                       <td className="p-2 tabular-nums">
@@ -690,6 +748,21 @@ function Preview({ model, valid }: { model: Model; valid: boolean }) {
                         <span className="inline-flex items-center gap-1.5">
                           <TierChip tier={r.after.tier} /> {r.after.score}
                         </span>
+                      </td>
+                      <td
+                        className={cn(
+                          'p-2 text-right tabular-nums',
+                          r.pointsMoved > 0 && 'text-success',
+                          r.pointsMoved < 0 && 'text-destructive',
+                        )}
+                        data-testid="points-moved"
+                      >
+                        {r.pointsMoved === 0 ? '0' : signed(r.pointsMoved)}
+                      </td>
+                      <td className="text-muted-foreground p-2 text-xs">
+                        {r.drivers.length === 0
+                          ? '—'
+                          : r.drivers.map((d) => `${d.label}: ${d.before} → ${d.after}`).join('; ')}
                       </td>
                       <td className="p-2 tabular-nums">
                         #{r.after.rank}

@@ -347,6 +347,8 @@ export const SubmitIntakeResponse = z.object({
   scopeChanged: z.boolean().nullable(),
   /** FB-01 (F-030): the stage a no-scope-change resubmission resumed at (e.g. QUOTING); else null. */
   resumedAt: z.string().nullable(),
+  /** FB-10 (T-011): why volume-band routing chose G1 or Engineering; null when routing is off. */
+  routingReason: z.string().nullable(),
   warnings: z.array(IntakeIssue),
   /** B-16: files that came with the draft (now on the quote). */
   attachments: z.number().int(),

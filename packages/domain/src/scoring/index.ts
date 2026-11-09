@@ -8,3 +8,5 @@ export * from './qualification';
 export * from './score';
 export * from './seeds';
 export * from './visibility';
+export * from './volume-routing';
+export * from './where-to-play';

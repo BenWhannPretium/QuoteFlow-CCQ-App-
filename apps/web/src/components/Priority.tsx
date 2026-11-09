@@ -156,6 +156,26 @@ export function PriorityBadge({
 }
 
 /** G1 qualification screens (D-06): warnings only, never a block. */
+/**
+ * FB-10 (F-066): the platform-minimum warning the KAM saw at submit, kept for the qualifier. A warning only:
+ * it never blocks a decision and needs no exception note.
+ */
+export function GuardrailNote({ text, className }: { text: string | null; className?: string }) {
+  if (!text) return null;
+  return (
+    <p
+      className={cn(
+        'bg-warning text-warning-foreground flex items-start gap-2 rounded-md px-2.5 py-1.5 text-xs',
+        className,
+      )}
+      data-testid="guardrail-note"
+    >
+      <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+      <span>{text}</span>
+    </p>
+  );
+}
+
 export function QualificationWarnings({
   warnings,
   className,

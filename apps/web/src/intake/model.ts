@@ -12,6 +12,7 @@ import {
   fieldsReferenced,
   neckSummary,
   parseIntakeConfig,
+  parseIntakeGuardrails,
   parseNeckText,
   renderDescriptionTemplate,
   type IntakeConfig,
@@ -140,6 +141,8 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
       ...(Array.isArray(s.standard_payment_terms)
         ? { standardPaymentTerms: s.standard_payment_terms as never }
         : {}),
+      // FB-10 (F-066): off unless the setting is on and well-formed.
+      guardrails: parseIntakeGuardrails(s.intake_guardrails),
       deliveredPriceBasisCodes: (lists.price_basis ?? [])
         .filter((e) => meta(e, 'delivered'))
         .map((e) => e.code),

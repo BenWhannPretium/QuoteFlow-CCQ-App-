@@ -431,6 +431,11 @@ export const quote = documented(
         'FB-11 (F-085): optional bid / program reference (≤ 60). A plain reference: it does not link quotes or relax one active quote per opportunity (F-084 is P1).',
         KAM,
       ),
+      guardrailWarning: c(
+        text('guardrail_warning'),
+        'FB-10 (F-066): the platform-minimum warning shown to the KAM at the last submit ("Below the platform minimum for …"), kept for G1. Null when none. A warning only: it never blocked the submit.',
+        KAM,
+      ),
       packagingType: c(text('packaging_type'), 'value_list packaging_type code.', KAM),
       packagingNotes: c(text('packaging_notes'), 'Packaging requirements.', KAM),
       requestClass: c(text('request_class'), 'value_list request_class code.', KAM),

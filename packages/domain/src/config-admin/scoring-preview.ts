@@ -20,12 +20,25 @@ export interface PreviewSide {
   rank: number;
 }
 
+/** One attribute whose points differ between the two models (what moved the score). */
+export interface PreviewDriver {
+  key: string;
+  label: string;
+  /** Points before and after (0–100). */
+  before: number;
+  after: number;
+}
+
 export interface ScoringPreviewRow {
   quoteId: string;
   /** Null when there is no active model to compare against. */
   before: PreviewSide | null;
   after: PreviewSide;
   tierChanged: boolean;
+  /** after.score − before.score, one decimal: positive = the quote scores higher. 0 when there is no before. */
+  pointsMoved: number;
+  /** Attributes whose points changed, biggest weighted change first. Empty when there is no before. */
+  drivers: PreviewDriver[];
   /** before.rank − after.rank: positive = moved up the list. 0 when there is no before. */
   rankDelta: number;
 }
@@ -38,10 +51,17 @@ export interface ScoringPreview {
     rankChanges: number;
     movedUp: number;
     movedDown: number;
+    /** Mean of `pointsMoved` over the previewed quotes (one decimal). */
+    avgPointsMoved: number;
+    /** Largest rise and fall in score (one decimal; 0 when nothing moved that way). */
+    maxPointsUp: number;
+    maxPointsDown: number;
     /** Quotes per tier before and after, in the draft's tier order (highest first). */
     byTier: { tier: string; label: string; before: number; after: number }[];
   };
 }
+
+const round1 = (n: number) => Math.round((n + Number.EPSILON) * 10) / 10;
 
 /** Ranks by score, highest first; ties keep the input order (newest first), so ranks are stable. */
 function ranks(scores: readonly number[]): number[] {
@@ -66,11 +86,31 @@ export function previewScoringChange(
     const a = after[i]!;
     const b = before?.[i];
     const beforeSide = b ? { score: b.total, tier: b.tier, rank: beforeRanks![i]! } : null;
+    const drivers: PreviewDriver[] = b
+      ? a.breakdown
+          .map((item) => {
+            const old = b.breakdown.find((x) => x.key === item.key);
+            return old && old.points !== item.points
+              ? {
+                  key: item.key,
+                  label: item.label,
+                  before: old.points,
+                  after: item.points,
+                  swing: Math.abs(item.contribution - old.contribution),
+                }
+              : null;
+          })
+          .filter((d): d is PreviewDriver & { swing: number } => d !== null)
+          .sort((x, y) => y.swing - x.swing)
+          .map(({ swing: _swing, ...d }) => d)
+      : [];
     return {
       quoteId: q.id,
       before: beforeSide,
       after: { score: a.total, tier: a.tier, rank: afterRanks[i]! },
       tierChanged: beforeSide !== null && beforeSide.tier !== a.tier,
+      pointsMoved: beforeSide ? round1(a.total - beforeSide.score) : 0,
+      drivers,
       rankDelta: beforeSide ? beforeSide.rank - afterRanks[i]! : 0,
     };
   });
@@ -87,6 +127,7 @@ export function previewScoringChange(
     after: rows.filter((r) => r.after.tier === t.tier).length,
   }));
 
+  const moved = rows.map((r) => r.pointsMoved);
   return {
     rows,
     summary: {
@@ -95,6 +136,9 @@ export function previewScoringChange(
       rankChanges: rows.filter((r) => r.rankDelta !== 0).length,
       movedUp: rows.filter((r) => r.rankDelta > 0).length,
       movedDown: rows.filter((r) => r.rankDelta < 0).length,
+      avgPointsMoved: moved.length ? round1(moved.reduce((n, v) => n + v, 0) / moved.length) : 0,
+      maxPointsUp: Math.max(0, ...moved),
+      maxPointsDown: Math.min(0, ...moved),
       byTier,
     },
   };

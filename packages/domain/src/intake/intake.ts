@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { commercialInputIssues, inapplicableCommercialFields } from './commercial-inputs';
+import { guardrailWarning, INTAKE_GUARDRAILS_OFF, intakeGuardrailsSchema } from './guardrails';
 import {
   activeFollowUps,
   COMPONENT_FOLLOW_UP_FIELDS,
@@ -119,6 +120,11 @@ export const intakeConfigSchema = z
     standardPaymentTerms: z.array(z.string().min(1)).default([]),
     /** FB-11 (F-080): `price_basis` codes whose meta says `delivered`; the freight fields apply to them. */
     deliveredPriceBasisCodes: z.array(z.string().min(1)).default([]),
+    /**
+     * FB-10 (F-066): platform-minimum warning (app_setting `intake_guardrails`, seeded OFF, provisional).
+     * A non-blocking amber warning; recorded on the quote for G1.
+     */
+    guardrails: intakeGuardrailsSchema.default(INTAKE_GUARDRAILS_OFF),
   })
   .strict();
 
@@ -141,6 +147,8 @@ export const INTAKE_ISSUE_CODES = [
   /** FB-02 (F-016): no bottle / competitor drawing and the minimum spec is incomplete. */
   'DRAWING_OR_MIN_SPEC_REQUIRED',
   'VOLUME_PLACEHOLDER',
+  /** FB-10 (F-066): the volume is below the platform minimum. A warning; the submit still goes. */
+  'BELOW_PLATFORM_MINIMUM',
   'DRAWING_MISSING',
   'ENRICH',
 ] as const;
@@ -505,6 +513,19 @@ export function evaluateIntake(
       code: 'VOLUME_PLACEHOLDER',
       field: 'est_annual_volume',
       message: "Is this the customer's real annual volume? Round defaults lead to rework.",
+    });
+  }
+
+  // FB-10 (F-066): below the platform minimum is amber, never a block ("You can still submit").
+  const belowMinimum = guardrailWarning(config.guardrails, {
+    volume,
+    processType: values.process_type,
+  });
+  if (belowMinimum) {
+    warnings.push({
+      code: belowMinimum.code,
+      field: belowMinimum.field,
+      message: belowMinimum.message,
     });
   }
 

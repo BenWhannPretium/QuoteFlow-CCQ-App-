@@ -55,7 +55,11 @@ import {
   planResubmitRoute,
   PRICING_QUEUE_STAGE_KEY,
   parseIntakeConfig,
+  parseIntakeGuardrails,
+  parseVolumeRouting,
   parseWorkflowConfig,
+  routeByVolumeBand,
+  workflowForRoute,
   type Actor,
   type IntakeConfig,
   type IntakeEvaluation,
@@ -110,6 +114,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     variantsNoteMaxLength,
     minSpecFields,
     standardPaymentTerms,
+    guardrails,
     drawing,
     components,
     priceBasis,
@@ -123,6 +128,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     getSetting(db, 'intake_variants_note_max_length'),
     getSetting(db, 'intake_min_spec_fields'),
     getSetting(db, 'standard_payment_terms'),
+    getSetting(db, 'intake_guardrails'),
     listValueList(db, 'drawing_status'),
     listValueList(db, 'component'),
     listValueList(db, 'price_basis'),
@@ -149,6 +155,8 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     ...(Array.isArray(standardPaymentTerms)
       ? { standardPaymentTerms: standardPaymentTerms as never }
       : {}),
+    // FB-10 (F-066): a missing or malformed setting leaves the platform-minimum warning off.
+    guardrails: parseIntakeGuardrails(guardrails),
     deliveredPriceBasisCodes: priceBasis
       .filter((v) => meta(v.meta).delivered === true)
       .map((v) => v.code),
@@ -719,6 +727,9 @@ export class IntakeService {
         values.freight_special_arrangements,
       ),
       bidReference: values.bid_reference,
+      // FB-10 (F-066): the platform-minimum warning, kept for G1. A warning only; it never blocked the submit.
+      guardrailWarning:
+        evaluation.warnings.find((w) => w.code === 'BELOW_PLATFORM_MINIMUM')?.message ?? null,
       packagingType: data.packagingType ?? null,
       packagingNotes: blankToNull(data.packagingNotes),
       requestClass: data.requestClass ?? null,
@@ -902,28 +913,63 @@ export class IntakeService {
         resubmitted: true,
         scopeChanged: scopeAnswer,
         resumedAt,
+        routingReason: null,
         warnings: evaluation.warnings,
         attachments,
       };
     }
 
+    // FB-10 (T-011): with volume-band routing on, the band decides G1 or Engineering for THIS submit
+    // (outside the band: the sales leader qualifies; inside: straight to Engineering). Off by default,
+    // and then `g1_enabled` alone decides. The stored workflow config is never changed.
+    const volumeRoute = routeByVolumeBand(
+      parseVolumeRouting(await getSetting(tx, 'g1_volume_routing')),
+      {
+        quote: {
+          est_annual_volume: quote.estAnnualVolume,
+          est_annual_revenue: quote.estAnnualRevenue,
+        },
+      },
+    );
+    const routed = workflowForRoute(workflow, volumeRoute);
+    if (volumeRoute.applies) {
+      await insertAuditEvent(tx, {
+        at: now,
+        actorId: actor.userId,
+        actorRoles: [...actor.roles],
+        action: 'update',
+        entity: 'quote',
+        entityId: quote.id,
+        quoteId: quote.id,
+        before: null,
+        after: {
+          event: 'quote.volume_routed',
+          route: volumeRoute.route,
+          inBand: volumeRoute.inBand,
+          reason: volumeRoute.reason,
+        },
+        ...audit,
+        createdBy: actor.userId,
+      });
+    }
+
     // Routing. The KAM's own submit gate (decider quote.create) is enabled only when G1 is off.
     const state = (await loadQuoteState(tx, quote.id))!;
     const submitGate = (gateKey: string) =>
-      workflow.gates.find((g) => g.key === gateKey)?.deciderPermission === 'quote.create';
-    const action = availableActions(workflow, state, actor).find(
+      routed.gates.find((g) => g.key === gateKey)?.deciderPermission === 'quote.create';
+    const action = availableActions(routed, state, actor).find(
       (a) => submitGate(a.gateKey) && a.targetStageKeys.length === 1,
     );
 
     let stageKey = 'INTAKE';
     let status: string = quote.status;
-    const qualifyGate = workflow.gates.find(
+    const qualifyGate = routed.gates.find(
       (g) => g.enabled && g.stageKey === 'INTAKE' && !submitGate(g.key),
     );
     let routedTo = qualifyGate?.key ?? 'INTAKE';
     if (action) {
       const result = evaluateTransition(
-        workflow,
+        routed,
         state,
         actor,
         { gateKey: action.gateKey, outcomeKey: action.outcomeKey },
@@ -957,14 +1003,22 @@ export class IntakeService {
           actorId: actor.userId,
           state,
           effects: result.effects,
-          workflow,
+          workflow: routed,
           proposal: null,
         },
         this.opts.log,
       );
     } else if (qualifyGate) {
       // B-18: waiting at G1: tell the gate's deciders (in-app now, the 7:00 AM Central digest by email).
-      await onQualifyArrival(tx, quote, qualifyGate, actor.userId, Boolean(reworkOf));
+      await onQualifyArrival(
+        tx,
+        quote,
+        qualifyGate,
+        actor.userId,
+        Boolean(reworkOf),
+        undefined,
+        volumeRoute.reason,
+      );
     }
 
     const warnings: IntakeIssue[] = evaluation.warnings;
@@ -979,6 +1033,7 @@ export class IntakeService {
       resubmitted: Boolean(reworkOf),
       scopeChanged: scopeAnswer,
       resumedAt: null,
+      routingReason: volumeRoute.reason,
       warnings,
       attachments,
     };

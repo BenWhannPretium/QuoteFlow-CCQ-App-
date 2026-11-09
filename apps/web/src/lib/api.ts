@@ -548,6 +548,9 @@ export const api = {
         method: 'POST',
         body: { model },
       }),
+    // FB-10: the SAVED draft against the live model on the open quotes.
+    previewScoringDraft: () =>
+      getJson('/api/v1/admin/config/scoring/draft/preview', ScoringPreviewResponse),
     createScoringDraft: (changeReason: string) =>
       getJson(
         '/api/v1/admin/config/scoring/draft',

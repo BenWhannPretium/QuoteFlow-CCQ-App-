@@ -714,6 +714,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `freight_type` | text | yes |  |  | FB-11 (F-080): value_list freight_type code (flatbed, van, drop trailer, T-bar, other) when the price basis is delivered; cleared otherwise. | KAM |
 | `freight_special_arrangements` | text | yes |  |  | FB-11 (F-080): special freight arrangements (≤ 200), e.g. a drop trailer or T-bars; cleared when the price basis is not delivered. | KAM |
 | `bid_reference` | text | yes |  |  | FB-11 (F-085): optional bid / program reference (≤ 60). A plain reference: it does not link quotes or relax one active quote per opportunity (F-084 is P1). | KAM |
+| `guardrail_warning` | text | yes |  |  | FB-10 (F-066): the platform-minimum warning shown to the KAM at the last submit ("Below the platform minimum for …"), kept for G1. Null when none. A warning only: it never blocked the submit. | KAM |
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
 | `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |
