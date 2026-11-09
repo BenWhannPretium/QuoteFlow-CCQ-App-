@@ -1,5 +1,6 @@
 import { parseScoringModel } from './model';
 import type { ScoringModel, ScoringModelInput } from './model';
+import { WHERE_TO_PLAY_MARKET_POINTS } from './where-to-play';
 
 /**
  * Scoring model v1: the PRD's seven F-05 attributes (D-19 open, PRD set recommended). Every weight, band and
@@ -122,3 +123,25 @@ export const SCORING_MODEL_V2_INPUT = {
 } satisfies ScoringModelInput;
 
 export const scoringModelV2: ScoringModel = parseScoringModel(SCORING_MODEL_V2_INPUT);
+
+/**
+ * Scoring model v3 (FB-10, F-073, D-004 open): an INACTIVE DRAFT. Weights, bands, tiers and every other
+ * attribute equal v2; only `strategic_fit` gains points by market from the Where-to-Play 9-box
+ * (`where-to-play.ts`, provisional: the cell placement is unconfirmed). An Admin compares it with the
+ * live model in the preview and activates it once D-004 is decided. The live model stays v2.
+ */
+export const SCORING_MODEL_V3_INPUT = {
+  ...SCORING_MODEL_V2_INPUT,
+  version: 3,
+  attributes: SCORING_MODEL_V2_INPUT.attributes.map((a) =>
+    a.key === 'strategic_fit'
+      ? { ...a, map: { by: 'market', values: { ...WHERE_TO_PLAY_MARKET_POINTS }, default: 50 } }
+      : a,
+  ),
+} satisfies ScoringModelInput;
+
+export const scoringModelV3Draft: ScoringModel = parseScoringModel(SCORING_MODEL_V3_INPUT);
+
+/** The `change_reason` of the seeded draft; the seed and migration 0034 key on the `FB-10` prefix. */
+export const SCORING_DRAFT_V3_CHANGE_REASON =
+  'FB-10 (F-073, D-004 open): DRAFT. Weights and tiers equal the active model. Strategic fit scores by market from the Where-to-Play 9-box (provisional points; the cell placement is unconfirmed, see feedback/inputs/9-box.md). Not active: compare it in the preview, then activate once D-004 is decided.';

@@ -253,8 +253,11 @@ export async function openQuoteIds(db: DbOrTx): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
-/** The most recently created quotes, newest first, for the scoring preview. */
-export const recentQuotesForPreview = (db: DbOrTx, limit: number) =>
+/**
+ * FB-10: the open (not closed) quotes, newest first, for the scoring preview: the quotes a model change
+ * would rescore. The caller passes a cap and learns the true count from `openQuoteIds` when it needs it.
+ */
+export const openQuotesForPreview = (db: DbOrTx, limit: number) =>
   db
     .select({
       id: quote.id,
@@ -265,6 +268,7 @@ export const recentQuotesForPreview = (db: DbOrTx, limit: number) =>
       priorityTier: quote.priorityTier,
     })
     .from(quote)
+    .where(ne(quote.status, 'closed'))
     .orderBy(desc(quote.createdAt), desc(quote.id))
     .limit(limit);
 

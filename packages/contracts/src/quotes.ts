@@ -221,6 +221,8 @@ export const QuoteIntakeFacts = z.object({
   freightSpecialArrangements: z.string().nullable(),
   /** F-085: the bid / program reference. */
   bidReference: z.string().nullable(),
+  /** FB-10 (F-066): the platform-minimum warning shown at the last submit, kept for G1; null when none. */
+  guardrailWarning: z.string().nullable(),
 });
 export type QuoteIntakeFacts = z.infer<typeof QuoteIntakeFacts>;
 

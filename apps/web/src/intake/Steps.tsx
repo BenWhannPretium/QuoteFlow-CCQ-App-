@@ -904,6 +904,7 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
   const sf = data.sfPrefill ?? {};
   const variantsMax = cfg.intake.variantsNoteMaxLength;
   const placeholder = evaluation.warnings.find((w) => w.code === 'VOLUME_PLACEHOLDER');
+  const belowMinimum = evaluation.warnings.find((w) => w.code === 'BELOW_PLATFORM_MINIMUM');
   // F-067: a class other than CCQ shows where it goes instead, and Submit stays disabled.
   const notAllowed = evaluation.blocking.find((b) => b.code === 'REQUEST_CLASS_NOT_ALLOWED');
   const suggestion = suggestedDescription(data, cfg);
@@ -1067,16 +1068,24 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             {...meta(cfg, 'est_annual_volume')}
             label="Estimated annual volume (units)"
             note={
-              placeholder ? (
-                <div className="grid gap-2" data-testid="volume-confirm">
-                  <span>{placeholder.message}</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => update({ estAnnualVolumeConfirmed: true })}
-                  >
-                    Yes, that’s the real volume
-                  </Button>
+              placeholder || belowMinimum ? (
+                <div className="grid gap-2">
+                  {placeholder && (
+                    <div className="grid gap-2" data-testid="volume-confirm">
+                      <span>{placeholder.message}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => update({ estAnnualVolumeConfirmed: true })}
+                      >
+                        Yes, that’s the real volume
+                      </Button>
+                    </div>
+                  )}
+                  {belowMinimum && (
+                    // FB-10 (F-066): a warning only. Submit stays available.
+                    <span data-testid="guardrail-warning">{belowMinimum.message}</span>
+                  )}
                 </div>
               ) : undefined
             }

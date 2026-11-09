@@ -70,7 +70,7 @@ import {
   nextSort,
   openQuotesUsingValue,
   openQuoteIds,
-  recentQuotesForPreview,
+  openQuotesForPreview,
   scoringModelInputFromRow,
   scoringModelRow,
   searchAuditEvents,
@@ -89,6 +89,7 @@ import {
   INTAKE_FIELDS,
   parseScoringModel,
   parseSettingValue,
+  parseVolumeRouting,
   parseWorkflowConfig,
   previewScoringChange,
   requiredRuleSchema,
@@ -109,8 +110,11 @@ import { recordAudit, type AuditMeta } from '../plugins/audit';
 
 export type AdminWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
-/** How many of the newest quotes the scoring preview scores. */
-export const SCORING_PREVIEW_QUOTES = 50;
+/**
+ * FB-10: the scoring preview scores the OPEN quotes (the ones a model change would rescore), newest
+ * first, up to this many. The response says how many open quotes there are in all.
+ */
+export const SCORING_PREVIEW_QUOTES = 500;
 /** Open quotes rescored per transaction after a model activation. */
 const RESCORE_BATCH = 25;
 export const DECISION_LOG_EXPORT_MAX_ROWS = 10_000;
@@ -856,6 +860,26 @@ export class AdminConfigService {
         value: r.value ?? null,
         ...AdminConfigService.approvalSnapshot(r),
       });
+      // FB-10 (T-011): volume-band routing sends quotes outside the band to G1, so G1 has to stay on.
+      if (key === 'g1_volume_routing' && (value as { enabled?: boolean } | undefined)?.enabled) {
+        if (!(await findGateByKey(tx, 'G1'))?.enabled) {
+          throw new ServiceProblem(
+            422,
+            CODES.invalid,
+            'Turn the G1 qualify gate on first (Workflow > Use the G1 qualify gate): volume-band routing sends quotes outside the band to G1.',
+          );
+        }
+      }
+      if (key === 'g1_enabled' && value === false) {
+        const routing = await findSettingByKey(tx, 'g1_volume_routing');
+        if (parseVolumeRouting(routing?.value).enabled) {
+          throw new ServiceProblem(
+            422,
+            CODES.invalid,
+            'Volume-band routing is on and needs the G1 qualify gate. Turn volume-band routing off first.',
+          );
+        }
+      }
       if (key === 'g1_enabled' && value !== undefined && value !== before!.value) {
         await this.syncG1Gates(tx, value === true, body.confirm === true);
       }
@@ -1091,57 +1115,80 @@ export class AdminConfigService {
   }
 
   /**
-   * Scores the newest quotes under the active model and `body` (unsaved edits), compares tiers and
+   * Scores the open quotes under the active model and `body` (unsaved edits), compares tiers, points and
    * ranks. Writes nothing.
    */
   async previewScoring(
     withTx: AdminWithTx,
     body: ScoringModelBody,
   ): Promise<ScoringPreviewResponse> {
-    const now = this.now();
     const draft = this.parseModel(1, body);
+    return withTx((tx) => this.runPreview(tx, draft, null));
+  }
+
+  /** FB-10: the SAVED draft against the model in effect, on the open quotes. 404 when there is no draft. */
+  async previewScoringDraft(withTx: AdminWithTx): Promise<ScoringPreviewResponse> {
     return withTx(async (tx) => {
-      const [activeRow, recent] = await Promise.all([
-        getScoringModel(tx, now),
-        recentQuotesForPreview(tx, SCORING_PREVIEW_QUOTES),
-      ]);
-      const current = activeRow
-        ? (() => {
-            try {
-              return parseScoringModel(scoringModelInputFromRow(activeRow));
-            } catch {
-              return null;
-            }
-          })()
-        : null;
-      const facts = await loadScoringFactsMany(
-        tx,
-        recent.map((q) => q.id),
-      );
-      const preview = previewScoringChange(
-        current,
-        draft,
-        recent.map((q) => ({ id: q.id, facts: facts.get(q.id) ?? {} })),
-        now,
-      );
-      const byId = new Map(recent.map((q) => [q.id, q]));
-      return {
-        activeVersion: activeRow?.modelVersion ?? null,
-        rows: preview.rows.map((r) => {
-          const q = byId.get(r.quoteId)!;
-          return {
-            quoteNumber: q.quoteNumber,
-            stageKey: q.stageKey,
-            status: q.status,
-            before: r.before,
-            after: r.after,
-            tierChanged: r.tierChanged,
-            rankDelta: r.rankDelta,
-          };
-        }),
-        summary: preview.summary,
-      };
+      const row = await findScoringDraft(tx);
+      if (!row) throw new ServiceProblem(404, CODES.noDraft, 'There is no draft version');
+      const draft = this.parseModel(row.modelVersion, AdminConfigService.modelBody(row));
+      return this.runPreview(tx, draft, row.modelVersion);
     });
+  }
+
+  private async runPreview(
+    tx: Tx,
+    draft: ScoringModel,
+    draftVersion: number | null,
+  ): Promise<ScoringPreviewResponse> {
+    const now = this.now();
+    const [activeRow, recent, openIds] = await Promise.all([
+      getScoringModel(tx, now),
+      openQuotesForPreview(tx, SCORING_PREVIEW_QUOTES),
+      openQuoteIds(tx),
+    ]);
+    const current = activeRow
+      ? (() => {
+          try {
+            return parseScoringModel(scoringModelInputFromRow(activeRow));
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+    const facts = await loadScoringFactsMany(
+      tx,
+      recent.map((q) => q.id),
+    );
+    const preview = previewScoringChange(
+      current,
+      draft,
+      recent.map((q) => ({ id: q.id, facts: facts.get(q.id) ?? {} })),
+      now,
+    );
+    const byId = new Map(recent.map((q) => [q.id, q]));
+    return {
+      activeVersion: activeRow?.modelVersion ?? null,
+      draftVersion,
+      openQuotes: openIds.length,
+      rows: preview.rows.map((r) => {
+        const q = byId.get(r.quoteId)!;
+        const market = (facts.get(q.id)?.quote as { market?: unknown } | null | undefined)?.market;
+        return {
+          quoteNumber: q.quoteNumber,
+          stageKey: q.stageKey,
+          status: q.status,
+          market: typeof market === 'string' ? market : null,
+          before: r.before,
+          after: r.after,
+          tierChanged: r.tierChanged,
+          pointsMoved: r.pointsMoved,
+          drivers: r.drivers,
+          rankDelta: r.rankDelta,
+        };
+      }),
+      summary: preview.summary,
+    };
   }
 
   /**
@@ -1168,12 +1215,17 @@ export class AdminConfigService {
         }),
         'The draft',
       );
-      const ids = await openQuoteIds(tx);
+      // FB-10: re-scoring open quotes is the Admin's choice (D-004 says whether); default yes (B-19).
+      const ids = body.rescoreOpen ? await openQuoteIds(tx) : [];
       await this.audit(tx, actor, meta, {
         entity: 'scoring_model',
         entityId: row.id,
         before: AdminConfigService.scoringSnapshot(before),
-        after: { ...AdminConfigService.scoringSnapshot(row), rescoreQueued: ids.length },
+        after: {
+          ...AdminConfigService.scoringSnapshot(row),
+          rescoreOpen: body.rescoreOpen,
+          rescoreQueued: ids.length,
+        },
         changeReason: body.changeReason,
         at,
       });

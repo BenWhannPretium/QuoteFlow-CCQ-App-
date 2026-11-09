@@ -239,6 +239,13 @@
       "when": 1794258070587,
       "tag": "0033_fb06_engineering_bom_two_step",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794263970138,
+      "tag": "0034_fb10_priority_calibration",
+      "breakpoints": true
     }
   ]
 }

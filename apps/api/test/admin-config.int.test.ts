@@ -487,6 +487,15 @@ describe('scoring model versions', () => {
     });
 
   it('drafts, previews, activates and rescores open quotes only', async () => {
+    // FB-10 seeds an inactive v3 draft; this test builds its own, so it discards that one first.
+    const seeded = (await scoring()).versions.filter((v) => v.status === 'draft');
+    expect(seeded).toHaveLength(1);
+    expect(seeded[0]!.changeReason).toMatch(/^FB-10/);
+    const dropped = await admin().post('/api/v1/admin/config/scoring/draft/discard', {
+      version: seeded[0]!.version,
+      changeReason: 'Replace the seeded draft with the one under test',
+    });
+    expect(dropped.statusCode, dropped.body).toBe(200);
     const before = await scoring();
     const active = before.versions.find((v) => v.status === 'active')!;
     expect(before.versions.some((v) => v.status === 'draft')).toBe(false);
@@ -516,7 +525,10 @@ describe('scoring model versions', () => {
     const preview = await as('Leadership').post('/api/v1/admin/config/scoring/preview', { model });
     expect(preview.statusCode, preview.body).toBe(200);
     const p = ScoringPreviewResponse.parse(preview.json());
-    expect(p.rows).toHaveLength(50);
+    // FB-10: the preview scores the open quotes (not just the newest 50).
+    expect(p.openQuotes).toBeGreaterThan(0);
+    expect(p.rows).toHaveLength(Math.min(p.openQuotes, 500));
+    expect(p.rows.every((r) => r.status !== 'closed')).toBe(true);
     expect(p.activeVersion).toBe(active.modelVersion);
     expect(p.summary.tierChanges).toBeGreaterThan(0);
 

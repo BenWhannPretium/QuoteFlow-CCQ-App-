@@ -66,6 +66,15 @@ test('Admin changes a reason code, the validity default and the weights; the dec
 
     // 3. Weights: a new version, edited with a live preview, then activated.
     await page.goto('/admin/scoring');
+    // FB-10 seeds an inactive v3 draft (9-box points). This flow builds its own version from the live
+    // model, so it discards the seeded draft first (fb10.spec.ts makes the same draft again when needed).
+    await expect(
+      page.getByRole('button', { name: /^(Create new version|Discard draft)$/ }),
+    ).toBeVisible();
+    if (await page.getByRole('button', { name: 'Discard draft' }).isVisible()) {
+      await page.getByRole('button', { name: 'Discard draft' }).click();
+      await saveChange(page, 'Discard');
+    }
     await page.getByRole('button', { name: 'Create new version' }).click();
     await saveChange(page, 'Create draft');
     const revenue = page.getByLabel('Weight of Estimated annual revenue');

@@ -366,7 +366,7 @@ export const adminConfigRoutes: FastifyPluginAsyncZod<{ service: AdminConfigServ
       schema: {
         tags,
         summary:
-          'Score the last 50 quotes under the active model and the given one: tier and rank changes. Writes nothing',
+          'Score the open quotes under the active model and the given (unsaved) one: tier, points and rank changes. Writes nothing',
         security,
         body: ScoringPreviewBody,
         response: { 200: ScoringPreviewResponse },
@@ -374,6 +374,20 @@ export const adminConfigRoutes: FastifyPluginAsyncZod<{ service: AdminConfigServ
     },
     async (req, reply) =>
       handleProblems(req, reply, () => service.previewScoring(tx(req), req.body.model)),
+  );
+  app.get(
+    '/admin/config/scoring/draft/preview',
+    {
+      config: read,
+      schema: {
+        tags,
+        summary:
+          'FB-10: score the open quotes under the active model and the SAVED draft, side by side (old tier, new tier, points moved). Writes nothing; 404 when there is no draft',
+        security,
+        response: { 200: ScoringPreviewResponse },
+      },
+    },
+    async (req, reply) => handleProblems(req, reply, () => service.previewScoringDraft(tx(req))),
   );
   app.post(
     '/admin/config/scoring/draft',
@@ -422,7 +436,7 @@ export const adminConfigRoutes: FastifyPluginAsyncZod<{ service: AdminConfigServ
       schema: {
         tags,
         summary:
-          'Activate the draft (effective now) and rescore open quotes in the background. Historical scores are untouched',
+          'Activate the draft (effective now; a reason is required) and, unless rescoreOpen is false, rescore open quotes in the background. Historical scores are untouched',
         security,
         body: ActivateScoringDraftBody,
         response: { 200: ActivateScoringResponse },

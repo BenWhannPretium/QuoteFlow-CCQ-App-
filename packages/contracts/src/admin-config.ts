@@ -294,7 +294,15 @@ export const UpdateScoringDraftBody = z.object({
 });
 export type UpdateScoringDraftBody = z.infer<typeof UpdateScoringDraftBody>;
 
-export const ActivateScoringDraftBody = z.object({ version, changeReason });
+export const ActivateScoringDraftBody = z.object({
+  version,
+  changeReason,
+  /**
+   * FB-10: rescore the open quotes in the background after activating (default yes). No: open quotes keep
+   * their stored score and tier until their next recalculation (an input change or a gate decision).
+   */
+  rescoreOpen: z.boolean().default(true),
+});
 export type ActivateScoringDraftBody = z.infer<typeof ActivateScoringDraftBody>;
 
 export const DiscardScoringDraftBody = z.object({ version, changeReason });
@@ -304,14 +312,25 @@ export const ScoringPreviewBody = z.object({ model: ScoringModelBody });
 const previewSide = z.object({ score: z.number(), tier: z.string(), rank: z.number().int() });
 export const ScoringPreviewResponse = z.object({
   activeVersion: z.number().int().nullable(),
+  /** FB-10: the saved draft previewed (null when the preview is of unsaved edits). */
+  draftVersion: z.number().int().nullable(),
+  /** FB-10: open quotes in all; `summary.quotes` is how many of them were scored (capped). */
+  openQuotes: z.number().int(),
   rows: z.array(
     z.object({
       quoteNumber: z.string(),
       stageKey: z.string(),
       status: z.string(),
+      market: z.string().nullable(),
       before: previewSide.nullable(),
       after: previewSide,
       tierChanged: z.boolean(),
+      /** FB-10: after − before, one decimal. */
+      pointsMoved: z.number(),
+      /** FB-10: the attributes whose points changed (biggest weighted change first). */
+      drivers: z.array(
+        z.object({ key: z.string(), label: z.string(), before: z.number(), after: z.number() }),
+      ),
       rankDelta: z.number().int(),
     }),
   ),
@@ -321,6 +340,9 @@ export const ScoringPreviewResponse = z.object({
     rankChanges: z.number().int(),
     movedUp: z.number().int(),
     movedDown: z.number().int(),
+    avgPointsMoved: z.number(),
+    maxPointsUp: z.number(),
+    maxPointsDown: z.number(),
     byTier: z.array(
       z.object({
         tier: z.string(),

@@ -22,7 +22,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 import { finalReviewQueueKey, reviewSummaryKey } from './final-review/keys';
-import { QualificationWarnings, ScoreBreakdownTable } from './Priority';
+import { GuardrailNote, QualificationWarnings, ScoreBreakdownTable } from './Priority';
 
 /**
  * Plain words for the rules' field paths (B-11, B-26); other rules show their message. Shared with the
@@ -272,6 +272,7 @@ export function GateDecisionDialog({
         {quote.data && (
           <div className="grid gap-4">
             <QualificationWarnings warnings={quote.data.warnings} />
+            <GuardrailNote text={quote.data.intakeFacts.guardrailWarning} />
 
             <details
               className="rounded-md border px-3 py-2"

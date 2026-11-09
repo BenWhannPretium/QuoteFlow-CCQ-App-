@@ -102,6 +102,8 @@ export const PUBLIC_SETTING_KEYS = [
   'intake_min_spec_fields',
   // FB-11 intake commercial inputs (provisional)
   'standard_payment_terms',
+  // FB-10 (F-066): the platform-minimum warning (seeded off, provisional)
+  'intake_guardrails',
   'salesforce_new_opportunity_url',
   // B-09 overrides (the per-field config reaches the quote page as QuoteDetail.overridableFields)
   'override_justification_min_length',

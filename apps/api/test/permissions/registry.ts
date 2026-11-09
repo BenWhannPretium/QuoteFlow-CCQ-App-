@@ -162,6 +162,8 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'config.read',
     sampleBody: { model: { attributes: [], tiers: [], unknownScore: 50 } },
   },
+  // FB-10: the saved draft against the live model on the open quotes (allowed roles get 404 or 200).
+  { method: 'GET', route: '/api/v1/admin/config/scoring/draft/preview', permission: 'config.read' },
   {
     method: 'POST',
     route: '/api/v1/admin/config/scoring/draft',

@@ -42,6 +42,7 @@ export default defineConfig({
         'g1.spec.ts',
         'overrides.spec.ts',
         'fb04.spec.ts',
+        'fb10.spec.ts',
         'engineering.spec.ts',
         'pricing.spec.ts',
         'outcome.spec.ts',

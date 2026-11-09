@@ -19,6 +19,10 @@ import {
   SCORING_MODEL_V2_INPUT,
   COMMENT_EMAIL_COLLAPSE_MINUTES_SEED,
   ROI_REQUIRED_WHEN_SEED,
+  SCORING_DRAFT_V3_CHANGE_REASON,
+  SCORING_MODEL_V3_INPUT,
+  INTAKE_GUARDRAILS_SEED,
+  VOLUME_ROUTING_SEED,
 } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
@@ -204,6 +208,19 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: {},
     description:
       'Warn (never block) below these annual volumes, keyed by process_type code. D-06 open.',
+  },
+  // ── FB-10 (T-011, F-066, D-004 open). Both seeded OFF, provisional.
+  {
+    key: 'g1_volume_routing',
+    value: VOLUME_ROUTING_SEED,
+    description:
+      'FB-10 (T-011, D-004 open): volume-band routing at intake, seeded OFF. When enabled, a submitted quote whose metric (est_annual_volume or est_annual_revenue) is outside [min, max) goes to the sales leader to qualify (G1); one inside the band goes straight to Engineering (SUBMIT). A missing value goes to the sales leader. It replaces g1_enabled for the submit, so G1 must be on to switch it on. The tracker words T-011 as revenue bands; the platform guide gives volumes, so the metric is a setting. Seed: min 1,000,000 units (the lowest platform minimum), no maximum. Provisional until D-004 sets the band.',
+  },
+  {
+    key: 'intake_guardrails',
+    value: INTAKE_GUARDRAILS_SEED,
+    description:
+      'FB-10 (F-066, T-025, D-004 open): non-blocking platform-minimum warning at intake, seeded OFF until Danielle Leu confirms the column mapping of the machine platform guide. minAnnualVolumeByProcess = new-mold planning minimum (units/yr) by process_type; while the platform is not known the lowest minimum applies. The warning is shown on the intake and kept on the quote for G1; it never blocks a submit.',
   },
   {
     key: 'qualification_exception_note_outcomes',
@@ -469,6 +486,33 @@ export async function seedScoringModel(db: DbOrTx): Promise<void> {
       .values({ ...SCORING_MODEL_V2, provisional: true })
       .onConflictDoNothing();
   }
+  await seedScoringDraftV3(db);
+}
+
+/**
+ * FB-10 (F-073, D-004 open): v3, an INACTIVE draft (no effective_from) with strategic-fit points by market
+ * from the 9-box. The live model is not touched. Inserted once: not when a draft already exists, nor when an
+ * FB-10 version was made before (an Admin who discarded or activated it is not given another). Existing
+ * environments get the same draft, copied from the model in effect, from migration 0034.
+ */
+async function seedScoringDraftV3(db: DbOrTx): Promise<void> {
+  const rows = await db
+    .select({
+      version: scoringModel.modelVersion,
+      effectiveFrom: scoringModel.effectiveFrom,
+      changeReason: scoringModel.changeReason,
+    })
+    .from(scoringModel);
+  if (rows.some((r) => r.effectiveFrom === null || r.changeReason.startsWith('FB-10'))) return;
+  const version = Math.max(0, ...rows.map((r) => r.version)) + 1;
+  await db.insert(scoringModel).values({
+    ...scoringModelRow(
+      { ...SCORING_MODEL_V3_INPUT, version },
+      { effectiveFrom: new Date(), changeReason: SCORING_DRAFT_V3_CHANGE_REASON },
+    ),
+    effectiveFrom: null,
+    provisional: true,
+  });
 }
 
 /**
