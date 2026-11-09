@@ -1,3 +1,6 @@
 # False positive: prose in a build-guide doc ("API: `fb05-...int.test.ts` (21 tests") read as a generic API key.
 # The line is reworded in the next commit; the fingerprint is for the commit that first contained it.
 628d39f52070dba6f22cb4cf69fd4801027de965:docs/build-guide/03-build-steps.md:generic-api-key:1040
+# False positive: prose in a build-guide doc ("API: `fb10-...int.test.ts` (the seeded draft") read as a generic API key.
+# The line is reworded in a later commit; the fingerprint is for the commit that first contained it.
+004e8bf18618d648e22ecdde38f724119ffed41c:docs/build-guide/03-build-steps.md:generic-api-key:1161
