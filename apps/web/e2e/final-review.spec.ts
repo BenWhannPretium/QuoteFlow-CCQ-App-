@@ -179,7 +179,11 @@ test('an Approver approves one quote and declines another from a phone', async (
   await expect(page.getByTestId('review-capital')).toContainText(
     'Capital pre-approved (budgetary)',
   );
-  await expect(page.getByTestId('review-attachments')).toContainText('No files are attached');
+  // FB-07 (F-031): the costing model is on the quote, and the steps show it at Final Review.
+  await expect(page.getByTestId('review-attachments')).toContainText('cost_model.synthetic.xlsx');
+  await expect(page.getByTestId('quoting-steps').getByTestId('model-cost_model')).toContainText(
+    'v1 · current',
+  );
   await expect(page.getByTestId('review-decisions')).toContainText('G3');
   await expect(page.getByTestId('full-timeline-link')).toBeVisible();
   expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);

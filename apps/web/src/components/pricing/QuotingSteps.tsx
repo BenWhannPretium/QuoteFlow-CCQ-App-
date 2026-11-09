@@ -314,6 +314,8 @@ function ModelUpload({
         type="file"
         accept={ACCEPT}
         className="sr-only"
+        aria-label={label}
+        tabIndex={-1}
         data-testid={`upload-${kind}`}
         onChange={(e) => pick(e.target.files?.[0])}
       />
