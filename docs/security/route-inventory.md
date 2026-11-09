@@ -5,7 +5,7 @@
 > `routeMatrix.test.ts` fails if this file is stale, and `test/permissions/matrix.int.test.ts` sends
 > every route below as every role (allowed: not 401/403; denied: 403 problem+json) and anonymously (401).
 
-121 routes: 3 public, 6 for any signed-in role, 112 gated by a matrix permission.
+122 routes: 3 public, 6 for any signed-in role, 113 gated by a matrix permission.
 
 Qualified grants (own, assigned, fields, stages) pass the route gate; the service then checks the
 quote with `assertCan`, and Postgres RLS enforces the data scope as the second layer.
@@ -27,6 +27,7 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | PUT | `/api/v1/admin/config/scoring/draft` | `config.manage` | Admin |  |
 | POST | `/api/v1/admin/config/scoring/draft/activate` | `config.manage` | Admin |  |
 | POST | `/api/v1/admin/config/scoring/draft/discard` | `config.manage` | Admin |  |
+| GET | `/api/v1/admin/config/scoring/draft/preview` | `config.read` | Leadership, Admin |  |
 | POST | `/api/v1/admin/config/scoring/preview` | `config.read` | Leadership, Admin |  |
 | GET | `/api/v1/admin/config/settings` | `config.read` | Leadership, Admin |  |
 | PATCH | `/api/v1/admin/config/settings/:key` | `config.manage` | Admin |  |
