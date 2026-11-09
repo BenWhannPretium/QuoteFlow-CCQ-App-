@@ -260,7 +260,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design â€º Quote Flow â€
 | 9-box grid; machine platform guide (MOQs) | Melanie Rasche; Danielle Leu | A-009, A-010 (received). Copied 2026-11-05 to `feedback/inputs/9-box.md` (placement and points to confirm; grid is by segment) and `platform-guide.md` (column mapping to confirm) | FB-04 mechanism, FB-10 values |
 | Standard cost-model template | Gemma Cebolla, Kyle Arnold | new | FB-07 (F-031) |
 | Standard payment terms and exceptions | Gemma Cebolla | A-012, A-022 | FB-08 |
-| Blank Engineering Program Office project workbook and the minimum quote-time fields (the Hormel copy holds a real customer's data: do not send or commit it) | Kal Kaliszewski | A-030 (workbook walked through Nov 6) | FB-06 (F-058) |
+| Kal's minimum quote-time fields. **The blank template was already sent**: Kal emailed Bailey (cc Ben) on 2026-11-04 a link to *Pretium Project Workbook Template.xlsx* (SharePoint site AutomationAPTeam). The Hormel copy holds a real customer's data: do not send or commit it | Kal Kaliszewski | A-030 (workbook walked through Nov 6) | FB-06 (F-058) |
 | Standard costing-model template and Stacy Slocum's ROI template, with the cell map | Gemma Cebolla; Stacy Slocum | A-031 | FB-07 (one-page summary; uploads can be built without them) |
 | A Finance app role and group in Entra for Stacy Slocum | Vincent Brown (IT) | A-032 | FB-07 (F-083) |
 | Standard for returnable and single-trip dunnage; whether safety stock belongs at intake | Bailey Schmitt; Gemma Cebolla; Faron Ipox | A-033 | FB-11 (F-063) |
