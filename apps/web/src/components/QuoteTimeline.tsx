@@ -8,15 +8,6 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 
-import { CommentBody } from './CommentBody';
-import { ConfirmDialog } from './ConfirmDialog';
-import { EmptyState } from './EmptyState';
-import { ErrorState } from './ErrorState';
-import { quoteQueryKey } from './GateDecisionDialog';
-import { formatOverrideValue, overrideInboxQueryKey, timelineQueryKey } from './Overrides';
-import { SkeletonRows } from './Skeletons';
-import { Timeline, type TimelineItem } from './Timeline';
-
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
@@ -25,6 +16,15 @@ import { describeError } from '@/lib/errors';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+
+import { CommentBody } from './CommentBody';
+import { ConfirmDialog } from './ConfirmDialog';
+import { EmptyState } from './EmptyState';
+import { ErrorState } from './ErrorState';
+import { quoteQueryKey } from './GateDecisionDialog';
+import { formatOverrideValue, overrideInboxQueryKey, timelineQueryKey } from './Overrides';
+import { SkeletonRows } from './Skeletons';
+import { Timeline, type TimelineItem } from './Timeline';
 
 const FILTERS: { key: TimelineFilter; label: string }[] = [
   { key: 'all', label: 'All' },

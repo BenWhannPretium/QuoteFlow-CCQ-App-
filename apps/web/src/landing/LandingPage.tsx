@@ -2,10 +2,6 @@ import { ANALYTICS_DISCLAIMER, DASHBOARD_ROLES, type DashboardRole } from '@ccq/
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
-import { RoleDashboard } from './Dashboards';
-import { LANDINGS, landingFor, landingRolesFor, type LandingDefinition } from './landings';
-import { quickstartHref } from './quickstart';
-
 import { canFromMe, useCurrentUser } from '@/auth';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -17,6 +13,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
+
+import { RoleDashboard } from './Dashboards';
+import { LANDINGS, landingFor, landingRolesFor, type LandingDefinition } from './landings';
+import { quickstartHref } from './quickstart';
 
 /**
  * F-02 role landing: the dashboard for the user's primary role (multi-role users get tabs). The blocks

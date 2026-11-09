@@ -8,8 +8,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightIcon, ClockIcon, PencilIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { quoteQueryKey } from './GateDecisionDialog';
-
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +24,8 @@ import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+
+import { quoteQueryKey } from './GateDecisionDialog';
 
 /** Query keys the override actions invalidate (quote page, timeline, inbox, log). */
 export const timelineQueryKey = (quoteNumber: string) => ['timeline', quoteNumber] as const;

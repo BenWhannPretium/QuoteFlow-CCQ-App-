@@ -5,14 +5,14 @@ import type { AuthConfigResponse, DevPersona } from '@ccq/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
+import { api, isApiError } from '@/lib/api';
+
 import { AuthContext, type AuthContextValue } from './context';
 import { EnvironmentBanner } from './EnvironmentBanner';
 import { createMsal } from './msal';
 import { AuthErrorPage, LoadingPage, NoRolePage, SignInPage } from './pages';
 import { DEV_PERSONA_STORAGE_KEY, meQueryKey } from './permissions';
 import { devSession, entraSession, RedirectingError, setAuthSession } from './session';
-
-import { api, isApiError } from '@/lib/api';
 
 /**
  * Wraps the app: unauthenticated users get the branded sign-in page; signed-in users have `/me`

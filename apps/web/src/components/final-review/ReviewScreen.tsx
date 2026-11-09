@@ -11,6 +11,12 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
+import { Button, buttonVariants } from '@/components/ui/button';
+import { stageLabel, usePublicConfig } from '@/config/public-config';
+import { api } from '@/lib/api';
+import { absoluteTime, relativeTime } from '@/lib/time';
+import { cn } from '@/lib/utils';
+
 import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
@@ -25,12 +31,6 @@ import { PriorityBadge, ScoreBreakdownTable } from '../Priority';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
 import { reviewSummaryKey } from './keys';
-
-import { Button, buttonVariants } from '@/components/ui/button';
-import { stageLabel, usePublicConfig } from '@/config/public-config';
-import { api } from '@/lib/api';
-import { absoluteTime, relativeTime } from '@/lib/time';
-import { cn } from '@/lib/utils';
 
 const money = (n: number | null | undefined) =>
   n === null || n === undefined ? null : `$${n.toLocaleString('en-US')}`;

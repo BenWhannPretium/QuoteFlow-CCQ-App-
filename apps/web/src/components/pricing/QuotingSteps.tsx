@@ -9,15 +9,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleDashedIcon, CircleDotIcon, UploadIcon } from 'lucide-react';
 import { useId, useRef, useState, type ReactNode } from 'react';
 
-import { quoteQueryKey } from '../GateDecisionDialog';
-import { timelineQueryKey } from '../Overrides';
-
 import { AttachmentDownloadLink, attachmentsQueryKey } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
 import { api, isApiError, uploadAttachment } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+
+import { quoteQueryKey } from '../GateDecisionDialog';
+import { timelineQueryKey } from '../Overrides';
 
 /**
  * FB-07 (D-001, decided Nov 9): costing, then ROI, then price approved, as steps inside Quoting.

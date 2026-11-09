@@ -18,10 +18,6 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { FilterXIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { EngineeringLens } from './EngineeringLens';
-import { RatePair } from './RatePair';
-import { Boundary, Section, useChart } from './shared';
-
 import { canFromMe, useCurrentUser } from '@/auth';
 import {
   Bars,
@@ -50,6 +46,10 @@ import {
 import { api } from '@/lib/api';
 import type { PipelineSearch } from '@/lib/pipeline-search';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
+
+import { EngineeringLens } from './EngineeringLens';
+import { RatePair } from './RatePair';
+import { Boundary, Section, useChart } from './shared';
 
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());

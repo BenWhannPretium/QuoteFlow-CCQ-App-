@@ -2,9 +2,9 @@ import type { MeResponse } from '@ccq/contracts';
 import { permissionsForRoles, type Role } from '@ccq/domain';
 import { describe, expect, it } from 'vitest';
 
-import { isNavItemActive, navItemsFor, splitTabs, type NavItem } from './nav';
-
 import { landingFor, landingRolesFor } from '@/landing/landings';
+
+import { isNavItemActive, navItemsFor, splitTabs, type NavItem } from './nav';
 
 const meFor = (...roles: Role[]): MeResponse => ({
   user: { id: '0192f0c0-0000-7000-8000-000000000001', displayName: 'T', upn: 't', email: null },

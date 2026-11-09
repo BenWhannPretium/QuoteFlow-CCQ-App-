@@ -10,11 +10,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlertIcon, ClockIcon, HandshakeIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
-import { quoteQueryKey, sfReminderKey } from '../GateDecisionDialog';
-import { KeyValueGrid } from '../KeyValueGrid';
-import { timelineQueryKey } from '../Overrides';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
@@ -22,6 +17,11 @@ import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+
+import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import { quoteQueryKey, sfReminderKey } from '../GateDecisionDialog';
+import { KeyValueGrid } from '../KeyValueGrid';
+import { timelineQueryKey } from '../Overrides';
 
 // B-13: the Customer Decision header (validity countdown, SF stage side by side), the closure record
 // and the hand-off record. B-26: the hand-off belongs to Stage 6 (Commit & Hand Off), where the CER is

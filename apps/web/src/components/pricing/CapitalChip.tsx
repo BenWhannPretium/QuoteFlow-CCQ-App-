@@ -1,8 +1,8 @@
 import type { CapitalReadiness } from '@ccq/contracts';
 
-import { CAPITAL_LABELS } from './QuotingTab';
-
 import { cn } from '@/lib/utils';
+
+import { CAPITAL_LABELS } from './QuotingTab';
 
 const CAPITAL_STYLE: Record<CapitalReadiness, string> = {
   not_required: 'bg-secondary text-secondary-foreground',

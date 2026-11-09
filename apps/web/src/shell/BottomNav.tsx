@@ -1,9 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { MoreHorizontalIcon } from 'lucide-react';
 
-import { isNavItemActive, splitTabs, type NavItem } from './nav';
-import { NAV_ICONS } from './NavIcon';
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +8,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+
+import { isNavItemActive, splitTabs, type NavItem } from './nav';
+import { NAV_ICONS } from './NavIcon';
 
 const tabClass =
   'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[0.6875rem] font-medium';

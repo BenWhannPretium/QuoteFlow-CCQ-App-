@@ -2,6 +2,10 @@ import type { Approval } from '@ccq/contracts';
 import { ArrowDownIcon, ArrowUpIcon, ListOrderedIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { EmptyState } from '@/components/EmptyState';
+import { Button } from '@/components/ui/button';
+import { Input, NativeSelect } from '@/components/ui/input';
+
 import {
   ApprovalBadge,
   ChangeDialog,
@@ -9,10 +13,6 @@ import {
   useCanEditConfig,
   type ChangeSubmit,
 } from './shared';
-
-import { EmptyState } from '@/components/EmptyState';
-import { Button } from '@/components/ui/button';
-import { Input, NativeSelect } from '@/components/ui/input';
 
 /** A value-list entry or a reason code, as the list editor sees it. */
 export interface ListItem {

@@ -1,9 +1,9 @@
 import { AlertTriangleIcon, CheckIcon, CircleAlertIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { STEPS } from './model';
-
 import { cn } from '@/lib/utils';
+
+import { STEPS } from './model';
 
 /**
  * One labelled control with its one-line "why we ask" help (config `intake_field_help`), an

@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { formatDuration } from './format';
-
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+
+import { formatDuration } from './format';
 
 export const stageTimesQueryKey = (quoteNumber: string) => ['stage-times', quoteNumber] as const;
 

@@ -9,6 +9,10 @@ import {
 import { CheckCircle2Icon, PencilIcon, Undo2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { AttachmentsPanel } from '@/components/attachments/Attachments';
+import { Button } from '@/components/ui/button';
+import { Input, NativeSelect, Textarea } from '@/components/ui/input';
+
 import {
   FIELD_META,
   formatAddress,
@@ -23,10 +27,6 @@ import {
   type WizardConfig,
 } from './model';
 import { Field, Notice, ReadOnlyValue, Reveal, Section, SfTag } from './ui';
-
-import { AttachmentsPanel } from '@/components/attachments/Attachments';
-import { Button } from '@/components/ui/button';
-import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 
 export interface StepProps {
   data: IntakeDraftData;

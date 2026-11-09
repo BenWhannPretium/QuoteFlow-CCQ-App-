@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router';
 import { SearchIcon } from 'lucide-react';
 
+import { UserMenu } from '@/auth';
+
 import { GlobalSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
 import { Wordmark } from './Wordmark';
-
-import { UserMenu } from '@/auth';
 
 /**
  * Mobile: the green band with the wordmark. From 641 px: a paper top bar beside the rail (the

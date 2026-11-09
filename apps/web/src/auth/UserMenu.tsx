@@ -8,9 +8,6 @@ import {
   SunIcon,
 } from 'lucide-react';
 
-import { useAuth } from './context';
-import { useCan, useCurrentUser } from './hooks';
-
 import { openReportIssue } from '@/components/feedback/ReportIssue';
 import {
   DropdownMenu,
@@ -24,6 +21,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { isThemePreference } from '@/theme/theme';
 import { useTheme } from '@/theme/ThemeProvider';
+
+import { useAuth } from './context';
+import { useCan, useCurrentUser } from './hooks';
 
 const initials = (name: string) =>
   name

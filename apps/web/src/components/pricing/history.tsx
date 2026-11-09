@@ -8,9 +8,9 @@ import type {
 import { ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { KeyValueGrid } from '../KeyValueGrid';
-
 import { cn } from '@/lib/utils';
+
+import { KeyValueGrid } from '../KeyValueGrid';
 
 /**
  * B-15 (revised): how a record from the imported legacy pricing history is shown. Read-only: nothing
