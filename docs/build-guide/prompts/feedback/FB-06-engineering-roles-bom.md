@@ -1,6 +1,6 @@
 # FB-06 · Engineering roles, equipment BOM, two-step, pack-out, estimate workbook
 
-**Run with:** Claude Code · **Sonnet 5.5 · high effort**, or **Opus 5.5 · high** if D-008 chooses several engineers per quote (that changes assignment, locks and lead review) · Wave 3, gated · one draft PR
+**Run with:** Claude Code · **Sonnet 5.5 · high effort**, or **Opus 5.5 · high** if D-008 chooses several engineers per quote (that changes assignment, locks and lead review) · Wave 3, **F-058 ready now, the rest gated** · one draft PR
 **Tracker items:** F-058, F-062, F-024, F-025, F-026 · tests T-008, T-033 · **Gated on:** D-008 (roles), D-007 (two-step), A-003 (Kal's BOM template and component list; session Nov 6), A-014 (two-step and pack-out follow-up), the engineering estimate workbook (Paul Slomkowski; needed for F-026)
 
 **Paste into Claude Code from the repo root.**
@@ -37,14 +37,17 @@ This step is **gated**. Before writing code:
 - Conventional Commits (`feat(intake): …`), a draft PR, and the repo's PR template.
 
 ## What we know already (2026-11-05)
+- **Kal's Project Book Review (Nov 6; D-033).** The Engineering Program Office keeps a project workbook: charter, scope, the equipment BOM in 11 sections (injection, blow, downstream, infrastructure and more), a **one-page CSR BOM** (scope, assumptions, high-level cost by category, total), resource sheets, a scope-change document, an action register and lessons learned. At quote time Engineering gives a **generic ballpark**; the one-pager is what goes with the ERF, and the detailed BOM follows after CER approval, usually slightly smaller. **Every BOM line carries C (capital) or P (customer paid)**; use the same wording. The workbook has a tax column that is not automated and no plant tax table yet (A-034). Kal's Hormel copy holds a real customer's data: **never commit or paste it**; use a synthetic fixture.
+- **Multi-item bids (Nov 6):** Danielle Leu and Kal agree each item needs the same information as a standalone request and suggest duplicate-and-edit. That is F-084 (P1) and not in this step.
 - **A-006 (Paul Slomkowski, Nov 4):** Paul is the Engineering Lead (approver). Randy Neiberger and Rafael Pasillas are the engineers, assigned by project × request type (e.g. PET × ISBM). That points to **one assignee chosen by type** (the build today), not several per quote. Confirm under D-008.
 - `Engineering Projects Template - Copy.xlsx` in the Quote Flow folder is a **post-award** project and CER template (charter, EPO BOM, CER BOM). It isn't the engineering estimate workbook F-026 needs. Its EPO/CER BOM tabs may help F-058, so compare them with Kal's template.
 - The build today has one `quote.assigned_engineer_id`, free-text `downstreamEquipmentNotes` and `equipmentBomNotes` (≤ 4000), and no two-step or pack-out fields.
 
 ## Build, by decision outcome
-- **F-058: one required equipment BOM** (Kal Kaliszewski, Danielle Leu; V-029, V-030).
-  - Merge "downstream equipment" and "equipment BOM" into one **Equipment BOM** section: rows of component (from Kal's component list, value list `equipment_component`, provisional until Kal signs off), description, quantity, and **capital cost (USD, numeric(14,2))**, plus a template upload (attachment kind `equipment_bom`).
-  - Required to advance G2 with "capital required" (make it a G2 rule in config).
+- **F-058: one required equipment BOM upload** (Kal Kaliszewski, Danielle Leu; V-029, V-030; D-033). **Ready now.**
+  - Merge "downstream equipment" and "equipment BOM" into one **Equipment BOM** section built around an upload (attachment kind `equipment_bom`, versioned like FB-07's models if that has merged, otherwise the plain kind). Accept the Engineering Program Office workbook or its one-page CSR BOM.
+  - Required to advance G2 with "capital required" (a G2 rule in config). Show the file, version, uploader and date to Pricing and at Final Review.
+  - Do **not** rebuild the BOM as in-app rows. Extraction of the C / P totals waits for Kal's blank template (A-030); until then no extraction.
   - Migrate the two free-text fields into a read-only "Legacy notes" block. Deprecate those columns.
 - **F-062: engineer assignment.**
   - If D-008 = one assignee by type: add **routing suggestions** (setting `engineering_assignment_rules`: process type × resin → suggested engineer, provisional). The lead still assigns.

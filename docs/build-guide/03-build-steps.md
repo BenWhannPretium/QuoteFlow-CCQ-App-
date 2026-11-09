@@ -785,6 +785,8 @@ Read on 2026-11-05 against the code on `main` (`afd6597`). There are 58 Build Ba
 
 **Bottom line:** of the 47 P0 items, **26 can be built now** (bucket A) and **3 more as provisional config** (bucket B: F-005, F-073, F-075). Three are already built and only need verifying, 13 wait on a decision or input (bucket C), and 2 are not code (bucket D). F-061 (P1) rides along with FB-03 because it touches the same code. They fit in **5 prompts** (FB-01 to FB-05). The remaining P0 work fits in **5 prompts** (FB-06 to FB-10), each held until its decision or input arrives. Each of those prompts begins with a stop check.
 
+**Update 2026-11-09 (Nov 6 pricing and Engineering Program Office meetings, Nov 9 ROI session).** D-001 is answered, so **FB-07 is unblocked**. Pricing's intake asks became a new small step, **FB-11**, which can start now. **FB-06** is partly unblocked: the equipment BOM upload (F-058) can start, the rest still waits. **FB-08** is partly unblocked: terms and funding at intake moved to FB-11; the standard term, the exception approver and the extra approval for customer-funded quotes are still open. New decisions D-031 to D-033 and the new rows F-080 to F-085 are in [`feedback/tracker-updates-2026-11-09.md`](feedback/tracker-updates-2026-11-09.md) (paste-ready for the tracker).
+
 ### How to run them
 
 **Grouping rule:** each prompt covers one area of the code (workflow engine, intake, engineering, qualification, notifications). Items that touch the same files share a PR, so two parallel sessions don't edit the same file. That gives 5 PRs for the work that can start now, not 27.
@@ -796,18 +798,19 @@ Read on 2026-11-05 against the code on `main` (`afd6597`). There are 58 Build Ba
 | **FB-03** | Engineering review and capacity | F-057 (part), F-059, F-061, F-064; F-023 display | 1 | **Sonnet 5.5 · high** | One area of the code, a clear formula, well-specified fields |
 | **FB-04** | Qualification, funding wording, Salesforce link | F-005 (calculation), F-022, F-065, F-073 (mechanism), F-076, V-055 | 2 | **Sonnet 5.5 · medium** | Mostly config, settings and copy, with clear acceptance criteria |
 | **FB-05** | Notifications: hand-offs, returns, comments | F-034, F-079 (+ F-003 check) | 2 | **Sonnet 5.5 · high** | The notification framework exists; this step wires the declared targets. It needs FB-01's new outcomes |
-| FB-06 | Engineering roles, BOM, two-step, pack-out, estimate workbook | F-024, F-025, F-026, F-058, F-062 | 3 (gated) | Sonnet 5.5 · high (**Opus 5.5 · high** if D-008 chooses several engineers per quote) | Several assignees changes assignment, locks and lead review |
-| FB-07 | Costing, pricing and ROI structure; cost model upload and versions | F-031, F-032, F-074 | 3 (gated) | **Opus 5.5 · high** | A new gate or parallel steps in the stage model, plus workbook extraction |
-| FB-08 | Commercial terms and Final Review | F-021, F-068, T-007, T-031; D-002 tiers | 3 (gated) | **Opus 5.5 · high** | Moves edit rights between roles and adds an approval route |
+| FB-06 | Engineering roles, BOM, two-step, pack-out, estimate workbook | F-024, F-025, F-026, F-058, F-062 | 3 (F-058 can start now; the rest gated) | Sonnet 5.5 · high (**Opus 5.5 · high** if D-008 chooses several engineers per quote) | Several assignees changes assignment, locks and lead review |
+| FB-07 | Costing, ROI and price confirmation in sequence; cost and ROI model uploads and versions; Finance role | F-031, F-032, F-074, F-081, F-083 | **Ready (D-001 decided Nov 9)** | **Opus 5.5 · high** | New G3 rules and parts inside Quoting, a new role, a rename and a migration for open quotes |
+| FB-08 | Commercial terms and Final Review | F-021, F-068, F-082, T-007, T-031; D-002 tiers | 3 (partly gated) | **Opus 5.5 · high** | Moves edit rights between roles and adds an approval route |
 | FB-09 | Data standards and value lists | F-012, F-019, F-020, F-057 (plants); D-006 mandatory list | 3 (gated) | **Sonnet 5.5 · medium** | Seeds, settings and caps |
 | FB-10 | Priority calibration | F-005 (weights), F-073 (points), F-066 (P1 guardrails) | 3 (gated) | **Sonnet 5.5 · medium** | Config values with a preview and tests |
+| **FB-11** | Intake commercial inputs: payment terms, customer funding, dunnage, delivery and freight, bid reference | F-080, F-063 (dunnage), F-085 | **Ready (D-032, Nov 6)** | **Sonnet 5.5 · high** | One area of the code (intake and the Commercial panel), clear fields, no new workflow |
 
 **Effort:** don't use *low* in this repo. Every change has to keep the RLS, permission-matrix and Fabric guard tests green, and low effort tends to skip them. Medium is right only where the prompt is mostly config. Fable 5.1 isn't needed for any step.
 
 **Order and parallel runs:**
 1. **Wave 1: start FB-01, FB-02 and FB-03 together** in three sessions. They touch different code. Merge them in the order **FB-01 → FB-03 → FB-02**: the smallest diffs first, and FB-02 rebases last because it is the largest.
 2. **Wave 2: start FB-04 and FB-05 together after FB-01 merges.** FB-05 needs FB-01's new outcomes. FB-04 is independent, but waiting keeps it off the gate-service files while FB-01 is open.
-3. **Wave 3: run each of FB-06 to FB-10 as soon as its decision is recorded** in the tracker (Decision Log → Decided) and in `04` §2a. Expected: D-001 and D-003 at the ROI & capital session on Nov 9; the Engineering items after Kal's BOM session (Nov 6) and the roles session; D-004 and D-016 at the decision session with Oleg.
+3. **Wave 3 (updated 2026-11-09): FB-11 and FB-07 can start now, and F-058 of FB-06. Run the rest of FB-06 to FB-10 as soon as its decision is recorded** in the tracker (Decision Log → Decided) and in `04` §2a. Expected: D-001 and D-003 at the ROI & capital session on Nov 9; the Engineering items after Kal's BOM session (Nov 6) and the roles session; D-004 and D-016 at the decision session with Oleg.
 
 **Migration numbering:** the three Wave 1 prompts each add a migration. Each prompt uses the next free number when it starts. Before opening or merging the PR, the session fetches `main`. If another migration has landed, it rebases and renumbers its own: the file name, its `meta/NNNN_snapshot.json`, and its `idx` and `tag` in `meta/_journal.json`. Then it re-runs `pnpm test:integration`. Every prompt contains this rule.
 
@@ -1063,17 +1066,25 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Left for later:** due dates (F-072, D-020); a closures digest; Teams / SLA alerts (D-20); an Admin screen for the `notify` targets of an outcome (they are seeded and migrated only).
 - **Prompt:** `prompts/feedback/FB-05-notifications.md`
 
-### FB-06: Engineering roles, equipment BOM, two-step, pack-out, estimate workbook · **Wave 3, gated** · Ben
-- **Stop until:** D-008 is decided (roles), A-003 is in (Kal's BOM template and component list), and D-007 is decided (two-step). F-025 also needs Engineering to confirm it (A-014), and F-026 needs the engineering estimate workbook from Paul Slomkowski. The `Engineering Projects Template - Copy.xlsx` in the folder is a post-award project/CER template, not the estimate workbook.
+### FB-06: Engineering roles, equipment BOM, two-step, pack-out, estimate workbook · **Wave 3, partly gated** · Ben
+- **Update 2026-11-09 (Kal's Project Book Review, Nov 6; D-033).** The equipment BOM (F-058) is an **upload of the one-page CSR BOM** from the Engineering Program Office project workbook, a generic ballpark at quote time, with each line flagged C (capital) or P (customer paid). **F-058 can start now** as an upload with a required rule at G2; the in-app rows in the earlier prompt are dropped. A blank template and Kal's minimum fields are still needed (A-030) before any extraction. The `Engineering Projects Template - Copy.xlsx` in the folder is most likely this same workbook, so compare it with the CSR BOM tab. It is not the engineering estimate workbook F-026 needs.
+- **Stop until (the rest of the step):** D-008 is decided (roles) and D-007 (two-step). F-025 also needs Engineering to confirm it (A-014), and F-026 needs the engineering estimate workbook from Paul Slomkowski.
 - **Done when:** each item's tracker acceptance criteria pass (F-024, F-025, F-026, F-058, F-062; T-008, T-033); change-log procedure done.
 - **Prompt:** `prompts/feedback/FB-06-engineering-roles-bom.md`
 
-### FB-07: Costing, pricing and ROI structure; cost model upload and versions · **Wave 3, gated** · Ben
-- **Stop until:** D-001 is decided at the ROI & capital session (Oleg, Gemma Cebolla, Stacy Slocum; Nov 9), and Pricing has supplied the standard cost-model template.
-- **Done when:** F-031, F-032 and F-074 acceptance criteria pass (T-017, T-034); the stage model change ships as config with a migration; change-log procedure done.
+### FB-07: Costing, ROI and price confirmation in sequence; model uploads and versions; Finance role · **Ready, Wave 3** · Ben
+- **Unblocked 2026-11-09 by D-001 and D-031.** Agreed in the ROI & capital session (Bailey, Gemma Cebolla, Stacy Slocum, Oleg Yarovinski): **costing, then ROI, then price confirmation**, as steps inside Quoting. Pricing uploads the costing model (costs and the initial price assumptions). Stacy Slocum (Finance) builds the ROI from it and uploads it, only when capital is required ($0 CER included); she is an input, not an approver. The pricing lead then confirms the price (an updated price table is optional), and the quote goes to Final Review. Not a separate gate and not in parallel. The G3 name becomes **"Price approved"**.
+- **Not needed to start:** the standard templates (A-031). Build the uploads, versions and rules now; the one-page summary (D-013) follows when the cell map arrives. **Needs IT:** a Finance app role and group (A-032), requested in parallel.
+- **Done when:**
+  - [ ] **F-031 / F-074** `cost_model` and `roi_model` attachment kinds with version history (the latest flagged, earlier versions kept)
+  - [ ] **F-032** the pricing lead cannot confirm the price until the costing model is uploaded and, when ROI is required, the ROI model is uploaded; each step shows who completed it and when
+  - [ ] **F-083** a Finance role can read quotes and upload or replace the ROI model, and do nothing else; permission-matrix tests (allowed and denied for every role)
+  - [ ] **F-081** the gate, button, notifications and quick-starts say "Price approved"
+  - [ ] a migration for open quotes with a dry-run report; analytics views and their T-SQL twins checked (T-017, T-034); change-log procedure done
 - **Prompt:** `prompts/feedback/FB-07-costing-pricing-roi.md`
 
-### FB-08: Commercial terms and Final Review · **Wave 3, gated** · Ben
+### FB-08: Commercial terms and Final Review · **Wave 3, partly gated** · Ben
+- **Update 2026-11-09 (D-003, D-029, D-002 progress).** The customer's requested payment terms and the funding question moved to intake (FB-11). Tooling payment options are upfront, 50/50 or amortized per piece; no quarterly (D-029). **Still needed:** the standard term (Net 15 or Net 30, A-012), the exception approver, and, for the extra Final Review approval when the customer funds capital (sales leader, then leadership; F-082), Oleg's and Sarah's confirmation (A-035). Build that approval as provisional config only after A-035.
 - **Stop until:** D-003 and D-029 are decided (owners, standard payment term, exception approver, milestone terms). D-002 is needed for tiers; without it, ship terms and leave the tier hook off.
 - **Done when:** F-021 and F-068 acceptance criteria pass (T-007, T-031); change-log procedure done.
 - **Prompt:** `prompts/feedback/FB-08-commercial-terms-final-review.md`
@@ -1087,6 +1098,19 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 - **Stop until:** D-004 is decided (bands, weights, 9-box points, guardrail thresholds).
 - **Done when:** F-005 (weights), F-073 (points) and F-066 (guardrail warnings, P1) pass T-011, T-025 and T-036; the score preview in the admin console shows the change on real quotes before it is saved; change-log procedure done.
 - **Prompt:** `prompts/feedback/FB-10-priority-calibration.md`
+
+### FB-11: Intake commercial inputs · **Ready** · Ben (Sonnet 5.5 · high)
+- **Why:** Pricing found costing elements (returnable dunnage, freight, safety stock) after award on Sam's. In the Nov 6 session Gemma Cebolla, Kyle Arnold and Cait Catanzaro said what the KAM should tell Pricing at intake, and that payment terms and tooling funding are two separate things (D-032). Cait confirmed nothing else is missing for costing.
+- **What the code does today:** the terms live on the Commercial panel after intake (free-text payment terms, a funding list). Intake has packaging type and notes but nothing on dunnage, delivery or freight.
+- **People:** Gemma Cebolla, Kyle Arnold and Cait Catanzaro (Pricing) retest.
+- **Done when:**
+  - [ ] **F-080** requested payment terms (a list, flagged when not in the standard set `standard_payment_terms`, seeded Net 15 and Net 30, provisional)
+  - [ ] **F-080** whether the customer funds any tooling or capital (the existing funding list plus "Not discussed"); a short note that a customer-owned tool has sales-tax and contract implications for Pricing
+  - [ ] **F-063 (dunnage only)** a "returnable (multi-trip) dunnage" checkbox; unchecked means single-trip
+  - [ ] **F-080** price basis (FOB or delivered) and, when delivered, freight type (flatbed, van, drop trailer, T-bar, other) and a short special-arrangements note
+  - [ ] **F-085** an optional short bid / program reference, searchable and shown to Engineering, Pricing and Final Review
+  - [ ] all of it shown to Pricing and at Final Review; **optional at submit** (a warning) until D-006 sets the mandatory list; Playwright for the intake and the Quoting tab; the UAT KAM and pricing scripts updated
+- **Prompt:** `prompts/feedback/FB-11-intake-commercial-inputs.md`
 
 ---
 
