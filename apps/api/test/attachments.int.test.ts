@@ -285,13 +285,15 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
     ] as Role[]) {
       const { res, body } = await list(role);
       expect(res.statusCode, `${role}: ${res.body}`).toBe(200);
-      expect(body!.items.map((i) => i.kind)).toEqual([
+      // The synthetic data may add metadata-only files (the Quoting models, FB-06's equipment BOM).
+      const files = body!.items.filter((i) => i.available);
+      expect(files.map((i) => i.kind)).toEqual([
         'bottle_drawing',
         'bottle_drawing',
         'sample_photo',
         'capacity_analysis',
       ]);
-      expect(body!.items[0]!.uploadedByName).toBeTruthy();
+      expect(files[0]!.uploadedByName).toBeTruthy();
       expect(body!.canUpload).toBe(
         ['KAM', 'SalesLeader', 'EngLead', 'Engineer', 'Pricing'].includes(role),
       );
@@ -356,7 +358,7 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
   });
 
   it('downloads: authorized, audited, then a short-lived link (302 or JSON) that serves the bytes', async () => {
-    const [item] = (await list()).body!.items;
+    const [item] = (await list()).body!.items.filter((i) => i.available);
     const redirect = await asRole(app, 'Pricing').get(`/api/v1/attachments/${item!.id}/download`);
     expect(redirect.statusCode).toBe(302);
     expect(redirect.headers.location).toMatch(/^\/api\/v1\/files\/local\?t=/);
