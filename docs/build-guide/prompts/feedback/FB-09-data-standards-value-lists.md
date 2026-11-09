@@ -1,6 +1,6 @@
 # FB-09 · Data standards and value lists
 
-**Run with:** Claude Code · **Sonnet 5.5 · medium effort** · Wave 3, gated (can run in pieces as lists arrive) · one draft PR per batch of lists
+**Run with:** Claude Code · **Sonnet 5.5 · medium effort** · Wave 4b, **ready after FB-11 merges** (can run in pieces as lists arrive) · one draft PR per batch of lists
 **Tracker items:** F-012, F-019, F-020, F-057 (plant list) · plus the D-006 mandatory list · **Gated on:** D-016 (packaging standards, free-text caps, where "Other" is allowed), D-006 (mandatory fields), and the lists themselves:
 - active plants (~29) and machine types: Jim Zweifel
 - resin, market and product family: Danielle Leu
@@ -11,18 +11,15 @@
 
 ---
 
-## Stop check (do this first)
-This step is **gated**. Before writing code:
-1. Read the **Decision record** below. Ben fills it in when he starts the session.
-2. If the Microsoft 365 connector is available, also read the tracker's Decision Log and Action Items rows listed under "Gated on".
-3. **If any gating decision is not `Decided`, and no decision is pasted below, stop.** Reply with what is missing and who owns it. Don't build on a guess: CLAUDE.md rule 4 forbids hard-coding open business rules.
-4. If a decision is only partly made, build the decided part, keep the rest as provisional config, and list the remainder in the notes.
+## Stop check: none (changed 2026-11-09: build now with provisional defaults)
+Ben wants every FB step built this week. **Start after FB-11 has merged** (it changes the intake fields and the required-field setting); `git fetch origin main` first. Read `04` §2a and the tracker rows for D-016, D-006, A-028 and F-012 / F-019 / F-020 / F-057, then use these **defaults** (record each as provisional):
 
-**Decision record (Ben pastes before running):**
-```
-<decision ID>: <outcome in one or two sentences>, decided by <name> on <date>
-<input>: <where the file is, e.g. docs/build-guide/feedback/inputs/...>
-```
+- **D-016 (the tracker recommends A + B):** standard dropdowns with an "Other" that needs a capped short note and a prompt to attach the customer's document, plus a plant-capability packaging list. **Cap free text at 500 characters** on the fields D-016 names (new edits only; old values stay readable with a warning).
+- **"Plant specified":** offered only where `plant_packaging_standards` has that plant's configuration; otherwise hidden. Engineering (Paul Slomkowski) said "Pretium / plant preferred" is not acceptable, so never offer it.
+- **D-006 mandatory list:** do **not** change `intake_required_fields`. Write `docs/build-guide/feedback/mandatory-fields-proposal.md`: today's required fields, FB-02's drawing-or-minimum-spec rule, FB-11's optional fields, and which you would make required and why, for Bailey to approve.
+- **Lists (F-020, F-057):** build the sign-off flow and a test that every referenced list has an active value. **Load only the lists that are in `docs/build-guide/feedback/inputs/`** (plants and machine types from Jim Zweifel; resin, market and product family from Danielle Leu); keep everything else provisional. If the plant list is not there, keep `PLANT_01` to `PLANT_03` and say so. Never mark a list approved without a named owner's sign-off in the decision record.
+
+Rule 4 (CLAUDE.md) lets you build a mechanism with **provisional config** while a business decision is open, and an Admin sets the final value later without a release. That is what this step does. Nothing below is a reason to stop. If something you need is genuinely missing (a file, a list), say so in the PR, keep the item's config provisional or inactive, and build the rest.
 
 ## Ground rules for this step
 - **Start from the latest `main`.** Read `CLAUDE.md` (non-negotiable rules 1–11), `docs/build-guide/03-build-steps.md` → "User feedback updates" (this step, the readiness table and the change-log procedure), and `docs/build-guide/04-decisions-and-risks.md` §2a.

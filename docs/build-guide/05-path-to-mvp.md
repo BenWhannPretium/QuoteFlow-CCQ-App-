@@ -296,30 +296,43 @@ The original cut list (`02` §3) is mostly built already, so cutting now means *
 
 ---
 
-## 8. Remaining steps to MVP (as of 2026-11-09)
+## 8. Remaining steps to MVP (updated 2026-11-09, Ben's plan: every FB step built this week)
 
-**Where we are.** The core app and FB-01 to FB-05 are built and merged. The test site runs on Azure with Entra sign-in and production Salesforce, and the test Fabric mirror works. UAT started today (U0 and U1). Everything below is left.
+**Where we are.** The core app and FB-01 to FB-05 are built and merged. The test site runs on Azure with Entra sign-in and production Salesforce, and the test Fabric mirror works. UAT started today (U0 and U1). Open: FB-06 to FB-11, prod, the rest of UAT and the gate package.
 
-**The gate on Nov 13** (CLAUDE.md): deployed to Azure, Entra-secured, Salesforce read live on approved data, P0 features passing UAT with gate-owner candidates. All 47 P0 feedback items cannot be finished by then (FB-08 to FB-10 wait on decisions, and D-025 has the pilot starting in the first week of January). **Agree the cut line with Bailey and Darren this week:** Nov 13 = FB-01 to FB-05, FB-11, FB-07 and the BOM upload tested in UAT on prod; FB-08 to FB-10 and the rest of FB-06 = pilot readiness, done before the pilot.
+**How every FB step can land this week.** CLAUDE.md rule 4 lets an open decision ship as provisional config that an Admin changes later. So no step waits for a decision: each prompt carries explicit provisional defaults, and a value a person has not supplied ships provisional or inactive and is listed in the config snapshot. The Nov 13 gate then counts these features as built and tested, with their values still provisional where the business has not signed off.
+
+### The schedule
 
 | # | When | Step | Who | What has to be done | Done when |
 |---|---|---|---|---|---|
-| 1 | Mon Nov 9 | Merge the decisions PR; paste the tracker rows | Ben | Merge this PR. Paste `feedback/tracker-updates-2026-11-09.md` into the tracker (Decision Log, Action Items, Build Backlog, Sessions). Ask Bailey to confirm D-001 with Oleg (A-036) | Tracker matches `04` §2a |
-| 2 | Mon Nov 9 (parallel) | **FB-11** intake commercial inputs | Claude Code, Sonnet · high | Run `prompts/feedback/FB-11-intake-commercial-inputs.md`. Nothing to wait for | PR green, merged first (smallest) |
-| 3 | Mon Nov 9 (parallel) | **FB-06a** equipment BOM upload (F-058 only) | Claude Code, Sonnet · high | Run `prompts/feedback/FB-06-engineering-roles-bom.md` limited to F-058. A blank template (A-030) is not needed for the upload | PR merged second |
-| 4 | Mon Nov 9 to Tue Nov 10 (parallel) | **FB-07** costing, ROI, price approved, Finance role | Claude Code, Opus · high | Run `prompts/feedback/FB-07-costing-pricing-roi.md`. Uploads and rules first; the one-page extraction waits for the templates (A-031). Ask IT for the Finance role now (A-032) | PR merged last (largest); open-quote migration dry run reviewed |
-| 5 | Mon Nov 9 | Azure: test what-if, then apply; load test | Ben (PC with `az`) | Fill the `<confirm: …>` placeholders, run and record the what-if (`03` B-20), run `pnpm load` against test (B-21) | What-if recorded; p95 recorded |
-| 6 | Mon Nov 9 | IT and approvals batch | Ben, Bailey | Ask for: `rg-ccq-prod` and names, the written prod-data approval (D-23), Rachel's switch to production Salesforce, the UAT cohort groups, the M7 grants (SharePoint `Sites.Selected`, shared mailbox, `Mail.Send`), the Finance role, an alert email | Each has a named owner and date |
-| 7 | Mon Nov 9 to Tue Nov 10 | UAT staging | Ben | Stage the quotes the scripts need (`docs/uat/README.md`); check labels on test against the scripts | U1 and U2 run on real data |
-| 8 | Tue Nov 10 | **U2** engineering UAT; test Fabric tie-out | Bailey, Jim's team, Ben | Run `scripts/engineering.md`. Record the mirror tie-out (counts, latency, IDs), column security both ways, the deploy stop/start once (B-27) | Script signed; B-27 boxes ticked |
-| 9 | Wed Nov 11 | **U3** approver, leadership; U4 security | Bailey, Approver, IT security | Run the approver and leadership scripts and `security-access.md`. Run the pricing script on FB-07 if it has merged, otherwise on today's G3 and record the changes as known | Scripts signed |
-| 10 | Wed Nov 11 to Thu Nov 12 | **Prod** | Ben + IT | Apply Bicep to prod (what-if first), deploy, run the Salesforce prod sync and reconcile it, purge synthetic data, config approval pass, UAT users sign in, alert email and a test alert, tag `v0.9.0-uat` and freeze (`03` B-22) | `docs/uat/environment.md`, `sf-reconciliation.md`, `config-snapshot.md` written |
-| 11 | Thu Nov 12 | Defects; **U5** tie-out | Ben, Bailey, Zac, Graham, D&A | Fix all Sev-1 and Sev-2 (B-23). Run `scripts/tie-out.md`. Re-run the load test on the frozen build | Defect log clean for Sev-1 and 2 |
-| 12 | Thu Nov 12 to Fri Nov 13 | Gate package; **U6** sign-off | Ben, Bailey | Refresh `docs/gate/` (traceability, release notes, test results, runbook, backlog) and tick B-24 | Signed UAT; MVP |
-| 13 | After Nov 13 (before the pilot) | Pilot readiness | Ben, Bailey | FB-08 (A-012, A-035, D-003, D-029), FB-09 (D-016, D-006, the lists), FB-10 (D-004), the rest of FB-06 (D-007, D-008, A-014), M7 SharePoint and mail go-live, the P1 backlog | Per step |
+| 1 | Mon Nov 9 | Tracker, then **Wave 4a** | Ben; four Claude Code sessions | Paste the tracker rows (`feedback/tracker-updates-2026-11-09.md`). Start **FB-11** (Sonnet), **FB-06** (Sonnet), **FB-07** (Opus) and **FB-10** (Sonnet) at the same time: they touch intake, engineering, Quoting and G3, and scoring. Every migration is renumbered on rebase (the prompts say how) | Four draft PRs, `pnpm verify` green |
+| 2 | Mon Nov 9 | Ask the people, in one message each | Ben, Bailey | See "What only people can supply" below. Send today: the answer to the Finance role (IT), lists (Jim, Danielle), the workbook and template (Kal, Gemma, Stacy), Paul's engineer pairs | Each has a name and a date |
+| 3 | Mon Nov 9 | Azure: test what-if, then apply; load test; IT batch | Ben (PC with `az`) | `03` B-20 and B-21; ask IT for `rg-ccq-prod`, the written prod-data approval, the UAT cohort, the M7 grants and an alert email | What-if and p95 recorded; IT items owned |
+| 4 | Mon Nov 9 to Tue Nov 10 | UAT staging; **U2** engineering UAT | Ben, Bailey, Jim's team | Stage the quotes (`docs/uat/README.md`). Run `scripts/engineering.md` on today's build. Record the Fabric tie-out (B-27) | U1 and U2 signed |
+| 5 | Tue Nov 10 | **Merge Wave 4a**; start **Wave 4b** | Ben | Merge in this order as each is green: FB-11, FB-06, FB-10, FB-07. Start **FB-09** (Sonnet) when FB-11 merges and **FB-08** (Opus) when FB-07 and FB-11 merge | 4a on `main`; 4b started |
+| 6 | Tue Nov 10 to Wed Nov 11 | Prod infrastructure (independent of the app code) | Ben + IT | Bicep apply to prod (what-if first), Key Vault secrets, Postgres restart, Salesforce prod sync and reconciliation, UAT users, alert email and a test alert (`03` B-22) | Prod runs on approved data |
+| 7 | Wed Nov 11 | **Merge Wave 4b**; deploy to test | Ben | Merge FB-09 then FB-08. Deploy `main` to test. Run `pnpm verify` and the Playwright suite on the merged build | One green `main` on test |
+| 8 | Wed Nov 11 | UAT scripts for FB-06 to FB-11; **U4** security | Claude Code, Bailey, IT security | Update `docs/uat` (scripts, quick-starts, `print.html` and `public/help/quickstart.html` together) for the new screens. Run `security-access.md` | Scripts match the build |
+| 9 | Thu Nov 12 | **U3** (pricing, approver, leadership) and **U5** tie-out; defects | Bailey, testers, Zac, Graham, D&A, Ben | Run `pricing.md`, `approver.md`, `leadership.md` and `tie-out.md` on the merged test build. Fix Sev-1 and Sev-2 same day | Sev-1 and Sev-2 clear |
+| 10 | Thu Nov 12 (evening) | Deploy to prod; tag and freeze | Ben | Deploy to prod, purge synthetic data, config approval pass (every provisional value listed in `docs/uat/config-snapshot.md`), tag `v0.9.0-uat`, re-run the load test | Prod live on the frozen build |
+| 11 | Fri Nov 13 | Gate package; **U6** sign-off | Ben, Bailey | Refresh `docs/gate/` and tick B-24 | Signed UAT: MVP |
+
+**The fallback rule.** If a step's PR is not green by **Wed Nov 11, 2 PM**, it does not go in the freeze: it moves to pilot readiness and its UAT script step is struck. Drop in this order, least to most important: FB-10 (inactive anyway), FB-09, FB-08, the rest of FB-06. FB-11 and FB-07 are the ones Pricing is waiting for.
+
+### What only people can supply, and what ships if they don't
+
+| Step | Needed from | By | If it does not arrive, this ships |
+|---|---|---|---|
+| FB-06 | **In (inbox, Nov 4):** Paul's engineer pairs (seeded as provisional suggestions) and the link to Kal's blank *Pretium Project Workbook Template.xlsx* (A-030: open it and pick the CSR BOM tab). **Still needed:** Kal's minimum fields; Engineering: pack-out and two-step confirmation (A-014); the estimate workbook (F-026) | Tue | BOM upload (no extraction); a single assignee with the seeded suggestions; two-step and pack-out as optional fields; no field mapping, only questions |
+| FB-07 | IT: the Finance app role and group (A-032); Gemma and Stacy: the costing and ROI templates (A-031) | Tue (role), Thu (templates) | Uploads and versions without the one-page summary. Until Entra has the role, the pricing lead uploads the ROI model for Finance |
+| FB-08 | Gemma: Net 15 or Net 30 (A-012) and the exception approver; Bailey with Oleg and Sarah: the extra approval for customer-funded quotes (A-035); D-002 tiers | Wed | Net 15 and Net 30 standard, the PricingLead approving exceptions, funding to Engineering, the extra approval and tiers present but off |
+| FB-09 | Jim: active plants and machine types; Danielle: resin, market and product family lists; Bailey: D-016 and D-006; plant pack-out standards (A-028) | Tue | The 500-character caps, the "Other" rule and the sign-off flow; lists and plants stay provisional (the three placeholder plants remain); a mandatory-fields proposal for Bailey |
+| FB-10 | Sales and Marketing leadership: D-004 (weights, points, bands); Danielle: the platform-guide column mapping | Thu | An inactive draft scoring model and the preview; live scoring unchanged; guardrail warnings present but off |
+| FB-11 | Nothing. Dunnage wording is provisional (A-033) | | Ships as built |
 
 **Risks to watch.**
-1. IT: the prod resource group and the written prod-data approval are on the critical path for step 10.
-2. FB-07 is the largest change and lands near the freeze; if it slips, ship UAT without it and mark the pricing steps as known changes.
-3. The Finance role needs Entra (IT lead time).
-4. The cut line above needs Bailey's and Darren's agreement.
+1. Six PRs changing migrations, the permission matrix and intake in two days. The merge order above exists to keep conflicts small; each session renumbers its migration on rebase.
+2. UAT time for six new features is short (Thu). Expect Sev-2 findings; the fallback rule protects the freeze.
+3. IT: the prod resource group and the written prod-data approval are on the critical path for step 6, and the Finance role needs Entra.
+4. Provisional values in live use: a person has to sign off each one before the pilot (they are listed in `04` §2a and the config snapshot), but not before Nov 13.

@@ -1,24 +1,22 @@
 # FB-06 · Engineering roles, equipment BOM, two-step, pack-out, estimate workbook
 
-**Run with:** Claude Code · **Sonnet 5.5 · high effort**, or **Opus 5.5 · high** if D-008 chooses several engineers per quote (that changes assignment, locks and lead review) · Wave 3, **F-058 ready now, the rest gated** · one draft PR
+**Run with:** Claude Code · **Sonnet 5.5 · high effort**, or **Opus 5.5 · high** if D-008 chooses several engineers per quote (that changes assignment, locks and lead review) · Wave 4a, **ready now (provisional defaults)** · one draft PR
 **Tracker items:** F-058, F-062, F-024, F-025, F-026 · tests T-008, T-033 · **Gated on:** D-008 (roles), D-007 (two-step), A-003 (Kal's BOM template and component list; session Nov 6), A-014 (two-step and pack-out follow-up), the engineering estimate workbook (Paul Slomkowski; needed for F-026)
 
 **Paste into Claude Code from the repo root.**
 
 ---
 
-## Stop check (do this first)
-This step is **gated**. Before writing code:
-1. Read the **Decision record** below. Ben fills it in when he starts the session.
-2. If the Microsoft 365 connector is available, also read the tracker's Decision Log and Action Items rows listed under "Gated on".
-3. **If any gating decision is not `Decided`, and no decision is pasted below, stop.** Reply with what is missing and who owns it. Don't build on a guess: CLAUDE.md rule 4 forbids hard-coding open business rules.
-4. If a decision is only partly made, build the decided part, keep the rest as provisional config, and list the remainder in the notes.
+## Stop check: none (changed 2026-11-09: build now with provisional defaults)
+Ben wants every FB step built this week. The open decisions are handled as follows. Read `04-decisions-and-risks.md` §2a and the tracker rows for D-007, D-008, A-003, A-006, A-014 and D-033 first, then use these **defaults** (record each as a provisional value in the PR):
 
-**Decision record (Ben pastes before running):**
-```
-<decision ID>: <outcome in one or two sentences>, decided by <name> on <date>
-<input>: <where the file is, e.g. docs/build-guide/feedback/inputs/...>
-```
+- **F-058 BOM upload:** as written below (D-033, Kal, Nov 6). Needs no template.
+- **F-062 roles (D-008 is open; A-006 gives Paul Slomkowski's answer):** build **one assignee** per quote (as today) with **routing suggestions** (`engineering_assignment_rules`, process type → suggested engineer, provisional). **Seed it from Paul Slomkowski's Nov 4 email** ("Engineering Resources"): ISBM, RHB and Injection (IMM) → Neiberger (PET); EBM and IBM → Pasillas (polyolefins). The email spells the first name "Rany" where the tracker says "Randy", and writes "RHP" for what is almost certainly RHB: match the users by their directory names at seed time, skip a name with no user, and list both doubts in the PR. The assign dialog shows "Suggested: <name>"; the lead still assigns. **Do not** build several engineers per quote, and do not add a capacity role: the EngLead capacity sign-off stays (A-007 is open; record it in the notes).
+- **F-024 two-step (D-007 is open; the tracker's recommendation is "build a simple checkbox regardless"):** build it as specified below.
+- **F-025 pack-out quantities (Engineering has not confirmed):** build the optional whole-number fields below; Pricing sees them; provisional.
+- **F-026 estimate workbook:** if the Engineering Program Office workbook or its CSR BOM tab is in `docs/build-guide/feedback/inputs/` (as a masked or synthetic copy; **never commit a real customer's data**), write the mapping document below. Otherwise write only the list of questions for Bailey and add no fields.
+
+Rule 4 (CLAUDE.md) lets you build a mechanism with **provisional config** while a business decision is open, and an Admin sets the final value later without a release. That is what this step does. Nothing below is a reason to stop. If something you need is genuinely missing (a file, a list), say so in the PR, keep the item's config provisional or inactive, and build the rest.
 
 ## Ground rules for this step
 - **Start from the latest `main`.** Read `CLAUDE.md` (non-negotiable rules 1–11), `docs/build-guide/03-build-steps.md` → "User feedback updates" (this step, the readiness table and the change-log procedure), and `docs/build-guide/04-decisions-and-risks.md` §2a.
