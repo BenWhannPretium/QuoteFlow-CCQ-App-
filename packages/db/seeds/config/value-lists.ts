@@ -8,6 +8,10 @@ export const ZERO_CER_HELP =
 export const SHARED_HELP =
   'Split agreed with the customer; record the split in the terms notes until the terms structure is decided (D-003).';
 
+/** FB-11 (F-080, Gemma Cebolla): the sales-tax and contract note shown when the customer funds tooling. */
+export const NOT_DISCUSSED_HELP =
+  'The customer has not said whether it will pay for any of the tooling or capital. Leave this if it has not come up; you can change it later on the Commercial panel.';
+
 type Entry = [code: string, label: string, meta?: Record<string, unknown>];
 
 /**
@@ -197,12 +201,42 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   // B-26 (future-state deck slide 12): how the tooling / capital is funded. Provisional.
   tooling_funding_model: [
     ['COMPANY_FUNDED', 'Company-funded'],
-    ['CUSTOMER_FUNDED', 'Customer-funded'],
+    ['CUSTOMER_FUNDED', 'Customer-funded', { taxHint: true }],
     // FB-04 (F-022, D-023): Oleg Yarovinski's definition. meta.helpText shows as an (i) next to the option.
-    ['ZERO_CER', '$0 CER (customer-reimbursed capital)', { helpText: ZERO_CER_HELP }],
-    ['AMORTIZED', 'Amortized'],
+    [
+      'ZERO_CER',
+      '$0 CER (customer-reimbursed capital)',
+      { helpText: ZERO_CER_HELP, taxHint: true },
+    ],
+    ['AMORTIZED', 'Amortized', { taxHint: true }],
     // FB-04 (V-055, D-003 open): provisional until the terms structure is decided.
-    ['SHARED', 'Shared (company and customer)', { helpText: SHARED_HELP }],
+    ['SHARED', 'Shared (company and customer)', { helpText: SHARED_HELP, taxHint: true }],
+    // FB-11 (F-080, D-032): intake only asks WHETHER the customer funds any tooling (not how much or how).
+    // `defaultAtIntake`: preselected in the wizard and stored when the KAM doesn't change it.
+    ['NOT_DISCUSSED', 'Not discussed', { helpText: NOT_DISCUSSED_HELP, defaultAtIntake: true }],
+  ],
+  // FB-11 (F-080, Gemma Cebolla, D-032): the payment terms the customer asks for. Provisional (A-012).
+  requested_payment_terms: [
+    ['NET_15', 'Net 15'],
+    ['NET_30', 'Net 30'],
+    ['NET_45', 'Net 45'],
+    ['NET_60', 'Net 60'],
+    ['NET_90', 'Net 90'],
+    ['NET_120', 'Net 120'],
+    ['OTHER', 'Other', { freeText: true }],
+  ],
+  // FB-11 (F-080): `delivered` marks the price basis the freight fields apply to.
+  price_basis: [
+    ['FOB_PLANT', 'FOB Pretium plant'],
+    ['DELIVERED', 'Delivered', { delivered: true }],
+  ],
+  // FB-11 (F-080): drop trailers and T-bars are costly (Gemma Cebolla); T-bars are rare but very expensive.
+  freight_type: [
+    ['FLATBED', 'Flatbed'],
+    ['VAN', 'Van'],
+    ['DROP_TRAILER', 'Drop trailer'],
+    ['T_BAR', 'T-bar'],
+    ['OTHER', 'Other'],
   ],
 };
 

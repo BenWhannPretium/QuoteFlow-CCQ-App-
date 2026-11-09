@@ -149,6 +149,8 @@ describe('0029 FB-04 data migration', () => {
         'ZERO_CER',
         'AMORTIZED',
         'SHARED',
+        // FB-11 (0032) adds this to the seed; the 0029 statements themselves do not touch it.
+        'NOT_DISCUSSED',
       ]);
     });
   });

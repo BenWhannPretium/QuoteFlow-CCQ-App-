@@ -394,6 +394,43 @@ export const quote = documented(
         'FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056.',
         KAM,
       ),
+      // FB-11 (D-032, F-080, F-063 dunnage only, F-085): commercial inputs at intake. All optional.
+      // The customer-funding answer is the existing tooling_funding_model column (the Commercial panel edits it too).
+      requestedPaymentTerms: c(
+        text('requested_payment_terms'),
+        'FB-11 (F-080): value_list requested_payment_terms code the customer asks for. Non-standard when not in app_setting standard_payment_terms (derived, not stored). FB-08 reconciles it with the terms record.',
+        KAM,
+      ),
+      requestedPaymentTermsOther: c(
+        text('requested_payment_terms_other'),
+        'FB-11 (F-080): short description (≤ 120) when requested_payment_terms is Other; null otherwise.',
+        KAM,
+      ),
+      returnableDunnage: c(
+        boolean('returnable_dunnage').notNull().default(false),
+        'FB-11 (F-063, A-033): the customer wants returnable (multi-trip) dunnage; false = single-trip. Safety stock and stocking programs are not captured (not confirmed).',
+        KAM,
+      ),
+      priceBasis: c(
+        text('price_basis'),
+        'FB-11 (F-080): value_list price_basis code (FOB Pretium plant / Delivered).',
+        KAM,
+      ),
+      freightType: c(
+        text('freight_type'),
+        'FB-11 (F-080): value_list freight_type code (flatbed, van, drop trailer, T-bar, other) when the price basis is delivered; cleared otherwise.',
+        KAM,
+      ),
+      freightSpecialArrangements: c(
+        text('freight_special_arrangements'),
+        'FB-11 (F-080): special freight arrangements (≤ 200), e.g. a drop trailer or T-bars; cleared when the price basis is not delivered.',
+        KAM,
+      ),
+      bidReference: c(
+        text('bid_reference'),
+        'FB-11 (F-085): optional bid / program reference (≤ 60). A plain reference: it does not link quotes or relax one active quote per opportunity (F-084 is P1).',
+        KAM,
+      ),
       packagingType: c(text('packaging_type'), 'value_list packaging_type code.', KAM),
       packagingNotes: c(text('packaging_notes'), 'Packaging requirements.', KAM),
       requestClass: c(text('request_class'), 'value_list request_class code.', KAM),

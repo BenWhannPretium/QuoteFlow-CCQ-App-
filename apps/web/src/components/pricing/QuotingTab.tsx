@@ -22,6 +22,7 @@ import { toast } from '@/lib/toast';
 
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
+import { IntakeCommercialCard } from '../intake/CommercialInputs';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewPanel } from '../LeadReviewPanel';
 import { timelineQueryKey } from '../Overrides';
@@ -71,6 +72,8 @@ export function QuotingTab({
       <PricerAssignment quote={quote} />
       <PricingLeadReview quote={quote} />
       <SectionLockLine lock={quoting.lock} />
+      {/* FB-11 (D-032): what the KAM told Pricing at intake (payment terms, funding, dunnage, freight, bid reference). */}
+      <IntakeCommercialCard quote={quote} />
       {/* FB-07 (D-001): costing → ROI → price approved, for every reader (Finance uploads here). */}
       <QuotingSteps quoteNumber={quote.quoteNumber} steps={quoting.steps} />
       {quoting.commercialRedacted ? (

@@ -250,6 +250,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'json',
     z_('intake_min_spec_fields', z.array(z.enum(MIN_SPEC_KEYS))),
   ),
+  // FB-11 (F-080): the standard payment terms (value-list codes); anything else is flagged non-standard.
+  spec(
+    'standard_payment_terms',
+    'intake',
+    'Payment terms that count as standard (requested_payment_terms codes)',
+    'json',
+    z_('standard_payment_terms', intakeConfigSchema.shape.standardPaymentTerms),
+  ),
   spec(
     'intake_redirect_message',
     'intake',

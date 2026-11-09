@@ -81,6 +81,10 @@ export const VALUE_LIST_KEYS = [
   // FB-02 (F-013): component follow-ups.
   'labels_purchased_by',
   'decoration_type',
+  // FB-11 (F-080): the intake commercial inputs.
+  'requested_payment_terms',
+  'price_basis',
+  'freight_type',
 ] as const;
 
 /** FB-01 (F-030): where a KAM's resubmission resumes after a rework (`gate_outcome_definition.resume_at`). */

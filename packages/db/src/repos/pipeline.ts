@@ -93,6 +93,8 @@ function whereFor(opts: PipelineQueryOptions): SQL | undefined {
         sql`${sfOpportunitySnapshot.accountName} ilike ${p}`,
         sql`${customer.name} ilike ${p}`,
         sql`${quote.description} ilike ${p}`,
+        // FB-11 (F-085): the bid / program reference is searchable.
+        sql`${quote.bidReference} ilike ${p}`,
       )!,
     );
   }

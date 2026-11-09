@@ -64,6 +64,9 @@ export const INTAKE_MIN_SPEC_FIELDS = [
   'color',
 ];
 
+/** FB-11 (F-080): the payment terms that are standard (value-list codes; A-012 decided Nov 9). */
+export const STANDARD_PAYMENT_TERMS = ['NET_15', 'NET_30'];
+
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
 export const INTAKE_FIELD_HELP: Record<string, string> = {
   sf_opportunity_id:
@@ -111,6 +114,24 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   modify_existing_mold:
     'Changing a mold we already run (e.g. a finish change). Attach the reference drawing or a photo of the part.',
   rfp_link: 'The customer’s RFP or bid portal page, if there is one (https link).',
+  // FB-11 (D-032, F-080, F-063, F-085). Provisional wording; Pretium has no standard dunnage wording yet (A-033).
+  requested_payment_terms:
+    'The payment terms the customer asks for. The standard is Net 15 or Net 30; a longer request is a negotiation point because Pretium carries the cost, so Pricing needs to know. It does not change the costing.',
+  requested_payment_terms_other: 'Describe the terms the customer asked for.',
+  tooling_funding_model:
+    'Only whether the customer pays for any of the tooling or capital. The amount and how it is paid belong to the terms later.',
+  tooling_funding_tax_hint:
+    'If the customer owns the tool it is not Pretium capital, and sales tax and contract terms apply. Tax will want to know.',
+  returnable_dunnage:
+    '"Multi-trip" dunnage comes back to Pretium; "single-trip" ships out and the customer is charged for it. Leave unticked for single-trip.',
+  price_basis:
+    'Delivered or FOB Pretium plant. A delivered price carries freight, which was missed in costing before.',
+  freight_type:
+    'How it ships when the price is delivered. Drop trailers and T-bars add real cost: say so below.',
+  freight_special_arrangements:
+    'Anything unusual about the freight. A drop trailer sits for about two weeks and T-bars are very expensive, so name them here if the customer expects them.',
+  bid_reference:
+    'The customer’s bid, RFP or program name or number, if it has one. A plain reference: it does not link quotes.',
   comments_for_engineering: 'Context only you know: the customer, competitors, history, deadlines.',
 };
 
@@ -246,6 +267,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: INTAKE_MIN_SPEC_FIELDS,
     description:
       'FB-02 (F-016, D-018 decided: Paul Slomkowski, Jim Zweifel, Matthew Graden, Tania Nazario): without a bottle or competitor drawing attached, every one of these must be filled to submit (422 DRAWING_OR_MIN_SPEC_REQUIRED). Keys: height, widthOrDiameter, depth, gramWeight, neck (diameter + finish), resin, color. Provisional: A-024 may add layer structure and a container photo.',
+  },
+  // ── FB-11 intake commercial inputs (D-032, 2026-11-06). Provisional.
+  {
+    key: 'standard_payment_terms',
+    value: STANDARD_PAYMENT_TERMS,
+    description:
+      'FB-11 (F-080, D-032, A-012 decided Nov 9): the requested_payment_terms codes that count as standard. Any other request is flagged "Non-standard: Pricing will review" on the intake and the quote. Net 15 and Net 30 are both standard (Gemma Cebolla, Nov 9); still marked provisional until an Admin approves it.',
   },
   {
     key: 'intake_redirect_message',

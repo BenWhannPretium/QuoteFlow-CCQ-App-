@@ -1,25 +1,12 @@
-import type { PublicConfigResponse, QuoteIntakeFacts } from '@ccq/contracts';
+import type { QuoteIntakeFacts } from '@ccq/contracts';
 import { neckSummary } from '@ccq/domain';
 
 import type { KeyValueItem } from '@/components/KeyValueGrid';
 
-type Lists = PublicConfigResponse['valueLists'] | undefined;
+import { commercialFactItems } from './CommercialInputs';
+import { factLabel, type Lists } from './factLabel';
 
-const entry = (lists: Lists, list: string, code: string | null) =>
-  code ? lists?.[list]?.find((v) => v.code === code) : undefined;
-
-/** A code's label; a "Custom" (meta freeText) value shows its description instead. */
-export function factLabel(
-  lists: Lists,
-  list: string,
-  code: string | null,
-  custom?: string | null,
-): string | null {
-  if (!code) return null;
-  const e = entry(lists, list, code);
-  if (e?.meta.freeText === true) return custom ?? e.label;
-  return e?.label ?? code;
-}
+export { factLabel };
 
 /** FB-02 (F-010): "28 mm / 410 / Tamper Evident". */
 export function neckText(lists: Lists, f: QuoteIntakeFacts): string | null {
@@ -45,6 +32,7 @@ export function intakeFactItems(
   lists: Lists,
   f: QuoteIntakeFacts,
   legacyNeck?: string | null,
+  standardPaymentTerms: readonly string[] = [],
 ): KeyValueItem[] {
   const items: KeyValueItem[] = [
     {
@@ -137,6 +125,8 @@ export function intakeFactItems(
         </span>
       ) : null,
     },
+    // FB-11 (D-032, F-085): payment terms, customer funding, dunnage, delivery and freight, bid reference.
+    ...commercialFactItems(lists, f, standardPaymentTerms),
   );
   return items;
 }
@@ -179,6 +169,14 @@ export function IntakeFactsHeader({
           {destination || '–'}
         </span>
         <MoldModificationChip show={facts.modifyExistingMold} />
+        {facts.bidReference && (
+          <>
+            <span className="text-muted-foreground">Bid / program:</span>
+            <span className="font-semibold" data-testid="header-bid-reference">
+              {facts.bidReference}
+            </span>
+          </>
+        )}
       </div>
       {facts.modifyExistingMold && (
         <p>

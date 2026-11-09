@@ -74,6 +74,14 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   mold_change_description: { label: 'What changes', step: 3 },
   drawing_or_min_spec: { label: 'Drawing or minimum spec', step: 4 },
   rfp_link: { label: 'Customer RFP / portal link', step: 4 },
+  requested_payment_terms: { label: 'Payment terms the customer requests', step: 3 },
+  requested_payment_terms_other: { label: 'Requested payment terms (describe)', step: 3 },
+  tooling_funding_model: { label: 'Does the customer fund any of the tooling?', step: 3 },
+  returnable_dunnage: { label: 'Returnable (multi-trip) dunnage', step: 3 },
+  price_basis: { label: 'Delivered or FOB', step: 3 },
+  freight_type: { label: 'Freight type', step: 3 },
+  freight_special_arrangements: { label: 'Special freight arrangements', step: 3 },
+  bid_reference: { label: 'Bid / program reference', step: 3 },
   packaging_type: { label: 'Packaging type', step: 3 },
   packaging_notes: { label: 'Packaging requirements', step: 3 },
   est_annual_volume: { label: 'Estimated annual volume', step: 3 },
@@ -129,6 +137,12 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
       ...(Array.isArray(s.intake_min_spec_fields)
         ? { minSpecFields: s.intake_min_spec_fields as never }
         : {}),
+      ...(Array.isArray(s.standard_payment_terms)
+        ? { standardPaymentTerms: s.standard_payment_terms as never }
+        : {}),
+      deliveredPriceBasisCodes: (lists.price_basis ?? [])
+        .filter((e) => meta(e, 'delivered'))
+        .map((e) => e.code),
       drawingProvidedCodes: (lists.drawing_status ?? [])
         .filter((e) => meta(e, 'hasDrawing'))
         .map((e) => e.code),

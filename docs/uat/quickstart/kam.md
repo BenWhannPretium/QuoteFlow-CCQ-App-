@@ -8,9 +8,10 @@
 
 1. **Start an intake.** Click **New intake**, find your Salesforce opportunity and click **Use this opportunity**. Four steps: Opportunity, Customer & ship-to, Product & volume, Drawing, notes & review. Click **Submit to CCQ**. You get a quote number like `CCQ-2026-00042`.
 2. **Attach the drawing, or give the minimum spec.** On step 4, drag files onto **Drawing and other files**, or tap **Add photo** on your phone. Without a drawing you must give the minimum spec on step 3 (height, width or diameter, depth, gram weight, neck, resin, color), or the quote cannot be submitted.
-3. **Fix a returned quote.** If a sales leader or Engineering returns it, you get a notification. Open the quote and click **Fix and resubmit**. The quote keeps its number. If Pricing sent it back, you are asked whether the scope changed: **No, same scope** sends it straight back to Pricing; **Yes** sends it through qualification and Engineering again.
-4. **Record the customer's answer.** Go to **My proposals** and click **Record outcome**: **Awarded**, **In negotiation**, **Lost**, **No response / Expired**, **On hold** or **Re-quote**. No response is not a loss.
-5. **Hand off a win.** After **Awarded**, fill the **Commit & hand off** card (CER and receiving team), then click **Commit & hand off** → **Advance (close Won)**.
+3. **Tell Pricing what it needs.** On step 3, under **Commercial inputs for Pricing**, say what payment terms the customer asks for, whether the customer pays for any of the tooling (**Not discussed** is the default), whether it wants returnable (multi-trip) dunnage, and whether the price is **Delivered** or **FOB Pretium plant** (with the freight type and any special arrangement, such as a drop trailer or T-bars). Add a **Bid / program reference** if there is one. All optional: a blank shows as a warning you can ignore. A payment term other than Net 15 or Net 30 shows **Non-standard: Pricing will review**.
+4. **Fix a returned quote.** If a sales leader or Engineering returns it, you get a notification. Open the quote and click **Fix and resubmit**. The quote keeps its number. If Pricing sent it back, you are asked whether the scope changed: **No, same scope** sends it straight back to Pricing; **Yes** sends it through qualification and Engineering again.
+5. **Record the customer's answer.** Go to **My proposals** and click **Record outcome**: **Awarded**, **In negotiation**, **Lost**, **No response / Expired**, **On hold** or **Re-quote**. No response is not a loss.
+6. **Hand off a win.** After **Awarded**, fill the **Commit & hand off** card (CER and receiving team), then click **Commit & hand off** → **Advance (close Won)**.
 
 ## What changed from the ERF
 

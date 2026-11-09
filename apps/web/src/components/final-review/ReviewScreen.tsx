@@ -21,6 +21,7 @@ import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
 import { GateDecisionDialog } from '../GateDecisionDialog';
+import { standardTermsFrom } from '../intake/CommercialInputs';
 import { intakeFactItems } from '../intake/IntakeFacts';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
@@ -342,7 +343,7 @@ function RequestSection({ s }: { s: ReviewSummary }) {
       value: q.estAnnualRevenue != null ? `${money(q.estAnnualRevenue)}/yr` : null,
     },
     // FB-02: the intake's product facts (neck, resin grade, PCR, color, variants, need-by dates…).
-    ...intakeFactItems(config?.valueLists, i.facts, i.neckFinish),
+    ...intakeFactItems(config?.valueLists, i.facts, i.neckFinish, standardTermsFrom(config)),
     {
       label: 'Packaging',
       value: [label('packaging_type', i.packagingType), i.packagingNotes]

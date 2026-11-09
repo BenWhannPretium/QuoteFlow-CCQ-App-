@@ -53,6 +53,8 @@ const complete = {
   neck_finish_type: '410',
   pcr_level: '0',
   color_type: 'NATURAL',
+  requested_payment_terms: 'NET_30',
+  price_basis: 'FOB_PLANT',
   packaging_type: 'BULK',
   packaging_notes: 'Max pallet height 96 in',
   est_annual_volume: 750_000,
