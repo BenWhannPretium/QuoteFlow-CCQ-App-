@@ -12,6 +12,10 @@ export const ATTACHMENT_KIND_VALUES = [
   'bid_file',
   'project_brief',
   'competitor_drawing',
+  // FB-07 (F-031, F-074): the Quoting models, versioned (one current record per quote and kind).
+  'cost_model',
+  'roi_model',
+  'price_table',
 ] as const;
 export const AttachmentKindSchema = z.enum(ATTACHMENT_KIND_VALUES);
 export type AttachmentKindValue = z.infer<typeof AttachmentKindSchema>;
@@ -25,6 +29,9 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   bid_file: 'Bid file',
   project_brief: 'Project brief',
   competitor_drawing: 'Competitor / incumbent drawing',
+  cost_model: 'Costing model',
+  roi_model: 'ROI model',
+  price_table: 'Updated price table',
 };
 
 /** One file on a quote (or on an intake draft before submit). */
@@ -50,6 +57,15 @@ export const Attachment = z.object({
   /** Whether the caller may remove (soft delete) it now, and if not, why. */
   canRemove: z.boolean(),
   removeBlockedReason: z.string().nullable(),
+  /**
+   * FB-07 (F-074): versioned kinds (cost_model, roi_model, price_table) only. `version` counts from 1 per
+   * quote and kind; `current` flags the latest; an earlier version names the one that replaced it.
+   * Null / false for every other kind.
+   */
+  version: z.number().int().nullable(),
+  current: z.boolean(),
+  supersededById: z.uuid().nullable(),
+  supersededAt: z.string().nullable(),
 });
 export type Attachment = z.infer<typeof Attachment>;
 
@@ -100,6 +116,8 @@ export const ATTACHMENT_PROBLEM_CODES = {
   /** The body went past 100 MB or past its declared size (413). */
   tooLarge: 'file_too_large',
   notRemovable: 'not_removable',
+  /** FB-07: a Quoting model upload the quote's state refuses (wrong stage, costing first, …) (409). */
+  conflict: 'attachment_conflict',
   /** A metadata-only row (no bytes stored). */
   fileUnavailable: 'file_unavailable',
   storageUnavailable: 'storage_unavailable',

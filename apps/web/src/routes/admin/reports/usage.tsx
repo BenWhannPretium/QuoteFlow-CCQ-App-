@@ -20,6 +20,7 @@ const ROLE_LABEL: Record<string, string> = {
   Engineer: 'Engineer',
   Pricing: 'Pricing',
   PricingLead: 'Pricing lead',
+  Finance: 'Finance',
   Approver: 'Approver',
   Leadership: 'Leadership',
   Admin: 'Admin',

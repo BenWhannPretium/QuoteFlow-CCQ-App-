@@ -188,14 +188,14 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 |---|---|---|
 | D-011 | No ERP account setup until the business is won; new accounts start in Salesforce; remove the QuoteFlow new-customer form (Nov 2) | FB-02 (F-007), **built 2026-11-05**: the customer is always the opportunity's SF Account; one checkbox "Not yet a Pretium customer (no ERP account)" |
 | D-012 | Engineering decides the plant, with KAM input on destination and logistics (Nov 2) | FB-02 (F-017), **built 2026-11-05**: "Ship / fill destination" city + state required, shown on the Engineering queue and header |
-| D-013 | MVP cost model = upload the standard template and extract a one-page summary; in-app model later (Oct 30) | FB-07 (F-031), after D-001 |
+| D-013 | MVP cost model = upload the standard template and extract a one-page summary; in-app model later (Oct 30) | FB-07 (F-031, F-074), **built 2026-11-09 (uploads and versions)**: `cost_model`, `roi_model`, `price_table` attachments, one current record per quote and kind with version history. The one-page summary is **not built**: it waits for the templates and their cell map (A-031) |
 | D-014 | Salesforce write-back deferred to Phase 1 (Oct 26) | P1 backlog (F-035); FB-04 ships the link-and-prompt stopgap (F-076) |
 | D-015 | Minimise free text; notes only on exceptions (Oct 30) | FB-01 (F-027), built 2026-11-05: a note on every exception outcome, none on a plain Advance; caps wait for D-016 (FB-09) |
 | D-018 | A drawing, or a required minimum spec set (height, diameter/width/depth, gram weight, neck finish, resin, color), to advance (Nov 3). Final list: Jim Zweifel / Danielle Leu (A-005, A-024) | FB-02 (F-016), **built 2026-11-05**: enforced at submit; the list is `intake_min_spec_fields` (provisional, seeded height, widthOrDiameter, depth, gramWeight, neck, resin, color) |
 | D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3). **Nov 9 (Oleg):** it ties up capacity, so treat it as a capital request with an ROI and let leadership decide whether to take the business (D-002) | FB-04 (F-022), **built 2026-11-05**: relabelled "$0 CER (customer-reimbursed capital)" with Oleg's wording as an ⓘ; no separate path |
 | D-028 | Only sales leaders override priority, with the justification passed to Engineering; KAMs use escalation (Bailey, Nov 3; confirm with KAMs before the pilot) | FB-04 (F-065), **built 2026-11-05**: `priority_tier` is SalesLeader-only, self-applied; waiting requests are left for the SalesLeader |
-| D-001 | Costing, then ROI, then price confirmation, as steps inside Quoting. Pricing uploads the costing model (costs and initial price assumptions); Stacy Slocum builds the ROI from it on her template and uploads it; the pricing lead confirms the price; then Final Review. ROI only when capital is required, $0 CER included. Stacy is an input, not an approver. Not a separate gate, not parallel (Nov 9; Oleg to confirm in writing, A-036) | FB-07 (F-031, F-032, F-074), **unblocked 2026-11-09** |
-| D-031 | The final Pricing gate is renamed "Price approved"; capital readiness stays a separate field (Nov 9) | FB-07 (F-081) |
+| D-001 | Costing, then ROI, then price confirmation, as steps inside Quoting. Pricing uploads the costing model (costs and initial price assumptions); Stacy Slocum builds the ROI from it on her template and uploads it; the pricing lead confirms the price; then Final Review. ROI only when capital is required, $0 CER included. Stacy is an input, not an approver. Not a separate gate, not parallel (Nov 9; Oleg to confirm in writing, A-036) | FB-07 (F-031, F-032, F-074), **unblocked 2026-11-09** **Built 2026-11-09:** three steps inside Quoting (`packages/domain/src/quoting-steps`); G3 Advance needs the current costing model and, when `roi_required_when` applies, the ROI model; Finance role `CCQ.Finance` (A-032 outstanding). A-036 (Oleg in writing) still open: the build follows the Nov 9 record |
+| D-031 | The final Pricing gate is renamed "Price approved"; capital readiness stays a separate field (Nov 9) | FB-07 (F-081), **built 2026-11-09**: gate "Price approved", Advance "Advance – price approved", button "Price approved: advance to Final Review…"; migration 0031 renames untouched rows |
 | D-032 | The KAM captures at intake: the payment terms the customer requests (flagged if non-standard), whether the customer funds any tooling or capital, returnable (multi-trip) dunnage, delivered or FOB price and, when delivered, freight type and special arrangements. Payment terms and funding are two separate things (Gemma, Nov 6) | FB-11 (F-080, F-063) |
 | D-033 | The equipment BOM is an upload of the one-page CSR BOM from the Engineering Program Office workbook (a generic ballpark at quote time), each line flagged C (capital) or P (customer paid) (Kal, Nov 6). A blank template and the minimum fields are still needed (A-030) | FB-06 (F-058) |
 
@@ -235,12 +235,21 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | The scope-change question ("product, volume, resin, drawing or plant changed") that decides whether a KAM's fix skips Engineering | That wording, in the intake screen | Pricing and Engineering agree what counts as a scope change | Kyle Arnold; Jim Zweifel |
 | The exception-note set (`requires_note`) per D-015 | Advance with risk, Capital required, Hold, Rework / Return / Re-quote / Re-cost, Redirect, Stop / Decline, In negotiation | D-015 is decided; the rows stay provisional until Bailey approves the list (Admin → Workflow) | Bailey Schmitt |
 
+**Provisional values FB-07 seeded (built 2026-11-09; all `provisional: true`, changed by config, not code):**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.roi_required_when` | `{ g2Outcomes: ["capital_required"], capitalLikely: true, fundingModels: ["CUSTOMER_FUNDED", "ZERO_CER"] }` ("Shared" not included) | Stacy Slocum and Gemma Cebolla confirming the trigger; A-036 | Oleg Yarovinski; Stacy Slocum |
+| Role `Finance` (app role `CCQ.Finance`, group `SG-CCQ-Finance`): `quote.read`, `quote.read.commercialFields`, `roi.upload`; no "Report an issue" | Names provisional; the Entra role and group are IT's (A-032) | A-032 | Vincent Brown (IT); Bailey Schmitt |
+| `roi.upload` also held by the **PricingLead** (fallback while Finance has no QuoteFlow user) and Admin (support) | In `matrix.ts` and `role_permission` | Finance provisioned (A-032); Pricing and Finance agree to remove the fallback | Gemma Cebolla; Stacy Slocum |
+| G3 labels: gate "Price approved", outcome "Advance – price approved", its help text | D-031 is decided; the rows stay provisional until Bailey approves them in Admin → Workflow | — | Bailey Schmitt |
+| Accepted model file types | Today's attachment types (`.xlsx`, `.pdf`, …); **`.xlsm` is not accepted** | The templates (A-031): if they are macro workbooks, add `.xlsm` to the file types | Gemma Cebolla; Stacy Slocum |
+
 **Provisional values the Nov 9 build steps will seed (to be marked when built):**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|
 | Standard payment terms (the set not flagged as non-standard) | Net 15 and Net 30 | A-012 (Gemma) | Gemma Cebolla |
-| ROI required when | G2 outcome "capital required", the capital-likely flag, or a customer-funded / $0 CER funding model | Stacy Slocum and Gemma Cebolla confirming the trigger | Oleg Yarovinski; Stacy Slocum |
 | Extra Final Review approval for customer-funded quotes | Sales leader, then leadership; off until A-035 | D-002, A-035 | Oleg Yarovinski; Sarah |
 | New intake fields (payment terms, customer funding, dunnage, delivery, freight) | Optional (a warning, not a block) | D-006 (mandatory list) | Bailey Schmitt |
 
@@ -261,8 +270,8 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Standard cost-model template | Gemma Cebolla, Kyle Arnold | new | FB-07 (F-031) |
 | Standard payment terms and exceptions | Gemma Cebolla | A-012, A-022 | FB-08 |
 | Kal's minimum quote-time fields. **The blank template was already sent**: Kal emailed Bailey (cc Ben) on 2026-11-04 a link to *Pretium Project Workbook Template.xlsx* (SharePoint site AutomationAPTeam). The Hormel copy holds a real customer's data: do not send or commit it | Kal Kaliszewski | A-030 (workbook walked through Nov 6) | FB-06 (F-058) |
-| Standard costing-model template and Stacy Slocum's ROI template, with the cell map | Gemma Cebolla; Stacy Slocum | A-031 | FB-07 (one-page summary; uploads can be built without them) |
-| A Finance app role and group in Entra for Stacy Slocum | Vincent Brown (IT) | A-032 | FB-07 (F-083) |
+| Standard costing-model template and Stacy Slocum's ROI template, with the cell map | Gemma Cebolla; Stacy Slocum | A-031 | FB-07 one-page summary (uploads and versions **built 2026-11-09**; drop the templates and the cell map in `feedback/inputs/` to build the extraction) |
+| A Finance app role and group in Entra for Stacy Slocum | Vincent Brown (IT) | A-032 | FB-07 (F-083): **code built 2026-11-09**; the Entra steps are `06-azure-entra-setup.md` A4b |
 | Standard for returnable and single-trip dunnage; whether safety stock belongs at intake | Bailey Schmitt; Gemma Cebolla; Faron Ipox | A-033 | FB-11 (F-063) |
 | Plants' sales-tax status for tooling | Gemma Cebolla (Tax); Kal Kaliszewski | A-034 | Later (BOM tax lookup) |
 

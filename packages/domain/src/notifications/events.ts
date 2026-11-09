@@ -47,7 +47,8 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
   {
     type: 'quote.ready_for_final_review',
     label: 'A quote is awaiting Final Review',
-    description: 'Approvers: Pricing has approved the price and the proposition needs a decision.',
+    description:
+      'Approvers: the pricing lead approved the price (G3 Price approved) and the proposition needs a decision.',
     email: 'immediate',
   },
   {
@@ -126,6 +127,21 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     type: 'quote.market_dev',
     label: 'A qualified quote is above the Market Development threshold',
     description: 'Market Development: a large opportunity has entered engineering.',
+    email: 'immediate',
+  },
+  // FB-07 (D-001, F-032): costing, then ROI, then price confirmation inside Quoting.
+  {
+    type: 'quote.ready_for_roi',
+    label: 'A quote is ready for its ROI',
+    description:
+      'Finance: Pricing uploaded the costing model (or a new version of it) on a quote that needs an ROI (capital is required, $0 CER included). Build the ROI from it and upload the ROI model.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.roi_uploaded',
+    label: 'An ROI model is uploaded',
+    description:
+      'Pricing leads: Finance uploaded the ROI model (or a new version), so the price can be confirmed.',
     email: 'immediate',
   },
   // FB-05 (F-079): hand-offs, holds and closures reach the next owner and the KAM.

@@ -5,7 +5,7 @@ import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { DbOrTx } from '../client';
 import { first } from './_util';
 import type { Quote } from './quotes';
-import { listHolds } from './records';
+import { listCurrentModelVersions, listHolds } from './records';
 import {
   activityEvent,
   auditEvent,
@@ -52,52 +52,55 @@ export async function loadQuoteStates(
   const customerIds = [
     ...new Set(rows.map((r) => r.customerId).filter((id): id is string => !!id)),
   ];
-  const [engs, capacity, pricing, holds, decisions, customers, handoffs] = await Promise.all([
-    db.select().from(engReview).where(inArray(engReview.quoteId, found)),
-    db
-      .select()
-      .from(capacityEvidence)
-      .where(inArray(capacityEvidence.quoteId, found))
-      .orderBy(asc(capacityEvidence.analysisDate)),
-    db
-      .select({ record: pricingRecord })
-      .from(pricingRecord)
-      .innerJoin(quote, eq(quote.id, pricingRecord.quoteId))
-      .where(
-        and(inArray(pricingRecord.quoteId, found), eq(pricingRecord.quoteVersion, quote.version)),
-      ),
-    db
-      .select({
-        quoteId: quoteHold.quoteId,
-        startedAt: quoteHold.startedAt,
-        endedAt: quoteHold.endedAt,
-      })
-      .from(quoteHold)
-      .where(inArray(quoteHold.quoteId, found))
-      .orderBy(asc(quoteHold.startedAt)),
-    db
-      .select({
-        quoteId: gateDecision.quoteId,
-        gateKey: gateDecision.gateKey,
-        outcomeKey: gateDecision.outcomeKey,
-        decidedBy: gateDecision.decidedBy,
-        quoteVersion: gateDecision.quoteVersion,
-        decidedAt: gateDecision.decidedAt,
-        targetStageKey: gateDecision.targetStageKey,
-        createdAt: gateDecision.createdAt,
-      })
-      .from(gateDecision)
-      .where(inArray(gateDecision.quoteId, found))
-      .orderBy(desc(gateDecision.decidedAt), desc(gateDecision.createdAt), desc(gateDecision.id)),
-    customerIds.length
-      ? db
-          .select({ id: customer.id, sfAccountId: customer.sfAccountId, status: customer.status })
-          .from(customer)
-          .where(inArray(customer.id, customerIds))
-      : Promise.resolve([]),
-    // B-26: the hand-off record, for the G6 (Commit & Hand Off) rules.
-    db.select().from(handoffRecord).where(inArray(handoffRecord.quoteId, found)),
-  ]);
+  const [engs, capacity, pricing, holds, decisions, customers, handoffs, models] =
+    await Promise.all([
+      db.select().from(engReview).where(inArray(engReview.quoteId, found)),
+      db
+        .select()
+        .from(capacityEvidence)
+        .where(inArray(capacityEvidence.quoteId, found))
+        .orderBy(asc(capacityEvidence.analysisDate)),
+      db
+        .select({ record: pricingRecord })
+        .from(pricingRecord)
+        .innerJoin(quote, eq(quote.id, pricingRecord.quoteId))
+        .where(
+          and(inArray(pricingRecord.quoteId, found), eq(pricingRecord.quoteVersion, quote.version)),
+        ),
+      db
+        .select({
+          quoteId: quoteHold.quoteId,
+          startedAt: quoteHold.startedAt,
+          endedAt: quoteHold.endedAt,
+        })
+        .from(quoteHold)
+        .where(inArray(quoteHold.quoteId, found))
+        .orderBy(asc(quoteHold.startedAt)),
+      db
+        .select({
+          quoteId: gateDecision.quoteId,
+          gateKey: gateDecision.gateKey,
+          outcomeKey: gateDecision.outcomeKey,
+          decidedBy: gateDecision.decidedBy,
+          quoteVersion: gateDecision.quoteVersion,
+          decidedAt: gateDecision.decidedAt,
+          targetStageKey: gateDecision.targetStageKey,
+          createdAt: gateDecision.createdAt,
+        })
+        .from(gateDecision)
+        .where(inArray(gateDecision.quoteId, found))
+        .orderBy(desc(gateDecision.decidedAt), desc(gateDecision.createdAt), desc(gateDecision.id)),
+      customerIds.length
+        ? db
+            .select({ id: customer.id, sfAccountId: customer.sfAccountId, status: customer.status })
+            .from(customer)
+            .where(inArray(customer.id, customerIds))
+        : Promise.resolve([]),
+      // B-26: the hand-off record, for the G6 (Commit & Hand Off) rules.
+      db.select().from(handoffRecord).where(inArray(handoffRecord.quoteId, found)),
+      // FB-07: the current Quoting models (costing, ROI, price table), for the G3 rules.
+      listCurrentModelVersions(db, found),
+    ]);
   const byQuote = <T extends { quoteId: string }>(list: T[]) => {
     const map = new Map<string, T[]>();
     for (const item of list) {
@@ -115,6 +118,13 @@ export async function loadQuoteStates(
   const accountBy = new Map(customers.map((c) => [c.id, c.sfAccountId]));
   const customerStatusBy = new Map(customers.map((c) => [c.id, c.status]));
   const handoffBy = new Map(handoffs.map((h) => [h.quoteId, h]));
+  const modelKinds = new Map<string, Set<string>>();
+  for (const m of models) {
+    if (!m.quoteId) continue;
+    const kinds = modelKinds.get(m.quoteId) ?? new Set<string>();
+    kinds.add(m.kind);
+    modelKinds.set(m.quoteId, kinds);
+  }
 
   for (const row of rows) {
     const {
@@ -137,6 +147,10 @@ export async function loadQuoteStates(
       customer_status: row.customerId ? (customerStatusBy.get(row.customerId) ?? null) : null,
       // B-11: Engineering's latest feasibility outcome (e.g. capital_required) for the Quoting rules.
       g2_outcome: quoteDecisions.find((d) => d.gateKey === 'G2')?.outcomeKey ?? null,
+      // FB-07 (D-001): a current costing / ROI model / price table is on file (G3 reads the first two).
+      cost_model_on_file: modelKinds.get(row.id)?.has('cost_model') ?? false,
+      roi_model_on_file: modelKinds.get(row.id)?.has('roi_model') ?? false,
+      price_table_on_file: modelKinds.get(row.id)?.has('price_table') ?? false,
     };
     // B-11: who acted as Pricing on this version (segregation `actor_is_price_approver`).
     const priceApproverIds = [

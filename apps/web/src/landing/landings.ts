@@ -11,6 +11,7 @@ export type LandingRole =
   | 'Engineer'
   | 'Pricing'
   | 'PricingLead'
+  | 'Finance'
   | 'Approver'
   | 'Leadership'
   | 'Admin'
@@ -76,6 +77,33 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     description: 'Assign Quoting work to the pricers and keep the pricing queue balanced.',
     action: { label: 'Open the queue', to: '/queue/pricing', permission: 'pricingQueue.assign' },
   },
+  // FB-07 (F-083, D-001): Finance builds the ROI from Pricing's costing model and uploads it. No queue
+  // and no data dashboard: the "ready for its ROI" notice links to the quote's Quoting tab.
+  Finance: {
+    role: 'Finance',
+    roleLabel: 'Finance',
+    title: 'ROI requests',
+    description:
+      'Quotes that need an ROI: take the assumptions from the costing model on the quote and upload the ROI model.',
+    action: { label: 'Find a quote', to: '/quotes', permission: 'quote.read' },
+    cards: [
+      {
+        title: 'When a quote needs you',
+        description:
+          'You are told (bell and email) when Pricing uploads a costing model on a quote that needs an ROI: capital is required, $0 CER included. The notice opens the quote’s Quoting tab.',
+      },
+      {
+        title: 'What you do',
+        description:
+          'On the Quoting tab, step 2 (ROI): download the current costing model, build the ROI on your template, then upload the ROI model. A new upload replaces the current version; earlier versions stay in the history.',
+      },
+      {
+        title: 'What you don’t do',
+        description:
+          'You are an input, not an approver: the pricing lead approves the price (G3) after your ROI is on file. Your role reads quotes and uploads the ROI model, nothing else.',
+      },
+    ],
+  },
   Approver: {
     role: 'Approver',
     roleLabel: 'Approver',
@@ -119,6 +147,7 @@ export const LANDING_PRECEDENCE: readonly LandingRole[] = [
   'EngLead',
   'PricingLead',
   'Pricing',
+  'Finance',
   'Engineer',
   'SalesLeader',
   'KAM',

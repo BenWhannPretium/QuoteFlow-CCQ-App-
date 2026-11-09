@@ -72,6 +72,29 @@ const ENG_FEASIBLE: RequiredRule[] = [
  *   not required after all), not pending.
  * Provisional; confirm at R3 with Gemma Cebolla.
  */
+/**
+ * FB-07 (D-001, F-032): costing, then ROI, then price confirmation. The pricing lead cannot confirm the
+ * price (G3 Advance) until the current costing model is on file and, when the quote needs an ROI
+ * (`roi_required`, derived from app_setting `roi_required_when`: capital required, $0 CER included), the
+ * current ROI model too. `cost_model_on_file` / `roi_model_on_file` come from the quote's current
+ * attachments; a missing field fails closed. Quotes already in Quoting with costing attested before
+ * FB-07 are grandfathered by migration 0031 (`pricing_record.cost_model_requirement`).
+ */
+const QUOTING_MODELS_ON_FILE: RequiredRule[] = [
+  {
+    anyOf: [
+      { field: 'cost_model_on_file', op: 'equals', value: true },
+      { field: 'pricing_record.cost_model_requirement', op: 'equals', value: 'grandfathered' },
+    ],
+  },
+  {
+    anyOf: [
+      { field: 'roi_required', op: 'equals', value: false },
+      { field: 'roi_model_on_file', op: 'equals', value: true },
+    ],
+  },
+];
+
 const PRICE_APPROVED: RequiredRule[] = [
   {
     anyOf: [
@@ -106,6 +129,7 @@ const PRICE_APPROVED: RequiredRule[] = [
       },
     ],
   },
+  ...QUOTING_MODELS_ON_FILE,
 ];
 
 /**
@@ -275,7 +299,9 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       {
         key: 'G3',
         stageKey: 'QUOTING',
-        label: 'Price approved & capital ready',
+        // FB-07 (D-031, F-081): "Price approved & capital ready" read as clearance to spend and invited
+        // POs before a CER existed. Capital readiness stays its own field and panel.
+        label: 'Price approved',
         deciderPermission: 'gate.G3.submit',
         provisional: true,
       },
@@ -385,8 +411,9 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         reasonContext: 'stop',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
       }),
-      // G3 (B-11): decider Pricing (gate.G3.submit).
-      outcome('G3', 'submit', 'Advance to Final Review', {
+      // G3 (B-11): decider the pricing lead (gate.G3.submit). FB-07 (F-081): the button says what it
+      // records, and leads with the standard word (B-26): "Advance – price approved".
+      outcome('G3', 'submit', 'Advance – price approved', {
         requiredFields: PRICE_APPROVED,
         notify: [{ type: 'quote.ready_for_final_review', to: { role: 'Approver' } }],
       }),

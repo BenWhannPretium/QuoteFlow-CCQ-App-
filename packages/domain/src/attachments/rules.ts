@@ -5,11 +5,13 @@ import {
   ATTACHMENT_EXTENSIONS,
   DRAWING_ATTACHMENT_KINDS,
   fileTypeForName,
+  isQuotingModelKind,
   sniffMatches,
   type AttachmentFileType,
 } from './file-types';
 import { renderFolderTemplate } from './names';
 import { can, hasPermission, type PolicyResource } from '../policy/can';
+import { MODEL_UPLOAD_PERMISSION } from '../quoting-steps';
 import type { Actor } from '../types/actor';
 
 /**
@@ -136,6 +138,11 @@ export interface RemovableAttachment {
   createdAt: Date;
   /** The file is on an intake draft that hasn't been submitted (its owner may always remove it). */
   onOpenDraft: boolean;
+  /**
+   * FB-07: the file's kind. A Quoting model is uploaded under its step's permission (Finance's ROI under
+   * `roi.upload`), so its uploader's window follows that permission, not `attachment.upload`.
+   */
+  kind?: string;
 }
 
 /**
@@ -156,7 +163,11 @@ export function attachmentRemoval(
     };
   }
   if (file.onOpenDraft) return { allowed: true, reason: null };
-  if (!hasPermission(actor, 'attachment.upload')) {
+  const uploadPermission =
+    file.kind !== undefined && isQuotingModelKind(file.kind)
+      ? MODEL_UPLOAD_PERMISSION[file.kind]
+      : 'attachment.upload';
+  if (!hasPermission(actor, uploadPermission)) {
     return { allowed: false, reason: 'Only an Admin can remove it' };
   }
   const windowMs = settings.uploaderRemoveHours * 3_600_000;

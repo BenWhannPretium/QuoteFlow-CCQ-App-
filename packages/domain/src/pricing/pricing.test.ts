@@ -36,6 +36,7 @@ const ctx = {
   formats: PRICING_REF_FORMATS_SEED,
   pricingUserIds: new Set<string>([PRICER, PRICER_2]),
   now: NOW,
+  costModelOnFile: true,
 };
 
 describe('pricing-app reference formats', () => {
@@ -300,6 +301,65 @@ describe('what other roles see', () => {
     expect(codes({ capitalReadiness: 'not_approved' })).toEqual(['CAPITAL_NOT_APPROVED']);
     expect(codes({ costingCompleted: false })).toEqual(['COSTING_NOT_ATTESTED']);
     expect(codes({ erfRefs: [] })).toEqual([]);
+    // FB-07: a grandfathered record without a model says so; with one on file it does not.
+    expect(codes({ costModelRequirement: 'grandfathered' })).toEqual([]);
+    expect(
+      quotingWarnings(
+        { ...EMPTY_PRICING_RECORD, costingCompleted: true, costModelRequirement: 'grandfathered' },
+        false,
+      ).map((w) => w.code),
+    ).toEqual(['NO_COST_MODEL_ON_FILE']);
+  });
+});
+
+describe('FB-07 costing attestation needs the costing model (F-032)', () => {
+  it('refuses "costing completed" without a current costing model', () => {
+    const plan = planPricingRecord(
+      pricing,
+      quoting,
+      EMPTY_PRICING_RECORD,
+      { costingCompleted: true },
+      { ...ctx, costModelOnFile: false },
+    );
+    expect(plan.ok).toBe(false);
+    if (plan.ok) return;
+    expect(plan.errors.map((e) => [e.code, e.field])).toEqual([
+      ['COST_MODEL_REQUIRED', 'costingCompleted'],
+    ]);
+  });
+
+  it('accepts it with the model on file, or when the record is grandfathered', () => {
+    expect(
+      planPricingRecord(pricing, quoting, EMPTY_PRICING_RECORD, { costingCompleted: true }, ctx).ok,
+    ).toBe(true);
+    expect(
+      planPricingRecord(
+        pricing,
+        quoting,
+        { ...EMPTY_PRICING_RECORD, costModelRequirement: 'grandfathered' },
+        { costingCompleted: true },
+        { ...ctx, costModelOnFile: false },
+      ).ok,
+    ).toBe(true);
+  });
+
+  it('still lets Pricing clear the attestation without a model', () => {
+    const current = { ...EMPTY_PRICING_RECORD, costingCompleted: true };
+    const plan = planPricingRecord(
+      pricing,
+      quoting,
+      current,
+      { costingCompleted: false },
+      { ...ctx, costModelOnFile: false },
+    );
+    expect(plan.ok && plan.next.costingCompleted).toBe(false);
+  });
+
+  it('a new version starts "required" (carry-forward never grandfathers)', () => {
+    expect(
+      carryForwardPricingRecord({ ...EMPTY_PRICING_RECORD, costModelRequirement: 'grandfathered' })
+        .costModelRequirement,
+    ).toBe('required');
   });
 });
 
@@ -386,13 +446,55 @@ describe('G3 (hybrid seed)', () => {
   ) =>
     evaluateTransition(
       hybridConfig,
-      makeQuote('QUOTING', { fields: { pricing_record: record, ...fields } }),
+      makeQuote('QUOTING', {
+        // FB-07: the models are on file and no ROI is needed unless a test says otherwise.
+        fields: {
+          cost_model_on_file: true,
+          roi_required: false,
+          pricing_record: record,
+          ...fields,
+        },
+      }),
       actor,
       { gateKey: 'G3', outcomeKey: 'submit' },
       NOW,
     );
   const missing = (r: ReturnType<typeof submit>) =>
     r.ok ? [] : r.errors.map((e) => e.field ?? e.code);
+
+  it('FB-07 (D-001, F-032): the costing model, then the ROI model when one is needed', () => {
+    const noModels = { cost_model_on_file: false, roi_model_on_file: false };
+    expect(missing(submit(approved, lead, noModels))).toEqual([
+      'cost_model_on_file,pricing_record.cost_model_requirement',
+    ]);
+    expect(missing(submit(approved, lead, { ...noModels, roi_required: true }))).toEqual([
+      'cost_model_on_file,pricing_record.cost_model_requirement',
+      'roi_required,roi_model_on_file',
+    ]);
+    expect(
+      missing(submit(approved, lead, { roi_required: true, roi_model_on_file: false })),
+    ).toEqual(['roi_required,roi_model_on_file']);
+    expect(submit(approved, lead, { roi_required: true, roi_model_on_file: true }).ok).toBe(true);
+    // Grandfathered (in Quoting with costing attested before FB-07): no costing model needed.
+    expect(
+      submit({ ...approved, cost_model_requirement: 'grandfathered' }, lead, noModels).ok,
+    ).toBe(true);
+    // A missing derived field fails closed.
+    expect(
+      missing(
+        evaluateTransition(
+          hybridConfig,
+          makeQuote('QUOTING', { fields: { pricing_record: approved } }),
+          lead,
+          { gateKey: 'G3', outcomeKey: 'submit' },
+          NOW,
+        ),
+      ),
+    ).toEqual([
+      'cost_model_on_file,pricing_record.cost_model_requirement',
+      'roi_required,roi_model_on_file',
+    ]);
+  });
 
   it('Advance needs the approval, the costing attestation and a capital status (B-26: no ERF / BPR)', () => {
     expect(missing(submit({}))).toEqual([

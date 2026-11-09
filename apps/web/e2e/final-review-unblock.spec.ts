@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 import { seriousViolations } from './axe';
+import { prepareModels } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -56,6 +57,8 @@ async function uncheckedInFinalReview(request: APIRequestContext): Promise<strin
   });
   await put('capacity-signoff', 'eng-lead', { status: 'approved' });
   await post('gates/G2/decisions', 'eng-lead', { outcomeKey: 'proceed' });
+  // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
+  await prepareModels(request, qn);
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
     pricingBasisNote: 'March CDI',

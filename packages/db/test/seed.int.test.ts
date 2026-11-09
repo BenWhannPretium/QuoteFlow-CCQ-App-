@@ -199,8 +199,8 @@ describe('config seeds', () => {
 });
 
 describe('synthetic data', () => {
-  it('has 13 users, ~70 customers (some not yet established) and 102 opportunities in the report mix', async () => {
-    expect(await count('app_user')).toBe(13);
+  it('has 14 users (FB-07 added Finance), ~70 customers (some not yet established) and 102 opportunities in the report mix', async () => {
+    expect(await count('app_user')).toBe(14);
     expect(await count('customer')).toBe(70);
     expect(
       await count('customer', sql`status = 'not_yet_established' and sf_account_id is null`),
@@ -326,6 +326,6 @@ describe('synthetic data', () => {
     const result = await db.transaction((tx) => seedSynthetic(tx));
     expect(result.quotes).toBe('already-present');
     expect(await count('gate_decision')).toBe(before);
-    expect(await count('app_user')).toBe(13);
+    expect(await count('app_user')).toBe(14);
   });
 });

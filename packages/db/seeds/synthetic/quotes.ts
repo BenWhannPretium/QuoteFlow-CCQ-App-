@@ -7,6 +7,8 @@ import {
   migrateLegacyNeckFinish,
   score,
   withDerivedFields,
+  ROI_REQUIRED_WHEN_SEED,
+  roiRequirement,
   CAPACITY_BASIS_SEED,
   computeUtilization,
   storedUtilizationPct,
@@ -21,6 +23,7 @@ import type { DbOrTx } from '../../src/client';
 import {
   getQuoteById,
   insertAttachment,
+  insertAttachmentVersion,
   insertAuditEvent,
   insertCapacityEvidence,
   insertComment,
@@ -692,6 +695,28 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             createdBy: pricing.id,
           });
           await updateQuote(db, quoteId, { erfNumber: `ERF-${rng.int(10_000, 99_999)}` });
+          // FB-07 (D-001): costing, then ROI. Pricing's costing model (a new version on a re-quote) and,
+          // when the quote needs one, Finance's ROI model. Metadata only (no bytes) and no draws.
+          const model = (kind: 'cost_model' | 'roi_model', by: Persona, when: Date) =>
+            insertAttachmentVersion(
+              db,
+              {
+                quoteId,
+                kind,
+                fileName: `${kind === 'cost_model' ? 'Costing model' : 'ROI model'} v${version} (synthetic).xlsx`,
+                size: 0,
+                mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                uploadedBy: by.id,
+                createdAt: when,
+                createdBy: by.id,
+              },
+              when,
+            );
+          await model('cost_model', pricing, new Date(at.getTime() - 2 * 3_600_000));
+          const priced = await loadQuoteState(db, quoteId);
+          if (roiRequirement(priced!.fields, ROI_REQUIRED_WHEN_SEED).required) {
+            await model('roi_model', persona('finance'), new Date(at.getTime() - 3_600_000));
+          }
           break;
         }
         case 'proposal': {
@@ -745,6 +770,10 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             // The KAM resubmitted the reworked intake before this decision.
             await updateQuote(db, quoteId, { submittedAt: at });
             state!.fields = { ...state!.fields, submitted_at: at };
+          }
+          // FB-07: the G3 rules read the derived ROI requirement. No draws.
+          if (step.gate === 'G3') {
+            state!.fields = withDerivedFields(state!, SEED_DERIVED_SETTINGS).fields;
           }
           // B-26: G4 Advance needs the terms check (and the Legal review for a new customer). No draws.
           if (step.gate === 'G4' && step.outcome === 'approve') {
@@ -817,6 +846,7 @@ const SEED_DERIVED_SETTINGS = {
   legalReviewTriggers: LEGAL_REVIEW_TRIGGERS_SEED,
   passThrough: PASS_THROUGH_SEED,
   g4RequiredChecks: G4_REQUIRED_CHECKS_SEED,
+  roiRequiredWhen: ROI_REQUIRED_WHEN_SEED,
 };
 
 /** Consume a random draw without using it, so the rows generated after it stay the same. */

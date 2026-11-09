@@ -7,7 +7,7 @@
 -- carry Postgres RLS or grants, and Fabric permissions (incl. the commercial-column rule) are owned by D&A (B-27 §3).
 -- Batches are separated by GO (SSMS / sqlcmd / VS Code mssql style).
 --
--- BUSINESS DEFINITION: one row per recorded gate decision (G1 qualify, G2 feasibility, G3 price/capital, G4 release, G5 outcome), with who decided, the outcome and reason code, and the quote dimensions. superseded = the decision was taken on an earlier quote version (a later rework, return or re-quote bumped the version); decisions are kept, never edited (CR-38). Feeds G1 qualification yield (S-04), the reasons work is returned to the KAM, and Final Review decisions.
+-- BUSINESS DEFINITION: one row per recorded gate decision (G1 qualify, G2 feasibility, G3 price approved, G4 release, G5 outcome), with who decided, the outcome and reason code, and the quote dimensions. superseded = the decision was taken on an earlier quote version (a later rework, return or re-quote bumped the version); decisions are kept, never edited (CR-38). Feeds G1 qualification yield (S-04), the reasons work is returned to the KAM, and Final Review decisions.
 --
 -- Fabric notes: the boolean superseded becomes bit; NULL when either version is NULL, as in Postgres.
 CREATE OR ALTER VIEW analytics.analytics_gate_decision AS

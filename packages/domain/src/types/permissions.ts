@@ -12,6 +12,8 @@ export const PERMISSIONS = [
   'pricingQueue.assign',
   'quoting.edit',
   'gate.G3.submit',
+  // FB-07 (F-083): upload or replace the ROI model in Quoting.
+  'roi.upload',
   'finalReview.read',
   'gate.G4.decide',
   'outcome.record',

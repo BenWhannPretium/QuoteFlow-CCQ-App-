@@ -54,6 +54,9 @@ const FIXTURES: Record<string, Record<string, string>> = {
   },
   'quote.closed': { outcome: 'Declined', reason: 'Not strategic' },
   'comment.posted': { actor: 'Dana Whitfield', count: '3' },
+  // FB-07 (D-001)
+  'quote.ready_for_roi': { actor: 'Kyle Arnold', version: '2' },
+  'quote.roi_uploaded': { actor: 'Stacy Slocum', version: '1' },
 };
 
 describe('subjects', () => {
@@ -87,6 +90,8 @@ describe('subjects', () => {
     ['quote.on_hold', '[QuoteFlow] CCQ-2026-00042 is on hold: Hold'],
     ['quote.closed', '[QuoteFlow] CCQ-2026-00042 was closed: Outcome recorded'],
     ['comment.posted', '[QuoteFlow] CCQ-2026-00042 has 3 new comments: Comments'],
+    ['quote.ready_for_roi', '[QuoteFlow] CCQ-2026-00042 is ready for its ROI: Quoting'],
+    ['quote.roi_uploaded', '[QuoteFlow] CCQ-2026-00042 has its ROI: Quoting'],
   ])('%s', (type, subject) => {
     expect(renderEmail(model(type, { payload: FIXTURES[type] ?? {} })).subject).toBe(subject);
   });

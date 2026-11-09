@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { excludedSet, first } from './_util';
@@ -200,6 +200,87 @@ export async function insertAttachment(db: DbOrTx, values: typeof attachment.$in
   const [row] = await db.insert(attachment).values(values).returning();
   return row!;
 }
+
+/** FB-07 (F-074): every version of one kind on a quote, removed ones included, newest first. */
+export const listAttachmentVersions = (
+  db: DbOrTx,
+  quoteId: string,
+  kind: string,
+  forUpdate = false,
+) => {
+  const q = db
+    .select()
+    .from(attachment)
+    .where(and(eq(attachment.quoteId, quoteId), eq(attachment.kind, kind)))
+    .orderBy(desc(attachment.version), desc(attachment.createdAt));
+  return forUpdate ? q.for('update') : q;
+};
+
+const isCurrentVersion = (r: typeof attachment.$inferSelect) =>
+  r.version !== null && r.supersededAt === null && r.removedAt === null;
+
+/**
+ * FB-07 (F-074, T-034): a new version of a versioned kind. In the caller's transaction: the current
+ * version (if any) is superseded, the new row is inserted with the next number, and the old one then
+ * names it. One current version per quote and kind (unique index); earlier versions stay.
+ */
+export async function insertAttachmentVersion(
+  db: DbOrTx,
+  values: Omit<typeof attachment.$inferInsert, 'version' | 'supersededBy' | 'supersededAt'> & {
+    quoteId: string;
+  },
+  at: Date,
+) {
+  const versions = await listAttachmentVersions(db, values.quoteId, values.kind, true);
+  const current = versions.find(isCurrentVersion) ?? null;
+  const version = versions.reduce((m, v) => Math.max(m, v.version ?? 0), 0) + 1;
+  if (current) {
+    await db
+      .update(attachment)
+      .set({ supersededAt: at, updatedAt: at })
+      .where(eq(attachment.id, current.id));
+  }
+  const [row] = await db
+    .insert(attachment)
+    .values({ ...values, version })
+    .returning();
+  if (current) {
+    await db.update(attachment).set({ supersededBy: row!.id }).where(eq(attachment.id, current.id));
+  }
+  return { row: row!, superseded: current };
+}
+
+/**
+ * FB-07: the current version was removed (soft); the newest remaining version is current again. Returns
+ * the restored row, or null.
+ */
+export async function restorePreviousVersion(db: DbOrTx, quoteId: string, kind: string, at: Date) {
+  const versions = await listAttachmentVersions(db, quoteId, kind, true);
+  if (versions.some(isCurrentVersion)) return null;
+  const previous = versions.find((v) => v.version !== null && v.removedAt === null);
+  if (!previous) return null;
+  return first(
+    await db
+      .update(attachment)
+      .set({ supersededAt: null, supersededBy: null, updatedAt: at })
+      .where(eq(attachment.id, previous.id))
+      .returning(),
+  );
+}
+
+/** FB-07: the current version of each versioned kind on these quotes (removed and superseded excluded). */
+export const listCurrentModelVersions = (db: DbOrTx, quoteIds: readonly string[]) =>
+  db
+    .select()
+    .from(attachment)
+    .where(
+      and(
+        inArray(attachment.quoteId, [...quoteIds]),
+        isNotNull(attachment.version),
+        isNull(attachment.supersededAt),
+        isNull(attachment.removedAt),
+      ),
+    );
 
 export async function updateAttachment(
   db: DbOrTx,

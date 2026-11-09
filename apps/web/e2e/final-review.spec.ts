@@ -7,6 +7,7 @@ import {
 } from '@playwright/test';
 
 import { seriousViolations } from './axe';
+import { prepareModels } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -66,6 +67,8 @@ async function quoteInFinalReview(
     'eng-lead',
     g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Second cavity set needed' },
   );
+  // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
+  await prepareModels(request, quoteNumber);
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
     pricingBasisNote: 'March CDI, FOB Chicago',
@@ -176,7 +179,11 @@ test('an Approver approves one quote and declines another from a phone', async (
   await expect(page.getByTestId('review-capital')).toContainText(
     'Capital pre-approved (budgetary)',
   );
-  await expect(page.getByTestId('review-attachments')).toContainText('No files are attached');
+  // FB-07 (F-031): the costing model is on the quote, and the steps show it at Final Review.
+  await expect(page.getByTestId('review-attachments')).toContainText('cost_model.synthetic.xlsx');
+  await expect(page.getByTestId('quoting-steps').getByTestId('model-cost_model')).toContainText(
+    'v1 · current',
+  );
   await expect(page.getByTestId('review-decisions')).toContainText('G3');
   await expect(page.getByTestId('full-timeline-link')).toBeVisible();
   expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);

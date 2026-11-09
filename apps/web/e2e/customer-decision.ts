@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 
+import { prepareModels } from './models';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 // Shared by the outcome (B-13) and FB-04 specs: takes a quote through the API to Customer Decision.
@@ -55,6 +56,8 @@ export async function quoteInCustomerDecision(
   });
   await put('capacity-signoff', 'eng-lead', { status: 'approved' });
   await post('gates/G2/decisions', 'eng-lead', { outcomeKey: 'proceed' });
+  // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
+  await prepareModels(request, quoteNumber);
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
     erfRefs: ['ERF26-213'],

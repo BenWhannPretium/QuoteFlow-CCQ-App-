@@ -12,7 +12,7 @@ Sign in at **TBD (prod URL, B-22)**. During UAT: `https://quoteflow-test.azurewe
 
 1. **Intake** (KAM) → **G1 Qualify & prioritize** (sales leader)
 2. **Engineering Review** (engineering lead and engineers) → **G2 Feasible solution?**
-3. **Quoting** (Pricing) → **G3 Price approved & capital ready**
+3. **Quoting** (Pricing) → **G3 Price approved** (FB-07: costing, then ROI when capital is required, then the pricing lead approves the price; capital readiness is its own field)
 4. **Final Review** (approver) → **G4 Release proposition**
 5. **Customer Decision** (KAM) → **G5** customer outcome
 6. **Commit & Hand Off** (KAM) → **G6**, which closes **Closed – Won**
@@ -47,8 +47,14 @@ Every gate offers the standard outcomes where they apply (Advance, Hold, Rework,
 **Pricing and pricing lead**
 - Pricing queue. The pricing lead assigns and reassigns pricers.
 - Record the price **approval** (who, when, basis, range), the costing attestation and capital readiness. No price figures are typed into QuoteFlow.
+- FB-07: upload the **costing model** (step 1). It is one record with version history; the latest is flagged. The costing attestation needs it on file.
+- The pricing lead may upload an **updated price table** (optional) and approves the price: **G3 Price approved**. It needs the costing model and, when capital is required ($0 CER included), Finance's ROI model.
 - Pricing history panel from the retired pricing app (ERF and SPR on the quote; BPR on the Pricing history page).
 - Decide G3.
+
+**Finance (FB-07, new role `CCQ.Finance`)**
+- Told when a quote needs an ROI (capital required, $0 CER included) and Pricing has uploaded its costing model.
+- Downloads the costing model and uploads the **ROI model** (step 2, versioned). An input, not an approver. Reads quotes; changes nothing else.
 
 **Final Review approver**
 - One-page review and a sticky decision bar; works on a phone.
@@ -76,6 +82,7 @@ Every gate offers the standard outcomes where they apply (Advance, Hold, Rework,
 - Qualification, feasibility, price approval and release are **recorded decisions** with reasons, not emails.
 - Capacity evidence and the capacity sign-off are part of the G2 record.
 - Price approval is a record of who and when; price figures stay with Pricing. BPR is retired; the legacy ERF # is optional.
+- Costing, ROI and price confirmation run in order inside Quoting (D-001). The costing and ROI workbooks live on the quote with their versions, not in email.
 - Final Review is separate from the customer outcome. "No response" is not a loss.
 - A quote closes only with an outcome, a reason, an owner and a date. A win closes only after Commit & Hand Off.
 - Overrides need a justification, keep the original value and can be reverted.

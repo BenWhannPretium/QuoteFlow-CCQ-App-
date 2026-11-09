@@ -22,6 +22,7 @@ import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome
 import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
 import { CAPITAL_READINESS_VALUES, parsePricingRefFormats } from '../pricing/record';
+import { parseRoiRequiredWhen } from '../quoting-steps';
 import { requiredRuleSchema } from '../types/workflow-config';
 
 /**
@@ -299,6 +300,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Price proceeds without formal approval below this annual revenue (not set = every price is approved)',
     'json',
     notNull('pricing_pass_through', parsePassThrough),
+  ),
+  // FB-07 (D-001): when Quoting's ROI step applies (Finance uploads the ROI model before G3).
+  spec(
+    'roi_required_when',
+    'pricing',
+    "When a quote needs Finance's ROI model before the price is approved (G2 outcomes, capital likely, funding models)",
+    'json',
+    notNull('roi_required_when', parseRoiRequiredWhen),
   ),
   // Capital and Market Development notices (B-26, D-27)
   spec(

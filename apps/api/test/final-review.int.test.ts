@@ -15,6 +15,7 @@ import { addCalendarDays, proposalCalendarDate, type Role } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -219,6 +220,8 @@ async function inFinalReview(o: Opts = {}) {
       .values({ userId: id, role: 'Pricing', createdBy: id })
       .onConflictDoNothing();
   }
+  // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
+  await prepareModels(app, qn);
   ok(
     await as('Pricing').put(`/api/v1/quotes/${qn}/pricing-record`, {
       approvedBy: await userId(approverKey),
@@ -500,11 +503,18 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
       capitalPendingJustification: SECRETS.justification,
     });
     expect(dto.quoting.g2).toMatchObject({ outcomeKey: 'capital_required' });
-    // open warnings, attachments (none until B-16), decisions so far
+    // open warnings, attachments (FB-07: the costing and ROI models), decisions so far
     expect(dto.warnings.map((w) => w.code)).toEqual(
       expect.arrayContaining(['G2_CAPITAL_REQUIRED', 'CAPITAL_PENDING']),
     );
-    expect(dto.attachments).toEqual([]);
+    expect(dto.attachments.map((a) => a.kind).sort()).toEqual(['cost_model', 'roi_model']);
+    // FB-07 (F-031): the steps, with who and when, at Final Review.
+    expect(dto.quoting.steps).toMatchObject({
+      current: 'done',
+      costing: { status: 'done', model: { version: 1 } },
+      roi: { status: 'done', required: true, model: { version: 1 } },
+      price: { status: 'done' },
+    });
     expect(dto.decisions.map((d) => `${d.gateKey}:${d.outcomeKey}`)).toEqual([
       'G3:submit',
       'G2:capital_required',

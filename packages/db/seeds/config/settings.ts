@@ -17,6 +17,7 @@ import {
   SCORING_MODEL_V1_INPUT,
   SCORING_MODEL_V2_INPUT,
   COMMENT_EMAIL_COLLAPSE_MINUTES_SEED,
+  ROI_REQUIRED_WHEN_SEED,
 } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
@@ -327,6 +328,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: G4_REQUIRED_CHECKS_SEED,
     description:
       'FB-01 (F-069, D-003 open): which checks block G4 Advance (release the offer): terms_checked (the KAM / Sales / Pricing terms check) and legal_review (the Legal review, when a legal_review_triggers trigger applies). [] = neither blocks; the Final Review screen shows them to the approver as warnings and the G4 decision records that the approver saw them.',
+  },
+  {
+    // FB-07 (D-001): Quoting's ROI step (Finance) applies when capital is required, $0 CER included.
+    key: 'roi_required_when',
+    value: ROI_REQUIRED_WHEN_SEED,
+    description:
+      "FB-07 (D-001): when a quote needs Finance's ROI model before the pricing lead approves the price (G3). Any of: Engineering's latest G2 outcome is in g2Outcomes, the quote is flagged capital likely (capitalLikely), or the tooling funding model is in fundingModels. Seed: capital required, $0 CER included. Provisional.",
   },
   {
     key: 'capital_management_notice',

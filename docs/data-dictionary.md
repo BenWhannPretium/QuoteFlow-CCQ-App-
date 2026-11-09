@@ -379,7 +379,7 @@ Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | yes |  | quote.id | Quote. Null while the file sits on an intake draft (set on submit). | Uploader |
 | `draft_id` | uuid | yes |  | quote_draft.id | Intake draft the file was uploaded to (B-16); kept after submit for provenance. Null once a deleted draft took its (removed) files with it. | KAM |
-| `kind` | text | no |  |  | bottle_drawing \| spec \| sample_photo \| capacity_analysis \| other (capacity_analysis: FB-03, the engineer's capacity analysis). | Uploader |
+| `kind` | text | no |  |  | bottle_drawing \| spec \| sample_photo \| capacity_analysis \| other \| bid_file \| project_brief \| competitor_drawing \| cost_model \| roi_model \| price_table (capacity_analysis: FB-03; bid_file, project_brief, competitor_drawing: FB-02; cost_model, roi_model, price_table: FB-07, versioned, uploaded on the Quoting tab). | Uploader |
 | `file_name` | text | no |  |  | Original file name (metadata; the stored name is sanitized). | Uploader |
 | `stored_name` | text | yes |  |  | Sanitized name in storage (after any conflict rename). | CCQ (system) |
 | `size` | bigint | no |  |  | Size in bytes. | Uploader |
@@ -395,10 +395,13 @@ Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.
 | `uploaded_by` | uuid | no |  | app_user.id | Uploader. | Uploader |
 | `removed_at` | timestamp with time zone | yes |  |  | Soft delete: when the file was removed (moved to the removed folder). | CCQ (system) |
 | `removed_by` | uuid | yes |  | app_user.id | Who removed it. | CCQ (system) |
+| `version` | integer | yes |  |  | FB-07 (F-074): version number per quote and kind, from 1, for the versioned kinds (cost_model, roi_model, price_table). Null for every other kind. | CCQ (system) |
+| `superseded_by` | uuid | yes |  | attachment.id | FB-07 (F-074): the newer version that replaced this one. Null on the current version (the latest is the one with no superseded_at that is not removed). Earlier versions stay downloadable. | CCQ (system) |
+| `superseded_at` | timestamp with time zone | yes |  |  | FB-07 (F-074): when a newer version replaced this one. | CCQ (system) |
 
-**Checks:** `attachment_kind_check`, `attachment_size_check`, `attachment_storage_check`, `attachment_owner_check`, `attachment_removed_consistency_check`
+**Checks:** `attachment_kind_check`, `attachment_version_check`, `attachment_superseded_consistency_check`, `attachment_size_check`, `attachment_storage_check`, `attachment_owner_check`, `attachment_removed_consistency_check`
 
-**Indexes:** `attachment_quote_idx`, `attachment_draft_idx`
+**Indexes:** `attachment_current_version_uidx`, `attachment_version_uidx`, `attachment_quote_idx`, `attachment_draft_idx`
 
 ### capacity_evidence
 
@@ -629,8 +632,9 @@ Price approval and capital readiness record (CR-25/26), one row per quote versio
 | `cer_reference` | text | yes |  |  | Capital expenditure request (CER) id, optional. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
 | `capital_notes` | text | yes |  |  | Capital notes. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
 | `capital_pending_justification` | text | yes |  |  | Why G3 is submitted with capital still pending (D-11 open: a warning, not a block). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `cost_model_requirement` | text | no | "required" |  | FB-07 (F-032): required \| grandfathered. The costing attestation and G3 need a current cost_model attachment unless grandfathered: quotes in Quoting with costing attested and no model when FB-07 shipped (migration 0031). Every new version starts required. | CCQ (system) |
 
-**Checks:** `pricing_record_capital_readiness_check`
+**Checks:** `pricing_record_capital_readiness_check`, `pricing_record_cost_model_requirement_check`
 
 **Indexes:** `pricing_record_quote_version_uniq`
 

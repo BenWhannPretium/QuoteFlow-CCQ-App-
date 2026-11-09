@@ -29,6 +29,8 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
     // B-26: the pricing lead works the same queue (and assigns it).
     [['PricingLead'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
+    // FB-07 (F-083): Finance reads quotes and uploads the ROI model; no queue, no analytics.
+    [['Finance'], ['home', 'pipeline']],
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
     [
       ['Leadership'],

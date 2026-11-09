@@ -26,6 +26,7 @@ import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
 import { CapitalChip } from '../pricing/CapitalChip';
 import { PricingContextPanel } from '../pricing/PricingContextPanel';
+import { QuotingSteps } from '../pricing/QuotingSteps';
 import { PriorityBadge, ScoreBreakdownTable } from '../Priority';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
@@ -515,6 +516,8 @@ function PricingSection({ s }: { s: ReviewSummary }) {
           s.quoting.commercialRedacted && <Restricted what="The pricing basis and range" />
         )}
       </Section>
+      {/* FB-07 (F-031, D-001): the costing model, the ROI model and the price approval, read-only. */}
+      <QuotingSteps quoteNumber={s.quote.quoteNumber} steps={s.quoting.steps} compact />
       <Section
         id="capital"
         title="Capital readiness"

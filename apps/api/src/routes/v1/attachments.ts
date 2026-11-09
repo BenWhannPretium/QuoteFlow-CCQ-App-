@@ -31,7 +31,7 @@ const tags = ['attachments'];
 const security = [{ bearerAuth: [] }];
 
 const UPLOAD_HELP =
-  'multipart/form-data, streamed to the file store (never buffered): the text fields `kind` (bottle_drawing | spec | sample_photo | capacity_analysis | other), `note` (optional) and `size` (bytes) **before** the `file` part. Types: pdf, png, jpg/jpeg, heic, dwg, dxf, step/stp, igs, xlsx, docx, msg, eml; the content must match the extension. Max 100 MB (413). Audited.';
+  'multipart/form-data, streamed to the file store (never buffered): the text fields `kind` (bottle_drawing | spec | sample_photo | capacity_analysis | other | bid_file | project_brief | competitor_drawing; FB-07 on a quote in Quoting: cost_model (Pricing), price_table (the pricing lead), versioned), `note` (optional) and `size` (bytes) **before** the `file` part. Types: pdf, png, jpg/jpeg, heic, dwg, dxf, step/stp, igs, xlsx, docx, msg, eml; the content must match the extension. Max 100 MB (413). Audited.';
 
 /** The first file part and the text fields sent before it. */
 async function readPart(req: FastifyRequest): Promise<UploadPart> {
@@ -93,6 +93,30 @@ export const attachmentRoutes: FastifyPluginAsyncZod<AttachmentRoutesOptions> = 
     async (req, reply) =>
       handleProblems(req, reply, async () =>
         reply.status(201).send(await upload(req, { quoteNumber: req.params.quoteNumber })),
+      ),
+  );
+
+  // FB-07 (F-083, D-001): Finance uploads (or replaces) the ROI model. Its own route, because Finance
+  // holds roi.upload and nothing else; the costing model and the price table use the route above with
+  // kind cost_model / price_table (Pricing / the pricing lead hold attachment.upload).
+  app.post(
+    '/quotes/:quoteNumber/roi-model',
+    {
+      config: { permission: 'roi.upload' },
+      schema: {
+        tags,
+        summary: `Upload a new version of the quote's ROI model (Quoting step 2). Finance, the pricing lead or Admin, while the quote is in Quoting, after the costing model, and only when the quote needs an ROI (roi_required_when). The earlier version is kept and superseded; the pricing lead is told. 409 when the quote's state refuses it (SECTION_LOCKED after G3, costing first, not required). The \`kind\` field is ignored. ${UPLOAD_HELP}`,
+        security,
+        consumes: ['multipart/form-data'],
+        params: QuoteNumberParams,
+        response: { 201: AttachmentUploadResponse },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, async () =>
+        reply
+          .status(201)
+          .send(await upload(req, { quoteNumber: req.params.quoteNumber, kind: 'roi_model' })),
       ),
   );
 

@@ -33,9 +33,9 @@ export const OUTCOME_HELP: Record<string, string> = {
     'Work an alternative platform or site instead. The quote stays in Engineering Review; the note says what changes.',
   'G2/stop':
     'Not feasible, or not worth pursuing. It closes as Declined, with the reason recorded.',
-  // G3 Price approved & capital ready (Pricing)
+  // G3 Price approved (the pricing lead). FB-07 (D-001, D-031): costing, then ROI, then price confirmation.
   'G3/submit':
-    'The cost sheet is done, the price is approved and capital readiness is confirmed. The quote goes to Final Review.',
+    'The pricing lead confirms the price. The costing model is on file and costing is attested; when capital is required ($0 CER included) the ROI model is on file too. Optionally upload an updated price table; otherwise the price in the models stands. Capital readiness is recorded separately. The quote goes to Final Review.',
   'G3/hold':
     'Pause it in Quoting (for example, capital pre-approval pending). The clock stops. Needs a reason, an owner and a review date.',
   'G3/recost':

@@ -44,6 +44,8 @@ export const PERMISSION_MATRIX: Readonly<
     Approver: true,
     Leadership: true,
     Admin: true,
+    // FB-07 (F-083): Finance reads quotes (to take the costing model's assumptions) and nothing else.
+    Finance: true,
     PostAward: { kind: 'stages', stageKeys: ['AWARDED'] },
   },
   // 2026-10-30 (Ben): every role that reads a quote sees its pricing, margin and capital figures.
@@ -59,6 +61,7 @@ export const PERMISSION_MATRIX: Readonly<
     Approver: true,
     Leadership: true,
     Admin: true,
+    Finance: true,
     PostAward: true,
   },
   'gate.G1.decide': { SalesLeader: true },
@@ -77,6 +80,12 @@ export const PERMISSION_MATRIX: Readonly<
   // 2026-10-30 (Ben): mirrors G2. The pricer submits their part to the pricing lead (lead review),
   // and the lead decides G3, as only the EngLead decides G2.
   'gate.G3.submit': { PricingLead: true },
+  // FB-07 (D-001, F-083): the ROI model (Quoting step 2) is Finance's (Stacy Slocum), an input and not
+  // an approval. Admin may upload it for support. The PricingLead may upload it too, so a quote is not
+  // stuck while Finance has no QuoteFlow user (the CCQ.Finance app role and group are IT's, A-032).
+  // Provisional (recorded in 04 §2a): remove the PricingLead line once Finance is provisioned, if
+  // Pricing and Finance agree. Pricing and the pricing lead read the ROI like every quote reader.
+  'roi.upload': { Finance: true, PricingLead: true, Admin: true },
   // B-12: the Final Review queue (Approvals → Final Review). The Approver works it, Leadership reads
   // it, Admin reads it like the other queues. Everyone on it holds quote.read.commercialFields.
   'finalReview.read': { Approver: true, Leadership: true, Admin: true },

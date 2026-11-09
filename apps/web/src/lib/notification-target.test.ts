@@ -11,6 +11,8 @@ describe('notificationTarget', () => {
   it('sends pricing alerts to the Quoting tab (FB-05)', () => {
     expect(notificationTarget('quote.ready_for_quoting')).toBe('quoting');
     expect(notificationTarget('quote.pricing_assigned')).toBe('quoting');
+    expect(notificationTarget('quote.ready_for_roi')).toBe('quoting');
+    expect(notificationTarget('quote.roi_uploaded')).toBe('quoting');
   });
 
   it('sends an approval request to the Final Review screen', () => {

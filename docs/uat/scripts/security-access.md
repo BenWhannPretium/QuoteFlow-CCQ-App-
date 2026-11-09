@@ -5,7 +5,7 @@
 | Session | **U4**, Wed Nov 11 (60 min). Run by Ben Whann with the IT security delegate. Part of the Gate 5 evidence. |
 | Tester roles | IT security delegate (observer and tester), Ben (driver) |
 | Test URL | https://quoteflow-test.azurewebsites.net |
-| Sign in | One test account per role, each in exactly one group: `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin`. Plus one account in **no** `SG-CCQ-*` group. Use a private browser window per account. |
+| Sign in | One test account per role, each in exactly one group: `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance` (FB-07, once IT has created it, A-032), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin`. Plus one account in **no** `SG-CCQ-*` group. Use a private browser window per account. |
 | Before you start | Ben lists the test accounts: `<TEST-USER per role, from IT>`. Quotes from U1–U3 exist. Browser developer tools are allowed (Network tab). |
 | How to log a problem | Use **Report an issue**. Every access failure is **Sev-2** or higher. |
 
@@ -55,6 +55,7 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 19 | On a quote whose G2, G3 or G4 is decided, as the role that owns the section (for example Pricing on `<CCQ-SEC-FR>`), send the save request for that section. | **409** problem+json of type `…/problems/section-locked`. Nothing changes. A role without permission still gets 403. | | |
 | 20 | As the KAM, copy a G4 call: send `POST /api/v1/quotes/<CCQ-SEC-FR>/gates/G4/decisions` with `{"outcomeKey":"approve"}` (Ben shows how, using the browser's token). | **403**, an RFC 9457 problem+json body. Nothing changes on the quote. | | |
 | 21 | As the Approver who is also the KAM on a quote (Ben stages it), send the same call for that quote. | Refused (segregation). The quote stays in Final Review. | | |
+| 21a | FB-07 (F-083). As the Finance account, open `<CCQ-SEC-QT>`, then try **Save price approval**, a file upload on **Attachments**, `/queue/pricing` and a G3 decision (Ben shows how). | The quote and its Quoting tab open read-only, with **Upload the ROI model** only when the quote needs an ROI. Every other write is **403**; `/queue/pricing` is denied. The menu shows **Home** and **Pipeline** only. | | |
 | 22 | As the Engineer, `GET /api/v1/pricing/erf/<a known ERF number>`. | **200**. The pricing history is open to every role that reads a quote. | | |
 
 ## Part D: Data scope across users

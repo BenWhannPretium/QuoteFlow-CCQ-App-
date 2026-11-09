@@ -30,7 +30,11 @@ export interface LeadReviewSpec {
   leadPermission: Permission;
   /** Who does the work: the assignee holding this permission. */
   workPermission: Permission;
-  /** Fields that are the lead's own step, left out of the assignee's check (G2's capacity sign-off). */
+  /**
+   * Fields that are not the assignee's step, left out of the assignee's check: G2's capacity sign-off is
+   * the lead's; FB-07, Quoting's ROI model is Finance's (the pricer submits the costing, the lead waits
+   * for the ROI before confirming the price).
+   */
   leadOnlyFields: readonly string[];
   noun: { assignee: string; lead: string };
 }
@@ -51,7 +55,7 @@ export const LEAD_REVIEW: Record<LeadReviewKind, LeadReviewSpec> = {
     advanceOutcomeKey: 'submit',
     leadPermission: 'gate.G3.submit',
     workPermission: 'quoting.edit',
-    leadOnlyFields: [],
+    leadOnlyFields: ['roi_required', 'roi_model_on_file'],
     noun: { assignee: 'pricer', lead: 'pricing lead' },
   },
 };

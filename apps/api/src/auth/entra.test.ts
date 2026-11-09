@@ -123,6 +123,10 @@ describe('rolesFromClaim', () => {
     expect(rolesFromClaim('CCQ.KAM')).toEqual([]);
   });
 
+  it('accepts the FB-07 Finance role (CCQ.Finance)', () => {
+    expect(rolesFromClaim(['CCQ.Finance'])).toEqual(['Finance']);
+  });
+
   it('accepts the B-26 pricing lead role (CCQ.PricingLead)', () => {
     expect(rolesFromClaim(['CCQ.PricingLead', 'CCQ.Pricing'])).toEqual(['Pricing', 'PricingLead']);
   });
