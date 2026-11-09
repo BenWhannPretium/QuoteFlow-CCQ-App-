@@ -64,7 +64,7 @@ D-033	Equipment BOM format and the customer-paid flag	Engineering Program Office
 | ID | F Status | H Notes |
 |---|---|---|
 | A-015 | Done | Held Nov 9 (Bailey, Gemma, Stacy, Oleg, Ben). Outcome: D-001, D-031. |
-| A-022 | Done | Held Nov 6 as "CCQ | QuoteFlow Standard Pricing Options" (Bailey, Gemma, Kyle, Cait, Ben). Outcome: D-029, D-032. The Net 15 / Net 30 standard is still open under A-012. |
+| A-022 | Done | Held Nov 6 as "CCQ | QuoteFlow Standard Pricing Options" (Bailey, Gemma, Kyle, Cait, Ben). Outcome: D-029, D-032. A-012 closed Nov 9: Gemma confirmed Net 15 and Net 30 are both standard; any term beyond Net 30 needs review. The exception approver is still open. |
 | A-003 | In Progress | Kal's "Project Book Review" was held Nov 6; he walked through the workbook (D-033). Still needed: a blank template and the minimum fields (A-030). |
 
 ## 4. Action Items: new rows (tab 8; columns A to H)

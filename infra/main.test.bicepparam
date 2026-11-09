@@ -1,7 +1,6 @@
 // rg-ccq-test: the environment runbook 06 built by CLI on 2026-10-21 (values in 03-build-steps.md B-20).
-// Every '<confirm: ...>' is a value the runbook left to the session (a 4-letter suffix, a CLI-generated
-// name) and the repo doesn't record. They are deliberately invalid resource names, so ARM refuses the
-// deployment until IT replaces them with what exists: `az resource list -g rg-ccq-test -o table`.
+// The runbook's 4-letter suffix, the CLI-named firewall rule and SF_CLIENT_ID were read from the live
+// resources on 2026-11-09 (`az resource list -g rg-ccq-test`, firewall-rule list, appsettings list).
 // No secrets here. Do NOT pass postgresAdminPassword for test: the server exists.
 using './main.bicep'
 
@@ -13,9 +12,9 @@ param tags = {
 
 param webAppName = 'quoteflow-test'
 param appServicePlanName = 'asp-quoteflow-test'
-param postgresServerName = '<confirm: psql-quoteflow-test-xxxx>'
-param keyVaultName = '<confirm: kv-quoteflow-test-xxxx>'
-param storageAccountName = '<confirm: stquoteflowtestxxxx>'
+param postgresServerName = 'psql-quoteflow-test-ptpk'
+param keyVaultName = 'kv-quoteflow-test-ptpk'
+param storageAccountName = 'stquoteflowtestptpk'
 param logAnalyticsName = 'log-quoteflow-test'
 param appInsightsName = 'appi-quoteflow-test'
 param deployIdentityName = 'id-quoteflow-deploy'
@@ -33,7 +32,7 @@ param postgresSkuTier = 'GeneralPurpose'
 param postgresStorageSizeGB = 32
 param postgresBackupRetentionDays = 7
 param postgresAdminLogin = 'ccqadmin'
-param postgresAllowAzureServicesRuleName = '<confirm: az postgres flexible-server firewall-rule list>'
+param postgresAllowAzureServicesRuleName = 'AllowAllAzureServicesAndResourcesWithinAzureIps_2026-10-19_21-53-20'
 param postgresEntraAdmins = []
 
 param keyVaultPurgeProtection = false
@@ -58,7 +57,7 @@ param mailRedirectTo = ''
 param sfMode = 'live'
 param sfAuthFlow = 'client_credentials'
 param sfLoginUrl = 'https://pretiumpkg.my.salesforce.com'
-param sfClientId = '<confirm: SF_CLIENT_ID from the current app settings>'
+param sfClientId = '3MVG9WQsPp5nH_EpyovYhv7bEyY7Cr3g1GW4jMg747LVlaX1o_oszK.Np_bUA5wUgEqOe1lseDy9DFa5CKa3z' // gitleaks:allow (connected-app consumer key, an identifier; the secret is in Key Vault)
 param sfClientSecretName = 'sf-client-secret'
 // The test database was recreated on production data on 2026-10-24: no synthetic seed.
 param seedSyntheticData = false
