@@ -7,6 +7,7 @@ import {
 import { LEAD_REVIEW, type LeadReviewKind } from '../lead-review';
 import { rolesWithPermission } from '../policy/matrix';
 import { PRICING_QUEUE_STAGE_KEY } from '../pricing/queue';
+import { ROI_OWNER_ROLES } from '../quoting-steps';
 import type { UserId } from '../types/ids';
 import type { Role } from '../types/roles';
 import type { WorkflowConfig } from '../types/workflow-config';
@@ -101,6 +102,8 @@ export const HANDOFF_TYPES = {
   leadReviewUpdate: 'quote.lead_review_update',
   submittedToLead: 'quote.submitted_to_lead',
   returnedByLead: 'quote.returned_by_lead',
+  readyForRoi: 'quote.ready_for_roi',
+  roiUploaded: 'quote.roi_uploaded',
 } as const;
 
 /** Declared types the seeded workflow uses that are not catalogue types of their own: the arrival alert says it. */
@@ -396,6 +399,30 @@ export function planLeadReturned(assigneeId: UserId | null, quote: HandoffQuote)
       : []),
     { type: HANDOFF_TYPES.leadReviewUpdate, recipient: user(quote.kamUserId), reason: 'kam' },
   ];
+}
+
+// ── Quoting steps (FB-07, D-001) ───────────────────────────────────────────────────────────────
+
+/**
+ * Pricing uploaded the costing model (step 1): when the quote needs an ROI, Finance (the ROI owner) is
+ * told it can build it. No ROI needed: nobody is paged; the pricing lead confirms the price next.
+ */
+export function planCostModelUploaded(roiRequired: boolean): PlannedHandoff[] {
+  if (!roiRequired) return [];
+  return ROI_OWNER_ROLES.map((r): PlannedHandoff => ({
+    type: HANDOFF_TYPES.readyForRoi,
+    recipient: role(r),
+    reason: 'next_owner',
+  }));
+}
+
+/** Finance uploaded the ROI model (step 2): the pricing lead, who confirms the price next, is told. */
+export function planRoiUploaded(): PlannedHandoff[] {
+  return rolesWithPermission(LEAD_REVIEW.pricing.leadPermission).map((r): PlannedHandoff => ({
+    type: HANDOFF_TYPES.roiUploaded,
+    recipient: role(r),
+    reason: 'next_owner',
+  }));
 }
 
 // ── Comments ─────────────────────────────────────────────────────────────────────────────────────

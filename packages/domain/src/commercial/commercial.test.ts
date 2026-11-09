@@ -1,3 +1,4 @@
+import { ROI_REQUIRED_WHEN_SEED } from '../quoting-steps';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -90,6 +91,7 @@ describe('derived decision fields', () => {
     legalReviewTriggers: LEGAL_REVIEW_TRIGGERS_SEED,
     passThrough: { maxAnnualRevenueUsd: 100_000 },
     g4RequiredChecks: ['terms_checked', 'legal_review'] as const,
+    roiRequiredWhen: ROI_REQUIRED_WHEN_SEED,
   };
 
   it('derives legal_review_required and pass_through_eligible from config', () => {
@@ -104,7 +106,27 @@ describe('derived decision fields', () => {
       pass_through_eligible: true,
       g4_terms_check_required: true,
       g4_legal_review_check_required: true,
+      roi_required: false,
+      roi_required_reasons: [],
     });
+  });
+
+  it('FB-07: derives roi_required from roi_required_when (capital required, $0 CER included)', () => {
+    const roi = (fields: Record<string, unknown>) => {
+      const d = derivedDecisionFields(fields, settings);
+      return [d.roi_required, d.roi_required_reasons.map((r) => r.code)];
+    };
+    expect(roi({ g2_outcome: 'capital_required' })).toEqual([true, ['g2_outcome']]);
+    expect(roi({ g2_outcome: 'proceed', capital_likely: true })).toEqual([
+      true,
+      ['capital_likely'],
+    ]);
+    expect(roi({ tooling_funding_model: 'ZERO_CER' })).toEqual([true, ['funding_model']]);
+    expect(roi({ tooling_funding_model: 'CUSTOMER_FUNDED' })).toEqual([true, ['funding_model']]);
+    expect(roi({ tooling_funding_model: 'COMPANY_FUNDED', g2_outcome: 'proceed' })).toEqual([
+      false,
+      [],
+    ]);
   });
 
   it('G4 Advance needs the terms check, and the Legal review only when triggered (both checks on)', () => {

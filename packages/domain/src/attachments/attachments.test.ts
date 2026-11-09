@@ -285,6 +285,27 @@ describe('permissions and side effects', () => {
     ).toEqual({ allowed: false, reason: 'Only an Admin can remove it' });
   });
 
+  it('FB-07: a model uploader keeps the window under their step permission (Finance and the ROI)', () => {
+    const finance = makeActor('Finance', { userId: KAM_ID });
+    const roi = {
+      uploadedBy: KAM_ID,
+      createdAt: hoursAgo(1),
+      onOpenDraft: false,
+      kind: 'roi_model',
+    };
+    expect(attachmentRemoval(finance, roi, NOW, settings).allowed).toBe(true);
+    // Finance holds no attachment.upload, so any other kind is Admin-only for them.
+    expect(attachmentRemoval(finance, { ...roi, kind: 'spec' }, NOW, settings)).toEqual({
+      allowed: false,
+      reason: 'Only an Admin can remove it',
+    });
+    // A KAM who somehow uploaded a costing model does not hold quoting.edit.
+    const kam = makeActor('KAM', { userId: KAM_ID });
+    expect(attachmentRemoval(kam, { ...roi, kind: 'cost_model' }, NOW, settings).allowed).toBe(
+      false,
+    );
+  });
+
   it('a bottle drawing sets the has-drawing status once', () => {
     const codes = ['HAVE_DRAWING'];
     expect(drawingStatusAfterUpload('bottle_drawing', null, codes)).toBe('HAVE_DRAWING');

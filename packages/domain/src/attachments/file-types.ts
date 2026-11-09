@@ -16,8 +16,37 @@ export const ATTACHMENT_KINDS = [
   'bid_file',
   'project_brief',
   'competitor_drawing',
+  // FB-07 (F-031, F-074, D-001, D-013): the Quoting models. Pricing's costing model (costs and the
+  // initial price assumptions), Finance's ROI model and the pricing lead's optional updated price table.
+  'cost_model',
+  'roi_model',
+  'price_table',
 ] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
+
+/**
+ * FB-07 (F-074, T-034): kinds kept as ONE record per quote with version history. A new upload of the
+ * kind supersedes the current one (`superseded_by`, `superseded_at`); the latest is flagged current and
+ * every earlier version stays downloadable. Other kinds stay a plain list of files.
+ */
+export const VERSIONED_ATTACHMENT_KINDS: readonly AttachmentKind[] = [
+  'cost_model',
+  'roi_model',
+  'price_table',
+];
+
+export const isVersionedKind = (kind: string): boolean =>
+  (VERSIONED_ATTACHMENT_KINDS as readonly string[]).includes(kind);
+
+/**
+ * FB-07: the Quoting steps' files. They are uploaded on the Quoting tab only (never on an intake draft),
+ * each by the role that owns its step (`quoting-steps`), and lock with the pricing section after G3.
+ */
+export const QUOTING_MODEL_KINDS = ['cost_model', 'roi_model', 'price_table'] as const;
+export type QuotingModelKind = (typeof QUOTING_MODEL_KINDS)[number];
+
+export const isQuotingModelKind = (kind: string): kind is QuotingModelKind =>
+  (QUOTING_MODEL_KINDS as readonly string[]).includes(kind);
 
 /**
  * FB-02 (F-016, D-018): the kinds that count as "a drawing" for the drawing-or-minimum-spec rule (and

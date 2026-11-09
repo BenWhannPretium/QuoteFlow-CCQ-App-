@@ -44,6 +44,10 @@ export const DOMAIN_ERROR_CODES = [
   'SCOPE_CHANGE_REQUIRED',
   // FB-01 (F-069): the warnings the approver acknowledged are not the ones on the quote now.
   'STALE_WARNINGS',
+  // FB-07 (D-001): costing, then ROI, then price confirmation inside Quoting.
+  'COST_MODEL_REQUIRED',
+  'COSTING_FIRST',
+  'ROI_NOT_REQUIRED',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

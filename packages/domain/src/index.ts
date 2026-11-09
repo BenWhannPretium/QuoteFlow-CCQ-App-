@@ -23,6 +23,7 @@ export * from './policy';
 export * from './pipeline';
 export * from './pricing';
 export * from './quote-number';
+export * from './quoting-steps';
 export * from './scoring';
 export * from './timeline';
 export * from './types';

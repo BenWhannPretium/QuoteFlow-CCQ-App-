@@ -31,7 +31,7 @@ export type CapitalReadiness = (typeof CAPITAL_READINESS_VALUES)[number];
 
 /**
  * FB-03 (F-064): the capital figure at quoting is budgetary, so no label says a CER is ready. The codes are
- * unchanged (D-001 may restructure capital readiness, FB-07).
+ * unchanged. FB-07 (D-031): capital readiness stays its own field; it is no longer part of the G3 name.
  */
 export const CAPITAL_READINESS_LABELS: Record<CapitalReadiness, string> = {
   not_required: 'Capital not required',
@@ -118,7 +118,16 @@ export interface PricingRecordValues {
   cerReference: string | null;
   capitalNotes: string | null;
   capitalPendingJustification: string | null;
+  /**
+   * FB-07 (F-032): whether costing needs the costing model. `grandfathered` only for quotes that were in
+   * Quoting with costing attested and no model when FB-07 shipped (migration 0031): they keep working
+   * and show "no model on file". Every new version's record starts `required`.
+   */
+  costModelRequirement: CostModelRequirement;
 }
+
+export const COST_MODEL_REQUIREMENTS = ['required', 'grandfathered'] as const;
+export type CostModelRequirement = (typeof COST_MODEL_REQUIREMENTS)[number];
 
 export const EMPTY_PRICING_RECORD: PricingRecordValues = {
   priceApprovedBy: null,
@@ -133,6 +142,7 @@ export const EMPTY_PRICING_RECORD: PricingRecordValues = {
   cerReference: null,
   capitalNotes: null,
   capitalPendingJustification: null,
+  costModelRequirement: 'required',
 };
 
 /**
@@ -215,6 +225,8 @@ export interface PricingRecordContext {
   /** Active users who may be named as the price approver (the Pricing team). */
   pricingUserIds: ReadonlySet<string>;
   now: Date;
+  /** FB-07 (F-032): a current costing model is on file (the attestation needs one). */
+  costModelOnFile: boolean;
 }
 
 export type PricingRecordPlan =
@@ -316,6 +328,21 @@ export function planPricingRecord(
     next.erfRefs = normalizeRefs('erf', input.erfRefs, ctx.formats, errors);
 
   if (input.costingCompleted !== undefined && input.costingCompleted !== current.costingCompleted) {
+    // FB-07 (F-032, D-001): costing is the costing model. Attesting it needs a current one on file,
+    // unless the quote was grandfathered when FB-07 shipped.
+    if (
+      input.costingCompleted &&
+      !ctx.costModelOnFile &&
+      current.costModelRequirement !== 'grandfathered'
+    ) {
+      errors.push(
+        new DomainError(
+          'COST_MODEL_REQUIRED',
+          'Upload the costing model first: costing is complete only when its model is on file',
+          'costingCompleted',
+        ),
+      );
+    }
     next.costingCompleted = input.costingCompleted;
     next.costingAttestedBy = input.costingCompleted ? actor.userId : null;
     next.costingAttestedAt = input.costingCompleted ? ctx.now : null;
@@ -396,7 +423,8 @@ export function priceApprovalStatus(
 }
 
 export interface QuotingWarning {
-  code: 'CAPITAL_PENDING' | 'CAPITAL_NOT_APPROVED' | 'COSTING_NOT_ATTESTED';
+  code:
+    'CAPITAL_PENDING' | 'CAPITAL_NOT_APPROVED' | 'COSTING_NOT_ATTESTED' | 'NO_COST_MODEL_ON_FILE';
   message: string;
 }
 
@@ -405,7 +433,10 @@ export interface QuotingWarning {
  * justification; D-11 is open, so it does not block), capital not approved, and costing not attested
  * (CR-25; B-26 made it a G3 rule, cost before price, so this warning now explains the block).
  */
-export function quotingWarnings(record: PricingRecordValues | null): QuotingWarning[] {
+export function quotingWarnings(
+  record: PricingRecordValues | null,
+  costModelOnFile = true,
+): QuotingWarning[] {
   if (!record) return [];
   const out: QuotingWarning[] = [];
   if (record.capitalReadiness === 'pending') {
@@ -424,6 +455,14 @@ export function quotingWarnings(record: PricingRecordValues | null): QuotingWarn
       code: 'COSTING_NOT_ATTESTED',
       message:
         'Costing (Cost-to-Serve) is not marked as completed: cost comes before price (CR-25)',
+    });
+  }
+  // FB-07: a grandfathered quote (in Quoting before the costing model was required) has no model.
+  if (record.costModelRequirement === 'grandfathered' && !costModelOnFile) {
+    out.push({
+      code: 'NO_COST_MODEL_ON_FILE',
+      message:
+        'No costing model on file: this quote was costed before QuoteFlow kept the model (grandfathered)',
     });
   }
   return out;

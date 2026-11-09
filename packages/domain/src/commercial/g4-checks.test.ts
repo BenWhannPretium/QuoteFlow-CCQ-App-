@@ -1,3 +1,4 @@
+import { ROI_REQUIRED_WHEN_SEED } from '../quoting-steps';
 import { describe, expect, it } from 'vitest';
 
 import { withDerivedFields } from './derived';
@@ -22,6 +23,7 @@ const settings = (checks: G4Check[]) => ({
   legalReviewTriggers: LEGAL_REVIEW_TRIGGERS_SEED,
   passThrough: { maxAnnualRevenueUsd: null },
   g4RequiredChecks: checks,
+  roiRequiredWhen: ROI_REQUIRED_WHEN_SEED,
 });
 
 const approve = (checks: G4Check[], fields: Record<string, unknown>) =>
