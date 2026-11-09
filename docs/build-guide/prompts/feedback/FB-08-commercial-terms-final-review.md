@@ -1,7 +1,7 @@
 # FB-08 · Commercial terms and Final Review
 
-**Run with:** Claude Code · **Opus 5.5 · high effort** · Wave 3, gated · one draft PR
-**Tracker items:** F-021, F-068 · tests T-007, T-031 · **Gated on:** D-003 (who owns MOQ, tooling funding and payment terms; standard term Net 15 vs Net 30; exception approver), D-029 (milestone payment terms), A-012 and A-022 (Gemma Cebolla). D-002 (Final Review tiers) is optional: if it is undecided, build terms and leave the tier hook off.
+**Run with:** Claude Code · **Opus 5.5 · high effort** · Wave 3, **partly gated** · one draft PR
+**Tracker items:** F-021, F-068, F-082 · tests T-007, T-031 · **Gated on:** D-003 (who owns MOQ, tooling funding and payment terms; standard term Net 15 vs Net 30; exception approver), D-029 (milestone payment terms), A-012 (Gemma Cebolla). D-002 (Final Review tiers) is optional: if it is undecided, build terms and leave the tier hook off. **Moved to FB-11 (2026-11-09):** the customer's requested payment terms and the funding question at intake (D-032). **F-082** (extra Final Review approval for customer-funded quotes) needs Oleg's and Sarah's confirmation first (A-035).
 
 **Paste into Claude Code from the repo root.**
 
@@ -46,6 +46,11 @@ This step is **gated**. Before writing code:
 - **Sales leadership (Matthew Graden, Jennifer Wulf):** the KAM pre-fills funding if known, and the approver finalizes the capital terms at Final Review: funding model, mold ownership, amortization, minimum supply / shortfall, agreement in place (Y/N) and duration (V-054, V-055).
 - **Gemma (Nov 4):** terms may follow invoicing milestones, e.g. 50 % down and 50 % at qualification (V-068).
 
+## Update 2026-11-09 (read before building)
+- **Intake already captures** the customer's requested payment terms and whether the customer funds capital (FB-11, D-032). Reuse those fields; don't add them again. This step owns who approves exceptions, the standard term and what is finalized at Final Review.
+- **Tooling payment options (D-029, Nov 6, Gemma):** upfront, 50/50 (at the order and at qualification) or amortized into the per-piece price. **No quarterly.** Use these as the milestone list if D-029 is decided as recommended.
+- **F-082 (only after A-035):** when the funding model is customer-funded or $0 CER, Final Review also needs a leadership sign-off **after** the sales leader's. Gemma: leadership decides whether the business takes it, not Pricing (the price is already approved). Oleg: not settled on Nov 9. Build it as provisional config: `g4_additional_approvals`, an ordered list of role sign-offs with a trigger (`funding_model` in a configured set), seeded **off** with the proposal as a disabled provisional rule. If A-035 is not in, do not enable it.
+
 ## Build, by decision outcome
 - **F-021 ownership:**
   - Move MOQ and tooling funding to whoever D-003 names: if Engineering, add a `terms.engineering.edit` permission for EngLead and Engineer on those fields only.
@@ -63,7 +68,7 @@ This step is **gated**. Before writing code:
 - **D-002 tiers** (only if decided): enable `g4_tier_rules` with the decided thresholds (by capital or revenue). It routes the G4 decision to the named approver groups. The thresholds live in config, provisional until signed off. Add Entra groups and the `06` runbook if new approver groups appear.
 
 ## Acceptance
-- [ ] tracker acceptance criteria for F-021 and F-068 pass (T-007, T-031); tiers only if D-002 is decided
+- [ ] tracker acceptance criteria for F-021 and F-068 pass (T-007, T-031); F-082 and tiers only if A-035 / D-002 are decided
 - [ ] permission-matrix tests for every new permission (allowed and denied per role); route inventory current
 - [ ] `pnpm verify` passes; close-out done
 

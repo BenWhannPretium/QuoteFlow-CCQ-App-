@@ -180,7 +180,7 @@ IDs `D-xx` match the CCQ Operating Model decision register where one exists. `D-
 
 ## 2a. User-feedback decisions (Feedback Tracker, Nov 2026)
 
-These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow › QuoteFlow Feedback Tracker.xlsx`, Decision Log tab). Tracker IDs have three digits (**D-001**…) and are a different series from the build-guide IDs above (D-02…D-30). The build steps they unblock are FB-01 to FB-10 in `03-build-steps.md` → "User feedback updates". Status as read on 2026-11-05.
+These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow › QuoteFlow Feedback Tracker.xlsx`, Decision Log tab). Tracker IDs have three digits (**D-001**…) and are a different series from the build-guide IDs above (D-02…D-30). The build steps they unblock are FB-01 to FB-10 in `03-build-steps.md` → "User feedback updates". Status as read on 2026-11-05, updated 2026-11-09 after the Nov 6 pricing and Engineering Program Office meetings and the Nov 9 ROI session (paste-ready tracker rows: [`feedback/tracker-updates-2026-11-09.md`](feedback/tracker-updates-2026-11-09.md)).
 
 **Decided in the feedback sessions (build follows these):**
 
@@ -192,16 +192,19 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | D-014 | Salesforce write-back deferred to Phase 1 (Oct 26) | P1 backlog (F-035); FB-04 ships the link-and-prompt stopgap (F-076) |
 | D-015 | Minimise free text; notes only on exceptions (Oct 30) | FB-01 (F-027), built 2026-11-05: a note on every exception outcome, none on a plain Advance; caps wait for D-016 (FB-09) |
 | D-018 | A drawing, or a required minimum spec set (height, diameter/width/depth, gram weight, neck finish, resin, color), to advance (Nov 3). Final list: Jim Zweifel / Danielle Leu (A-005, A-024) | FB-02 (F-016), **built 2026-11-05**: enforced at submit; the list is `intake_min_spec_fields` (provisional, seeded height, widthOrDiameter, depth, gramWeight, neck, resin, color) |
-| D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3) | FB-04 (F-022), **built 2026-11-05**: relabelled "$0 CER (customer-reimbursed capital)" with Oleg's wording as an ⓘ; no separate path |
+| D-023 | A $0 CER follows the standard quoting path; capital is reimbursed by the customer (Oleg, Nov 3). **Nov 9 (Oleg):** it ties up capacity, so treat it as a capital request with an ROI and let leadership decide whether to take the business (D-002) | FB-04 (F-022), **built 2026-11-05**: relabelled "$0 CER (customer-reimbursed capital)" with Oleg's wording as an ⓘ; no separate path |
 | D-028 | Only sales leaders override priority, with the justification passed to Engineering; KAMs use escalation (Bailey, Nov 3; confirm with KAMs before the pilot) | FB-04 (F-065), **built 2026-11-05**: `priority_tier` is SalesLeader-only, self-applied; waiting requests are left for the SalesLeader |
+| D-001 | Costing, then ROI, then price confirmation, as steps inside Quoting. Pricing uploads the costing model (costs and initial price assumptions); Stacy Slocum builds the ROI from it on her template and uploads it; the pricing lead confirms the price; then Final Review. ROI only when capital is required, $0 CER included. Stacy is an input, not an approver. Not a separate gate, not parallel (Nov 9; Oleg to confirm in writing, A-036) | FB-07 (F-031, F-032, F-074), **unblocked 2026-11-09** |
+| D-031 | The final Pricing gate is renamed "Price approved"; capital readiness stays a separate field (Nov 9) | FB-07 (F-081) |
+| D-032 | The KAM captures at intake: the payment terms the customer requests (flagged if non-standard), whether the customer funds any tooling or capital, returnable (multi-trip) dunnage, delivered or FOB price and, when delivered, freight type and special arrangements. Payment terms and funding are two separate things (Gemma, Nov 6) | FB-11 (F-080, F-063) |
+| D-033 | The equipment BOM is an upload of the one-page CSR BOM from the Engineering Program Office workbook (a generic ballpark at quote time), each line flagged C (capital) or P (customer paid) (Kal, Nov 6). A blank template and the minimum fields are still needed (A-030) | FB-06 (F-058) |
 
 **Open, and what each one blocks:**
 
 | Tracker ID | Decision needed | Owner | Raise in | Blocks | What ships until it is decided |
 |---|---|---|---|---|---|
-| **D-001** | Costing vs pricing/ROI structure (separate Costing gate, Pricing + ROI in parallel?) and the minimum ROI fields | Oleg Yarovinski (Gemma Cebolla, Stacy Slocum) | ROI & capital session, Mon Nov 9 | FB-07 (F-031, F-032, F-074) | Today's G3 (price approval, costing attestation, capital readiness) |
-| **D-002** | Final Review approval tiers | Oleg; sales leadership | Decision session with Oleg | FB-08 (tiers part) | One approver group (build-guide D-10 fallback) |
-| **D-003** + **D-029** | Who owns commercial terms (MOQ and tooling funding to Engineering?), the standard payment term (Net 15 or 30), exception approval, milestone payment terms | Oleg; Gemma Cebolla; Bailey | ROI & capital session (Nov 9); Bailey/Gemma call (A-022) | FB-08 (F-021, F-068, T-007, T-031) | Today's terms check (KAM, free-text payment terms); "Shared" funding option added as provisional in FB-04 |
+| **D-002** | Final Review approval tiers | Oleg; sales leadership | Decision session with Oleg | FB-08 (tiers part) | One approver group (build-guide D-10 fallback). **Nov 9:** first tier proposed, not settled: a customer-funded or $0 CER quote needs the sales leader and then leadership (Sarah or a delegate); Gemma: leadership, not Pricing (A-035) |
+| **D-003** + **D-029** | Who owns commercial terms (MOQ and tooling funding to Engineering?), the standard payment term (Net 15 or 30), exception approval, milestone payment terms | Oleg; Gemma Cebolla; Bailey | ROI & capital session (Nov 9); Bailey/Gemma call (A-022) | FB-08 (F-021, F-068, T-007, T-031) | Today's terms check (KAM, free-text payment terms); "Shared" funding option added as provisional in FB-04. **Nov 6:** payment terms and tooling funding are separate; the customer's requested terms and funding go on intake (FB-11, D-032); upfront, 50/50 or per-piece are the tooling payment options, no quarterly (D-029); the Net 15 / Net 30 standard and the exception approver are still open (A-012) |
 | **D-004** | Qualification bands, scoring weights, 9-box strategic-fit points by market, guardrail thresholds | Sales/Marketing leadership (Matthew Graden, Jennifer Wulf, Tania Nazario, Melanie Rasche) | Decision session with Oleg | FB-10 values (F-005 weights, F-073 points, F-066 thresholds) | FB-04 (built 2026-11-05) built the strategic-fit mechanism (`byMarket` plus optional `bySegment`) and the panel display with **no points seeded**; the map is empty (every quote scores 50, shown as provisional). D-004 must choose segment vs market and the points per 9-box cell; FB-10 loads them. Weights stay provisional |
 | **D-006** | The mandatory-field list | Bailey Schmitt | Decision session with Oleg | FB-09 | Today's required fields plus FB-02's drawing-or-minimum-spec rule |
 | **D-007** | Does two-step (preform) continue across plants? | Engineering | Engineering follow-up (A-014) | FB-06 (F-024) | Pricing carries it in the costing workbook |
@@ -212,6 +215,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | **D-010** | Interaction model (how requests and comments between roles work: in-app threads, email, assignments) | Bailey Schmitt; Sales leadership | Sales/Marketing leadership (Nov 3) | Nothing built so far; it informs F-034 / F-079 | FB-05 (built 2026-11-06) notifies on every hand-off, return, hold, closure and comment; it adds no request or approval workflow. One provisional value: `comment_email_collapse_minutes = 10` (comment emails are folded into one) |
 | **D-021** | Standard utilization basis; confirm Faron's formula (A-023: trending OEE appears twice as emailed) | Faron Ipox with leadership | Supply Chain follow-up | F-060 (P1); the run-days basis in FB-03 | FB-03 calculates with Faron's formula shape (OEE applied once) and a provisional `app_setting.capacity_basis` (350 run days, amber over 85 %, basis label "Trailing 12 months actual, trending OEE (provisional, D-021)"); built 2026-11-05 |
 | **D-005**, **D-019**, **D-022**, **D-030** | Bid scope rules; innovation projects; operations alignment on large projects; where stock / stock-plus requests go | Bailey; sales leadership; Engineering | See the tracker | P1 (T-006, T-028, T-029, F-071); F-067 ships with a configurable redirect message | Bid file attached to a single-item quote (FB-02 added the `bid_file` kind); CCQ-only request class (FB-02, **built 2026-11-05**: `intake_allowed_request_classes` `["CCQ"]` and `intake_redirect_message`, both provisional; D-030 may change the pack-out wording) |
+| **D-005** (multi-item bids, Nov 6) | One record for a bid with items and a duplicate-and-edit action (Danielle Leu, Kal Kaliszewski, Bailey); related items only; one master reference for Finance | Bailey Schmitt; Sales leadership | Decision with Bailey and Danielle | F-084 (P1). Needs a quote-items model and a change to one active quote per opportunity | The bid file (FB-02), the variants note and an optional bid / program reference (F-085, FB-11) |
 | **D-004** (FB-02 note) | Scoring weights stay open | Sales/Marketing leadership | Decision session with Oleg | — | FB-02 added scoring model **v2**: `timing` reads "Quote needed by" (F-009) with v1's weight and bands, provisional |
 
 **Provisional values FB-04 seeded (built 2026-11-05):**
@@ -231,6 +235,15 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | The scope-change question ("product, volume, resin, drawing or plant changed") that decides whether a KAM's fix skips Engineering | That wording, in the intake screen | Pricing and Engineering agree what counts as a scope change | Kyle Arnold; Jim Zweifel |
 | The exception-note set (`requires_note`) per D-015 | Advance with risk, Capital required, Hold, Rework / Return / Re-quote / Re-cost, Redirect, Stop / Decline, In negotiation | D-015 is decided; the rows stay provisional until Bailey approves the list (Admin → Workflow) | Bailey Schmitt |
 
+**Provisional values the Nov 9 build steps will seed (to be marked when built):**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| Standard payment terms (the set not flagged as non-standard) | Net 15 and Net 30 | A-012 (Gemma) | Gemma Cebolla |
+| ROI required when | G2 outcome "capital required", the capital-likely flag, or a customer-funded / $0 CER funding model | Stacy Slocum and Gemma Cebolla confirming the trigger | Oleg Yarovinski; Stacy Slocum |
+| Extra Final Review approval for customer-funded quotes | Sales leader, then leadership; off until A-035 | D-002, A-035 | Oleg Yarovinski; Sarah |
+| New intake fields (payment terms, customer funding, dunnage, delivery, freight) | Optional (a warning, not a block) | D-006 (mandatory list) | Bailey Schmitt |
+
 **Inputs the business still has to send (tracker Action Items):**
 
 | Input | From | Action | Used by |
@@ -247,6 +260,11 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | 9-box grid; machine platform guide (MOQs) | Melanie Rasche; Danielle Leu | A-009, A-010 (received). Copied 2026-11-05 to `feedback/inputs/9-box.md` (placement and points to confirm; grid is by segment) and `platform-guide.md` (column mapping to confirm) | FB-04 mechanism, FB-10 values |
 | Standard cost-model template | Gemma Cebolla, Kyle Arnold | new | FB-07 (F-031) |
 | Standard payment terms and exceptions | Gemma Cebolla | A-012, A-022 | FB-08 |
+| Blank Engineering Program Office project workbook and the minimum quote-time fields (the Hormel copy holds a real customer's data: do not send or commit it) | Kal Kaliszewski | A-030 (workbook walked through Nov 6) | FB-06 (F-058) |
+| Standard costing-model template and Stacy Slocum's ROI template, with the cell map | Gemma Cebolla; Stacy Slocum | A-031 | FB-07 (one-page summary; uploads can be built without them) |
+| A Finance app role and group in Entra for Stacy Slocum | Vincent Brown (IT) | A-032 | FB-07 (F-083) |
+| Standard for returnable and single-trip dunnage; whether safety stock belongs at intake | Bailey Schmitt; Gemma Cebolla; Faron Ipox | A-033 | FB-11 (F-063) |
+| Plants' sales-tax status for tooling | Gemma Cebolla (Tax); Kal Kaliszewski | A-034 | Later (BOM tax lookup) |
 
 ---
 
