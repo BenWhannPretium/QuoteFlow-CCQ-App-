@@ -382,18 +382,24 @@ describe('D-001: costing, then ROI, then price approved (capital required)', () 
         ),
       );
     expect(
-      events.map((e) => {
-        const p = e.payload as { kind: string; version: number };
-        return `${p.kind} v${p.version}`;
-      }),
+      events
+        .map((e) => {
+          const p = e.payload as { kind: string; version: number };
+          return `${p.kind} v${p.version}`;
+        })
+        // The query has no ORDER BY and the test clock is fixed, so the rows can come back in any order:
+        // compare as a set (this failed on CI when roi_model and price_table swapped).
+        .sort(),
       // FB-06: Engineering's equipment BOM (uploaded before G2 "Capital required") is on the timeline too.
-    ).toEqual([
-      'equipment_bom v1',
-      'cost_model v1',
-      'cost_model v2',
-      'roi_model v1',
-      'price_table v1',
-    ]);
+    ).toEqual(
+      [
+        'equipment_bom v1',
+        'cost_model v1',
+        'cost_model v2',
+        'roi_model v1',
+        'price_table v1',
+      ].sort(),
+    );
     const audits = await db.db
       .select({ action: schema.auditEvent.action, entity: schema.auditEvent.entity })
       .from(schema.auditEvent)
