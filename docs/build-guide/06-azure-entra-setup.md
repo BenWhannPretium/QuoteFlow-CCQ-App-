@@ -49,7 +49,7 @@
 | App Insights / Log Analytics | `appi-quoteflow-test` / `log-quoteflow-test` | |
 | Deploy identity | `id-quoteflow-deploy` | Used by GitHub Actions; no password |
 | App registrations | `QuoteFlow-API`, `QuoteFlow-SPA` | |
-| Groups | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead` (B-26), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin` | `SG-CCQ-PostAward` later (P2) |
+| Groups | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead` (B-26), `SG-CCQ-Finance` (FB-07, A4b), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin` | `SG-CCQ-PostAward` later (P2) |
 
 ### 0.4 Running order for the hour
 
@@ -161,6 +161,25 @@ az ad app update --id $API_APP_ID --app-roles @roles.json
 az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv   # now includes CCQ.PricingLead
 ```
 Then run the A8 loop with `R=PricingLead` only. The app needs no change: it accepts any `CCQ.` role it knows, and B-26 added `PricingLead` to the code.
+
+### A4b. Adding the Finance role (FB-07, F-083: `CCQ.Finance`, provisional name; IT action A-032)
+
+Finance (Stacy Slocum) builds the ROI from Pricing's costing model and uploads it in QuoteFlow. The role reads quotes and uploads the ROI model, nothing else (`packages/domain/src/policy/matrix.ts`: `quote.read`, `quote.read.commercialFields`, `roi.upload`). **The code is ready; only these Entra steps are outstanding.** Until they are done, the pricing lead can upload the ROI model (provisional fallback in the matrix).
+
+Same steps as A4a, with these values:
+- **Display name** `CCQ Finance`. **Value** `CCQ.Finance` (exact spelling and case). **Description** "Finance: reads quotes and uploads the ROI model (an input, not an approver)".
+- **Group** `SG-CCQ-Finance` (security), Stacy Slocum as a **direct** member.
+- **Enterprise applications → QuoteFlow-API → Users and groups**: `SG-CCQ-Finance` → role **CCQ Finance**.
+- Test tenant prefix: `CCQ.Test.Finance` and `SG-CCQ-Test-Finance` (A9).
+
+```bash
+uuid() { cat /proc/sys/kernel/random/uuid; }
+az ad app show --id $API_APP_ID --query appRoles > roles-current.json
+jq --arg id "$(uuid)" '. + [{"allowedMemberTypes":["User"],"value":"CCQ.Finance","displayName":"CCQ Finance","description":"Finance: reads quotes and uploads the ROI model (an input, not an approver)","id":$id,"isEnabled":true}]' roles-current.json > roles.json
+az ad app update --id $API_APP_ID --app-roles @roles.json
+az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv   # now includes CCQ.Finance
+```
+Then run the A8 loop with `R=Finance` only. **Check:** Stacy signs out and in; the account menu shows **Finance**, home is **ROI requests**, the menu is **Home** and **Pipeline**.
 
 ### A5. [IT] Lock the API to assigned people only
 

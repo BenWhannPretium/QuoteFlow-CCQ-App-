@@ -719,6 +719,9 @@ describe('email preferences', () => {
         'quote.ready_for_eng_review',
         'quote.ready_for_final_review',
         'quote.ready_for_quoting',
+        // FB-07 (D-001): costing → ROI → price approved.
+        'quote.ready_for_roi',
+        'quote.roi_uploaded',
         'quote.reworked',
         'quote.returned_by_lead',
         'quote.submitted_to_lead',

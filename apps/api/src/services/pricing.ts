@@ -82,6 +82,9 @@ const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 const CONFLICT_CODES = new Set([
   'WRONG_STAGE',
+  // FB-07: costing first; the quote does not need an ROI.
+  'COSTING_FIRST',
+  'ROI_NOT_REQUIRED',
   'QUOTE_CLOSED',
   // Lead review
   'ALREADY_SUBMITTED',
@@ -133,6 +136,7 @@ const TIMELINE_FIELDS: Record<keyof PricingRecordValues, string | null> = {
   cerReference: 'CER reference',
   capitalNotes: 'capital notes',
   capitalPendingJustification: 'pending-capital justification',
+  costModelRequirement: null,
 };
 
 /**
@@ -606,7 +610,13 @@ export class PricingService {
           erfRefs: body.erfRefs,
           costingCompleted: body.costingCompleted,
         },
-        { formats, pricingUserIds: new Set(team.map((u) => u.id)), now },
+        {
+          formats,
+          pricingUserIds: new Set(team.map((u) => u.id)),
+          now,
+          // FB-07 (F-032): attesting costing needs a current costing model.
+          costModelOnFile: loaded.state.fields.cost_model_on_file === true,
+        },
       );
       if (!plan.ok) fail(plan.errors);
       await this.apply(tx, actor, meta, loaded, plan, now);

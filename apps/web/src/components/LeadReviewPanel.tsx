@@ -3,6 +3,9 @@ import { useMutation } from '@tanstack/react-query';
 import { CornerUpLeftIcon, LockIcon, SendIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { problemErrors, type ServerError } from './forms';
+import { MISSING_LABELS } from './GateDecisionDialog';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,9 +18,6 @@ import {
 import { Textarea } from '@/components/ui/input';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
-
-import { problemErrors, type ServerError } from './forms';
-import { MISSING_LABELS } from './GateDecisionDialog';
 
 export type LeadReviewKind = 'engineering' | 'pricing';
 

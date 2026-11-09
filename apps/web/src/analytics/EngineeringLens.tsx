@@ -1,6 +1,8 @@
 import type { EngineeringAnalyticsResponse } from '@ccq/contracts';
 import { Link } from '@tanstack/react-router';
 
+import { Boundary, Section, useChart } from './shared';
+
 import {
   Bars,
   COLORS,
@@ -13,8 +15,6 @@ import {
 } from '@/components/charts';
 import type { AnalyticsSearch } from '@/lib/analytics-search';
 import { api } from '@/lib/api';
-
-import { Boundary, Section, useChart } from './shared';
 
 const queueLink = (
   <Link

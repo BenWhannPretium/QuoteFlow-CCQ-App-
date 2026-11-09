@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, InfoIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { finalReviewQueueKey, reviewSummaryKey } from './final-review/keys';
+import { QualificationWarnings, ScoreBreakdownTable } from './Priority';
+
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,9 +23,6 @@ import { api, isApiError } from '@/lib/api';
 import { toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-
-import { finalReviewQueueKey, reviewSummaryKey } from './final-review/keys';
-import { QualificationWarnings, ScoreBreakdownTable } from './Priority';
 
 /**
  * Plain words for the rules' field paths (B-11, B-26); other rules show their message. Shared with the

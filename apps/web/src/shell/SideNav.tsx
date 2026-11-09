@@ -1,12 +1,12 @@
 import { Link } from '@tanstack/react-router';
 import { useLayoutEffect, useRef, useState } from 'react';
 
-import pretiumLogoWhite from '@/assets/brand/pretium-horizontal-white.png';
-import { cn } from '@/lib/utils';
-
 import { isNavItemActive, type NavItem } from './nav';
 import { NAV_ICONS } from './NavIcon';
 import { Wordmark } from './Wordmark';
+
+import pretiumLogoWhite from '@/assets/brand/pretium-horizontal-white.png';
+import { cn } from '@/lib/utils';
 
 /**
  * Desktop rail (≥ 641 px): full height, deep green, wordmark on top. A copper mark slides to the

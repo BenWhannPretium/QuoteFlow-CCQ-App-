@@ -8,15 +8,6 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/input';
-import { stageLabel, usePublicConfig } from '@/config/public-config';
-import { api, isApiError } from '@/lib/api';
-import { describeError } from '@/lib/errors';
-import { absoluteTime } from '@/lib/time';
-import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
-
 import { CommentBody } from './CommentBody';
 import { ConfirmDialog } from './ConfirmDialog';
 import { EmptyState } from './EmptyState';
@@ -25,6 +16,15 @@ import { quoteQueryKey } from './GateDecisionDialog';
 import { formatOverrideValue, overrideInboxQueryKey, timelineQueryKey } from './Overrides';
 import { SkeletonRows } from './Skeletons';
 import { Timeline, type TimelineItem } from './Timeline';
+
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
+import { stageLabel, usePublicConfig } from '@/config/public-config';
+import { api, isApiError } from '@/lib/api';
+import { describeError } from '@/lib/errors';
+import { absoluteTime } from '@/lib/time';
+import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 
 const FILTERS: { key: TimelineFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -155,8 +155,23 @@ export function describeEvent(
         detail: note(str(p.reason)),
         kind: 'override',
       };
-    case 'attachment_uploaded':
+    case 'attachment_uploaded': {
+      // FB-07 (F-074): a Quoting model names its step and version ("Costing model v2 uploaded").
+      const model = MODEL_STEP[str(p.kind) ?? ''];
+      if (model && typeof p.version === 'number') {
+        return {
+          title: `${model} v${p.version} uploaded: ${str(p.fileName) ?? 'file'}`,
+          detail:
+            p.version > 1 ? (
+              <p className="text-muted-foreground text-xs">
+                Replaces version {p.version - 1}, which stays in the history.
+              </p>
+            ) : undefined,
+          kind: 'file',
+        };
+      }
       return { title: `File uploaded: ${str(p.fileName) ?? 'file'}`, kind: 'file' };
+    }
     case 'attachment_removed':
       return { title: `File removed: ${str(p.fileName) ?? 'file'}`, kind: 'file' };
     // B-10 engineering queue and review. Payloads carry field names only (never commercial values).
@@ -371,6 +386,14 @@ const mentionQuery = (text: string, caret: number) =>
   /(?:^|\s)@([^\s@]{1,30})$/.exec(text.slice(0, caret))?.[1] ?? null;
 
 /** Comment box with an @mention picker. Mentioned users are notified (B-18 delivers email). */
+
+/** FB-07: the Quoting step each model belongs to, for the timeline. */
+const MODEL_STEP: Record<string, string> = {
+  cost_model: 'Costing model',
+  roi_model: 'ROI model',
+  price_table: 'Updated price table',
+};
+
 function CommentComposer({ quoteNumber }: { quoteNumber: string }) {
   const queryClient = useQueryClient();
   const ids = { box: useId(), list: useId() };

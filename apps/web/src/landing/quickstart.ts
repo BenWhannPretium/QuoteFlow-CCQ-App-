@@ -6,6 +6,7 @@ const ANCHORS: Record<string, string> = {
   Engineer: 'engineer',
   Pricing: 'pricing',
   PricingLead: 'pricing',
+  Finance: 'finance',
   Approver: 'approver',
   Leadership: 'leadership',
   Admin: 'admin',

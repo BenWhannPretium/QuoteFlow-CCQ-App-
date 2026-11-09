@@ -1,12 +1,12 @@
 import type { QualificationWarning, QuotePriority } from '@ccq/contracts';
 import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
 
+import { ScorePill } from './ScorePill';
+import { TierChip } from './TierChip';
+
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useValueList } from '@/config/public-config';
 import { cn } from '@/lib/utils';
-
-import { ScorePill } from './ScorePill';
-import { TierChip } from './TierChip';
 
 const pct = (w: number) => `${Math.round(w * 100)}%`;
 const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));

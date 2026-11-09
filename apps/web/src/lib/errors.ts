@@ -1,6 +1,6 @@
-import { RedirectingError } from '@/auth/session';
-
 import { isApiError } from './api';
+
+import { RedirectingError } from '@/auth/session';
 
 /**
  * How a failed query or mutation is shown:

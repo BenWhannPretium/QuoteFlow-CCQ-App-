@@ -4,7 +4,15 @@ export type NotificationTarget = 'engineering' | 'quoting' | 'review' | 'quote';
 export function notificationTarget(type: string): NotificationTarget {
   if (type === 'quote.ready_for_eng_review' || type === 'quote.assigned') return 'engineering';
   // FB-05: "ready for pricing" and a pricing assignment open the Quoting tab.
-  if (type === 'quote.ready_for_quoting' || type === 'quote.pricing_assigned') return 'quoting';
+  // FB-07: the costing / ROI hand-offs open the Quoting tab too.
+  if (
+    type === 'quote.ready_for_quoting' ||
+    type === 'quote.pricing_assigned' ||
+    type === 'quote.ready_for_roi' ||
+    type === 'quote.roi_uploaded'
+  ) {
+    return 'quoting';
+  }
   if (type === 'quote.ready_for_final_review') return 'review';
   return 'quote';
 }

@@ -2,6 +2,8 @@ import type { PipelineFilterOptions, QuoteSortKey } from '@ccq/contracts';
 import { ArrowDownWideNarrowIcon, ArrowUpNarrowWideIcon, SearchIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
+import { SavedViewsMenu } from './SavedViewsMenu';
+
 import { FiltersPopover, type FilterGroup } from '@/components/FiltersPopover';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect } from '@/components/ui/input';
@@ -14,8 +16,6 @@ import {
   sortDirFor,
   type PipelineSearch,
 } from '@/lib/pipeline-search';
-
-import { SavedViewsMenu } from './SavedViewsMenu';
 
 export const SORT_LABELS: Record<QuoteSortKey, string> = {
   score: 'Score',

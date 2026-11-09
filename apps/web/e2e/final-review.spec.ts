@@ -7,6 +7,7 @@ import {
 } from '@playwright/test';
 
 import { seriousViolations } from './axe';
+import { prepareModels } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -66,6 +67,8 @@ async function quoteInFinalReview(
     'eng-lead',
     g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Second cavity set needed' },
   );
+  // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
+  await prepareModels(request, quoteNumber);
   await put('pricing-record', 'pricing', {
     approvedBy: pricingId,
     pricingBasisNote: 'March CDI, FOB Chicago',

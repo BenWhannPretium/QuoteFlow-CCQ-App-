@@ -4,6 +4,12 @@ import { Link } from '@tanstack/react-router';
 import { ArrowRightIcon, InboxIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { EmptyState } from './EmptyState';
+import { ErrorState } from './ErrorState';
+import { quoteQueryKey } from './GateDecisionDialog';
+import { formatOverrideValue, overrideInboxQueryKey, timelineQueryKey } from './Overrides';
+import { SkeletonRows } from './Skeletons';
+
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
@@ -11,12 +17,6 @@ import { api, isApiError } from '@/lib/api';
 import { describeError } from '@/lib/errors';
 import { absoluteTime, relativeTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
-
-import { EmptyState } from './EmptyState';
-import { ErrorState } from './ErrorState';
-import { quoteQueryKey } from './GateDecisionDialog';
-import { formatOverrideValue, overrideInboxQueryKey, timelineQueryKey } from './Overrides';
-import { SkeletonRows } from './Skeletons';
 
 /** Approvals → "Override requests": the open requests the signed-in approver may decide. */
 export function OverrideInbox() {

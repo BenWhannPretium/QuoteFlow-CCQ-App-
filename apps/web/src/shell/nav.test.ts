@@ -2,9 +2,9 @@ import type { MeResponse } from '@ccq/contracts';
 import { permissionsForRoles, type Role } from '@ccq/domain';
 import { describe, expect, it } from 'vitest';
 
-import { landingFor, landingRolesFor } from '@/landing/landings';
-
 import { isNavItemActive, navItemsFor, splitTabs, type NavItem } from './nav';
+
+import { landingFor, landingRolesFor } from '@/landing/landings';
 
 const meFor = (...roles: Role[]): MeResponse => ({
   user: { id: '0192f0c0-0000-7000-8000-000000000001', displayName: 'T', upn: 't', email: null },
@@ -29,6 +29,8 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
     // B-26: the pricing lead works the same queue (and assigns it).
     [['PricingLead'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
+    // FB-07 (F-083): Finance reads quotes and uploads the ROI model; no queue, no analytics.
+    [['Finance'], ['home', 'pipeline']],
     [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
     [
       ['Leadership'],

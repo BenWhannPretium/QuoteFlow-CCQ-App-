@@ -13,6 +13,7 @@ import { FakeMailTransport } from '@ccq/integrations';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -45,6 +46,7 @@ const ROLES: Role[] = [
   'Engineer',
   'Pricing',
   'PricingLead',
+  'Finance',
   'Approver',
   'Leadership',
   'Admin',
@@ -56,6 +58,7 @@ const PERSONA: Record<Role, string> = {
   Engineer: 'engineer',
   Pricing: 'pricing',
   PricingLead: 'pricing-lead',
+  Finance: 'finance',
   Approver: 'approver',
   Leadership: 'leadership',
   Admin: 'admin',
@@ -253,6 +256,8 @@ async function inQuoting(): Promise<string> {
 }
 
 async function pricingDone(qn: string) {
+  // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
+  await prepareModels(app, qn);
   ok(
     await as('Pricing').put(`/api/v1/quotes/${qn}/pricing-record`, {
       approvedBy: await userId('Pricing'),

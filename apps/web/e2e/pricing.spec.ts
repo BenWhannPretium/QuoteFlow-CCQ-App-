@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
+import { SYNTHETIC_XLSX, uploadModel } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -153,6 +154,17 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   const panel = tab.getByTestId('pricing-context');
   await expect(panel.getByRole('heading', { name: 'Pricing history' })).toBeVisible();
 
+  // ── FB-07 (D-001) step 1: the pricer uploads the costing model before attesting costing ──
+  const steps = tab.getByTestId('quoting-steps');
+  await expect(steps.getByTestId('step-costing')).toHaveAttribute('data-status', 'waiting');
+  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'blocked');
+  await steps.getByTestId('upload-cost_model').setInputFiles({
+    name: 'Costing model.synthetic.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: SYNTHETIC_XLSX,
+  });
+  await expect(steps.getByTestId('model-cost_model')).toContainText('v1 · current');
+
   // ── The price approval: a bad reference is caught by format (the export's ERF<yy>-<n>) ──
   const form = tab.getByTestId('pricing-record-form');
   await expect(form.getByLabel('Approved by')).not.toHaveValue(''); // defaults to the caller
@@ -227,12 +239,18 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   expect(await seriousViolations(pricing)).toEqual([]);
 
   // ── Lead review (2026-10-30): the pricer submits to the pricing lead; only the lead decides G3 ──
-  await expect(tab.getByRole('button', { name: 'Advance to Final Review…' })).toHaveCount(0);
+  await expect(
+    tab.getByRole('button', { name: 'Price approved: advance to Final Review…' }),
+  ).toHaveCount(0);
   await tab.getByRole('button', { name: 'Submit to pricing lead' }).click();
   await expect(tab.getByTestId('lead-review-submitted')).toContainText(
     'Submitted to the pricing lead',
   );
   await expect(tab.getByTestId('capital-form')).toHaveCount(0); // locked for the pricer
+
+  // FB-07 step 2: capital is required, so Finance uploads the ROI model (its own spec drives the UI).
+  await request.get('/api/v1/me', { headers: as('finance') });
+  await uploadModel(request, quoteNumber, 'roi_model', 'finance');
 
   const lead = await open('pricing-lead');
   await lead.goto('/queue/pricing');
@@ -241,10 +259,10 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await lead.goto(`/quotes/${quoteNumber}?tab=quoting`);
   const leadTab = lead.getByTestId('quoting-tab');
   await expect(leadTab.getByTestId('lead-review-submitted')).toBeVisible();
-  await leadTab.getByRole('button', { name: 'Advance to Final Review…' }).click();
+  await leadTab.getByRole('button', { name: 'Price approved: advance to Final Review…' }).click();
   const g3 = lead.getByRole('dialog');
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
-  await expect(g3.getByRole('radio', { name: 'Advance to Final Review' })).toBeChecked();
+  await expect(g3.getByRole('radio', { name: 'Advance – price approved' })).toBeChecked();
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(g3).toHaveCount(0);
   await expect(lead.getByText(`${quoteNumber} is now in Final Review`)).toBeVisible();

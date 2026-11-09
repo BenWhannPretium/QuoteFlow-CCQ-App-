@@ -2,10 +2,10 @@ import type { MeResponse } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
-import { api } from '@/lib/api';
-
 import { ForbiddenPage } from './pages';
 import { canFromMe, meQueryKey, type PermissionName } from './permissions';
+
+import { api } from '@/lib/api';
 
 /** The signed-in user from `GET /me` (loaded by <AuthGate> before the app renders). */
 export function useCurrentUser(): MeResponse {

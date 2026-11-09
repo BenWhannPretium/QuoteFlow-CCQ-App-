@@ -28,7 +28,9 @@ import { freshSfDatabase } from '../sf-helpers';
  * PostAward: it is P2 and has no dev persona yet (its single grant is `quote.read` on AWARDED quotes).
  */
 
-/** The nine MVP roles (B-26 added PricingLead; PostAward is P2 and has no persona yet). */
+/**
+ * The ten MVP roles (B-26 added PricingLead, FB-07 Finance; PostAward is P2 and has no persona yet).
+ */
 const ROLES: Role[] = [
   'KAM',
   'SalesLeader',
@@ -36,6 +38,7 @@ const ROLES: Role[] = [
   'Engineer',
   'Pricing',
   'PricingLead',
+  'Finance',
   'Approver',
   'Leadership',
   'Admin',

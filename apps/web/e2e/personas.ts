@@ -39,6 +39,8 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
     landing: 'PricingLead',
     nav: ['home', 'queue-pricing', 'pipeline', 'analytics'],
   },
+  // FB-07 (F-083): Finance reads quotes and uploads the ROI model, nothing else.
+  { persona: 'finance', landing: 'Finance', nav: ['home', 'pipeline'] },
   { persona: 'approver', landing: 'Approver', nav: ['home', 'pipeline', 'approvals', 'analytics'] },
   {
     persona: 'leadership',

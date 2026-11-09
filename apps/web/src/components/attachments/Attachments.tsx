@@ -4,7 +4,12 @@ import {
   type Attachment,
   type AttachmentKindValue,
 } from '@ccq/contracts';
-import { ATTACHMENT_EXTENSIONS, ATTACHMENT_MAX_BYTES, checkUploadRequest } from '@ccq/domain';
+import {
+  ATTACHMENT_EXTENSIONS,
+  ATTACHMENT_MAX_BYTES,
+  checkUploadRequest,
+  isQuotingModelKind,
+} from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CameraIcon,
@@ -211,7 +216,7 @@ export function AttachmentsPanel({
                 value={kind}
                 onChange={(e) => setKind(e.target.value as AttachmentKindValue)}
               >
-                {ATTACHMENT_KIND_VALUES.map((k) => (
+                {ATTACHMENT_KIND_VALUES.filter((k) => !isQuotingModelKind(k)).map((k) => (
                   <option key={k} value={k}>
                     {ATTACHMENT_KIND_LABELS[k]}
                   </option>
@@ -421,6 +426,20 @@ function AttachmentList({ items, target }: { items: Attachment[]; target: Attach
                   {ATTACHMENT_KIND_LABELS[a.kind]}
                 </span>
                 <span className="min-w-0 font-medium break-all">{a.fileName}</span>
+                {a.version !== null && (
+                  // FB-07 (F-074): one record per model with its history; the latest is flagged.
+                  <span
+                    className={cn(
+                      'rounded-pill px-2 py-0.5 text-xs font-medium',
+                      a.current
+                        ? 'bg-secondary text-foreground font-semibold'
+                        : 'text-muted-foreground border',
+                    )}
+                    data-testid="attachment-version"
+                  >
+                    v{a.version} · {a.current ? 'current' : 'replaced'}
+                  </span>
+                )}
               </p>
               <p className="text-muted-foreground text-xs">
                 {formatBytes(a.size)} · {a.uploadedByName ?? 'Someone'} ·{' '}

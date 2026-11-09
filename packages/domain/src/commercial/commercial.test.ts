@@ -1,4 +1,3 @@
-import { ROI_REQUIRED_WHEN_SEED } from '../quoting-steps';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -23,6 +22,7 @@ import {
 } from '.';
 import { planCapacitySignoff } from '../engineering/review';
 import { DomainError } from '../errors';
+import { ROI_REQUIRED_WHEN_SEED } from '../quoting-steps';
 import { KAM_ID, NOW, OTHER_ID, makeActor, makeQuote, validCase } from '../test-utils';
 import { evaluateTransition } from '../workflow/evaluate';
 import { hybridConfig } from '../workflow/seeds';

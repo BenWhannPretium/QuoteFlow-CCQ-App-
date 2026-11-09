@@ -579,6 +579,15 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/attachments`,
     permission: 'attachment.upload',
   },
+  // FB-07 (F-083): Finance's ROI model upload (roi.upload: Finance, PricingLead, Admin). Without a
+  // multipart body an allowed role gets 415; the service then checks the stage, the G3 lock, costing
+  // first and whether the quote needs an ROI (quoting-steps.int.test.ts).
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/roi-model',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/roi-model`,
+    permission: 'roi.upload',
+  },
   {
     method: 'GET',
     route: '/api/v1/quotes/:quoteNumber/attachments',

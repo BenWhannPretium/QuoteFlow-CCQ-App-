@@ -116,6 +116,8 @@ export const ATTACHMENT_PROBLEM_CODES = {
   /** The body went past 100 MB or past its declared size (413). */
   tooLarge: 'file_too_large',
   notRemovable: 'not_removable',
+  /** FB-07: a Quoting model upload the quote's state refuses (wrong stage, costing first, …) (409). */
+  conflict: 'attachment_conflict',
   /** A metadata-only row (no bytes stored). */
   fileUnavailable: 'file_unavailable',
   storageUnavailable: 'storage_unavailable',

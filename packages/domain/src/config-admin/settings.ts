@@ -11,7 +11,6 @@ import {
   parseProcessOwner,
 } from '../commercial';
 import { engQueueSettingsSchema } from '../engineering/queue';
-import { parseRoiRequiredWhen } from '../quoting-steps';
 import { DomainError } from '../errors';
 import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
@@ -23,6 +22,7 @@ import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome
 import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
 import { CAPITAL_READINESS_VALUES, parsePricingRefFormats } from '../pricing/record';
+import { parseRoiRequiredWhen } from '../quoting-steps';
 import { requiredRuleSchema } from '../types/workflow-config';
 
 /**
@@ -305,7 +305,7 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   spec(
     'roi_required_when',
     'pricing',
-    'When a quote needs Finance\'s ROI model before the price is approved (G2 outcomes, capital likely, funding models)',
+    "When a quote needs Finance's ROI model before the price is approved (G2 outcomes, capital likely, funding models)",
     'json',
     notNull('roi_required_when', parseRoiRequiredWhen),
   ),

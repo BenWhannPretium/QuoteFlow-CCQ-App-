@@ -5,8 +5,8 @@ import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { asPersona, raw, testDb } from './helpers';
-import { FB07, fb07DryRun, renderFb07DryRun } from '../src/fb07DryRun';
 import type { Tx } from '../src/client';
+import { FB07, fb07DryRun, renderFb07DryRun } from '../src/fb07DryRun';
 
 /**
  * FB-07 data migration (0031's hand-written statements) re-run in a rolled-back transaction against the

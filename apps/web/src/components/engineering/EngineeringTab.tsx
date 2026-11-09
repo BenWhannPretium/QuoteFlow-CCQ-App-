@@ -19,15 +19,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DownloadIcon, EyeOffIcon, PaperclipIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import { useCurrentUser } from '@/auth';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, NativeSelect, Textarea } from '@/components/ui/input';
-import { usePublicConfig } from '@/config/public-config';
-import { api, downloadBlob, uploadAttachment } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
-import { toast } from '@/lib/toast';
-
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
 import { attachmentsQueryKey } from '../attachments/Attachments';
 import {
@@ -44,6 +35,15 @@ import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewPanel } from '../LeadReviewPanel';
 import { FieldOverride, timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
+
+import { useCurrentUser } from '@/auth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input, NativeSelect, Textarea } from '@/components/ui/input';
+import { usePublicConfig } from '@/config/public-config';
+import { api, downloadBlob, uploadAttachment } from '@/lib/api';
+import { absoluteTime } from '@/lib/time';
+import { toast } from '@/lib/toast';
 
 const DF22_HELP =
   'State your assumption. Quotes have historically assumed 85% vs ~70% demonstrated (DF-22).';

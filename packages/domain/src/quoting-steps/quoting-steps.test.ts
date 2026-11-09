@@ -21,8 +21,8 @@ import {
   isVersionedKind,
 } from '../attachments/file-types';
 import { submissionRules } from '../lead-review';
-import { HANDOFF_TYPES, planCostModelUploaded, planRoiUploaded } from '../notifications/recipients';
 import { notificationEvent } from '../notifications/events';
+import { HANDOFF_TYPES, planCostModelUploaded, planRoiUploaded } from '../notifications/recipients';
 import { permissionsForRoles } from '../policy/can';
 import { rolesWithPermission } from '../policy/matrix';
 import { NOW, makeActor, makeQuote } from '../test-utils';

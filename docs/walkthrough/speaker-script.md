@@ -269,7 +269,7 @@ FILL (Commercial terms):
 
 DO: Click **Save terms**.
 
-DO: Click **Advance to Final Review…**, **Record decision**.
+DO: Click **Price approved: advance to Final Review…**, **Record decision**.
 
 SAY: "To go forward, costing must be attested, capital readiness recorded, terms checked. Try to skip one and the dialog lists what's missing. That's the point of a gate."
 

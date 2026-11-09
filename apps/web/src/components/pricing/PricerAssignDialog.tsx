@@ -2,6 +2,9 @@ import type { PricingQueueResponse } from '@ccq/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 
+import { quoteQueryKey } from '../GateDecisionDialog';
+import { timelineQueryKey } from '../Overrides';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,9 +17,6 @@ import {
 import { NativeSelect } from '@/components/ui/input';
 import { api, isApiError } from '@/lib/api';
 import { toast } from '@/lib/toast';
-
-import { quoteQueryKey } from '../GateDecisionDialog';
-import { timelineQueryKey } from '../Overrides';
 
 export const pricingQueueQueryKey = ['pricing-queue'] as const;
 

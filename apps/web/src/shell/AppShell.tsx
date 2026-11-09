@@ -1,15 +1,15 @@
 import { useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
-import { DevPersonaSwitcher, useCurrentUser } from '@/auth';
-import { ReportIssueDialog, ReportIssueFooter } from '@/components/feedback/ReportIssue';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { usePublicConfig } from '@/config/public-config';
-
 import { BottomNav } from './BottomNav';
 import { Header } from './Header';
 import { navItemsFor } from './nav';
 import { SideNav } from './SideNav';
+
+import { DevPersonaSwitcher, useCurrentUser } from '@/auth';
+import { ReportIssueDialog, ReportIssueFooter } from '@/components/feedback/ReportIssue';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { usePublicConfig } from '@/config/public-config';
 
 /**
  * Skip link; full-height green rail beside a paper top bar and <main> (desktop), or the green band

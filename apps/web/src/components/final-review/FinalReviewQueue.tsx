@@ -4,15 +4,6 @@ import { Link } from '@tanstack/react-router';
 import { CheckIcon, InboxIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
-import { CapitalChip } from '@/components/pricing/CapitalChip';
-import { CAPITAL_LABELS } from '@/components/pricing/QuotingTab';
-import { buttonVariants } from '@/components/ui/button';
-import { Input, NativeSelect } from '@/components/ui/input';
-import { usePublicConfig } from '@/config/public-config';
-import { api, type FinalReviewQueueParams } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
-import { cn } from '@/lib/utils';
-
 import { EmptyState } from '../EmptyState';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
@@ -25,6 +16,15 @@ import {
 import { PriorityBadge } from '../Priority';
 import { SkeletonRows } from '../Skeletons';
 import { finalReviewQueueKey } from './keys';
+
+import { CapitalChip } from '@/components/pricing/CapitalChip';
+import { CAPITAL_LABELS } from '@/components/pricing/QuotingTab';
+import { buttonVariants } from '@/components/ui/button';
+import { Input, NativeSelect } from '@/components/ui/input';
+import { usePublicConfig } from '@/config/public-config';
+import { api, type FinalReviewQueueParams } from '@/lib/api';
+import { absoluteTime } from '@/lib/time';
+import { cn } from '@/lib/utils';
 
 /**
  * Approvals → Final Review (B-12, G4): every quote waiting for the internal release decision, highest

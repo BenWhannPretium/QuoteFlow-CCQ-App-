@@ -3,6 +3,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { InfoIcon, MegaphoneIcon, ScaleIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import { quoteQueryKey } from '../GateDecisionDialog';
+import { KeyValueGrid } from '../KeyValueGrid';
+import { timelineQueryKey } from '../Overrides';
+import { SectionLockLine } from '../SectionLockLine';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -19,12 +25,6 @@ import { useValueList } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
-
-import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
-import { quoteQueryKey } from '../GateDecisionDialog';
-import { KeyValueGrid } from '../KeyValueGrid';
-import { timelineQueryKey } from '../Overrides';
-import { SectionLockLine } from '../SectionLockLine';
 
 // B-26 (CCQ demo and the future-state process deck): the quote's commercial controls. The early
 // "capital likely" flag (Capital Management awareness, not approval), the terms check and Legal review

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { RedirectingError } from '@/auth/session';
-
 import { ApiError } from './api';
 import { describeError, errorPresentation } from './errors';
 import { createQueryClient } from './query-client';
 import { toast, toastStore } from './toast';
+
+import { RedirectingError } from '@/auth/session';
 
 const apiError = (status: number, extra: Record<string, unknown> = {}) =>
   new ApiError({ type: 'about:blank', title: `HTTP ${status}`, status, ...extra });

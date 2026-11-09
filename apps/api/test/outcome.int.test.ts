@@ -16,6 +16,7 @@ import { addCalendarDays, proposalCalendarDate } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { prepareModels } from './model-helpers';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
 import { testConfig } from '../src/test-utils';
@@ -195,6 +196,8 @@ async function inQuoting() {
 }
 
 async function recordPrice(qn: string) {
+  // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
+  await prepareModels(app, qn);
   ok(
     await persona('pricing').put(`/api/v1/quotes/${qn}/pricing-record`, {
       approvedBy: await userId('pricing'),

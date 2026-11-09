@@ -1,6 +1,6 @@
-import { ROI_REQUIRED_WHEN_SEED } from '../quoting-steps';
 import { describe, expect, it } from 'vitest';
 
+import { ROI_REQUIRED_WHEN_SEED } from '../quoting-steps';
 import { withDerivedFields } from './derived';
 import {
   G4_REQUIRED_CHECKS_SEED,

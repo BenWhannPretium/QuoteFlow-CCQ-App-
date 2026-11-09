@@ -54,6 +54,7 @@ export default defineConfig({
         'labels.spec.ts',
         'workflow-integrity.spec.ts',
         'notifications-handoff.spec.ts',
+        'quoting-steps.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

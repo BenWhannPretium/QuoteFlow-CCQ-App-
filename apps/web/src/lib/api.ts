@@ -589,9 +589,12 @@ const Ok = z.object({ ok: z.literal(true) });
 /** Where an upload goes: a quote (any stage) or an open intake draft. */
 export type AttachmentTarget = { quoteNumber: string } | { draftId: string };
 
-export const attachmentsPath = (target: AttachmentTarget) =>
+export const attachmentsPath = (target: AttachmentTarget, kind?: string) =>
   'quoteNumber' in target
-    ? `${quotePath(target.quoteNumber)}/attachments`
+    ? // FB-07 (F-083): the ROI model has its own route (Finance holds roi.upload, not attachment.upload).
+      kind === 'roi_model'
+      ? `${quotePath(target.quoteNumber)}/roi-model`
+      : `${quotePath(target.quoteNumber)}/attachments`
     : `/api/v1/quotes/drafts/${target.draftId}/attachments`;
 
 export interface UploadHandle {
@@ -625,7 +628,7 @@ export function uploadAttachment(
       if (aborted) return reject(new DOMException('Upload cancelled', 'AbortError'));
       const req = new XMLHttpRequest();
       xhr = req;
-      req.open('POST', attachmentsPath(target));
+      req.open('POST', attachmentsPath(target, fields.kind));
       req.setRequestHeader('accept', 'application/json');
       for (const [k, v] of Object.entries(headers)) req.setRequestHeader(k, v);
       req.upload.onprogress = (e) => {

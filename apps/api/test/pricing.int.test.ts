@@ -17,6 +17,7 @@ import type { Role } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { prepareModels, uploadModel } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -200,6 +201,8 @@ const SECRETS = {
 
 /** A full approval: references, basis, range, costing. */
 async function approve(qn: string, extra: Record<string, unknown> = {}) {
+  // FB-07 (F-032): the costing model (and the ROI model when needed) comes before the attestation.
+  await prepareModels(app, qn);
   const res = await putRecord(qn, {
     approvedBy: await userId('Pricing'),
     approvedAt: new Date(clock.getTime() - HOUR).toISOString(),
@@ -518,6 +521,8 @@ describe('G3 Submit to Final Review', () => {
     const empty = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     expect(empty.statusCode).toBe(422);
     expect(errorPaths(empty)).toEqual([
+      // FB-07 (F-032): the costing model is on file (no ROI is needed: capital is not required).
+      '/cost_model_on_file,pricing_record.cost_model_requirement',
       '/pricing_record.capital_readiness',
       '/pricing_record.capital_readiness,pricing_record.capital_pending_justification',
       '/pricing_record.costing_completed',
@@ -527,7 +532,8 @@ describe('G3 Submit to Final Review', () => {
     const missing = (await detail(qn, 'PricingLead')).dto.availableActions.find(
       (a) => a.gateKey === 'G3' && a.outcomeKey === 'submit',
     )!.missing;
-    expect(missing).toHaveLength(4);
+    expect(missing).toHaveLength(5);
+    await prepareModels(app, qn);
 
     // Cost before price: the approval alone is not enough.
     await putRecord(qn, { approvedBy: await userId('Pricing') });
@@ -638,6 +644,7 @@ describe('G3 Submit to Final Review', () => {
 
   it('B-26: below the pass-through threshold a price advances without formal approval', async () => {
     const qn = await inQuoting();
+    await prepareModels(app, qn);
     await putRecord(qn, { costingCompleted: true });
     await putCapital(qn, { capitalReadiness: 'not_required' });
     expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(422);
@@ -670,7 +677,10 @@ describe('G3 Submit to Final Review', () => {
     expect(flag.statusCode, flag.body).toBe(200);
     expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
       '/capital_likely,pricing_record.capital_readiness',
+      // FB-07 (roi_required_when): capital likely now needs Finance's ROI model too.
+      '/roi_required,roi_model_on_file',
     ]);
+    expect((await uploadModel(app, qn, 'roi_model', 'Finance')).statusCode).toBe(201);
     await putCapital(qn, { capitalReadiness: 'pre_approved' });
     expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(201);
   });

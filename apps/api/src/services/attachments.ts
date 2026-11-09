@@ -22,11 +22,13 @@ import {
   getSetting,
   insertActivityEvent,
   insertAttachment,
+  insertAttachmentVersion,
   listAttachments,
   listDraftAttachments,
   listUsersByIds,
   listValueList,
   loadQuoteState,
+  restorePreviousVersion,
   updateAttachment,
   updateQuote,
   updateQuoteDraft,
@@ -39,17 +41,29 @@ import {
   canUploadAttachment,
   checkFileContent,
   checkUploadRequest,
+  derivedDecisionFields,
   drawingStatusAfterUpload,
+  isQuotingModelKind,
+  planCostModelUploaded,
+  planModelUpload,
+  planRoiUploaded,
   parseAttachmentSettings,
   renderFolderTemplate,
   displayFileName,
   sanitizeFileName,
   type Actor,
   type AttachmentSettings,
+  type ModelUploadContext,
+  type PlannedHandoff,
+  type QuoteState,
+  type QuotingModelKind,
 } from '@ccq/domain';
 import { FileStoreError, type FileStore, type StoredFile } from '@ccq/integrations';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { loadCommercialSettings } from './commercial';
+import { deliverPlanned } from './handoff-notifications';
+import { assertSectionUnlocked } from './locks';
 import { ServiceProblem, problemErrors } from './problem';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
 
@@ -57,8 +71,11 @@ export type AttachmentsWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
 type AttachmentRow = Awaited<ReturnType<typeof listAttachments>>[number];
 
-/** Where an upload goes: a quote (any stage) or the caller's open intake draft. */
-export type UploadTarget = { quoteNumber: string } | { draftId: string };
+/**
+ * Where an upload goes: a quote (any stage) or the caller's open intake draft. FB-07: `kind` set on a
+ * quote target fixes the kind (the ROI route uploads `roi_model` whatever the form says).
+ */
+export type UploadTarget = { quoteNumber: string; kind?: QuotingModelKind } | { draftId: string };
 
 /** The multipart file part as the route hands it over (fields sent before the file). */
 export interface UploadPart {
@@ -75,6 +92,46 @@ export interface AttachmentServiceOptions {
 
 const P = ATTACHMENT_PROBLEM_CODES;
 const notFound = (what = 'No such file') => new ServiceProblem(404, P.notFound, what);
+
+/** FB-07: the costing / ROI step facts a model upload is checked against. */
+async function modelContext(db: DbOrTx, state: QuoteState): Promise<ModelUploadContext> {
+  const settings = await loadCommercialSettings(db);
+  const record = state.fields.pricing_record as Record<string, unknown> | null | undefined;
+  return {
+    costModelOnFile: state.fields.cost_model_on_file === true,
+    costModelGrandfathered: record?.cost_model_requirement === 'grandfathered',
+    roiRequired: derivedDecisionFields(state.fields, settings.derived).roi_required,
+  };
+}
+
+/**
+ * FB-07 (D-001): may the actor upload this Quoting model now? The pricing section's G3 lock first
+ * (FB-01: 409 SECTION_LOCKED for every role that reaches the service), then the step's own rules.
+ */
+async function authorizeModel(
+  db: DbOrTx,
+  actor: Actor,
+  kind: QuotingModelKind,
+  state: QuoteState,
+): Promise<ModelUploadContext> {
+  await assertSectionUnlocked(db, 'pricing', state);
+  const ctx = await modelContext(db, state);
+  const plan = planModelUpload(kind, actor, state, ctx);
+  if (!plan.ok) {
+    const [first] = plan.errors;
+    if (first!.code === 'NOT_PERMITTED') throw new ServiceProblem(403, 'forbidden', first!.message);
+    throw new ServiceProblem(409, P.conflict, first!.message, {
+      errors: problemErrors(plan.errors),
+    });
+  }
+  return ctx;
+}
+
+const MODEL_LABEL: Record<QuotingModelKind, string> = {
+  cost_model: 'costing model',
+  roi_model: 'ROI model',
+  price_table: 'updated price table',
+};
 
 /**
  * Read the first `n` bytes for the content check, then hand back a stream that replays them followed
@@ -231,7 +288,12 @@ export class AttachmentService {
     return rows.map((r) => {
       const removal = attachmentRemoval(
         actor,
-        { uploadedBy: r.uploadedBy, createdAt: r.createdAt, onOpenDraft: r.quoteId === null },
+        {
+          uploadedBy: r.uploadedBy,
+          createdAt: r.createdAt,
+          onOpenDraft: r.quoteId === null,
+          kind: r.kind,
+        },
         now,
         settings,
       );
@@ -251,6 +313,10 @@ export class AttachmentService {
         webUrl: r.spWebUrl,
         canRemove: removal.allowed,
         removeBlockedReason: removal.reason,
+        version: r.version,
+        current: r.version !== null && r.supersededAt === null && r.removedAt === null,
+        supersededById: r.supersededBy,
+        supersededAt: r.supersededAt ? r.supersededAt.toISOString() : null,
       };
     });
   }
@@ -323,7 +389,9 @@ export class AttachmentService {
         })),
       });
     }
-    const { kind, note, size } = fields.data;
+    const { note, size } = fields.data;
+    // FB-07: the ROI route fixes the kind.
+    const kind = 'quoteNumber' in target && target.kind ? target.kind : fields.data.kind;
     // T-003: the name as the user sees it (a "/" is kept); the stored key is sanitized separately.
     const fileName = displayFileName(part.fileName);
     const checked = checkUploadRequest({ fileName, size, kind });
@@ -344,13 +412,25 @@ export class AttachmentService {
       const settings = await AttachmentService.settings(tx);
       if ('quoteNumber' in target) {
         const { quote, state } = await this.readableQuote(tx, actor, target.quoteNumber);
-        if (!canUploadAttachment(actor, state)) {
+        if (isQuotingModelKind(kind)) {
+          await authorizeModel(tx, actor, kind, state);
+        } else if (!canUploadAttachment(actor, state)) {
           throw new ServiceProblem(403, 'forbidden', 'You cannot add files to this quote');
         }
         return {
           settings,
           folder: renderFolderTemplate(settings.quoteFolder, { quote_number: quote.quoteNumber }),
         };
+      }
+      if (isQuotingModelKind(kind)) {
+        throw new ServiceProblem(
+          422,
+          P.rejected,
+          'The costing model, ROI model and price table are uploaded on the Quoting tab, not at intake',
+          {
+            errors: [{ path: '/kind', message: 'Not an intake file kind', code: 'INVALID_VALUE' }],
+          },
+        );
       }
       await this.ownOpenDraft(tx, actor, target.draftId);
       return {
@@ -394,11 +474,16 @@ export class AttachmentService {
       return await withTx(async (tx) => {
         const settings = where.settings;
         let quoteId: string | null = null;
+        let quoteNumber: string | null = null;
+        let modelCtx: ModelUploadContext | null = null;
         let drawingStatus: AttachmentUploadResponse['drawingStatus'] = null;
         const hasDrawing = await AttachmentService.hasDrawingCodes(tx);
         if ('quoteNumber' in target) {
-          const { quote } = await this.readableQuote(tx, actor, target.quoteNumber);
+          const { quote, state } = await this.readableQuote(tx, actor, target.quoteNumber);
           quoteId = quote.id;
+          quoteNumber = quote.quoteNumber;
+          // Checked again here: the quote may have moved on while the bytes streamed.
+          if (isQuotingModelKind(kind)) modelCtx = await authorizeModel(tx, actor, kind, state);
           const to = drawingStatusAfterUpload(kind, quote.drawingStatus, hasDrawing);
           if (to) drawingStatus = { from: quote.drawingStatus, to };
         } else {
@@ -410,7 +495,7 @@ export class AttachmentService {
             await updateQuoteDraft(tx, draft.id, { data: { ...data, drawingStatus: to } });
           }
         }
-        const row = await insertAttachment(tx, {
+        const values = {
           quoteId,
           draftId: 'draftId' in target ? target.draftId : null,
           kind,
@@ -429,7 +514,17 @@ export class AttachmentService {
           uploadedBy: actor.userId,
           createdAt: now,
           createdBy: actor.userId,
-        });
+        };
+        // FB-07 (F-074): a Quoting model is one record per quote and kind with version history.
+        let superseded: { id: string; version: number | null } | null = null;
+        let row: AttachmentRow;
+        if (modelCtx && quoteId) {
+          const v = await insertAttachmentVersion(tx, { ...values, quoteId }, now);
+          row = v.row;
+          superseded = v.superseded;
+        } else {
+          row = await insertAttachment(tx, values);
+        }
         await recordAudit(tx, actor, meta, {
           at: now,
           action: 'upload',
@@ -446,8 +541,22 @@ export class AttachmentService {
             storage: this.store.kind,
             folder: stored.folder,
             ...('draftId' in target ? { draftId: target.draftId } : {}),
+            ...(row.version !== null
+              ? { version: row.version, supersedes: superseded?.id ?? null }
+              : {}),
           },
         });
+        if (superseded) {
+          await recordAudit(tx, actor, meta, {
+            at: now,
+            action: 'update',
+            entity: 'attachment',
+            entityId: superseded.id,
+            quoteId,
+            before: { current: true, version: superseded.version },
+            after: { current: false, supersededBy: row.id, supersededAt: now.toISOString() },
+          });
+        }
         if (quoteId) {
           if (drawingStatus) {
             await updateQuote(tx, quoteId, { drawingStatus: drawingStatus.to, updatedAt: now });
@@ -472,9 +581,18 @@ export class AttachmentService {
               kind,
               size,
               ...(drawingStatus ? { drawingStatus } : {}),
+              ...(row.version !== null
+                ? { version: row.version, replaces: superseded?.id ?? null }
+                : {}),
             },
             createdBy: actor.userId,
           });
+          if (modelCtx && isQuotingModelKind(kind)) {
+            await this.announceModel(tx, actor, kind, row.version ?? 1, modelCtx, {
+              id: quoteId,
+              quoteNumber: quoteNumber!,
+            });
+          }
         }
         const [item] = await this.dtos(tx, actor, [row], settings, now);
         return { item: item!, drawingStatus };
@@ -487,6 +605,50 @@ export class AttachmentService {
       );
       throw err;
     }
+  }
+
+  /**
+   * FB-07 (D-001): the next person in the sequence is told through FB-05's resolver. Costing model →
+   * Finance, when the quote needs an ROI; ROI model → the pricing lead. The updated price table is the
+   * lead's own step: nobody is paged. In-app body and email name the uploader and the version only.
+   */
+  private async announceModel(
+    tx: Tx,
+    actor: Actor,
+    kind: QuotingModelKind,
+    version: number,
+    ctx: ModelUploadContext,
+    quote: { id: string; quoteNumber: string },
+  ) {
+    const entries: PlannedHandoff[] =
+      kind === 'cost_model'
+        ? planCostModelUploaded(ctx.roiRequired)
+        : kind === 'roi_model'
+          ? planRoiUploaded()
+          : [];
+    if (entries.length === 0) return;
+    const [me] = await listUsersByIds(tx, [actor.userId]);
+    const who = me?.displayName ?? null;
+    const label = MODEL_LABEL[kind];
+    await deliverPlanned(
+      tx,
+      entries,
+      actor.userId,
+      () =>
+        kind === 'cost_model'
+          ? {
+              title: `${quote.quoteNumber} is ready for its ROI`,
+              body: `${who ?? 'Pricing'} uploaded the ${label} (version ${version}). Capital is required on this quote: build the ROI from it and upload the ROI model on the Quoting tab.`,
+              payload: { version: String(version), ...(who ? { actor: who } : {}) },
+            }
+          : {
+              title: `${quote.quoteNumber}: the ROI model is uploaded`,
+              body: `${who ?? 'Finance'} uploaded the ${label} (version ${version}). Review it and approve the price (G3), or send the quote back.`,
+              payload: { version: String(version), ...(who ? { actor: who } : {}) },
+            },
+      quote.id,
+      { log: this.opts.log },
+    );
   }
 
   // ── Download ─────────────────────────────────────────────────────────────────────────────────
@@ -563,7 +725,27 @@ export class AttachmentService {
         settings,
       );
       if (!rule.allowed) throw new ServiceProblem(403, P.notRemovable, rule.reason!);
+      // FB-07: a Quoting model locks with the pricing section after G3 (Admin may still remove one).
+      if (row.quoteId && isQuotingModelKind(row.kind) && !can(actor, 'attachment.removeAny')) {
+        const state = await loadQuoteState(tx, row.quoteId);
+        if (state) await assertSectionUnlocked(tx, 'pricing', state);
+      }
       await this.removeRow(tx, actor, row, settings, now, meta);
+      // F-074: removing the current version makes the newest remaining one current again.
+      if (row.quoteId && row.version !== null && row.supersededAt === null) {
+        const restored = await restorePreviousVersion(tx, row.quoteId, row.kind, now);
+        if (restored) {
+          await recordAudit(tx, actor, meta, {
+            at: now,
+            action: 'update',
+            entity: 'attachment',
+            entityId: restored.id,
+            quoteId: row.quoteId,
+            before: { current: false, supersededBy: row.id },
+            after: { current: true, version: restored.version, reason: 'newer version removed' },
+          });
+        }
+      }
     });
   }
 

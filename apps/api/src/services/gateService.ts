@@ -599,6 +599,8 @@ function pricingEvidence(state: QuoteState): PricingRecordValues | null {
     cerReference: text('cer_reference'),
     capitalNotes: text('capital_notes'),
     capitalPendingJustification: text('capital_pending_justification'),
+    costModelRequirement:
+      r.cost_model_requirement === 'grandfathered' ? 'grandfathered' : 'required',
   };
 }
 

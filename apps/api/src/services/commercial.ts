@@ -26,6 +26,9 @@ import {
   ESCALATION_ROUTES_SEED,
   G4_CHECKS,
   G4_REQUIRED_CHECKS_SEED,
+  ROI_REQUIRED_WHEN_SEED,
+  parseRoiRequiredWhen,
+  type RoiRequiredWhen,
   LEGAL_REVIEW_TRIGGERS_SEED,
   LEGAL_TRIGGER_LABELS,
   MARKET_DEV_NOTICE_SEED,
@@ -120,21 +123,37 @@ function g4RequiredChecks(input: unknown): G4Check[] {
   }
 }
 
+/**
+ * FB-07 (D-001): `roi_required_when`. The admin console validates it, so a malformed value only comes
+ * from a hand edit: it falls back to the seed (capital required, $0 CER included) rather than dropping
+ * the ROI step or demanding it on every quote.
+ */
+function roiRequiredWhen(input: unknown): RoiRequiredWhen {
+  try {
+    return parseRoiRequiredWhen(input);
+  } catch {
+    return parseRoiRequiredWhen(ROI_REQUIRED_WHEN_SEED);
+  }
+}
+
 export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSettings> {
-  const [legal, passThrough, capital, marketDev, routes, owner, g4Checks] = await Promise.all([
-    getSetting(db, 'legal_review_triggers'),
-    getSetting(db, 'pricing_pass_through'),
-    getSetting(db, 'capital_management_notice'),
-    getSetting(db, 'market_development_notice'),
-    getSetting(db, 'escalation_routes'),
-    getSetting(db, 'process_owner'),
-    getSetting(db, 'g4_required_checks'),
-  ]);
+  const [legal, passThrough, capital, marketDev, routes, owner, g4Checks, roiWhen] =
+    await Promise.all([
+      getSetting(db, 'legal_review_triggers'),
+      getSetting(db, 'pricing_pass_through'),
+      getSetting(db, 'capital_management_notice'),
+      getSetting(db, 'market_development_notice'),
+      getSetting(db, 'escalation_routes'),
+      getSetting(db, 'process_owner'),
+      getSetting(db, 'g4_required_checks'),
+      getSetting(db, 'roi_required_when'),
+    ]);
   return {
     derived: {
       legalReviewTriggers: parseLegalReviewTriggers(legal ?? LEGAL_REVIEW_TRIGGERS_SEED),
       passThrough: parsePassThrough(passThrough ?? PASS_THROUGH_SEED),
       g4RequiredChecks: g4RequiredChecks(g4Checks),
+      roiRequiredWhen: roiRequiredWhen(roiWhen),
     },
     capitalNotice: parseCapitalNotice(capital ?? CAPITAL_NOTICE_SEED),
     marketDev: parseMarketDevNotice(marketDev ?? MARKET_DEV_NOTICE_SEED),

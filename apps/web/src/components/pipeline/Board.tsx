@@ -25,6 +25,8 @@ import { Link } from '@tanstack/react-router';
 import { ChevronRightIcon, GripVerticalIcon, MoveRightIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { formatCount, formatUsdCompact } from './parts';
+
 import { GateDecisionDialog } from '@/components/GateDecisionDialog';
 import { ScorePill } from '@/components/ScorePill';
 import { TierChip } from '@/components/TierChip';
@@ -38,8 +40,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useIsMobile, useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
-
-import { formatCount, formatUsdCompact } from './parts';
 
 interface Pending {
   card: BoardCard;

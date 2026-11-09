@@ -2,10 +2,10 @@ import type { MetricInfo } from '@ccq/contracts';
 import { BarChart3Icon, TableIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
 
+import { InfoTip } from './InfoTip';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-
-import { InfoTip } from './InfoTip';
 
 export interface TableColumn {
   key: string;

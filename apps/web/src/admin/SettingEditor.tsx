@@ -3,10 +3,10 @@ import { ROLES, type RequiredRule } from '@ccq/domain';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useId } from 'react';
 
+import { describeRules, RuleEditor, rulesProblem } from './RuleEditor';
+
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
-
-import { describeRules, RuleEditor, rulesProblem } from './RuleEditor';
 
 /**
  * One editor per `SettingSpec.editor` (domain `SETTING_EDITORS`). The editor holds the draft value;

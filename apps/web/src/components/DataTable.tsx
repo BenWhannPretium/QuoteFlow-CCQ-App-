@@ -12,11 +12,11 @@ import {
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
 
+import { SkeletonRows } from './Skeletons';
+
 import { NativeSelect } from '@/components/ui/input';
 import { useIsMobile } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
-
-import { SkeletonRows } from './Skeletons';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

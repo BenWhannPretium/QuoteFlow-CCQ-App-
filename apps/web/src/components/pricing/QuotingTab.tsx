@@ -11,15 +11,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useState } from 'react';
 
-import { useCurrentUser } from '@/auth';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, NativeSelect, Textarea } from '@/components/ui/input';
-import { usePublicConfig } from '@/config/public-config';
-import { api } from '@/lib/api';
-import { absoluteTime, toLocalInput } from '@/lib/time';
-import { toast } from '@/lib/toast';
-
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
@@ -32,6 +23,16 @@ import {
   pricingContextQueryKey,
   type ReferenceKind,
 } from './PricingContextPanel';
+import { QuotingSteps } from './QuotingSteps';
+
+import { useCurrentUser } from '@/auth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input, NativeSelect, Textarea } from '@/components/ui/input';
+import { usePublicConfig } from '@/config/public-config';
+import { api } from '@/lib/api';
+import { absoluteTime, toLocalInput } from '@/lib/time';
+import { toast } from '@/lib/toast';
 
 export { pricingQueueQueryKey };
 
@@ -70,6 +71,8 @@ export function QuotingTab({
       <PricerAssignment quote={quote} />
       <PricingLeadReview quote={quote} />
       <SectionLockLine lock={quoting.lock} />
+      {/* FB-07 (D-001): costing → ROI → price approved, for every reader (Finance uploads here). */}
+      <QuotingSteps quoteNumber={quote.quoteNumber} steps={quoting.steps} />
       {quoting.commercialRedacted ? (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -84,7 +87,10 @@ export function QuotingTab({
           {record && record.warnings.length > 0 && <Warnings record={record} />}
           {canDecideG3 && (
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => onDecide('submit')}>Advance to Final Review…</Button>
+              {/* FB-07 (F-081, D-031): the button says what it records. */}
+              <Button onClick={() => onDecide('submit')}>
+                Price approved: advance to Final Review…
+              </Button>
               <Button variant="outline" onClick={() => onDecide('rework')}>
                 Return to Engineering…
               </Button>
@@ -480,8 +486,8 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
               />
               Costing completed (Cost-to-Serve)
               <span className="text-muted-foreground text-xs">
-                Required to submit to Final Review (G3). Attestation only (CR-25); costing stays in
-                Excel and the pricing app.
+                Required to submit to Final Review (G3). FB-07: upload the costing model first (step
+                1 above). Costing stays in Excel and the pricing app; QuoteFlow keeps the file.
               </span>
             </label>
             {record?.costingAttestedByName && record.costingCompleted && (

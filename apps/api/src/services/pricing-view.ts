@@ -32,6 +32,7 @@ import {
 
 import { leadReviewView } from './lead-review';
 import { sectionLockView } from './locks';
+import { quotingStepsView } from './quoting-steps';
 
 type PricingRow = Awaited<ReturnType<typeof listPricingRecords>>[number];
 
@@ -65,6 +66,8 @@ export function recordValues(row: PricingRow | null | undefined): PricingRecordV
     cerReference: row.cerReference,
     capitalNotes: row.capitalNotes,
     capitalPendingJustification: row.capitalPendingJustification,
+    costModelRequirement:
+      row.costModelRequirement === 'grandfathered' ? 'grandfathered' : 'required',
   };
 }
 
@@ -84,12 +87,14 @@ export function recordColumns(v: PricingRecordValues) {
     cerReference: v.cerReference,
     capitalNotes: v.capitalNotes,
     capitalPendingJustification: v.capitalPendingJustification,
+    costModelRequirement: v.costModelRequirement,
   };
 }
 
 function recordView(
   row: PricingRow,
   name: (id: string | null) => string | null,
+  costModelOnFile = true,
 ): PricingRecordView {
   const v = recordValues(row)!;
   return {
@@ -107,7 +112,7 @@ function recordView(
     cerReference: v.cerReference,
     capitalNotes: v.capitalNotes,
     capitalPendingJustification: v.capitalPendingJustification,
-    warnings: quotingWarnings(v),
+    warnings: quotingWarnings(v, costModelOnFile),
     updatedAt: iso(row.updatedAt),
   };
 }
@@ -152,7 +157,9 @@ export async function quotingView(
 
   const commercial = redact(
     {
-      pricingRecord: current ? recordView(current, name) : null,
+      pricingRecord: current
+        ? recordView(current, name, state.fields.cost_model_on_file === true)
+        : null,
       pricingRecords: history.map((r) => recordView(r, name)),
     },
     actor,
@@ -187,6 +194,7 @@ export async function quotingView(
     leadReview: await leadReviewView(db, actor, 'pricing', q, state),
     pricingUsers: canEdit ? await listActiveUsersWithRoles(db, pricingRoles()) : [],
     refFormats: formats,
+    steps: await quotingStepsView(db, actor, workflow, q, state, recordValues(current)),
   };
 }
 

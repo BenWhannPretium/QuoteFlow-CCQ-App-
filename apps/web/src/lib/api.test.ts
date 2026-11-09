@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { setAuthSession, type AuthSession } from '@/auth/session';
-
 import { api, ApiError, isApiError } from './api';
+
+import { setAuthSession, type AuthSession } from '@/auth/session';
 
 const me = {
   user: {

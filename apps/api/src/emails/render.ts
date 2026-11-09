@@ -216,8 +216,36 @@ const COPY: Record<string, Copy> = {
     phrase: 'needs your decision',
     context: 'Final Review',
     heading: 'A quote is awaiting Final Review',
-    action: () => 'Pricing has approved the price. Open it to release or return the proposition.',
+    action: () =>
+      'The pricing lead approved the price (G3 Price approved). Open it to release or return the proposition.',
     cta: 'Open Final Review',
+  },
+  // FB-07 (D-001): costing, then ROI, then price approved. `version` is the model's version number.
+  'quote.ready_for_roi': {
+    phrase: 'is ready for its ROI',
+    context: 'Quoting',
+    heading: 'A costing model is ready for the ROI',
+    action: (p) =>
+      sentence(
+        p.actor
+          ? `${p.actor} uploaded the costing model${p.version ? ` (version ${p.version})` : ''}.`
+          : 'Pricing uploaded the costing model.',
+        'Capital is required on this quote: build the ROI from it and upload the ROI model on the Quoting tab.',
+      ),
+    cta: 'Open Quoting',
+  },
+  'quote.roi_uploaded': {
+    phrase: 'has its ROI',
+    context: 'Quoting',
+    heading: 'The ROI model is uploaded',
+    action: (p) =>
+      sentence(
+        p.actor
+          ? `${p.actor} uploaded the ROI model${p.version ? ` (version ${p.version})` : ''}.`
+          : 'Finance uploaded the ROI model.',
+        'Review it and approve the price (G3), or send the quote back.',
+      ),
+    cta: 'Open Quoting',
   },
   'quote.approved_for_customer': {
     phrase: 'was approved',
