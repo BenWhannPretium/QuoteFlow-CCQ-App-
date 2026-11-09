@@ -116,3 +116,4 @@ Column M holds a formula (`Ready to Size`). When you paste, skip it: copy the fo
 
 1. Check the Summary tab's open-decision count and the Ready to Size counts: F-031 and F-032 should read Y, F-058 stays N until A-030 is done.
 2. Refresh the Change Log tab (Data → Refresh All). The matching Change Log rows are already in `QuoteFlow Change Log.csv`.
+3. **Change Log file.** The connector can only replace the whole `QuoteFlow Change Log.csv` in SharePoint, and retyping it risks damaging the history, so the complete, current file is in this folder: [`QuoteFlow Change Log.csv`](<QuoteFlow Change Log.csv>), generated from `feedback-change-log.md` (it adds the five FB-04 rows the SharePoint copy is missing, marks the FB-05 rows Merged, and adds today's row). Upload it over the SharePoint file (same name, same folder), then refresh the Change Log tab. Regenerate it from the markdown whenever the log changes.
