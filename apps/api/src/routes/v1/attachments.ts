@@ -31,7 +31,7 @@ const tags = ['attachments'];
 const security = [{ bearerAuth: [] }];
 
 const UPLOAD_HELP =
-  'multipart/form-data, streamed to the file store (never buffered): the text fields `kind` (bottle_drawing | spec | sample_photo | capacity_analysis | other | bid_file | project_brief | competitor_drawing; FB-07 on a quote in Quoting: cost_model (Pricing), price_table (the pricing lead), versioned), `note` (optional) and `size` (bytes) **before** the `file` part. Types: pdf, png, jpg/jpeg, heic, dwg, dxf, step/stp, igs, xlsx, docx, msg, eml; the content must match the extension. Max 100 MB (413). Audited.';
+  'multipart/form-data, streamed to the file store (never buffered): the text fields `kind` (bottle_drawing | spec | sample_photo | capacity_analysis | other | bid_file | project_brief | competitor_drawing; FB-07 on a quote in Quoting: cost_model (Pricing), price_table (the pricing lead), versioned; FB-06 on a quote in Engineering Review: equipment_bom (the EngLead or the assigned engineer), versioned), `note` (optional) and `size` (bytes) **before** the `file` part. Types: pdf, png, jpg/jpeg, heic, dwg, dxf, step/stp, igs, xlsx, docx, msg, eml; the content must match the extension. Max 100 MB (413). Audited.';
 
 /** The first file part and the text fields sent before it. */
 async function readPart(req: FastifyRequest): Promise<UploadPart> {

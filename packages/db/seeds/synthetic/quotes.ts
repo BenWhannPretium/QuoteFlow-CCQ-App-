@@ -765,6 +765,27 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
                 : step.who === 'g4'
                   ? persona(rng.chance(0.8) ? 'approver' : 'multi-role')
                   : persona(step.who);
+          // FB-06 (F-058): "Capital required" needs the equipment BOM on file, so the decision is seeded
+          // with one: a metadata-only synthetic CSR BOM uploaded by the EngLead just before. No draws, and
+          // only on the quotes that reach this decision (a quote still waiting in the queue has no file).
+          if (step.gate === 'G2' && step.outcome === 'capital_required') {
+            const lead = persona('eng-lead');
+            await insertAttachmentVersion(
+              db,
+              {
+                quoteId,
+                kind: 'equipment_bom',
+                fileName: 'CSR BOM one-pager (synthetic).xlsx',
+                size: 0,
+                mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                note: 'Generic ballpark BOM (synthetic).',
+                uploadedBy: lead.id,
+                createdAt: new Date(at.getTime() - 60_000),
+                createdBy: lead.id,
+              },
+              new Date(at.getTime() - 60_000),
+            );
+          }
           const state = await loadQuoteState(db, quoteId);
           if (step.gate === 'G1' && state?.fields.submitted_at == null) {
             // The KAM resubmitted the reworked intake before this decision.

@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 import { seriousViolations } from './axe';
-import { SYNTHETIC_XLSX } from './models';
+import { SYNTHETIC_XLSX, uploadBom } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -52,6 +52,8 @@ async function inQuoting(
     ],
   });
   await put('capacity-signoff', 'eng-lead', { status: 'approved' });
+  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
+  if (g2 === 'capital_required') await uploadBom(request, qn);
   await post(
     'gates/G2/decisions',
     'eng-lead',

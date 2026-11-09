@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
+import { SYNTHETIC_XLSX } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -101,13 +102,48 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await solution.getByLabel('Cavitation').fill('8');
   await solution.getByLabel('Cycle time (s)').fill('14.5');
   await solution.getByLabel('Budgetary capital estimate (USD)').fill('350000');
-  await solution.getByLabel('Downstream equipment').fill('Leak tester, compressed air drop');
-  await solution.getByLabel('Equipment BOM').fill('EBM shuttle, 8-cavity mold, leak tester');
+  // FB-06 (F-058): the two free-text equipment fields are gone; the BOM is an upload (below).
+  await expect(solution.getByLabel('Downstream equipment')).toHaveCount(0);
+  await expect(solution.getByLabel('Equipment BOM')).toHaveCount(0);
   await solution.getByLabel('Supply Chain').fill('Resin from the Midwest hub; freight OK');
   await solution.getByRole('button', { name: 'Save solution' }).click();
   await expect(eng.getByText('Engineering review saved')).toBeVisible();
   // 2026-10-30: the engineer reads back the capital they wrote.
   await expect(solution.getByLabel('Budgetary capital estimate (USD)')).toHaveValue('350000');
+
+  // ── FB-06 (F-058): the equipment BOM is an upload of the one-page CSR BOM, versioned ──
+  const bom = eng.getByTestId('equipment-bom');
+  await expect(bom.getByTestId('bom-none')).toBeVisible();
+  await expect(bom.getByTestId('bom-required')).toContainText('Capital required');
+  await bom.getByTestId('upload-equipment_bom').setInputFiles({
+    name: 'CSR BOM one-pager.synthetic.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: SYNTHETIC_XLSX,
+  });
+  await expect(eng.getByText('Equipment BOM version 1 uploaded')).toBeVisible();
+  await expect(bom.getByTestId('bom-current')).toContainText('v1 · current');
+  await expect(bom.getByTestId('bom-current')).toContainText('CSR BOM one-pager.synthetic.xlsx');
+  await bom.getByTestId('upload-equipment_bom').setInputFiles({
+    name: 'CSR BOM one-pager v2.synthetic.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: SYNTHETIC_XLSX,
+  });
+  await expect(bom.getByTestId('bom-current')).toContainText('v2 · current');
+  await expect(bom.getByTestId('bom-history')).toContainText('Earlier versions (1)');
+
+  // ── FB-06 (F-024, F-025): the two-step process and the pack-out, for Pricing ──
+  const inputs = eng.getByTestId('pricing-inputs-form');
+  await expect(inputs.getByTestId('two-step-details')).toHaveCount(0);
+  await inputs.getByTestId('two-step').check();
+  await inputs.getByLabel('Preform plant').selectOption({ index: 1 });
+  await inputs.getByLabel('Blow plant').selectOption({ index: 2 });
+  await inputs.getByLabel('Preform number').fill('PF-2210');
+  await inputs.getByLabel('Freight between the plants').fill('Preforms ship by truck, weekly.');
+  await inputs.getByTestId('pack-out-unitsPerCase').fill('600');
+  await inputs.getByTestId('pack-out-unitsPerPallet').fill('14400');
+  await inputs.getByRole('button', { name: 'Save' }).click();
+  await expect(eng.getByText('Saved', { exact: true })).toBeVisible();
+  await expect(inputs.getByLabel('Preform number')).toHaveValue('PF-2210');
 
   const capacity = eng.getByTestId('capacity-form');
   await capacity.getByRole('button', { name: 'Add capacity row' }).click();
@@ -146,6 +182,26 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(lead.getByText(`${quoteNumber} is now in Quoting`)).toBeVisible();
   await expect(lead.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'QUOTING');
   await expect(lead.getByTestId('stage-times')).toContainText('Engineering Review');
+
+  // ── FB-06 (T-008): Pricing reads the BOM file, the two-step process and the pack-out ──
+  const pricing = await as('pricing');
+  await pricing.goto(`/quotes/${quoteNumber}?tab=quoting`);
+  const fromEng = pricing.getByTestId('quoting-from-engineering');
+  await expect(fromEng.getByTestId('bom-current')).toContainText('v2 · current');
+  await expect(fromEng.getByTestId('bom-current')).toContainText(
+    'CSR BOM one-pager v2.synthetic.xlsx',
+  );
+  await expect(fromEng).toContainText('Two-step process');
+  await expect(fromEng).toContainText('PF-2210');
+  await expect(fromEng).toContainText('Preforms ship by truck, weekly.');
+  await expect(fromEng).toContainText('Units per case');
+  await expect(fromEng).toContainText('600');
+  await expect(fromEng).toContainText('14,400');
+  // After G2 the Engineering section is locked: no upload is offered.
+  await pricing.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  await expect(
+    pricing.getByTestId('equipment-bom').getByTestId('upload-equipment_bom'),
+  ).toHaveCount(0);
 
   await lead.goto('/queue/engineering');
   await lead.getByLabel('Search the queue').fill(quoteNumber);

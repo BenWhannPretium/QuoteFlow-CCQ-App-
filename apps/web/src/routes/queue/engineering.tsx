@@ -697,6 +697,11 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
           quoteNumbers={dialog.quoteNumbers}
           engineers={data.engineers}
           currentEngineerId={dialog.current ?? null}
+          suggestions={dialog.quoteNumbers.map((quoteNumber) => ({
+            quoteNumber,
+            suggested:
+              data.items.find((i) => i.quoteNumber === quoteNumber)?.suggestedEngineer ?? null,
+          }))}
           onDone={() => setSelected([])}
         />
       )}

@@ -15,7 +15,7 @@ import { addCalendarDays, proposalCalendarDate, type Role } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { prepareModels } from './model-helpers';
+import { prepareBom, prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -201,6 +201,8 @@ async function inFinalReview(o: Opts = {}) {
   // B-26: the capacity owner's sign-off before G2.
   ok(await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' }), 200);
   const g2 = o.g2 ?? 'proceed';
+  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
+  if (g2 === 'capital_required') await prepareBom(app, qn);
   ok(
     await decide(
       qn,
@@ -507,7 +509,13 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     expect(dto.warnings.map((w) => w.code)).toEqual(
       expect.arrayContaining(['G2_CAPITAL_REQUIRED', 'CAPITAL_PENDING']),
     );
-    expect(dto.attachments.map((a) => a.kind).sort()).toEqual(['cost_model', 'roi_model']);
+    // FB-06 (F-058): the equipment BOM Engineering uploaded for "Capital required" is on the review too.
+    expect(dto.attachments.map((a) => a.kind).sort()).toEqual([
+      'cost_model',
+      'equipment_bom',
+      'roi_model',
+    ]);
+    expect(dto.engineering.equipmentBom.current).toMatchObject({ version: 1 });
     // FB-07 (F-031): the steps, with who and when, at Final Review.
     expect(dto.quoting.steps).toMatchObject({
       current: 'done',

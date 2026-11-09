@@ -19,6 +19,7 @@ import type { Role } from '@ccq/domain';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { prepareBom } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -169,7 +170,6 @@ const SOLUTION = {
   cavitation: 8,
   cycleTimeS: 14.5,
   toolingNotes: 'New 8-cavity mold, hot runner not needed',
-  downstreamEquipmentNotes: 'Leak tester, compressed air drop',
   technicalConceptNotes: 'Shuttle EBM with in-mold labelling',
 };
 const capacityRow = async (over: Record<string, unknown> = {}) => ({
@@ -1061,15 +1061,22 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     expect(ok.statusCode, ok.body).toBe(201);
   });
 
-  it('Capital required needs the capital figure and a note (F-027), and sets capital readiness to pending', async () => {
+  it('Capital required needs the capital figure, a note (F-027) and the equipment BOM (F-058), and sets capital readiness to pending', async () => {
     const qn = await ready({ solution: false, capacity: false });
     expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'capital_required' }))).toEqual([
       '/capacity_signoff_status',
+      '/equipment_bom_on_file',
       '/note',
       '/prelim_capital_usd',
     ]);
     await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { prelimCapitalUsd: 650_000 });
     await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
+    // FB-06 (F-058): and the equipment BOM on file.
+    expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'capital_required' }))).toEqual([
+      '/equipment_bom_on_file',
+      '/note',
+    ]);
+    await prepareBom(app, qn);
     const ok = await decide(qn, 'G2', {
       outcomeKey: 'capital_required',
       note: 'A second cavity set is needed',
@@ -1219,17 +1226,22 @@ describe('B-26: capacity sign-off (deck slide 11)', () => {
     expect((await as('EngLead').put(url, { status: null })).statusCode).toBe(409);
   });
 
-  it('the equipment BOM and Supply Chain view are kept with the review', async () => {
+  it('the Supply Chain view is kept with the review; the two legacy equipment notes accept no new writes (FB-06)', async () => {
     const qn = await inQueue();
     const res = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
-      equipmentBomNotes: 'Chiller + leak tester',
       supplyChainNotes: 'Ship from PLANT_02 saves 300 mi',
     });
     expect(res.statusCode, res.body).toBe(200);
     expect(EngineeringDetail.parse(res.json()).review).toMatchObject({
-      equipmentBomNotes: 'Chiller + leak tester',
       supplyChainNotes: 'Ship from PLANT_02 saves 300 mi',
     });
+    // The BOM is an upload now: the free-text fields are deprecated and read-only.
+    for (const key of ['equipmentBomNotes', 'downstreamEquipmentNotes']) {
+      const refused = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
+        [key]: 'Chiller + leak tester',
+      });
+      expect(refused.statusCode, key).toBe(400);
+    }
   });
 });
 

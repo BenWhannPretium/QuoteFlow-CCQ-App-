@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { SuggestedEngineer } from './eng-review';
 import { LeadReviewFilter } from './lead-review';
 import { QuoteSummary } from './quotes';
 
@@ -80,6 +81,11 @@ export const EngQueueItem = QuoteSummary.extend({
     .nullable(),
   /** The caller may edit this quote's Engineering Review. */
   canEdit: z.boolean(),
+  /**
+   * FB-06 (F-062): "Suggested: <name>" in the assign dialog, from the routing rules (process type, then
+   * resin). Only for an unassigned quote and only when the caller may assign; null otherwise.
+   */
+  suggestedEngineer: SuggestedEngineer.nullable(),
 });
 export type EngQueueItem = z.infer<typeof EngQueueItem>;
 

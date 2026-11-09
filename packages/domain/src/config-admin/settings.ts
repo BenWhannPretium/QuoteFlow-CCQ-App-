@@ -10,6 +10,7 @@ import {
   parsePassThrough,
   parseProcessOwner,
 } from '../commercial';
+import { parseAssignmentRules } from '../engineering/assignment-rules';
 import { engQueueSettingsSchema } from '../engineering/queue';
 import { DomainError } from '../errors';
 import { parseValidityDays } from '../final-review/release';
@@ -293,6 +294,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Backup assigners when the engineering lead is out',
     'userIds',
     z_('eng_queue_backup_assigner_user_ids', z.array(z.uuid()).refine(unique, 'duplicate user')),
+  ),
+  // FB-06 (F-062, D-008 open): the engineer suggested in the assign dialog, by process type and resin.
+  spec(
+    'engineering_assignment_rules',
+    'engineering',
+    'Suggested engineer by process type and resin (the lead still assigns)',
+    'json',
+    notNull('engineering_assignment_rules', parseAssignmentRules),
   ),
   spec(
     'capital_readiness_on_outcome',

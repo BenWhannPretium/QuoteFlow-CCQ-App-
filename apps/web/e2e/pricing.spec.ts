@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
-import { SYNTHETIC_XLSX, uploadModel } from './models';
+import { SYNTHETIC_XLSX, uploadBom, uploadModel } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -94,6 +94,8 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
       data: { status: 'approved' },
     }),
   );
+  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
+  await uploadBom(request, quoteNumber);
   await ok(
     request.post(`/api/v1/quotes/${quoteNumber}/gates/G2/decisions`, {
       headers: as('eng-lead'),

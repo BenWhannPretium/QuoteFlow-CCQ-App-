@@ -151,6 +151,8 @@ export async function loadQuoteStates(
       cost_model_on_file: modelKinds.get(row.id)?.has('cost_model') ?? false,
       roi_model_on_file: modelKinds.get(row.id)?.has('roi_model') ?? false,
       price_table_on_file: modelKinds.get(row.id)?.has('price_table') ?? false,
+      // FB-06 (F-058): the current equipment BOM, which G2 "Capital required" reads.
+      equipment_bom_on_file: modelKinds.get(row.id)?.has('equipment_bom') ?? false,
     };
     // B-11: who acted as Pricing on this version (segregation `actor_is_price_approver`).
     const priceApproverIds = [

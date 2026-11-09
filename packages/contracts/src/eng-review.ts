@@ -17,6 +17,8 @@ export const BUDGETARY_CAPITAL_HELP =
   'A budgetary figure for quoting. It is refined after award, before any CER.';
 
 const text = (max: number) => z.string().trim().max(max).nullable();
+/** A pack-out count: a whole number from 1 to 9,999,999 (the domain's PACK_OUT_MAX). */
+const PackOutCount = z.number().int().min(1).max(9_999_999).nullable();
 
 /**
  * PUT /api/v1/quotes/:quoteNumber/eng-review. Only the keys sent change; null clears a field.
@@ -32,13 +34,24 @@ export const EngReviewBody = z
     cavitation: z.number().int().min(1).max(99).nullable(),
     cycleTimeS: z.number().positive().max(999_999).nullable(),
     toolingNotes: text(4000),
-    downstreamEquipmentNotes: text(4000),
     prelimCapitalUsd: z.number().min(0).max(999_999_999_999).nullable(),
     technicalConceptNotes: text(4000),
-    /** B-26 (deck slide 11): Operations Engineering's equipment BOM. */
-    equipmentBomNotes: text(4000),
     /** B-26: Supply Chain's network and freight view. */
     supplyChainNotes: text(4000),
+    /**
+     * FB-06 (F-024, D-007 open, provisional): the two-step (preform) process. The four details apply only
+     * while `twoStep` is true; unticking it clears them.
+     */
+    twoStep: z.boolean(),
+    preformPlantCode: z.string().max(40).nullable(),
+    blowPlantCode: z.string().max(40).nullable(),
+    preformNumber: text(40),
+    twoStepFreightNote: text(300),
+    /** FB-06 (F-025, A-014 not yet confirmed, provisional): pack-out quantities, whole numbers, optional. */
+    unitsPerBag: PackOutCount,
+    unitsPerTray: PackOutCount,
+    unitsPerCase: PackOutCount,
+    unitsPerPallet: PackOutCount,
   })
   .partial()
   .strict();
@@ -103,12 +116,28 @@ export const EngReviewFields = z.object({
   cavitation: z.number().nullable(),
   cycleTimeS: z.number().nullable(),
   toolingNotes: z.string().nullable(),
+  /**
+   * Deprecated (FB-06, F-058): read-only "Legacy notes". The equipment BOM is now an upload; these two
+   * free-text fields keep what was written before and accept no new writes.
+   */
   downstreamEquipmentNotes: z.string().nullable(),
   /** Absent for roles without commercial access. */
   prelimCapitalUsd: z.number().nullable().optional(),
   technicalConceptNotes: z.string().nullable(),
+  /** Deprecated (FB-06): read-only legacy note, see `downstreamEquipmentNotes`. */
   equipmentBomNotes: z.string().nullable(),
   supplyChainNotes: z.string().nullable(),
+  /** FB-06 (F-024): the two-step (preform) process; Pricing reads it (T-008). */
+  twoStep: z.boolean(),
+  preformPlantCode: z.string().nullable(),
+  blowPlantCode: z.string().nullable(),
+  preformNumber: z.string().nullable(),
+  twoStepFreightNote: z.string().nullable(),
+  /** FB-06 (F-025): pack-out quantities (whole numbers), entered by Engineering and shown to Pricing. */
+  unitsPerBag: z.number().nullable(),
+  unitsPerTray: z.number().nullable(),
+  unitsPerCase: z.number().nullable(),
+  unitsPerPallet: z.number().nullable(),
   updatedAt: z.string().nullable(),
 });
 export type EngReviewFields = z.infer<typeof EngReviewFields>;
@@ -149,6 +178,50 @@ export const ProductFact = z.object({
   value: z.string(),
 });
 export type ProductFact = z.infer<typeof ProductFact>;
+
+/** One version of the equipment BOM upload (file, version, uploader and date; never a figure). */
+export const EquipmentBomFile = z.object({
+  id: z.uuid(),
+  version: z.number().int(),
+  /** The latest version (the one G2 and Pricing read). Earlier versions stay downloadable. */
+  current: z.boolean(),
+  fileName: z.string(),
+  uploadedById: z.string(),
+  uploadedByName: z.string().nullable(),
+  uploadedAt: z.string(),
+  note: z.string().nullable(),
+  /** False for metadata-only rows (synthetic data): nothing to download. */
+  available: z.boolean(),
+});
+export type EquipmentBomFile = z.infer<typeof EquipmentBomFile>;
+
+/**
+ * FB-06 (F-058, D-033): the equipment BOM is an upload of the Engineering Program Office workbook or its
+ * one-page CSR BOM (a generic ballpark at quote time; each line flagged C capital or P customer paid).
+ * Required to advance G2 with "capital required" (a G2 rule in config). Nothing is read from the file yet:
+ * extraction waits for Kal's blank template (A-030).
+ */
+export const EquipmentBomView = z.object({
+  /** The latest version, or null when none is on file. */
+  current: EquipmentBomFile.nullable(),
+  /** Every version still on file, newest first (the current one included). */
+  versions: z.array(EquipmentBomFile),
+  /** The caller may upload or replace it now (the review's editors, while it is open and unlocked). */
+  canUpload: z.boolean(),
+  /** G2 "Advance – capital required" needs the BOM (the rule is in the gate's config). */
+  requiredForCapital: z.boolean(),
+});
+export type EquipmentBomView = z.infer<typeof EquipmentBomView>;
+
+/** FB-06 (F-062): the engineer the routing rules suggest. A suggestion only: the lead still assigns. */
+export const SuggestedEngineer = z.object({
+  userId: z.string(),
+  name: z.string(),
+  /** What the rule matched on, e.g. the process type "ISBM" or the resin "PET" (codes). */
+  processType: z.string().nullable(),
+  resin: z.string().nullable(),
+});
+export type SuggestedEngineer = z.infer<typeof SuggestedEngineer>;
 
 /** The Engineering tab of a quote. Included in `QuoteDetail.engineering`. */
 export const EngineeringDetail = z.object({
@@ -191,6 +264,10 @@ export const EngineeringDetail = z.object({
   canAssign: z.boolean(),
   /** Lead review: the engineer's submission to the engineering lead. */
   leadReview: LeadReviewView,
+  /** FB-06 (F-058): the equipment BOM upload. */
+  equipmentBom: EquipmentBomView,
+  /** FB-06 (F-062): "Suggested: <name>" in the assign dialog, from `engineering_assignment_rules`. */
+  suggestedEngineer: SuggestedEngineer.nullable(),
 });
 export type EngineeringDetail = z.infer<typeof EngineeringDetail>;
 

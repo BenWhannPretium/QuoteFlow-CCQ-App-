@@ -13,7 +13,7 @@ import type { Role } from '@ccq/domain';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { uploadModel } from './model-helpers';
+import { prepareBom, uploadModel } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -131,6 +131,8 @@ async function inQuoting(g2: 'proceed' | 'capital_required' = 'proceed') {
     200,
   );
   ok(await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' }), 200);
+  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
+  if (g2 === 'capital_required') await prepareBom(app, qn);
   ok(
     await decide(
       qn,
@@ -384,7 +386,14 @@ describe('D-001: costing, then ROI, then price approved (capital required)', () 
         const p = e.payload as { kind: string; version: number };
         return `${p.kind} v${p.version}`;
       }),
-    ).toEqual(['cost_model v1', 'cost_model v2', 'roi_model v1', 'price_table v1']);
+      // FB-06: Engineering's equipment BOM (uploaded before G2 "Capital required") is on the timeline too.
+    ).toEqual([
+      'equipment_bom v1',
+      'cost_model v1',
+      'cost_model v2',
+      'roi_model v1',
+      'price_table v1',
+    ]);
     const audits = await db.db
       .select({ action: schema.auditEvent.action, entity: schema.auditEvent.entity })
       .from(schema.auditEvent)
@@ -395,7 +404,8 @@ describe('D-001: costing, then ROI, then price approved (capital required)', () 
         ),
       );
     // 4 uploads + 1 supersede.
-    expect(audits.filter((a) => a.action === 'upload')).toHaveLength(4);
+    // Four model uploads and the equipment BOM (FB-06).
+    expect(audits.filter((a) => a.action === 'upload')).toHaveLength(5);
     expect(audits.filter((a) => a.action === 'update')).toHaveLength(1);
 
     // A send-back to Quoting reopens the steps: a new version, costing to attest again, uploads open.

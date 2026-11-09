@@ -7,7 +7,7 @@ import {
 } from '@playwright/test';
 
 import { seriousViolations } from './axe';
-import { prepareModels } from './models';
+import { prepareModels, uploadBom } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -61,6 +61,8 @@ async function quoteInFinalReview(
   });
   // B-26: the capacity owner signs off before G2.
   await put('capacity-signoff', 'eng-lead', { status: 'approved' });
+  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
+  if (g2 === 'capital_required') await uploadBom(request, quoteNumber);
   // FB-01 (F-027): "Capital required" is an exception decision: it needs a note.
   await post(
     'gates/G2/decisions',

@@ -1,5 +1,6 @@
 import {
   ENGINEERING_PROBLEM_CODES,
+  EngReviewBody as EngReviewBodySchema,
   type AssignmentResponse,
   type BulkReassignBody,
   type BulkReassignResponse,
@@ -56,6 +57,8 @@ import {
   engineeringCompleteness,
   filterEngQueue,
   holdsPermission,
+  normalizeSolutionExtras,
+  validateSolutionExtras,
   parseWorkflowConfig,
   planAccept,
   planAssignment,
@@ -80,7 +83,13 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 
 import { csvCell } from './auditAdmin';
-import { loadCapacityBasis, loadEngQueueSettings, engineeringView } from './engineering-view';
+import {
+  loadAssignmentRules,
+  loadCapacityBasis,
+  loadEngQueueSettings,
+  engineeringView,
+  suggestedEngineerFor,
+} from './engineering-view';
 import { loadIntakeConfig } from './intake';
 import { quoteIntakeValues, shipCityState } from './intake-facts';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
@@ -192,6 +201,7 @@ export class EngineeringService {
     qc: QueueContext,
     holds: { startedAt: Date; endedAt: Date | null }[],
     now: Date,
+    suggestedEngineer: EngQueueItem['suggestedEngineer'] = null,
   ): EngQueueItem & { entry: EngQueueEntry } {
     const q = row.quote;
     const summary = summaryDto(row, qc.ctx);
@@ -238,6 +248,7 @@ export class EngineeringService {
       moldModification: q.modifyExistingMold,
       completeness,
       priorityOverride: null,
+      suggestedEngineer,
       canEdit: canEditEngReview(qc.ctx.actor, state, qc.workflow),
       entry: {
         quoteNumber: q.quoteNumber,
@@ -283,8 +294,21 @@ export class EngineeringService {
         rows.filter((r) => r.quote.priorityTierOverridden).map((r) => r.quote.id),
         'priority_tier',
       );
+      // FB-06 (F-062): the routing suggestion, only for people who can assign (they see the engineers).
+      const canAssign = canAssignEngQueue(actor, qc.settings);
+      const engineers = canAssign
+        ? await listAssignableEngineers(tx, ASSIGNABLE_ROLES, ENG_QUEUE_STAGE_KEY)
+        : [];
+      const rules = canAssign ? await loadAssignmentRules(tx) : null;
       const all = rows.map((r) => {
-        const item = this.item(r, qc, byQuote.get(r.quote.id) ?? [], now);
+        const suggested =
+          rules && !r.quote.assignedEngineerId
+            ? suggestedEngineerFor(rules, engineers, {
+                processType: r.processType ?? null,
+                resin: r.quote.resin ?? null,
+              })
+            : null;
+        const item = this.item(r, qc, byQuote.get(r.quote.id) ?? [], now, suggested);
         const o = overridden.get(r.quote.id);
         if (o) {
           item.priorityOverride = {
@@ -314,7 +338,6 @@ export class EngineeringService {
         .filter((i) => query.review !== 'ready' || i.leadReview === 'submitted');
 
       const strip = ({ entry: _e, ...item }: (typeof all)[number]): EngQueueItem => item;
-      const canAssign = canAssignEngQueue(actor, qc.settings);
       const pinField = qc.ctx.overrides.fields.find((f) => f.field === 'queue_position');
       return {
         stage: { key: ENG_QUEUE_STAGE_KEY, label: qc.stageLabel },
@@ -331,11 +354,7 @@ export class EngineeringService {
           holdsPermission(actor, 'override.request') &&
           actor.roles.some((r) => pinField.requestRoles.includes(r)),
         readyForReview: all.filter((i) => i.leadReview === 'submitted').length,
-        engineers: canAssign
-          ? (await listAssignableEngineers(tx, ASSIGNABLE_ROLES, ENG_QUEUE_STAGE_KEY)).map((e) => ({
-              ...e,
-            }))
-          : [],
+        engineers: engineers.map((e) => ({ ...e })),
         mine: sorted.filter((i) => i.assignedEngineerId === actor.userId).map(strip),
         items: filtered.map(strip),
       };
@@ -701,6 +720,8 @@ export class EngineeringService {
         { listKey: 'process_type', code: body.processType, path: '/processType' },
         { listKey: 'machine_type', code: body.machineType, path: '/machineType' },
         { listKey: 'plant', code: body.plantCode, path: '/plantCode' },
+        { listKey: 'plant', code: body.preformPlantCode, path: '/preformPlantCode' },
+        { listKey: 'plant', code: body.blowPlantCode, path: '/blowPlantCode' },
       ]);
       if (invalid.length > 0) {
         throw new EngineeringError(
@@ -714,13 +735,22 @@ export class EngineeringService {
       }
       const eng = await getEngReview(tx, q.id);
       const current = reviewColumns(eng);
-      const changed = (Object.keys(body) as (keyof EngReviewBody)[]).filter(
-        (k) => body[k] !== undefined && (body[k] ?? null) !== (current[k] ?? null),
+      const sent = (Object.keys(body) as (keyof EngReviewBody)[]).filter(
+        (k) => body[k] !== undefined,
+      );
+      const next = { ...current };
+      for (const k of sent) (next as Record<string, unknown>)[k] = body[k] ?? null;
+      // FB-06 (F-024): unticking "Two-step process" clears its four details, so a hidden value never
+      // reaches Pricing; text is trimmed. Then the length and whole-number checks (F-024, F-025).
+      Object.assign(next, normalizeSolutionExtras(next));
+      const extrasErrors = validateSolutionExtras(next);
+      if (extrasErrors.length > 0) fail(extrasErrors);
+      // What actually moved, including details cleared by the checkbox.
+      const changed = (Object.keys(EngReviewBodySchema.shape) as (keyof EngReviewBody)[]).filter(
+        (k) => (next[k] ?? null) !== (current[k] ?? null),
       );
       if (changed.length === 0) return this.detail(tx, actor, quoteNumber);
 
-      const next = { ...current };
-      for (const k of changed) (next as Record<string, unknown>)[k] = body[k] ?? null;
       await upsertEngReview(tx, {
         ...next,
         quoteId: q.id,
@@ -1056,6 +1086,15 @@ function reviewColumns(eng: Awaited<ReturnType<typeof getEngReview>>) {
     technicalConceptNotes: eng?.technicalConceptNotes ?? null,
     equipmentBomNotes: eng?.equipmentBomNotes ?? null,
     supplyChainNotes: eng?.supplyChainNotes ?? null,
+    twoStep: eng?.twoStep ?? false,
+    preformPlantCode: eng?.preformPlantCode ?? null,
+    blowPlantCode: eng?.blowPlantCode ?? null,
+    preformNumber: eng?.preformNumber ?? null,
+    twoStepFreightNote: eng?.twoStepFreightNote ?? null,
+    unitsPerBag: eng?.unitsPerBag ?? null,
+    unitsPerTray: eng?.unitsPerTray ?? null,
+    unitsPerCase: eng?.unitsPerCase ?? null,
+    unitsPerPallet: eng?.unitsPerPallet ?? null,
     acceptedAt: eng?.acceptedAt ?? null,
     acceptedBy: eng?.acceptedBy ?? null,
     returnedReason: eng?.returnedReason ?? null,

@@ -1,14 +1,23 @@
-import type { CapacityBasisDto, EngineeringDetail, ProductFact } from '@ccq/contracts';
+import type {
+  CapacityBasisDto,
+  EngineeringDetail,
+  EquipmentBomView,
+  ProductFact,
+  SuggestedEngineer,
+} from '@ccq/contracts';
 import type { DbOrTx } from '@ccq/db';
 import {
   getEngReview,
   getSetting,
+  listAssignableEngineers,
+  listAttachments,
   listCapacityEvidenceWithNames,
   listUsersByIds,
   listValueList,
   type Quote,
 } from '@ccq/db/repos';
 import {
+  ASSIGNABLE_ROLES,
   CAPACITY_BASIS_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   ENG_QUEUE_STAGE_KEY,
@@ -18,9 +27,15 @@ import {
   canEditEngReview,
   canSeeCommercialFields,
   allocationCheck,
+  parseAssignmentRules,
   parseCapacityBasis,
   parseEngQueueSettings,
   planAccept,
+  planEquipmentBomUpload,
+  suggestEngineer,
+  type AssignmentRules,
+  type RequiredRule,
+  type WorkflowConfig,
   redact,
   utilizationLevel,
   type CapacityBasis,
@@ -57,6 +72,89 @@ export async function loadCapacityBasis(db: DbOrTx): Promise<CapacityBasis> {
   } catch {
     return { ...CAPACITY_BASIS_SEED };
   }
+}
+
+/** `app_setting.engineering_assignment_rules` (provisional, D-008), falling back to the seed when unset or malformed. */
+export async function loadAssignmentRules(db: DbOrTx): Promise<AssignmentRules> {
+  try {
+    return parseAssignmentRules(await getSetting(db, 'engineering_assignment_rules'));
+  } catch {
+    return parseAssignmentRules(null);
+  }
+}
+
+/**
+ * FB-06 (F-062): the engineer the routing rules suggest for a quote, from the review's process type (when
+ * Engineering has chosen one) and the quote's resin. Only people who can be assigned are candidates. A
+ * suggestion only: the lead still assigns.
+ */
+export function suggestedEngineerFor(
+  rules: AssignmentRules,
+  engineers: readonly { id: string; displayName: string }[],
+  input: { processType: string | null; resin: string | null },
+): SuggestedEngineer | null {
+  const hit = suggestEngineer(rules, input, engineers);
+  return hit
+    ? {
+        userId: hit.userId,
+        name: hit.name,
+        processType: hit.basis.processType,
+        resin: hit.basis.resin,
+      }
+    : null;
+}
+
+const mentionsField = (rule: RequiredRule, field: string): boolean =>
+  'anyOf' in rule
+    ? rule.anyOf.some((r) => mentionsField(r, field))
+    : 'allOf' in rule
+      ? rule.allOf.some((r) => mentionsField(r, field))
+      : rule.field === field;
+
+/**
+ * FB-06 (F-058, D-033): the equipment BOM upload as the Engineering tab and Final Review show it. Every
+ * version still on file, newest first, with the latest flagged current; names and dates only, no figures.
+ */
+async function equipmentBomView(
+  db: DbOrTx,
+  actor: Actor,
+  q: Quote,
+  state: QuoteState,
+  workflow: LockConfig,
+): Promise<EquipmentBomView> {
+  const rows = (await listAttachments(db, q.id))
+    .filter((r) => r.kind === 'equipment_bom')
+    .sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
+  const names = new Map(
+    (await listUsersByIds(db, [...new Set(rows.map((r) => r.uploadedBy))])).map((u) => [
+      u.id,
+      u.displayName,
+    ]),
+  );
+  const files = rows.map((r) => ({
+    id: r.id,
+    version: r.version ?? 1,
+    current: r.supersededAt === null,
+    fileName: r.fileName,
+    uploadedById: r.uploadedBy,
+    uploadedByName: names.get(r.uploadedBy) ?? null,
+    uploadedAt: r.createdAt.toISOString(),
+    note: r.note,
+    available: r.storage !== null && r.storageItemId !== null,
+  }));
+  // Required for "capital required" while the G2 outcome's config still carries the rule.
+  const outcomes = (workflow as Partial<WorkflowConfig>).outcomes;
+  const capital = outcomes?.find((o) => o.gateKey === 'G2' && o.key === 'capital_required');
+  return {
+    current: files.find((f) => f.current) ?? null,
+    versions: files,
+    canUpload:
+      !sectionLock('engineering', workflow, state).locked &&
+      planEquipmentBomUpload(actor, state).ok,
+    requiredForCapital: capital
+      ? capital.requiredFields.some((r) => mentionsField(r, 'equipment_bom_on_file'))
+      : true,
+  };
 }
 
 /**
@@ -174,6 +272,15 @@ export async function engineeringView(
         technicalConceptNotes: eng?.technicalConceptNotes ?? null,
         equipmentBomNotes: eng?.equipmentBomNotes ?? null,
         supplyChainNotes: eng?.supplyChainNotes ?? null,
+        twoStep: eng?.twoStep ?? false,
+        preformPlantCode: eng?.preformPlantCode ?? null,
+        blowPlantCode: eng?.blowPlantCode ?? null,
+        preformNumber: eng?.preformNumber ?? null,
+        twoStepFreightNote: eng?.twoStepFreightNote ?? null,
+        unitsPerBag: eng?.unitsPerBag ?? null,
+        unitsPerTray: eng?.unitsPerTray ?? null,
+        unitsPerCase: eng?.unitsPerCase ?? null,
+        unitsPerPallet: eng?.unitsPerPallet ?? null,
         updatedAt: iso(eng?.updatedAt),
       },
       capacityEvidence: capacity.map(({ row, analystName }) => ({
@@ -196,6 +303,15 @@ export async function engineeringView(
   );
 
   const inQueue = q.stageKey === ENG_QUEUE_STAGE_KEY && q.status !== 'closed';
+  const canAssign = inQueue && canAssignEngQueue(actor, settings, state);
+  // FB-06 (F-062): the suggestion is only for people who can assign (they see the engineers anyway).
+  const suggestedEngineer = canAssign
+    ? suggestedEngineerFor(
+        await loadAssignmentRules(db),
+        await listAssignableEngineers(db, ASSIGNABLE_ROLES, ENG_QUEUE_STAGE_KEY),
+        { processType: eng?.processType ?? null, resin: q.resin ?? null },
+      )
+    : null;
   return {
     inQueue,
     assignedEngineerId: q.assignedEngineerId,
@@ -234,7 +350,9 @@ export async function engineeringView(
     canEdit: canEditEngReview(actor, state, workflow),
     lock: await sectionLockView(db, workflow, 'engineering', state),
     canAccept: planAccept(actor, state, eng?.acceptedAt ?? null).ok,
-    canAssign: inQueue && canAssignEngQueue(actor, settings, state),
+    canAssign,
     leadReview: await leadReviewView(db, actor, 'engineering', q, state),
+    equipmentBom: await equipmentBomView(db, actor, q, state, workflow),
+    suggestedEngineer,
   };
 }

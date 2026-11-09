@@ -987,7 +987,7 @@ export const engReview = documented(
       ),
       downstreamEquipmentNotes: c(
         text('downstream_equipment_notes'),
-        'Downstream equipment: air, water, electric, inspection / leak detection (DF-37).',
+        'Deprecated (FB-06, F-058): replaced by the equipment BOM upload (attachment kind equipment_bom). Kept for history and Fabric; no longer written. Shown read-only as "Legacy notes". Downstream equipment: air, water, electric, inspection / leak detection (DF-37).',
       ),
       technicalConceptNotes: c(
         text('technical_concept_notes'),
@@ -996,7 +996,7 @@ export const engReview = documented(
       // B-26 (deck slide 11): joint validation inputs and the capacity owner's sign-off
       equipmentBomNotes: c(
         text('equipment_bom_notes'),
-        'B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection).',
+        'Deprecated (FB-06, F-058): replaced by the equipment BOM upload (attachment kind equipment_bom). Kept for history and Fabric; no longer written. Shown read-only as "Legacy notes". B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection).',
       ),
       supplyChainNotes: c(
         text('supply_chain_notes'),
@@ -1015,8 +1015,51 @@ export const engReview = documented(
         text('capacity_signoff_note'),
         "B-26: the capacity owner's note (required to block).",
       ),
+      // FB-06 (F-024, D-007 open, provisional): the two-step (preform) process. The four details are
+      // cleared when the box is unticked.
+      twoStep: c(
+        boolean('two_step').notNull().default(false),
+        'FB-06 (F-024): the part is made in two steps (a preform, then blown). Pricing reads it (T-008).',
+      ),
+      preformPlantCode: c(
+        text('preform_plant_code'),
+        'FB-06 (F-024): value_list plant code where the preform is made. Only when two_step.',
+      ),
+      blowPlantCode: c(
+        text('blow_plant_code'),
+        'FB-06 (F-024): value_list plant code where the preform is blown. Only when two_step.',
+      ),
+      preformNumber: c(
+        text('preform_number'),
+        'FB-06 (F-024): the preform number, up to 40 characters. Only when two_step.',
+      ),
+      twoStepFreightNote: c(
+        text('two_step_freight_note'),
+        'FB-06 (F-024): freight between the preform and blow plants, up to 300 characters. Only when two_step.',
+      ),
+      // FB-06 (F-025, A-014 not yet confirmed by Engineering, provisional): pack-out quantities.
+      unitsPerBag: c(
+        integer('units_per_bag'),
+        'FB-06 (F-025): units per bag (whole number, optional). Entered by Engineering, shown to Pricing.',
+      ),
+      unitsPerTray: c(
+        integer('units_per_tray'),
+        'FB-06 (F-025): units per tray (whole number, optional).',
+      ),
+      unitsPerCase: c(
+        integer('units_per_case'),
+        'FB-06 (F-025): units per case (whole number, optional).',
+      ),
+      unitsPerPallet: c(
+        integer('units_per_pallet'),
+        'FB-06 (F-025): units per pallet (whole number, optional).',
+      ),
     },
     (t) => [
+      check(
+        'eng_review_pack_out_check',
+        sql`(${t.unitsPerBag} is null or ${t.unitsPerBag} between 1 and 9999999) and (${t.unitsPerTray} is null or ${t.unitsPerTray} between 1 and 9999999) and (${t.unitsPerCase} is null or ${t.unitsPerCase} between 1 and 9999999) and (${t.unitsPerPallet} is null or ${t.unitsPerPallet} between 1 and 9999999)`,
+      ),
       // FB-03 (F-057): whole numbers 1-99. Added NOT VALID in migration 0027 so existing rows over 99
       // are not rejected (new writes are still checked).
       check('eng_review_cavitation_check', sql`${t.cavitation} between 1 and 99`),

@@ -42,6 +42,18 @@ const CAPACITY_SIGNED_OFF: RequiredRule = {
 };
 
 /**
+ * FB-06 (F-058, D-033): "Capital required" needs the equipment BOM on file: the Engineering Program Office
+ * workbook or its one-page CSR BOM, uploaded on the Engineering tab. `equipment_bom_on_file` is derived
+ * from the quote's current `equipment_bom` attachment; a missing field fails closed. Provisional (Kal
+ * Kaliszewski's minimum fields, A-030, may add more).
+ */
+const EQUIPMENT_BOM_ON_FILE: RequiredRule = {
+  field: 'equipment_bom_on_file',
+  op: 'equals',
+  value: true,
+};
+
+/**
  * The engineering solution plus capacity evidence needed to say "feasible" (B-10, CR-19). The solution
  * fields are the Engineering Review form's process, machine, plant/site (DF-10: decided by
  * Engineering + Ops + Supply Chain), cavitation and cycle time. Provisional (9/15 interim one-pager);
@@ -384,7 +396,7 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       // starts as pending (app_setting `capital_readiness_on_outcome`).
       outcome('G2', 'capital_required', 'Advance – capital required', {
         requiresNote: true,
-        requiredFields: [present('prelim_capital_usd'), CAPACITY_SIGNED_OFF],
+        requiredFields: [present('prelim_capital_usd'), CAPACITY_SIGNED_OFF, EQUIPMENT_BOM_ON_FILE],
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
       outcome('G2', 'hold', 'Hold', {

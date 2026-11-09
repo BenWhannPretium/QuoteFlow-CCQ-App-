@@ -334,7 +334,7 @@ describe('validation: all errors, in order', () => {
     ]);
   });
 
-  it('G2 "Capital required" needs the preliminary capital figure (B-10) and the capacity sign-off (B-26)', () => {
+  it('G2 "Capital required" needs the capital figure (B-10), the capacity sign-off (B-26) and the equipment BOM (FB-06)', () => {
     const run = (fields: Record<string, unknown>) =>
       evaluateTransition(
         hybridConfig,
@@ -349,13 +349,49 @@ describe('validation: all errors, in order', () => {
     expect(!missing.ok && missing.errors.map((e) => [e.code, e.field])).toEqual([
       ['MISSING_FIELD', 'prelim_capital_usd'],
       ['MISSING_FIELD', 'capacity_signoff_status'],
+      ['MISSING_FIELD', 'equipment_bom_on_file'],
       ['NOTE_REQUIRED', 'note'],
     ]);
     note = { note: 'Second cavity set needed' };
-    const blocked = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'blocked' });
+    const bom = { equipment_bom_on_file: true };
+    const blocked = run({
+      prelim_capital_usd: 250_000,
+      capacity_signoff_status: 'blocked',
+      ...bom,
+    });
     expect(!blocked.ok && blocked.errors.map((e) => e.field)).toEqual(['capacity_signoff_status']);
-    const ok = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'approved' });
+    // FB-06 (F-058): no BOM on file (or a field the loader did not supply: fail closed) stops it.
+    const noBom = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'approved' });
+    expect(!noBom.ok && noBom.errors.map((e) => e.field)).toEqual(['equipment_bom_on_file']);
+    const notOnFile = run({
+      prelim_capital_usd: 250_000,
+      capacity_signoff_status: 'approved',
+      equipment_bom_on_file: false,
+    });
+    expect(!notOnFile.ok && notOnFile.errors.map((e) => e.field)).toEqual([
+      'equipment_bom_on_file',
+    ]);
+    const ok = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'approved', ...bom });
     expect(ok.ok && ok.effects.nextStageKey).toBe('QUOTING');
+    // The other feasible outcomes do not need the BOM.
+    const proceed = evaluateTransition(
+      hybridConfig,
+      makeQuote('ENG_REVIEW', {
+        fields: {
+          process_type: 'ISBM',
+          machine_type: 'ISBM_1STEP',
+          plant_code: 'PLANT_01',
+          cavitation: 4,
+          cycle_time_s: 12,
+          capacity_evidence: [{}],
+          capacity_signoff_status: 'approved',
+        },
+      }),
+      makeActor('EngLead'),
+      { gateKey: 'G2', outcomeKey: 'proceed' },
+      NOW,
+    );
+    expect(proceed.ok).toBe(true);
   });
 
   it('G2 Stop closes as DECLINED; Hold needs a reason, a review date (B-10) and an owner (B-26)', () => {

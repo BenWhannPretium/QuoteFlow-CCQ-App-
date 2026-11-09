@@ -118,6 +118,38 @@ export function planAssignment(
   return { ok: true, changed: from !== assignee!.id, from, to: assignee!.id };
 }
 
+/**
+ * FB-06 (F-058): may the actor upload (or remove) the equipment BOM now? The same people who may edit the
+ * review: the EngLead, or the assigned Engineer, while the quote is in Engineering Review and not submitted
+ * to the lead (then only the lead). The section lock after G2 (FB-01) is checked by the caller first.
+ */
+export function planEquipmentBomUpload(
+  actor: Actor,
+  quote: EngQuote,
+): { ok: true } | { ok: false; errors: DomainError[] } {
+  if (!can(actor, 'engReview.edit', quote)) {
+    return {
+      ok: false,
+      errors: [
+        new DomainError(
+          'NOT_PERMITTED',
+          'Only the EngLead or the assigned engineer can upload the equipment BOM',
+        ),
+      ],
+    };
+  }
+  const errors = stageErrors(quote);
+  if (errors.length === 0 && lockedFor('engineering', actor, quote)) {
+    errors.push(
+      new DomainError(
+        'LOCKED_FOR_REVIEW',
+        'Submitted to the engineering lead: only the lead edits until it is sent back',
+      ),
+    );
+  }
+  return errors.length > 0 ? { ok: false, errors } : { ok: true };
+}
+
 /** Accept (start the review). EngLead, or the assigned Engineer; only once per stay in the queue. */
 export function planAccept(
   actor: Actor,

@@ -20,6 +20,7 @@ import { api } from '@/lib/api';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
+import { EngineeringInputsCard } from '../engineering/EngineeringExtras';
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { IntakeCommercialCard } from '../intake/CommercialInputs';
@@ -74,6 +75,8 @@ export function QuotingTab({
       <SectionLockLine lock={quoting.lock} />
       {/* FB-11 (D-032): what the KAM told Pricing at intake (payment terms, funding, dunnage, freight, bid reference). */}
       <IntakeCommercialCard quote={quote} />
+      {/* FB-06 (F-058, F-024, F-025, T-008): the equipment BOM, two-step process and pack-out from Engineering. */}
+      <EngineeringInputsCard quote={quote} />
       {/* FB-07 (D-001): costing → ROI → price approved, for every reader (Finance uploads here). */}
       <QuotingSteps quoteNumber={quote.quoteNumber} steps={quoting.steps} />
       {quoting.commercialRedacted ? (

@@ -135,13 +135,13 @@ const auditRows = async (entityId: string) =>
 /** A quote to work on (no live attachments): in INTAKE-or-later, drawing status reset to COMING. */
 async function quoteOf(kamCondition: ReturnType<typeof sql>) {
   // FB-07: the synthetic data gives every priced quote a (metadata-only) costing model, so when no
-  // quote is file-free, take one whose only files are Quoting models (they never reach the store).
+  // quote is file-free, take one whose only files are Quoting models or FB-06's equipment BOM (metadata only: they never reach the store).
   const [row] = await db.db.execute<{ quote_number: string; id: string }>(sql`
     select q.quote_number, q.id from quote q join app_user u on u.id = q.kam_user_id
     where ${kamCondition} and q.status <> 'closed'
       and not exists (
         select 1 from attachment a where a.quote_id = q.id and a.removed_at is null
-          and a.kind not in ('cost_model', 'roi_model', 'price_table'))
+          and a.kind not in ('cost_model', 'roi_model', 'price_table', 'equipment_bom'))
     order by exists (select 1 from attachment a where a.quote_id = q.id and a.removed_at is null),
       q.quote_number
     limit 1`);
@@ -285,13 +285,15 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
     ] as Role[]) {
       const { res, body } = await list(role);
       expect(res.statusCode, `${role}: ${res.body}`).toBe(200);
-      expect(body!.items.map((i) => i.kind)).toEqual([
+      // The synthetic data may add metadata-only files (the Quoting models, FB-06's equipment BOM).
+      const files = body!.items.filter((i) => i.available);
+      expect(files.map((i) => i.kind)).toEqual([
         'bottle_drawing',
         'bottle_drawing',
         'sample_photo',
         'capacity_analysis',
       ]);
-      expect(body!.items[0]!.uploadedByName).toBeTruthy();
+      expect(files[0]!.uploadedByName).toBeTruthy();
       expect(body!.canUpload).toBe(
         ['KAM', 'SalesLeader', 'EngLead', 'Engineer', 'Pricing'].includes(role),
       );
@@ -356,7 +358,7 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
   });
 
   it('downloads: authorized, audited, then a short-lived link (302 or JSON) that serves the bytes', async () => {
-    const [item] = (await list()).body!.items;
+    const [item] = (await list()).body!.items.filter((i) => i.available);
     const redirect = await asRole(app, 'Pricing').get(`/api/v1/attachments/${item!.id}/download`);
     expect(redirect.statusCode).toBe(302);
     expect(redirect.headers.location).toMatch(/^\/api\/v1\/files\/local\?t=/);
