@@ -1094,7 +1094,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 - **Prompt:** `prompts/feedback/FB-07-costing-pricing-roi.md`
 
 ### FB-08: Commercial terms and Final Review · **Wave 3, partly gated** · Ben
-- **Update 2026-11-09 (D-003, D-029, D-002 progress).** The customer's requested payment terms and the funding question moved to intake (FB-11). Tooling payment options are upfront, 50/50 or amortized per piece; no quarterly (D-029). **Still needed:** the standard term (Net 15 or Net 30, A-012), the exception approver, and, for the extra Final Review approval when the customer funds capital (sales leader, then leadership; F-082), Oleg's and Sarah's confirmation (A-035). Build that approval as provisional config only after A-035.
+- **Update 2026-11-09 (D-003, D-029, D-002 progress).** The customer's requested payment terms and the funding question moved to intake (FB-11). Tooling payment options are upfront, 50/50 or amortized per piece; no quarterly (D-029). **Decided Nov 9 (Gemma, A-012):** Net 15 and Net 30 are both standard; anything beyond Net 30 needs review. **Still needed:** the exception approver, and, for the extra Final Review approval when the customer funds capital (sales leader, then leadership; F-082), Oleg's and Sarah's confirmation (A-035). Build that approval as provisional config only after A-035.
 - **Stop until:** D-003 and D-029 are decided (owners, standard payment term, exception approver, milestone terms). D-002 is needed for tiers; without it, ship terms and leave the tier hook off.
 - **Done when:** F-021 and F-068 acceptance criteria pass (T-007, T-031); change-log procedure done.
 - **Prompt:** `prompts/feedback/FB-08-commercial-terms-final-review.md`
