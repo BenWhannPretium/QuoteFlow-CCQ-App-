@@ -1,24 +1,22 @@
 # FB-08 · Commercial terms and Final Review
 
-**Run with:** Claude Code · **Opus 5.5 · high effort** · Wave 3, **partly gated** · one draft PR
+**Run with:** Claude Code · **Opus 5.5 · high effort** · Wave 4b, **ready after FB-07 and FB-11 merge** · one draft PR
 **Tracker items:** F-021, F-068, F-082 · tests T-007, T-031 · **Gated on:** D-003 (who owns MOQ, tooling funding and payment terms; standard term Net 15 vs Net 30; exception approver), D-029 (milestone payment terms), A-012 (Gemma Cebolla). D-002 (Final Review tiers) is optional: if it is undecided, build terms and leave the tier hook off. **Moved to FB-11 (2026-11-09):** the customer's requested payment terms and the funding question at intake (D-032). **F-082** (extra Final Review approval for customer-funded quotes) needs Oleg's and Sarah's confirmation first (A-035).
 
 **Paste into Claude Code from the repo root.**
 
 ---
 
-## Stop check (do this first)
-This step is **gated**. Before writing code:
-1. Read the **Decision record** below. Ben fills it in when he starts the session.
-2. If the Microsoft 365 connector is available, also read the tracker's Decision Log and Action Items rows listed under "Gated on".
-3. **If any gating decision is not `Decided`, and no decision is pasted below, stop.** Reply with what is missing and who owns it. Don't build on a guess: CLAUDE.md rule 4 forbids hard-coding open business rules.
-4. If a decision is only partly made, build the decided part, keep the rest as provisional config, and list the remainder in the notes.
+## Stop check: none (changed 2026-11-09: build now with provisional defaults)
+Ben wants every FB step built this week. **Start after FB-07 and FB-11 have merged** (they change G3, the attachments, the permission matrix and the intake terms fields); `git fetch origin main` first. Read `04` §2a and the tracker rows for D-002, D-003, D-029, A-012, A-035 and D-032, then use these **defaults** (record each as provisional in the PR):
 
-**Decision record (Ben pastes before running):**
-```
-<decision ID>: <outcome in one or two sentences>, decided by <name> on <date>
-<input>: <where the file is, e.g. docs/build-guide/feedback/inputs/...>
-```
+- **Standard payment terms:** Net 15 and Net 30 (FB-11's `standard_payment_terms`); anything else is non-standard and creates a **terms exception request**, routed to the PricingLead (D-003's recommendation: Gemma or her designee), who approves or rejects with a rationale. G4 cannot approve while an exception is pending (`terms_exception` in `g4_required_checks`).
+- **MOQ and tooling funding to Engineering** (D-003's recommendation): add `terms.engineering.edit` for EngLead and Engineer on those fields. The KAM can still pre-fill the funding at intake (FB-11).
+- **Milestone options (D-029, Gemma, Nov 6):** upfront; 50/50 (at the order and at qualification); amortized into the per-piece price; plus a short note (≤ 300). No quarterly.
+- **F-068 capital terms at Final Review:** as specified below. Seed `terms_finalized` in `g4_required_checks` (it is the approver's own field, so it does not repeat the F-069 problem). Provisional.
+- **F-082 and the D-002 tiers:** build the hook (`g4_additional_approvals`, `g4_tier_rules`) and seed them **off**, with the proposal (customer-funded or $0 CER: sales leader, then leadership) as a disabled provisional rule. Do not enable anything: A-035 and D-002 are open.
+
+Rule 4 (CLAUDE.md) lets you build a mechanism with **provisional config** while a business decision is open, and an Admin sets the final value later without a release. That is what this step does. Nothing below is a reason to stop. If something you need is genuinely missing (a file, a list), say so in the PR, keep the item's config provisional or inactive, and build the rest.
 
 ## Ground rules for this step
 - **Start from the latest `main`.** Read `CLAUDE.md` (non-negotiable rules 1–11), `docs/build-guide/03-build-steps.md` → "User feedback updates" (this step, the readiness table and the change-log procedure), and `docs/build-guide/04-decisions-and-risks.md` §2a.

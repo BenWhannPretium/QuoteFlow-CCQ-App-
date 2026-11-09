@@ -1,24 +1,21 @@
 # FB-10 · Priority calibration
 
-**Run with:** Claude Code · **Sonnet 5.5 · medium effort** · Wave 3, gated · one draft PR
+**Run with:** Claude Code · **Sonnet 5.5 · medium effort** · Wave 4a, **ready (draft and inactive until D-004)** · one draft PR
 **Tracker items:** F-005 (weights), F-073 (points), F-066 (P1: guardrail warnings) · tests T-011, T-025, T-036 · **Gated on:** D-004 (bands, weights, 9-box points by market, volume bands and minimums from the machine platform guide). Owners: Matthew Graden, Jennifer Wulf, Tania Nazario, Melanie Rasche; inputs A-009 (9-box) and A-010 (platform guide, MOQs).
 
 **Paste into Claude Code from the repo root.**
 
 ---
 
-## Stop check (do this first)
-This step is **gated**. Before writing code:
-1. Read the **Decision record** below. Ben fills it in when he starts the session.
-2. If the Microsoft 365 connector is available, also read the tracker's Decision Log and Action Items rows listed under "Gated on".
-3. **If any gating decision is not `Decided`, and no decision is pasted below, stop.** Reply with what is missing and who owns it. Don't build on a guess: CLAUDE.md rule 4 forbids hard-coding open business rules.
-4. If a decision is only partly made, build the decided part, keep the rest as provisional config, and list the remainder in the notes.
+## Stop check: none (changed 2026-11-09: build now, nothing live changes until an Admin activates it)
+Ben wants every FB step built this week. D-004 is open, and priority scores order the Engineering queue in UAT, so **do not change the live scoring**. Build everything as an **inactive, clearly provisional draft** that an Admin can compare and activate in one click once D-004 is decided:
 
-**Decision record (Ben pastes before running):**
-```
-<decision ID>: <outcome in one or two sentences>, decided by <name> on <date>
-<input>: <where the file is, e.g. docs/build-guide/feedback/inputs/...>
-```
+- **Scoring model v3 (draft, inactive):** weights and tiers equal to the active model (D-004 open, no weight change). Strategic-fit points by market or segment loaded **from `docs/build-guide/feedback/inputs/9-box.md`** with the placement and points marked provisional (the placement is unconfirmed: see that file). The active model stays v2.
+- **Admin preview (the main deliverable):** a screen that scores the current open quotes under the active model and under the draft, side by side (old tier, new tier, points moved), before anything is saved or activated. **Activate** is a separate, audited Admin action with a required reason.
+- **T-011 volume bands and routing:** build the setting and the G1 routing rule, seeded **off**.
+- **F-066 guardrail warnings (P1):** build `intake_guardrails` seeded from `docs/build-guide/feedback/inputs/platform-guide.md` (1M or 3M units per platform) with `enabled: false` until Danielle Leu confirms the column mapping. A non-blocking warning only.
+
+Rule 4 (CLAUDE.md) lets you build a mechanism with **provisional config** while a business decision is open, and an Admin sets the final value later without a release. That is what this step does. Nothing below is a reason to stop. If something you need is genuinely missing (a file, a list), say so in the PR, keep the item's config provisional or inactive, and build the rest.
 
 ## Ground rules for this step
 - **Start from the latest `main`.** Read `CLAUDE.md` (non-negotiable rules 1–11), `docs/build-guide/03-build-steps.md` → "User feedback updates" (this step, the readiness table and the change-log procedure), and `docs/build-guide/04-decisions-and-risks.md` §2a.
