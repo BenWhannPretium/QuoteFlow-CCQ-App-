@@ -6,8 +6,8 @@ import { createRng, DEFAULT_SEED, type Rng } from './rng';
  * The 13 synthetic users. B-04's dev-mode persona switcher (`x-dev-user: <key>`) uses these keys:
  * one per role, a multi-role user, an owner-scoped KAM, a region-scoped KAM and an owner-scoped Engineer.
  * Names come from faker with a fixed seed; emails use the reserved example.com domain.
- * B-26 added the pricing lead (13th). Personas after the first 12 draw their names and ids from their
- * own seeded stream, so every row generated before B-26 stays identical.
+ * B-26 added the pricing lead (13th), FB-07 Finance (14th). Personas after the first 12 draw their names
+ * and ids from their own seeded stream, so every row generated before B-26 stays identical.
  */
 export const PERSONA_DEFS = [
   { key: 'kam', roles: ['KAM'], scope: { type: 'all' }, region: 'Central' },
@@ -28,6 +28,8 @@ export const PERSONA_DEFS = [
   { key: 'admin', roles: ['Admin'], scope: { type: 'all' }, region: null },
   { key: 'multi-role', roles: ['SalesLeader', 'Approver'], scope: { type: 'all' }, region: 'East' },
   { key: 'pricing-lead', roles: ['PricingLead'], scope: { type: 'all' }, region: null },
+  // FB-07 (F-083): Finance (Stacy Slocum's role) reads quotes and uploads the ROI model.
+  { key: 'finance', roles: ['Finance'], scope: { type: 'all' }, region: null },
 ] as const satisfies readonly {
   key: string;
   roles: readonly Role[];

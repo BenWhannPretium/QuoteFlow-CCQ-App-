@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -23,12 +24,14 @@ import {
   CAPACITY_SIGNOFF_STATUSES,
   CAPITAL_READINESS,
   CER_STATUSES,
+  COST_MODEL_REQUIREMENTS,
   CUSTOMER_STATUSES,
   OVERRIDE_APPROVAL_MODES,
   OVERRIDE_STATUSES,
   QUOTE_STATUSES,
   RESUME_AT,
   SF_STATUS_FLAGS,
+  VERSIONED_ATTACHMENT_KINDS,
 } from './enums';
 import { appUser, baseColumns, timestamptz } from './identity';
 
@@ -1108,12 +1111,21 @@ export const pricingRecord = documented(
         'Why G3 is submitted with capital still pending (D-11 open: a warning, not a block).' +
           COMMERCIAL,
       ),
+      costModelRequirement: c(
+        text('cost_model_requirement').notNull().default('required'),
+        'FB-07 (F-032): required | grandfathered. The costing attestation and G3 need a current cost_model attachment unless grandfathered: quotes in Quoting with costing attested and no model when FB-07 shipped (migration 0031). Every new version starts required.',
+        SYSTEM,
+      ),
     },
     (t) => [
       uniqueIndex('pricing_record_quote_version_uniq').on(t.quoteId, t.quoteVersion),
       check(
         'pricing_record_capital_readiness_check',
         inList(t.capitalReadiness, CAPITAL_READINESS),
+      ),
+      check(
+        'pricing_record_cost_model_requirement_check',
+        inList(t.costModelRequirement, COST_MODEL_REQUIREMENTS),
       ),
     ],
   ),
@@ -1189,7 +1201,7 @@ export const attachment = documented(
       ),
       kind: c(
         text('kind').notNull(),
-        "bottle_drawing | spec | sample_photo | capacity_analysis | other (capacity_analysis: FB-03, the engineer's capacity analysis).",
+        'bottle_drawing | spec | sample_photo | capacity_analysis | other | bid_file | project_brief | competitor_drawing | cost_model | roi_model | price_table (capacity_analysis: FB-03; bid_file, project_brief, competitor_drawing: FB-02; cost_model, roi_model, price_table: FB-07, versioned, uploaded on the Quoting tab).',
       ),
       fileName: c(
         text('file_name').notNull(),
@@ -1232,9 +1244,47 @@ export const attachment = documented(
         SYSTEM,
       ),
       removedBy: c(userRef('removed_by'), 'Who removed it.', SYSTEM),
+      version: c(
+        integer('version'),
+        'FB-07 (F-074): version number per quote and kind, from 1, for the versioned kinds (cost_model, roi_model, price_table). Null for every other kind.',
+        SYSTEM,
+      ),
+      supersededBy: c(
+        uuid('superseded_by').references((): AnyPgColumn => attachment.id, {
+          onDelete: 'restrict',
+        }),
+        'FB-07 (F-074): the newer version that replaced this one. Null on the current version (the latest is the one with no superseded_at that is not removed). Earlier versions stay downloadable.',
+        SYSTEM,
+      ),
+      supersededAt: c(
+        timestamptz('superseded_at'),
+        'FB-07 (F-074): when a newer version replaced this one.',
+        SYSTEM,
+      ),
     },
     (t) => [
       check('attachment_kind_check', inList(t.kind, ATTACHMENT_KINDS)),
+      check(
+        'attachment_version_check',
+        sql`(${t.version} is null) = (${t.kind} not in (${sql.raw(
+          VERSIONED_ATTACHMENT_KINDS.map((k) => `'${k}'`).join(', '),
+        )})) and (${t.version} is null or ${t.version} >= 1)`,
+      ),
+      // A version is superseded (superseded_at) in the same transaction that inserts its successor, and
+      // then names it (superseded_by): the successor can't exist first, one current version per kind.
+      check(
+        'attachment_superseded_consistency_check',
+        sql`${t.supersededBy} is null or ${t.supersededAt} is not null`,
+      ),
+      // One current version per quote and kind; version numbers never repeat.
+      uniqueIndex('attachment_current_version_uidx')
+        .on(t.quoteId, t.kind)
+        .where(
+          sql`${t.version} is not null and ${t.supersededAt} is null and ${t.removedAt} is null`,
+        ),
+      uniqueIndex('attachment_version_uidx')
+        .on(t.quoteId, t.kind, t.version)
+        .where(sql`${t.version} is not null`),
       check('attachment_size_check', sql`${t.size} >= 0`),
       check('attachment_storage_check', inList(t.storage, ATTACHMENT_STORAGES)),
       check(

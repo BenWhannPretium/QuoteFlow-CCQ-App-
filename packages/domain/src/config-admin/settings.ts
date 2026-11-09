@@ -11,6 +11,7 @@ import {
   parseProcessOwner,
 } from '../commercial';
 import { engQueueSettingsSchema } from '../engineering/queue';
+import { parseRoiRequiredWhen } from '../quoting-steps';
 import { DomainError } from '../errors';
 import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
@@ -299,6 +300,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Price proceeds without formal approval below this annual revenue (not set = every price is approved)',
     'json',
     notNull('pricing_pass_through', parsePassThrough),
+  ),
+  // FB-07 (D-001): when Quoting's ROI step applies (Finance uploads the ROI model before G3).
+  spec(
+    'roi_required_when',
+    'pricing',
+    'When a quote needs Finance\'s ROI model before the price is approved (G2 outcomes, capital likely, funding models)',
+    'json',
+    notNull('roi_required_when', parseRoiRequiredWhen),
   ),
   // Capital and Market Development notices (B-26, D-27)
   spec(
