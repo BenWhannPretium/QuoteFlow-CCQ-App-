@@ -83,7 +83,7 @@ quoteflow-ccq-app-/
 | `CCQ.Engineer` | `SG-CCQ-Engineer` | Assigned product and ops engineers, capacity analyst | Edit Engineering Review fields and capacity evidence on assigned quotes. |
 | `CCQ.Pricing` | `SG-CCQ-Pricing` | Pricing team (Gemma Cebolla's org) | Quoting stage: record price approval, costing attestation, capital-readiness status and the optional legacy ERF number (B-26: BPR retired). Submit to Final Review. **Cannot** approve Final Review. |
 | `CCQ.PricingLead` | `SG-CCQ-PricingLead` | Pricing lead (B-26, A6) | Everything Pricing can do, plus triage: assign and reassign pricers on the pricing queue (`pricingQueue.assign`). |
-| `CCQ.Finance` (FB-07, provisional name; IT action A-032) | `SG-CCQ-Finance` | Finance ROI owner (Stacy Slocum) | Reads quotes (commercial fields included) and uploads or replaces the **ROI model** in Quoting (`roi.upload`), nothing else. An input, not an approver (D-001). Sees every quote, like Pricing (RLS `app_sees_all_quotes`). |
+| `CCQ.Finance` (FB-07, provisional name; created 2026-11-10, A-032 closed) | `SG-CCQ-Finance` | Finance ROI owner (Stacy Slocum) | Reads quotes (commercial fields included) and uploads or replaces the **ROI model** in Quoting (`roi.upload`), nothing else. An input, not an approver (D-001). Sees every quote, like Pricing (RLS `app_sees_all_quotes`). |
 | `CCQ.Approver` | `SG-CCQ-Approver` | Final Review approver(s), still to be named (D-10) | G4 approve or decline (note required). |
 | `CCQ.Leadership` | `SG-CCQ-Leadership` | Sarah Brennan, ELT, commercial leadership | Read everything, including analytics and the override log. **Cannot** change figures. |
 | `CCQ.Admin` | `SG-CCQ-Admin` | Knowledge Steward + EI build team (Ben, Tre) | Manage config (value lists, weights, reason codes, stage labels, thresholds) and user data scopes. Every change is versioned. |
@@ -137,7 +137,7 @@ Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future res
 | pricingQueue.read (B-11: the pricing queue page) | | | | | ✔ | ✔ | | | ✔ | ✔ |
 | quoting.edit | | | | | ✔ | ✔ | | | | |
 | gate.G3.submit (2026-10-30: the pricing lead only, like G2; FB-07: "Price approved") | | | | | | ✔ | | | | |
-| roi.upload (FB-07, F-083: the ROI model, Quoting step 2; the pricing lead is a provisional fallback until Finance is provisioned, A-032) | | | | | | ✔ | ✔ | | | ✔ |
+| roi.upload (FB-07, F-083: the ROI model, Quoting step 2; the pricing lead is a provisional fallback until Pricing and Finance agree to remove it; the Finance role exists since 2026-11-10, A-032) | | | | | | ✔ | ✔ | | | ✔ |
 | finalReview.read (B-12: the Final Review queue, Approvals tab) | | | | | | | | ✔ | ✔ | ✔ |
 | gate.G4.decide | | | | | | | | ✔ | | |
 | finalReview.signoff (FB-08, F-082: extra sign-offs; the rule is seeded off, A-035) | | ✔ | | | | | | | ✔ | |

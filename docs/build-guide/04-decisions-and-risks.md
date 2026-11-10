@@ -255,8 +255,8 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|
 | `app_setting.roi_required_when` | `{ g2Outcomes: ["capital_required"], capitalLikely: true, fundingModels: ["CUSTOMER_FUNDED", "ZERO_CER"] }` ("Shared" not included) | Stacy Slocum and Gemma Cebolla confirming the trigger; A-036 | Oleg Yarovinski; Stacy Slocum |
-| Role `Finance` (app role `CCQ.Finance`, group `SG-CCQ-Finance`): `quote.read`, `quote.read.commercialFields`, `roi.upload`; no "Report an issue" | Names provisional; the Entra role and group are IT's (A-032) | A-032 | Vincent Brown (IT); Bailey Schmitt |
-| `roi.upload` also held by the **PricingLead** (fallback while Finance has no QuoteFlow user) and Admin (support) | In `matrix.ts` and `role_permission` | Finance provisioned (A-032); Pricing and Finance agree to remove the fallback | Gemma Cebolla; Stacy Slocum |
+| Role `Finance` (app role `CCQ.Finance`, group `SG-CCQ-Finance`): `quote.read`, `quote.read.commercialFields`, `roi.upload`; no "Report an issue" | Names provisional; the Entra role and group were created 2026-11-10 (A-032 closed) | A-032 | Vincent Brown (IT); Bailey Schmitt |
+| `roi.upload` also held by the **PricingLead** (fallback until a Finance tester is in `SG-CCQ-Finance`) and Admin (support) | In `matrix.ts` and `role_permission` | Finance testers added to the group (role created 2026-11-10); Pricing and Finance agree to remove the fallback | Gemma Cebolla; Stacy Slocum |
 | G3 labels: gate "Price approved", outcome "Advance – price approved", its help text | D-031 is decided; the rows stay provisional until Bailey approves them in Admin → Workflow | — | Bailey Schmitt |
 | Accepted model file types | Today's attachment types (`.xlsx`, `.pdf`, …); **`.xlsm` is not accepted** | The templates (A-031): if they are macro workbooks, add `.xlsm` to the file types | Gemma Cebolla; Stacy Slocum |
 
@@ -286,7 +286,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Standard payment terms and exceptions | Gemma Cebolla | A-012, A-022 | FB-08: **built 2026-11-10** with Net 15 / Net 30 standard and the PricingLead deciding exceptions (provisional); A-022 may add common exceptions to the list |
 | Kal's minimum quote-time fields. **The blank template was already sent**: Kal emailed Bailey (cc Ben) on 2026-11-04 a link to *Pretium Project Workbook Template.xlsx* (SharePoint site AutomationAPTeam). The Hormel copy holds a real customer's data: do not send or commit it | Kal Kaliszewski | A-030 (workbook walked through Nov 6) | FB-06 (F-058) |
 | Standard costing-model template and Stacy Slocum's ROI template, with the cell map | Gemma Cebolla; Stacy Slocum | A-031 | FB-07 one-page summary (uploads and versions **built 2026-11-09**; drop the templates and the cell map in `feedback/inputs/` to build the extraction) |
-| A Finance app role and group in Entra for Stacy Slocum | Vincent Brown (IT) | A-032 | FB-07 (F-083): **code built 2026-11-09**; the Entra steps are `06-azure-entra-setup.md` A4b |
+| A Finance app role and group in Entra for Stacy Slocum | Vincent Brown (IT) | A-032 | FB-07 (F-083): **code built 2026-11-09**; Entra role and group **created 2026-11-10** (`06-azure-entra-setup.md` A4b); Ben adds the Finance testers to the group |
 | Standard for returnable and single-trip dunnage; whether safety stock belongs at intake | Bailey Schmitt; Gemma Cebolla; Faron Ipox | A-033 | FB-11 (F-063): **dunnage checkbox built 2026-11-09** with provisional label and help ("multi-trip" returns, "single-trip" is charged to the customer); safety stock and stocking programs deliberately not built |
 | Plants' sales-tax status for tooling | Gemma Cebolla (Tax); Kal Kaliszewski | A-034 | Later (BOM tax lookup) |
 

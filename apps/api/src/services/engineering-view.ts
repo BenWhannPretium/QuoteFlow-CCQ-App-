@@ -204,7 +204,7 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
   const pcr = await label('pcr_level', f.pcrLevel, f.pcrLevelOther);
   if (pcr) facts.push({ key: 'pcr', label: 'PCR', value: pcr });
   const color = await label('color_type', f.colorType, f.colorDescription);
-  if (color) facts.push({ key: 'color', label: 'Colour', value: color });
+  if (color) facts.push({ key: 'color', label: 'Color', value: color });
   // FB-09: the additive pick, with the customer-specified additive (the note) for "Other".
   const additive = [
     ...new Set([await label('additive', f.additive, f.additives), f.additives].filter(Boolean)),
