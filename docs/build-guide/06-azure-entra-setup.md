@@ -162,9 +162,9 @@ az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv   # now includ
 ```
 Then run the A8 loop with `R=PricingLead` only. The app needs no change: it accepts any `CCQ.` role it knows, and B-26 added `PricingLead` to the code.
 
-### A4b. Adding the Finance role (FB-07, F-083: `CCQ.Finance`, provisional name; IT action A-032)
+### A4b. Adding the Finance role (FB-07, F-083: `CCQ.Finance`, provisional name; IT action A-032) ✅ Done 2026-11-10
 
-Finance (Stacy Slocum) builds the ROI from Pricing's costing model and uploads it in QuoteFlow. The role reads quotes and uploads the ROI model, nothing else (`packages/domain/src/policy/matrix.ts`: `quote.read`, `quote.read.commercialFields`, `roi.upload`). **The code is ready; only these Entra steps are outstanding.** Until they are done, the pricing lead can upload the ROI model (provisional fallback in the matrix).
+Finance (Stacy Slocum) builds the ROI from Pricing's costing model and uploads it in QuoteFlow. The role reads quotes and uploads the ROI model, nothing else (`packages/domain/src/policy/matrix.ts`: `quote.read`, `quote.read.commercialFields`, `roi.upload`). **The code is ready, and the Entra steps are done (2026-11-10):** the app role `CCQ.Finance` and the group `SG-CCQ-Finance` were created. **Still to do (Ben):** add Stacy Slocum and any Finance testers to `SG-CCQ-Finance`, then run the **Check** at the end of this section. The pricing lead keeps the ROI upload as a provisional fallback in the matrix until Pricing and Finance agree to remove it.
 
 Same steps as A4a, with these values:
 - **Display name** `CCQ Finance`. **Value** `CCQ.Finance` (exact spelling and case). **Description** "Finance: reads quotes and uploads the ROI model (an input, not an approver)".
