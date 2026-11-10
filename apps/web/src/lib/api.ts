@@ -98,6 +98,10 @@ import {
   type CapitalFlagBody,
   type EscalationBody,
   type TermsBody,
+  type EngineeringTermsBody,
+  type CapitalTermsBody,
+  type TermsExceptionDecisionBody,
+  type G4SignoffBody,
   type GateDecisionBody,
   AuthConfigResponse,
   IntakeDraft,
@@ -436,6 +440,22 @@ export const api = {
     getJson(`${quotePath(quoteNumber)}/capital-flag`, QuoteDetail, { method: 'PUT', body }),
   updateTerms: (quoteNumber: string, body: TermsBody) =>
     getJson(`${quotePath(quoteNumber)}/terms`, QuoteDetail, { method: 'PUT', body }),
+  // FB-08 (F-021, F-068, T-007, F-082): Engineering's terms, the approver's capital terms, the pricing
+  // lead's exception decision and the extra Final Review sign-offs.
+  updateEngineeringTerms: (quoteNumber: string, body: EngineeringTermsBody) =>
+    getJson(`${quotePath(quoteNumber)}/terms/engineering`, QuoteDetail, { method: 'PUT', body }),
+  updateCapitalTerms: (quoteNumber: string, body: CapitalTermsBody) =>
+    getJson(`${quotePath(quoteNumber)}/terms/capital`, QuoteDetail, { method: 'PUT', body }),
+  decideTermsException: (quoteNumber: string, body: TermsExceptionDecisionBody) =>
+    getJson(`${quotePath(quoteNumber)}/terms/exception/decision`, QuoteDetail, {
+      method: 'POST',
+      body,
+    }),
+  signFinalReview: (quoteNumber: string, body: G4SignoffBody) =>
+    getJson(`${quotePath(quoteNumber)}/final-review/signoffs`, QuoteDetail, {
+      method: 'POST',
+      body,
+    }),
   escalate: (quoteNumber: string, body: EscalationBody) =>
     getJson(`${quotePath(quoteNumber)}/escalations`, EscalationResponse, { method: 'POST', body }),
 

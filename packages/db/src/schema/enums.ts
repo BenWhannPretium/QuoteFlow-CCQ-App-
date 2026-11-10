@@ -16,6 +16,8 @@ export const CAPITAL_READINESS = [
 export { ATTACHMENT_KINDS, VERSIONED_ATTACHMENT_KINDS } from '@ccq/domain';
 /** FB-07 (F-032): whether costing needs the costing model (grandfathered: in Quoting before FB-07). */
 export { COST_MODEL_REQUIREMENTS } from '@ccq/domain';
+// FB-08 (T-007): payment-terms exception statuses (the request history and the quote's current one).
+export { QUOTE_TERMS_EXCEPTION_STATUSES, TERMS_EXCEPTION_STATUSES } from '@ccq/domain';
 /** B-16: where an attachment's bytes are (FILESTORE_MODE). */
 export const ATTACHMENT_STORAGES = ['sharepoint', 'blob', 'local'] as const;
 export const ACCEPTANCE_EVIDENCE = ['verbal', 'po', 'loi', 'contract'] as const;
@@ -89,6 +91,9 @@ export const VALUE_LIST_KEYS = [
   'requested_payment_terms',
   'price_basis',
   'freight_type',
+  // FB-08 (D-029, F-068): tooling payment milestones and mold ownership.
+  'tooling_payment_terms',
+  'mold_ownership',
 ] as const;
 
 /** FB-01 (F-030): where a KAM's resubmission resumes after a rework (`gate_outcome_definition.resume_at`). */

@@ -17,7 +17,13 @@ import {
   planEscalation,
   planMarketDevNotice,
   planTerms,
+  planTermsExceptionDecision,
+  parseCapitalTermsRequired,
+  parseMilestones,
+  termsExceptionOpen,
   withDerivedFields,
+  CAPITAL_TERMS_REQUIRED_SEED,
+  type TermsLists,
   type TermsValues,
 } from '.';
 import { planCapacitySignoff } from '../engineering/review';
@@ -106,9 +112,16 @@ describe('derived decision fields', () => {
       pass_through_eligible: true,
       g4_terms_check_required: true,
       g4_legal_review_check_required: true,
+      g4_terms_exception_check_required: false,
+      g4_terms_finalized_check_required: false,
+      terms_exception_open: false,
       roi_required: false,
       roi_required_reasons: [],
     });
+    // FB-08 (T-007): a pending or rejected exception is open.
+    expect(
+      derivedDecisionFields({ terms_exception_status: 'rejected' }, settings).terms_exception_open,
+    ).toBe(true);
   });
 
   it('FB-07: derives roi_required from roi_required_when (capital required, $0 CER included)', () => {
@@ -155,13 +168,16 @@ describe('derived decision fields', () => {
   });
 });
 
-describe('terms (B-26)', () => {
+describe('terms (B-26, FB-08)', () => {
   const empty: TermsValues = {
     toolingFundingModel: null,
     termsToolingCommitment: null,
     termsMoq: null,
+    termsPaymentTermsCode: null,
     termsPaymentTerms: null,
     termsNonstandard: false,
+    termsToolingPayment: null,
+    termsMilestoneNote: null,
     termsNotes: null,
     termsCheckedAt: null,
     termsCheckedBy: null,
@@ -169,51 +185,213 @@ describe('terms (B-26)', () => {
     legalReviewerName: null,
     legalReviewNote: null,
     legalRecordedBy: null,
+    termsMoldOwnership: null,
+    termsAmortized: null,
+    termsAmortizationMonths: null,
+    termsMinSupply: null,
+    termsAgreementInPlace: null,
+    termsAgreementMonths: null,
+    termsFinalizedAt: null,
+    termsFinalizedBy: null,
   };
-  const plan = (edit: Parameters<typeof planTerms>[0]['edit'], current = empty, closed = false) =>
-    planTerms({
-      current,
-      edit,
-      fundingModelCodes: ['COMPANY_FUNDED', 'CUSTOMER_FUNDED'],
-      actorId: KAM_ID,
-      now: NOW,
-      closed,
-    });
+  const lists: TermsLists = {
+    fundingModelCodes: ['COMPANY_FUNDED', 'CUSTOMER_FUNDED', 'ZERO_CER'],
+    paymentTerms: [
+      { code: 'NET_15', freeText: false },
+      { code: 'NET_30', freeText: false },
+      { code: 'NET_45', freeText: false },
+      { code: 'NET_60', freeText: false },
+      { code: 'OTHER', freeText: true },
+    ],
+    standardPaymentTerms: ['NET_15', 'NET_30'],
+    toolingPaymentCodes: ['UPFRONT', 'SPLIT_50_50', 'AMORTIZED_PER_PIECE'],
+    moldOwnershipCodes: ['PRETIUM', 'CUSTOMER'],
+    capitalTermsRequired: CAPITAL_TERMS_REQUIRED_SEED,
+  };
+  const plan = (
+    edit: Parameters<typeof planTerms>[0]['edit'],
+    current = empty,
+    extra: Partial<Parameters<typeof planTerms>[0]> = {},
+  ) => planTerms({ current, edit, lists, actorId: KAM_ID, now: NOW, closed: false, ...extra });
+  const values = (r: ReturnType<typeof planTerms>) => (r as { values: TermsValues }).values;
 
   it('records the funding model and terms; only the keys sent change', () => {
     const r = plan({ toolingFundingModel: 'CUSTOMER_FUNDED', termsMoq: ' 50k / release ' });
     expect(r.ok && r.values).toMatchObject({
       toolingFundingModel: 'CUSTOMER_FUNDED',
       termsMoq: '50k / release',
-      termsPaymentTerms: null,
+      termsPaymentTermsCode: null,
     });
     expect(r.ok && r.changed.sort()).toEqual(['termsMoq', 'toolingFundingModel']);
-    const bad = plan({ toolingFundingModel: 'BARTER' });
-    expect(!bad.ok && bad.errors.map((e) => e.field)).toEqual(['toolingFundingModel']);
+    const bad = plan({ toolingFundingModel: 'BARTER', termsMoldOwnership: 'NOBODY' });
+    expect(!bad.ok && bad.errors.map((e) => e.field)).toEqual([
+      'toolingFundingModel',
+      'termsMoldOwnership',
+    ]);
   });
 
-  it('the terms check needs payment terms and the tooling-commitment answer, and records who and when', () => {
+  it('F-021: each route edits only its own fields (MOQ and funding are Engineering’s)', () => {
+    const kam = plan({ termsMoq: '10k' }, empty, { scope: 'sales' });
+    expect(!kam.ok && kam.errors.map((e) => e.code)).toEqual(['NOT_PERMITTED']);
+    expect(plan({ termsMoq: '10k' }, empty, { scope: 'engineering' }).ok).toBe(true);
+    const eng = plan({ termsPaymentTermsCode: 'NET_30' }, empty, { scope: 'engineering' });
+    expect(!eng.ok && eng.errors[0]!.message).toMatch(/terms\.engineering\.edit/);
+    expect(plan({ finalized: false }, empty, { scope: 'sales' }).ok).toBe(false);
+    expect(plan({ termsMinSupply: 'none' }, empty, { scope: 'sales' }).ok).toBe(true);
+    expect(plan({ toolingFundingModel: 'ZERO_CER' }, empty, { scope: 'finalize' }).ok).toBe(true);
+  });
+
+  it('F-021: a non-standard payment term is flagged and opens an exception; a standard one is not', () => {
+    const std = plan({ termsPaymentTermsCode: 'NET_30' });
+    expect(std.ok && [std.values.termsNonstandard, std.exception]).toEqual([false, null]);
+    const net60 = plan({ termsPaymentTermsCode: 'NET_60' });
+    expect(net60.ok && [net60.values.termsNonstandard, net60.exception]).toEqual([true, 'open']);
+    const unflag = plan({ termsNonstandard: false }, values(net60));
+    expect(!unflag.ok && unflag.errors.map((e) => e.field)).toEqual(['termsNonstandard']);
+    // Back to standard: the flag clears and the request is withdrawn.
+    const back = plan({ termsPaymentTermsCode: 'NET_15' }, values(net60), {
+      exceptionStatus: 'pending',
+    });
+    expect(back.ok && [back.values.termsNonstandard, back.exception]).toEqual([false, 'withdraw']);
+    // Another non-standard term: a new request.
+    const net45 = plan({ termsPaymentTermsCode: 'NET_45' }, values(net60), {
+      exceptionStatus: 'approved',
+    });
+    expect(net45.ok && net45.exception).toBe('open');
+    // No change to the terms: nothing happens to the request.
+    const notes = plan({ termsNotes: 'x' }, values(net60), { exceptionStatus: 'pending' });
+    expect(notes.ok && notes.exception).toBeNull();
+  });
+
+  it('"Other" needs the detail; picking a listed term clears it; an unknown code is refused', () => {
+    const other = plan({ termsPaymentTermsCode: 'OTHER' });
+    expect(!other.ok && other.errors.map((e) => e.field)).toEqual(['termsPaymentTerms']);
+    const ok = plan({ termsPaymentTermsCode: 'OTHER', termsPaymentTerms: '2% 10 Net 30' });
+    expect(ok.ok && [ok.values.termsNonstandard, ok.exception]).toEqual([true, 'open']);
+    const reworded = plan({ termsPaymentTerms: '1% 10 Net 30' }, values(ok));
+    expect(reworded.ok && reworded.exception).toBe('open');
+    const listed = plan({ termsPaymentTermsCode: 'NET_30' }, values(ok));
+    expect(listed.ok && listed.values.termsPaymentTerms).toBeNull();
+    expect(plan({ termsPaymentTermsCode: 'NET_7' }).ok).toBe(false);
+  });
+
+  it('D-029: the tooling payment milestone and a short note', () => {
+    const r = plan({ termsToolingPayment: 'SPLIT_50_50', termsMilestoneNote: ' at PPAP ' });
+    expect(r.ok && r.values).toMatchObject({
+      termsToolingPayment: 'SPLIT_50_50',
+      termsMilestoneNote: 'at PPAP',
+    });
+    expect(plan({ termsToolingPayment: 'QUARTERLY' }).ok).toBe(false);
+    expect(plan({ termsMilestoneNote: 'x'.repeat(301) }).ok).toBe(false);
+  });
+
+  it('D-029: milestone meta parses only when the percents add up to 100', () => {
+    expect(
+      parseMilestones({
+        milestones: [
+          { percent: 50, trigger: 'At the order' },
+          { percent: 50, trigger: 'At qualification' },
+        ],
+      }),
+    ).toHaveLength(2);
+    expect(parseMilestones({})).toEqual([]);
+    expect(parseMilestones({ milestones: [] })).toEqual([]);
+    expect(parseMilestones({ milestones: [{ percent: 60, trigger: 'x' }] })).toBeNull();
+  });
+
+  it('the terms check needs the payment terms and the tooling-commitment answer, and records who and when', () => {
     const missing = plan({ checked: true });
     expect(!missing.ok && missing.errors.map((e) => e.field).sort()).toEqual([
-      'termsPaymentTerms',
+      'termsPaymentTermsCode',
       'termsToolingCommitment',
     ]);
-    const r = plan({ checked: true, termsPaymentTerms: 'Net 45', termsToolingCommitment: false });
+    const r = plan({
+      checked: true,
+      termsPaymentTermsCode: 'NET_30',
+      termsToolingCommitment: false,
+    });
     expect(r.ok && [r.values.termsCheckedAt, r.values.termsCheckedBy]).toEqual([NOW, KAM_ID]);
   });
 
   it('changing a term after the check clears it (no silent edits)', () => {
     const checked = {
       ...empty,
-      termsPaymentTerms: 'Net 45',
+      termsPaymentTermsCode: 'NET_30',
       termsToolingCommitment: false,
       termsCheckedAt: new Date('2026-10-01T00:00:00Z'),
       termsCheckedBy: OTHER_ID,
     };
-    const r = plan({ termsPaymentTerms: 'Net 60' }, checked);
+    const r = plan({ termsPaymentTermsCode: 'NET_15' }, checked);
     expect(r.ok && [r.values.termsCheckedAt, r.checkCleared]).toEqual([null, true]);
     const notes = plan({ termsNotes: 'context only' }, checked);
     expect(notes.ok && notes.values.termsCheckedAt).toEqual(checked.termsCheckedAt);
+  });
+
+  it('F-068: the capital terms; months go with a "yes" and are cleared by a "no"', () => {
+    const r = plan({
+      termsAmortized: true,
+      termsAmortizationMonths: 36,
+      termsAgreementInPlace: true,
+      termsAgreementMonths: 60,
+    });
+    expect(r.ok && r.values.termsAmortizationMonths).toBe(36);
+    const no = plan({ termsAmortized: false }, values(r));
+    expect(no.ok && no.values.termsAmortizationMonths).toBeNull();
+    expect(plan({ termsAmortized: true, termsAmortizationMonths: 0 }).ok).toBe(false);
+    expect(plan({ termsAgreementInPlace: true, termsAgreementMonths: 241 }).ok).toBe(false);
+    expect(plan({ termsMinSupply: 'x'.repeat(301) }).ok).toBe(false);
+  });
+
+  it('F-068 (T-031): the approver confirms the capital terms only when the required ones are there', () => {
+    const missing = plan({ finalized: true });
+    expect(!missing.ok && missing.errors.map((e) => e.field)).toEqual([
+      'toolingFundingModel',
+      'termsMoldOwnership',
+      'termsAmortized',
+      'termsMinSupply',
+      'termsAgreementInPlace',
+    ]);
+    const months = plan({
+      finalized: true,
+      toolingFundingModel: 'ZERO_CER',
+      termsMoldOwnership: 'CUSTOMER',
+      termsAmortized: true,
+      termsMinSupply: 'None',
+      termsAgreementInPlace: false,
+    });
+    expect(!months.ok && months.errors.map((e) => e.field)).toEqual(['termsAmortizationMonths']);
+    const r = plan({
+      finalized: true,
+      toolingFundingModel: 'ZERO_CER',
+      termsMoldOwnership: 'CUSTOMER',
+      termsAmortized: false,
+      termsMinSupply: 'None',
+      termsAgreementInPlace: false,
+    });
+    expect(r.ok && [r.values.termsFinalizedAt, r.values.termsFinalizedBy]).toEqual([NOW, KAM_ID]);
+    // FB-11's intake default "Not discussed" is not an answer.
+    const notDiscussed = plan(
+      { finalized: true, toolingFundingModel: 'COMPANY_FUNDED' },
+      { ...values(r), termsFinalizedAt: null, termsFinalizedBy: null },
+      { lists: { ...lists, fundingNotAnswered: ['COMPANY_FUNDED'] } },
+    );
+    expect(!notDiscussed.ok && notDiscussed.errors.map((e) => e.field)).toEqual([
+      'toolingFundingModel',
+    ]);
+    // A configured-down required set confirms with less.
+    expect(
+      plan({ finalized: true, toolingFundingModel: 'ZERO_CER' }, empty, {
+        lists: { ...lists, capitalTermsRequired: ['funding_model'] },
+      }).ok,
+    ).toBe(true);
+    // Changing a capital term afterwards clears the confirmation; other terms do not.
+    const changed = plan({ termsMinSupply: '80% of forecast' }, values(r));
+    expect(changed.ok && [changed.values.termsFinalizedAt, changed.finalizeCleared]).toEqual([
+      null,
+      true,
+    ]);
+    const other = plan({ termsPaymentTermsCode: 'NET_30' }, values(r));
+    expect(other.ok && other.values.termsFinalizedAt).toEqual(NOW);
   });
 
   it('records and clears the Legal review; refuses a future date or no reviewer', () => {
@@ -228,9 +406,51 @@ describe('terms (B-26)', () => {
       'legal.reviewedOn',
       'legal.reviewerName',
     ]);
-    const cleared = plan({ legal: null }, (r as { values: TermsValues }).values);
+    const cleared = plan({ legal: null }, values(r));
     expect(cleared.ok && cleared.values.legalReviewedOn).toBeNull();
-    expect(plan({ termsMoq: 'x' }, empty, true).ok).toBe(false);
+    expect(plan({ termsMoq: 'x' }, empty, { closed: true }).ok).toBe(false);
+  });
+
+  it('capital_terms_required parses and refuses malformed config', () => {
+    expect(parseCapitalTermsRequired(null)).toEqual(CAPITAL_TERMS_REQUIRED_SEED);
+    expect(parseCapitalTermsRequired(['min_supply', 'min_supply'])).toEqual(['min_supply']);
+    expect(() => parseCapitalTermsRequired(['mold'])).toThrow(DomainError);
+  });
+});
+
+describe('the payment-terms exception decision (T-007)', () => {
+  const decide = (over: Partial<Parameters<typeof planTermsExceptionDecision>[0]> = {}) =>
+    planTermsExceptionDecision({
+      status: 'pending',
+      decision: 'approve',
+      rationale: ' strategic account ',
+      closed: false,
+      ...over,
+    });
+
+  it('approves or rejects a pending request, always with a rationale', () => {
+    expect(decide()).toEqual({ ok: true, status: 'approved', rationale: 'strategic account' });
+    expect(decide({ decision: 'reject' })).toMatchObject({ ok: true, status: 'rejected' });
+    const none = decide({ rationale: '  ' });
+    expect(!none.ok && none.errors.map((e) => e.field)).toEqual(['rationale']);
+    expect(decide({ rationale: 'x'.repeat(1001) }).ok).toBe(false);
+  });
+
+  it('refuses when nothing is pending or the quote is closed', () => {
+    for (const status of [null, 'approved', 'rejected']) {
+      const r = decide({ status });
+      expect(!r.ok && r.errors.map((e) => e.code)).toEqual(['NO_PENDING_EXCEPTION']);
+    }
+    expect(decide({ closed: true }).ok).toBe(false);
+  });
+
+  it('only pending and rejected keep the exception open', () => {
+    expect(['pending', 'rejected', 'approved', null].map(termsExceptionOpen)).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ]);
   });
 });
 

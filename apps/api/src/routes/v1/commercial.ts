@@ -1,10 +1,14 @@
 import {
   CapitalFlagBody,
+  CapitalTermsBody,
+  EngineeringTermsBody,
   EscalationBody,
   EscalationResponse,
   QuoteDetail,
+  G4SignoffBody,
   QuoteNumberParams,
   TermsBody,
+  TermsExceptionDecisionBody,
 } from '@ccq/contracts';
 import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -63,7 +67,7 @@ export const commercialRoutes: FastifyPluginAsyncZod<{ service: CommercialServic
       schema: {
         tags: ['commercial'],
         summary:
-          'B-26: the commercial terms (tooling funding model, tooling commitment, MOQ, payment terms), the terms check and the Legal review. Only the keys sent change; changing a term clears the check. G4 Advance needs the check, and the Legal review when a trigger applies',
+          'B-26 / FB-08: the Sales and Pricing terms: payment terms (a list; non-standard opens an exception for the pricing lead), tooling payment milestones, the tooling commitment, the terms check, the Legal review, and the capital terms as a pre-fill. Only the keys sent change; changing a term clears the check. MOQ and tooling funding are /terms/engineering',
         security,
         params: QuoteNumberParams,
         body: TermsBody,
@@ -73,6 +77,116 @@ export const commercialRoutes: FastifyPluginAsyncZod<{ service: CommercialServic
     async (req, reply) =>
       handleProblems(req, reply, () =>
         service.updateTerms(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  // FB-08 (F-021, D-003 provisional): MOQ and tooling funding are Engineering's.
+  app.put(
+    '/quotes/:quoteNumber/terms/engineering',
+    {
+      config: { permission: 'terms.engineering.edit' },
+      schema: {
+        tags: ['commercial'],
+        summary:
+          'FB-08 (F-021): MOQ and the tooling funding model, by Engineering (EngLead, or the assigned Engineer). Only the keys sent change; a change clears the terms check and the approver’s capital-terms confirmation',
+        security,
+        params: QuoteNumberParams,
+        body: EngineeringTermsBody,
+        response: { 200: QuoteDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.updateTerms(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
+          auditMeta(req),
+          'engineering',
+        ),
+      ),
+  );
+
+  // FB-08 (F-068, T-031): the approver edits and confirms the capital terms at Final Review.
+  app.put(
+    '/quotes/:quoteNumber/terms/capital',
+    {
+      config: { permission: 'terms.finalize' },
+      schema: {
+        tags: ['commercial'],
+        summary:
+          'FB-08 (F-068): the capital terms (funding model, mold ownership, amortization, minimum supply / shortfall, agreement and duration), edited and confirmed (finalized: true) by the Approver while the quote is in Final Review. G4 Advance needs the confirmation (g4_required_checks terms_finalized); the terms lock at G4 Approve',
+        security,
+        params: QuoteNumberParams,
+        body: CapitalTermsBody,
+        response: { 200: QuoteDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.updateTerms(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
+          auditMeta(req),
+          'finalize',
+        ),
+      ),
+  );
+
+  // FB-08 (T-007): the pricing lead decides a non-standard payment-terms exception.
+  app.post(
+    '/quotes/:quoteNumber/terms/exception/decision',
+    {
+      config: { permission: 'terms.exception.decide' },
+      schema: {
+        tags: ['commercial'],
+        summary:
+          'FB-08 (T-007): approve or reject the pending payment-terms exception, with a rationale. Whoever entered the terms and the KAM are told. G4 Advance waits while it is pending or rejected (g4_required_checks terms_exception)',
+        security,
+        params: QuoteNumberParams,
+        body: TermsExceptionDecisionBody,
+        response: { 200: QuoteDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.decideTermsException(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  // FB-08 (F-082, off until A-035): an extra Final Review sign-off.
+  app.post(
+    '/quotes/:quoteNumber/final-review/signoffs',
+    {
+      config: { permission: 'finalReview.signoff' },
+      schema: {
+        tags: ['commercial'],
+        summary:
+          'FB-08 (F-082): record an extra Final Review sign-off that app_setting g4_additional_approvals asks for (seeded off). In order, by the sign-off’s role, while the quote is in Final Review; G4 Approve waits for all of them',
+        security,
+        params: QuoteNumberParams,
+        body: G4SignoffBody,
+        response: { 200: QuoteDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.signoff(
           withTx(req),
           requireActor(req),
           req.params.quoteNumber,

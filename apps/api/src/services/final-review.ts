@@ -287,7 +287,7 @@ export class FinalReviewService {
         approverTiers: ctx.release.approverTiers,
       });
       // FB-01 (F-069): terms and Legal, read-only, and the open checks that do not block.
-      const checks = await finalReviewChecks(tx, ctx.commercial, q, quoteState);
+      const checks = await finalReviewChecks(tx, ctx.commercial, q, quoteState, actor);
       const warnings = reviewWarnings({
         qualification: summary.warnings,
         // The quoting warnings read the pricing record, which is commercial.

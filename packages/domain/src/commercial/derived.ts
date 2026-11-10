@@ -1,6 +1,6 @@
 import { g4CheckFields, type G4Check } from './g4-checks';
 import { passThroughEligible, type PassThroughSetting } from './pass-through';
-import { legalReviewReasons, type LegalReviewTriggers } from './terms';
+import { legalReviewReasons, termsExceptionOpen, type LegalReviewTriggers } from './terms';
 import { roiRequirement, type RoiReason, type RoiRequiredWhen } from '../quoting-steps';
 import type { QuoteState } from '../types/quote';
 
@@ -30,6 +30,9 @@ export function derivedDecisionFields(
   pass_through_eligible: boolean;
   g4_terms_check_required: boolean;
   g4_legal_review_check_required: boolean;
+  g4_terms_exception_check_required: boolean;
+  g4_terms_finalized_check_required: boolean;
+  terms_exception_open: boolean;
   roi_required: boolean;
   roi_required_reasons: RoiReason[];
 } {
@@ -46,6 +49,10 @@ export function derivedDecisionFields(
       fields.est_annual_revenue as number | null | undefined,
     ),
     ...g4CheckFields(settings.g4RequiredChecks),
+    // FB-08 (T-007): a pending or rejected payment-terms exception keeps G4 Advance closed.
+    terms_exception_open: termsExceptionOpen(
+      fields.terms_exception_status as string | null | undefined,
+    ),
     // FB-07 (D-001): G3 needs the ROI model only when this is true (capital required, $0 CER included).
     ...(() => {
       const roi = roiRequirement(fields, settings.roiRequiredWhen);

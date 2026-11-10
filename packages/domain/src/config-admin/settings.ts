@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { parseAttachmentSettings } from '../attachments/rules';
 import {
   parseCapitalNotice,
+  parseCapitalTermsRequired,
   parseEscalationRoutes,
   parseG4RequiredChecks,
   parseLegalReviewTriggers,
@@ -13,6 +14,7 @@ import {
 import { parseAssignmentRules } from '../engineering/assignment-rules';
 import { engQueueSettingsSchema } from '../engineering/queue';
 import { DomainError } from '../errors';
+import { parseAdditionalApprovals } from '../final-review/additional-approvals';
 import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
 import { intakeGuardrailsSchema } from '../intake/guardrails';
@@ -285,6 +287,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'json',
     z_('standard_payment_terms', intakeConfigSchema.shape.standardPaymentTerms),
   ),
+  // FB-08 (F-021): the payment terms the Commercial panel offers when the customer asked for none.
+  spec(
+    'default_payment_terms',
+    'pricing',
+    'Payment terms pre-selected on the quote when the customer requested none (a requested_payment_terms code)',
+    'text',
+    z_('default_payment_terms', z.string().trim().min(1).max(40)),
+  ),
   spec(
     'intake_redirect_message',
     'intake',
@@ -402,9 +412,25 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   spec(
     'g4_required_checks',
     'final_review',
-    'Checks that block G4 Advance: terms_checked, legal_review ([] = warnings only, D-003)',
+    'Checks that block G4 Advance: terms_checked, legal_review, terms_exception, terms_finalized (the rest are warnings, D-003)',
     'json',
     notNull('g4_required_checks', parseG4RequiredChecks),
+  ),
+  // FB-08 (F-068): which capital terms the approver must fill before confirming them.
+  spec(
+    'capital_terms_required',
+    'final_review',
+    'Capital terms required before the approver confirms them: funding_model, mold_ownership, amortization, min_supply, agreement',
+    'json',
+    notNull('capital_terms_required', parseCapitalTermsRequired),
+  ),
+  // FB-08 (F-082, D-002, A-035 open): extra Final Review sign-offs, seeded off.
+  spec(
+    'g4_additional_approvals',
+    'final_review',
+    'Extra Final Review sign-offs by funding model (e.g. sales leader, then leadership). Rules with active: false do nothing',
+    'json',
+    notNull('g4_additional_approvals', parseAdditionalApprovals),
   ),
   spec(
     'g4_tier_rules',

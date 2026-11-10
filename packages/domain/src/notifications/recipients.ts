@@ -104,6 +104,8 @@ export const HANDOFF_TYPES = {
   returnedByLead: 'quote.returned_by_lead',
   readyForRoi: 'quote.ready_for_roi',
   roiUploaded: 'quote.roi_uploaded',
+  termsExceptionRequested: 'quote.terms_exception_requested',
+  termsExceptionDecided: 'quote.terms_exception_decided',
 } as const;
 
 /** Declared types the seeded workflow uses that are not catalogue types of their own: the arrival alert says it. */
@@ -423,6 +425,36 @@ export function planRoiUploaded(): PlannedHandoff[] {
     recipient: role(r),
     reason: 'next_owner',
   }));
+}
+
+// ── Payment-terms exceptions (FB-08, T-007) ────────────────────────────────────────────────────────
+
+/** Non-standard payment terms were entered: whoever decides the exception (the pricing lead) is told. */
+export function planTermsExceptionRequested(): PlannedHandoff[] {
+  return rolesWithPermission('terms.exception.decide').map((r): PlannedHandoff => ({
+    type: HANDOFF_TYPES.termsExceptionRequested,
+    recipient: role(r),
+    reason: 'next_owner',
+  }));
+}
+
+/** The exception was decided: whoever entered the terms and the KAM are told, with the rationale. */
+export function planTermsExceptionDecided(
+  requestedBy: UserId | null,
+  quote: HandoffQuote,
+): PlannedHandoff[] {
+  return [
+    ...(requestedBy
+      ? [
+          {
+            type: HANDOFF_TYPES.termsExceptionDecided,
+            recipient: user(requestedBy),
+            reason: 'declared' as const,
+          },
+        ]
+      : []),
+    { type: HANDOFF_TYPES.termsExceptionDecided, recipient: user(quote.kamUserId), reason: 'kam' },
+  ];
 }
 
 // ── Comments ─────────────────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { toSnakeCase } from '@ccq/domain';
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
@@ -138,8 +138,9 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
     case 'decoration_type':
       return eq(quote.decorationType, code);
     // FB-11 (F-080)
+    // FB-11 asks it at intake; FB-08 (F-021) records the agreed terms from the same list.
     case 'requested_payment_terms':
-      return eq(quote.requestedPaymentTerms, code);
+      return or(eq(quote.requestedPaymentTerms, code), eq(quote.termsPaymentTermsCode, code))!;
     case 'price_basis':
       return eq(quote.priceBasis, code);
     case 'freight_type':
@@ -157,6 +158,11 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(engReview.plantCode, code);
     case 'tooling_funding_model':
       return eq(quote.toolingFundingModel, code);
+    // FB-08 (D-029, F-068)
+    case 'tooling_payment_terms':
+      return eq(quote.termsToolingPayment, code);
+    case 'mold_ownership':
+      return eq(quote.termsMoldOwnership, code);
   }
 }
 

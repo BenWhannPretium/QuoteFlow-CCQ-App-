@@ -813,14 +813,23 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
           if (step.gate === 'G3') {
             state!.fields = withDerivedFields(state!, SEED_DERIVED_SETTINGS).fields;
           }
-          // B-26: G4 Advance needs the terms check (and the Legal review for a new customer). No draws.
+          // B-26: G4 Advance needs the terms check (and the Legal review for a new customer). FB-08: the
+          // payment terms are a standard list code (no exception) and the approver confirms the capital
+          // terms (T-031). No draws.
           if (step.gate === 'G4' && step.outcome === 'approve') {
             const newCustomer = opp.customer.status === 'not_yet_established';
             await updateQuote(db, quoteId, {
               termsToolingCommitment: false,
-              termsPaymentTerms: 'Net 45',
+              termsPaymentTermsCode: 'NET_30',
               termsCheckedAt: at,
               termsCheckedBy: kam.id,
+              toolingFundingModel: 'COMPANY_FUNDED',
+              termsMoldOwnership: 'PRETIUM',
+              termsAmortized: false,
+              termsMinSupply: 'None (synthetic)',
+              termsAgreementInPlace: false,
+              termsFinalizedAt: at,
+              termsFinalizedBy: decider.id,
               ...(newCustomer
                 ? {
                     legalReviewedOn: at.toISOString().slice(0, 10),

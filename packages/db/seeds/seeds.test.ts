@@ -6,11 +6,12 @@ import {
   WHERE_TO_PLAY_SUB_MARKET_BANDS,
   WHERE_TO_PLAY_UNSCORED_SUB_MARKETS,
   hybridConfig,
+  parseMilestones,
 } from '@ccq/domain';
 import { describe, expect, it } from 'vitest';
 
 import { rolePermissionRows, valueListRows, workflowRows } from './config/index';
-import { RETIRED_MARKETS, RETIRED_VALUE_LISTS } from './config/value-lists';
+import { RETIRED_MARKETS, RETIRED_VALUE_LISTS, VALUE_LISTS } from './config/value-lists';
 import { buildCustomers, buildOpportunities, SF_STAGE_COUNTS } from './synthetic/opportunities';
 import { PERSONA_DEFS, buildPersonas } from './synthetic/personas';
 import { DEFAULT_ANCHOR, createRng } from './synthetic/rng';
@@ -262,5 +263,18 @@ describe('Salesforce fake fixture', () => {
     expect(amounts).toContain(null);
     expect(fixture.opportunities.some((o) => o.AccountId === null)).toBe(true);
     expect(fixture.deleted).toHaveLength(1);
+  });
+});
+
+describe('FB-08 (D-029): tooling payment options', () => {
+  it('upfront, 50/50 and amortized per piece, no quarterly; each schedule adds up to 100 %', () => {
+    const entries = VALUE_LISTS.tooling_payment_terms;
+    expect(entries.map(([code]) => code)).toEqual([
+      'UPFRONT',
+      'SPLIT_50_50',
+      'AMORTIZED_PER_PIECE',
+    ]);
+    for (const [, , meta] of entries) expect(parseMilestones(meta)).not.toBeNull();
+    expect(parseMilestones(entries[1]![2])!.map((m) => m.percent)).toEqual([50, 50]);
   });
 });

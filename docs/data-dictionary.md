@@ -11,7 +11,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
-- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history)
+- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`feedback`](#feedback), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
@@ -521,6 +521,28 @@ Engineering Review fields (stage 2).
 
 **Checks:** `eng_review_pack_out_check`, `eng_review_cavitation_check`, `eng_review_capacity_signoff_status_check`
 
+### g4_signoff
+
+FB-08 (F-082): extra Final Review sign-offs (e.g. sales leader, then leadership when the customer funds capital). Off until A-035.
+
+**Owner:** KAM
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `quote_id` | uuid | no |  | quote.id | Quote. | KAM |
+| `quote_version` | integer | no |  |  | Quote version the sign-off is for. | KAM |
+| `rule_key` | text | no |  |  | g4_additional_approvals rule key. | KAM |
+| `signoff_key` | text | no |  |  | The sign-off within the rule. | KAM |
+| `signed_by` | uuid | no |  | app_user.id | Who signed off (finalReview.signoff). | KAM |
+| `signed_at` | timestamp with time zone | no |  |  | When they signed off. | KAM |
+| `note` | text | yes |  |  | Optional note (≤ 1000). | KAM |
+
+**Indexes:** `g4_signoff_once_uniq`
+
 ### gate_decision
 
 Immutable record of each gate decision.
@@ -768,6 +790,18 @@ The CCQ quote: the workflow record CCQ owns.
 | `legal_reviewer_name` | text | yes |  |  | B-26: who in Legal reviewed it (Legal is not a CCQ role). | KAM |
 | `legal_review_note` | text | yes |  |  | B-26: Legal review notes. | KAM |
 | `legal_recorded_by` | uuid | yes |  | app_user.id | B-26: the CCQ user who recorded the Legal review. | KAM |
+| `terms_payment_terms_code` | text | yes |  |  | FB-08 (F-021): value_list requested_payment_terms code of the agreed payment terms. Not in app_setting standard_payment_terms = non-standard (sets terms_nonstandard and opens a terms_exception_request). terms_payment_terms holds the detail for "Other" (and legacy free text from before FB-08). | KAM |
+| `terms_tooling_payment` | text | yes |  |  | FB-08 (D-029): value_list tooling_payment_terms code: upfront, 50/50 (at the order and at qualification) or amortized into the per-piece price. No quarterly. | KAM |
+| `terms_milestone_note` | text | yes |  |  | FB-08 (D-029): short milestone note (≤ 300). | KAM |
+| `terms_exception_status` | text | yes |  |  | FB-08 (T-007): the current payment-terms exception request: pending \| approved \| rejected; null when the terms are standard. Pending or rejected blocks G4 Advance when g4_required_checks names terms_exception. | CCQ (system) |
+| `terms_mold_ownership` | text | yes |  |  | FB-08 (F-068): value_list mold_ownership code (Pretium, customer, shared). | KAM |
+| `terms_amortized` | boolean | yes |  |  | FB-08 (F-068): the capital is amortized (yes / no; null = not answered). | KAM |
+| `terms_amortization_months` | integer | yes |  |  | FB-08 (F-068): amortization period in months (1–120) when terms_amortized. | KAM |
+| `terms_min_supply` | text | yes |  |  | FB-08 (F-068): minimum supply / shortfall terms (≤ 300). | KAM |
+| `terms_agreement_in_place` | boolean | yes |  |  | FB-08 (F-068): a supply agreement is in place (yes / no; null = not answered). | KAM |
+| `terms_agreement_months` | integer | yes |  |  | FB-08 (F-068): agreement duration in months (1–240) when terms_agreement_in_place. | KAM |
+| `terms_finalized_at` | timestamp with time zone | yes |  |  | FB-08 (F-068, T-031): when the approver confirmed the capital terms (terms.finalize). Cleared when a capital term changes; G4 Advance needs it when g4_required_checks names terms_finalized. Locked with the terms after G4 Approve. | CCQ (system) |
+| `terms_finalized_by` | uuid | yes |  | app_user.id | FB-08 (F-068): the approver who confirmed the capital terms. | CCQ (system) |
 | `erf_number` | text | yes |  |  | B-26: legacy ERF number, a transition-only field for requests that started in the ERF application. ERFs are being retired; nothing new is created there. | Pricing |
 | `cer_id` | text | yes |  |  | Capital expenditure request id (Apex). | Pricing |
 | `bpr_id` | text | yes |  |  | Deprecated (B-26): BPR is outside CCQ. Kept for history; no longer written. | Pricing |
@@ -783,7 +817,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_terms_exception_status_check`, `quote_terms_months_check`, `quote_terms_finalized_consistency_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 
@@ -908,6 +942,34 @@ One row per stay in a stage. Powers time-in-stage (CR-55).
 **Checks:** `stage_history_exit_after_enter_check`
 
 **Indexes:** `stage_history_quote_entered_idx`, `stage_history_open_stay_idx`
+
+### terms_exception_request
+
+FB-08 (T-007): payment-terms exception requests: non-standard terms need the pricing lead to approve or reject them with a rationale.
+
+**Owner:** Pricing
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `quote_id` | uuid | no |  | quote.id | Quote. | Pricing |
+| `quote_version` | integer | no |  |  | Quote version when it was requested. | Pricing |
+| `payment_terms_code` | text | no |  |  | value_list requested_payment_terms code that was non-standard. | Pricing |
+| `payment_terms_detail` | text | yes |  |  | The terms as described (for "Other"). | Pricing |
+| `status` | text | no | "pending" |  | pending \| approved \| rejected \| withdrawn (back to standard) \| superseded (the terms changed again). | Pricing |
+| `requested_by` | uuid | no |  | app_user.id | Who entered the non-standard terms (told of the decision). | Pricing |
+| `requested_at` | timestamp with time zone | no |  |  | When it was requested. | Pricing |
+| `decided_by` | uuid | yes |  | app_user.id | The pricing lead (terms.exception.decide) who decided. | Pricing |
+| `decided_at` | timestamp with time zone | yes |  |  | When it was decided. | Pricing |
+| `rationale` | text | yes |  |  | The decision rationale (required, ≤ 1000). | Pricing |
+| `closed_at` | timestamp with time zone | yes |  |  | When it was withdrawn or superseded without a decision. | Pricing |
+
+**Checks:** `terms_exception_request_status_check`, `terms_exception_request_decision_check`
+
+**Indexes:** `terms_exception_request_quote_idx`
 
 ## Events and audit (`schema/events.ts`)
 

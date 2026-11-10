@@ -1,5 +1,5 @@
 import { BUDGETARY_CAPITAL_LABEL, type ReviewSummary } from '@ccq/contracts';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   CheckCircle2Icon,
@@ -19,11 +19,13 @@ import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
 
 import { AttachmentDownloadLink } from '../attachments/Attachments';
+import { CapitalTerms } from '../commercial/CapitalTerms';
+import { AdditionalApprovals, TermsExceptionCard } from '../commercial/TermsException';
 import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringExtras';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
-import { GateDecisionDialog } from '../GateDecisionDialog';
-import { standardTermsFrom } from '../intake/CommercialInputs';
+import { GateDecisionDialog, quoteQueryKey } from '../GateDecisionDialog';
+import { NonStandardTermsBadge, standardTermsFrom } from '../intake/CommercialInputs';
 import { intakeFactItems } from '../intake/IntakeFacts';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
@@ -263,11 +265,26 @@ function CommercialLink({ quoteNumber }: { quoteNumber: string }) {
 /**
  * FB-01 (F-069): the terms and the Legal review, read-only. Sales and Pricing own them; the approver
  * sees them here, and an open one is a warning (it blocks only if `g4_required_checks` names it).
+ * FB-08 (F-068, T-031): the approver edits and confirms the capital terms here; the payment-terms
+ * exception (T-007) and any extra sign-offs (F-082, off) show their status.
  */
 function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string }) {
   const t = s.termsAndLegal;
+  const queryClient = useQueryClient();
   const yesNo = (v: boolean | null) => (v === null ? null : v ? 'Yes' : 'No');
   const required = (check: string) => t.requiredChecks.includes(check);
+  const refresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: reviewSummaryKey(quoteNumber) }),
+      queryClient.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) }),
+    ]);
+  };
+  const payment =
+    t.termsPaymentTermsCode === null
+      ? t.termsPaymentTerms
+      : t.termsPaymentTerms && t.termsPaymentTermsCode === 'OTHER'
+        ? t.termsPaymentTerms
+        : t.termsPaymentTermsLabel;
   return (
     <Section
       id="terms-legal"
@@ -283,7 +300,22 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
           },
           { id: 'tooling', label: 'Tooling commitment', value: yesNo(t.termsToolingCommitment) },
           { id: 'moq', label: 'MOQ', value: t.termsMoq },
-          { id: 'payment', label: 'Payment terms', value: t.termsPaymentTerms },
+          {
+            id: 'payment',
+            label: 'Payment terms',
+            value: payment ? (
+              <>
+                {payment}
+                <NonStandardTermsBadge show={!!t.exception || t.termsNonstandard} />
+              </>
+            ) : null,
+          },
+          {
+            id: 'tooling-payment',
+            label: 'Tooling payment',
+            value: t.termsToolingPaymentLabel ?? t.termsToolingPayment,
+          },
+          { id: 'milestone-note', label: 'Milestone note', value: t.termsMilestoneNote },
           { id: 'nonstandard', label: 'Non-standard terms', value: yesNo(t.termsNonstandard) },
           {
             id: 'checked',
@@ -313,6 +345,33 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
           t.legal.required && <p>No review recorded.</p>
         )}
       </div>
+      <p className="text-sm font-medium" data-testid="review-terms-exception-required">
+        Payment-terms exception
+        {required('terms_exception') ? ' (must be approved to release)' : ' (a warning only)'}
+      </p>
+      {t.exception ? (
+        <TermsExceptionCard quoteNumber={quoteNumber} exception={t.exception} onSaved={refresh} />
+      ) : (
+        <p className="text-muted-foreground -mt-2 text-sm">
+          None: the payment terms are standard or not set.
+        </p>
+      )}
+      <div data-testid="review-capital-terms" className="grid gap-1">
+        {required('terms_finalized') && !t.capital.finalizedAt && (
+          <p className="text-sm">Confirm the capital terms before you release the offer.</p>
+        )}
+        <CapitalTerms
+          quoteNumber={quoteNumber}
+          view={t.capital}
+          mode={t.capital.canFinalize ? 'finalize' : 'readonly'}
+          onSaved={refresh}
+        />
+      </div>
+      <AdditionalApprovals
+        quoteNumber={quoteNumber}
+        items={t.additionalApprovals}
+        onSaved={refresh}
+      />
     </Section>
   );
 }

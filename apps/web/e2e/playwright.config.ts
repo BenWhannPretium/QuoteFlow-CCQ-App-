@@ -43,6 +43,7 @@ export default defineConfig({
         'overrides.spec.ts',
         'fb04.spec.ts',
         'fb10.spec.ts',
+        'fb08.spec.ts',
         'engineering.spec.ts',
         'pricing.spec.ts',
         'outcome.spec.ts',

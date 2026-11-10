@@ -115,3 +115,30 @@ export async function prepareBom(app: FastifyInstance, quoteNumber: string): Pro
   if (res.statusCode !== 201)
     throw new Error(`equipment_bom upload: ${res.statusCode} ${res.body}`);
 }
+
+/**
+ * FB-08 (F-068, T-031): the approver confirms the capital terms in Final Review, which G4 Advance
+ * needs (`g4_required_checks` terms_finalized). Call it on a quote in Final Review before approving.
+ */
+export async function confirmCapitalTerms(
+  app: FastifyInstance,
+  quoteNumber: string,
+  persona = personaFor('Approver'),
+): Promise<void> {
+  const res = await app.inject({
+    method: 'PUT',
+    url: `/api/v1/quotes/${quoteNumber}/terms/capital`,
+    headers: { [DEV_USER_HEADER]: persona },
+    payload: {
+      toolingFundingModel: 'COMPANY_FUNDED',
+      termsMoldOwnership: 'PRETIUM',
+      termsAmortized: false,
+      termsMinSupply: 'None',
+      termsAgreementInPlace: false,
+      finalized: true,
+    },
+  });
+  if (res.statusCode !== 200) {
+    throw new Error(`confirming the capital terms failed: ${res.statusCode} ${res.body}`);
+  }
+}

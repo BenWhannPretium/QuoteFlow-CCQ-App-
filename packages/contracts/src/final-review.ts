@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { AdditionalApprovalView, CapitalTermsView, TermsExceptionView } from './commercial';
 import { EngineeringDetail } from './eng-review';
 import { IntakeAddress } from './intake';
 import { CapitalReadiness, QuotingDetail } from './pricing';
@@ -137,11 +138,23 @@ export const ReviewSummary = z.object({
     toolingFundingModelLabel: z.string().nullable(),
     termsToolingCommitment: z.boolean().nullable(),
     termsMoq: z.string().nullable(),
+    /** FB-08 (F-021): list code + label, the "Other" detail, and the D-029 milestone option. */
+    termsPaymentTermsCode: z.string().nullable(),
+    termsPaymentTermsLabel: z.string().nullable(),
     termsPaymentTerms: z.string().nullable(),
     termsNonstandard: z.boolean(),
+    termsToolingPayment: z.string().nullable(),
+    termsToolingPaymentLabel: z.string().nullable(),
+    termsMilestoneNote: z.string().nullable(),
     termsNotes: z.string().nullable(),
     checkedAt: z.string().nullable(),
     checkedByName: z.string().nullable(),
+    /** FB-08 (F-068): the capital terms the approver confirms here. */
+    capital: CapitalTermsView,
+    /** FB-08 (T-007): the payment-terms exception. */
+    exception: TermsExceptionView,
+    /** FB-08 (F-082): extra sign-offs (empty while off). */
+    additionalApprovals: z.array(AdditionalApprovalView),
     legal: z.object({
       required: z.boolean(),
       reasons: z.array(z.object({ code: z.string(), label: z.string() })),
