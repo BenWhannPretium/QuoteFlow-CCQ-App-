@@ -87,8 +87,35 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
 
   const solution = eng.getByTestId('solution-form');
   await solution.getByLabel('Process type').selectOption({ label: 'EBM' });
-  await solution.getByLabel('Machine type').selectOption({ label: 'EBM shuttle' });
-  await solution.getByLabel('Plant / site').selectOption({ index: 1 });
+  // FB-13 (F-057): Jim Zweifel's 14 machine types and 22 locations, as sent; the placeholders are gone.
+  const machineOptions = solution.getByLabel('Machine type').locator('option');
+  await expect(machineOptions).toHaveText([
+    'Choose…',
+    'EBM',
+    'IBM',
+    'ISBM',
+    'RHB',
+    'INJ - CAP',
+    'INJ - PREFORM',
+    'INJ - OTHER',
+    'DECO',
+    'PAD PRINTING',
+    '12B',
+    'DIE CUTTING',
+    'LAMINATION',
+    'PRINTING',
+    'STAMPING',
+  ]);
+  const plantOptions = solution.getByLabel('Plant / site').locator('option');
+  await expect(plantOptions).toHaveCount(23); // the blank choice + 22 locations
+  await expect(plantOptions.filter({ hasText: 'Etten.Leur' })).toHaveCount(1);
+  await expect(plantOptions.filter({ hasText: 'Lerma, Ediplast' })).toHaveCount(1);
+  await expect(plantOptions.filter({ hasText: 'Placeholder' })).toHaveCount(0);
+  await expect(
+    solution.getByLabel('Machine type').locator('option', { hasText: 'shuttle' }),
+  ).toHaveCount(0);
+  await solution.getByLabel('Machine type').selectOption({ label: 'EBM' });
+  await solution.getByLabel('Plant / site').selectOption({ label: 'Aurora' });
   // F-057: a whole number from 1 to 99.
   await expect(solution.getByLabel('Cavitation')).toHaveAttribute('max', '99');
   // F-064: budgetary, not a CER figure.
@@ -257,15 +284,15 @@ test('the engineer submits to the engineering lead, who sends it back with a not
   await call('post', 'eng-review/accept', 'engineer');
   await call('put', 'eng-review', 'engineer', {
     processType: 'EBM',
-    machineType: 'EBM_SHUTTLE',
-    plantCode: 'PLANT_01',
+    machineType: 'EBM',
+    plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
   });
   await call('put', 'capacity-evidence', 'engineer', {
     rows: [
       {
-        site: 'PLANT_01',
+        site: 'AURORA',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
         utilizationBeforePct: 62,

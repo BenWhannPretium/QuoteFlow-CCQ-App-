@@ -38,15 +38,15 @@ async function uncheckedInFinalReview(request: APIRequestContext): Promise<strin
   await post('gates/G1/decisions', 'sales-leader', { outcomeKey: 'advance' });
   await put('eng-review', 'eng-lead', {
     processType: 'EBM',
-    machineType: 'EBM_SHUTTLE',
-    plantCode: 'PLANT_01',
+    machineType: 'EBM',
+    plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
   });
   await put('capacity-evidence', 'eng-lead', {
     rows: [
       {
-        site: 'PLANT_01',
+        site: 'AURORA',
         assumedEffectivenessPct: 70,
         cycleTimeS: 14.5,
         utilizationBeforePct: 62,

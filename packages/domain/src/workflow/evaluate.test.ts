@@ -380,7 +380,7 @@ describe('validation: all errors, in order', () => {
         fields: {
           process_type: 'ISBM',
           machine_type: 'ISBM_1STEP',
-          plant_code: 'PLANT_01',
+          plant_code: 'AURORA',
           cavitation: 4,
           cycle_time_s: 12,
           capacity_evidence: [{}],

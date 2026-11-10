@@ -14,6 +14,7 @@
 | Placeholder | What it is |
 |---|---|
 | `<CCQ-ENG-1>` … `<CCQ-ENG-8>` | Eight quotes in Engineering Review, staged by Ben from `<SF-OPP-10..17 chosen by Bailey>`. ENG-1 has a drawing. |
+| `<CCQ-ENG-OLD>` | A quote from before FB-13 whose Engineering Review is on a placeholder plant or machine type (Ben stages one; Part F step 61) |
 | A CAD file | A STEP or DWG file and a PDF you may upload |
 | `<CCQ-QT-1 staged by Ben>` | A quote in Quoting (for the read-only check) |
 | `<CCQ-QT-6>` | The quote Pricing sends back to Engineering in pricing.md step 24 (staged by Ben) |
@@ -43,7 +44,7 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 | 12 | Engineer | Click **My assignments**. | "Your engineering reviews first, then the whole queue (read-only)." Your quotes are on top. | | |
 | 13 | Engineer | Open `<CCQ-ENG-1>` → **Engineering** tab. Click **Accept (start review)**. | "Review accepted". **Accepted** shows the time. | | |
 | 14 | Engineer | Read the product facts at the top of the tab. | A **Product facts** block shows what the KAM entered: resin and customer-specified grade, PCR %, color and additives, decoration and mold change, dimensions, destination, the needed-by dates and any variants note. You do not retype them. | | |
-| 15 | Engineer | In **Solution** fill **Process type**, **Machine type**, **Plant / site**, **Cavitation**, **Cycle time (s)**, **Budgetary capital estimate (USD)**, **Tooling notes (mold, hot runner)**, **Technical concept**, **Supply Chain**. Click **Save solution**. | "Engineering review saved". The capital label reads **Budgetary capital estimate (USD)** with "A budgetary figure for quoting." **EBM wheel** is not in the **Machine type** list. **Cavitation** accepts only whole numbers from 1 to 99. There is no **Downstream equipment** or **Equipment BOM** text box any more (FB-06). | | |
+| 15 | Engineer | In **Solution** fill **Process type**, **Machine type**, **Plant / site**, **Cavitation**, **Cycle time (s)**, **Budgetary capital estimate (USD)**, **Tooling notes (mold, hot runner)**, **Technical concept**, **Supply Chain**. Click **Save solution**. | "Engineering review saved". The capital label reads **Budgetary capital estimate (USD)** with "A budgetary figure for quoting." **EBM wheel** and the old placeholder machine types (EBM shuttle, IBM press, …) are not in the **Machine type** list: it shows Jim Zweifel's 14 types (FB-13, Part F). **Cavitation** accepts only whole numbers from 1 to 99. There is no **Downstream equipment** or **Equipment BOM** text box any more (FB-06). | | |
 | 15a | Engineer | In **Equipment BOM** click **Upload the equipment BOM** and pick an .xlsx (the one-page CSR BOM). Then **Upload a new version**. | "Equipment BOM version 1 uploaded", then the file shows **v1 · current** with your name and the time. After the second upload it shows **v2 · current** and **Earlier versions (1)** lists v1. Before the first upload the card says it is needed for "Capital required". | | |
 | 15b | Engineer | In **Two-step process and pack-out** tick **Two-step process**. Pick a **Preform plant** and a **Blow plant**, type a **Preform number** and a **Freight between the plants** note. Fill **Units per case** and **Units per pallet**. Click **Save**. Then untick the box and save. | "Saved". The four two-step details appear only while the box is ticked and are cleared when you untick it. Pack-out takes whole numbers only. | | |
 | 15c | Engineer | If you have a quote with older **Downstream equipment** or **Equipment BOM** text, open its **Engineering** tab. | A read-only **Legacy notes** card shows the old text. You cannot edit it. | | |
@@ -103,6 +104,20 @@ Added 2026-11-10 for FB-06 (F-058, F-062, F-024, F-025). Steps 5, 15, 15a–15c 
 | 52 | Lead | On `<CCQ-ENG-3>` after its G2 in step 36, open the **Engineering** tab. Try **Upload a new version** of the BOM. | Not offered, or refused as locked: "Locked after G2". The BOM, two-step and pack-out details are read-only for everyone until a send-back reopens them. | | |
 | 53 | Engineer | On `<CCQ-ENG-3>` before G2 (or any quote you own), in **Two-step process and pack-out** type letters or a decimal in **Units per pallet**. Then type a **Preform number** over 40 characters. | Pack-out takes whole numbers only. The preform number stops at 40 characters (the freight note at 300). | | |
 | 54 | Engineer | On a quote that reached **Quoting** after you entered two-step and pack-out details, open the **Quoting** tab. | A **From engineering** card shows the equipment BOM (file, version, who uploaded it and when), the two-step details and the pack-out. Read-only. (Pricing checks the same in pricing.md step 33.) | | |
+
+## Part F: FB-13 checks (plants and machine types)
+
+Added 2026-11-10 for FB-13 (F-057). The plant and machine-type lists are Jim Zweifel's, sent on 2026-11-10 and approved: nothing here is provisional. **Jim or the lead checks the lists against the spreadsheet he sent; an odd-looking entry ("12B", "Etten.Leur") is as he sent it and is not a defect.**
+
+| # | Who | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|---|
+| 55 | Engineer | On a quote you own, open **Solution** and open the **Plant / site** list. | 22 locations, in this order: Aurora, Bethlehem, Boxmore, Carrollton, Cleveland, OH, Cleveland, TN, Lerma, Ediplast, Lerma, Ediprint, Etten.Leur, Greensboro, Hazleton, Hillsborough, Leipsic, Manchester, Peru, Salt Lake City, St. Charles, St. Laurent, St. Louis, Toronto, Troy, Vancouver. No **Placeholder plant**. | | |
+| 56 | Engineer | Open the **Machine type** list. | 14 types: EBM, IBM, ISBM, RHB, INJ - CAP, INJ - PREFORM, INJ - OTHER, DECO, PAD PRINTING, 12B, DIE CUTTING, LAMINATION, PRINTING, STAMPING. No **Provisional list** note under the label. | | |
+| 57 | Lead | Compare each location's machine types with Jim's spreadsheet (for example St. Charles: 12B, INJ - CAP, ISBM, RHB, DECO). Write any difference in Notes. | The list matches the spreadsheet. (The machine types per plant are held with the plant but are not used to filter the lists yet; you may pick any pair.) | | |
+| 58 | Engineer | Pick a **Plant / site** and a **Machine type**, fill the rest of the solution and **Save solution**. Reload the page. | "Engineering review saved". Both values are shown as you picked them. | | |
+| 59 | Engineer | With **Two-step process** ticked (step 15b), open **Preform plant** and **Blow plant**. In **Capacity evidence**, open a row's **Site**. | The same 22 locations in all three lists. | | |
+| 60 | Lead | Repeat step 48 (**…** → **Assign…** on a PET and an HDPE quote). | The suggestions are the same as before FB-13: Neiberger for PET, Pasillas for HDPE. The new machine types do not change who is suggested: it follows the **Process type** (ISBM, RHB and injection to the PET engineer; EBM and IBM to the polyolefin engineer) and the resin. (D-008 is still open.) | | |
+| 61 | Lead | Open a quote from before today that was on a placeholder plant or machine type (Ben stages one as `<CCQ-ENG-OLD>`). | The old value shows as **Placeholder plant 01 (no longer offered)**; the quote still opens, and other edits save. The new list is offered for a change. | | |
 
 ## Sign-off
 

@@ -67,7 +67,8 @@ describe('config seeds', () => {
       request_class: 4,
       drawing_status: 4,
       packaging_type: 5,
-      plant: 3,
+      plant: 25, // FB-13: Jim Zweifel's 22 locations + the 3 placeholders kept inactive
+      machine_type: 21, // FB-13: his 14 types + the 7 placeholders kept inactive
       // FB-02: Jim Zweifel's neck lists (F-010), PCR (F-055), color (F-023), component follow-ups (F-013).
       neck_diameter: 29,
       neck_finish_type: 18,
@@ -165,10 +166,11 @@ describe('config seeds', () => {
       'sf_stage_map',
     ]) {
       // FB-09: Danielle Leu approved product family and resin; FB-12: Melanie Rasche approved the
-      // 8 active markets (both 2026-11-09). Nothing else is approved.
+      // 8 active markets (both 2026-11-09); FB-13: Jim Zweifel approved the plants and machine types
+      // (2026-11-10). Nothing else is approved.
       const approved =
         table === 'value_list'
-          ? sql`provisional = false and list_key not in ('product_family', 'resin', 'market')`
+          ? sql`provisional = false and list_key not in ('product_family', 'resin', 'market', 'plant', 'machine_type')`
           : sql`provisional = false`;
       expect(await count(table, approved), table).toBe(0);
     }

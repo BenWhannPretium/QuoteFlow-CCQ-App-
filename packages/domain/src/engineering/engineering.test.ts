@@ -247,7 +247,7 @@ describe('who may assign, accept and edit', () => {
 
 describe('capacity evidence (CR-19, F-059)', () => {
   const row = (over: Partial<CapacityRowInput> = {}): CapacityRowInput => ({
-    site: 'PLANT_01',
+    site: 'AURORA',
     lineAsset: ' Line 4 ',
     assumedEffectivenessPct: 80,
     cycleTimeS: 10,

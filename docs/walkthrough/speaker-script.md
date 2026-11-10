@@ -177,8 +177,8 @@ FILL (**Engineering** tab, Solution):
 | Field | Enter |
 |---|---|
 | Process type | EBM |
-| Machine type | EBM shuttle |
-| Plant / site | Placeholder plant 01 |
+| Machine type | EBM |
+| Plant / site | Aurora |
 | Cavitation | 4 |
 | Cycle time (s) | 12 |
 | Preliminary capital (USD) | 450000 |
@@ -194,7 +194,7 @@ FILL (Capacity evidence row):
 
 | Field | Enter |
 |---|---|
-| Site | Placeholder plant 01 |
+| Site | Aurora |
 | Line / asset | EBM-07 |
 | Assumed effectiveness % | 82 |
 | Cycle time (s) | 12 |

@@ -298,7 +298,7 @@ describe('0036 FB-09 data migration', () => {
 });
 
 describe('FB-09 report (read only)', () => {
-  it('lists quotes with a retired resin and quotes on a placeholder plant', async () => {
+  it('lists quotes with a retired resin and quotes on a retired placeholder plant', async () => {
     await rolledBack(async (tx) => {
       await tx.execute(
         sql`update quote set resin = 'PCR_HDPE'
@@ -318,6 +318,8 @@ describe('FB-09 report (read only)', () => {
         'PLANT_02',
         'PLANT_03',
       ]);
+      // FB-13: it also lists retired machine types (see fb13-migration.int.test.ts).
+      expect(report.retiredMachineTypes.map((t) => t.code)).toContain('EBM_SHUTTLE');
     });
   });
 });

@@ -155,8 +155,8 @@ async function inEngineering() {
   ok(
     await persona('eng-lead').put(`/api/v1/quotes/${qn}/eng-review`, {
       processType: 'EBM',
-      machineType: 'EBM_SHUTTLE',
-      plantCode: 'PLANT_01',
+      machineType: 'EBM',
+      plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
       prelimCapitalUsd: 250_000,
@@ -167,7 +167,7 @@ async function inEngineering() {
     await persona('eng-lead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
       rows: [
         {
-          site: 'PLANT_01',
+          site: 'AURORA',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
           utilizationBeforePct: 62,

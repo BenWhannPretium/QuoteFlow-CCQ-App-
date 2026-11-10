@@ -177,8 +177,8 @@ async function inFinalReview(o: Opts = {}) {
   ok(
     await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
       processType: 'EBM',
-      machineType: 'EBM_SHUTTLE',
-      plantCode: 'PLANT_01',
+      machineType: 'EBM',
+      plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
       prelimCapitalUsd: o.prelimCapitalUsd ?? 250_000,
@@ -189,7 +189,7 @@ async function inFinalReview(o: Opts = {}) {
     await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
       rows: [
         {
-          site: 'PLANT_01',
+          site: 'AURORA',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
           utilizationBeforePct: 62,
@@ -487,8 +487,8 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     // engineering solution + capacity evidence (numbers included for an Approver)
     expect(dto.engineering.review).toMatchObject({
       processType: 'EBM',
-      machineType: 'EBM_SHUTTLE',
-      plantCode: 'PLANT_01',
+      machineType: 'EBM',
+      plantCode: 'AURORA',
       cavitation: 8,
       prelimCapitalUsd: 250_000,
     });

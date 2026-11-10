@@ -618,15 +618,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             acceptedAt: at,
             acceptedBy: analyst.id,
             processType,
-            machineType: rng.pick([
-              'EBM_SHUTTLE',
-              'EBM_WHEEL',
-              'IBM_PRESS',
-              'ISBM_1STEP',
-              'ISBM_2STEP',
-              'INJECTION_PRESS',
-            ]),
-            plantCode: rng.pick(['PLANT_01', 'PLANT_02', 'PLANT_03']),
+            // FB-13 (F-057): Jim Zweifel's machine types and plants (same number of draws as before).
+            machineType: rng.pick(['EBM', 'IBM', 'ISBM', 'RHB', 'INJ-CAP', 'INJ-PREFORM']),
+            plantCode: rng.pick(['AURORA', 'BETHLEHEM', 'CARROLLTON']),
             cavitation: rng.pick([2, 4, 6, 8, 12, 16]),
             cycleTimeS: rng.float(6, 28, 1),
             toolingNotes: rng.chance(0.5)
@@ -642,7 +636,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
           const evidenceCount = rng.chance(0.25) ? 2 : 1;
           const quoteVolume = (await getQuoteById(db, quoteId))?.estAnnualVolume ?? null;
           for (let k = 0; k < evidenceCount; k++) {
-            const site = rng.pick(['PLANT_01', 'PLANT_02', 'PLANT_03']);
+            const site = rng.pick(['AURORA', 'BETHLEHEM', 'CARROLLTON']);
             const lineAsset = `Line ${rng.int(1, 12)}`;
             const assumedEffectivenessPct = rng.float(60, 85, 1);
             const cycleTimeS = rng.float(6, 28, 1);

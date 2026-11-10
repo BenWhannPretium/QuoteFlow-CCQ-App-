@@ -274,6 +274,13 @@
       "when": 1794320180454,
       "tag": "0038_fb08_terms_final_review",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794330000000,
+      "tag": "0039_fb13_plants_machine_types",
+      "breakpoints": true
     }
   ]
 }

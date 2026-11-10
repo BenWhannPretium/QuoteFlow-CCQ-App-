@@ -82,8 +82,8 @@ describe('two-step process and pack-out (F-024, F-025)', () => {
   const twoStep: SolutionExtras = {
     ...EMPTY_SOLUTION_EXTRAS,
     twoStep: true,
-    preformPlantCode: 'PLANT_01',
-    blowPlantCode: 'PLANT_02',
+    preformPlantCode: 'AURORA',
+    blowPlantCode: 'BETHLEHEM',
     preformNumber: 'PF-2210',
     twoStepFreightNote: 'Preforms ship by truck, weekly.',
   };

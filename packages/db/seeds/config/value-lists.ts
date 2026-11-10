@@ -1,4 +1,13 @@
 import { upsertConfig } from './_upsert';
+import {
+  MACHINE_TYPES,
+  PLANT_LIST_APPROVED_AT,
+  PLANT_LIST_APPROVER,
+  PLANTS,
+  plantCode,
+  RETIRED_MACHINE_TYPES,
+  RETIRED_PLANTS,
+} from './plants';
 import type { DbOrTx } from '../../src/client';
 import type { ValueListKey } from '../../src/schema/enums';
 import { valueList } from '../../src/schema/index';
@@ -64,7 +73,8 @@ export const SUB_MARKETS: readonly [market: string, code: string, label: string]
 /**
  * Value lists from the ERF Template Rev D (2026-03-17). All provisional until confirmed at M4
  * (Jim Zweifel, Danielle Leu), except product family and resin, which Danielle Leu approved on
- * 2026-11-09 (FB-09, APPROVED_VALUE_LISTS).
+ * 2026-11-09 (FB-09, APPROVED_VALUE_LISTS), the markets (Melanie Rasche, FB-12), and the plants and
+ * machine types (Jim Zweifel, 2026-11-10, FB-13).
  */
 export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   process_type: [
@@ -160,14 +170,20 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     // FB-09 (F-012, D-016 default): reserved for customer-dictated packaging; the note is then required.
     ['OTHER', 'Other', { freeText: true }],
   ],
-  // TODO(M4): load the ~29 plants from the ERF template.
+  // FB-13 (F-057): the 22 locations exactly as Jim Zweifel sent them (2026-11-10), approved. `meta.machineTypes`
+  // is the machine-type codes at that location (data, not code). The three placeholders are kept inactive so
+  // old quotes still show their label (`INACTIVE_VALUES`); migration 0039 deactivates them in existing
+  // environments.
   plant: [
+    ...PLANTS.map((p): Entry => [plantCode(p.name), p.name, { machineTypes: [...p.machineTypes] }]),
     ['PLANT_01', 'Placeholder plant 01'],
     ['PLANT_02', 'Placeholder plant 02'],
     ['PLANT_03', 'Placeholder plant 03'],
   ],
-  // TODO(M4): placeholder machine types for Engineering Review; confirm with Jim Zweifel.
+  // FB-13 (F-057): Jim Zweifel's machine types (2026-11-10), approved, labels as sent. The old placeholders
+  // are kept inactive (EBM_WHEEL since FB-03).
   machine_type: [
+    ...MACHINE_TYPES.map(([code, label]): Entry => [code, label]),
     ['EBM_SHUTTLE', 'EBM shuttle'],
     ['EBM_WHEEL', 'EBM wheel'],
     ['IBM_PRESS', 'IBM press'],
@@ -339,10 +355,12 @@ export const RETIRED_VALUE_LISTS: ReadonlySet<ValueListKey> = new Set(['neck_fin
 
 /**
  * Entries kept for old quotes but not offered (`active = false`). FB-03 (F-057): the EBM wheel is gone
- * from the machine type list. Migration 0027 deactivates it in existing environments.
+ * from the machine type list (migration 0027). FB-13 (F-057): the placeholder plants and machine types
+ * (migration 0039).
  */
 const INACTIVE_VALUES: ReadonlySet<string> = new Set([
-  'machine_type:EBM_WHEEL',
+  ...RETIRED_MACHINE_TYPES.map((code) => `machine_type:${code}`),
+  ...RETIRED_PLANTS.map((code) => `plant:${code}`),
   // FB-12 (F-020): the retired market codes. Migration 0037 deactivates them in existing environments.
   ...RETIRED_MARKETS.map((code) => `market:${code}`),
 ]);
@@ -377,7 +395,7 @@ export function valueListRows() {
           : {}),
       },
       // FB-09: product family and resin (Danielle Leu). FB-12: the active markets (Melanie Rasche).
-      // Everything else is provisional.
+      // FB-13: the active plants and machine types (Jim Zweifel). Everything else is provisional.
       ...(ownerApproval(listKey, code)
         ? { provisional: false, approvedAt: ownerApproval(listKey, code)!.approvedAt }
         : { provisional: true }),
@@ -393,13 +411,24 @@ function isApprovedMarket(listKey: string, code: string): boolean {
   return listKey === 'market' && !INACTIVE_VALUES.has(`market:${code}`);
 }
 
-/** Who signed off this entry's list, if anyone: FB-09's APPROVED_VALUE_LISTS, or FB-12's markets. */
+/** FB-13: the active plants and machine types are approved by Jim Zweifel (the placeholders stay as they are). */
+function isApprovedPlantOrMachine(listKey: string, code: string): boolean {
+  return (
+    (listKey === 'plant' || listKey === 'machine_type') &&
+    !INACTIVE_VALUES.has(`${listKey}:${code}`)
+  );
+}
+
+/** Who signed off this entry's list, if anyone: FB-09's APPROVED_VALUE_LISTS, FB-12's markets, FB-13's plants. */
 function ownerApproval(
   listKey: string,
   code: string,
 ): { approvedByName: string; approvedAt: Date } | null {
   const list = APPROVED_VALUE_LISTS[listKey as ValueListKey];
   if (list) return list;
+  if (isApprovedPlantOrMachine(listKey, code)) {
+    return { approvedByName: PLANT_LIST_APPROVER, approvedAt: PLANT_LIST_APPROVED_AT };
+  }
   return isApprovedMarket(listKey, code)
     ? { approvedByName: MARKET_APPROVER, approvedAt: MARKET_APPROVED_AT }
     : null;
