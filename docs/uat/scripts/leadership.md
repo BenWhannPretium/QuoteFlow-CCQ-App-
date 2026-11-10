@@ -60,6 +60,17 @@
 | 23 | **Admin** → **App settings**. Then **Reason codes**. | You can read every setting. There are no edit controls. | | |
 | 24 | **Engineering queue** and **Pricing queue**. | Both open read-only. No **Assign…**, **Assign pricer…** or **Reassign work…**. | | |
 
+## Part E: Final Review terms and Market (FB-08, FB-12)
+
+Added 2026-11-10. Leadership reads the terms and the capital terms; the approver confirms them.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 25 | **Approvals** → **Final Review** → open a quote → **Terms and Legal**. | You can read **Funding model**, **MOQ**, **Payment terms**, **Tooling payment**, the **Payment-terms exception** (with its status) and the **Capital terms** (mold ownership, amortized, minimum supply / shortfall, agreement, and who confirmed them and when). You cannot edit any of it: there is no **Confirm capital terms**, **Save capital terms**, **Approve the exception** or **Reject**. | | |
+| 26 | On the same page read **The request** → **Market**. | "<Market> › <Sub-market>", for example "Food › Snacks & Confections". | | |
+| 27 | **Admin** → **App settings** → **Final Review**. Read **Extra Final Review sign-offs by funding model (e.g. sales leader, then leadership). Rules with active: false do nothing**. | You can read it. It says `"active": false` (the extra approval is off) and there is no **Edit**. The rule is: when the customer funds the capital, the sales leader signs off, then leadership. Is that the rule you want (A-035 is open)? Write your view in Notes. | | |
+| 28 | **Optional.** Only if Bailey runs `approver.md` Part G: sign off as **Leadership**. | See `approver.md` steps 38 and 40. You can sign only after the sales leader has. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |
