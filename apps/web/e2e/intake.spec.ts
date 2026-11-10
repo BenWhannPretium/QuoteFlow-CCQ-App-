@@ -303,7 +303,9 @@ test.describe('KAM intake', () => {
     await page.locator('#intake-additive').selectOption({ label: 'UV' });
     await expect(page.locator('#intake-additives')).toBeVisible(); // optional note for a listed choice
     await page.locator('#intake-additive').selectOption({ label: 'Other' });
-    await expect(page.getByText('Customer-specified additive')).toBeVisible();
+    await expect(
+      page.locator('label[for="intake-additives"]', { hasText: 'Customer-specified additive' }),
+    ).toBeVisible();
     await page.locator('#intake-additives').fill('');
 
     // Resin = Other (when Salesforce did not supply the resin): the grade is required too.
@@ -311,7 +313,11 @@ test.describe('KAM intake', () => {
     const resinEditable = (await resin.count()) > 0;
     if (resinEditable) {
       await resin.selectOption({ label: 'Other' });
-      await expect(page.getByText('Customer-specified resin and grade')).toBeVisible();
+      await expect(
+        page.locator('label[for="intake-resin-grade"]', {
+          hasText: 'Customer-specified resin and grade',
+        }),
+      ).toBeVisible();
       await page.locator('#intake-resin-grade').fill('');
     }
 
@@ -322,7 +328,7 @@ test.describe('KAM intake', () => {
     const blocking = page.getByTestId('blocking-list');
     await expect(blocking).toBeVisible();
     await expect(blocking).toContainText('Customer-specified PCR level');
-    await expect(blocking).toContainText('Customer-specified additive');
+    await expect(blocking).toContainText('Additives is required');
     if (resinEditable) await expect(blocking).toContainText('Customer-specified resin and grade');
     await expect(page.getByRole('button', { name: 'Submit to CCQ' })).toBeDisabled();
 
@@ -337,8 +343,8 @@ test.describe('KAM intake', () => {
     await page.getByRole('button', { name: 'Submit to CCQ' }).click();
     await expect(page.getByTestId('submitted')).toBeVisible();
     await page.getByRole('link', { name: 'Open the quote' }).click();
-    await expect(page.getByText('35% PCR')).toBeVisible();
-    await expect(page.getByText('Customer nucleating agent')).toBeVisible();
+    await expect(page.getByText('35% PCR').first()).toBeVisible();
+    await expect(page.getByText('Customer nucleating agent').first()).toBeVisible();
     if (resinEditable)
       await expect(page.getByTestId('fact-resin-grade')).toHaveText('Eastman Tritan TX1001');
   });

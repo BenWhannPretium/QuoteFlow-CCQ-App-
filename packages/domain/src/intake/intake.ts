@@ -311,7 +311,11 @@ export function productFactIssues(values: FieldValues, config: IntakeConfig): In
     invalid('pcr_level_other', `Keep it to ${INTAKE_TEXT_LIMITS.pcr_level_other} characters`);
   }
 
-  if (values.resin_customer_specified === true && !isPresent(values.resin_grade)) {
+  if (
+    values.resin_customer_specified === true &&
+    !isPresent(values.resin_grade) &&
+    !issues.some((i) => i.field === 'resin_grade') // already asked for by an Other resin (FB-09)
+  ) {
     missing('resin_grade', 'resin_grade is required');
   }
   if (tooLong(values.resin_grade, INTAKE_TEXT_LIMITS.resin_grade)) {

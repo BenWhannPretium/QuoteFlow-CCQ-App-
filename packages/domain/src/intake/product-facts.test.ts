@@ -194,6 +194,12 @@ describe('conditional requirements', () => {
       expect(cleared({ resin: 'PET', resin_customer_specified: false })).toBe(true);
     });
 
+    it('an Other resin that is also customer-specified asks for the grade once', () => {
+      expect(blocking({ resin: 'OTHER', resin_customer_specified: true })).toEqual([
+        'MISSING_FIELD:resin_grade',
+      ]);
+    });
+
     it('the customer-specified checkbox stays independent of Other', () => {
       expect(blocking({ resin: 'PET', resin_customer_specified: true })).toEqual([
         'MISSING_FIELD:resin_grade',
