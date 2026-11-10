@@ -16,7 +16,7 @@ import { addCalendarDays, proposalCalendarDate } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { prepareModels } from './model-helpers';
+import { confirmCapitalTerms, prepareModels } from './model-helpers';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
 import { testConfig } from '../src/test-utils';
@@ -229,12 +229,14 @@ async function inCustomerDecision() {
   // B-26: the KAM checks the terms before the offer is released.
   ok(
     await persona('kam').put(`/api/v1/quotes/${qn}/terms`, {
-      termsPaymentTerms: 'Net 45',
+      termsPaymentTermsCode: 'NET_30',
       termsToolingCommitment: false,
       checked: true,
     }),
     200,
   );
+  // FB-08 (F-068, T-031): the approver confirms the capital terms.
+  await confirmCapitalTerms(app, qn);
   ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'approver'));
   tick();
   return qn;
