@@ -11,7 +11,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useState } from 'react';
 
-
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +36,6 @@ import {
   type ReferenceKind,
 } from './PricingContextPanel';
 import { QuotingSteps } from './QuotingSteps';
-
 
 export { pricingQueueQueryKey };
 

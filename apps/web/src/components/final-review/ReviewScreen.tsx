@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-
 import { Button, buttonVariants } from '@/components/ui/button';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
@@ -35,7 +34,6 @@ import { PriorityBadge, ScoreBreakdownTable } from '../Priority';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
 import { reviewSummaryKey } from './keys';
-
 
 const money = (n: number | null | undefined) =>
   n === null || n === undefined ? null : `$${n.toLocaleString('en-US')}`;

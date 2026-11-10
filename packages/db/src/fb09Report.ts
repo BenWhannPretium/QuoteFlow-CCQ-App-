@@ -17,7 +17,11 @@ export const PLACEHOLDER_PLANT_CODES = ['PLANT_01', 'PLANT_02', 'PLANT_03'] as c
 
 export interface Fb09Report {
   retiredResin: { code: string; quoteNumbers: string[] }[];
-  placeholderPlants: { code: string; reviewQuoteNumbers: string[]; capacityQuoteNumbers: string[] }[];
+  placeholderPlants: {
+    code: string;
+    reviewQuoteNumbers: string[];
+    capacityQuoteNumbers: string[];
+  }[];
 }
 
 const list = (codes: readonly string[]) =>

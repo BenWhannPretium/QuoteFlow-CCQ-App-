@@ -1,12 +1,10 @@
 import type { QuoteIntakeFacts } from '@ccq/contracts';
 import { neckSummary } from '@ccq/domain';
 
-
 import type { KeyValueItem } from '@/components/KeyValueGrid';
 
 import { commercialFactItems } from './CommercialInputs';
 import { factLabel, type Lists } from './factLabel';
-
 
 export { factLabel };
 

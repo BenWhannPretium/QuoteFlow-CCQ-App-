@@ -4,7 +4,6 @@ import { Link } from '@tanstack/react-router';
 import { CheckIcon, InboxIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
-
 import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { CAPITAL_LABELS } from '@/components/pricing/QuotingTab';
 import { buttonVariants } from '@/components/ui/button';
