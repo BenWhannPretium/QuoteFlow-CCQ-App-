@@ -17,6 +17,10 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 >
 > Labels in the scripts come from the app's code as built; Ben re-checks them against the test site before Nov 9.
 
+> **Updated 2026-11-10 for FB-06 and FB-10.**
+> - **FB-06 (engineering):** `engineering.md` step 36 now expects the equipment BOM before "Capital required", and a new **Part E** (steps 48–54) covers the engineer suggestions, removing a BOM, the lock after G2, the two-step and pack-out limits, and the **From engineering** card. Pricing checks that card in `pricing.md` **Part F** (steps 33–34), approvers in `approver.md` **Part D** (step 23).
+> - **FB-10 (priority calibration):** new script `scripts/priority-calibration.md` (session **U3b**). The Admin preview of the draft scoring model, Leadership's read-only view, and the platform-minimum warning and volume-band routing, which an Admin switches on for the test and **off again** at the end.
+
 ## What is in the pack
 
 | Path | What it is |
@@ -42,6 +46,7 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 | **U1** | Mon Nov 9 (2 h) | `scripts/kam.md`, `scripts/sales-leader.md` | Jordan Albin and 1–2 KAMs (e.g. Linda Vinegar, Josh Edmonson); a sales leader (Matt Graden or Jack Gordon's delegate) | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader` |
 | **U2** | Tue Nov 10 (2 h) | `scripts/engineering.md` | Jim Zweifel's team (lead and engineers), Faron Ipox (capacity) | `SG-CCQ-EngLead`, `SG-CCQ-Engineer` |
 | **U3** | Wed Nov 11 (2 h) | `scripts/pricing.md`, `scripts/finance.md` (FB-07), `scripts/approver.md`, `scripts/leadership.md` | Gemma Cebolla and a pricing analyst, the pricing lead; Stacy Slocum (Finance, ROI); the Final Review approver candidate(s) (D-10); leadership | `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance` (A-032), `SG-CCQ-Approver`, `SG-CCQ-Leadership` |
+| **U3b** | Wed Nov 11 (30 min), after U3 | `scripts/priority-calibration.md` (FB-10) | Ben (Admin), the U3 leadership tester, a sales leader and a KAM (test accounts if the U1 testers are not free) | `SG-CCQ-Admin`, `SG-CCQ-Leadership`, `SG-CCQ-SalesLeader`, `SG-CCQ-KAM` |
 | **U4** | Wed Nov 11 (60 min) | `scripts/security-access.md` | IT security delegate, with Ben | One test account per group, plus one in no group |
 | **U5** | Thu Nov 12 (45 min) | `scripts/tie-out.md` | Zac Cairns, Graham Parle, D&A (Brennan Paul's engineer), with Ben | `SG-CCQ-Admin` (Ben); a non-commercial D&A account |
 | **U6** sign-off | Fri Nov 13, 10:00 (45 min) | The signed sign-off tables of every script, plus `defect-log.md` | Darren Miller, Bailey, Tre, Ben, gate-owner candidates (Jim, Gemma, the approver), Oliver Kade / IT | — |
