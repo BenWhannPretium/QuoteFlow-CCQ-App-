@@ -124,3 +124,13 @@ Column M holds a formula (`Ready to Size`). When you paste, skip it: copy the fo
    - **D-019** (concept projects): Paul says Innovation and Concepts should be handled by Danielle's team until a concept drawing exists. Danielle says a concept project should select a type that minimizes the required fields, and that an opportunity is required before concept design starts.
    - **D-022** (plant operations): Paul says for a customer quote plant engagement should be as-needed to answer Engineering's questions on existing line capabilities; for a CER the plants should be fully engaged.
    - **A-023** (Faron's utilization formula): his Nov 4 email repeats "trending OEE" twice in step 2, so the typo question is still open.
+
+## 8. Update 2026-11-10 (F-026, A-030)
+
+Kal Kaliszewski says the engineering estimate workbook is the *Pretium Project Workbook Template*, the same file as the BOM template. The mapping is in [`engineering-estimate-mapping.md`](engineering-estimate-mapping.md).
+
+- **Build Backlog, F-026, Detail / Context:** add "Nov 10: Kal says the estimate workbook is the Pretium Project Workbook Template (same file as the BOM template). Mapped tab by tab: no new fields; four open points for Paul and Pricing (cells filled at quote time, what Pricing reads, scrap and decommission, equipment lead time)." The row is no longer waiting for a file.
+- **Action Items, A-030, Notes:** add "Nov 10: the one-page tab is named CER BOM (not CSR). The minimum fields at quote time are still open." Leave the status Open.
+- **Action Items, new row (columns A to H; A-037 is the next free ID in this file, so check the tracker for a clash before pasting):**
+
+A-037	Answer four points on the estimate workbook mapping: which cells Engineering fills at quote time, what Pricing reads (Total Capital, Expense, Customer Paid, lead time), whether scrap target and decommission are used, and whether equipment lead time should be a field	Paul Slomkowski; Kyle Arnold or Graham Parle	F-026 mapping (Nov 10)	[Set date]	Open	F-026; A-030	See `feedback/engineering-estimate-mapping.md`, "Open points".
