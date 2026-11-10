@@ -328,7 +328,7 @@ The original cut list (`02` §3) is mostly built already, so cutting now means *
 | FB-07 | IT: the Finance app role and group (A-032); Gemma and Stacy: the costing and ROI templates (A-031) | Tue (role), Thu (templates) | Uploads and versions without the one-page summary. Until Entra has the role, the pricing lead uploads the ROI model for Finance |
 | FB-08 | Gemma: the exception approver (A-012 closed Nov 9: Net 15 and Net 30 are both standard); Bailey with Oleg and Sarah: the extra approval for customer-funded quotes (A-035); D-002 tiers | Wed | Net 15 and Net 30 standard, the PricingLead approving exceptions, funding to Engineering, the extra approval and tiers present but off |
 | FB-09 | Jim: active plants and machine types; Danielle: resin, market and product family lists; Bailey: D-016 and D-006; plant pack-out standards (A-028) | Tue | The 500-character caps, the "Other" rule and the sign-off flow; lists and plants stay provisional (the three placeholder plants remain); a mandatory-fields proposal for Bailey |
-| FB-10 | Sales and Marketing leadership: D-004 (weights, points, bands); Danielle: the platform-guide column mapping | Thu | An inactive draft scoring model and the preview; live scoring unchanged; guardrail warnings present but off |
+| FB-10 | Sales and Marketing leadership: D-004 (weights, points, bands); ~~Danielle: the platform-guide column mapping~~ (received 2026-11-09; minimums corrected, migration 0035) | Thu | An inactive draft scoring model and the preview; live scoring unchanged; guardrail warnings present but off |
 | FB-11 | Nothing. Dunnage wording is provisional (A-033) | | Ships as built |
 
 **Risks to watch.**

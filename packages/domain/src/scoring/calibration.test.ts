@@ -307,12 +307,12 @@ describe('volume-band routing (T-011)', () => {
 describe('platform-minimum guardrail (F-066, T-025)', () => {
   const on = { ...INTAKE_GUARDRAILS_SEED, enabled: true };
 
-  it('is seeded off, from the platform guide (1M or 3M units per platform)', () => {
+  it('is seeded off, from Danielle Leu’s corrected platform table (1M or 3M units per platform)', () => {
     expect(INTAKE_GUARDRAILS_SEED.enabled).toBe(false);
     expect(INTAKE_GUARDRAILS_SEED.minAnnualVolumeByProcess).toEqual({
-      ISBM: 3_000_000,
+      ISBM: 1_000_000,
       RHB: 1_000_000,
-      IMM: 1_000_000,
+      IMM: 3_000_000,
       IBM: 3_000_000,
       EBM: 1_000_000,
     });
@@ -320,16 +320,17 @@ describe('platform-minimum guardrail (F-066, T-025)', () => {
   });
 
   it('warns below the platform minimum with the agreed words, and not at or above it', () => {
-    const w = guardrailWarning(on, { volume: 500_000, processType: 'ISBM' });
+    const w = guardrailWarning(on, { volume: 2_500_000, processType: 'IMM' });
     expect(w).toMatchObject({
       code: 'BELOW_PLATFORM_MINIMUM',
       minimum: 3_000_000,
-      platform: 'ISBM',
+      platform: 'IMM',
     });
     expect(w!.message).toBe(
-      'Below the platform minimum for ISBM: 500,000 units/yr. You can still submit.',
+      'Below the platform minimum for IMM: 2,500,000 units/yr. You can still submit.',
     );
-    expect(guardrailWarning(on, { volume: 3_000_000, processType: 'ISBM' })).toBeNull();
+    expect(guardrailWarning(on, { volume: 3_000_000, processType: 'IMM' })).toBeNull();
+    expect(guardrailWarning(on, { volume: 2_500_000, processType: 'ISBM' })).toBeNull(); // ISBM minimum is 1M (Danielle, 2026-11-09)
     expect(guardrailWarning(on, { volume: 2_999_999, processType: 'RHB' })).toBeNull(); // RHB minimum is 1M
   });
 
