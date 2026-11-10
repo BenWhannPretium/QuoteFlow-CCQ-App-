@@ -25,6 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
+import { valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 const TABS = ['final-review', 'to-qualify', 'overrides'] as const;
@@ -274,8 +275,7 @@ function QueueCard({
   onDecide: () => void;
 }) {
   const { data: config } = usePublicConfig();
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   const defaultClass = config?.settings.intake_default_request_class;
   const otherClass = quote.requestClass && quote.requestClass !== defaultClass;
   const product = [label('product_family', quote.productFamily), label('resin', quote.resin)]

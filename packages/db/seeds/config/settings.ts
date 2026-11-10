@@ -95,9 +95,17 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   neck_special_feature: 'Optional: continuous thread, multi lead, tamper evident, vented.',
   resin_customer_specified:
     'Pricing needs the exact material when the customer dictates it, not just "polypropylene".',
-  pcr_level: 'Post-consumer recycled content, from the standard levels.',
+  pcr_level:
+    'Post-consumer recycled content, from the standard levels. Pick Other for a level that is not listed.',
+  // FB-09 (Danielle Leu, 2026-11-09): the detail fields for an "Other" resin, PCR level or additive.
+  resin_grade:
+    'Required when the resin is Other: the customer-specified resin and grade, e.g. "LyondellBasell Pro-fax 6331". Also used when the customer specifies the resin.',
+  pcr_level_other: 'Required when PCR is Other: the PCR level the customer asked for.',
+  additive:
+    'Anything added to the resin, from the standard list. Pick Other for a specialty additive.',
   color_type: 'Color and additives drive material cost. Describe a custom color.',
-  additives: 'Anything added to the resin (UV, slip, antistatic…). Optional.',
+  additives:
+    'Optional note on additives. Required, as the customer-specified additive, when the additive is Other.',
   quote_variants_note:
     'Variants the customer wants priced, e.g. "0/25/50% PCR; near-site vs ideal-site". Optional.',
   packaging_type: 'How it ships (bulk, bagged, trayed) changes pack-out, labour and freight.',
@@ -279,6 +287,18 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: 300,
     description:
       'FB-02 (F-075): longest "Quote variants requested" note (characters). The note is the interim answer to D-017 (option B); structured scenarios are F-056 (P1).',
+  },
+  {
+    key: 'intake_free_text_max_length',
+    value: 500,
+    description:
+      'FB-09 (F-019, D-016 default; the tracker recommends A + B, Bailey Schmitt to confirm): the longest packaging note (characters) the intake accepts on a new edit. An older, longer note stays readable and shows a warning. Provisional.',
+  },
+  {
+    key: 'plant_packaging_standards',
+    value: {},
+    description:
+      'FB-09 (F-012, D-016 default; A-028 not received): plant code → the standard pack-out configuration Engineering has published for that plant. "Plant specified" packaging is offered only for a plant listed here, and "Pretium / plant preferred" is never offered (Paul Slomkowski). Empty until Engineering sends plant-packaging-standards.csv. Provisional.',
   },
   {
     key: 'intake_min_spec_fields',

@@ -24,7 +24,8 @@
     "db:dictionary": "tsx src/cli/dictionary.ts",
     "db:sf-fixture": "tsx src/cli/sf-fixture.ts",
     "uat:defects": "tsx --env-file-if-exists=../../.env src/cli/defect-log.ts",
-    "fb07:dry-run": "tsx --env-file-if-exists=../../.env src/cli/fb07-dry-run.ts"
+    "fb07:dry-run": "tsx --env-file-if-exists=../../.env src/cli/fb07-dry-run.ts",
+    "fb09:report": "tsx --env-file-if-exists=../../.env src/cli/fb09-report.ts"
   },
   "dependencies": {
     "@ccq/domain": "workspace:*",

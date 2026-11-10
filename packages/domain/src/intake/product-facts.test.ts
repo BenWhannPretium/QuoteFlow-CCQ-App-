@@ -126,6 +126,12 @@ const config = parseIntakeConfig({
     neck_finish_type: ['CUSTOM'],
     neck_special_feature: ['CUSTOM'],
     color_type: ['CUSTOM'],
+    // FB-09 (Danielle Leu): "Other" resin, PCR level or additive asks for the customer-specified value.
+    resin: ['OTHER'],
+    pcr_level: ['OTHER'],
+    additive: ['OTHER'],
+    // FB-09 (F-012, D-016 default): "Other" packaging is customer-dictated and needs the packaging note.
+    packaging_type: ['OTHER'],
   },
   componentFollowUps: {
     LINER: ['liner_spec'],
@@ -164,6 +170,90 @@ describe('conditional requirements', () => {
     expect(inapplicableIntakeFields({ resin_customer_specified: false }, config)).toContain(
       'resin_grade',
     );
+  });
+
+  describe('FB-09: "Other" resin, PCR level or additive', () => {
+    it('Resin = Other needs the customer-specified resin and grade (resin_grade ≤ 120)', () => {
+      expect(blocking({ resin: 'OTHER' })).toEqual(['MISSING_FIELD:resin_grade']);
+      expect(blocking({ resin: 'OTHER', resin_grade: '  ' })).toEqual([
+        'MISSING_FIELD:resin_grade',
+      ]);
+      expect(blocking({ resin: 'OTHER', resin_grade: 'Eastman Tritan TX1001' })).toEqual([]);
+      expect(blocking({ resin: 'OTHER', resin_grade: 'x'.repeat(121) })).toEqual([
+        'INVALID_VALUE:resin_grade',
+      ]);
+      expect(blocking({ resin: 'PET' })).toEqual([]);
+    });
+
+    it('the grade is kept for Other, or for a customer-specified resin, and cleared otherwise', () => {
+      const cleared = (v: Record<string, unknown>) =>
+        inapplicableIntakeFields(v, config).includes('resin_grade');
+      expect(cleared({ resin: 'OTHER', resin_customer_specified: false })).toBe(false);
+      expect(cleared({ resin: 'PET', resin_customer_specified: true })).toBe(false);
+      expect(cleared({ resin: 'OTHER', resin_customer_specified: true })).toBe(false);
+      expect(cleared({ resin: 'PET', resin_customer_specified: false })).toBe(true);
+    });
+
+    it('the customer-specified checkbox stays independent of Other', () => {
+      expect(blocking({ resin: 'PET', resin_customer_specified: true })).toEqual([
+        'MISSING_FIELD:resin_grade',
+      ]);
+    });
+
+    it('PCR = Other needs pcr_level_other (≤ 120); it is cleared when unpicked', () => {
+      expect(blocking({ pcr_level: 'OTHER' })).toEqual(['MISSING_FIELD:pcr_level_other']);
+      expect(blocking({ pcr_level: 'OTHER', pcr_level_other: '35%' })).toEqual([]);
+      expect(blocking({ pcr_level: 'OTHER', pcr_level_other: 'x'.repeat(121) })).toEqual([
+        'INVALID_VALUE:pcr_level_other',
+      ]);
+      expect(blocking({ pcr_level: '30' })).toEqual([]);
+      expect(inapplicableIntakeFields({ pcr_level: '30' }, config)).toContain('pcr_level_other');
+      expect(inapplicableIntakeFields({ pcr_level: 'OTHER' }, config)).not.toContain(
+        'pcr_level_other',
+      );
+    });
+
+    it('Additive = Other makes the additives note the required customer-specified additive', () => {
+      expect(blocking({ additive: 'OTHER' })).toEqual(['MISSING_FIELD:additives']);
+      expect(blocking({ additive: 'OTHER', additives: 'x'.repeat(200) })).toEqual([]);
+      expect(blocking({ additive: 'OTHER', additives: 'x'.repeat(201) })).toEqual([
+        'INVALID_VALUE:additives',
+      ]);
+      // Any other choice: the note stays optional and is never cleared.
+      expect(blocking({ additive: 'UV' })).toEqual([]);
+      expect(blocking({ additive: 'UV', additives: 'slip agent' })).toEqual([]);
+      expect(inapplicableIntakeFields({ additive: 'UV', additives: 'x' }, config)).not.toContain(
+        'additives',
+      );
+    });
+
+    it('Packaging = Other needs the packaging note; the note is capped at 500 for new edits (D-016 default)', () => {
+      expect(blocking({ packaging_type: 'OTHER' })).toEqual(['MISSING_FIELD:packaging_notes']);
+      expect(
+        blocking({ packaging_type: 'OTHER', packaging_notes: 'Customer pallet spec' }),
+      ).toEqual([]);
+      expect(blocking({ packaging_type: 'BULK' })).toEqual([]);
+      expect(blocking({ packaging_type: 'BULK', packaging_notes: 'x'.repeat(500) })).toEqual([]);
+      expect(blocking({ packaging_type: 'BULK', packaging_notes: 'x'.repeat(501) })).toEqual([
+        'INVALID_VALUE:packaging_notes',
+      ]);
+      // The cap is a setting: Bailey can change it without a release.
+      const tight = { ...config, freeTextMaxLength: 100 };
+      expect(
+        evaluateIntake({ ...base, packaging_notes: 'x'.repeat(101) }, tight, NOW).blocking.map(
+          (b) => b.field,
+        ),
+      ).toEqual(['packaging_notes']);
+      // The note is optional for any other packaging, so it is never cleared.
+      expect(inapplicableIntakeFields({ packaging_type: 'BULK' }, config)).not.toContain(
+        'packaging_notes',
+      );
+    });
+
+    it('does not change which fields are required (D-006 stays open)', () => {
+      expect(blocking({ resin: 'PET', pcr_level: '0', additive: 'NONE' })).toEqual([]);
+      expect(blocking({})).toEqual([]);
+    });
   });
 
   it('short texts stay short: additives ≤ 200, variants note ≤ the setting (F-023, F-075)', () => {

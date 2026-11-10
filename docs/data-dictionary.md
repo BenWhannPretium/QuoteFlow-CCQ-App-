@@ -689,11 +689,13 @@ The CCQ quote: the workflow record CCQ owns.
 | `neck_special_feature` | text | yes |  |  | FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM). | KAM |
 | `neck_special_feature_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise. | KAM |
 | `resin_customer_specified` | boolean | no | false |  | FB-02 (F-011): the customer specifies the resin; resin_grade names it. | KAM |
-| `resin_grade` | text | yes |  |  | FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". | KAM |
-| `pcr_level` | text | yes |  |  | FB-02 (F-055): value_list pcr_level code (0 / 25 / 50 / 100 %). | KAM |
+| `resin_grade` | text | yes |  |  | FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". FB-09: also required when resin is Other. | KAM |
+| `pcr_level` | text | yes |  |  | FB-02 (F-055): value_list pcr_level code (0% / Virgin, 25, 30, 50, 100 %, Other). | KAM |
 | `color_type` | text | yes |  |  | FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM). | KAM |
 | `color_description` | text | yes |  |  | FB-02 (F-023): the custom color (≤ 120); null for Natural. | KAM |
-| `additives` | text | yes |  |  | FB-02 (F-023): additives note (≤ 200). | KAM |
+| `pcr_level_other` | text | yes |  |  | FB-09 (Danielle Leu): the customer-specified PCR level (≤ 120) when pcr_level is Other; null otherwise. | KAM |
+| `additive` | text | yes |  |  | FB-09: value_list additive code (None / UV / Barrier / Antistat / Impact Modifier / Other). Not backfilled: older quotes keep their additives text only. | KAM |
+| `additives` | text | yes |  |  | FB-02 (F-023): additives note (≤ 200). FB-09: required, as the customer-specified additive, when additive is Other. | KAM |
 | `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec (≤ 120) when a Liner is picked. | KAM |
 | `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. | KAM |
 | `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |

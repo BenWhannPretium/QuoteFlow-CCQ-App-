@@ -73,6 +73,8 @@ export const PublicConfigResponse = z.object({
   reasonCodes: z.array(PublicReasonCode),
   /** Active entries only, keyed by list key (resin, market, plant, …). */
   valueLists: z.record(z.string(), z.array(PublicValueListEntry)),
+  /** FB-09: labels of inactive entries (list → code → label), so a quote that still holds a retired code can show it. */
+  retiredValues: z.record(z.string(), z.record(z.string(), z.string())).optional(),
   /** UI-relevant app settings (see PUBLIC_SETTING_KEYS). JSON null means "not decided yet". */
   settings: z.record(z.string(), z.unknown()),
   /** Priority tiers of the scoring model in effect, highest first. */
@@ -99,6 +101,8 @@ export const PUBLIC_SETTING_KEYS = [
   'intake_allowed_request_classes',
   'intake_redirect_message',
   'intake_variants_note_max_length',
+  // FB-09 (F-019, D-016 default): the free-text cap for new edits (provisional)
+  'intake_free_text_max_length',
   'intake_min_spec_fields',
   // FB-11 intake commercial inputs (provisional)
   'standard_payment_terms',

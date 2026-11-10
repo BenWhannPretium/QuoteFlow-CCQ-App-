@@ -253,6 +253,13 @@
       "when": 1794269109260,
       "tag": "0035_platform_minimums_correction",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794269675204,
+      "tag": "0036_fb09_value_lists_other",
+      "breakpoints": true
     }
   ]
 }

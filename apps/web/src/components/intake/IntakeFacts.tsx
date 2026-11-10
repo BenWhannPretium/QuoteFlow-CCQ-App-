@@ -1,10 +1,12 @@
 import type { QuoteIntakeFacts } from '@ccq/contracts';
 import { neckSummary } from '@ccq/domain';
 
+
 import type { KeyValueItem } from '@/components/KeyValueGrid';
 
 import { commercialFactItems } from './CommercialInputs';
 import { factLabel, type Lists } from './factLabel';
+
 
 export { factLabel };
 
@@ -44,19 +46,35 @@ export function intakeFactItems(
     {
       id: 'resin-grade',
       label: 'Customer-specified resin',
-      value: f.resinCustomerSpecified ? (
-        <span data-testid="fact-resin-grade">{f.resinGrade ?? 'Yes'}</span>
-      ) : (
-        'No'
-      ),
+      // FB-09: the grade is also kept when the resin is "Other" (the customer-specified resin / grade).
+      value:
+        f.resinCustomerSpecified || f.resinGrade ? (
+          <span data-testid="fact-resin-grade">{f.resinGrade ?? 'Yes'}</span>
+        ) : (
+          'No'
+        ),
     },
-    { id: 'pcr', label: 'PCR %', value: factLabel(lists, 'pcr_level', f.pcrLevel) },
+    {
+      id: 'pcr',
+      label: 'PCR %',
+      value: factLabel(lists, 'pcr_level', f.pcrLevel, f.pcrLevelOther),
+    },
     {
       id: 'color',
       label: 'Color',
       value: factLabel(lists, 'color_type', f.colorType, f.colorDescription),
     },
-    { id: 'additives', label: 'Additives', value: f.additives },
+    {
+      id: 'additives',
+      label: 'Additives',
+      // FB-09: the pick, plus the note (the customer-specified additive when the pick is Other).
+      value:
+        [
+          ...new Set(
+            [factLabel(lists, 'additive', f.additive, f.additives), f.additives].filter(Boolean),
+          ),
+        ].join(' · ') || null,
+    },
   ];
   if (f.linerSpec) items.push({ id: 'liner', label: 'Liner spec', value: f.linerSpec });
   if (f.labelsPurchasedBy) {

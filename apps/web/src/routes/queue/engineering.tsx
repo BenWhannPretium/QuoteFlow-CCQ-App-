@@ -38,6 +38,7 @@ import { api, isApiError, type EngQueueParams } from '@/lib/api';
 import { relativeTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 export const Route = createFileRoute('/queue/engineering')({
@@ -358,8 +359,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<string[]>([]);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   const now = new Date();
 
   const accept = useMutation({

@@ -51,14 +51,14 @@ export const ASSIGNMENT_RULES_SEED: AssignmentRules = {
     },
     {
       processTypes: [],
-      resins: ['PET', 'PCR_PET', 'PETG'],
+      resins: ['PET'],
       engineerName: 'Neiberger',
       engineerUserId: null,
       note: 'Fallback while the process type is not chosen: PET resins go to the PET engineer.',
     },
     {
       processTypes: [],
-      resins: ['HDPE', 'PCR_HDPE', 'PP', 'LDPE'],
+      resins: ['HDPE', 'PP', 'LDPE'],
       engineerName: 'Pasillas',
       engineerUserId: null,
       note: 'Fallback while the process type is not chosen: polyolefin resins go to the polyolefin engineer.',

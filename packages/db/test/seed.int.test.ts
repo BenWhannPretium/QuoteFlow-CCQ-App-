@@ -58,7 +58,7 @@ describe('config seeds', () => {
     const counts = Object.fromEntries(rows.map((r) => [r.list_key, r.n]));
     expect(counts).toMatchObject({
       process_type: 8,
-      resin: 11,
+      resin: 6, // FB-09: Danielle Leu's list (PCR content moved to the PCR field)
       market: 8,
       product_family: 7,
       component: 6, // FB-02 (F-013): + Decoration
@@ -70,7 +70,8 @@ describe('config seeds', () => {
       neck_diameter: 29,
       neck_finish_type: 18,
       neck_special_feature: 5,
-      pcr_level: 4,
+      pcr_level: 6, // FB-09: 0% / Virgin, 25, 30, 50, 100, Other
+      additive: 6, // FB-09: None, UV, Barrier, Antistat, Impact Modifier, Other
       color_type: 2,
       labels_purchased_by: 2,
       decoration_type: 4,
@@ -161,7 +162,12 @@ describe('config seeds', () => {
       'scoring_model',
       'sf_stage_map',
     ]) {
-      expect(await count(table, sql`provisional = false`), table).toBe(0);
+      // FB-09: Danielle Leu approved product family and resin on 2026-11-09 (the only approved lists).
+      const approved =
+        table === 'value_list'
+          ? sql`provisional = false and list_key not in ('product_family', 'resin')`
+          : sql`provisional = false`;
+      expect(await count(table, approved), table).toBe(0);
     }
   });
 
@@ -184,12 +190,12 @@ describe('config seeds', () => {
         await tx
           .update(valueList)
           .set({ label: 'Edited while provisional' })
-          .where(eq(valueList.code, 'HDPE'));
+          .where(eq(valueList.code, 'BARRIER'));
         await seedConfig(tx);
         expect(await Promise.all(tables.map((t) => count(t)))).toEqual(before);
         expect(await getSetting(tx, 'validity_days_default')).toBe(45); // approved: kept
-        const [hdpe] = await tx.select().from(valueList).where(eq(valueList.code, 'HDPE'));
-        expect(hdpe!.label).toBe('HDPE'); // provisional: refreshed from the seed
+        const [barrier] = await tx.select().from(valueList).where(eq(valueList.code, 'BARRIER'));
+        expect(barrier!.label).toBe('Barrier'); // provisional: refreshed from the seed
         tx.rollback();
       })
       .catch((err: Error) => {

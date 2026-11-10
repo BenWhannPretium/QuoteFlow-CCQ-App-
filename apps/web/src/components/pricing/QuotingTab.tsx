@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useState } from 'react';
 
+
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +20,7 @@ import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { valueListLabel } from '@/lib/value-label';
 
 import { EngineeringInputsCard } from '../engineering/EngineeringExtras';
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
@@ -35,6 +37,7 @@ import {
   type ReferenceKind,
 } from './PricingContextPanel';
 import { QuotingSteps } from './QuotingSteps';
+
 
 export { pricingQueueQueryKey };
 
@@ -303,8 +306,7 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
   const eng = quote.engineering;
   const g2 = quote.quoting.g2;
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   return (
     <Card>
       <CardHeader>
