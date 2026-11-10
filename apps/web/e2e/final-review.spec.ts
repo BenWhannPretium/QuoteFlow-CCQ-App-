@@ -88,9 +88,18 @@ async function quoteInFinalReview(
   await post('gates/G3/decisions', 'pricing-lead', { outcomeKey: 'submit' });
   // B-26: the KAM checks the terms before the offer can be released at G4.
   await put('terms', 'kam', {
-    termsPaymentTerms: 'Net 45',
+    termsPaymentTermsCode: 'NET_30',
     termsToolingCommitment: false,
     checked: true,
+  });
+  // FB-08 (F-068, T-031): the approver confirms the capital terms before releasing the offer.
+  await put('terms/capital', 'approver', {
+    toolingFundingModel: 'COMPANY_FUNDED',
+    termsMoldOwnership: 'PRETIUM',
+    termsAmortized: false,
+    termsMinSupply: 'None',
+    termsAgreementInPlace: false,
+    finalized: true,
   });
   return quoteNumber;
 }
