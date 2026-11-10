@@ -298,6 +298,8 @@ The original cut list (`02` §3) is mostly built already, so cutting now means *
 
 ## 8. Remaining steps to MVP (updated 2026-11-09, Ben's plan: every FB step built this week)
 
+> **Pilot-group UAT: Nov 13 to Nov 20, 2026** (Ben, 2026-11-10). The Nov 9 to 13 sessions (U0 to U6) come first. An AI dry run of every UAT script against a local copy of the app runs before the pilot: prompts in `prompts/uat-dry-run/`, reports in `docs/uat/dry-run/`. It finds defects early and does not replace business UAT or sign-off.
+
 **Where we are.** The core app and FB-01 to FB-05 are built and merged. The test site runs on Azure with Entra sign-in and production Salesforce, and the test Fabric mirror works. UAT started today (U0 and U1). Open: FB-06 to FB-11, prod, the rest of UAT and the gate package.
 
 **How every FB step can land this week.** CLAUDE.md rule 4 lets an open decision ship as provisional config that an Admin changes later. So no step waits for a decision: each prompt carries explicit provisional defaults, and a value a person has not supplied ships provisional or inactive and is listed in the config snapshot. The Nov 13 gate then counts these features as built and tested, with their values still provisional where the business has not signed off.
