@@ -59,7 +59,9 @@ describe('config seeds', () => {
     expect(counts).toMatchObject({
       process_type: 8,
       resin: 6, // FB-09: Danielle Leu's list (PCR content moved to the PCR field)
-      market: 8,
+      // FB-12 (F-020): Melanie Rasche's 8 markets + the 5 retired codes kept inactive; 30 sub-markets.
+      market: 13,
+      sub_market: 30,
       product_family: 7,
       component: 6, // FB-02 (F-013): + Decoration
       request_class: 4,
@@ -162,13 +164,28 @@ describe('config seeds', () => {
       'scoring_model',
       'sf_stage_map',
     ]) {
-      // FB-09: Danielle Leu approved product family and resin on 2026-11-09 (the only approved lists).
+      // FB-09: Danielle Leu approved product family and resin; FB-12: Melanie Rasche approved the
+      // 8 active markets (both 2026-11-09). Nothing else is approved.
       const approved =
         table === 'value_list'
-          ? sql`provisional = false and list_key not in ('product_family', 'resin')`
+          ? sql`provisional = false and list_key not in ('product_family', 'resin', 'market')`
           : sql`provisional = false`;
       expect(await count(table, approved), table).toBe(0);
     }
+    const approvedMarkets = await q<{ code: string; active: boolean; approved_at: Date | null }>(
+      sql`select code, active, approved_at from value_list where provisional = false and list_key = 'market' order by sort`,
+    );
+    expect(approvedMarkets.map((r) => r.code)).toEqual([
+      'FOOD',
+      'BEVERAGE',
+      'NUTRITION_WELLNESS',
+      'OTC_HEALTH',
+      'CLINICAL',
+      'PERSONAL_CARE',
+      'HOME_CARE',
+      'AUTO_COMMERCIAL_CHEMICAL',
+    ]);
+    expect(approvedMarkets.every((r) => r.active && r.approved_at !== null)).toBe(true);
   });
 
   it('re-running is idempotent and never overwrites an approved value', async () => {

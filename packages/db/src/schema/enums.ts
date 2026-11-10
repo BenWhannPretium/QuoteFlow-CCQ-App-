@@ -60,6 +60,8 @@ export const AUDIT_ACTIONS = [
 export const VALUE_LIST_KEYS = [
   'product_family',
   'market',
+  // FB-12 (F-020, F-073): the sub-market under a market (Melanie Rasche, 2026-11-09); scores strategic fit.
+  'sub_market',
   'resin',
   'component',
   'process_type',

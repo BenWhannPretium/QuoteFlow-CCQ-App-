@@ -66,7 +66,7 @@ const GOLDEN: GoldenQuote[] = [
     quote: {
       est_annual_revenue: 18_000, // <25k → 10
       est_annual_volume: 40_000, // <100k → 10
-      market: 'HOUSEHOLD_CHEMICAL',
+      market: 'HOME_CARE',
       product_family: 'BOTTLE',
       resin: 'HDPE',
       date: '2027-06-01', // 224 days → 20
@@ -141,7 +141,7 @@ const GOLDEN: GoldenQuote[] = [
     quote: {
       est_annual_revenue: 100_000, // min of 100k-<250k → 70
       est_annual_volume: 500_000, // min of 500k-<2M → 70
-      market: 'NUTRITION',
+      market: 'NUTRITION_WELLNESS',
       product_family: 'CANISTER_TUB',
       resin: 'PP',
       date: '2027-01-18', // exactly 90 days → band 90-<180 → 40

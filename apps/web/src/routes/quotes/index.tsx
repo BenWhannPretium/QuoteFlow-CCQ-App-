@@ -527,7 +527,10 @@ function PriorityList({ data }: { data: QuoteListResponse }) {
             </div>
             {canExpand && expanded && (
               <div id={`breakdown-${q.id}`} className="overflow-x-auto sm:pl-10">
-                <ScoreBreakdownTable priority={q.priority} />
+                <ScoreBreakdownTable
+                  priority={q.priority}
+                  market={{ market: q.market, subMarket: q.subMarket }}
+                />
               </div>
             )}
           </li>

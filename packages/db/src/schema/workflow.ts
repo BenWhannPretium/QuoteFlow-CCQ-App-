@@ -224,6 +224,11 @@ export const quote = documented(
       ),
       productFamily: c(text('product_family'), 'value_list product_family code.', KAM),
       market: c(text('market'), 'value_list market code.', KAM),
+      subMarket: c(
+        text('sub_market'),
+        "value_list sub_market code (FB-12); belongs to the quote's market. Optional. Sets the strategic-fit score.",
+        KAM,
+      ),
       resin: c(text('resin'), 'value_list resin code.', KAM),
       components: c(
         text('components').array().notNull().default([]),

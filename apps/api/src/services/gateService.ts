@@ -394,6 +394,7 @@ export class GateService {
             requestClass: before.requestClass,
             productFamily: before.productFamily,
             market: before.market,
+            subMarket: before.subMarket,
             resin: before.resin,
             estAnnualVolume: before.estAnnualVolume,
             estAnnualRevenue: before.estAnnualRevenue,

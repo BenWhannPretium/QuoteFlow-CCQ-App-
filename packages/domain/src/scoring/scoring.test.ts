@@ -46,7 +46,7 @@ const FIXTURES: Record<string, ScoringFacts> = {
   '03 the $18k example (below a mold set)': facts({
     est_annual_revenue: 18_000,
     est_annual_volume: 40_000,
-    market: 'HOUSEHOLD_CHEMICAL',
+    market: 'HOME_CARE',
     product_family: 'BOTTLE',
     resin: 'HDPE',
     expected_close_date: '2027-03-01',
@@ -78,21 +78,21 @@ const FIXTURES: Record<string, ScoringFacts> = {
   '06 close date already passed': facts({
     est_annual_revenue: 90_000,
     est_annual_volume: 300_000,
-    market: 'PHARMA_HEALTH',
+    market: 'OTC_HEALTH',
     product_family: 'BOTTLE',
     resin: 'PP',
     expected_close_date: '2026-09-01',
   }),
   '07 revenue only (volume and close date missing)': facts({
     est_annual_revenue: 400_000,
-    market: 'NUTRITION',
+    market: 'NUTRITION_WELLNESS',
     product_family: 'CANISTER_TUB',
     resin: 'PP',
   }),
   '08 volume only, numeric strings from Postgres': facts({
     est_annual_volume: '2500000',
     est_annual_revenue: null,
-    market: 'INDUSTRIAL_CHEMICAL',
+    market: 'AUTO_COMMERCIAL_CHEMICAL',
     product_family: 'HANDLEWARE',
     resin: 'HDPE',
     expected_close_date: '2027-08-15',
@@ -100,7 +100,7 @@ const FIXTURES: Record<string, ScoringFacts> = {
   '09 band edges (exactly 25k / 100k / 30 days)': facts({
     est_annual_revenue: 25_000,
     est_annual_volume: 100_000,
-    market: 'PET',
+    market: 'HOME_CARE',
     product_family: 'CLOSURE',
     resin: 'PP',
     expected_close_date: '2026-11-19',

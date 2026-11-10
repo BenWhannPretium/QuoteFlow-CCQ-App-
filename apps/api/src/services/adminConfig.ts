@@ -1173,12 +1173,16 @@ export class AdminConfigService {
       openQuotes: openIds.length,
       rows: preview.rows.map((r) => {
         const q = byId.get(r.quoteId)!;
-        const market = (facts.get(q.id)?.quote as { market?: unknown } | null | undefined)?.market;
+        const quoteFacts = facts.get(q.id)?.quote as
+          { market?: unknown; sub_market?: unknown } | null | undefined;
+        const market = quoteFacts?.market;
+        const subMarket = quoteFacts?.sub_market;
         return {
           quoteNumber: q.quoteNumber,
           stageKey: q.stageKey,
           status: q.status,
           market: typeof market === 'string' ? market : null,
+          subMarket: typeof subMarket === 'string' ? subMarket : null,
           before: r.before,
           after: r.after,
           tierChanged: r.tierChanged,

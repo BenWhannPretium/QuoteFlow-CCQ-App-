@@ -322,6 +322,8 @@ export const ScoringPreviewResponse = z.object({
       stageKey: z.string(),
       status: z.string(),
       market: z.string().nullable(),
+      /** FB-12: the quote's sub-market (null until the KAM picks one). */
+      subMarket: z.string().nullable(),
       before: previewSide.nullable(),
       after: previewSide,
       tierChanged: z.boolean(),

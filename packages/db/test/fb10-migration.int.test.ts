@@ -24,6 +24,12 @@ const MIGRATION = readFileSync(
   'utf8',
 );
 
+/** 0037 (FB-12) re-keys the draft 0034 makes from market to sub-market; applied after 0034 as in an environment. */
+const MIGRATION_0037 = readFileSync(
+  new URL('../migrations/0037_fb12_sub_market_scoring.sql', import.meta.url),
+  'utf8',
+);
+
 /** 0035: Danielle Leu's correction of the platform minimums (2026-11-09). */
 const MIGRATION_0035 = readFileSync(
   new URL('../migrations/0035_platform_minimums_correction.sql', import.meta.url),
@@ -78,7 +84,7 @@ type ModelRow = {
   attributes: {
     key: string;
     weight: number;
-    map?: { values: Record<string, number>; default?: number };
+    map?: { values: Record<string, number>; default?: number; bySegment?: unknown };
   }[];
   tier_thresholds: unknown;
 };
@@ -103,16 +109,18 @@ describe('FB-10 seed: the v3 draft', () => {
       .at(-1)!;
     expect(d.model_version).toBe(Math.max(...all.map((m) => m.model_version)));
     expect(d.provisional).toBe(true);
-    expect(d.change_reason).toMatch(/^FB-10/);
+    // FB-12 re-keyed the draft from market to sub-market (its reason now names FB-12).
+    expect(d.change_reason).toMatch(/^FB-12/);
     expect(d.tier_thresholds).toEqual(active.tier_thresholds);
     expect(d.attributes.filter((a) => a.key !== 'strategic_fit')).toEqual(
       active.attributes.filter((a) => a.key !== 'strategic_fit'),
     );
     const v3Fit = SCORING_MODEL_V3_INPUT.attributes.find((a) => a.key === 'strategic_fit') as {
-      map: { values: Record<string, number> };
+      map: unknown;
     };
-    expect(fit(d).map!.values).toEqual(v3Fit.map.values);
+    expect(fit(d).map).toEqual(v3Fit.map);
     expect(fit(active).map!.values).toEqual({}); // the live model is untouched
+    expect((fit(active).map as { bySegment?: unknown }).bySegment).toBeUndefined();
     // It parses as a scoring model.
     const row = (await db.query.scoringModel.findFirst({
       where: (t, { isNull }) => isNull(t.effectiveFrom),
@@ -151,6 +159,11 @@ describe('0034 migration', () => {
       expect((await models(tx)).filter((m) => m.effective_from === null)).toHaveLength(0);
       await run(tx, block('fb10-config'));
       await run(tx, block('fb10-config')); // idempotent: a draft now exists
+      // 0034 alone made FB-10's draft (market points); 0037 then re-keys it to sub-markets, as in an environment.
+      expect(
+        fit((await models(tx)).find((m) => m.effective_from === null)!).map!.values,
+      ).toHaveProperty('PERSONAL_CARE', 90);
+      await run(tx, block('fb12-draft', MIGRATION_0037));
       const after = await models(tx);
       const drafts = after.filter((m) => m.effective_from === null);
       expect(drafts).toHaveLength(1);
@@ -199,6 +212,11 @@ describe('0034 migration', () => {
 
   it('makes no second draft after an FB-10 version was activated or discarded', async () => {
     await rolledBack(async (tx) => {
+      // The seeded draft stands in for FB-10's: same row, with the reason 0034 gave it.
+      await tx.execute(
+        sql`update scoring_model set change_reason = 'FB-10 (test): the draft 0034 made'
+          where effective_from is null`,
+      );
       await tx.execute(
         sql`update scoring_model set effective_from = now() - interval '1 day' where effective_from is null`,
       ); // an Admin activated it

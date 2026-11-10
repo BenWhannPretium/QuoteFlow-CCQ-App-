@@ -2,8 +2,9 @@ import type { QualificationWarning, QuotePriority } from '@ccq/contracts';
 import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useValueList } from '@/config/public-config';
+import { usePublicConfig } from '@/config/public-config';
 import { cn } from '@/lib/utils';
+import { marketText, parentMarket, valueListLabel } from '@/lib/value-label';
 
 import { ScorePill } from './ScorePill';
 import { TierChip } from './TierChip';
@@ -15,11 +16,25 @@ const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 export function ScoreBreakdownTable({
   priority,
   className,
+  market,
 }: {
   priority: QuotePriority;
   className?: string;
+  /** FB-12: the quote's market and sub-market, shown as "Market › Sub-market" next to strategic fit. */
+  market?: { market: string | null; subMarket: string | null };
 }) {
-  const markets = useValueList('market');
+  const { data: config } = usePublicConfig();
+  /** The market (and sub-market) the strategic-fit points came from: the quote's own when the caller gave it. */
+  const fitText = (raw: string | number | null): string | null => {
+    if (market && (market.market || market.subMarket)) {
+      return marketText(config, market.market, market.subMarket);
+    }
+    if (raw === null) return null;
+    const parent = parentMarket(config, String(raw));
+    return parent
+      ? marketText(config, parent, String(raw))
+      : valueListLabel(config, 'market', String(raw));
+  };
   if (!priority.visible) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -63,9 +78,9 @@ export function ScoreBreakdownTable({
                     provisional
                   </span>
                 )}
-                {b.key === 'strategic_fit' && b.raw !== null && (
+                {b.key === 'strategic_fit' && fitText(b.raw) !== null && (
                   <span className="text-foreground-2 block" data-testid="score-market">
-                    Market: {markets.find((m) => m.code === String(b.raw))?.label ?? String(b.raw)}
+                    Market: {fitText(b.raw)}
                   </span>
                 )}
                 <span className={cn('text-muted-foreground block', b.unknown && 'italic')}>
@@ -110,11 +125,13 @@ export function PriorityBadge({
   quoteNumber,
   showWhy = true,
   className,
+  market,
 }: {
   priority: QuotePriority;
   quoteNumber: string;
   showWhy?: boolean;
   className?: string;
+  market?: { market: string | null; subMarket: string | null };
 }) {
   if (!priority.visible) {
     return (
@@ -147,7 +164,7 @@ export function PriorityBadge({
           </PopoverTrigger>
           <PopoverContent className="w-[min(28rem,calc(100vw-2rem))]" align="start">
             <p className="mb-2 text-sm font-semibold">Why this priority?</p>
-            <ScoreBreakdownTable priority={priority} />
+            <ScoreBreakdownTable priority={priority} {...(market ? { market } : {})} />
           </PopoverContent>
         </Popover>
       )}

@@ -17,6 +17,7 @@ import { FundingHelp } from '@/components/commercial/FundingHelp';
 import { NON_STANDARD_TERMS_TEXT } from '@/components/intake/CommercialInputs';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
+import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import {
   FIELD_META,
@@ -26,6 +27,7 @@ import {
   isCustom,
   issueLabel,
   issueStep,
+  marketLabel,
   neckLabel,
   suggestedDescription,
   valueLabel,
@@ -80,6 +82,8 @@ function Select({
   cfg,
   placeholder = 'Choose…',
   invalid,
+  filter,
+  disabled,
 }: {
   id: string;
   listKey: string;
@@ -88,20 +92,33 @@ function Select({
   cfg: WizardConfig;
   placeholder?: string;
   invalid?: boolean;
+  /** FB-12: offer only the entries this accepts (the sub-markets of the chosen market). */
+  filter?: (e: WizardConfig['lists'][string][number]) => boolean;
+  disabled?: boolean;
 }) {
+  const options = (cfg.lists[listKey] ?? []).filter((e) => !filter || filter(e));
+  // A code that has been taken off the list (a rework of a quote on a retired market) stays selectable
+  // as it is, marked "(no longer offered)"; the KAM can pick a current one instead.
+  const retiredLabel =
+    value &&
+    !options.some((e) => e.code === value) &&
+    !(cfg.lists[listKey] ?? []).some((e) => e.code === value)
+      ? (cfg.retired[listKey]?.[value] ?? value)
+      : undefined;
   return (
     <NativeSelect
       id={id}
       aria-describedby={`${id}-help`}
       aria-invalid={invalid || undefined}
+      disabled={disabled}
       value={value ?? ''}
       onChange={(e) => onChange(nullIfBlank(e.target.value))}
     >
       <option value="">{placeholder}</option>
-      {value && !(cfg.lists[listKey] ?? []).some((e) => e.code === value) && (
-        <option value={value}>{`${value} (no longer offered)`}</option>
+      {retiredLabel !== undefined && (
+        <option value={value!}>{`${retiredLabel}${RETIRED_SUFFIX}`}</option>
       )}
-      {(cfg.lists[listKey] ?? []).map((e) => (
+      {options.map((e) => (
         <option key={e.code} value={e.code}>
           {e.label}
         </option>
@@ -1054,8 +1071,30 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
               id={fid('market')}
               listKey="market"
               value={data.market}
-              onChange={(v) => update({ market: v })}
+              // FB-12: a sub-market that does not belong to the new market is cleared (the server does too).
+              onChange={(v) =>
+                update({
+                  market: v,
+                  subMarket:
+                    data.subMarket && cfg.intake.subMarketMarkets[data.subMarket] === v
+                      ? data.subMarket
+                      : null,
+                })
+              }
               cfg={cfg}
+            />
+          </Field>
+          {/* FB-12 (F-073): optional; only the chosen market's sub-markets. It sets the strategic-fit score. */}
+          <Field {...meta(cfg, 'sub_market')}>
+            <Select
+              id={fid('sub_market')}
+              listKey="sub_market"
+              value={data.subMarket}
+              onChange={(v) => update({ subMarket: v })}
+              cfg={cfg}
+              disabled={!data.market}
+              placeholder={data.market ? 'Choose…' : 'Choose a market first'}
+              filter={(e) => e.meta.market === data.market}
             />
           </Field>
         </div>
@@ -1451,7 +1490,7 @@ export function ReviewStep({
         ['Product family', label('product_family', data.productFamily)],
         ['Components', (data.components ?? []).map((c) => label('component', c)).join(', ')],
         ...followUpRows,
-        ['Market', label('market', data.market)],
+        ['Market', marketLabel(cfg, data) ?? '—'],
         ['Resin', label('resin', data.resin)],
         [
           'Customer-specified resin',

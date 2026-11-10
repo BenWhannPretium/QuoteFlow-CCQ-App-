@@ -42,8 +42,12 @@ describe('parseAnalyticsSearch', () => {
   });
 
   it('de-duplicates and trims comma lists, and takes arrays', () => {
-    expect(parseAnalyticsSearch({ market: ' FOOD, PET ,FOOD' })).toEqual({ market: 'FOOD,PET' });
-    expect(parseAnalyticsSearch({ market: ['FOOD', 'PET'] })).toEqual({ market: 'FOOD,PET' });
+    expect(parseAnalyticsSearch({ market: ' FOOD, BEVERAGE ,FOOD' })).toEqual({
+      market: 'FOOD,BEVERAGE',
+    });
+    expect(parseAnalyticsSearch({ market: ['FOOD', 'BEVERAGE'] })).toEqual({
+      market: 'FOOD,BEVERAGE',
+    });
   });
 });
 
@@ -89,6 +93,6 @@ describe('drillDown (the B-14 quote list URL)', () => {
   });
 
   it('lets the chart’s own slice win over a filter of the same key', () => {
-    expect(drillDown({ market: 'FOOD' }, { market: 'PET' })).toEqual({ market: 'PET' });
+    expect(drillDown({ market: 'FOOD' }, { market: 'BEVERAGE' })).toEqual({ market: 'BEVERAGE' });
   });
 });

@@ -14,6 +14,8 @@ export interface InputResolution {
   points?: number;
   /** Extra words for the explanation, e.g. "45 days to expected close". */
   detail?: string;
+  /** FB-12: replaces the "<value> (not listed, default)" wording of a `map` that fell back to its default. */
+  note?: string;
   /** FB-04: set when a `map` has no listed values at all, so the points are only the neutral default. */
   provisional?: boolean;
 }
@@ -84,13 +86,13 @@ export const INPUT_RESOLVERS: Readonly<Record<string, InputResolver>> = {
     mapsToPoints: true,
     resolve: (attribute, facts) => {
       const map = attribute.map!;
-      // FB-04 (F-073): segment beats market beats the default.
+      // FB-04 (F-073), FB-12: the finer lookup (sub-market) beats the market map beats the default.
       const segment = map.bySegment ? code(getFact(facts, map.bySegment.by)) : null;
       if (segment !== null && map.bySegment && segment in map.bySegment.values) {
         return {
           raw: segment,
           points: map.bySegment.values[segment]!,
-          detail: 'segment',
+          detail: 'sub-market',
         };
       }
       const noValues =
@@ -105,6 +107,7 @@ export const INPUT_RESOLVERS: Readonly<Record<string, InputResolver>> = {
           raw,
           points: map.default,
           detail: 'not listed',
+          ...(map.defaultNote ? { note: map.defaultNote } : {}),
           ...(noValues ? { provisional: true } : {}),
         };
       }

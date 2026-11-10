@@ -155,7 +155,8 @@ describe('the v3 draft and its preview (F-073, T-036)', () => {
     const { versions } = await scoring();
     const draft = versions.filter((v) => v.status === 'draft');
     expect(draft).toHaveLength(1);
-    expect(draft[0]!.changeReason).toMatch(/^FB-10/);
+    // FB-12 re-keyed FB-10's draft from market to sub-market (its reason now names FB-12).
+    expect(draft[0]!.changeReason).toMatch(/^FB-12/);
     expect(draft[0]!.approval.provisional).toBe(true);
     const active = versions.find((v) => v.status === 'active')!;
     expect(draft[0]!.modelVersion).toBe(active.modelVersion + 1);
@@ -199,16 +200,17 @@ describe('the v3 draft and its preview (F-073, T-036)', () => {
       expect(r.drivers.every((d) => d.key === 'strategic_fit')).toBe(true);
       if (r.pointsMoved !== 0) expect(r.drivers.length).toBeGreaterThan(0);
     }
-    // The 9-box points differ by market, so the preview moves some quotes and not others.
+    // The 9-box points differ by sub-market, so the preview moves some quotes and not others.
     expect(p.rows.some((r) => r.pointsMoved !== 0)).toBe(true);
     expect(new Set(p.rows.map((r) => r.market)).size).toBeGreaterThan(1);
     expect(p.summary.quotes).toBe(openCount);
     expect(p.summary.maxPointsUp).toBeGreaterThanOrEqual(0);
     expect(p.summary.maxPointsDown).toBeLessThanOrEqual(0);
 
-    // T-036: two quotes in different markets move by different amounts.
-    const byMarket = new Map(p.rows.map((r) => [r.market, r.pointsMoved]));
-    expect(new Set(byMarket.values()).size).toBeGreaterThan(1);
+    // T-036: two quotes in different sub-markets move by different amounts; a quote with no sub-market not at all.
+    const bySubMarket = new Map(p.rows.map((r) => [r.subMarket, r.pointsMoved]));
+    expect(new Set(bySubMarket.values()).size).toBeGreaterThan(1);
+    expect(p.rows.filter((r) => r.subMarket === null).every((r) => r.pointsMoved === 0)).toBe(true);
 
     // Writes nothing: stored scores, versions and the audit trail are as they were.
     const quotesAfter = await db.db
@@ -304,15 +306,22 @@ describe('the v3 draft and its preview (F-073, T-036)', () => {
     expect(event!.changeReason).toBe(WHY);
     expect(event!.after).toMatchObject({ rescoreOpen: false, rescoreQueued: 0 });
 
-    // A new quote now scores with the 9-box points (FOOD = 75): T-036 in the priority breakdown.
-    const q = await submitQuote({ market: 'FOOD' });
-    const detail = QuoteDetail.parse(
-      (await asRole(app, 'SalesLeader').get(`/api/v1/quotes/${q.quoteNumber}`)).json(),
-    );
-    const fit = detail.priority.breakdown.find((b) => b.key === 'strategic_fit')!;
-    expect(fit.points).toBe(75);
-    expect(fit.raw).toBe('FOOD');
-    expect(detail.priority.modelVersion).toBe(draft.modelVersion);
+    // A new quote now scores with the 9-box points by sub-market (FB-12): T-036 in the priority breakdown.
+    const fitOf = async (extra: IntakeDraftData) => {
+      const q = await submitQuote(extra);
+      const detail = QuoteDetail.parse(
+        (await asRole(app, 'SalesLeader').get(`/api/v1/quotes/${q.quoteNumber}`)).json(),
+      );
+      expect(detail.priority.modelVersion).toBe(draft.modelVersion);
+      return detail.priority.breakdown.find((b) => b.key === 'strategic_fit')!;
+    };
+    const snacks = await fitOf({ market: 'FOOD', subMarket: 'FOOD_SNACKS' });
+    expect([snacks.points, snacks.raw]).toEqual([80, 'FOOD_SNACKS']); // Strategic Growth
+    const honey = await fitOf({ market: 'FOOD', subMarket: 'FOOD_HONEY_SWEETENERS' });
+    expect([honey.points, honey.raw]).toEqual([20, 'FOOD_HONEY_SWEETENERS']); // Rationalization
+    const unscored = await fitOf({ market: 'FOOD' });
+    expect([unscored.points, unscored.raw]).toEqual([50, 'FOOD']); // no sub-market: the neutral 50
+    expect(unscored.explanation).toContain('Pick a sub-market to score strategic fit');
   });
 
   it('answers 404 when there is no draft to preview', async () => {

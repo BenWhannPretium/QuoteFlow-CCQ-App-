@@ -29,9 +29,15 @@ export const scoringMapSchema = z
     /** Points for a known value that is not in `values`. Without it, such a value counts as unknown. */
     default: points.optional(),
     /**
-     * FB-04 (F-073): an optional, finer lookup (e.g. a Where-to-Play segment) tried before `by`/`values`.
-     * A known segment listed in `values` wins; otherwise the market map, then `default`. Empty until D-004
-     * chooses segments vs markets.
+     * FB-12: what a user reads when `default` applies because the finer lookup has no entry for the quote
+     * (e.g. "Pick a sub-market to score strategic fit"). Without it the explanation says the value is "not listed".
+     */
+    defaultNote: z.string().min(1).optional(),
+    /**
+     * FB-04 (F-073): an optional, finer lookup tried before `by`/`values`. A known code listed in `values`
+     * wins; otherwise the market map, then `default`. The key keeps the FB-04 name `bySegment`; since FB-12
+     * (Melanie Rasche, 2026-11-09) the lookup is the quote's SUB-MARKET (`by: 'sub_market'`), and the words
+     * users see say "sub-market".
      */
     bySegment: z
       .object({ by: z.string().min(1), values: z.record(z.string(), points) })

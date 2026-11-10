@@ -16,7 +16,7 @@ import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, relativeTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
-import { valueListLabel } from '@/lib/value-label';
+import { marketText, valueListLabel } from '@/lib/value-label';
 
 import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringExtras';
@@ -333,7 +333,8 @@ function RequestSection({ s }: { s: ReviewSummary }) {
     { label: 'Product', value: i.standardDescription ?? i.description },
     { label: 'Product family', value: label('product_family', q.productFamily) },
     { label: 'Resin', value: label('resin', q.resin) },
-    { label: 'Market', value: label('market', q.market) },
+    // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
+    { label: 'Market', value: marketText(config, q.market, q.subMarket) },
     {
       label: 'Estimated volume',
       value:
@@ -379,7 +380,11 @@ function PrioritySection({ s }: { s: ReviewSummary }) {
           Score breakdown
           {p.modelVersion ? ` (model v${p.modelVersion})` : ''}
         </summary>
-        <ScoreBreakdownTable priority={p} className="mt-2" />
+        <ScoreBreakdownTable
+          priority={p}
+          market={{ market: s.quote.market, subMarket: s.quote.subMarket }}
+          className="mt-2"
+        />
       </details>
     </Section>
   );

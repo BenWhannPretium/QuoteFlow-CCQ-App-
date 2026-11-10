@@ -20,6 +20,8 @@ import {
   type ListEntry,
 } from '@ccq/domain';
 
+import { marketText, valueListLabel } from '@/lib/value-label';
+
 /**
  * Wizard model. Labels and copy for the four steps live here; which fields block, the help text,
  * the description template and the value lists all come from config (`/config/public`).
@@ -48,6 +50,7 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   product_family: { label: 'Product family', step: 3 },
   components: { label: 'Components', step: 3 },
   market: { label: 'Market', step: 3 },
+  sub_market: { label: 'Sub-market', step: 3 },
   resin: { label: 'Resin', step: 3 },
   neck_diameter: { label: 'Neck diameter', step: 3 },
   neck_diameter_custom: { label: 'Custom neck diameter', step: 3 },
@@ -117,6 +120,8 @@ export interface WizardConfig {
   descriptionTemplate: string;
   newOpportunityUrl: string | null;
   lists: Record<string, PublicValueListEntry[]>;
+  /** FB-12: labels of inactive entries by list and code (a rework of a quote on a retired market). */
+  retired: Record<string, Record<string, string>>;
 }
 
 /** Builds the wizard config from `/config/public`; null while a setting is missing (not seeded). */
@@ -148,6 +153,13 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
         : {}),
       // FB-10 (F-066): off unless the setting is on and well-formed.
       guardrails: parseIntakeGuardrails(s.intake_guardrails),
+      // FB-12 (F-073): the sub-market's parent market comes from the value list's meta.
+      subMarketMarkets: Object.fromEntries(
+        (lists.sub_market ?? []).flatMap((e) => {
+          const market = (e.meta as { market?: unknown }).market;
+          return typeof market === 'string' ? [[e.code, market] as const] : [];
+        }),
+      ),
       deliveredPriceBasisCodes: (lists.price_basis ?? [])
         .filter((e) => meta(e, 'delivered'))
         .map((e) => e.code),
@@ -182,6 +194,7 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
           ? s.salesforce_new_opportunity_url
           : null,
       lists,
+      retired: config.retiredValues ?? {},
     };
   } catch {
     return null;
@@ -242,7 +255,11 @@ export function neckLabel(
 }
 
 export const valueLabel = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
-  code ? (cfg.lists[listKey]?.find((e) => e.code === code)?.label ?? code) : '';
+  valueListLabel({ valueLists: cfg.lists, retiredValues: cfg.retired }, listKey, code) ?? '';
+
+/** FB-12: "Food › Snacks & Confections" for the review step and the suggested description. */
+export const marketLabel = (cfg: WizardConfig, data: IntakeDraftData): string | null =>
+  marketText({ valueLists: cfg.lists, retiredValues: cfg.retired }, data.market, data.subMarket);
 
 export function suggestedDescription(data: IntakeDraftData, cfg: WizardConfig): string {
   return renderDescriptionTemplate(cfg.descriptionTemplate, {

@@ -9,7 +9,11 @@ import {
   VOLUME_ROUTING_SEED,
   workflowForRoute,
 } from './volume-routing';
-import { WHERE_TO_PLAY_MARKET_POINTS } from './where-to-play';
+import {
+  WHERE_TO_PLAY_BAND_POINTS,
+  WHERE_TO_PLAY_SUB_MARKET_POINTS,
+  WHERE_TO_PLAY_UNSCORED_SUB_MARKETS,
+} from './where-to-play';
 import { previewScoringChange } from '../config-admin/scoring-preview';
 import { parseSettingValue } from '../config-admin/settings';
 import {
@@ -26,18 +30,7 @@ import { buildHybridConfig } from '../workflow/seeds/hybrid';
  * (D-004 open): the live model stays v2. Hand working is next to each number.
  */
 
-const MARKET_CODES = [
-  'FOOD',
-  'BEVERAGE',
-  'NUTRITION',
-  'PERSONAL_CARE',
-  'HOUSEHOLD_CHEMICAL',
-  'PHARMA_HEALTH',
-  'INDUSTRIAL_CHEMICAL',
-  'PET',
-];
-
-describe('scoring model v3 draft (F-073, F-005)', () => {
+describe('scoring model v3 draft, by sub-market (F-073, F-005, FB-12)', () => {
   it('equals v2 in weights, tiers, bands and every attribute except strategic fit', () => {
     const rest = (m: typeof scoringModelV2) => ({
       tiers: m.tiers,
@@ -53,62 +46,120 @@ describe('scoring model v3 draft (F-073, F-005)', () => {
     expect(SCORING_MODEL_V3_INPUT.version).toBe(3);
   });
 
-  it('the points cover every market in the list, from the 9-box example (provisional)', () => {
-    expect(Object.keys(WHERE_TO_PLAY_MARKET_POINTS).sort()).toEqual([...MARKET_CODES].sort());
-    expect(WHERE_TO_PLAY_MARKET_POINTS).toEqual({
-      PERSONAL_CARE: 90, // Strategic Growth (1)
-      NUTRITION: 75, // Strategic Growth (2)
-      FOOD: 75,
-      PET: 75,
-      BEVERAGE: 60, // Strategic Growth (3)
-      HOUSEHOLD_CHEMICAL: 50, // Selectively Participate
-      INDUSTRIAL_CHEMICAL: 50,
-      PHARMA_HEALTH: 20, // Rationalization
+  it('only the strategic-fit map changes: no market points, sub-market points, neutral default', () => {
+    const map = (m: typeof scoringModelV2) => m.attributes.find((a) => a.key === 'strategic_fit')!;
+    const fit = map(scoringModelV3Draft);
+    expect(fit.input).toBe(map(scoringModelV2).input);
+    expect(fit.map).toEqual({
+      by: 'market',
+      values: {},
+      default: 50,
+      bySegment: { by: 'sub_market', values: { ...WHERE_TO_PLAY_SUB_MARKET_POINTS } },
+      defaultNote: 'Pick a sub-market to score strategic fit',
     });
+    expect(map(scoringModelV2).map).toEqual({ by: 'market', values: {}, default: 50 });
+    expect(fit.unknownExplanation).toBe(map(scoringModelV2).unknownExplanation);
   });
 
-  it('T-036: two otherwise identical quotes in different markets score differently, shown in the breakdown', () => {
-    const base = {
-      est_annual_revenue: 100_000,
-      est_annual_volume: 500_000,
-      quote_needed_by: '2026-12-15',
-    };
-    const fit = (market: string) =>
-      score(
-        scoringModelV3Draft,
-        { quote: { ...base, market }, customer: null, eng_review: null },
-        NOW,
-      ).breakdown.find((b) => b.key === 'strategic_fit')!;
-    const care = fit('PERSONAL_CARE');
-    const pharma = fit('PHARMA_HEALTH');
-    expect([care.points, pharma.points]).toEqual([90, 20]);
-    expect([care.contribution, pharma.contribution]).toEqual([13.5, 3]); // .15 × 90 and .15 × 20
-    expect(care.raw).toBe('PERSONAL_CARE');
-    expect(care.provisional).toBeUndefined();
-    // The live model is still neutral for both.
-    const live = score(
-      scoringModelV2,
-      { quote: { ...base, market: 'PERSONAL_CARE' }, customer: null, eng_review: null },
-      NOW,
-    );
-    expect(live.breakdown.find((b) => b.key === 'strategic_fit')!.points).toBe(50);
+  it('the points are Melanie Rasche’s colours (80 / 50 / 20) for 27 sub-markets; three are unscored', () => {
+    expect(WHERE_TO_PLAY_BAND_POINTS).toEqual({
+      strategic_growth: 80,
+      selectively_participate: 50,
+      rationalization: 20,
+    });
+    const points = Object.values(WHERE_TO_PLAY_SUB_MARKET_POINTS);
+    expect(points).toHaveLength(27);
+    expect([80, 50, 20].map((p) => points.filter((x) => x === p).length)).toEqual([8, 10, 9]);
+    for (const code of WHERE_TO_PLAY_UNSCORED_SUB_MARKETS) {
+      expect(WHERE_TO_PLAY_SUB_MARKET_POINTS).not.toHaveProperty(code);
+    }
+    expect(WHERE_TO_PLAY_UNSCORED_SUB_MARKETS).toEqual([
+      'CLIN_HISTOLOGY',
+      'CLIN_TUBES_VIALS',
+      'HC_NON_CORE',
+    ]);
+  });
+
+  const base = {
+    est_annual_revenue: 100_000,
+    est_annual_volume: 500_000,
+    quote_needed_by: '2026-12-15',
+  };
+  const fitOf = (model: typeof scoringModelV2, quote: Record<string, unknown>) =>
+    score(model, { quote: { ...base, ...quote }, customer: null, eng_review: null }, NOW);
+  const strategicFit = (r: ReturnType<typeof score>) =>
+    r.breakdown.find((b) => b.key === 'strategic_fit')!;
+
+  it('resolves a scored sub-market to 80 / 50 / 20, an unscored one and no sub-market to the neutral 50, no market to the unknown 50', () => {
+    const draft = (quote: Record<string, unknown>) =>
+      strategicFit(fitOf(scoringModelV3Draft, quote));
+    expect(draft({ market: 'FOOD', sub_market: 'FOOD_SNACKS' })).toMatchObject({
+      points: 80,
+      raw: 'FOOD_SNACKS',
+      unknown: false,
+    });
+    expect(draft({ market: 'FOOD', sub_market: 'FOOD_OILS' }).points).toBe(50);
+    expect(draft({ market: 'FOOD', sub_market: 'FOOD_HONEY_SWEETENERS' }).points).toBe(20);
+    for (const sub_market of ['CLIN_HISTOLOGY', 'CLIN_TUBES_VIALS', 'HC_NON_CORE', 'NOT_A_CODE']) {
+      const r = draft({ market: 'CLINICAL', sub_market });
+      expect(r).toMatchObject({ points: 50, unknown: false, raw: 'CLINICAL' });
+      expect(r.explanation).toBe(
+        'Pick a sub-market to score strategic fit (neutral default) → 50 points',
+      );
+    }
+    const none = draft({ market: 'FOOD' });
+    expect(none).toMatchObject({ points: 50, unknown: false });
+    expect(none.explanation).toContain('Pick a sub-market to score strategic fit');
+    const noMarket = draft({});
+    expect(noMarket).toMatchObject({ points: 50, unknown: true, raw: null });
+    expect(noMarket.explanation).toBe('Market not given; scored a neutral 50');
+    // No market-level points: a market alone never moves the score.
+    for (const market of [
+      'FOOD',
+      'BEVERAGE',
+      'CLINICAL',
+      'HOME_CARE',
+      'OTC_HEALTH',
+      'NUTRITION_WELLNESS',
+    ]) {
+      expect(draft({ market }).points).toBe(50);
+    }
+  });
+
+  it('T-036: two quotes identical except sub-market score differently under the draft and identically under live v2', () => {
+    const snacks = { market: 'FOOD', sub_market: 'FOOD_SNACKS' }; // Strategic Growth, 80
+    const honey = { market: 'FOOD', sub_market: 'FOOD_HONEY_SWEETENERS' }; // Rationalization, 20
+    const a = fitOf(scoringModelV3Draft, snacks);
+    const b = fitOf(scoringModelV3Draft, honey);
+    expect([strategicFit(a).points, strategicFit(b).points]).toEqual([80, 20]);
+    // .15 × 80 and .15 × 20, shown in the breakdown
+    expect([strategicFit(a).contribution, strategicFit(b).contribution]).toEqual([12, 3]);
+    expect(a.total - b.total).toBeCloseTo(9, 5); // .15 × (80 − 20)
+    expect(strategicFit(a).provisional).toBeUndefined();
+    const liveA = fitOf(scoringModelV2, snacks);
+    const liveB = fitOf(scoringModelV2, honey);
+    expect([strategicFit(liveA).points, strategicFit(liveB).points]).toEqual([50, 50]);
+    expect(liveA.total).toBe(liveB.total);
   });
 
   /**
-   * The five F-005 golden quotes (golden.test.ts) re-scored by hand under v3. Only strategic fit moves:
-   * total(v3) = total(v2) + .15 × (points(v3) − 50).
-   *   A FOOD 75:               83   + .15 × 25 = 86.75 → 86.8 CRITICAL (unchanged tier)
-   *   B HOUSEHOLD_CHEMICAL 50: 26   + 0        = 26    LOW (unchanged)
-   *   C BEVERAGE 60:           59   + .15 × 10 = 60.5  HIGH (was STANDARD: crosses the 60 edge)
-   *   D PERSONAL_CARE 90:      53   + .15 × 40 = 59    STANDARD (unchanged)
-   *   E NUTRITION 75:          62   + .15 × 25 = 65.75 → 65.8 HIGH (unchanged tier)
+   * The five F-005 golden quotes (golden.test.ts) re-scored by hand under the v3 draft. Their markets are
+   * placed on the new list (the golden facts carry no sub-market). Only strategic fit moves:
+   * total(v3) = total(v2) + .15 × (points(v3) − 50), because v2 scores strategic fit a neutral 50.
+   *   A Food › Snacks & Confections 80:     83   + .15 × 30 = 87.5  CRITICAL (unchanged tier)
+   *   B Home Care › Pet Care 20:            26   − .15 × 30 = 21.5  LOW (unchanged)
+   *   C Nutrition & Wellness › VMS 80:      59   + .15 × 30 = 63.5  HIGH (was STANDARD: crosses the 60 edge)
+   *   D Personal Care › Bath & Shower 80:   53   + .15 × 30 = 57.5  STANDARD (unchanged)
+   *   E Nutrition & Wellness › Liquid Supplements 50: 62 + 0 = 62   HIGH (unchanged)
+   * The v2 totals are the F-005 results and must not change.
    */
   const GOLDEN = [
     {
       name: 'A',
       market: 'FOOD',
+      subMarket: 'FOOD_SNACKS',
       v2: 83,
-      v3: 86.8,
+      v3: 87.5,
       tier2: 'CRITICAL',
       tier3: 'CRITICAL',
       facts: {
@@ -125,9 +176,10 @@ describe('scoring model v3 draft (F-073, F-005)', () => {
     },
     {
       name: 'B',
-      market: 'HOUSEHOLD_CHEMICAL',
+      market: 'HOME_CARE',
+      subMarket: 'HC_PET_CARE',
       v2: 26,
-      v3: 26,
+      v3: 21.5,
       tier2: 'LOW',
       tier3: 'LOW',
       facts: {
@@ -144,9 +196,10 @@ describe('scoring model v3 draft (F-073, F-005)', () => {
     },
     {
       name: 'C',
-      market: 'BEVERAGE',
+      market: 'NUTRITION_WELLNESS',
+      subMarket: 'NW_VMS',
       v2: 59,
-      v3: 60.5,
+      v3: 63.5,
       tier2: 'STANDARD',
       tier3: 'HIGH',
       facts: {
@@ -164,8 +217,9 @@ describe('scoring model v3 draft (F-073, F-005)', () => {
     {
       name: 'D',
       market: 'PERSONAL_CARE',
+      subMarket: 'PC_BATH_SHOWER',
       v2: 53,
-      v3: 59,
+      v3: 57.5,
       tier2: 'STANDARD',
       tier3: 'STANDARD',
       facts: {
@@ -182,9 +236,10 @@ describe('scoring model v3 draft (F-073, F-005)', () => {
     },
     {
       name: 'E',
-      market: 'NUTRITION',
+      market: 'NUTRITION_WELLNESS',
+      subMarket: 'NW_LIQUID_SUPPLEMENTS',
       v2: 62,
-      v3: 65.8,
+      v3: 62,
       tier2: 'HIGH',
       tier3: 'HIGH',
       facts: {
@@ -200,31 +255,45 @@ describe('scoring model v3 draft (F-073, F-005)', () => {
       },
     },
   ];
+  const goldenFacts = (g: (typeof GOLDEN)[number]): ScoringFacts => ({
+    ...g.facts,
+    quote: { ...g.facts.quote, market: g.market, sub_market: g.subMarket },
+  });
 
   it.each(GOLDEN)('golden quote $name under v2 and the v3 draft', (g) => {
-    const facts: ScoringFacts = { ...g.facts, quote: { ...g.facts.quote, market: g.market } };
-    const before = score(scoringModelV2, facts, NOW);
-    const after = score(scoringModelV3Draft, facts, NOW);
+    const before = score(scoringModelV2, goldenFacts(g), NOW);
+    const after = score(scoringModelV3Draft, goldenFacts(g), NOW);
     expect([before.total, before.tier]).toEqual([g.v2, g.tier2]);
     expect([after.total, after.tier]).toEqual([g.v3, g.tier3]);
+    // The sub-market is the only thing that moved.
+    expect(after.breakdown.filter((b) => b.key !== 'strategic_fit')).toEqual(
+      before.breakdown.filter((b) => b.key !== 'strategic_fit'),
+    );
   });
 
   it('the preview shows the points moved, what moved them and the tier that changes', () => {
+    const quotes = GOLDEN.map((g) => ({ id: g.name, facts: goldenFacts(g) }));
+    const p = previewScoringChange(scoringModelV2, scoringModelV3Draft, quotes, NOW);
+    const row = (id: string) => p.rows[quotes.findIndex((q) => q.id === id)]!;
+    expect(row('C')).toMatchObject({ pointsMoved: 4.5, tierChanged: true });
+    expect(row('C').drivers).toEqual([
+      { key: 'strategic_fit', label: 'Strategic fit (where to play)', before: 50, after: 80 },
+    ]);
+    expect(row('B')).toMatchObject({ pointsMoved: -4.5, tierChanged: false });
+    expect(row('E')).toMatchObject({ pointsMoved: 0, tierChanged: false, drivers: [] });
+    expect(p.summary).toMatchObject({ tierChanges: 1, maxPointsDown: -4.5, maxPointsUp: 4.5 });
+    // (4.5 − 4.5 + 4.5 + 4.5 + 0) / 5 = 1.8
+    expect(p.summary.avgPointsMoved).toBe(1.8);
+  });
+
+  it('until a KAM picks a sub-market, every quote previews at the neutral 50 (no movement)', () => {
     const quotes = GOLDEN.map((g) => ({
       id: g.name,
       facts: { ...g.facts, quote: { ...g.facts.quote, market: g.market } },
     }));
     const p = previewScoringChange(scoringModelV2, scoringModelV3Draft, quotes, NOW);
-    const row = (id: string) => p.rows[quotes.findIndex((q) => q.id === id)]!;
-    expect(row('C')).toMatchObject({ pointsMoved: 1.5, tierChanged: true });
-    expect(row('C').drivers).toEqual([
-      { key: 'strategic_fit', label: 'Strategic fit (where to play)', before: 50, after: 60 },
-    ]);
-    expect(row('B')).toMatchObject({ pointsMoved: 0, tierChanged: false, drivers: [] });
-    expect(row('D').pointsMoved).toBe(6);
-    expect(p.summary).toMatchObject({ tierChanges: 1, maxPointsDown: 0, maxPointsUp: 6 });
-    // (3.8 + 0 + 1.5 + 6 + 3.8) / 5 = 3.02 → 3
-    expect(p.summary.avgPointsMoved).toBe(3);
+    expect(p.rows.every((r) => r.pointsMoved === 0 && r.drivers.length === 0)).toBe(true);
+    expect(p.summary.tierChanges).toBe(0);
   });
 });
 

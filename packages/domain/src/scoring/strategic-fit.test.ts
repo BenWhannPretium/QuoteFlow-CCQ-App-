@@ -42,7 +42,7 @@ describe('strategic fit by market and segment (F-073)', () => {
     expect(food.contribution).toBe(13.5);
     expect(food.provisional).toBeUndefined();
     // A market that is not listed still gets the default.
-    expect(fit(model, { market: 'PET' }).points).toBe(50);
+    expect(fit(model, { market: 'HOME_CARE' }).points).toBe(50);
   });
 
   it('two segments score differently, and a segment beats the market', () => {
@@ -56,7 +56,7 @@ describe('strategic fit by market and segment (F-073)', () => {
     const snacks = fit(model, { market: 'FOOD', market_segment: 'SNACKS' });
     const honey = fit(model, { market: 'FOOD', market_segment: 'HONEY' });
     expect([snacks.points, honey.points]).toEqual([95, 15]);
-    expect(snacks.explanation).toContain('segment');
+    expect(snacks.explanation).toContain('sub-market');
     expect(snacks.explanation).not.toContain('default');
     // Segment unknown or unlisted → fall back to the market, then to the default.
     expect(fit(model, { market: 'FOOD' }).points).toBe(60);

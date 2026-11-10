@@ -126,6 +126,11 @@ export const intakeConfigSchema = z
     /** FB-11 (F-080): `price_basis` codes whose meta says `delivered`; the freight fields apply to them. */
     deliveredPriceBasisCodes: z.array(z.string().min(1)).default([]),
     /**
+     * FB-12 (F-073): the active `sub_market` codes and the market each belongs to (value-list meta `market`).
+     * A sub-market must belong to the quote's market. Optional at intake (not in `intake_required_fields`).
+     */
+    subMarketMarkets: z.record(z.string(), z.string()).default({}),
+    /**
      * FB-10 (F-066): platform-minimum warning (app_setting `intake_guardrails`, seeded OFF, provisional).
      * A non-blocking amber warning; recorded on the quote for G1.
      */
@@ -266,6 +271,45 @@ export function needByDateIssues(values: FieldValues, now: Date): IntakeIssue[] 
     }
   }
   return issues;
+}
+
+/**
+ * FB-12 (F-073): the optional sub-market must be an active one that belongs to the quote's market
+ * (Melanie Rasche, 2026-11-09). A blank is fine. The API names the problem `subMarket`.
+ */
+export function subMarketIssues(values: FieldValues, config: IntakeConfig): IntakeIssue[] {
+  const sub = values.sub_market;
+  if (!isPresent(sub) || typeof sub !== 'string') return [];
+  const parent = config.subMarketMarkets[sub];
+  if (parent === undefined) {
+    return [
+      { code: 'INVALID_VALUE', field: 'sub_market', message: 'Pick a sub-market from the list' },
+    ];
+  }
+  if (values.market !== parent) {
+    return [
+      {
+        code: 'INVALID_VALUE',
+        field: 'sub_market',
+        message:
+          'This sub-market does not belong to the chosen market. Pick one of its sub-markets.',
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * FB-12: the sub-market to store after a market change. Kept while it still belongs to the (new) market,
+ * otherwise cleared (a market change must not leave the old market's sub-market behind).
+ */
+export function subMarketAfterMarketChange(
+  subMarket: string | null | undefined,
+  market: string | null | undefined,
+  subMarketMarkets: Readonly<Record<string, string>>,
+): string | null {
+  if (!subMarket) return null;
+  return market && subMarketMarkets[subMarket] === market ? subMarket : null;
 }
 
 /** Detail fields with their own limit (`INTAKE_TEXT_LIMITS`), checked below rather than at 120. */
@@ -486,6 +530,7 @@ export function evaluateIntake(
 
   blocking.push(...needByDateIssues(values, now));
   blocking.push(...productFactIssues(values, config));
+  blocking.push(...subMarketIssues(values, config));
   blocking.push(...moldAndLinkIssues(values));
   const commercial = commercialInputIssues(values, {
     standardPaymentTerms: config.standardPaymentTerms,

@@ -515,6 +515,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       },
       productFamily,
       market: opp.spec.market,
+      subMarket: opp.spec.subMarket,
       resin: complete ? (RESIN_CODE[opp.spec.resin]?.resin ?? opp.spec.resin) : null,
       ...(complete && RESIN_CODE[opp.spec.resin]?.pcr
         ? { pcrLevel: PCR_LEVELS[ordinal % PCR_LEVELS.length]! }

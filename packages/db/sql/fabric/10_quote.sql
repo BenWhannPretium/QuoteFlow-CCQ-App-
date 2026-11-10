@@ -7,7 +7,7 @@
 -- carry Postgres RLS or grants, and Fabric permissions (incl. the commercial-column rule) are owned by D&A (B-27 §3).
 -- Batches are separated by GO (SSMS / sqlcmd / VS Code mssql style).
 --
--- BUSINESS DEFINITION: one row per CCQ quote with the dimensions every metric slices by (KAM, region, market, product family, stage, priority tier) and its close-out. sf_amount is the Salesforce opportunity amount AS ENTERED (not validated, not a price). customer_outcome is the customer answer (awarded, lost, expired; an award still in Commit & Hand Off counts as awarded). outcome_state is the customer-outcome cohort: recorded (awarded, lost or expired decided at G5) or open (waiting in Customer Decision); outcome_cohort_at is when that proposal was issued (falling back to the close date), the date the Outcomes metrics window on. Operational metrics from QuoteFlow; not yet D&A-certified.
+-- BUSINESS DEFINITION: one row per CCQ quote with the dimensions every metric slices by (KAM, region, market, sub-market, product family, stage, priority tier) and its close-out. sf_amount is the Salesforce opportunity amount AS ENTERED (not validated, not a price). customer_outcome is the customer answer (awarded, lost, expired; an award still in Commit & Hand Off counts as awarded). outcome_state is the customer-outcome cohort: recorded (awarded, lost or expired decided at G5) or open (waiting in Customer Decision); outcome_cohort_at is when that proposal was issued (falling back to the close date), the date the Outcomes metrics window on. Operational metrics from QuoteFlow; not yet D&A-certified.
 --
 -- Fabric notes: sf_opportunity_snapshot must be mirrored for this view (and every view built on it) to
 -- compile; B-27 §3 leaves that table to D&A (D-FB2). sf_amount and est_annual_revenue are commercial
@@ -20,6 +20,7 @@ SELECT
   k.display_name                         AS kam_name,
   q.region,
   q.market,
+  q.sub_market,
   q.product_family,
   q.stage_key,
   sd.label                               AS stage_label,

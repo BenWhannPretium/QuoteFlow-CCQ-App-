@@ -41,7 +41,7 @@ import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { valueListLabel } from '@/lib/value-label';
+import { marketText, valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 const TABS = ['overview', 'engineering', 'quoting', 'attachments'] as const;
@@ -195,7 +195,10 @@ function QuotePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ScoreBreakdownTable priority={q.priority} />
+                  <ScoreBreakdownTable
+                    priority={q.priority}
+                    market={{ market: q.market, subMarket: q.subMarket }}
+                  />
                   {/* FB-04 (F-065, T-024): the sales leader's justification, visible to Engineering. */}
                   {tierOverride && (
                     <p className="mt-3 text-xs" data-testid="priority-override-note">
@@ -335,7 +338,8 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
             },
             { label: 'KAM', value: quote.kamName },
             { label: 'Request class', value: label('request_class', quote.requestClass) },
-            { label: 'Market', value: label('market', quote.market) },
+            // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
+            { label: 'Market', value: marketText(config, quote.market, quote.subMarket) },
             { label: 'Product family', value: label('product_family', quote.productFamily) },
             { label: 'Resin', value: label('resin', quote.resin) },
             {
