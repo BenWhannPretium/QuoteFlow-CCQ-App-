@@ -375,11 +375,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                 />
               )}
             </Field>
-            <Field
-              label="Machine type"
-              hint="Provisional list"
-              error={errorFor(errors, 'machineType')}
-            >
+            <Field label="Machine type" error={errorFor(errors, 'machineType')}>
               {(id) => (
                 <ValueListSelect
                   id={id}

@@ -62,8 +62,8 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
       headers: as('eng-lead'),
       data: {
         processType: 'EBM',
-        machineType: 'EBM_SHUTTLE',
-        plantCode: 'PLANT_01',
+        machineType: 'EBM',
+        plantCode: 'AURORA',
         cavitation: 8,
         cycleTimeS: 14.5,
         prelimCapitalUsd: 420000,
@@ -76,7 +76,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
       data: {
         rows: [
           {
-            site: 'PLANT_01',
+            site: 'AURORA',
             assumedEffectivenessPct: 70,
             cycleTimeS: 14.5,
             utilizationBeforePct: 62,
@@ -342,8 +342,8 @@ test('the pricing lead assigns a pricer from the Quoting tab and from the queue'
       headers: as('eng-lead'),
       data: {
         processType: 'EBM',
-        machineType: 'EBM_SHUTTLE',
-        plantCode: 'PLANT_01',
+        machineType: 'EBM',
+        plantCode: 'AURORA',
         cavitation: 8,
         cycleTimeS: 14.5,
       },
@@ -355,7 +355,7 @@ test('the pricing lead assigns a pricer from the Quoting tab and from the queue'
       data: {
         rows: [
           {
-            site: 'PLANT_01',
+            site: 'AURORA',
             assumedEffectivenessPct: 70,
             cycleTimeS: 14.5,
             utilizationBeforePct: 62,

@@ -173,8 +173,8 @@ async function engineeringDone(qn: string) {
   ok(
     await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
       processType: 'EBM',
-      machineType: 'EBM_SHUTTLE',
-      plantCode: 'PLANT_01',
+      machineType: 'EBM',
+      plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
       prelimCapitalUsd: 250_000,
@@ -185,7 +185,7 @@ async function engineeringDone(qn: string) {
     await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
       rows: [
         {
-          site: 'PLANT_01',
+          site: 'AURORA',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
           utilizationBeforePct: 62,
@@ -898,8 +898,8 @@ describe('lead review and pricing assignment notify (T-014, T-015, T-016)', () =
     ok(
       await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, {
         processType: 'EBM',
-        machineType: 'EBM_SHUTTLE',
-        plantCode: 'PLANT_01',
+        machineType: 'EBM',
+        plantCode: 'AURORA',
         cavitation: 8,
         cycleTimeS: 14.5,
       }),
@@ -909,7 +909,7 @@ describe('lead review and pricing assignment notify (T-014, T-015, T-016)', () =
       await as('Engineer').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
         rows: [
           {
-            site: 'PLANT_01',
+            site: 'AURORA',
             assumedEffectivenessPct: 70,
             cycleTimeS: 14.5,
             utilizationBeforePct: 62,

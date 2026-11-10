@@ -165,15 +165,15 @@ const setSetting = (key: string, value: unknown) =>
 
 const SOLUTION = {
   processType: 'EBM',
-  machineType: 'EBM_SHUTTLE',
-  plantCode: 'PLANT_01',
+  machineType: 'EBM',
+  plantCode: 'AURORA',
   cavitation: 8,
   cycleTimeS: 14.5,
   toolingNotes: 'New 8-cavity mold, hot runner not needed',
   technicalConceptNotes: 'Shuttle EBM with in-mold labelling',
 };
 const capacityRow = async (over: Record<string, unknown> = {}) => ({
-  site: 'PLANT_01',
+  site: 'AURORA',
   lineAsset: 'Line 4',
   assumedEffectivenessPct: 70,
   cycleTimeS: 14.5,
@@ -630,7 +630,7 @@ describe('Engineering Review and capacity evidence', () => {
     const saved = EngineeringDetail.parse((await put([await capacityRow()])).json());
     expect(saved.capacityEvidence).toHaveLength(1);
     const row = saved.capacityEvidence[0]!;
-    expect(row).toMatchObject({ site: 'PLANT_01', lineAsset: 'Line 4' });
+    expect(row).toMatchObject({ site: 'AURORA', lineAsset: 'Line 4' });
     // 2026-10-30: the Engineer sees the numbers they entered.
     expect(row).toMatchObject({
       assumedEffectivenessPct: 70,
@@ -661,10 +661,10 @@ describe('Engineering Review and capacity evidence', () => {
 
     // Replace the set: add one, drop the first.
     const replaced = await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
-      rows: [await capacityRow({ site: 'PLANT_02', assumedEffectivenessPct: 68 })],
+      rows: [await capacityRow({ site: 'BETHLEHEM', assumedEffectivenessPct: 68 })],
     });
     expect(EngineeringDetail.parse(replaced.json()).capacityEvidence).toEqual([
-      expect.objectContaining({ site: 'PLANT_02', assumedEffectivenessPct: 68 }),
+      expect.objectContaining({ site: 'BETHLEHEM', assumedEffectivenessPct: 68 }),
     ]);
   });
 });
@@ -739,9 +739,9 @@ describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, 
   it('T-030: two lines split the business; a mismatch warns but still saves', async () => {
     const qn = await setup();
     const res = await saveRows(qn, [
-      await row({ site: 'PLANT_01', lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 }),
+      await row({ site: 'AURORA', lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 }),
       await row({
-        site: 'PLANT_02',
+        site: 'BETHLEHEM',
         lineAsset: 'Line 2',
         allocatedAnnualVolume: 1_000_000,
         utilizationBeforePct: 20,
@@ -752,19 +752,19 @@ describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, 
     expect(
       eng.capacityEvidence.map((r) => [r.site, r.utilizationBeforePct, r.utilizationAfterPct]),
     ).toEqual([
-      ['PLANT_01', 40, 71],
-      ['PLANT_02', 20, 30.33],
+      ['AURORA', 40, 71],
+      ['BETHLEHEM', 20, 30.33],
     ]);
     expect(eng.allocationWarning).toContain('838,400 fewer than');
 
     const fixed = await saveRows(qn, [
       {
-        ...(await row({ site: 'PLANT_01', lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 })),
+        ...(await row({ site: 'AURORA', lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 })),
         id: eng.capacityEvidence[0]!.id,
       },
       {
         ...(await row({
-          site: 'PLANT_02',
+          site: 'BETHLEHEM',
           lineAsset: 'Line 2',
           allocatedAnnualVolume: 1_838_400,
           utilizationBeforePct: 20,
@@ -843,7 +843,7 @@ describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, 
       (await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { cavitation: 6 })).statusCode,
     ).toBe(200);
     expect(
-      (await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { machineType: 'EBM_SHUTTLE' }))
+      (await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { machineType: 'EBM' }))
         .statusCode,
     ).toBe(200);
   });
@@ -898,7 +898,7 @@ describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, 
       await saveRows(qn, [
         await row({ lineAsset: 'Line 1', allocatedAnnualVolume: 3_000_000 }),
         await row({
-          site: 'PLANT_02',
+          site: 'BETHLEHEM',
           lineAsset: 'Line, "2"',
           allocatedAnnualVolume: 1_838_400,
           utilizationBeforePct: 20,
@@ -916,7 +916,7 @@ describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, 
       expect(lines[1]).toContain(`"${clock.toISOString()}"`);
       expect(lines[1]).toContain('"Trailing 12 months actual, trending OEE (provisional, D-021)"');
       // site, effectiveness, cycle, cavitation, run days, allocated, capacity, before, after
-      expect(lines[1]).toContain('"PLANT_01"');
+      expect(lines[1]).toContain('"AURORA"');
       expect(lines[1]).toContain('"9676800"');
       expect(lines[1]).toContain('"40","71"');
       expect(lines[2]).toContain('"Line, ""2"""');
@@ -1073,11 +1073,11 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     };
     expect(evidence.engineering.solution).toMatchObject({
       processType: 'EBM',
-      plantCode: 'PLANT_01',
+      plantCode: 'AURORA',
       cavitation: 8,
     });
     expect(evidence.engineering.capacityEvidence).toEqual([
-      expect.objectContaining({ site: 'PLANT_01', assumed_effectiveness_pct: 70 }),
+      expect.objectContaining({ site: 'AURORA', assumed_effectiveness_pct: 70 }),
     ]);
     // Out of the queue: no more edits.
     expect(
@@ -1264,11 +1264,11 @@ describe('B-26: capacity sign-off (deck slide 11)', () => {
   it('the Supply Chain view is kept with the review; the two legacy equipment notes accept no new writes (FB-06)', async () => {
     const qn = await inQueue();
     const res = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
-      supplyChainNotes: 'Ship from PLANT_02 saves 300 mi',
+      supplyChainNotes: 'Ship from BETHLEHEM saves 300 mi',
     });
     expect(res.statusCode, res.body).toBe(200);
     expect(EngineeringDetail.parse(res.json()).review).toMatchObject({
-      supplyChainNotes: 'Ship from PLANT_02 saves 300 mi',
+      supplyChainNotes: 'Ship from BETHLEHEM saves 300 mi',
     });
     // The BOM is an upload now: the free-text fields are deprecated and read-only.
     for (const key of ['equipmentBomNotes', 'downstreamEquipmentNotes']) {

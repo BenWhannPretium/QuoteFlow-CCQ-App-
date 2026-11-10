@@ -51,14 +51,27 @@ describe('config seeds derive from the domain', () => {
     expect(new Set(rows.map((r) => `${r.listKey}:${r.code}`)).size).toBe(rows.length);
     const approved = rows.filter((r) => !r.provisional);
     // FB-09: Danielle Leu approved product family and resin on 2026-11-09.
-    expect(
-      [...new Set(approved.filter((r) => r.listKey !== 'market').map((r) => r.listKey))].sort(),
-    ).toEqual(['product_family', 'resin']);
-    expect(
-      approved
-        .filter((r) => r.listKey !== 'market')
-        .every((r) => r.meta.approvedByName === 'Danielle Leu'),
-    ).toBe(true);
+    const danielle = approved.filter(
+      (r) => !['market', 'plant', 'machine_type'].includes(r.listKey),
+    );
+    expect([...new Set(danielle.map((r) => r.listKey))].sort()).toEqual([
+      'product_family',
+      'resin',
+    ]);
+    expect(danielle.every((r) => r.meta.approvedByName === 'Danielle Leu')).toBe(true);
+    // FB-13: Jim Zweifel approved the 22 plants and the 14 machine types on 2026-11-10; the placeholders
+    // they replace stay provisional and inactive.
+    for (const [listKey, n] of [
+      ['plant', 22],
+      ['machine_type', 14],
+    ] as const) {
+      const jim = approved.filter((r) => r.listKey === listKey);
+      expect(jim, listKey).toHaveLength(n);
+      expect(jim.every((r) => r.active && r.meta.approvedByName === 'Jim Zweifel')).toBe(true);
+      expect(
+        jim.every((r) => 'approvedAt' in r && r.approvedAt.toISOString().startsWith('2026-11-10')),
+      ).toBe(true);
+    }
     // FB-12: Melanie Rasche approved the 8 active markets on 2026-11-09.
     expect(approved.filter((r) => r.listKey === 'market').map((r) => r.code)).toEqual([
       'FOOD',
@@ -76,9 +89,9 @@ describe('config seeds derive from the domain', () => {
         .every((r) => r.active && r.meta.approvedByName === 'Melanie Rasche'),
     ).toBe(true);
     expect(
-      approved.every(
-        (r) => 'approvedAt' in r && r.approvedAt.toISOString().startsWith('2026-11-09'),
-      ),
+      approved
+        .filter((r) => !['plant', 'machine_type'].includes(r.listKey))
+        .every((r) => 'approvedAt' in r && r.approvedAt.toISOString().startsWith('2026-11-09')),
     ).toBe(true);
     // Everything else stays provisional (PCR, additive, sub-markets, …).
     expect(

@@ -129,8 +129,8 @@ async function readyForG2(qn: string) {
   ok(
     await putReview(qn, {
       processType: 'EBM',
-      machineType: 'EBM_SHUTTLE',
-      plantCode: 'PLANT_01',
+      machineType: 'EBM',
+      plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
       prelimCapitalUsd: 250_000,
@@ -140,7 +140,7 @@ async function readyForG2(qn: string) {
     await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
       rows: [
         {
-          site: 'PLANT_01',
+          site: 'AURORA',
           assumedEffectivenessPct: 70,
           cycleTimeS: 14.5,
           utilizationBeforePct: 62,
@@ -372,16 +372,16 @@ describe('F-024: the two-step (preform) process', () => {
     const qn = reviewQn;
     const res = await putReview(qn, {
       twoStep: true,
-      preformPlantCode: 'PLANT_01',
-      blowPlantCode: 'PLANT_02',
+      preformPlantCode: 'AURORA',
+      blowPlantCode: 'BETHLEHEM',
       preformNumber: 'PF-2210',
       twoStepFreightNote: 'Preforms ship by truck, weekly.',
     });
     ok(res);
     expect(EngineeringDetail.parse(res.json()).review).toMatchObject({
       twoStep: true,
-      preformPlantCode: 'PLANT_01',
-      blowPlantCode: 'PLANT_02',
+      preformPlantCode: 'AURORA',
+      blowPlantCode: 'BETHLEHEM',
       preformNumber: 'PF-2210',
       twoStepFreightNote: 'Preforms ship by truck, weekly.',
     });
@@ -395,7 +395,7 @@ describe('F-024: the two-step (preform) process', () => {
 
   it('unticking clears the four details, and the change is audited with before and after', async () => {
     const qn = reviewQn;
-    ok(await putReview(qn, { twoStep: true, preformPlantCode: 'PLANT_01', preformNumber: 'PF-1' }));
+    ok(await putReview(qn, { twoStep: true, preformPlantCode: 'AURORA', preformNumber: 'PF-1' }));
     tick();
     // The details are sent along with the unticked box: none of them is kept.
     const res = await putReview(qn, { twoStep: false, preformNumber: 'PF-IGNORED' });
@@ -415,7 +415,7 @@ describe('F-024: the two-step (preform) process', () => {
     const last = rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).at(-1)!;
     expect(last.before).toMatchObject({
       twoStep: true,
-      preformPlantCode: 'PLANT_01',
+      preformPlantCode: 'AURORA',
       preformNumber: 'PF-1',
     });
     expect(last.after).toMatchObject({

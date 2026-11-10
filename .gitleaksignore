@@ -8,3 +8,6 @@
 9c2076176432ed020fc35befa9277474b1913e2b:packages/db/seeds/config/settings.ts:generic-api-key:435
 # False positive: the first version of the comment above quoted that setting line; reworded in the next commit.
 05a29c702f6a825fef88a9b5ee00754a28965024:.gitleaksignore:generic-api-key:7
+# False positive: prose in the FB-13 build notes (an API test file name followed by a parenthesis) read as a generic API key.
+# The line is reworded in the next commit; the fingerprint is for the commit that first contained it.
+77c7e682ce4165242214ff5d6108101da720fc0f:docs/build-guide/03-build-steps.md:generic-api-key:1290
