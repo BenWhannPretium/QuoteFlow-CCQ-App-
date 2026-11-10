@@ -45,9 +45,9 @@ Stage, gate, outcome and reason-code labels are configuration and still provisio
 |---|---|---|---|---|
 | 5 | Click **New intake**. | Page **New intake**. Step 1 of 4, **Opportunity**. A search box **Find the Salesforce opportunity**, with **Mine** selected. | | |
 | 6 | Type part of the name of `<SF-OPP-1 chosen by Bailey>`. | Its card shows the name, account, **Amount**, **Close**, **SF stage** and **Owner**. They match Salesforce. | | |
-| 7 | Click **Use this opportunity**. | Step 2, **Customer & ship-to**. The customer is the Salesforce Account on the opportunity, shown read-only. There is no new-customer form and nothing to type about the customer. One checkbox: **Not yet a Pretium customer (no ERP account)**, unticked for an existing customer. | | |
+| 7 | Click **Use this opportunity**. | Step 2, **Customer & destination**. The customer is the Salesforce Account on the opportunity, shown read-only. There is no new-customer form and nothing to type about the customer. One checkbox: **Not yet a Pretium customer (no ERP account)**, unticked for an existing customer. | | |
 | 8 | Look at **Ship / fill destination**. | It shows the default address with the label from Salesforce. **City** and **State** are required. A **Change destination** button is there. | | |
-| 9 | Click **Next**. On step 3 read **Request**, **Product** and **Packaging**. Fill **Request class**, **Product family**, **Container size**, **Market**, **Components** and **Packaging type**. | **Request class** offers only the CCQ class. Each field has a one-line "why we ask" help. Nothing asks you to pick a plant, an engineer or a priority. | | |
+| 9 | Click **Next**. On step 3 read **Request**, **Product** and **Packaging**. Fill **Request class**, **Product family**, **Container size**, **Market**, **Components** and **Packaging type**. | **Request class** lists **CCQ (new business + capital/engineering)** and three classes that stay in the pricing application (**Stock / stock-plus**, **Price inquiry / RFP check**, **Other capital**): only CCQ can be submitted (step 29). Each field has a one-line "why we ask" help. Nothing asks you to pick a plant, an engineer or a priority. | | |
 | 9a | Open the **Market** list. | Eight markets: Food, Beverage, Nutrition & Wellness, OTC Health, Clinical, Personal Care, Home Care, Auto & Commercial Chemical. The five old ones (Nutrition/Supplements, Household Chemical, Pharma/Health, Industrial/Chemical, Pet) are not offered. | | |
 | 9b | Look at **Sub-market** before you pick a market. Then pick **Food**. Then pick **Beverage**, then **Food** again. | Before a market: the list is disabled and reads "Choose a market first". With **Food**: **Choose…** and the seven Food sub-markets (for example Snacks & Confections, Oils, Spices, Seasonings & Extracts). With **Beverage**: only Non-Alcoholic and Spirits & Mixers. The help reads "Pick the closest sub-market. It sets the strategic-fit score." | | |
 | 9c | Pick **Food** and the sub-market **Snacks & Confections**. Then change **Market** to **Beverage**. | The sub-market is cleared (**Choose…** again): a sub-market that does not belong to the new market is never kept. Pick **Food** and **Snacks & Confections** again for the rest of this intake. **Sub-market** is optional: you can leave it empty and still submit, but then the strategic-fit points stay neutral. | | |
@@ -135,7 +135,7 @@ Do this after the pricing lead returns `<CCQ-RW-1>` and `<CCQ-RW-2>` to you (pri
 | 51 | Click the link in the reminder. Then dismiss the reminder. | The opportunity opens in a new tab (or the plain ID is shown if the URL is not set). The reminder goes away. Nothing was written to Salesforce: QuoteFlow only reminds you. | | |
 | 52 | Click the header button **Commit & hand off**. Choose **Advance (close Won)**. | Under **Missing before it can move on:** the dialog lists "The CER approved, or marked not required" and "The receiving team accepted the hand-off". Recording it is refused. Close the dialog. | | |
 | 53 | In the **Commit & hand off** card fill **CER status**, **CER ID (Apex)**, **CER approved on**, **Receiving role**, **Receiving contact** and **Accepted-by date**. Tick **Ready for CER development**. Tick **Hand-off accepted by the receiving team**. Click **Save hand-off**. | "Hand-off accepted". The card shows **CER: Approved** (or Not required), **Ready for CER development** and **Hand-off accepted**. | | |
-| 54 | Click **Commit & hand off** → **Advance (close Won)** → **Record decision**. | The stage is **Closed – Won**. A closure card shows the outcome, reason, **Closure owner** (you) and date. | | |
+| 54 | Click **Commit & hand off** → **Advance (close Won)** → pick the **Reason (required)** (the acceptance evidence, for example **Purchase order (PO)**) → **Record decision**. | Without a reason: "Choose a reason." The stage is **Closed – Won**. A closure card shows the outcome, reason, **Closure owner** (you) and date. | | |
 | 55 | Open `<CCQ-CD-2 staged by Ben>` → **Record outcome** → **Lost**. Click **Record decision** with no reason. | "Choose a reason." | | |
 | 56 | Pick **Other (note required)** and leave the note empty. Click **Record decision**. | Refused: a note is required. | | |
 | 57 | Pick **Price**. Type a **Competitor (optional)**. Click **Record decision**. | The quote closes as lost. The closure card shows **Reason** Price, the competitor and **Closure owner** you. The Salesforce reminder names the closed-lost stage. | | |
@@ -153,7 +153,7 @@ You can read pricing, margin and capital figures on any quote you can open. You 
 | 62 | **Pipeline** → **Columns**. | The **Budgetary capital estimate** and **Capital readiness** columns are offered (they are the same for every role). | | |
 | 63 | Choose both columns. Click **Export CSV**. Open the file. | The file has the columns you chose. | | |
 | 64 | Open the emails QuoteFlow sent you about quotes. | No price, margin or capital amount in any email. | | |
-| 65 | Type `/quotes/<CCQ-FR-1 staged by Ben>/review` after the test URL. | "You don’t have access to this". | | |
+| 65 | Type `/quotes/<CCQ-FR-1 staged by Ben>/review` after the test URL. | The Final Review page opens **read-only** (no decision buttons: every role that can read a quote can read it). Trying to decide G4 through the API is refused with a 403. | | |
 | 66 | Type `/approvals` after the test URL. Then `/analytics`. Then `/admin`. | "You don’t have access to this" each time. | | |
 | 67 | Open any quote in **Intake** that is yours. | There is no **Qualify & prioritize** button. A KAM cannot qualify. | | |
 
@@ -164,14 +164,14 @@ You can read pricing, margin and capital figures on any quote you can open. You 
 | 68 | Ask an engineer or a pricer tester to add a comment on one of your quotes. Click the bell. | A notice says there is a new comment, with a link. The email, if you get one, never contains the comment text. | | |
 | 69 | Ask them to add two more comments within a few minutes. Check your email. | The comments arrive as **one** email ("3 new comments"), not three. | | |
 | 70 | Watch your bell while the engineering and pricing testers move one of your quotes on (engineering.md Part C, pricing.md Part D). | You are told each time a quote of yours moves on, is sent back, goes on hold or closes. You are told once per event, even if you hold two roles. | | |
-| 71 | Open your user menu → **Preferences** (`/me/preferences`). Switch off the email for "moved on" notices. | It saves. The in-app notices stay. | | |
+| 71 | Open your user menu → **Email preferences** (`/me/preferences`). Switch off the email for **Your quote moves or a decision is recorded**. | It saves. The in-app notices stay. | | |
 
 ## Part J: Intake on a phone
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 72 | On your phone, open the test URL and sign in. | A bottom tab bar: **Home**, **Intake**, **Proposals**, **Pipeline**. | | |
-| 73 | Tap **Intake** → find `<SF-OPP-4 chosen by Bailey>` → **Use this opportunity**. | The stepper reads "Step 2 of 4 · Customer & ship-to". No sideways scrolling. | | |
+| 73 | Tap **Intake** → find `<SF-OPP-4 chosen by Bailey>` → **Use this opportunity**. | The stepper reads "Step 2 of 4 · Customer & destination". No sideways scrolling. | | |
 | 74 | Fill steps 2 and 3 (including the needed-by dates and the dimensions). On step 4 tap **Add photo** and take a photo of a sample. | The camera opens. The photo uploads as a sample photo. | | |
 | 75 | Tap **Submit to CCQ**. | The quote is created. Note how long the whole intake took. | | |
 
