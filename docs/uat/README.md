@@ -2,6 +2,8 @@
 
 This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Schmitt runs the sessions. Ben Whann fixes. Tre Curry coordinates.
 
+> **Pilot-group UAT runs Nov 13 to Nov 20, 2026** (Ben, 2026-11-10). The sessions below (U0 to U6, Nov 9 to 13) come first. Before the pilot, Claude Code also runs a dry run of every script against a local copy of the app; its reports are in [`dry-run/`](dry-run/README.md). That does not replace the pilot or any sign-off.
+
 > **Source of truth.** The `.md` files are the source. `quickstart/print.html` is a hand-made printable copy of the quick-starts. When you change a quick-start `.md`, change `print.html` the same way.
 
 > **Updated 2026-11-06 for the feedback builds (FB-01 to FB-05) and for the rule that every role sees commercial figures.** Changes testers will notice:

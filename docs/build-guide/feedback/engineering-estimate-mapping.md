@@ -1,7 +1,7 @@
 # Engineering estimate workbook: mapping to QuoteFlow (F-026)
 
-**Status (2026-11-10): the workbook is identified and mapped. No fields were added. Four points need Paul
-Slomkowski or Pricing (see "Open points"); then this file is the F-026 record.**
+**Status (2026-11-10): the workbook is identified and mapped, and Kal Kaliszewski's answers are recorded. No fields
+were added. Three points are still open (see "Open points"); then this file is the F-026 record.**
 
 F-026 (Bailey Schmitt, PMO): "Every cost-driving field in the engineering estimate workbook has a home in
 QuoteFlow or is intentionally excluded."
@@ -22,6 +22,22 @@ from its headers, formulas and structure only. A masked or synthetic copy can go
 notes, the decision records (D-033), the UAT scripts and one label on the Engineering tab call it "CSR BOM".
 The template has no CSR tab. This looks like a transcription slip; Kal can confirm. The label fix is a
 follow-up (see "Terminology").
+
+## Kal's answers (2026-11-10)
+
+Ben asked three questions on the "CCQ | QuoteFlow Engineering / Supply Chain Follow-ups" thread. Kal answered
+inline:
+
+| Question | Kal's answer |
+|---|---|
+| Does the estimate workbook exist, and where? | "It is the same workbook" (the Project Workbook Template) |
+| Which cells does Engineering type that drive cost? | "I would pull in the total from Column AQ": the EPO BOM's **Total Item Cost** (capital + expense + customer paid, with tax and contingency; the sheet total is in row 413) |
+| Is the equipment list the CER BOM one-pager, or another list? | "The EPO BOM is your equipment list. If there is no budget on a line item, then we aren't ordering it." |
+
+Two things in the rest of this file follow from that. The figure Engineering reports is the **AQ total**, not
+Total Capital, which is why point 1 under "Open points" exists. And the equipment list is the **EPO BOM**, so
+the CER BOM one-pager (D-033) is its roll-up, not a separate list. The upload accepts the workbook or the
+one-pager, so no change is needed there.
 
 ## What the workbook is
 
@@ -53,9 +69,10 @@ uses only a small part of it.
 - **11 sections:** injection machinery, injection tooling, blowmolding machinery, blowmolding tooling,
   downstream tooling, ISBM / IBM / EBM machinery, ISBM / IBM / EBM tooling, quality, downstream,
   infrastructure, building.
-- **Careful with "Total Budget".** In the copy reviewed, the Project Charter's *Total Budget* equals the BOM's
-  *Total Item Cost* (capital + expense + customer paid), not the capital alone. The QuoteFlow budgetary
-  capital estimate must be read from **Total Capital**.
+- **Total Budget, Total Item Cost and capital.** In the copy reviewed, the Project Charter's *Total Budget*
+  equals the BOM's *Total Item Cost* (column AQ: capital + expense + customer paid). Kal says Engineering
+  reports that AQ total. QuoteFlow's field is labelled a *budgetary capital estimate*, so what Engineering
+  types in it is open (point 1).
 
 ## Mapping
 
@@ -70,7 +87,7 @@ fields.
 | Charter B5; Scope Doc A, B, C, D | Objectives, scope in and out, assumptions, risks | `technicalConceptNotes` | **Covered** as free text |
 | Charter E5 and G5 (project manager) | The engineer running it | Assigned engineer (F-062) | **Covered** |
 | Charter E6 (key team members) | Post-award team | None | **Excluded**: post-award |
-| Charter N5 and Q5 (total budget) | Equals Total Item Cost in the example reviewed | None | **Not mapped** (see "Careful with Total Budget") |
+| Charter N5 and Q5 (total budget) | Equals Total Item Cost (AQ) in the example reviewed | None | **Not mapped**: the same figure as AQ (point 1) |
 | Charter N6 (decommission) | Label only in the template | `toolingNotes` if needed | **Open (point 3)** |
 | Charter N7 (cycle time) | Target cycle time | `cycleTimeS` | **Covered** |
 | Charter N8 (scrap target %) | Scrap assumption | None | **Open (point 3)** |
@@ -78,7 +95,7 @@ fields.
 | Scope Doc C3 (CER number) | The CER id | The CER id at G6 hand-off | **Excluded at quote time** |
 | Scope Doc E4 and EPO BOM B2 (plant) | Project location | `plantCode` | **Covered** (22 plants, FB-13) |
 | EPO BOM A4, CER BOM A4 (ERF #) | Legacy ERF number | `erf_number` (legacy reference) | **Covered** |
-| EPO BOM C11 and C12 (estimated cost, Total Capital) | Roll-ups of AQ413 and AN413 | Total Capital → `prelimCapitalUsd` (budgetary capital estimate, includes contingency) | **Covered**: Engineering types the figure; the file backs it |
+| EPO BOM C11 and C12 (estimated cost, Total Capital) | Roll-ups of AQ413 (Total Item Cost) and AN413 (Total Capital) | `prelimCapitalUsd` (budgetary capital estimate, includes contingency) | **Open (point 1)**: Kal says Engineering reports the AQ total; the field is labelled capital |
 | EPO BOM C13 and C14 (Total Expense, Total Customer Paid) | Roll-ups of AO413 and AP413 | In the upload | **Open (point 2)**: keep in the file, or add fields |
 | EPO BOM F11 and F12 (start, end date) | Project dates | None | **Excluded**: post-award |
 | EPO BOM L11, L12, L13 | Tax on or off, tax rate, contingency rate | In the upload | **Excluded**: costing stays in Excel; tax per plant stays A-034 |
@@ -123,27 +140,34 @@ The workbook carries **no pack-out and no two-step details**. Those stay as the 
 
 The upload is a file. If Pricing later wants the figures in QuoteFlow, the CER BOM tab is easy to read: one row
 per section in `A11:G21` (id, item, lead time in weeks, Total Capital, Total Expense, Total Customer Paid,
-comments), sums in `D22:F22` and the grand total in `D23`. That is a small extraction, but it needs Kal to
-confirm that the tab is what Engineering uploads at quote time, and it is not an MVP item.
+comments), sums in `D22:F22` and the grand total in `D23`. That is a small extraction and not an MVP item. Kal
+says the EPO BOM is the equipment list and column AQ holds the total Engineering reports, so an extraction
+should also read the EPO BOM totals in row 413 (`AN413` to `AQ413`), not only this roll-up.
 
 ## Open points
 
-Four things stay open. None blocks the MVP: the upload and the budgetary capital estimate already work.
+Three things stay open. None blocks the MVP: the upload works, and Engineering can type a figure today.
 
-1. **Which cells does Engineering fill at quote time?** The whole EPO BOM, or only the CER BOM one-pager
-   (D-033 says the one-pager)? Paul Slomkowski or Kal Kaliszewski.
-2. **What does Pricing read from it?** Total Capital, Total Expense, Total Customer Paid and lead time are the
-   candidates. If Pricing reads Total Customer Paid, it feeds the customer-funded terms (FB-08). Kyle Arnold or
-   Graham Parle.
-3. **Scrap target % and decommission.** Are they entered at quote time, and does anyone read them? If not,
-   they stay excluded.
-4. **Equipment lead time (weeks).** The longest lead time drives the lead time quoted to the customer. QuoteFlow
-   has no field for it today. Recommendation: add one optional number only if Pricing confirms it reads it.
+1. **What goes in the budgetary capital estimate?** Kal says Engineering reports the AQ total (Total Item
+   Cost: capital + expense + customer paid, with tax and contingency). The QuoteFlow field is labelled
+   *capital*, and capital drives G2 "Advance – capital required", the ROI step and the customer-funded terms
+   (FB-08). Options: (a) the field takes the AQ total and is relabelled (for example "Budgetary project
+   cost"); (b) it stays "capital" and Engineering types Total Capital (AN), with expense and customer paid
+   left in the uploaded file; (c) two fields. **Do not change the field until Paul Slomkowski and Pricing
+   (Kyle Arnold or Graham Parle) say which they want.** Until then the Engineering help text should name the
+   column to type, and the file carries the split either way.
+2. **What does Pricing read from the workbook?** Total Capital, Total Expense, Total Customer Paid and lead
+   time are the candidates. Total Customer Paid feeds the customer-funded terms (FB-08).
+3. **Scrap target %, decommission and equipment lead time (weeks).** Are they entered at quote time, and
+   does anyone read them? QuoteFlow has no field for lead time or scrap. Add one only if Pricing confirms it
+   reads it. The longest lead time drives the lead time quoted to the customer.
 
-**Recommendation.** No new fields for F-026 now. Every cell that drives cost has a home (cycle time, plant,
-budgetary capital, the BOM upload) or is intentionally excluded. Add lead time, scrap, or the customer-paid
-total only if Pricing says it uses them. Sign-off: Paul Slomkowski for Engineering and Pricing (Kyle Arnold or
-Graham Parle) for what they read.
+**Answered by Kal on 2026-11-10:** the workbook is the same file, Engineering reports the AQ total, and the
+equipment list is the EPO BOM.
+
+**Recommendation.** No new fields for F-026 now. Every cell that drives cost has a home (cycle time, plant, the
+budgetary estimate, the BOM upload) or is intentionally excluded. Sign-off: Paul Slomkowski for Engineering
+and Pricing (Kyle Arnold or Graham Parle) for what they read.
 
 ## Terminology
 
