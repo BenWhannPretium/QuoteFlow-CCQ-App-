@@ -1,9 +1,16 @@
 import { readFileSync } from 'node:fs';
 
-import { PERMISSION_MATRIX, SEED_REASON_CODES, hybridConfig } from '@ccq/domain';
+import {
+  PERMISSION_MATRIX,
+  SEED_REASON_CODES,
+  WHERE_TO_PLAY_SUB_MARKET_BANDS,
+  WHERE_TO_PLAY_UNSCORED_SUB_MARKETS,
+  hybridConfig,
+} from '@ccq/domain';
 import { describe, expect, it } from 'vitest';
 
 import { rolePermissionRows, valueListRows, workflowRows } from './config/index';
+import { RETIRED_MARKETS } from './config/value-lists';
 import { buildCustomers, buildOpportunities, SF_STAGE_COUNTS } from './synthetic/opportunities';
 import { PERSONA_DEFS, buildPersonas } from './synthetic/personas';
 import { DEFAULT_ANCHOR, createRng } from './synthetic/rng';
@@ -37,10 +44,72 @@ describe('config seeds derive from the domain', () => {
     expect(rolePermissionRows()).toHaveLength(n);
   });
 
-  it('value list codes are unique per list and every row is provisional', () => {
+  it('value list codes are unique per list and every row is provisional, except the approved markets', () => {
     const rows = valueListRows();
     expect(new Set(rows.map((r) => `${r.listKey}:${r.code}`)).size).toBe(rows.length);
-    expect(rows.every((r) => r.provisional)).toBe(true);
+    // FB-12: Melanie Rasche approved the 8 active markets on 2026-11-09; everything else is provisional.
+    const approved = rows.filter((r) => !r.provisional);
+    expect(approved.map((r) => `${r.listKey}:${r.code}`)).toEqual(
+      [
+        'FOOD',
+        'BEVERAGE',
+        'NUTRITION_WELLNESS',
+        'OTC_HEALTH',
+        'CLINICAL',
+        'PERSONAL_CARE',
+        'HOME_CARE',
+        'AUTO_COMMERCIAL_CHEMICAL',
+      ].map((c) => `market:${c}`),
+    );
+    expect(
+      approved.every((r) => r.active && r.approvedAt?.toISOString().startsWith('2026-11-09')),
+    ).toBe(true);
+  });
+
+  it('markets: the five old codes are kept inactive, never deleted (FB-12)', () => {
+    const markets = valueListRows().filter((r) => r.listKey === 'market');
+    expect(markets.filter((r) => r.active)).toHaveLength(8);
+    expect(markets.filter((r) => !r.active).map((r) => r.code)).toEqual([...RETIRED_MARKETS]);
+  });
+
+  it('sub-markets: 30, each under an active market, and every scored code in where-to-play exists with the right parent (FB-12)', () => {
+    const rows = valueListRows();
+    const activeMarkets = new Set(
+      rows.filter((r) => r.listKey === 'market' && r.active).map((r) => r.code),
+    );
+    const subs = rows.filter((r) => r.listKey === 'sub_market');
+    expect(subs).toHaveLength(30);
+    expect(subs.every((r) => r.active && r.provisional)).toBe(true);
+    const parent = new Map<string, string>();
+    for (const s of subs) {
+      const market = (s.meta as { market?: string }).market;
+      expect(activeMarkets.has(market ?? ''), s.code).toBe(true);
+      parent.set(s.code, market!);
+    }
+    const scored = Object.keys(WHERE_TO_PLAY_SUB_MARKET_BANDS);
+    expect(scored).toHaveLength(27);
+    for (const code of scored) expect(parent.has(code), code).toBe(true);
+    for (const code of WHERE_TO_PLAY_UNSCORED_SUB_MARKETS)
+      expect(parent.has(code), code).toBe(true);
+    // The two sets together are exactly the list.
+    expect(new Set([...scored, ...WHERE_TO_PLAY_UNSCORED_SUB_MARKETS])).toEqual(
+      new Set(parent.keys()),
+    );
+    // Parents, by code prefix (a mistyped parent would put a sub-market under the wrong market).
+    const PREFIX: Record<string, string> = {
+      FOOD_: 'FOOD',
+      BEV_: 'BEVERAGE',
+      NW_: 'NUTRITION_WELLNESS',
+      OTC_: 'OTC_HEALTH',
+      CLIN_: 'CLINICAL',
+      PC_: 'PERSONAL_CARE',
+      HC_: 'HOME_CARE',
+      ACC_: 'AUTO_COMMERCIAL_CHEMICAL',
+    };
+    for (const [code, market] of parent) {
+      const prefix = Object.keys(PREFIX).find((p) => code.startsWith(p))!;
+      expect(market, code).toBe(PREFIX[prefix]);
+    }
   });
 });
 
@@ -53,6 +122,28 @@ describe('synthetic generator', () => {
       return { personas, opps: buildOpportunities(rng, DEFAULT_ANCHOR, customers) };
     };
     expect(run()).toEqual(run());
+  });
+
+  it('FB-12: markets are on the new list, sub-markets belong to them, and a retired code never appears', () => {
+    const customers = buildCustomers(createRng(7), DEFAULT_ANCHOR);
+    const opps = buildOpportunities(createRng(7), DEFAULT_ANCHOR, customers);
+    const rows = valueListRows();
+    const active = new Set(
+      rows.filter((r) => r.listKey === 'market' && r.active).map((r) => r.code),
+    );
+    const parent = new Map(
+      rows
+        .filter((r) => r.listKey === 'sub_market')
+        .map((r) => [r.code, (r.meta as { market: string }).market]),
+    );
+    for (const o of opps) {
+      expect(active.has(o.spec.market), o.spec.market).toBe(true);
+      if (o.spec.subMarket) expect(parent.get(o.spec.subMarket)).toBe(o.spec.market);
+    }
+    // Some quotes carry a sub-market, some a market only, and every market is drawn.
+    expect(opps.some((o) => o.spec.subMarket !== null)).toBe(true);
+    expect(opps.some((o) => o.spec.subMarket === null)).toBe(true);
+    expect(new Set(opps.map((o) => o.spec.market))).toEqual(active);
   });
 
   it('has a persona per role plus the multi-role and scoped variants, all on example.com', () => {

@@ -487,10 +487,10 @@ describe('scoring model versions', () => {
     });
 
   it('drafts, previews, activates and rescores open quotes only', async () => {
-    // FB-10 seeds an inactive v3 draft; this test builds its own, so it discards that one first.
+    // FB-10 seeded (and FB-12 re-keyed to sub-market) an inactive v3 draft; this test builds its own, so it discards that one first.
     const seeded = (await scoring()).versions.filter((v) => v.status === 'draft');
     expect(seeded).toHaveLength(1);
-    expect(seeded[0]!.changeReason).toMatch(/^FB-10/);
+    expect(seeded[0]!.changeReason).toMatch(/^FB-12/);
     const dropped = await admin().post('/api/v1/admin/config/scoring/draft/discard', {
       version: seeded[0]!.version,
       changeReason: 'Replace the seeded draft with the one under test',

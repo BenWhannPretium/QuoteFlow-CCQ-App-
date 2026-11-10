@@ -42,7 +42,7 @@ describe('strategic fit by market and segment (F-073)', () => {
     expect(food.contribution).toBe(13.5);
     expect(food.provisional).toBeUndefined();
     // A market that is not listed still gets the default.
-    expect(fit(model, { market: 'PET' }).points).toBe(50);
+    expect(fit(model, { market: 'HOME_CARE' }).points).toBe(50);
   });
 
   it('two segments score differently, and a segment beats the market', () => {

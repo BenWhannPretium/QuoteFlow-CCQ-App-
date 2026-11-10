@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { raw, testDb } from './helpers';
 import { RETIRED_MARKETS, SUB_MARKETS } from '../seeds/config/value-lists';
 import type { Tx } from '../src/client';
+import { fb12Report, MARKET_OLD_TO_NEW, renderFb12Report } from '../src/fb12Report';
 
 /**
  * FB-12 (F-020, F-073, D-004): the market list, the sub-market list and the inactive draft scoring model
@@ -439,6 +440,63 @@ describe('0037 migration: the draft scoring model', () => {
       await tx.execute(sql`delete from scoring_model`);
       await run(tx, rekey());
       expect(await models(tx)).toHaveLength(0);
+    });
+  });
+});
+
+describe('the FB-12 report (read only)', () => {
+  it('lists quote numbers by retired market code with the suggested new market, and changes nothing', async () => {
+    await rolledBack(async (tx) => {
+      expect(Object.keys(MARKET_OLD_TO_NEW).sort()).toEqual([...RETIRED_MARKETS].sort());
+      const ids = await raw<{ id: string; quote_number: string }>(
+        tx,
+        sql`select id, quote_number from quote order by quote_number limit 3`,
+      );
+      const [a, b, c] = ids;
+      await tx.execute(sql`update quote set market = 'PHARMA_HEALTH' where id = ${a!.id}`);
+      await tx.execute(sql`update quote set market = 'PET' where id = ${b!.id}`);
+      await tx.execute(sql`update quote set market = 'NUTRITION' where id = ${c!.id}`);
+      const before = await raw(tx, sql`select id, market from quote order by id`);
+      const report = await fb12Report(tx);
+      expect(await raw(tx, sql`select id, market from quote order by id`)).toEqual(before);
+      expect(report.retiredMarketCounts).toEqual({ PHARMA_HEALTH: 1, PET: 1, NUTRITION: 1 });
+      const row = (qn: string) => report.retiredMarketQuotes.find((q) => q.quoteNumber === qn)!;
+      expect(row(a!.quote_number)).toMatchObject({
+        market: 'PHARMA_HEALTH',
+        suggested: 'OTC_HEALTH or CLINICAL',
+        automatic: false,
+      });
+      expect(row(b!.quote_number)).toMatchObject({ suggested: 'HOME_CARE', automatic: true });
+      expect(row(c!.quote_number)).toMatchObject({ suggested: 'NUTRITION_WELLNESS' });
+      const text = renderFb12Report(report, new Date('2026-11-10T12:00:00Z'));
+      expect(text).toContain(a!.quote_number);
+      expect(text).toContain('no automatic mapping');
+    });
+  });
+
+  it('says what the migration will do: done on a seeded database, will change on an old one, skipped when edited', async () => {
+    await rolledBack(async (tx) => {
+      const done = await fb12Report(tx);
+      expect(done.markets.every((m) => m.outcome === 'already done')).toBe(true);
+      expect(done.draft.outcome).toBe('already done');
+
+      await toPreFb12State(tx);
+      await asFb10Draft(tx);
+      await tx.execute(
+        sql`update value_list set label = 'Edited', version = 2 where list_key = 'market' and code = 'PET'`,
+      );
+      const old = await fb12Report(tx);
+      const outcome = (code: string) => old.markets.find((m) => m.code === code)!.outcome;
+      expect(outcome('FOOD')).toBe('will change');
+      expect(outcome('CLINICAL')).toBe('will change'); // to be added
+      expect(outcome('PHARMA_HEALTH')).toBe('will change'); // to be deactivated
+      expect(outcome('PET')).toBe('skipped: admin changed');
+      expect(old.draft).toMatchObject({ outcome: 'will change' });
+
+      await tx.execute(sql`update scoring_model set version = 2 where effective_from is null`);
+      expect((await fb12Report(tx)).draft.outcome).toBe('skipped: admin changed');
+      await tx.execute(sql`delete from scoring_model where effective_from is null`);
+      expect((await fb12Report(tx)).draft.outcome).toBe('missing');
     });
   });
 });

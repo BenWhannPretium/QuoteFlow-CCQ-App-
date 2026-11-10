@@ -180,9 +180,6 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
     }
     return entry?.label ?? code;
   };
-  // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
-  const market = await marketPathLabel(db, q.market, q.subMarket);
-  if (market) facts.push({ key: 'market', label: 'Market', value: market });
   if (q.resin) {
     const resin = await label('resin', q.resin);
     facts.push({
@@ -191,6 +188,9 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
       value: [resin, f.resinCustomerSpecified ? f.resinGrade : null].filter(Boolean).join(' · '),
     });
   }
+  // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
+  const market = await marketPathLabel(db, q.market, q.subMarket);
+  if (market) facts.push({ key: 'market', label: 'Market', value: market });
   const neck = neckSummary({
     diameter: await label('neck_diameter', f.neckDiameter, f.neckDiameterCustom),
     finish: await label('neck_finish_type', f.neckFinishType, f.neckFinishTypeCustom),

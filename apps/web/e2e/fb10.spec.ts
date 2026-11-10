@@ -1,3 +1,4 @@
+import { WHERE_TO_PLAY_SUB_MARKET_POINTS } from '@ccq/domain';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { seriousViolations } from './axe';
@@ -12,24 +13,21 @@ import { freeOpportunities, submitQuote } from './quotes';
 // is not there.
 
 const WHY = 'FB-10 e2e';
-/** The seeded provisional 9-box points by market (packages/domain/src/scoring/where-to-play.ts). */
-const NINE_BOX = {
-  PERSONAL_CARE: 90,
-  NUTRITION: 75,
-  FOOD: 75,
-  PET: 75,
-  BEVERAGE: 60,
-  HOUSEHOLD_CHEMICAL: 50,
-  INDUSTRIAL_CHEMICAL: 50,
-  PHARMA_HEALTH: 20,
-};
+/**
+ * The seeded provisional 9-box points by sub-market (packages/domain/src/scoring/where-to-play.ts):
+ * 80 / 50 / 20 by colour (Melanie Rasche, 2026-11-09; FB-12 re-keyed FB-10's draft from market to sub-market).
+ */
+const NINE_BOX = { ...WHERE_TO_PLAY_SUB_MARKET_POINTS };
 
 interface ScoringVersion {
   version: number;
   modelVersion: number;
   status: string;
   model: {
-    attributes: { key: string; map?: { values: Record<string, number> } }[];
+    attributes: {
+      key: string;
+      map?: { values: Record<string, number>; bySegment?: { by: string; values: object } };
+    }[];
     tiers: unknown[];
     unknownScore: number;
   };
@@ -51,7 +49,17 @@ async function ensureDraft(request: APIRequestContext) {
   );
   const draft = (await versions(request)).find((v) => v.status === 'draft')!;
   const attributes = draft.model.attributes.map((a) =>
-    a.key === 'strategic_fit' ? { ...a, map: { ...a.map, values: NINE_BOX } } : a,
+    a.key === 'strategic_fit'
+      ? {
+          ...a,
+          map: {
+            ...a.map,
+            values: {},
+            bySegment: { by: 'sub_market', values: NINE_BOX },
+            defaultNote: 'Pick a sub-market to score strategic fit',
+          },
+        }
+      : a,
   );
   await ok(
     request.put('/api/v1/admin/config/scoring/draft', {
@@ -89,10 +97,10 @@ test('an Admin compares the draft with the live model on the open quotes: old ti
   request,
 }) => {
   await ensureDraft(request);
-  // Two open quotes in markets the 9-box scores differently (75 and 20 against the live 50).
+  // Two open quotes in sub-markets the 9-box scores differently (80 and 20 against the live 50).
   const candidates = await freeOpportunities(request, 2);
-  await submitQuote(request, candidates, { market: 'FOOD' });
-  await submitQuote(request, candidates, { market: 'PHARMA_HEALTH' });
+  await submitQuote(request, candidates, { market: 'FOOD', subMarket: 'FOOD_SNACKS' });
+  await submitQuote(request, candidates, { market: 'FOOD', subMarket: 'FOOD_HONEY_SWEETENERS' });
 
   await signInAs(page, 'admin');
   await page.goto('/admin/scoring');
@@ -108,12 +116,13 @@ test('an Admin compares the draft with the live model on the open quotes: old ti
   }
   const rows = preview.getByTestId('preview-row');
   expect(await rows.count()).toBeGreaterThanOrEqual(2);
-  // The FOOD quote moves up and the PHARMA_HEALTH quote moves down.
+  // The Snacks & Confections quote moves up and the Honey & Sweeteners quote moves down.
   await expect(
     preview.getByTestId('points-moved').filter({ hasText: /^\+/ }).first(),
   ).toBeVisible();
   await expect(preview.getByTestId('points-moved').filter({ hasText: /^-/ }).first()).toBeVisible();
-  await expect(rows.first()).toContainText('Strategic fit (where to play)');
+  await expect(rows.first()).toContainText('Strategic fit (sub-market)');
+  await expect(preview.getByTestId('sub-market-points')).toBeVisible();
 
   // Activate is a separate, audited action: a reason is required and rescoring is a choice.
   await page.getByRole('button', { name: /^Activate v\d+$/ }).click();

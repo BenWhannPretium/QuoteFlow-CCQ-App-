@@ -112,6 +112,16 @@ const MARKETS: MarketPick[][] = [
   [['HOME_CARE', 'HC_PET_CARE']],
 ];
 
+/**
+ * One `rng.pick` draw, made at the same point in the stream as the old single market pick (so every later
+ * draw is unchanged), then the sub-market by the opportunity's index (no draw).
+ */
+function pickMarket(rng: Rng, i: number): { market: string; subMarket: string | null } {
+  const slot = rng.pick(MARKETS);
+  const [market, subMarket] = slot[i % slot.length]!;
+  return { market, subMarket };
+}
+
 /** 18-character id with a Salesforce-like key prefix. Fake: never a real record. */
 const sfId = (rng: Rng, prefix: string) =>
   prefix + 'SYN' + rng.faker.string.alphanumeric({ length: 12, casing: 'mixed' });
@@ -169,8 +179,6 @@ export function buildOpportunities(
         (ch) => ch.toUpperCase(),
       );
     const close = addMonths(anchor, rng.float(2, 9));
-    const marketSlot = rng.pick(MARKETS);
-    const [market, subMarket] = marketSlot[i % marketSlot.length]!;
     return {
       id: rng.uuid(new Date(anchor.getTime() - 200 * DAY_MS + i * 1000)),
       sfOpportunityId: sfId(rng, '006'),
@@ -179,7 +187,7 @@ export function buildOpportunities(
       amount: amount(rng),
       closeDate: close.toISOString().slice(0, 10),
       sfStage,
-      spec: { sizeOz, resin, shape, neck, productFamily, market, subMarket },
+      spec: { sizeOz, resin, shape, neck, productFamily, ...pickMarket(rng, i) },
     };
   });
 }

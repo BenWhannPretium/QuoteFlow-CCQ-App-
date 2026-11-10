@@ -671,6 +671,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `structured_description` | jsonb | yes |  |  | Structured description, e.g. {size, shape, finish, decoration}. | KAM |
 | `product_family` | text | yes |  |  | value_list product_family code. | KAM |
 | `market` | text | yes |  |  | value_list market code. | KAM |
+| `sub_market` | text | yes |  |  | value_list sub_market code (FB-12); belongs to the quote's market. Optional. Sets the strategic-fit score. | KAM |
 | `resin` | text | yes |  |  | value_list resin code. | KAM |
 | `components` | text[] | no | [] |  | value_list component codes. | KAM |
 | `est_annual_volume` | bigint | yes |  |  | Estimated annual volume (units). | KAM |

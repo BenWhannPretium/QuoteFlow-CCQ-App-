@@ -19,9 +19,11 @@ import { SkeletonRows } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
+import { marketText, parentMarket } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 export const Route = createFileRoute('/admin/scoring')({ component: ScoringPage });
@@ -33,7 +35,14 @@ interface Attr {
   weight: number;
   input: string;
   bands?: Band[];
-  map?: { by: string; values: Record<string, number>; default?: number };
+  map?: {
+    by: string;
+    values: Record<string, number>;
+    default?: number;
+    /** FB-04 / FB-12: the finer lookup; since FB-12 it is the sub-market. */
+    bySegment?: { by: string; values: Record<string, number> };
+    defaultNote?: string;
+  };
   inverse?: boolean;
   unknownScore?: number;
   unknownExplanation?: string;
@@ -309,6 +318,50 @@ function ScoringPage() {
   );
 }
 
+/** FB-12: the draft's sub-market points, read only (the three colour bands, grouped). */
+function SubMarketPoints({
+  values,
+  fallback,
+  note,
+}: {
+  values: Record<string, number>;
+  fallback: number | undefined;
+  note: string | undefined;
+}) {
+  const { data: config } = usePublicConfig();
+  const byPoints = new Map<number, string[]>();
+  for (const [code, points] of Object.entries(values)) {
+    const parent = parentMarket(config, code);
+    const text = parent ? (marketText(config, parent, code) ?? code) : code;
+    byPoints.set(points, [...(byPoints.get(points) ?? []), text]);
+  }
+  return (
+    <div className="grid gap-1.5 text-xs" data-testid="sub-market-points">
+      <span className="text-muted-foreground">
+        Scores by sub-market ({Object.keys(values).length} listed).
+        {fallback !== undefined
+          ? ` A market with no scored sub-market scores ${fallback}${note ? `: "${note}"` : ''}.`
+          : ''}
+      </span>
+      {[...byPoints.entries()]
+        .sort(([a], [b]) => b - a)
+        .map(([points, names]) => (
+          <details key={points}>
+            <summary className="cursor-pointer">
+              <strong>{points}</strong> points: {names.length} sub-market
+              {names.length === 1 ? '' : 's'}
+            </summary>
+            <ul className="text-muted-foreground mt-1 list-disc pl-5">
+              {names.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </details>
+        ))}
+    </div>
+  );
+}
+
 function NumberCell({
   label,
   value,
@@ -541,10 +594,17 @@ function AttrDetail({
       )}
       {kind === 'map' && attr.map && (
         <div className="grid gap-1">
-          {Object.entries(attr.map.values).length === 0 && (
+          {Object.entries(attr.map.values).length === 0 && !attr.map.bySegment && (
             <span className="text-muted-foreground text-xs">
               No codes mapped yet (all neutral).
             </span>
+          )}
+          {attr.map.bySegment && (
+            <SubMarketPoints
+              values={attr.map.bySegment.values}
+              fallback={attr.map.default}
+              note={attr.map.defaultNote}
+            />
           )}
           {Object.entries(attr.map.values).map(([code, points], i, rows) => (
             <div key={i} className="grid grid-cols-[1fr_5rem_auto] items-center gap-1.5">
@@ -659,7 +719,14 @@ function Preview({
     staleTime: 60_000,
   });
   const p = preview.data;
+  const { data: config } = usePublicConfig();
   const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+  // FB-12: a draft that scores strategic fit by sub-market names it so in "what moved".
+  const bySubMarket = model.attributes.some(
+    (a) => a.key === 'strategic_fit' && a.map?.bySegment?.by === 'sub_market',
+  );
+  const driverLabel = (d: { key: string; label: string }) =>
+    bySubMarket && d.key === 'strategic_fit' ? 'Strategic fit (sub-market)' : d.label;
   return (
     <section aria-labelledby="preview" className="grid gap-3" data-testid="scoring-preview">
       <h3 id="preview" className="font-display text-lg">
@@ -681,6 +748,12 @@ function Preview({
             down). Points moved: average {signed(p.summary.avgPointsMoved)}, biggest rise{' '}
             {signed(p.summary.maxPointsUp)}, biggest fall {signed(p.summary.maxPointsDown)}.
           </p>
+          {bySubMarket && p.rows.length > 0 && p.rows.every((r) => !r.subMarket) && (
+            <p className="text-sm" data-testid="preview-no-sub-market">
+              No open quote has a sub-market yet, so this draft scores every one of them at the
+              neutral 50 for strategic fit and nothing moves. Points move as KAMs pick sub-markets.
+            </p>
+          )}
           <p className="text-muted-foreground text-xs">
             Nothing is saved or rescored by this preview. Closed quotes are not shown: they keep
             their score.
@@ -732,7 +805,9 @@ function Preview({
                         </Link>
                         <span className="text-muted-foreground block text-xs">
                           {r.stageKey}
-                          {r.market ? ` · ${r.market}` : ''}
+                          {r.market || r.subMarket
+                            ? ` · ${marketText(config, r.market, r.subMarket) ?? ''}`
+                            : ''}
                         </span>
                       </td>
                       <td className="p-2 tabular-nums">
@@ -762,7 +837,9 @@ function Preview({
                       <td className="text-muted-foreground p-2 text-xs">
                         {r.drivers.length === 0
                           ? '—'
-                          : r.drivers.map((d) => `${d.label}: ${d.before} → ${d.after}`).join('; ')}
+                          : r.drivers
+                              .map((d) => `${driverLabel(d)}: ${d.before} → ${d.after}`)
+                              .join('; ')}
                       </td>
                       <td className="p-2 tabular-nums">
                         #{r.after.rank}

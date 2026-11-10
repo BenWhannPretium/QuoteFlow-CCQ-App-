@@ -61,6 +61,20 @@ async function fillCustomerAndProduct(
 
   // Step 3. Nothing about plant, process, machine, capital or priority.
   await page.locator('#intake-product-family').selectOption({ label: 'Jar' });
+  // FB-12 (F-073): Market, then a Sub-market of that market only; changing the market clears it.
+  const subMarket = page.locator('select#intake-sub-market');
+  await expect(subMarket).toBeDisabled();
+  await page.locator('#intake-market').selectOption({ label: 'Food' });
+  await expect(subMarket).toBeEnabled();
+  await expect(subMarket.locator('option')).toHaveCount(1 + 7); // "Choose…" + the 7 Food sub-markets
+  await expect(subMarket.locator('option', { hasText: 'Spirits & Mixers' })).toHaveCount(0);
+  await subMarket.selectOption({ label: 'Snacks & Confections' });
+  await page.locator('#intake-market').selectOption({ label: 'Beverage' });
+  await expect(subMarket).toHaveValue('');
+  await expect(subMarket.locator('option')).toHaveCount(1 + 2); // "Choose…" + Non-Alcoholic, Spirits & Mixers
+  await page.locator('#intake-market').selectOption({ label: 'Food' });
+  await expect(subMarket).toHaveValue('');
+  await subMarket.selectOption({ label: 'Snacks & Confections' });
   await selectIfEditable(page, 'intake-resin', 'PET');
   // F-011: a customer-specified resin reveals the required supplier / grade.
   await expect(page.locator('#intake-resin-grade')).toHaveCount(0);
@@ -176,6 +190,8 @@ test.describe('KAM intake', () => {
     await page.reload();
     await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '4');
     await expect(page.getByText('Pantone 286 C blue')).toBeVisible();
+    // FB-12: the review shows "Market › Sub-market".
+    await expect(page.getByText('Food › Snacks & Confections')).toBeVisible();
 
     // No drawing, but the full minimum spec: the quote can advance (F-016); amber only.
     await page
@@ -195,6 +211,7 @@ test.describe('KAM intake', () => {
 
     // Engineering and Pricing see what was entered (T-013).
     await page.getByRole('link', { name: 'Open the quote' }).click();
+    await expect(page.getByText('Food › Snacks & Confections').first()).toBeVisible();
     await expect(page.getByTestId('fact-resin-grade')).toHaveText('LyondellBasell Pro-fax 6331');
     await expect(page.getByTestId('fact-rfp-link')).toHaveAttribute(
       'href',

@@ -283,7 +283,11 @@ export function GateDecisionDialog({
                 {quote.data.priority.tierLabel ? ` · ${quote.data.priority.tierLabel}` : ''}{' '}
                 (advisory)
               </summary>
-              <ScoreBreakdownTable priority={quote.data.priority} className="mt-2" />
+              <ScoreBreakdownTable
+                priority={quote.data.priority}
+                market={{ market: quote.data.market, subMarket: quote.data.subMarket }}
+                className="mt-2"
+              />
             </details>
 
             <div className="rounded-md border px-3 py-2 text-sm" data-testid="completeness">
