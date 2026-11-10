@@ -122,7 +122,7 @@ test('an Admin compares the draft with the live model on the open quotes: old ti
   ).toBeVisible();
   await expect(preview.getByTestId('points-moved').filter({ hasText: /^-/ }).first()).toBeVisible();
   await expect(rows.first()).toContainText('Strategic fit (sub-market)');
-  await expect(preview.getByTestId('sub-market-points')).toBeVisible();
+  await expect(page.getByTestId('sub-market-points')).toBeVisible();
 
   // Activate is a separate, audited action: a reason is required and rescoring is a choice.
   await page.getByRole('button', { name: /^Activate v\d+$/ }).click();
