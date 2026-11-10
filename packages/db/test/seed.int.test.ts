@@ -58,7 +58,7 @@ describe('config seeds', () => {
     const counts = Object.fromEntries(rows.map((r) => [r.list_key, r.n]));
     expect(counts).toMatchObject({
       process_type: 8,
-      resin: 11,
+      resin: 6, // FB-09: Danielle Leu's list (PCR content moved to the PCR field)
       // FB-12 (F-020): Melanie Rasche's 8 markets + the 5 retired codes kept inactive; 30 sub-markets.
       market: 13,
       sub_market: 30,
@@ -72,7 +72,8 @@ describe('config seeds', () => {
       neck_diameter: 29,
       neck_finish_type: 18,
       neck_special_feature: 5,
-      pcr_level: 4,
+      pcr_level: 6, // FB-09: 0% / Virgin, 25, 30, 50, 100, Other
+      additive: 6, // FB-09: None, UV, Barrier, Antistat, Impact Modifier, Other
       color_type: 2,
       labels_purchased_by: 2,
       decoration_type: 4,
@@ -163,12 +164,16 @@ describe('config seeds', () => {
       'scoring_model',
       'sf_stage_map',
     ]) {
-      // FB-12: the 8 active markets were approved by Melanie Rasche (2026-11-09); nothing else is.
-      const approved = table === 'value_list' ? 8 : 0;
-      expect(await count(table, sql`provisional = false`), table).toBe(approved);
+      // FB-09: Danielle Leu approved product family and resin; FB-12: Melanie Rasche approved the
+      // 8 active markets (both 2026-11-09). Nothing else is approved.
+      const approved =
+        table === 'value_list'
+          ? sql`provisional = false and list_key not in ('product_family', 'resin', 'market')`
+          : sql`provisional = false`;
+      expect(await count(table, approved), table).toBe(0);
     }
     const approvedMarkets = await q<{ code: string; active: boolean; approved_at: Date | null }>(
-      sql`select code, active, approved_at from value_list where provisional = false order by sort`,
+      sql`select code, active, approved_at from value_list where provisional = false and list_key = 'market' order by sort`,
     );
     expect(approvedMarkets.map((r) => r.code)).toEqual([
       'FOOD',
@@ -202,12 +207,12 @@ describe('config seeds', () => {
         await tx
           .update(valueList)
           .set({ label: 'Edited while provisional' })
-          .where(eq(valueList.code, 'HDPE'));
+          .where(eq(valueList.code, 'BARRIER'));
         await seedConfig(tx);
         expect(await Promise.all(tables.map((t) => count(t)))).toEqual(before);
         expect(await getSetting(tx, 'validity_days_default')).toBe(45); // approved: kept
-        const [hdpe] = await tx.select().from(valueList).where(eq(valueList.code, 'HDPE'));
-        expect(hdpe!.label).toBe('HDPE'); // provisional: refreshed from the seed
+        const [barrier] = await tx.select().from(valueList).where(eq(valueList.code, 'BARRIER'));
+        expect(barrier!.label).toBe('Barrier'); // provisional: refreshed from the seed
         tx.rollback();
       })
       .catch((err: Error) => {

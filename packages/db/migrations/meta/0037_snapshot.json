@@ -1,6 +1,6 @@
 {
   "id": "21248d72-eb57-4fa5-95f8-cf839e0be46d",
-  "prevId": "45c8ca40-395e-4066-b165-136ec030e5ee",
+  "prevId": "11b71335-2f5a-442e-816b-c7b051c9a573",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2050,7 +2050,7 @@
       "checkConstraints": {
         "value_list_list_key_check": {
           "name": "value_list_list_key_check",
-          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'sub_market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'labels_purchased_by', 'decoration_type', 'requested_payment_terms', 'price_basis', 'freight_type')"
+          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'sub_market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'additive', 'labels_purchased_by', 'decoration_type', 'requested_payment_terms', 'price_basis', 'freight_type')"
         }
       },
       "isRLSEnabled": false
@@ -4307,6 +4307,18 @@
         },
         "color_description": {
           "name": "color_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pcr_level_other": {
+          "name": "pcr_level_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additive": {
+          "name": "additive",
           "type": "text",
           "primaryKey": false,
           "notNull": false

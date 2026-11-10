@@ -254,6 +254,22 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'integer',
     z_('intake_variants_note_max_length', intakeConfigSchema.shape.variantsNoteMaxLength),
   ),
+  // FB-09 (F-019, D-016 default, provisional): cap for new edits of the packaging note.
+  spec(
+    'intake_free_text_max_length',
+    'intake',
+    'Longest packaging note (characters) for a new edit',
+    'integer',
+    z_('intake_free_text_max_length', intakeConfigSchema.shape.freeTextMaxLength),
+  ),
+  // FB-09 (F-012, D-016 default, provisional): the plant standard pack-out Engineering has published.
+  spec(
+    'plant_packaging_standards',
+    'intake',
+    'Plant standard pack-out configurations (plant code → configuration text); "Plant specified" is offered only for a plant listed here',
+    'json',
+    z_('plant_packaging_standards', z.record(z.string().min(1), z.string().trim().min(1).max(500))),
+  ),
   spec(
     'intake_min_spec_fields',
     'intake',

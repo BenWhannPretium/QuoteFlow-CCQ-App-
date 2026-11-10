@@ -178,14 +178,18 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
     if ((entry?.meta as { freeText?: boolean } | undefined)?.freeText === true) {
       return custom ?? entry!.label;
     }
-    return entry?.label ?? code;
+    // FB-09: a retired entry (an old quote's PCR-HDPE) still shows, marked as no longer offered.
+    return entry ? (entry.active ? entry.label : `${entry.label} (no longer offered)`) : code;
   };
   if (q.resin) {
-    const resin = await label('resin', q.resin);
+    // FB-09: "Other" shows the customer-specified resin / grade in place of "Other".
+    const resin = await label('resin', q.resin, f.resinGrade);
     facts.push({
       key: 'resin',
       label: 'Resin',
-      value: [resin, f.resinCustomerSpecified ? f.resinGrade : null].filter(Boolean).join(' · '),
+      value: [...new Set([resin, f.resinCustomerSpecified ? f.resinGrade : null])]
+        .filter(Boolean)
+        .join(' · '),
     });
   }
   // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
@@ -197,11 +201,15 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
     feature: await label('neck_special_feature', f.neckSpecialFeature, f.neckSpecialFeatureCustom),
   });
   if (neck) facts.push({ key: 'neck', label: 'Neck', value: neck });
-  const pcr = await label('pcr_level', f.pcrLevel);
+  const pcr = await label('pcr_level', f.pcrLevel, f.pcrLevelOther);
   if (pcr) facts.push({ key: 'pcr', label: 'PCR', value: pcr });
   const color = await label('color_type', f.colorType, f.colorDescription);
   if (color) facts.push({ key: 'color', label: 'Colour', value: color });
-  if (f.additives) facts.push({ key: 'additives', label: 'Additives', value: f.additives });
+  // FB-09: the additive pick, with the customer-specified additive (the note) for "Other".
+  const additive = [
+    ...new Set([await label('additive', f.additive, f.additives), f.additives].filter(Boolean)),
+  ].join(' · ');
+  if (additive) facts.push({ key: 'additives', label: 'Additives', value: additive });
   if (f.quoteVariantsNote) {
     facts.push({ key: 'variants', label: 'Variants requested', value: f.quoteVariantsNote });
   }

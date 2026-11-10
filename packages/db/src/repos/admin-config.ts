@@ -131,6 +131,8 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(quote.pcrLevel, code);
     case 'color_type':
       return eq(quote.colorType, code);
+    case 'additive':
+      return eq(quote.additive, code);
     case 'labels_purchased_by':
       return eq(quote.labelsPurchasedBy, code);
     case 'decoration_type':

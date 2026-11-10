@@ -41,7 +41,7 @@ import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { marketText } from '@/lib/value-label';
+import { marketText, valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 const TABS = ['overview', 'engineering', 'quoting', 'attachments'] as const;
@@ -306,8 +306,7 @@ function ReworkBanner({ quote }: { quote: QuoteDetail }) {
 
 function IntakeCard({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   const ship = quote.shipTo;
   return (
     <Card>

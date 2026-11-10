@@ -103,7 +103,7 @@ function Select({
     value &&
     !options.some((e) => e.code === value) &&
     !(cfg.lists[listKey] ?? []).some((e) => e.code === value)
-      ? cfg.retired[listKey]?.[value]
+      ? (cfg.retired[listKey]?.[value] ?? value)
       : undefined;
   return (
     <NativeSelect
@@ -362,7 +362,15 @@ function ResinFields({ data, update, cfg, evaluation }: StepProps) {
               id={fid('resin')}
               listKey="resin"
               value={data.resin}
-              onChange={(v) => update({ resin: v })}
+              onChange={(v) =>
+                update({
+                  resin: v,
+                  // FB-09: the grade is the "Other" detail; keep it for a customer-specified resin.
+                  ...(isCustom(cfg, 'resin', v) || data.resinCustomerSpecified === true
+                    ? {}
+                    : { resinGrade: null }),
+                })
+              }
               cfg={cfg}
             />
           </Field>
@@ -372,7 +380,12 @@ function ResinFields({ data, update, cfg, evaluation }: StepProps) {
             id={fid('pcr_level')}
             listKey="pcr_level"
             value={data.pcrLevel}
-            onChange={(v) => update({ pcrLevel: v })}
+            onChange={(v) =>
+              update({
+                pcrLevel: v,
+                ...(isCustom(cfg, 'pcr_level', v) ? {} : { pcrLevelOther: null }),
+              })
+            }
             cfg={cfg}
           />
         </Field>
@@ -388,7 +401,10 @@ function ResinFields({ data, update, cfg, evaluation }: StepProps) {
             update(
               e.target.checked
                 ? { resinCustomerSpecified: true }
-                : { resinCustomerSpecified: false, resinGrade: null },
+                : {
+                    resinCustomerSpecified: false,
+                    ...(isCustom(cfg, 'resin', data.resin) ? {} : { resinGrade: null }),
+                  },
             )
           }
         />
@@ -403,14 +419,27 @@ function ResinFields({ data, update, cfg, evaluation }: StepProps) {
         </p>
       )}
       <ConditionalText
-        when={data.resinCustomerSpecified === true}
+        when={data.resinCustomerSpecified === true || isCustom(cfg, 'resin', data.resin)}
         field="resin_grade"
+        {...(isCustom(cfg, 'resin', data.resin)
+          ? { label: 'Customer-specified resin and grade' }
+          : {})}
         value={data.resinGrade}
         onChange={(v) => update({ resinGrade: v })}
         cfg={cfg}
         evaluation={evaluation}
         max={120}
         placeholder="e.g. LyondellBasell Pro-fax 6331"
+      />
+      <ConditionalText
+        when={isCustom(cfg, 'pcr_level', data.pcrLevel)}
+        field="pcr_level_other"
+        value={data.pcrLevelOther}
+        onChange={(v) => update({ pcrLevelOther: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={120}
+        placeholder="e.g. 35%"
       />
     </div>
   );
@@ -496,6 +525,30 @@ function ColorFields({ data, update, cfg, evaluation }: StepProps) {
             cfg={cfg}
           />
         </Field>
+        <Field {...meta(cfg, 'additive')}>
+          <Select
+            id={fid('additive')}
+            listKey="additive"
+            value={data.additive}
+            onChange={(v) => update({ additive: v })}
+            cfg={cfg}
+          />
+        </Field>
+      </div>
+      {/* FB-09: for "Other" the note is the required, customer-specified additive; otherwise it stays optional. */}
+      {isCustom(cfg, 'additive', data.additive) ? (
+        <ConditionalText
+          when
+          field="additives"
+          label="Customer-specified additive"
+          value={data.additives}
+          onChange={(v) => update({ additives: v })}
+          cfg={cfg}
+          evaluation={evaluation}
+          max={200}
+          placeholder="e.g. UV inhibitor, grade and supplier"
+        />
+      ) : (
         <Field {...meta(cfg, 'additives')}>
           <Input
             id={fid('additives')}
@@ -506,7 +559,7 @@ function ColorFields({ data, update, cfg, evaluation }: StepProps) {
             onChange={(e) => update({ additives: nullIfBlank(e.target.value) })}
           />
         </Field>
-      </div>
+      )}
       <ConditionalText
         when={isCustom(cfg, 'color_type', data.colorType)}
         field="color_description"
@@ -1087,16 +1140,53 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             cfg={cfg}
           />
         </Field>
-        <Field {...meta(cfg, 'packaging_notes')}>
-          <Textarea
-            id={fid('packaging_notes')}
-            aria-describedby={`${fid('packaging_notes')}-help`}
-            placeholder="Pallet pattern, case count, labelling, max height…"
-            value={data.packagingNotes ?? ''}
-            onChange={(e) => update({ packagingNotes: nullIfBlank(e.target.value) })}
-            className="min-h-16"
-          />
-        </Field>
+        {/* FB-09 (F-012, F-019; D-016 default): "Other" is for customer-dictated packaging, so the note is
+            required and the KAM is asked to attach the customer's document. The cap applies to new edits;
+            an older, longer note stays readable with a warning. */}
+        {(() => {
+          const other = isCustom(cfg, 'packaging_type', data.packagingType);
+          const cap = cfg.intake.freeTextMaxLength;
+          const length = (data.packagingNotes ?? '').length;
+          const issue = evaluation.blocking.find((b) => b.field === 'packaging_notes');
+          return (
+            <Field
+              {...meta(cfg, 'packaging_notes')}
+              {...(other ? { label: 'Customer-specified packaging (describe)' } : {})}
+              {...(other ? { required: true } : {})}
+            >
+              <Textarea
+                id={fid('packaging_notes')}
+                aria-describedby={`${fid('packaging_notes')}-help`}
+                aria-invalid={issue ? true : undefined}
+                placeholder="Pallet pattern, case count, labelling, max height…"
+                maxLength={cap}
+                value={data.packagingNotes ?? ''}
+                onChange={(e) => update({ packagingNotes: nullIfBlank(e.target.value) })}
+                className="min-h-16"
+              />
+              {other && (
+                <p
+                  className="text-muted-foreground mt-1 text-xs"
+                  data-testid="packaging-other-hint"
+                >
+                  Other is for packaging the customer dictates. Attach the customer&apos;s packaging
+                  document under "Drawing and other files" on the next step.
+                </p>
+              )}
+              {length > cap && (
+                <p
+                  className="mt-1 text-xs text-amber-700"
+                  role="status"
+                  data-testid="packaging-over-cap"
+                >
+                  This note is {length} characters; new edits are limited to {cap}. Shorten it when
+                  you next change it.
+                </p>
+              )}
+              {issue?.code === 'INVALID_VALUE' && <FieldError issue={issue} />}
+            </Field>
+          );
+        })()}
         <DunnageField data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
@@ -1406,7 +1496,12 @@ export function ReviewStep({
           'Customer-specified resin',
           data.resinCustomerSpecified ? (data.resinGrade ?? 'Yes') : 'No',
         ],
-        ['PCR %', label('pcr_level', data.pcrLevel)],
+        [
+          'PCR %',
+          isCustom(cfg, 'pcr_level', data.pcrLevel)
+            ? (data.pcrLevelOther ?? 'Other')
+            : label('pcr_level', data.pcrLevel),
+        ],
         ['Neck', neckLabel(cfg, data) || null],
         [
           'Color',
@@ -1414,7 +1509,17 @@ export function ReviewStep({
             ? (data.colorDescription ?? 'Custom')
             : label('color_type', data.colorType),
         ],
-        ['Additives', data.additives],
+        [
+          'Additives',
+          [
+            ...new Set(
+              [
+                isCustom(cfg, 'additive', data.additive) ? null : label('additive', data.additive),
+                data.additives,
+              ].filter((v) => v && v !== '—'),
+            ),
+          ].join(' · ') || null,
+        ],
         [
           'Dimensions',
           [

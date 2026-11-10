@@ -363,7 +363,17 @@ function scenario(rng: Rng, stage: string, i: number): { steps: Step[]; complete
   }
 }
 
-const RESIN_CODE: Record<string, string> = { 'PCR-HDPE': 'PCR_HDPE', 'PCR-PET': 'PCR_PET' };
+/**
+ * FB-09 (Danielle Leu's resin list): PCR resins are the base resin plus a PCR level, any other retired
+ * resin is "Other" with the customer-specified grade. Synthetic data only; real quotes are never remapped.
+ * Deterministic (no random draw), so the rest of the seed is unchanged.
+ */
+const RESIN_CODE: Record<string, { resin: string; pcr?: true; grade?: string }> = {
+  'PCR-HDPE': { resin: 'HDPE', pcr: true },
+  'PCR-PET': { resin: 'PET', pcr: true },
+  PETG: { resin: 'OTHER', grade: 'PETG (customer-specified)' },
+};
+const PCR_LEVELS = ['25', '30', '50'];
 const NECK_CODE: Record<string, string> = { '120 DC': '120-DC' };
 const PROCESS_FOR: Record<string, string[]> = {
   BOTTLE: ['EBM', 'ISBM', 'IBM'],
@@ -506,7 +516,13 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       productFamily,
       market: opp.spec.market,
       subMarket: opp.spec.subMarket,
-      resin: complete ? (RESIN_CODE[opp.spec.resin] ?? opp.spec.resin) : null,
+      resin: complete ? (RESIN_CODE[opp.spec.resin]?.resin ?? opp.spec.resin) : null,
+      ...(complete && RESIN_CODE[opp.spec.resin]?.pcr
+        ? { pcrLevel: PCR_LEVELS[ordinal % PCR_LEVELS.length]! }
+        : {}),
+      ...(complete && RESIN_CODE[opp.spec.resin]?.grade
+        ? { resinGrade: RESIN_CODE[opp.spec.resin]!.grade! }
+        : {}),
       components: rng.chance(0.4) ? ['CONTAINER', 'CLOSURE'] : ['CONTAINER'],
       estAnnualVolume: complete ? rng.int(50, 6_000) * 1_000 : null,
       estAnnualRevenue:

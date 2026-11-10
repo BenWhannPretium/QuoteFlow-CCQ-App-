@@ -12,7 +12,9 @@ import { usePublicConfig } from '@/config/public-config';
 import { api, type FinalReviewQueueParams } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
+import { valueListLabel } from '@/lib/value-label';
 
+import { finalReviewQueueKey } from './keys';
 import { EmptyState } from '../EmptyState';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
@@ -24,7 +26,6 @@ import {
 } from '../FiltersPopover';
 import { PriorityBadge } from '../Priority';
 import { SkeletonRows } from '../Skeletons';
-import { finalReviewQueueKey } from './keys';
 
 /**
  * Approvals → Final Review (B-12, G4): every quote waiting for the internal release decision, highest
@@ -269,8 +270,7 @@ function Toolbar({
 
 function ApprovalCard({ item, canDecide }: { item: FinalReviewItem; canDecide: boolean }) {
   const { data: config } = usePublicConfig();
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   // The accessible name starts with the visible text (WCAG 2.5.3) and adds the quote it belongs to.
   const reviewLabel = item.canDecide && canDecide ? 'Review & decide' : 'Open review';
   const product =

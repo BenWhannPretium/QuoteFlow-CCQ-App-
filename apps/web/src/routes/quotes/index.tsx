@@ -48,6 +48,7 @@ import {
 } from '@/lib/pipeline-search';
 import { readColumns, writeColumns } from '@/lib/saved-views';
 import { relativeTime } from '@/lib/time';
+import { valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 interface QuotesSearch extends PipelineSearch {
@@ -211,8 +212,7 @@ const opportunityOf = (q: QuoteListItem) => q.opportunityName;
 
 function useLabel() {
   const { data: config } = usePublicConfig();
-  return (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : '–';
+  return (list: string, code: string | null) => valueListLabel(config, list, code, '–') ?? '–';
 }
 
 function QuoteTable({

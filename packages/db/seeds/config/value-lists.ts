@@ -63,7 +63,8 @@ export const SUB_MARKETS: readonly [market: string, code: string, label: string]
 
 /**
  * Value lists from the ERF Template Rev D (2026-03-17). All provisional until confirmed at M4
- * (Jim Zweifel, Danielle Leu).
+ * (Jim Zweifel, Danielle Leu), except product family and resin, which Danielle Leu approved on
+ * 2026-11-09 (FB-09, APPROVED_VALUE_LISTS).
  */
 export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   process_type: [
@@ -76,19 +77,14 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['ASSEMBLY', 'Assembly'],
     ['OTHER', 'Other'],
   ],
-  // TODO(M4): the ERF template has 11 resins; replace with the exact template list from Danielle Leu.
+  // FB-09: Danielle Leu's list (2026-11-09), approved by her. PCR content lives in pcr_level now.
   resin: [
-    ['HDPE', 'HDPE'],
     ['PET', 'PET'],
+    ['HDPE', 'HDPE'],
     ['PP', 'PP'],
     ['LDPE', 'LDPE'],
-    ['PCR_HDPE', 'PCR-HDPE'],
-    ['PCR_PET', 'PCR-PET'],
-    ['PETG', 'PETG'],
-    ['PVC', 'PVC'],
     ['PS', 'PS'],
-    ['BIO_RESIN', 'Bio-resin'],
-    ['OTHER', 'Other'],
+    ['OTHER', 'Other', { freeText: true }],
   ],
   // FB-12 (F-020, D-004): Melanie Rasche's market list (Director of Market Development, 2026-11-09;
   // Danielle Leu passed the question to her). Approved, in her order. The five retired codes are kept
@@ -161,7 +157,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['BAGGED', 'Bagged'],
     ['TRAYED', 'Trayed'],
     ['PALLETIZED_CUSTOM', 'Palletized-custom'],
-    ['OTHER', 'Other'],
+    // FB-09 (F-012, D-016 default): reserved for customer-dictated packaging; the note is then required.
+    ['OTHER', 'Other', { freeText: true }],
   ],
   // TODO(M4): load the ~29 plants from the ERF template.
   plant: [
@@ -236,10 +233,21 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   ],
   // FB-02 (F-055): standard PCR levels Engineering and Supply Chain agreed as a starting point.
   pcr_level: [
-    ['0', '0%'],
+    ['0', '0% / Virgin'],
     ['25', '25%'],
+    ['30', '30%'],
     ['50', '50%'],
     ['100', '100%'],
+    ['OTHER', 'Other', { freeText: true }],
+  ],
+  // FB-09: Danielle Leu's additive list (2026-11-09). Provisional: no named owner yet (ask Bailey).
+  additive: [
+    ['NONE', 'None'],
+    ['UV', 'UV'],
+    ['BARRIER', 'Barrier'],
+    ['ANTISTAT', 'Antistat'],
+    ['IMPACT_MODIFIER', 'Impact Modifier'],
+    ['OTHER', 'Other', { freeText: true }],
   ],
   // FB-02 (F-023, Kyle Arnold, Tania Nazario): Custom needs a short description.
   color_type: [
@@ -313,6 +321,18 @@ const INACTIVE_VALUES: ReadonlySet<string> = new Set([
   ...RETIRED_MARKETS.map((code) => `market:${code}`),
 ]);
 
+/**
+ * FB-09: lists a named owner has signed off. Danielle Leu approved product family and resin on 2026-11-09
+ * (docs/build-guide/feedback/inputs/value-lists-danielle.md). Migration 0036 does the same in existing
+ * environments. `approved_by` is a user id (FK), so the owner's name is kept in `meta.approvedByName`. PCR and additive stay provisional until their owner confirms.
+ */
+export const APPROVED_VALUE_LISTS: Partial<
+  Record<ValueListKey, { approvedByName: string; approvedAt: Date }>
+> = {
+  product_family: { approvedByName: 'Danielle Leu', approvedAt: new Date('2026-11-09T00:00:00Z') },
+  resin: { approvedByName: 'Danielle Leu', approvedAt: new Date('2026-11-09T00:00:00Z') },
+};
+
 export function valueListRows() {
   return Object.entries(VALUE_LISTS).flatMap(([listKey, entries]) =>
     entries.map(([code, label, meta], i) => ({
@@ -323,12 +343,18 @@ export function valueListRows() {
       active:
         !RETIRED_VALUE_LISTS.has(listKey as ValueListKey) &&
         !INACTIVE_VALUES.has(`${listKey}:${code}`),
+      // `approved_by` is a user id (FK to app_user), so the owner's name goes in meta until that user exists.
       meta: {
         ...(meta ?? {}),
-        ...(isApprovedMarket(listKey, code) ? { approvedByName: MARKET_APPROVER } : {}),
+        ...(ownerApproval(listKey, code)
+          ? { approvedByName: ownerApproval(listKey, code)!.approvedByName }
+          : {}),
       },
-      // FB-12: the active markets are approved (Melanie Rasche, 2026-11-09). Everything else is provisional.
-      ...approval(listKey, code),
+      // FB-09: product family and resin (Danielle Leu). FB-12: the active markets (Melanie Rasche).
+      // Everything else is provisional.
+      ...(ownerApproval(listKey, code)
+        ? { provisional: false, approvedAt: ownerApproval(listKey, code)!.approvedAt }
+        : { provisional: true }),
     })),
   );
 }
@@ -341,10 +367,16 @@ function isApprovedMarket(listKey: string, code: string): boolean {
   return listKey === 'market' && !INACTIVE_VALUES.has(`market:${code}`);
 }
 
-function approval(listKey: string, code: string) {
+/** Who signed off this entry's list, if anyone: FB-09's APPROVED_VALUE_LISTS, or FB-12's markets. */
+function ownerApproval(
+  listKey: string,
+  code: string,
+): { approvedByName: string; approvedAt: Date } | null {
+  const list = APPROVED_VALUE_LISTS[listKey as ValueListKey];
+  if (list) return list;
   return isApprovedMarket(listKey, code)
-    ? { provisional: false, approvedAt: MARKET_APPROVED_AT }
-    : { provisional: true };
+    ? { approvedByName: MARKET_APPROVER, approvedAt: MARKET_APPROVED_AT }
+    : null;
 }
 
 export const seedValueLists = (db: DbOrTx) =>

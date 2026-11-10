@@ -1,6 +1,6 @@
 ALTER TABLE "value_list" DROP CONSTRAINT "value_list_list_key_check";--> statement-breakpoint
 ALTER TABLE "quote" ADD COLUMN "sub_market" text;--> statement-breakpoint
-ALTER TABLE "value_list" ADD CONSTRAINT "value_list_list_key_check" CHECK ("value_list"."list_key" in ('product_family', 'market', 'sub_market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'labels_purchased_by', 'decoration_type', 'requested_payment_terms', 'price_basis', 'freight_type'));--> statement-breakpoint
+ALTER TABLE "value_list" ADD CONSTRAINT "value_list_list_key_check" CHECK ("value_list"."list_key" in ('product_family', 'market', 'sub_market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'additive', 'labels_purchased_by', 'decoration_type', 'requested_payment_terms', 'price_basis', 'freight_type'));--> statement-breakpoint
 -- FB-12 (Sub-market at intake, the new market list, and the draft scoring model by sub-market). Tracker: F-020
 -- (market list), F-073 (strategic-fit points), T-036; decision D-004 (still OPEN for the weights and tier
 -- bands; segment vs market and the points were answered by Melanie Rasche, Director of Market Development,

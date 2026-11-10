@@ -102,8 +102,12 @@ export const IntakeDraftData = z.object({
   resinCustomerSpecified: z.boolean().optional(),
   /** e.g. "LyondellBasell Pro-fax 6331". */
   resinGrade: text(120),
-  /** FB-02 (F-055): pcr_level code (0 / 25 / 50 / 100 %, provisional). */
+  /** FB-02 (F-055): pcr_level code (0% / Virgin, 25, 30, 50, 100 %, Other; provisional). */
   pcrLevel: text(60),
+  /** FB-09 (Danielle Leu): the customer-specified PCR level; required at submit while PCR is Other. */
+  pcrLevelOther: text(120),
+  /** FB-09: additive code (None / UV / Barrier / Antistat / Impact Modifier / Other; provisional). */
+  additive: text(60),
   /**
    * FB-02 (F-010, Jim Zweifel's lists): the neck as three pick-lists. "Custom" (value-list meta
    * `freeText`) needs the matching short description. The old single `neckFinish` list is retired.
@@ -118,7 +122,7 @@ export const IntakeDraftData = z.object({
   /** FB-02 (F-023): color_type code (Natural / Custom color); Custom needs `colorDescription`. */
   colorType: text(60),
   colorDescription: text(120),
-  /** FB-02 (F-023): optional short note on additives (cost drivers for Pricing). */
+  /** FB-02 (F-023): optional short note on additives. FB-09: required, as the customer-specified additive, while the additive is Other. */
   additives: text(200),
   /**
    * FB-02 (F-075, interim answer to D-017 option B): the variants the customer wants priced, e.g.
@@ -416,6 +420,8 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     resin_customer_specified: data.resinCustomerSpecified ?? false,
     resin_grade: blank(data.resinGrade),
     pcr_level: data.pcrLevel ?? null,
+    pcr_level_other: blank(data.pcrLevelOther),
+    additive: data.additive ?? null,
     neck_diameter: data.neckDiameter ?? null,
     neck_diameter_custom: blank(data.neckDiameterCustom),
     neck_finish_type: data.neckFinishType ?? null,

@@ -45,8 +45,8 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
     });
   }
 
-  const retiredLabels: PublicConfigResponse['retiredLabels'] = {};
-  for (const v of retired) (retiredLabels[v.listKey] ??= {})[v.code] = v.label;
+  const retiredValues: Record<string, Record<string, string>> = {};
+  for (const v of retired) (retiredValues[v.listKey] ??= {})[v.code] = v.label;
 
   const tiers = model
     ? parseScoringModel(scoringModelInputFromRow(model))
@@ -96,7 +96,7 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
         sort: r.sort,
       })),
     valueLists,
-    retiredLabels,
+    retiredValues,
     settings: Object.fromEntries(
       settings.filter((s) => publicSettingKeys.has(s.key)).map((s) => [s.key, s.value ?? null]),
     ),

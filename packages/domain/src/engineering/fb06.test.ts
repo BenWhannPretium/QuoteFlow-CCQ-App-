@@ -174,9 +174,13 @@ describe('engineering assignment rules (F-062, D-008 open)', () => {
     const by = (resin: string) =>
       suggestEngineer(rules, { processType: null, resin }, people)?.userId ?? null;
     expect(by('PET')).toBe('u-neiberger');
-    expect(by('PCR_PET')).toBe('u-neiberger');
     expect(by('HDPE')).toBe('u-pasillas');
     expect(by('PP')).toBe('u-pasillas');
+    expect(by('LDPE')).toBe('u-pasillas');
+    // FB-09: PS gets no rule (Paul Slomkowski's email does not mention it); retired codes name nothing.
+    expect(by('PS')).toBeNull();
+    expect(by('OTHER')).toBeNull();
+    expect(by('PCR_PET')).toBeNull();
     expect(by('PVC')).toBeNull();
     expect(suggestEngineer(rules, { processType: null, resin: null }, people)).toBeNull();
   });

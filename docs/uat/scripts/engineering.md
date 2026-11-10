@@ -72,7 +72,7 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 | 33 | Lead | **Decide G2…** → **Advance** → **Record decision**. | "Advance recorded". Stage **Quoting**. Pricing and the KAM are notified. No note is needed for a plain Advance. | | |
 | 34 | Lead, Engineer | Open `<CCQ-ENG-1>` → **Engineering** tab again. | A lock line: "Locked after G2 · decided by <lead> on <date> · reopens if the quote is sent back". The solution and capacity evidence are read-only for everyone, including you. Product facts stay visible. | | |
 | 35 | Lead | On `<CCQ-ENG-2>` (solution, one capacity row, capacity approved): **Decide G2…** → **Advance with risk** with no note. Then add a note and record. | First refused: "Add a note." Then it moves to **Quoting**. | | |
-| 36 | Lead | On `<CCQ-ENG-3>`: leave **Budgetary capital estimate (USD)** empty. **Decide G2…** → **Advance – capital required**. | Refused until the budgetary capital figure is saved, capacity is approved and a note is added. Fill them, then record. The quote moves to **Quoting** with capital readiness **Capital pending (budgetary)**. | | |
+| 36 | Lead | On `<CCQ-ENG-3>` (no equipment BOM uploaded yet): leave **Budgetary capital estimate (USD)** empty. **Decide G2…** → **Advance – capital required**. | Refused until the budgetary capital figure is saved, **the equipment BOM is uploaded** (FB-06), capacity is approved and a note is added. The missing list names the equipment BOM. Fill them (the engineer uploads the BOM as in step 15a), then record. The quote moves to **Quoting** with capital readiness **Capital pending (budgetary)**. | | |
 | 37 | Lead | On `<CCQ-ENG-4>`: **Decide G2…** → **Hold** with no note. Then set reason, **Review date (required)**, the hold owner and a note. | Refused until a note and a review date are given. Then the quote shows "On hold until <date> · owner <name>". It stays in Engineering Review. The KAM is told. | | |
 | 38 | Lead | On `<CCQ-ENG-5>`: **Decide G2…** → **Redirect (alternative platform / site)** with a note. | The quote **stays** in Engineering Review. The decision and note are in the timeline. | | |
 | 39 | Lead | On `<CCQ-ENG-6>`: **Decide G2…** → **Stop**, reason and note. | The quote closes as **Declined**. The KAM is notified. | | |
@@ -89,6 +89,20 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 | 45 | Faron | With a quote assigned to you, add a capacity row with your assumption in **Assumed effectiveness %**, **Utilization before %**, the allocated volume and a note. Save. | Saved. You are the **Analyst**. **Utilization after % (calculated)** shows. The hint reminds you to state your assumption. | | |
 | 46 | Faron | Check the calculation by hand: cycle time, cavitation, effectiveness, run days and allocated volume against **Utilization after %**. Is OEE counted once? | The number matches your hand calculation, or you write the difference in Notes. (Open question D-021: OEE is applied once in QuoteFlow.) | | |
 | 47 | Faron | Say whether the capacity fields are the right ones for each process (for example assembly has no cavitation). | Write the answer in Notes. | | |
+
+## Part E: FB-06 checks (equipment BOM, suggestions, two-step, pack-out)
+
+Added 2026-11-10 for FB-06 (F-058, F-062, F-024, F-025). Steps 5, 15, 15a–15c and 36 above already cover the main path; these are the edges. The engineer suggestions, the two-step and pack-out fields and the BOM rule are **provisional** (D-007, D-008, A-014, A-030): note a wrong meaning, not a different wording.
+
+| # | Who | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|---|
+| 48 | Lead | On an unassigned quote whose resin is **PET**, open **…** → **Assign…**. Then do the same on one whose resin is **HDPE** (or PP or LDPE). | The PET quote shows **Suggested: Neiberger (PET)** with **Use it**; the HDPE one **Suggested: Pasillas (HDPE)**. Nothing is preselected until you click **Use it**. If that engineer has never signed in to QuoteFlow, there is no suggestion: that is expected. | | |
+| 49 | Lead | Is the suggestion the engineer you would pick for this kind of quote (process type × request type)? | Write yes, or who it should be, in Notes. (Paul Slomkowski's Nov 4 pairs; D-008 is still open.) | | |
+| 50 | Engineer | On a quote you own in Engineering Review, upload an equipment BOM (step 15a). Within 24 hours, remove the newest version. | The removed version disappears. The previous version is **current** again (or the card is empty if it was the only one). The removal is in the **Timeline** → **Files**. | | |
+| 51 | Engineer | On a quote another engineer owns, open the **Engineering** tab. | No **Upload the equipment BOM** button. You can open and download the current BOM. | | |
+| 52 | Lead | On `<CCQ-ENG-3>` after its G2 in step 36, open the **Engineering** tab. Try **Upload a new version** of the BOM. | Not offered, or refused as locked: "Locked after G2". The BOM, two-step and pack-out details are read-only for everyone until a send-back reopens them. | | |
+| 53 | Engineer | On `<CCQ-ENG-3>` before G2 (or any quote you own), in **Two-step process and pack-out** type letters or a decimal in **Units per pallet**. Then type a **Preform number** over 40 characters. | Pack-out takes whole numbers only. The preform number stops at 40 characters (the freight note at 300). | | |
+| 54 | Engineer | On a quote that reached **Quoting** after you entered two-step and pack-out details, open the **Quoting** tab. | A **From engineering** card shows the equipment BOM (file, version, who uploaded it and when), the two-step details and the pack-out. Read-only. (Pricing checks the same in pricing.md step 33.) | | |
 
 ## Sign-off
 

@@ -13,6 +13,13 @@ export const CUSTOM_DESCRIPTION_FIELDS = {
   color_type: 'color_description',
   // FB-11 (F-080): "Other" payment terms need a short description.
   requested_payment_terms: 'requested_payment_terms_other',
+  // FB-09 (Danielle Leu, 2026-11-09): "Other" resin, PCR or additive needs the customer-specified value.
+  // Resin reuses `resin_grade`, PCR has its own field, additive reuses the `additives` note.
+  resin: 'resin_grade',
+  pcr_level: 'pcr_level_other',
+  additive: 'additives',
+  // FB-09 (F-012, D-016 default): "Other" packaging is reserved for customer-dictated specs and needs the packaging note.
+  packaging_type: 'packaging_notes',
 } as const;
 export type CustomListField = keyof typeof CUSTOM_DESCRIPTION_FIELDS;
 export const CUSTOM_LIST_FIELDS = Object.keys(CUSTOM_DESCRIPTION_FIELDS) as CustomListField[];
@@ -22,6 +29,8 @@ export const INTAKE_TEXT_LIMITS = {
   custom_description: 120,
   resin_grade: 120,
   additives: 200,
+  // FB-09: the customer-specified PCR level when PCR is "Other".
+  pcr_level_other: 120,
   liner_spec: 120,
   existing_mold_ref: 60,
   mold_change_description: 500,

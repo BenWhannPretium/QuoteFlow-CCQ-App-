@@ -20,7 +20,7 @@ import {
   type ListEntry,
 } from '@ccq/domain';
 
-import { listLabel, marketText } from '@/lib/value-label';
+import { marketText, valueListLabel } from '@/lib/value-label';
 
 /**
  * Wizard model. Labels and copy for the four steps live here; which fields block, the help text,
@@ -59,8 +59,10 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   neck_special_feature: { label: 'Special feature', step: 3 },
   neck_special_feature_custom: { label: 'Custom special feature', step: 3 },
   resin_customer_specified: { label: 'Customer-specified resin', step: 3 },
-  resin_grade: { label: 'Supplier / grade', step: 3 },
+  resin_grade: { label: 'Customer-specified resin and grade', step: 3 },
   pcr_level: { label: 'PCR %', step: 3 },
+  pcr_level_other: { label: 'Customer-specified PCR level', step: 3 },
+  additive: { label: 'Additive', step: 3 },
   color_type: { label: 'Color', step: 3 },
   color_description: { label: 'Custom color', step: 3 },
   additives: { label: 'Additives', step: 3 },
@@ -140,6 +142,9 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
       ...(typeof s.intake_variants_note_max_length === 'number'
         ? { variantsNoteMaxLength: s.intake_variants_note_max_length }
         : {}),
+      ...(typeof s.intake_free_text_max_length === 'number'
+        ? { freeTextMaxLength: s.intake_free_text_max_length }
+        : {}),
       ...(Array.isArray(s.intake_min_spec_fields)
         ? { minSpecFields: s.intake_min_spec_fields as never }
         : {}),
@@ -189,7 +194,7 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
           ? s.salesforce_new_opportunity_url
           : null,
       lists,
-      retired: config.retiredLabels ?? {},
+      retired: config.retiredValues ?? {},
     };
   } catch {
     return null;
@@ -250,11 +255,11 @@ export function neckLabel(
 }
 
 export const valueLabel = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
-  listLabel({ valueLists: cfg.lists, retiredLabels: cfg.retired }, listKey, code) ?? '';
+  valueListLabel({ valueLists: cfg.lists, retiredValues: cfg.retired }, listKey, code) ?? '';
 
 /** FB-12: "Food › Snacks & Confections" for the review step and the suggested description. */
 export const marketLabel = (cfg: WizardConfig, data: IntakeDraftData): string | null =>
-  marketText({ valueLists: cfg.lists, retiredLabels: cfg.retired }, data.market, data.subMarket);
+  marketText({ valueLists: cfg.lists, retiredValues: cfg.retired }, data.market, data.subMarket);
 
 export function suggestedDescription(data: IntakeDraftData, cfg: WizardConfig): string {
   return renderDescriptionTemplate(cfg.descriptionTemplate, {

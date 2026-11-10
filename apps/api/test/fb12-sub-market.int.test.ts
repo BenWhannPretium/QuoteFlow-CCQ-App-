@@ -164,7 +164,7 @@ describe('the lists (F-020)', () => {
     });
     // The five old codes are not offered, but their labels are kept for old quotes.
     expect(markets.map((m) => m.code)).not.toContain('PHARMA_HEALTH');
-    expect(config.retiredLabels.market).toMatchObject({
+    expect(config.retiredValues!.market).toMatchObject({
       NUTRITION: 'Nutrition/Supplements',
       HOUSEHOLD_CHEMICAL: 'Household Chemical',
       PHARMA_HEALTH: 'Pharma/Health',
@@ -352,7 +352,7 @@ describe('a quote on a retired market (F-020)', () => {
       'Pharma/Health (no longer offered)',
     );
     const config = PublicConfigResponse.parse((await kam().get('/api/v1/config/public')).json());
-    expect(config.retiredLabels.market!.PHARMA_HEALTH).toBe('Pharma/Health');
+    expect(config.retiredValues!.market!.PHARMA_HEALTH).toBe('Pharma/Health');
     // Reading it changed nothing.
     const [row] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, q.quote.id));
     expect(row!.market).toBe('PHARMA_HEALTH');

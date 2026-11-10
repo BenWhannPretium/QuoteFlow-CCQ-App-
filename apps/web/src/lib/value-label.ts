@@ -1,34 +1,36 @@
 import type { PublicConfigResponse } from '@ccq/contracts';
 import { marketPath } from '@ccq/domain';
 
-/** What the UI shows beside a value that has been taken off its list (FB-03's EBM wheel, FB-12's old markets). */
+/** What the UI shows beside a value that has been taken off its list (FB-03's EBM wheel, FB-09's retired resins, FB-12's old markets). */
 export const RETIRED_SUFFIX = ' (no longer offered)';
 
 /**
- * A stored code's label: the active entry's label, else the label of a retired entry with
- * "(no longer offered)", else the code as stored. Null for no code.
+ * A stored value-list code as a label. A code that is no longer offered (an inactive entry, FB-03
+ * EBM_WHEEL, FB-09 retired resins, FB-12 old markets) still shows its label, marked "(no longer offered)";
+ * an unknown code shows as it is. `fallback` is returned for an empty code.
  */
-export function listLabel(
-  config: Pick<PublicConfigResponse, 'valueLists' | 'retiredLabels'> | undefined,
+export function valueListLabel(
+  config: Pick<PublicConfigResponse, 'valueLists' | 'retiredValues'> | undefined,
   list: string,
   code: string | null | undefined,
+  fallback: string | null = null,
 ): string | null {
-  if (!code) return null;
+  if (!code) return fallback;
   const active = config?.valueLists[list]?.find((v) => v.code === code);
   if (active) return active.label;
-  const retired = config?.retiredLabels?.[list]?.[code];
-  return retired !== undefined ? `${retired}${RETIRED_SUFFIX}` : code;
+  const retired = config?.retiredValues?.[list]?.[code];
+  return retired ? `${retired}${RETIRED_SUFFIX}` : code;
 }
 
 /** FB-12 (F-073): "Food › Snacks & Confections", or just the market when no sub-market is picked. */
 export function marketText(
-  config: Pick<PublicConfigResponse, 'valueLists' | 'retiredLabels'> | undefined,
+  config: Pick<PublicConfigResponse, 'valueLists' | 'retiredValues'> | undefined,
   market: string | null | undefined,
   subMarket: string | null | undefined,
 ): string | null {
   return marketPath(
-    listLabel(config, 'market', market),
-    listLabel(config, 'sub_market', subMarket),
+    valueListLabel(config, 'market', market),
+    valueListLabel(config, 'sub_market', subMarket),
   );
 }
 

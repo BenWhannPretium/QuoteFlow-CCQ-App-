@@ -4,7 +4,7 @@ import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePublicConfig } from '@/config/public-config';
 import { cn } from '@/lib/utils';
-import { listLabel, marketText, parentMarket } from '@/lib/value-label';
+import { marketText, parentMarket, valueListLabel } from '@/lib/value-label';
 
 import { ScorePill } from './ScorePill';
 import { TierChip } from './TierChip';
@@ -33,7 +33,7 @@ export function ScoreBreakdownTable({
     const parent = parentMarket(config, String(raw));
     return parent
       ? marketText(config, parent, String(raw))
-      : listLabel(config, 'market', String(raw));
+      : valueListLabel(config, 'market', String(raw));
   };
   if (!priority.visible) {
     return (
