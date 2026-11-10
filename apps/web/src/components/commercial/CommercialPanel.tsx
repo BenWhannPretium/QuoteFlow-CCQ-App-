@@ -1,4 +1,10 @@
-import type { CommercialDetail, QuoteDetail, TermsBody } from '@ccq/contracts';
+import type {
+  CommercialDetail,
+  EngineeringTermsBody,
+  QuoteDetail,
+  TermsBody,
+} from '@ccq/contracts';
+import { isNonStandardPaymentTerms } from '@ccq/domain';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MegaphoneIcon, ScaleIcon } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -14,18 +20,24 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
-import { useValueList } from '@/config/public-config';
+import { usePublicConfig, useValueList } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
-import { CustomerRequested } from '../intake/CommercialInputs';
+import {
+  CustomerRequested,
+  NonStandardTermsBadge,
+  standardTermsFrom,
+} from '../intake/CommercialInputs';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
+import { CapitalTerms } from './CapitalTerms';
 import { FundingHelp } from './FundingHelp';
+import { AdditionalApprovals, TermsExceptionCard } from './TermsException';
 
 // B-26 (CCQ demo and the future-state process deck): the quote's commercial controls. The early
 // "capital likely" flag (Capital Management awareness, not approval), the terms check and Legal review
@@ -73,7 +85,10 @@ export function CommercialPanel({ quote }: { quote: QuoteDetail }) {
         )}
         <CapitalFlag quote={quote} />
         <CustomerRequested quote={quote} />
-        <TermsEditor key={`${c.terms.checkedAt}|${c.legal.reviewedOn}`} quote={quote} />
+        <TermsEditor
+          key={`${c.terms.checkedAt}|${c.legal.reviewedOn}|${c.terms.termsPaymentTermsCode}|${c.terms.exception?.status}`}
+          quote={quote}
+        />
         <EscalateSection quote={quote} />
       </CardContent>
     </Card>
@@ -142,10 +157,12 @@ function CapitalFlag({ quote }: { quote: QuoteDetail }) {
 /** Server error paths shown next to their field (the rest show under the form). */
 const INLINE_TERMS_PATHS = new Set(
   [
-    'toolingFundingModel',
     'termsToolingCommitment',
-    'termsMoq',
+    'termsPaymentTermsCode',
     'termsPaymentTerms',
+    'termsNonstandard',
+    'termsToolingPayment',
+    'termsMilestoneNote',
     'termsNotes',
     'legal/reviewedOn',
     'legal/reviewerName',
@@ -154,11 +171,12 @@ const INLINE_TERMS_PATHS = new Set(
 );
 
 type TermsForm = {
-  toolingFundingModel: string;
   termsToolingCommitment: '' | 'yes' | 'no';
-  termsMoq: string;
+  termsPaymentTermsCode: string;
   termsPaymentTerms: string;
   termsNonstandard: boolean;
+  termsToolingPayment: string;
+  termsMilestoneNote: string;
   termsNotes: string;
   checked: boolean;
   legalReviewedOn: string;
@@ -169,12 +187,13 @@ type TermsForm = {
 function termsFormFrom(c: CommercialDetail): TermsForm {
   const t = c.terms;
   return {
-    toolingFundingModel: t.toolingFundingModel ?? '',
     termsToolingCommitment:
       t.termsToolingCommitment === null ? '' : t.termsToolingCommitment ? 'yes' : 'no',
-    termsMoq: t.termsMoq ?? '',
+    termsPaymentTermsCode: t.termsPaymentTermsCode ?? '',
     termsPaymentTerms: t.termsPaymentTerms ?? '',
     termsNonstandard: t.termsNonstandard,
+    termsToolingPayment: t.termsToolingPayment ?? '',
+    termsMilestoneNote: t.termsMilestoneNote ?? '',
     termsNotes: t.termsNotes ?? '',
     checked: t.checkedAt !== null,
     legalReviewedOn: c.legal.reviewedOn ?? '',
@@ -183,15 +202,58 @@ function termsFormFrom(c: CommercialDetail): TermsForm {
   };
 }
 
-/** B-26 (B6, B8): tooling funding, the terms check and, when a trigger applies, the Legal review. */
+/**
+ * FB-08 (F-021): with no payment terms recorded, the form starts from the customer's request at intake
+ * (FB-11), or else `default_payment_terms` (provisional Net 30). Nothing is saved until someone saves.
+ */
+function withDefaultTerms(form: TermsForm, quote: QuoteDetail, fallback: string | null): TermsForm {
+  if (form.termsPaymentTermsCode) return form;
+  const requested = quote.intakeFacts.requestedPaymentTerms;
+  if (requested) {
+    return {
+      ...form,
+      termsPaymentTermsCode: requested,
+      termsPaymentTerms: quote.intakeFacts.requestedPaymentTermsOther ?? form.termsPaymentTerms,
+    };
+  }
+  return fallback ? { ...form, termsPaymentTermsCode: fallback } : form;
+}
+
+/** FB-08 (D-029): the milestones of a tooling-payment option ("50% at the order, 50% at qualification"). */
+function milestoneText(meta: Record<string, unknown> | undefined): string | null {
+  const list = meta?.milestones;
+  if (!Array.isArray(list) || list.length === 0) return null;
+  return list
+    .map(
+      (m: { percent?: unknown; trigger?: unknown }) =>
+        `${String(m.percent)}% ${String(m.trigger).toLowerCase()}`,
+    )
+    .join(', ');
+}
+
+/**
+ * B-26 (B6, B8), FB-08: payment terms (a list; non-standard opens an exception for the pricing lead),
+ * the tooling payment milestones, the terms check and, when a trigger applies, the Legal review. MOQ
+ * and tooling funding are Engineering's (`EngineeringTerms`); the capital terms are `CapitalTerms`.
+ */
 function TermsEditor({ quote }: { quote: QuoteDetail }) {
   const c = quote.commercial;
+  const { data: config } = usePublicConfig();
+  const paymentTerms = useValueList('requested_payment_terms');
+  const toolingPayments = useValueList('tooling_payment_terms');
   const fundingModels = useValueList('tooling_funding_model');
-  const fundingLabel = (code: string | null) =>
-    code ? (fundingModels.find((m) => m.code === code)?.label ?? code) : null;
+  const standard = standardTermsFrom(config);
+  const fallback =
+    typeof config?.settings.default_payment_terms === 'string'
+      ? config.settings.default_payment_terms
+      : null;
+  const listLabel = (list: { code: string; label: string }[], code: string | null) =>
+    code ? (list.find((m) => m.code === code)?.label ?? code) : null;
   const apply = useApplyQuote(quote);
   const stored = termsFormFrom(c);
-  const [form, setForm] = useState<TermsForm>(stored);
+  const [form, setForm] = useState<TermsForm>(() =>
+    c.terms.canEdit ? withDefaultTerms(stored, quote, fallback) : stored,
+  );
   const [errors, setErrors] = useState<ServerError[]>([]);
   const set =
     <K extends keyof TermsForm>(key: K) =>
@@ -200,17 +262,24 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
   const changed = (k: keyof TermsForm) => form[k] !== stored[k];
   const dirty = (Object.keys(form) as (keyof TermsForm)[]).some(changed);
   const text = (v: string) => (v.trim() === '' ? null : v.trim());
+  const option = paymentTerms.find((p) => p.code === form.termsPaymentTermsCode);
+  const freeText = option?.meta.freeText === true;
+  const nonstandard = isNonStandardPaymentTerms(form.termsPaymentTermsCode, standard);
 
   const save = useMutation({
     mutationFn: () => {
       const body: TermsBody = {};
-      if (changed('toolingFundingModel')) body.toolingFundingModel = text(form.toolingFundingModel);
       if (changed('termsToolingCommitment'))
         body.termsToolingCommitment =
           form.termsToolingCommitment === '' ? null : form.termsToolingCommitment === 'yes';
-      if (changed('termsMoq')) body.termsMoq = text(form.termsMoq);
-      if (changed('termsPaymentTerms')) body.termsPaymentTerms = text(form.termsPaymentTerms);
-      if (changed('termsNonstandard')) body.termsNonstandard = form.termsNonstandard;
+      if (changed('termsPaymentTermsCode'))
+        body.termsPaymentTermsCode = text(form.termsPaymentTermsCode);
+      if (changed('termsPaymentTerms') || (freeText && changed('termsPaymentTermsCode')))
+        body.termsPaymentTerms = freeText ? text(form.termsPaymentTerms) : null;
+      if (changed('termsNonstandard') && !nonstandard)
+        body.termsNonstandard = form.termsNonstandard;
+      if (changed('termsToolingPayment')) body.termsToolingPayment = text(form.termsToolingPayment);
+      if (changed('termsMilestoneNote')) body.termsMilestoneNote = text(form.termsMilestoneNote);
       if (changed('termsNotes')) body.termsNotes = text(form.termsNotes);
       if (changed('checked')) body.checked = form.checked;
       if (changed('legalReviewedOn') || changed('legalReviewerName') || changed('legalNote')) {
@@ -228,8 +297,16 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
     onSuccess: async (next) => {
       setErrors([]);
       await apply(next);
+      const opened =
+        next.commercial.terms.exception?.status === 'pending' &&
+        c.terms.exception?.status !== 'pending';
       toast.success({
         title: next.commercial.terms.checkedAt ? 'Terms checked' : 'Terms saved',
+        ...(opened
+          ? {
+              description: 'Non-standard payment terms: the pricing lead has been asked to decide.',
+            }
+          : {}),
       });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -252,6 +329,35 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
     </div>
   );
 
+  const paymentText = c.terms.termsPaymentTermsCode
+    ? paymentTerms.find((p) => p.code === c.terms.termsPaymentTermsCode)?.meta.freeText === true
+      ? c.terms.termsPaymentTerms
+      : listLabel(paymentTerms, c.terms.termsPaymentTermsCode)
+    : c.terms.termsPaymentTerms && `${c.terms.termsPaymentTerms} (entered before the list)`;
+  const toolingOption = toolingPayments.find((t) => t.code === c.terms.termsToolingPayment);
+
+  const extras = (
+    <>
+      <EngineeringTerms quote={quote} />
+      <CapitalTerms
+        quoteNumber={quote.quoteNumber}
+        view={c.terms.capital}
+        mode={c.terms.capital.canFinalize ? 'finalize' : c.terms.canEdit ? 'prefill' : 'readonly'}
+        onSaved={apply}
+      />
+      <TermsExceptionCard
+        quoteNumber={quote.quoteNumber}
+        exception={c.terms.exception}
+        onSaved={apply}
+      />
+      <AdditionalApprovals
+        quoteNumber={quote.quoteNumber}
+        items={c.additionalApprovals}
+        onSaved={apply}
+      />
+    </>
+  );
+
   if (!c.terms.canEdit) {
     return (
       <section aria-label="Terms" className="grid gap-4" data-testid="terms">
@@ -259,17 +365,26 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
         <KeyValueGrid
           items={[
             {
-              id: 'funding',
-              label: 'Tooling funding model',
-              value: fundingLabel(c.terms.toolingFundingModel),
+              id: 'payment',
+              label: 'Payment terms',
+              value: paymentText ? (
+                <>
+                  {paymentText}
+                  <NonStandardTermsBadge show={c.terms.paymentTermsNonstandard} />
+                </>
+              ) : null,
             },
+            {
+              id: 'tooling-payment',
+              label: 'Tooling payment',
+              value: toolingOption?.label ?? c.terms.termsToolingPayment,
+            },
+            { id: 'milestone-note', label: 'Milestone note', value: c.terms.termsMilestoneNote },
             {
               id: 'tooling',
               label: 'Tooling commitment',
               value: yesNo(c.terms.termsToolingCommitment),
             },
-            { id: 'moq', label: 'MOQ', value: c.terms.termsMoq },
-            { id: 'payment', label: 'Payment terms', value: c.terms.termsPaymentTerms },
             {
               id: 'nonstandard',
               label: 'Non-standard terms',
@@ -293,29 +408,289 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
           ]}
         />
         {legalBlock}
+        {extras}
       </section>
     );
   }
 
   return (
+    <div className="grid gap-6">
+      <form
+        aria-label="Terms"
+        className="grid gap-4"
+        data-testid="terms"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <SectionLockLine lock={c.terms.lock} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Payment terms"
+            hint={
+              standard.length > 0
+                ? `Standard: ${standard.map((s) => listLabel(paymentTerms, s)).join(', ')}. Anything else goes to the pricing lead as an exception.`
+                : undefined
+            }
+            error={errorFor(errors, 'termsPaymentTermsCode')}
+          >
+            {(id) => (
+              <NativeSelect
+                id={id}
+                value={form.termsPaymentTermsCode}
+                onChange={(e) => set('termsPaymentTermsCode')(e.target.value)}
+              >
+                <option value="">Not set</option>
+                {paymentTerms.map((m) => (
+                  <option key={m.code} value={m.code}>
+                    {m.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </Field>
+          <div className="flex items-end pb-2">
+            <NonStandardTermsBadge show={nonstandard} />
+          </div>
+          {freeText && (
+            <Field
+              label="Payment terms agreed (required)"
+              error={errorFor(errors, 'termsPaymentTerms')}
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  maxLength={200}
+                  placeholder="e.g. 2% 10, Net 45"
+                  value={form.termsPaymentTerms}
+                  onChange={(e) => set('termsPaymentTerms')(e.target.value)}
+                />
+              )}
+            </Field>
+          )}
+          <Field
+            label="Tooling payment"
+            hint={
+              milestoneText(
+                toolingPayments.find((t) => t.code === form.termsToolingPayment)?.meta,
+              ) ?? undefined
+            }
+            error={errorFor(errors, 'termsToolingPayment')}
+          >
+            {(id) => (
+              <NativeSelect
+                id={id}
+                value={form.termsToolingPayment}
+                onChange={(e) => set('termsToolingPayment')(e.target.value)}
+              >
+                <option value="">Not set</option>
+                {toolingPayments.map((m) => (
+                  <option key={m.code} value={m.code}>
+                    {m.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </Field>
+          <Field
+            label="Customer tooling commitment"
+            hint="Does the customer commit to fund or pay for tooling?"
+            error={errorFor(errors, 'termsToolingCommitment')}
+          >
+            {(id) => (
+              <NativeSelect
+                id={id}
+                value={form.termsToolingCommitment}
+                onChange={(e) =>
+                  set('termsToolingCommitment')(
+                    e.target.value as TermsForm['termsToolingCommitment'],
+                  )
+                }
+              >
+                <option value="">Not answered</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </NativeSelect>
+            )}
+          </Field>
+        </div>
+        {!c.terms.termsPaymentTermsCode && c.terms.termsPaymentTerms && (
+          <p className="text-muted-foreground -mt-2 text-xs" data-testid="legacy-payment-terms">
+            Entered before the list: {c.terms.termsPaymentTerms}. Pick the matching terms above.
+          </p>
+        )}
+        <Field
+          label="Milestone note"
+          hint="Up to 300 characters, e.g. when qualification is expected."
+          error={errorFor(errors, 'termsMilestoneNote')}
+        >
+          {(id) => (
+            <Input
+              id={id}
+              maxLength={300}
+              value={form.termsMilestoneNote}
+              onChange={(e) => set('termsMilestoneNote')(e.target.value)}
+            />
+          )}
+        </Field>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4 accent-[var(--primary)]"
+            checked={nonstandard || form.termsNonstandard}
+            disabled={nonstandard}
+            onChange={(e) => set('termsNonstandard')(e.target.checked)}
+          />
+          Non-standard terms
+          {nonstandard && (
+            <span className="text-muted-foreground text-xs">(set by the payment terms)</span>
+          )}
+        </label>
+        <Field label="Terms notes" error={errorFor(errors, 'termsNotes')}>
+          {(id) => (
+            <Textarea
+              id={id}
+              value={form.termsNotes}
+              onChange={(e) => set('termsNotes')(e.target.value)}
+            />
+          )}
+        </Field>
+        <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            className="size-4 accent-[var(--primary)]"
+            checked={form.checked}
+            onChange={(e) => set('checked')(e.target.checked)}
+          />
+          Terms checked
+          <span className="text-muted-foreground text-xs font-normal">
+            Needs payment terms and the tooling-commitment answer; changing a term clears it.
+          </span>
+        </label>
+        {c.terms.checkedAt && (
+          <p className="text-muted-foreground -mt-2 text-xs" data-testid="terms-checked-by">
+            Checked by {c.terms.checkedByName ?? 'someone'} on {absoluteTime(c.terms.checkedAt)}.
+          </p>
+        )}
+
+        {legalBlock}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Legal reviewed on" error={errorFor(errors, 'legal/reviewedOn')}>
+            {(id) => (
+              <Input
+                id={id}
+                type="date"
+                value={form.legalReviewedOn}
+                onChange={(e) => set('legalReviewedOn')(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field
+            label="Reviewed by (Legal)"
+            hint="Legal is not a CCQ role: name the reviewer."
+            error={errorFor(errors, 'legal/reviewerName')}
+          >
+            {(id) => (
+              <Input
+                id={id}
+                value={form.legalReviewerName}
+                onChange={(e) => set('legalReviewerName')(e.target.value)}
+              />
+            )}
+          </Field>
+        </div>
+        <Field label="Legal note" error={errorFor(errors, 'legal/note')}>
+          {(id) => (
+            <Textarea
+              id={id}
+              value={form.legalNote}
+              onChange={(e) => set('legalNote')(e.target.value)}
+            />
+          )}
+        </Field>
+        {c.legal.recordedByName && (
+          <p className="text-muted-foreground -mt-2 text-xs">
+            Recorded by {c.legal.recordedByName}.
+          </p>
+        )}
+        <FormErrors errors={errors.filter((e) => !INLINE_TERMS_PATHS.has(e.path))} />
+        <div>
+          <Button type="submit" disabled={save.isPending || !dirty}>
+            {save.isPending ? 'Saving…' : 'Save terms'}
+          </Button>
+        </div>
+      </form>
+      {extras}
+      {/* Funding is Engineering's on the quote; the label is shown for context when it is not. */}
+      {!c.terms.canEditEngineering && !c.terms.capital.canFinalize && (
+        <p className="text-muted-foreground -mt-4 text-xs">
+          Funding model: {listLabel(fundingModels, c.terms.toolingFundingModel) ?? 'Not set'}{' '}
+          (Engineering confirms MOQ and funding; the approver finalizes the capital terms).
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * FB-08 (F-021, D-003 provisional): MOQ and the tooling funding model are Engineering's (the EngLead,
+ * or the assigned engineer). Everyone else reads them here.
+ */
+function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
+  const t = quote.commercial.terms;
+  const fundingModels = useValueList('tooling_funding_model');
+  const apply = useApplyQuote(quote);
+  const [funding, setFunding] = useState(t.toolingFundingModel ?? '');
+  const [moq, setMoq] = useState(t.termsMoq ?? '');
+  const [errors, setErrors] = useState<ServerError[]>([]);
+  const dirty = funding !== (t.toolingFundingModel ?? '') || moq !== (t.termsMoq ?? '');
+  const save = useMutation({
+    mutationFn: () => {
+      const body: EngineeringTermsBody = {};
+      if (funding !== (t.toolingFundingModel ?? '')) body.toolingFundingModel = funding || null;
+      if (moq !== (t.termsMoq ?? '')) body.termsMoq = moq.trim() || null;
+      return api.updateEngineeringTerms(quote.quoteNumber, body);
+    },
+    onSuccess: async (next) => {
+      setErrors([]);
+      await apply(next);
+      toast.success({ title: 'MOQ and funding saved' });
+    },
+    onError: (err) => setErrors(problemErrors(err)),
+  });
+  const fundingLabel = t.toolingFundingModel
+    ? (fundingModels.find((m) => m.code === t.toolingFundingModel)?.label ?? t.toolingFundingModel)
+    : null;
+  if (!t.canEditEngineering) {
+    return (
+      <section aria-label="MOQ and funding" className="grid gap-2" data-testid="engineering-terms">
+        <KeyValueGrid
+          items={[
+            { id: 'eng-funding', label: 'Tooling funding model', value: fundingLabel },
+            { id: 'eng-moq', label: 'MOQ', value: t.termsMoq },
+          ]}
+        />
+      </section>
+    );
+  }
+  return (
     <form
-      aria-label="Terms"
+      aria-label="MOQ and funding"
       className="grid gap-4"
-      data-testid="terms"
+      data-testid="engineering-terms"
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate();
       }}
     >
+      <p className="text-sm font-medium">MOQ and tooling funding (Engineering)</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Tooling funding model" error={errorFor(errors, 'toolingFundingModel')}>
           {(id) => (
-            <NativeSelect
-              id={id}
-              value={form.toolingFundingModel}
-              onChange={(e) => set('toolingFundingModel')(e.target.value)}
-            >
+            <NativeSelect id={id} value={funding} onChange={(e) => setFunding(e.target.value)}>
               <option value="">Not set</option>
               {fundingModels.map((m) => (
                 <option key={m.code} value={m.code}>
@@ -326,124 +701,18 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
           )}
         </Field>
         <FundingHelp options={fundingModels} />
-        <Field
-          label="Customer tooling commitment"
-          hint="Does the customer commit to fund or pay for tooling?"
-          error={errorFor(errors, 'termsToolingCommitment')}
-        >
-          {(id) => (
-            <NativeSelect
-              id={id}
-              value={form.termsToolingCommitment}
-              onChange={(e) =>
-                set('termsToolingCommitment')(e.target.value as TermsForm['termsToolingCommitment'])
-              }
-            >
-              <option value="">Not answered</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </NativeSelect>
-          )}
-        </Field>
         <Field label="MOQ" error={errorFor(errors, 'termsMoq')}>
           {(id) => (
-            <Input
-              id={id}
-              value={form.termsMoq}
-              onChange={(e) => set('termsMoq')(e.target.value)}
-            />
-          )}
-        </Field>
-        <Field label="Payment terms" error={errorFor(errors, 'termsPaymentTerms')}>
-          {(id) => (
-            <Input
-              id={id}
-              placeholder="e.g. Net 45"
-              value={form.termsPaymentTerms}
-              onChange={(e) => set('termsPaymentTerms')(e.target.value)}
-            />
+            <Input id={id} maxLength={200} value={moq} onChange={(e) => setMoq(e.target.value)} />
           )}
         </Field>
       </div>
-      <label className="flex min-h-11 items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          className="size-4 accent-[var(--primary)]"
-          checked={form.termsNonstandard}
-          onChange={(e) => set('termsNonstandard')(e.target.checked)}
-        />
-        Non-standard terms
-      </label>
-      <Field label="Terms notes" error={errorFor(errors, 'termsNotes')}>
-        {(id) => (
-          <Textarea
-            id={id}
-            value={form.termsNotes}
-            onChange={(e) => set('termsNotes')(e.target.value)}
-          />
-        )}
-      </Field>
-      <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
-        <input
-          type="checkbox"
-          className="size-4 accent-[var(--primary)]"
-          checked={form.checked}
-          onChange={(e) => set('checked')(e.target.checked)}
-        />
-        Terms checked
-        <span className="text-muted-foreground text-xs font-normal">
-          Needs payment terms and the tooling-commitment answer. Final Review needs it to release
-          the offer; changing a term clears it.
-        </span>
-      </label>
-      {c.terms.checkedAt && (
-        <p className="text-muted-foreground -mt-2 text-xs" data-testid="terms-checked-by">
-          Checked by {c.terms.checkedByName ?? 'someone'} on {absoluteTime(c.terms.checkedAt)}.
-        </p>
-      )}
-
-      {legalBlock}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Legal reviewed on" error={errorFor(errors, 'legal/reviewedOn')}>
-          {(id) => (
-            <Input
-              id={id}
-              type="date"
-              value={form.legalReviewedOn}
-              onChange={(e) => set('legalReviewedOn')(e.target.value)}
-            />
-          )}
-        </Field>
-        <Field
-          label="Reviewed by (Legal)"
-          hint="Legal is not a CCQ role: name the reviewer."
-          error={errorFor(errors, 'legal/reviewerName')}
-        >
-          {(id) => (
-            <Input
-              id={id}
-              value={form.legalReviewerName}
-              onChange={(e) => set('legalReviewerName')(e.target.value)}
-            />
-          )}
-        </Field>
-      </div>
-      <Field label="Legal note" error={errorFor(errors, 'legal/note')}>
-        {(id) => (
-          <Textarea
-            id={id}
-            value={form.legalNote}
-            onChange={(e) => set('legalNote')(e.target.value)}
-          />
-        )}
-      </Field>
-      {c.legal.recordedByName && (
-        <p className="text-muted-foreground -mt-2 text-xs">Recorded by {c.legal.recordedByName}.</p>
-      )}
-      <FormErrors errors={errors.filter((e) => !INLINE_TERMS_PATHS.has(e.path))} />
+      <FormErrors
+        errors={errors.filter((e) => e.path !== '/toolingFundingModel' && e.path !== '/termsMoq')}
+      />
       <div>
         <Button type="submit" disabled={save.isPending || !dirty}>
-          {save.isPending ? 'Saving…' : 'Save terms'}
+          {save.isPending ? 'Saving…' : 'Save MOQ and funding'}
         </Button>
       </div>
     </form>

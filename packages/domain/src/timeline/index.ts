@@ -22,6 +22,9 @@ export const TIMELINE_CATEGORY_TYPES: Readonly<
     'quote_closed',
     // B-12: the Final Review approval set the proposal issue and validity dates.
     'proposal_released',
+    // FB-08: the pricing lead's payment-terms exception decision; an extra Final Review sign-off.
+    'terms_exception_decided',
+    'final_review_signoff',
   ],
   override: [
     'override_requested',

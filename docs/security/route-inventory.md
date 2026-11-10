@@ -5,7 +5,7 @@
 > `routeMatrix.test.ts` fails if this file is stale, and `test/permissions/matrix.int.test.ts` sends
 > every route below as every role (allowed: not 401/403; denied: 403 problem+json) and anonymously (401).
 
-122 routes: 3 public, 6 for any signed-in role, 113 gated by a matrix permission.
+126 routes: 3 public, 6 for any signed-in role, 117 gated by a matrix permission.
 
 Qualified grants (own, assigned, fields, stages) pass the route gate; the service then checks the
 quote with `assertCan`, and Postgres RLS enforces the data scope as the second layer.
@@ -105,6 +105,7 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | POST | `/api/v1/quotes/:quoteNumber/eng-review/send-back` | `gate.G2.decide` | EngLead |  |
 | POST | `/api/v1/quotes/:quoteNumber/eng-review/submit` | `engReview.edit` | EngLead, Engineer (assigned) |  |
 | POST | `/api/v1/quotes/:quoteNumber/escalations` | `quote.escalate` | KAM (own), SalesLeader, EngLead, Engineer (assigned), Pricing, PricingLead, Approver, Admin |  |
+| POST | `/api/v1/quotes/:quoteNumber/final-review/signoffs` | `finalReview.signoff` | SalesLeader, Leadership |  |
 | POST | `/api/v1/quotes/:quoteNumber/gates/:gateKey/decisions` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, PostAward (AWARDED) |  |
 | PUT | `/api/v1/quotes/:quoteNumber/handoff` | `handoff.edit` | KAM (own), SalesLeader, Admin |  |
 | GET | `/api/v1/quotes/:quoteNumber/overrides` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, PostAward (AWARDED) |  |
@@ -119,6 +120,9 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | POST | `/api/v1/quotes/:quoteNumber/roi-model` | `roi.upload` | Finance, PricingLead, Admin |  |
 | GET | `/api/v1/quotes/:quoteNumber/stage-times` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, PostAward (AWARDED) |  |
 | PUT | `/api/v1/quotes/:quoteNumber/terms` | `terms.edit` | KAM (own), SalesLeader, Pricing, PricingLead |  |
+| PUT | `/api/v1/quotes/:quoteNumber/terms/capital` | `terms.finalize` | Approver (FINAL_REVIEW) |  |
+| PUT | `/api/v1/quotes/:quoteNumber/terms/engineering` | `terms.engineering.edit` | EngLead, Engineer (assigned) |  |
+| POST | `/api/v1/quotes/:quoteNumber/terms/exception/decision` | `terms.exception.decide` | PricingLead |  |
 | GET | `/api/v1/quotes/:quoteNumber/timeline` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, PostAward (AWARDED) |  |
 | GET | `/api/v1/quotes/board` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, PostAward (AWARDED) |  |
 | GET | `/api/v1/quotes/drafts` | `quote.create` | KAM, SalesLeader, Admin |  |

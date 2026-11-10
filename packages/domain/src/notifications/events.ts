@@ -129,6 +129,21 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     description: 'Market Development: a large opportunity has entered engineering.',
     email: 'immediate',
   },
+  // FB-08 (T-007, F-021): non-standard payment terms need the pricing lead's exception decision.
+  {
+    type: 'quote.terms_exception_requested',
+    label: 'Non-standard payment terms need your decision',
+    description:
+      'Pricing leads: a quote has payment terms outside the standard (Net 15 or Net 30). Approve or reject the exception, with a rationale.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.terms_exception_decided',
+    label: 'A payment-terms exception is decided',
+    description:
+      'Whoever entered the non-standard payment terms, and the KAM: the pricing lead approved or rejected them, with the rationale.',
+    email: 'immediate',
+  },
   // FB-07 (D-001, F-032): costing, then ROI, then price confirmation inside Quoting.
   {
     type: 'quote.ready_for_roi',

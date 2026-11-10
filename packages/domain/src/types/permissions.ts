@@ -16,11 +16,19 @@ export const PERMISSIONS = [
   'roi.upload',
   'finalReview.read',
   'gate.G4.decide',
+  // FB-08 (F-082, off until A-035): an extra Final Review sign-off (g4_additional_approvals).
+  'finalReview.signoff',
   'outcome.record',
   'outcome.assignOwner',
   'handoff.edit',
   'gate.G6.decide',
   'terms.edit',
+  // FB-08 (F-021, D-003 provisional): MOQ and tooling funding are Engineering's.
+  'terms.engineering.edit',
+  // FB-08 (F-068): the approver confirms the capital terms at Final Review.
+  'terms.finalize',
+  // FB-08 (T-007): approve or reject a non-standard payment-terms exception.
+  'terms.exception.decide',
   'capitalFlag.edit',
   'capacity.signoff',
   'quote.escalate',

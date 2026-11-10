@@ -267,6 +267,13 @@
       "when": 1794269744385,
       "tag": "0037_fb12_sub_market_scoring",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794320180454,
+      "tag": "0038_fb08_terms_final_review",
+      "breakpoints": true
     }
   ]
 }

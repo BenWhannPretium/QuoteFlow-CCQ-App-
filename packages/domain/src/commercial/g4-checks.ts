@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { termsExceptionOpen } from './terms';
 import { DomainError } from '../errors';
 
 /**
@@ -8,15 +9,26 @@ import { DomainError } from '../errors';
  * required. Both are owned by other roles and neither was on the review screen. The tracker's acceptance:
  * "Approver can complete final review without fields owned by other roles; legal review is optional."
  *
- * Which of the two block G4 Advance is now config (`app_setting.g4_required_checks`), seeded `[]` and
- * provisional: who finalizes terms is open (tracker D-003, built in FB-08). A check that is not required
- * but not done is shown to the approver as a warning, and the G4 decision records that they saw it.
+ * Which checks block G4 Advance is config (`app_setting.g4_required_checks`), provisional (D-003). A
+ * check that is not required but not done is shown to the approver as a warning, and the G4 decision
+ * records that they saw it.
+ *
+ * FB-08 adds two (seeded on, provisional):
+ * - `terms_exception` (T-007): non-standard payment terms need the PricingLead's approved exception. A
+ *   pending or rejected one blocks.
+ * - `terms_finalized` (F-068, T-031): the approver has confirmed the capital terms. It is the approver's
+ *   own field, so it does not repeat the F-069 problem.
  */
-export const G4_CHECKS = ['terms_checked', 'legal_review'] as const;
+export const G4_CHECKS = [
+  'terms_checked',
+  'legal_review',
+  'terms_exception',
+  'terms_finalized',
+] as const;
 export type G4Check = (typeof G4_CHECKS)[number];
 
-/** Seed: nothing blocks the approver (provisional, D-003). */
-export const G4_REQUIRED_CHECKS_SEED: G4Check[] = [];
+/** Seed (provisional, D-003): the exception and the approver's capital-terms confirmation block. */
+export const G4_REQUIRED_CHECKS_SEED: G4Check[] = ['terms_exception', 'terms_finalized'];
 
 const schema = z.array(z.enum(G4_CHECKS));
 
@@ -37,15 +49,23 @@ export function parseG4RequiredChecks(input: unknown): G4Check[] {
 export function g4CheckFields(checks: readonly G4Check[]): {
   g4_terms_check_required: boolean;
   g4_legal_review_check_required: boolean;
+  g4_terms_exception_check_required: boolean;
+  g4_terms_finalized_check_required: boolean;
 } {
   return {
     g4_terms_check_required: checks.includes('terms_checked'),
     g4_legal_review_check_required: checks.includes('legal_review'),
+    g4_terms_exception_check_required: checks.includes('terms_exception'),
+    g4_terms_finalized_check_required: checks.includes('terms_finalized'),
   };
 }
 
 export interface G4CheckWarning {
-  code: 'TERMS_NOT_CHECKED' | 'LEGAL_REVIEW_NOT_RECORDED';
+  code:
+    | 'TERMS_NOT_CHECKED'
+    | 'LEGAL_REVIEW_NOT_RECORDED'
+    | 'TERMS_EXCEPTION_OPEN'
+    | 'CAPITAL_TERMS_NOT_FINALIZED';
   severity: 'risk';
   message: string;
 }
@@ -55,6 +75,10 @@ export interface G4CheckInput {
   termsCheckedAt: Date | string | null;
   legalReviewRequired: boolean;
   legalReviewedOn: string | null;
+  /** FB-08: `quote.terms_exception_status`. */
+  termsExceptionStatus?: string | null;
+  /** FB-08: `quote.terms_finalized_at`. */
+  termsFinalizedAt?: Date | string | null;
 }
 
 /**
@@ -80,6 +104,27 @@ export function g4CheckWarnings(input: G4CheckInput): G4CheckWarning[] {
       code: 'LEGAL_REVIEW_NOT_RECORDED',
       severity: 'risk',
       message: 'A Legal review is triggered but no review date is recorded',
+    });
+  }
+  if (termsExceptionOpen(input.termsExceptionStatus) && !input.checks.includes('terms_exception')) {
+    out.push({
+      code: 'TERMS_EXCEPTION_OPEN',
+      severity: 'risk',
+      message:
+        input.termsExceptionStatus === 'rejected'
+          ? 'The pricing lead rejected the non-standard payment terms'
+          : 'The non-standard payment terms are waiting for the pricing lead',
+    });
+  }
+  if (
+    input.termsFinalizedAt !== undefined &&
+    !input.termsFinalizedAt &&
+    !input.checks.includes('terms_finalized')
+  ) {
+    out.push({
+      code: 'CAPITAL_TERMS_NOT_FINALIZED',
+      severity: 'risk',
+      message: 'The capital terms have not been confirmed',
     });
   }
   return out;

@@ -2,6 +2,8 @@ import {
   CAPITAL_NOTICE_SEED,
   ESCALATION_ROUTES_SEED,
   G4_REQUIRED_CHECKS_SEED,
+  G4_ADDITIONAL_APPROVALS_SEED,
+  CAPITAL_TERMS_REQUIRED_SEED,
   LEGAL_REVIEW_TRIGGERS_SEED,
   MARKET_DEV_NOTICE_SEED,
   PASS_THROUGH_SEED,
@@ -71,6 +73,19 @@ export const INTAKE_MIN_SPEC_FIELDS = [
 
 /** FB-11 (F-080): the payment terms that are standard (value-list codes; A-012 decided Nov 9). */
 export const STANDARD_PAYMENT_TERMS = ['NET_15', 'NET_30'];
+
+/** FB-08 (F-021): pre-selected on the quote when the customer requested no payment terms. Provisional. */
+export const DEFAULT_PAYMENT_TERMS = 'NET_30';
+
+/** The setting descriptions FB-08 changes (migration 0038 writes the same text). */
+export const G4_REQUIRED_CHECKS_DESCRIPTION =
+  'FB-01 (F-069) and FB-08 (D-003 provisional): which checks block G4 Advance (release the offer). terms_checked: the Sales / Pricing terms check. legal_review: the Legal review, when a legal_review_triggers trigger applies. terms_exception: non-standard payment terms need the pricing lead to approve the exception (a pending or rejected one blocks). terms_finalized: the approver confirmed the capital terms. A check not listed shows to the approver as a warning, and the G4 decision records that they saw it. Seed: terms_exception and terms_finalized.';
+export const CAPITAL_TERMS_REQUIRED_DESCRIPTION =
+  'FB-08 (F-068, D-003 provisional): the capital terms the approver must fill before confirming them at Final Review: funding_model, mold_ownership, amortization (yes/no, and the months when yes), min_supply (minimum supply / shortfall terms), agreement (in place yes/no, and the duration when yes).';
+export const G4_ADDITIONAL_APPROVALS_DESCRIPTION =
+  'FB-08 (F-082, D-002, A-035 open): extra Final Review sign-offs before the approver may release the offer, by funding model, in order. Seeded with the Nov 9 proposal (customer-funded or $0 CER: the sales leader, then leadership) switched OFF (active: false). Set active: true only once Oleg and Sarah confirm it (A-035). Signers need finalReview.signoff (SalesLeader, Leadership).';
+export const DEFAULT_PAYMENT_TERMS_DESCRIPTION =
+  'FB-08 (F-021, D-003 provisional): the payment terms the Commercial panel pre-selects when the customer requested none at intake (a requested_payment_terms code; the customer request wins when there is one). Nothing is saved until someone saves the terms.';
 
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
 export const INTAKE_FIELD_HELP: Record<string, string> = {
@@ -316,6 +331,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
       'FB-11 (F-080, D-032, A-012 decided Nov 9): the requested_payment_terms codes that count as standard. Any other request is flagged "Non-standard: Pricing will review" on the intake and the quote. Net 15 and Net 30 are both standard (Gemma Cebolla, Nov 9); still marked provisional until an Admin approves it.',
   },
   {
+    // FB-08 (F-021): the default the Commercial panel pre-selects (the customer's request wins).
+    key: 'default_payment_terms',
+    value: DEFAULT_PAYMENT_TERMS,
+    description: DEFAULT_PAYMENT_TERMS_DESCRIPTION,
+  },
+  {
     key: 'intake_redirect_message',
     value: INTAKE_REDIRECT_MESSAGE,
     description:
@@ -401,8 +422,19 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     // FB-01 (F-069): the approver is no longer blocked by fields other roles own.
     key: 'g4_required_checks',
     value: G4_REQUIRED_CHECKS_SEED,
-    description:
-      'FB-01 (F-069, D-003 open): which checks block G4 Advance (release the offer): terms_checked (the KAM / Sales / Pricing terms check) and legal_review (the Legal review, when a legal_review_triggers trigger applies). [] = neither blocks; the Final Review screen shows them to the approver as warnings and the G4 decision records that the approver saw them.',
+    description: G4_REQUIRED_CHECKS_DESCRIPTION,
+  },
+  {
+    // FB-08 (F-068, T-031): what the approver must fill before confirming the capital terms.
+    key: 'capital_terms_required',
+    value: CAPITAL_TERMS_REQUIRED_SEED,
+    description: CAPITAL_TERMS_REQUIRED_DESCRIPTION,
+  },
+  {
+    // FB-08 (F-082, D-002, A-035 open): the extra sign-off proposal, switched off.
+    key: 'g4_additional_approvals',
+    value: G4_ADDITIONAL_APPROVALS_SEED,
+    description: G4_ADDITIONAL_APPROVALS_DESCRIPTION,
   },
   {
     // FB-07 (D-001): Quoting's ROI step (Finance) applies when capital is required, $0 CER included.

@@ -8,6 +8,8 @@ import {
   planLeadSubmitted,
   planMoveNotifications,
   planResume,
+  planTermsExceptionDecided,
+  planTermsExceptionRequested,
   resolveDeliveries,
   rolesIn,
   stageLeadRoles,
@@ -482,5 +484,26 @@ describe('stage facts come from the permission matrix', () => {
 
   it('lists the roles a plan reaches once', () => {
     expect(rolesIn(plan('G4', 'decline').entries).sort()).toEqual(['Pricing']);
+  });
+});
+
+describe('FB-08 (T-007): the payment-terms exception', () => {
+  it('the request goes to whoever decides it (the pricing lead)', () => {
+    expect(planTermsExceptionRequested()).toEqual([
+      {
+        type: HANDOFF_TYPES.termsExceptionRequested,
+        recipient: { kind: 'role', role: 'PricingLead' },
+        reason: 'next_owner',
+      },
+    ]);
+  });
+
+  it('the decision goes to whoever entered the terms and to the KAM', () => {
+    const quote = makeQuote('QUOTING');
+    expect(planTermsExceptionDecided(ENG, quote).map((e) => e.recipient)).toEqual([
+      { kind: 'user', userId: ENG },
+      { kind: 'user', userId: KAM_ID },
+    ]);
+    expect(planTermsExceptionDecided(null, quote)).toHaveLength(1);
   });
 });

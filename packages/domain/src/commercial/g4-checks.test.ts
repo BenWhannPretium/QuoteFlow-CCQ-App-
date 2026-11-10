@@ -38,13 +38,14 @@ const approve = (checks: G4Check[], fields: Record<string, unknown>) =>
 const NEW_CUSTOMER = { customer_status: 'not_yet_established' };
 
 describe('parseG4RequiredChecks', () => {
-  it('seeds [] (provisional, D-003): nothing blocks the approver', () => {
-    expect(G4_REQUIRED_CHECKS_SEED).toEqual([]);
-    expect(parseG4RequiredChecks(undefined)).toEqual([]);
-    expect(parseG4RequiredChecks(null)).toEqual([]);
+  it('seeds the FB-08 checks (provisional, D-003): the exception and the capital-terms confirmation', () => {
+    expect(G4_REQUIRED_CHECKS_SEED).toEqual(['terms_exception', 'terms_finalized']);
+    expect(parseG4RequiredChecks(undefined)).toEqual(G4_REQUIRED_CHECKS_SEED);
+    expect(parseG4RequiredChecks(null)).toEqual(G4_REQUIRED_CHECKS_SEED);
+    expect(parseG4RequiredChecks([])).toEqual([]);
   });
 
-  it('accepts the two checks, once each', () => {
+  it('accepts the checks, once each', () => {
     expect(parseG4RequiredChecks(['terms_checked', 'legal_review', 'terms_checked'])).toEqual([
       'terms_checked',
       'legal_review',
@@ -95,11 +96,64 @@ describe('G4 Advance with the setting off and on', () => {
     expect(g4CheckFields([])).toEqual({
       g4_terms_check_required: false,
       g4_legal_review_check_required: false,
+      g4_terms_exception_check_required: false,
+      g4_terms_finalized_check_required: false,
     });
-    expect(g4CheckFields(['terms_checked', 'legal_review'])).toEqual({
+    expect(g4CheckFields(['terms_checked', 'legal_review'])).toMatchObject({
       g4_terms_check_required: true,
       g4_legal_review_check_required: true,
+      g4_terms_exception_check_required: false,
     });
+  });
+});
+
+describe('FB-08: the payment-terms exception and the capital-terms confirmation (T-007, T-031)', () => {
+  it("['terms_exception']: a pending or rejected exception blocks; approved or none does not", () => {
+    for (const status of ['pending', 'rejected']) {
+      const r = approve(['terms_exception'], { terms_exception_status: status });
+      expect(!r.ok && r.errors.map((e) => e.field)).toEqual([
+        'g4_terms_exception_check_required,terms_exception_open',
+      ]);
+    }
+    expect(approve(['terms_exception'], { terms_exception_status: 'approved' }).ok).toBe(true);
+    expect(approve(['terms_exception'], { terms_exception_status: null }).ok).toBe(true);
+    expect(approve([], { terms_exception_status: 'pending' }).ok).toBe(true);
+  });
+
+  it("['terms_finalized']: the approver's confirmation is required", () => {
+    const r = approve(['terms_finalized'], {});
+    expect(!r.ok && r.errors.map((e) => e.field)).toEqual([
+      'g4_terms_finalized_check_required,terms_finalized_at',
+    ]);
+    expect(approve(['terms_finalized'], { terms_finalized_at: NOW }).ok).toBe(true);
+  });
+
+  it('the seed blocks on both until they are done', () => {
+    expect(approve(G4_REQUIRED_CHECKS_SEED, { terms_exception_status: 'pending' }).ok).toBe(false);
+    expect(
+      approve(G4_REQUIRED_CHECKS_SEED, {
+        terms_exception_status: 'approved',
+        terms_finalized_at: NOW,
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('warns about an open exception or unconfirmed capital terms only when they do not block', () => {
+    const base = { termsCheckedAt: NOW, legalReviewRequired: false, legalReviewedOn: null };
+    const open = { ...base, termsExceptionStatus: 'rejected', termsFinalizedAt: null };
+    expect(g4CheckWarnings({ ...open, checks: [] }).map((w) => w.code)).toEqual([
+      'TERMS_EXCEPTION_OPEN',
+      'CAPITAL_TERMS_NOT_FINALIZED',
+    ]);
+    expect(g4CheckWarnings({ ...open, checks: G4_REQUIRED_CHECKS_SEED })).toEqual([]);
+    expect(
+      g4CheckWarnings({
+        ...base,
+        checks: [],
+        termsExceptionStatus: 'approved',
+        termsFinalizedAt: NOW,
+      }),
+    ).toEqual([]);
   });
 });
 

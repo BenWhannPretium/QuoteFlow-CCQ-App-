@@ -191,7 +191,7 @@ describe('0029 FB-04 data migration', () => {
       expect(url!.value).toBe('https://pretium.lightning.force.com');
       const shared = await raw<{ n: number }>(
         tx,
-        sql`select count(*)::int as n from value_list where code = 'SHARED'`,
+        sql`select count(*)::int as n from value_list where list_key = 'tooling_funding_model' and code = 'SHARED'`,
       );
       expect(shared[0]!.n).toBe(1);
     });

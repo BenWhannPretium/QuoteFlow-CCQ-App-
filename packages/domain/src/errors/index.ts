@@ -48,6 +48,12 @@ export const DOMAIN_ERROR_CODES = [
   'COST_MODEL_REQUIRED',
   'COSTING_FIRST',
   'ROI_NOT_REQUIRED',
+  // FB-08 (T-007): the PricingLead decides only a pending payment-terms exception.
+  'NO_PENDING_EXCEPTION',
+  // FB-08 (F-082, off): extra Final Review sign-offs, given in order, once per quote version.
+  'ADDITIONAL_APPROVAL_REQUIRED',
+  'ALREADY_SIGNED',
+  'OUT_OF_ORDER',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

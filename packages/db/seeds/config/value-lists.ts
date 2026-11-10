@@ -298,6 +298,32 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['FOB_PLANT', 'FOB Pretium plant'],
     ['DELIVERED', 'Delivered', { delivered: true }],
   ],
+  // FB-08 (D-029, Gemma Cebolla, Nov 6): how customer-funded tooling is paid. No quarterly installments.
+  // `milestones` (percent + trigger, summing to 100) is shown on the quote; provisional.
+  tooling_payment_terms: [
+    [
+      'UPFRONT',
+      'Upfront (100% at the order)',
+      { milestones: [{ percent: 100, trigger: 'At the order' }] },
+    ],
+    [
+      'SPLIT_50_50',
+      '50/50: at the order and at qualification',
+      {
+        milestones: [
+          { percent: 50, trigger: 'At the order' },
+          { percent: 50, trigger: 'At qualification' },
+        ],
+      },
+    ],
+    ['AMORTIZED_PER_PIECE', 'Amortized into the per-piece price', { milestones: [] }],
+  ],
+  // FB-08 (F-068, V-054): who owns the mold. Provisional (D-003).
+  mold_ownership: [
+    ['PRETIUM', 'Pretium'],
+    ['CUSTOMER', 'Customer'],
+    ['SHARED', 'Shared (Pretium and customer)'],
+  ],
   // FB-11 (F-080): drop trailers and T-bars are costly (Gemma Cebolla); T-bars are rare but very expensive.
   freight_type: [
     ['FLATBED', 'Flatbed'],

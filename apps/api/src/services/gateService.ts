@@ -11,6 +11,7 @@ import {
   getQuoteSummaryByNumber,
   getSetting,
   insertActivityEvent,
+  listG4Signoffs,
   listGateQueue,
   listUsersByIds,
   loadQuoteState,
@@ -21,6 +22,7 @@ import {
 } from '@ccq/db/repos';
 import {
   CUSTOMER_DECISION_STAGE_KEY,
+  additionalApprovalErrors,
   DomainError as DomainErrorClass,
   ENG_QUEUE_STAGE_KEY,
   asUserId,
@@ -267,12 +269,35 @@ export class GateService {
       if (gateKey === RELEASE_GATE_KEY && ctx.release.tiersError) {
         extraErrors.push(new DomainErrorClass('INVALID_CONFIG', ctx.release.tiersError));
       }
+      // FB-08 (F-082, off until A-035): extra Final Review sign-offs (g4_additional_approvals). A
+      // malformed setting refuses G4 Approve rather than silently dropping the control.
+      if (gateKey === RELEASE_GATE_KEY && body.outcomeKey === 'approve') {
+        const setting = ctx.commercial.additionalApprovals;
+        if (!setting) {
+          extraErrors.push(
+            new DomainErrorClass(
+              'INVALID_CONFIG',
+              ctx.commercial.additionalApprovalsError ?? 'g4_additional_approvals is invalid',
+            ),
+          );
+        } else {
+          extraErrors.push(
+            ...additionalApprovalErrors(
+              setting,
+              state.fields,
+              await listG4Signoffs(tx, row.quote.id, row.quote.version),
+              gateKey,
+              body.outcomeKey,
+            ),
+          );
+        }
+      }
       // FB-01 (F-069): open checks owned by other roles (terms, Legal) are warnings for the approver,
       // not blockers (unless `g4_required_checks` names them). The decision records the warnings the
       // approver saw; a screen that is out of date (a warning it did not show) is refused.
       let reviewChecks: Awaited<ReturnType<typeof finalReviewChecks>> | null = null;
       if (gateKey === RELEASE_GATE_KEY) {
-        reviewChecks = await finalReviewChecks(tx, ctx.commercial, row.quote, state);
+        reviewChecks = await finalReviewChecks(tx, ctx.commercial, row.quote, state, actor);
         const open = reviewChecks.warnings.map((w) => w.code);
         const seen = body.acknowledgedWarnings;
         const unseen = seen ? open.filter((code) => !seen.includes(code)) : [];

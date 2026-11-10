@@ -546,7 +546,39 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/quotes/:quoteNumber/terms',
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/terms`,
     permission: 'terms.edit',
+    sampleBody: { termsNotes: 'x' },
+  },
+  // FB-08 (F-021): MOQ and funding (EngLead; Engineer on assigned quotes, so 404 on the sample).
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/terms/engineering',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/terms/engineering`,
+    permission: 'terms.engineering.edit',
     sampleBody: { termsMoq: '50k' },
+  },
+  // FB-08 (F-068): the approver's capital terms (stage-qualified: Final Review; 404 on the sample).
+  {
+    method: 'PUT',
+    route: '/api/v1/quotes/:quoteNumber/terms/capital',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/terms/capital`,
+    permission: 'terms.finalize',
+    sampleBody: { termsMinSupply: 'none' },
+  },
+  // FB-08 (T-007): the pricing lead's exception decision.
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/terms/exception/decision',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/terms/exception/decision`,
+    permission: 'terms.exception.decide',
+    sampleBody: { decision: 'approve', rationale: 'x' },
+  },
+  // FB-08 (F-082, off until A-035): an extra Final Review sign-off.
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/final-review/signoffs',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/final-review/signoffs`,
+    permission: 'finalReview.signoff',
+    sampleBody: { ruleKey: 'customer_funded_capital', signoffKey: 'sales_leader' },
   },
   {
     method: 'POST',

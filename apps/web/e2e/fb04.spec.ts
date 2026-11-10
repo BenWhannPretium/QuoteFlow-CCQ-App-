@@ -30,7 +30,8 @@ test('the funding options: $0 CER is explained and Shared is offered', async ({
   request,
 }) => {
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
-  await signInAs(page, 'kam');
+  // FB-08 (F-021): on the quote, tooling funding is Engineering's (the KAM answers it at intake).
+  await signInAs(page, 'eng-lead');
   await page.goto(`/quotes/${quoteNumber}`);
   const select = page.getByLabel('Tooling funding model');
   await expect(

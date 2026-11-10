@@ -154,6 +154,10 @@ const PRICE_APPROVED: RequiredRule[] = [
  * derives `g4_terms_check_required` / `g4_legal_review_check_required` from it. The setting is seeded
  * `[]` (provisional; who finalizes terms is D-003), so neither blocks; the Final Review screen shows
  * them as warnings instead. A missing derived field counts as required (fail closed).
+ *
+ * FB-08 (F-021, F-068): two more checks, both seeded to block (provisional): `terms_exception` (no
+ * pending or rejected payment-terms exception) and `terms_finalized` (the approver confirmed the
+ * capital terms). Migration 0038 extends the seeded rule in existing environments.
  */
 const OFFER_READY: RequiredRule[] = [
   {
@@ -167,6 +171,20 @@ const OFFER_READY: RequiredRule[] = [
       { field: 'legal_review_required', op: 'equals', value: false },
       { field: 'g4_legal_review_check_required', op: 'equals', value: false },
       present('legal_reviewed_on'),
+    ],
+  },
+  // FB-08 (T-007): non-standard payment terms need the PricingLead's approved exception.
+  {
+    anyOf: [
+      { field: 'g4_terms_exception_check_required', op: 'equals', value: false },
+      { field: 'terms_exception_open', op: 'equals', value: false },
+    ],
+  },
+  // FB-08 (F-068, T-031): the approver has confirmed the capital terms.
+  {
+    anyOf: [
+      { field: 'g4_terms_finalized_check_required', op: 'equals', value: false },
+      present('terms_finalized_at'),
     ],
   },
 ];

@@ -20,7 +20,7 @@ import { holdsPermission, type Permission, type Role } from '@ccq/domain';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { prepareModels } from './model-helpers';
+import { confirmCapitalTerms, prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -238,6 +238,8 @@ async function inFinalReview(): Promise<string> {
   const qn = await inQuoting();
   await pricingDone(qn);
   ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'));
+  // FB-08 (F-068): the approver's own capital-terms confirmation, which G4 Advance needs.
+  await confirmCapitalTerms(app, qn);
   tick();
   return qn;
 }
@@ -318,7 +320,20 @@ const COMMERCIAL_ROUTES: LockedRoute[] = [
     label: 'PUT terms',
     url: (qn) => `/api/v1/quotes/${qn}/terms`,
     permission: 'terms.edit',
+    body: () => ({ termsNotes: 'x' }),
+  },
+  // FB-08: Engineering's MOQ and funding, and the approver's capital terms, lock with the terms.
+  {
+    label: 'PUT terms/engineering',
+    url: (qn) => `/api/v1/quotes/${qn}/terms/engineering`,
+    permission: 'terms.engineering.edit',
     body: () => ({ termsMoq: '99k' }),
+  },
+  {
+    label: 'PUT terms/capital',
+    url: (qn) => `/api/v1/quotes/${qn}/terms/capital`,
+    permission: 'terms.finalize',
+    body: () => ({ termsMinSupply: 'x' }),
   },
   {
     label: 'PUT capital-flag',
@@ -379,7 +394,7 @@ describe('F-001: a section is read-only once its gate is decided (T-001)', () =>
   it('terms and the capital flag stay editable until G4 Advance, then every role is refused', async () => {
     const qn = await inFinalReview();
     // Before G4: still editable (the KAM may still check the terms in Final Review).
-    ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsMoq: '50k' }), 200);
+    ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsNotes: '50k' }), 200);
     ok(await as('KAM').put(`/api/v1/quotes/${qn}/capital-flag`, { capitalLikely: false }), 200);
     ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'Approver'));
     await expectLockedForEveryRole(qn, COMMERCIAL_ROUTES, 'G4');
@@ -392,7 +407,7 @@ describe('F-001: a section is read-only once its gate is decided (T-001)', () =>
       lock: { locked: true, gate: 'G4' },
     });
     // Nothing changed.
-    expect((await quoteRow(qn)).termsMoq).toBe('50k');
+    expect((await quoteRow(qn)).termsNotes).toBe('50k');
   });
 
   it('a G4 Return to Quoting reopens pricing (not engineering)', async () => {
@@ -437,9 +452,9 @@ describe('F-001: a section is read-only once its gate is decided (T-001)', () =>
 
   it('a G5 Re-quote reopens pricing, the terms and the capital flag', async () => {
     const qn = await inCustomerDecision();
-    expect((await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsMoq: '1' })).statusCode).toBe(
-      409,
-    );
+    expect(
+      (await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsNotes: '1' })).statusCode,
+    ).toBe(409);
     ok(
       await decide(
         qn,
@@ -453,7 +468,7 @@ describe('F-001: a section is read-only once its gate is decided (T-001)', () =>
         'KAM',
       ),
     );
-    ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsMoq: '75k' }), 200);
+    ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsNotes: '75k' }), 200);
     ok(await as('KAM').put(`/api/v1/quotes/${qn}/capital-flag`, { capitalLikely: true }), 200);
     ok(
       await as('Pricing').put(`/api/v1/quotes/${qn}/pricing-record`, { pricingBasisNote: 'v2' }),
@@ -734,19 +749,19 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
     ok(
       await as('KAM').put(`/api/v1/quotes/${qn}/terms`, {
         termsToolingCommitment: true,
-        termsPaymentTerms: 'Net 30',
+        termsPaymentTermsCode: 'NET_30',
       }),
       200,
     );
     return qn;
   }
 
-  it('seeds g4_required_checks = [] (provisional)', async () => {
+  it('seeds g4_required_checks without the FB-01 checks (FB-08 adds its own; provisional)', async () => {
     const [row] = await db.db
       .select()
       .from(schema.appSetting)
       .where(eq(schema.appSetting.key, 'g4_required_checks'));
-    expect(row).toMatchObject({ value: [], provisional: true });
+    expect(row).toMatchObject({ value: ['terms_exception', 'terms_finalized'], provisional: true });
   });
 
   it('[]: the review screen shows terms and Legal read-only, the open checks as warnings', async () => {
@@ -756,10 +771,11 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
     const dto = ReviewSummary.parse(res.json());
     expect(dto.termsAndLegal).toMatchObject({
       termsToolingCommitment: true,
-      termsPaymentTerms: 'Net 30',
+      termsPaymentTermsCode: 'NET_30',
+      termsPaymentTermsLabel: 'Net 30',
       checkedAt: null,
       legal: { required: true, reasons: [{ code: 'tooling_commitment' }], reviewedOn: null },
-      requiredChecks: [],
+      requiredChecks: ['terms_exception', 'terms_finalized'],
     });
     expect(dto.warnings.filter((w) => w.link === 'commercial')).toEqual([
       expect.objectContaining({ code: 'TERMS_NOT_CHECKED', severity: 'risk' }),
@@ -822,13 +838,17 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
   });
 
   it("['terms_checked']: unchecked terms block the approver; Legal stays optional", async () => {
-    await setChecks(['terms_checked']);
+    await setChecks(['terms_checked', ...['terms_exception', 'terms_finalized']]);
     try {
       const qn = await uncheckedWithLegal();
       const dto = ReviewSummary.parse(
         (await as('Approver').get(`/api/v1/quotes/${qn}/review-summary`)).json(),
       );
-      expect(dto.termsAndLegal.requiredChecks).toEqual(['terms_checked']);
+      expect(dto.termsAndLegal.requiredChecks).toEqual([
+        'terms_checked',
+        'terms_exception',
+        'terms_finalized',
+      ]);
       expect(dto.warnings.filter((w) => w.link === 'commercial').map((w) => w.code)).toEqual([
         'LEGAL_REVIEW_NOT_RECORDED',
       ]);
@@ -840,7 +860,7 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
       ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { checked: true }), 200);
       ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'Approver'));
     } finally {
-      await setChecks([]);
+      await setChecks(['terms_exception', 'terms_finalized']);
     }
   });
 });

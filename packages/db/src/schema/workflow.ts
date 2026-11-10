@@ -29,8 +29,10 @@ import {
   OVERRIDE_APPROVAL_MODES,
   OVERRIDE_STATUSES,
   QUOTE_STATUSES,
+  QUOTE_TERMS_EXCEPTION_STATUSES,
   RESUME_AT,
   SF_STATUS_FLAGS,
+  TERMS_EXCEPTION_STATUSES,
   VERSIONED_ATTACHMENT_KINDS,
 } from './enums';
 import { appUser, baseColumns, timestamptz } from './identity';
@@ -678,6 +680,68 @@ export const quote = documented(
         'B-26: the CCQ user who recorded the Legal review.',
         KAM,
       ),
+      // FB-08 (F-021, D-029, D-003 provisional): payment terms as a list, the tooling payment milestones.
+      termsPaymentTermsCode: c(
+        text('terms_payment_terms_code'),
+        'FB-08 (F-021): value_list requested_payment_terms code of the agreed payment terms. Not in app_setting standard_payment_terms = non-standard (sets terms_nonstandard and opens a terms_exception_request). terms_payment_terms holds the detail for "Other" (and legacy free text from before FB-08).',
+        KAM,
+      ),
+      termsToolingPayment: c(
+        text('terms_tooling_payment'),
+        'FB-08 (D-029): value_list tooling_payment_terms code: upfront, 50/50 (at the order and at qualification) or amortized into the per-piece price. No quarterly.',
+        KAM,
+      ),
+      termsMilestoneNote: c(
+        text('terms_milestone_note'),
+        'FB-08 (D-029): short milestone note (≤ 300).',
+        KAM,
+      ),
+      termsExceptionStatus: c(
+        text('terms_exception_status'),
+        'FB-08 (T-007): the current payment-terms exception request: pending | approved | rejected; null when the terms are standard. Pending or rejected blocks G4 Advance when g4_required_checks names terms_exception.',
+        SYSTEM,
+      ),
+      // FB-08 (F-068, V-054): the capital terms the approver confirms at Final Review.
+      termsMoldOwnership: c(
+        text('terms_mold_ownership'),
+        'FB-08 (F-068): value_list mold_ownership code (Pretium, customer, shared).',
+        KAM,
+      ),
+      termsAmortized: c(
+        boolean('terms_amortized'),
+        'FB-08 (F-068): the capital is amortized (yes / no; null = not answered).',
+        KAM,
+      ),
+      termsAmortizationMonths: c(
+        integer('terms_amortization_months'),
+        'FB-08 (F-068): amortization period in months (1–120) when terms_amortized.',
+        KAM,
+      ),
+      termsMinSupply: c(
+        text('terms_min_supply'),
+        'FB-08 (F-068): minimum supply / shortfall terms (≤ 300).',
+        KAM,
+      ),
+      termsAgreementInPlace: c(
+        boolean('terms_agreement_in_place'),
+        'FB-08 (F-068): a supply agreement is in place (yes / no; null = not answered).',
+        KAM,
+      ),
+      termsAgreementMonths: c(
+        integer('terms_agreement_months'),
+        'FB-08 (F-068): agreement duration in months (1–240) when terms_agreement_in_place.',
+        KAM,
+      ),
+      termsFinalizedAt: c(
+        timestamptz('terms_finalized_at'),
+        'FB-08 (F-068, T-031): when the approver confirmed the capital terms (terms.finalize). Cleared when a capital term changes; G4 Advance needs it when g4_required_checks names terms_finalized. Locked with the terms after G4 Approve.',
+        SYSTEM,
+      ),
+      termsFinalizedBy: c(
+        userRef('terms_finalized_by'),
+        'FB-08 (F-068): the approver who confirmed the capital terms.',
+        SYSTEM,
+      ),
       // Links and dates
       erfNumber: c(
         text('erf_number'),
@@ -754,6 +818,18 @@ export const quote = documented(
         sql`(${t.heightMm} is null or ${t.heightMm} > 0) and (${t.widthOrDiameterMm} is null or ${t.widthOrDiameterMm} > 0) and (${t.depthMm} is null or ${t.depthMm} > 0) and (${t.gramWeightG} is null or ${t.gramWeightG} > 0)`,
       ),
       check('quote_rfp_link_https_check', sql`${t.rfpLink} is null or ${t.rfpLink} ~* '^https://'`),
+      check(
+        'quote_terms_exception_status_check',
+        sql`${t.termsExceptionStatus} is null or ${inList(t.termsExceptionStatus, QUOTE_TERMS_EXCEPTION_STATUSES)}`,
+      ),
+      check(
+        'quote_terms_months_check',
+        sql`(${t.termsAmortizationMonths} is null or (${t.termsAmortized} and ${t.termsAmortizationMonths} between 1 and 120)) and (${t.termsAgreementMonths} is null or (${t.termsAgreementInPlace} and ${t.termsAgreementMonths} between 1 and 240))`,
+      ),
+      check(
+        'quote_terms_finalized_consistency_check',
+        sql`(${t.termsFinalizedAt} is null) = (${t.termsFinalizedBy} is null)`,
+      ),
       check(
         'quote_decoration_print_colors_check',
         sql`${t.decorationPrintColors} is null or ${t.decorationPrintColors} between 1 and 12`,
@@ -1520,5 +1596,86 @@ export const handoffRecord = documented(
     owner: KAM,
     description:
       'Hand-off record (CR-41/42, B-13): opened by an award, completed in Commit & Hand Off (B-26 Stage 6).',
+  },
+);
+
+/**
+ * FB-08 (F-021, T-007, D-003 provisional): every payment-terms exception request. A non-standard
+ * payment term opens one (pending) and tells the pricing lead, who approves or rejects it with a
+ * rationale. A later change to the terms supersedes it (a new request) or withdraws it (back to
+ * standard). `quote.terms_exception_status` mirrors the current request. Never deleted.
+ */
+export const termsExceptionRequest = documented(
+  pgTable(
+    'terms_exception_request',
+    {
+      ...baseColumns(),
+      quoteId: c(quoteRef(), 'Quote.'),
+      quoteVersion: c(integer('quote_version').notNull(), 'Quote version when it was requested.'),
+      paymentTermsCode: c(
+        text('payment_terms_code').notNull(),
+        'value_list requested_payment_terms code that was non-standard.',
+      ),
+      paymentTermsDetail: c(text('payment_terms_detail'), 'The terms as described (for "Other").'),
+      status: c(
+        text('status').notNull().default('pending'),
+        'pending | approved | rejected | withdrawn (back to standard) | superseded (the terms changed again).',
+      ),
+      requestedBy: c(
+        userRef('requested_by').notNull(),
+        'Who entered the non-standard terms (told of the decision).',
+      ),
+      requestedAt: c(timestamptz('requested_at').notNull(), 'When it was requested.'),
+      decidedBy: c(userRef('decided_by'), 'The pricing lead (terms.exception.decide) who decided.'),
+      decidedAt: c(timestamptz('decided_at'), 'When it was decided.'),
+      rationale: c(text('rationale'), 'The decision rationale (required, ≤ 1000).'),
+      closedAt: c(
+        timestamptz('closed_at'),
+        'When it was withdrawn or superseded without a decision.',
+      ),
+    },
+    (t) => [
+      index('terms_exception_request_quote_idx').on(t.quoteId, t.requestedAt),
+      check('terms_exception_request_status_check', inList(t.status, TERMS_EXCEPTION_STATUSES)),
+      check(
+        'terms_exception_request_decision_check',
+        sql`(${t.decidedAt} is null) = (${t.decidedBy} is null) and (${t.decidedAt} is null or ${t.rationale} is not null)`,
+      ),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: PRICING,
+    description:
+      'FB-08 (T-007): payment-terms exception requests: non-standard terms need the pricing lead to approve or reject them with a rationale.',
+  },
+);
+
+/**
+ * FB-08 (F-082, D-002, A-035 open): extra Final Review sign-offs (app_setting g4_additional_approvals,
+ * seeded off). One row per sign-off on a quote version; a rework asks again. Never deleted.
+ */
+export const g4Signoff = documented(
+  pgTable(
+    'g4_signoff',
+    {
+      ...baseColumns(),
+      quoteId: c(quoteRef(), 'Quote.'),
+      quoteVersion: c(integer('quote_version').notNull(), 'Quote version the sign-off is for.'),
+      ruleKey: c(text('rule_key').notNull(), 'g4_additional_approvals rule key.'),
+      signoffKey: c(text('signoff_key').notNull(), 'The sign-off within the rule.'),
+      signedBy: c(userRef('signed_by').notNull(), 'Who signed off (finalReview.signoff).'),
+      signedAt: c(timestamptz('signed_at').notNull(), 'When they signed off.'),
+      note: c(text('note'), 'Optional note (≤ 1000).'),
+    },
+    (t) => [
+      uniqueIndex('g4_signoff_once_uniq').on(t.quoteId, t.quoteVersion, t.ruleKey, t.signoffKey),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: KAM,
+    description:
+      'FB-08 (F-082): extra Final Review sign-offs (e.g. sales leader, then leadership when the customer funds capital). Off until A-035.',
   },
 );

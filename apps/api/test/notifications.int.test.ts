@@ -725,6 +725,9 @@ describe('email preferences', () => {
         'quote.reworked',
         'quote.returned_by_lead',
         'quote.submitted_to_lead',
+        // FB-08 (T-007)
+        'quote.terms_exception_requested',
+        'quote.terms_exception_decided',
         'quote.to_qualify',
         'quote.validity_expired',
         'quote.validity_expiring',

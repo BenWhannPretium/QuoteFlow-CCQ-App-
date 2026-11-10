@@ -90,6 +90,10 @@ export const PERMISSION_MATRIX: Readonly<
   // it, Admin reads it like the other queues. Everyone on it holds quote.read.commercialFields.
   'finalReview.read': { Approver: true, Leadership: true, Admin: true },
   'gate.G4.decide': { Approver: true },
+  // FB-08 (F-082, D-002, A-035 open): the extra sign-offs a rule in app_setting g4_additional_approvals
+  // asks for (proposal: the sales leader, then leadership, when the customer funds capital). The rule
+  // is seeded off; the setting names which of these roles signs which step. Provisional.
+  'finalReview.signoff': { SalesLeader: true, Leadership: true },
   'outcome.record': { KAM: own, SalesLeader: true },
   // B-13 (CR-39, D-15): the closure owner defaults to the quote's KAM; a sales leader, who is
   // accountable for closure, may name someone else (themselves, or another KAM).
@@ -100,7 +104,18 @@ export const PERMISSION_MATRIX: Readonly<
   // (CER approvers and the receiving team are outside CCQ; their decisions are recorded as references).
   'gate.G6.decide': { KAM: own, SalesLeader: true },
   // B-26: the commercial terms (tooling funding model, MOQ, payment terms) and the Legal review record.
+  // FB-08 (F-021, D-003 provisional): payment terms, tooling payment milestones, the terms check and the
+  // Legal review, and the capital terms as a pre-fill. MOQ and tooling funding moved to Engineering.
   'terms.edit': { KAM: own, SalesLeader: true, Pricing: true, PricingLead: true },
+  // FB-08 (F-021, D-003's recommendation, provisional): MOQ and tooling funding. The KAM still answers
+  // funding at intake (FB-11).
+  'terms.engineering.edit': { EngLead: true, Engineer: assigned },
+  // FB-08 (F-068, V-054): the approver edits and confirms the capital terms on the Final Review screen,
+  // while the quote is in Final Review. Locked with the other terms at G4 Approve.
+  'terms.finalize': { Approver: { kind: 'stages', stageKeys: ['FINAL_REVIEW'] } },
+  // FB-08 (T-007, D-003 provisional): the pricing lead (Gemma Cebolla, or the designee given the
+  // PricingLead role) approves or rejects a non-standard payment-terms exception, with a rationale.
+  'terms.exception.decide': { PricingLead: true },
   // B-26: the early "capital likely" flag (slide 9 "Aware"): Sales or upfront Engineering sets it.
   'capitalFlag.edit': {
     KAM: own,

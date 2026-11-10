@@ -15,7 +15,7 @@ import { addCalendarDays, proposalCalendarDate, type Role } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { prepareBom, prepareModels } from './model-helpers';
+import { confirmCapitalTerms, prepareBom, prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -156,6 +156,8 @@ interface Opts {
   prelimCapitalUsd?: number;
   /** B-26: record the KAM's terms check (G4 Advance needs it). Default true. */
   terms?: boolean;
+  /** FB-08 (F-068): the approver confirms the capital terms (G4 Advance needs it). Default true. */
+  capital?: boolean;
 }
 
 /** A quote that Pricing has submitted to Final Review. Returns its number. */
@@ -249,13 +251,15 @@ async function inFinalReview(o: Opts = {}) {
     // B-26: the KAM checks the terms before the offer is released.
     ok(
       await persona(kam).put(`/api/v1/quotes/${qn}/terms`, {
-        termsPaymentTerms: 'Net 45',
+        termsPaymentTermsCode: 'NET_30',
         termsToolingCommitment: false,
         checked: true,
       }),
       200,
     );
   }
+  // FB-08 (F-068, T-031): the approver confirms the capital terms before releasing the offer.
+  if (o.capital !== false) await confirmCapitalTerms(app, qn);
   tick();
   return qn;
 }
@@ -1120,8 +1124,14 @@ describe('Final Review and the customer outcome stay separate', () => {
 describe('B-26: the offer is ready before it is released (deck slide 13)', () => {
   // FB-01 (F-069): these checks block only when `g4_required_checks` names them (seeded []). Here both
   // are switched on; `workflow-integrity.int.test.ts` covers the seeded default.
-  beforeAll(() => setSetting('g4_required_checks', ['terms_checked', 'legal_review']));
-  afterAll(() => setSetting('g4_required_checks', []));
+  beforeAll(() =>
+    setSetting('g4_required_checks', [
+      'terms_checked',
+      'legal_review',
+      ...['terms_exception', 'terms_finalized'],
+    ]),
+  );
+  afterAll(() => setSetting('g4_required_checks', ['terms_exception', 'terms_finalized']));
 
   it('G4 Advance needs the terms check; a new customer also needs the Legal review', async () => {
     const qn = await inFinalReview({ terms: false });
@@ -1130,7 +1140,7 @@ describe('B-26: the offer is ready before it is released (deck slide 13)', () =>
     expect(errorPaths(blocked)).toContain('/g4_terms_check_required,terms_checked_at');
 
     // A KAM cannot check the terms on someone else's quote; Engineering cannot at all.
-    const terms = { termsPaymentTerms: 'Net 30', termsToolingCommitment: true, checked: true };
+    const terms = { termsPaymentTermsCode: 'NET_30', termsToolingCommitment: true, checked: true };
     expect((await as('Engineer').put(`/api/v1/quotes/${qn}/terms`, terms)).statusCode).toBe(403);
     const res = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, terms);
     expect(res.statusCode, res.body).toBe(200);
@@ -1153,7 +1163,10 @@ describe('B-26: the offer is ready before it is released (deck slide 13)', () =>
 
   it('changing a term after the check clears it (no silent edits)', async () => {
     const qn = await inFinalReview();
-    const res = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, { termsMoq: '20k' });
+    // FB-08: MOQ is Engineering's now; the tooling payment is a term the KAM changes.
+    const res = await persona('kam').put(`/api/v1/quotes/${qn}/terms`, {
+      termsToolingPayment: 'UPFRONT',
+    });
     expect(QuoteDetail.parse(res.json()).commercial.terms.checkedAt).toBeNull();
     expect(errorPaths(await decide(qn, { outcomeKey: 'approve' }))).toContain(
       '/g4_terms_check_required,terms_checked_at',

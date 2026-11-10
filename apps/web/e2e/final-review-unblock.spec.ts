@@ -67,7 +67,17 @@ async function uncheckedInFinalReview(request: APIRequestContext): Promise<strin
   await put('capital-readiness', 'pricing', { capitalReadiness: 'pre_approved' });
   await post('gates/G3/decisions', 'pricing-lead', { outcomeKey: 'submit' });
   // The KAM enters terms but nobody checks them; the tooling commitment triggers Legal.
-  await put('terms', 'kam', { termsToolingCommitment: true, termsPaymentTerms: 'Net 30' });
+  await put('terms', 'kam', { termsToolingCommitment: true, termsPaymentTermsCode: 'NET_30' });
+  // FB-08 (F-068): the capital terms are the approver's own; confirmed here so only FB-01's checks
+  // (owned by other roles) stay open.
+  await put('terms/capital', 'approver', {
+    toolingFundingModel: 'COMPANY_FUNDED',
+    termsMoldOwnership: 'PRETIUM',
+    termsAmortized: false,
+    termsMinSupply: 'None',
+    termsAgreementInPlace: false,
+    finalized: true,
+  });
   return qn;
 }
 
@@ -105,7 +115,10 @@ test('T-026: the approver releases the offer with open terms and Legal checks (p
   await expect(terms).toContainText('Not checked');
   await expect(terms.getByTestId('review-legal')).toContainText('Legal review (optional)');
   await expect(terms.getByTestId('review-legal')).toContainText('Tooling commitment');
-  await expect(terms.getByRole('textbox')).toHaveCount(0);
+  // Only the approver's own capital terms are editable here (FB-08).
+  await expect(terms.getByRole('textbox')).toHaveCount(
+    await terms.getByTestId('capital-terms').getByRole('textbox').count(),
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

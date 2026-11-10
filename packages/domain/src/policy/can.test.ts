@@ -59,12 +59,18 @@ const EXPECTED: Record<string, Role[]> = {
   'roi.upload': ['PricingLead', 'Finance', 'Admin'],
   'finalReview.read': ['Approver', 'Leadership', 'Admin'],
   'gate.G4.decide': ['Approver'],
+  // FB-08 (F-082, off until A-035)
+  'finalReview.signoff': ['SalesLeader', 'Leadership'],
   'outcome.record': ['SalesLeader'],
   'outcome.assignOwner': ['SalesLeader'],
   'handoff.edit': ['SalesLeader', 'Admin'],
   // B-26 (qualified grants, KAM own / Engineer assigned, are not in this role-level view)
   'gate.G6.decide': ['SalesLeader'],
   'terms.edit': ['SalesLeader', 'Pricing', 'PricingLead'],
+  // FB-08 (F-021, F-068, T-007; D-003 provisional). The Approver's terms.finalize is stage-qualified.
+  'terms.engineering.edit': ['EngLead'],
+  'terms.finalize': [],
+  'terms.exception.decide': ['PricingLead'],
   'capitalFlag.edit': ['SalesLeader', 'EngLead', 'Pricing', 'PricingLead'],
   'capacity.signoff': ['EngLead'],
   'quote.escalate': ['SalesLeader', 'EngLead', 'Pricing', 'PricingLead', 'Approver', 'Admin'],
@@ -155,6 +161,19 @@ describe('qualified grants', () => {
     expect(can(makeActor('Engineer'), 'capitalFlag.edit', eng)).toBe(true);
     expect(can(makeActor('Engineer', { userId: KAM_ID }), 'quote.escalate', eng)).toBe(false);
     expect(can(makeActor('Leadership'), 'quote.escalate', eng)).toBe(false);
+  });
+
+  it('FB-08: Engineering edits MOQ and funding on assigned quotes; the approver finalizes in Final Review', () => {
+    const eng = makeQuote('ENG_REVIEW', { assignedEngineerId: OTHER_ID });
+    expect(can(makeActor('Engineer'), 'terms.engineering.edit', eng)).toBe(true);
+    expect(can(makeActor('Engineer', { userId: KAM_ID }), 'terms.engineering.edit', eng)).toBe(
+      false,
+    );
+    expect(can(makeActor('EngLead'), 'terms.engineering.edit', eng)).toBe(true);
+    expect(can(makeActor('KAM', { userId: KAM_ID }), 'terms.engineering.edit', eng)).toBe(false);
+    expect(can(makeActor('Approver'), 'terms.finalize', makeQuote('FINAL_REVIEW'))).toBe(true);
+    expect(can(makeActor('Approver'), 'terms.finalize', makeQuote('QUOTING'))).toBe(false);
+    expect(can(makeActor('PricingLead'), 'terms.finalize', makeQuote('FINAL_REVIEW'))).toBe(false);
   });
 
   it('engReview.edit: Engineer only when assigned; EngLead always', () => {

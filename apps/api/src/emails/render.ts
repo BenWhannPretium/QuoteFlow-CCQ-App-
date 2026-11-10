@@ -247,6 +247,31 @@ const COPY: Record<string, Copy> = {
       ),
     cta: 'Open Quoting',
   },
+  // FB-08 (T-007): non-standard payment terms and the pricing lead's decision. `terms` is the label.
+  'quote.terms_exception_requested': {
+    phrase: 'has non-standard payment terms',
+    context: 'Payment-terms exception',
+    heading: 'Non-standard payment terms need your decision',
+    action: (p) =>
+      sentence(
+        p.actor
+          ? `${p.actor} entered ${p.terms ?? 'non-standard payment terms'}.`
+          : `The quote has ${p.terms ?? 'non-standard payment terms'}.`,
+        'Approve or reject the exception on the Commercial panel, with a rationale. Final Review waits for it.',
+      ),
+    cta: 'Open the quote',
+  },
+  'quote.terms_exception_decided': {
+    phrase: 'has a payment-terms decision',
+    context: 'Payment-terms exception',
+    heading: 'The payment-terms exception is decided',
+    action: (p) =>
+      sentence(
+        `${p.actor ?? 'The pricing lead'} ${p.decision ?? 'decided'} ${p.terms ?? 'the non-standard payment terms'}.`,
+        'Open the quote to read the rationale.',
+      ),
+    cta: 'Open the quote',
+  },
   'quote.approved_for_customer': {
     phrase: 'was approved',
     context: 'Issue the proposal',
