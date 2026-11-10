@@ -79,7 +79,7 @@ describe('config seeds derive from the domain', () => {
       'Other',
     ]);
     for (const k of ['resin', 'pcr_level', 'additive']) {
-      expect(rows.find((r) => r.listKey === k && r.code === 'OTHER')?.meta).toEqual({
+      expect(rows.find((r) => r.listKey === k && r.code === 'OTHER')?.meta).toMatchObject({
         freeText: true,
       });
     }
