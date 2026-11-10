@@ -4,10 +4,12 @@ import { PERMISSION_MATRIX, SEED_REASON_CODES, hybridConfig } from '@ccq/domain'
 import { describe, expect, it } from 'vitest';
 
 import { rolePermissionRows, valueListRows, workflowRows } from './config/index';
+import { RETIRED_VALUE_LISTS } from './config/value-lists';
 import { buildCustomers, buildOpportunities, SF_STAGE_COUNTS } from './synthetic/opportunities';
 import { PERSONA_DEFS, buildPersonas } from './synthetic/personas';
 import { DEFAULT_ANCHOR, createRng } from './synthetic/rng';
 import { SF_FIXTURE_PATH, buildSfFixture, renderSfFixture } from './synthetic/sfFixture';
+import { VALUE_LIST_KEYS } from '../src/schema/enums';
 
 describe('config seeds derive from the domain', () => {
   it('workflow rows mirror the hybrid config one-to-one', () => {
@@ -37,10 +39,61 @@ describe('config seeds derive from the domain', () => {
     expect(rolePermissionRows()).toHaveLength(n);
   });
 
-  it('value list codes are unique per list and every row is provisional', () => {
+  it('value list codes are unique per list; only lists a named owner signed off are approved', () => {
     const rows = valueListRows();
     expect(new Set(rows.map((r) => `${r.listKey}:${r.code}`)).size).toBe(rows.length);
-    expect(rows.every((r) => r.provisional)).toBe(true);
+    // FB-09: Danielle Leu approved product family and resin on 2026-11-09; everything else is provisional.
+    const approved = rows.filter((r) => !r.provisional);
+    expect([...new Set(approved.map((r) => r.listKey))].sort()).toEqual([
+      'product_family',
+      'resin',
+    ]);
+    expect(approved.every((r) => r.meta.approvedByName === 'Danielle Leu')).toBe(true);
+    expect(
+      rows
+        .filter((r) => r.listKey === 'pcr_level' || r.listKey === 'additive')
+        .every((r) => r.provisional),
+    ).toBe(true);
+  });
+
+  it('FB-09: Danielle Leu\'s lists, in her order, with "Other" asking for the detail', () => {
+    const rows = valueListRows();
+    const list = (k: string) => rows.filter((r) => r.listKey === k && r.active).map((r) => r.label);
+    expect(list('product_family')).toEqual([
+      'Bottle',
+      'Jar',
+      'Closure',
+      'Preform',
+      'Canister/Tub',
+      'Handleware',
+      'Other',
+    ]);
+    expect(list('resin')).toEqual(['PET', 'HDPE', 'PP', 'LDPE', 'PS', 'Other']);
+    expect(list('pcr_level')).toEqual(['0% / Virgin', '25%', '30%', '50%', '100%', 'Other']);
+    expect(list('additive')).toEqual([
+      'None',
+      'UV',
+      'Barrier',
+      'Antistat',
+      'Impact Modifier',
+      'Other',
+    ]);
+    for (const k of ['resin', 'pcr_level', 'additive']) {
+      expect(rows.find((r) => r.listKey === k && r.code === 'OTHER')?.meta).toMatchObject({
+        freeText: true,
+      });
+    }
+  });
+
+  it('FB-09: every value list a form reads has at least one active value', () => {
+    const rows = valueListRows();
+    for (const k of VALUE_LIST_KEYS) {
+      if (RETIRED_VALUE_LISTS.has(k)) continue;
+      expect(
+        rows.some((r) => r.listKey === k && r.active),
+        k,
+      ).toBe(true);
+    }
   });
 });
 

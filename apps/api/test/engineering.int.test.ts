@@ -857,6 +857,41 @@ describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, 
     expect(facts.map((f) => f.key)).toContain('neck');
   });
 
+  it('FB-09: an "Other" resin, PCR level and additive show their customer-specified values', async () => {
+    const qn = await setup();
+    await db.db.execute(
+      sql`update quote set resin = 'OTHER', resin_grade = 'Eastman Tritan TX1001',
+          pcr_level = 'OTHER', pcr_level_other = '35% PCR', additive = 'OTHER',
+          additives = 'Customer nucleating agent' where quote_number = ${qn}`,
+    );
+    const facts = Object.fromEntries(
+      (await detail(qn)).engineering.productFacts.map((f) => [f.key, f.value]),
+    );
+    expect(facts.resin).toBe('Eastman Tritan TX1001');
+    expect(facts.pcr).toBe('35% PCR');
+    expect(facts.additives).toBe('Customer nucleating agent');
+    // A listed additive shows its label, with the optional note after it.
+    await db.db.execute(
+      sql`update quote set additive = 'UV', additives = 'UV-531' where quote_number = ${qn}`,
+    );
+    expect(
+      (await detail(qn)).engineering.productFacts.find((f) => f.key === 'additives')?.value,
+    ).toBe('UV · UV-531');
+  });
+
+  it('FB-09: a quote with a retired resin still shows it, marked "(no longer offered)"', async () => {
+    const qn = await setup();
+    await db.db.execute(
+      sql`insert into value_list (id, list_key, code, label, sort, active, meta, provisional)
+          values (gen_random_uuid(), 'resin', 'PCR_HDPE', 'PCR-HDPE', 910, false, '{}'::jsonb, true)
+          on conflict (list_key, code) do nothing`,
+    );
+    await db.db.execute(sql`update quote set resin = 'PCR_HDPE' where quote_number = ${qn}`);
+    expect((await detail(qn)).engineering.productFacts[0]?.value).toBe(
+      'PCR-HDPE (no longer offered)',
+    );
+  });
+
   describe('F-061: GET /quotes/:qn/capacity-evidence.csv', () => {
     it('lists every row with the calculated utilization, the basis, the quote number and the time; audited', async () => {
       const qn = await setup();

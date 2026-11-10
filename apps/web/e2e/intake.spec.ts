@@ -281,6 +281,74 @@ test.describe('KAM intake', () => {
     await expect(page).not.toHaveURL(/draft=/);
   });
 
+  test('"Other" PCR, resin or additive asks for the customer-specified value, which blocks submit until given (FB-09)', async ({
+    page,
+  }) => {
+    await signInAs(page, 'kam');
+    await page.goto('/intake/new');
+    await pickOpportunity(page, 'Bottle');
+    await fillCustomerAndProduct(page, { commercial: false });
+
+    // PCR = Other reveals a required detail; picking a listed level hides and clears it.
+    await expect(page.locator('#intake-pcr-level-other')).toHaveCount(0);
+    await page.locator('#intake-pcr-level').selectOption({ label: 'Other' });
+    await expect(page.locator('#intake-pcr-level-other')).toBeVisible();
+    await page.locator('#intake-pcr-level-other').fill('35% PCR');
+    await page.locator('#intake-pcr-level').selectOption({ label: '30%' });
+    await expect(page.locator('#intake-pcr-level-other')).toHaveCount(0);
+    await page.locator('#intake-pcr-level').selectOption({ label: 'Other' });
+    await expect(page.locator('#intake-pcr-level-other')).toHaveValue('');
+
+    // Additive = Other: the additives note becomes the required "Customer-specified additive".
+    await page.locator('#intake-additive').selectOption({ label: 'UV' });
+    await expect(page.locator('#intake-additives')).toBeVisible(); // optional note for a listed choice
+    await page.locator('#intake-additive').selectOption({ label: 'Other' });
+    await expect(
+      page.locator('label[for="intake-additives"]', { hasText: 'Customer-specified additive' }),
+    ).toBeVisible();
+    await page.locator('#intake-additives').fill('');
+
+    // Resin = Other (when Salesforce did not supply the resin): the grade is required too.
+    const resin = page.locator('select#intake-resin');
+    const resinEditable = (await resin.count()) > 0;
+    if (resinEditable) {
+      await resin.selectOption({ label: 'Other' });
+      await expect(
+        page.locator('label[for="intake-resin-grade"]', {
+          hasText: 'Customer-specified resin and grade',
+        }),
+      ).toBeVisible();
+      await page.locator('#intake-resin-grade').fill('');
+    }
+
+    // The values are asked for at submit, not before: Next works, step 4 names the missing fields.
+    await page.getByRole('button', { name: /^Next/ }).click();
+    await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '4');
+    await page.locator('#intake-drawing-status').selectOption({ label: 'Coming' });
+    const blocking = page.getByTestId('blocking-list');
+    await expect(blocking).toBeVisible();
+    await expect(blocking).toContainText('Customer-specified PCR level');
+    await expect(blocking).toContainText('Additives is required');
+    if (resinEditable) await expect(blocking).toContainText('Customer-specified resin and grade');
+    await expect(page.getByRole('button', { name: 'Submit to CCQ' })).toBeDisabled();
+
+    // Give them on step 3; the quote submits and every reader sees them.
+    await page.getByRole('button', { name: /Back/ }).click();
+    await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '3');
+    await page.locator('#intake-pcr-level-other').fill('35% PCR');
+    await page.locator('#intake-additives').fill('Customer nucleating agent');
+    if (resinEditable) await page.locator('#intake-resin-grade').fill('Eastman Tritan TX1001');
+    await page.getByRole('button', { name: /^Next/ }).click();
+    await expect(page.getByTestId('blocking-list')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Submit to CCQ' }).click();
+    await expect(page.getByTestId('submitted')).toBeVisible();
+    await page.getByRole('link', { name: 'Open the quote' }).click();
+    await expect(page.getByText('35% PCR').first()).toBeVisible();
+    await expect(page.getByText('Customer nucleating agent').first()).toBeVisible();
+    if (resinEditable)
+      await expect(page.getByTestId('fact-resin-grade')).toHaveText('Eastman Tritan TX1001');
+  });
+
   test('a request class other than CCQ points to the pricing application (F-067)', async ({
     page,
   }) => {

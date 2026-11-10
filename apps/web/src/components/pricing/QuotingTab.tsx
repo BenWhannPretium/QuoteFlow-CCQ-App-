@@ -19,6 +19,7 @@ import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { valueListLabel } from '@/lib/value-label';
 
 import { EngineeringInputsCard } from '../engineering/EngineeringExtras';
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
@@ -303,8 +304,7 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
   const eng = quote.engineering;
   const g2 = quote.quoting.g2;
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   return (
     <Card>
       <CardHeader>

@@ -78,6 +78,8 @@ export const VALUE_LIST_KEYS = [
   // FB-02 (F-055, F-023): PCR level and color.
   'pcr_level',
   'color_type',
+  // FB-09 (Danielle Leu): the additive pick-list.
+  'additive',
   // FB-02 (F-013): component follow-ups.
   'labels_purchased_by',
   'decoration_type',

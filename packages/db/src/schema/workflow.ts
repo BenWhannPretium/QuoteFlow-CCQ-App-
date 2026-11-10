@@ -306,12 +306,12 @@ export const quote = documented(
       ),
       resinGrade: c(
         text('resin_grade'),
-        'FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331".',
+        'FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". FB-09: also required when resin is Other.',
         KAM,
       ),
       pcrLevel: c(
         text('pcr_level'),
-        'FB-02 (F-055): value_list pcr_level code (0 / 25 / 50 / 100 %).',
+        'FB-02 (F-055): value_list pcr_level code (0% / Virgin, 25, 30, 50, 100 %, Other).',
         KAM,
       ),
       colorType: c(
@@ -324,7 +324,21 @@ export const quote = documented(
         'FB-02 (F-023): the custom color (≤ 120); null for Natural.',
         KAM,
       ),
-      additives: c(text('additives'), 'FB-02 (F-023): additives note (≤ 200).', KAM),
+      pcrLevelOther: c(
+        text('pcr_level_other'),
+        'FB-09 (Danielle Leu): the customer-specified PCR level (≤ 120) when pcr_level is Other; null otherwise.',
+        KAM,
+      ),
+      additive: c(
+        text('additive'),
+        'FB-09: value_list additive code (None / UV / Barrier / Antistat / Impact Modifier / Other). Not backfilled: older quotes keep their additives text only.',
+        KAM,
+      ),
+      additives: c(
+        text('additives'),
+        'FB-02 (F-023): additives note (≤ 200). FB-09: required, as the customer-specified additive, when additive is Other.',
+        KAM,
+      ),
       // FB-02 (F-013): component follow-ups (written only while the component is picked).
       linerSpec: c(
         text('liner_spec'),

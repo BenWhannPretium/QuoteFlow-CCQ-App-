@@ -112,6 +112,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     allowedRequestClasses,
     redirectMessage,
     variantsNoteMaxLength,
+    freeTextMaxLength,
     minSpecFields,
     standardPaymentTerms,
     guardrails,
@@ -126,6 +127,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     getSetting(db, 'intake_allowed_request_classes'),
     getSetting(db, 'intake_redirect_message'),
     getSetting(db, 'intake_variants_note_max_length'),
+    getSetting(db, 'intake_free_text_max_length'),
     getSetting(db, 'intake_min_spec_fields'),
     getSetting(db, 'standard_payment_terms'),
     getSetting(db, 'intake_guardrails'),
@@ -150,6 +152,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     allowedRequestClasses: allowedRequestClasses as never,
     redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
     ...(typeof variantsNoteMaxLength === 'number' ? { variantsNoteMaxLength } : {}),
+    ...(typeof freeTextMaxLength === 'number' ? { freeTextMaxLength } : {}),
     ...(Array.isArray(minSpecFields) ? { minSpecFields: minSpecFields as never } : {}),
     // FB-11 (F-080): a missing setting means no payment terms are flagged (it is seeded, provisional).
     ...(Array.isArray(standardPaymentTerms)
@@ -690,6 +693,10 @@ export class IntakeService {
       resinCustomerSpecified: values.resin_customer_specified,
       resinGrade: keep('resin_grade', values.resin_grade),
       pcrLevel: values.pcr_level,
+      // FB-09: the "Other" PCR detail is kept only while PCR is Other. The additive is a plain pick;
+      // the additives note stays optional (and is the detail for "Other").
+      pcrLevelOther: keep('pcr_level_other', values.pcr_level_other),
+      additive: values.additive,
       colorType: values.color_type,
       colorDescription: keep('color_description', values.color_description),
       additives: values.additives,
@@ -1147,6 +1154,8 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     resinCustomerSpecified: q.resinCustomerSpecified,
     resinGrade: q.resinGrade,
     pcrLevel: q.pcrLevel,
+    pcrLevelOther: q.pcrLevelOther,
+    additive: q.additive,
     colorType: q.colorType,
     colorDescription: q.colorDescription,
     additives: q.additives,

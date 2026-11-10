@@ -184,6 +184,10 @@ export const QuoteIntakeFacts = z.object({
   resinGrade: z.string().nullable(),
   /** F-055 */
   pcrLevel: z.string().nullable(),
+  /** FB-09: the customer-specified PCR level (PCR is Other). */
+  pcrLevelOther: z.string().nullable(),
+  /** FB-09: additive code; the `additives` note is the customer-specified additive when it is Other. */
+  additive: z.string().nullable(),
   /** F-023 */
   colorType: z.string().nullable(),
   colorDescription: z.string().nullable(),

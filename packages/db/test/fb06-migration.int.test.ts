@@ -119,7 +119,15 @@ describe('0033 FB-06 data migration', () => {
         sql`select value, provisional from app_setting where key = 'engineering_assignment_rules'`,
       );
       expect(setting!.provisional).toBe(true);
-      expect(setting!.value).toEqual(ASSIGNMENT_RULES_SEED);
+      // Migration 0033 seeds the FB-06 value; FB-09 (0036) later removes the retired resin codes from it.
+      const fb06 = ASSIGNMENT_RULES_SEED.rules.map((r, i) =>
+        i === 2
+          ? { ...r, resins: ['PET', 'PCR_PET', 'PETG'] }
+          : i === 3
+            ? { ...r, resins: ['HDPE', 'PCR_HDPE', 'PP', 'LDPE'] }
+            : r,
+      );
+      expect(setting!.value).toEqual({ rules: fb06 });
     });
   });
 

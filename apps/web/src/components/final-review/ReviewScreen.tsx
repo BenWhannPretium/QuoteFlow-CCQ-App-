@@ -16,6 +16,7 @@ import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, relativeTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
+import { valueListLabel } from '@/lib/value-label';
 
 import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringExtras';
@@ -318,8 +319,7 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
 
 function RequestSection({ s }: { s: ReviewSummary }) {
   const { data: config } = usePublicConfig();
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   const q = s.quote;
   const i = s.intake;
   const shipTo = i.shipTo
@@ -399,8 +399,7 @@ function Restricted({ what }: { what: string }) {
 
 function EngineeringSection({ s }: { s: ReviewSummary }) {
   const { data: config } = usePublicConfig();
-  const label = (list: string, code: string | null) =>
-    code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   const e = s.engineering;
   const r = e.review;
   const g2 = s.quoting.g2;

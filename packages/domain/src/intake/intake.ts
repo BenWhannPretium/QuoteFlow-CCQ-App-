@@ -109,6 +109,11 @@ export const intakeConfigSchema = z
     /** FB-02 (F-075): longest "Quote variants requested" note (app_setting `intake_variants_note_max_length`). */
     variantsNoteMaxLength: z.number().int().positive().default(300),
     /**
+     * FB-09 (F-019, D-016 default, provisional): longest packaging note (characters) for a NEW edit
+     * (app_setting `intake_free_text_max_length`). An older, longer value stays readable.
+     */
+    freeTextMaxLength: z.number().int().positive().default(500),
+    /**
      * FB-02 (F-016, D-018): without a bottle or competitor drawing attached, every one of these must be
      * filled to submit (app_setting `intake_min_spec_fields`, provisional). Empty = no minimum spec.
      */
@@ -263,6 +268,14 @@ export function needByDateIssues(values: FieldValues, now: Date): IntakeIssue[] 
   return issues;
 }
 
+/** Detail fields with their own limit (`INTAKE_TEXT_LIMITS`), checked below rather than at 120. */
+const OTHER_DETAIL_OWN_LIMIT = new Set<string>([
+  'resin_grade',
+  'additives',
+  'pcr_level_other',
+  'packaging_notes',
+]);
+
 const tooLong = (v: unknown, max: number) => typeof v === 'string' && v.trim().length > max;
 
 /**
@@ -283,12 +296,26 @@ export function productFactIssues(values: FieldValues, config: IntakeConfig): In
     if (typeof code === 'string' && (config.customCodes[field] ?? []).includes(code)) {
       if (!isPresent(values[description])) missing(description, `${description} is required`);
     }
-    if (tooLong(values[description], INTAKE_TEXT_LIMITS.custom_description)) {
+    // FB-09: resin_grade, pcr_level_other and additives have their own limits (checked below / by the field).
+    if (
+      !OTHER_DETAIL_OWN_LIMIT.has(description) &&
+      tooLong(values[description], INTAKE_TEXT_LIMITS.custom_description)
+    ) {
       invalid(description, `Keep it to ${INTAKE_TEXT_LIMITS.custom_description} characters`);
     }
   }
+  if (tooLong(values.packaging_notes, config.freeTextMaxLength)) {
+    invalid('packaging_notes', `Keep it to ${config.freeTextMaxLength} characters`);
+  }
+  if (tooLong(values.pcr_level_other, INTAKE_TEXT_LIMITS.pcr_level_other)) {
+    invalid('pcr_level_other', `Keep it to ${INTAKE_TEXT_LIMITS.pcr_level_other} characters`);
+  }
 
-  if (values.resin_customer_specified === true && !isPresent(values.resin_grade)) {
+  if (
+    values.resin_customer_specified === true &&
+    !isPresent(values.resin_grade) &&
+    !issues.some((i) => i.field === 'resin_grade') // already asked for by an Other resin (FB-09)
+  ) {
     missing('resin_grade', 'resin_grade is required');
   }
   if (tooLong(values.resin_grade, INTAKE_TEXT_LIMITS.resin_grade)) {
@@ -404,10 +431,16 @@ export function inapplicableIntakeFields(values: FieldValues, config: IntakeConf
   for (const field of CUSTOM_LIST_FIELDS) {
     const code = values[field];
     if (!(typeof code === 'string' && (config.customCodes[field] ?? []).includes(code))) {
-      out.push(CUSTOM_DESCRIPTION_FIELDS[field]);
+      const detail = CUSTOM_DESCRIPTION_FIELDS[field];
+      // FB-09: the additives and packaging notes are optional for any other choice, so never cleared here.
+      if (detail !== 'additives' && detail !== 'packaging_notes') out.push(detail);
     }
   }
-  if (values.resin_customer_specified !== true) out.push('resin_grade');
+  // The resin grade also stays while the customer specifies the resin (FB-02), independent of "Other".
+  if (values.resin_customer_specified === true) {
+    const i = out.indexOf('resin_grade');
+    if (i >= 0) out.splice(i, 1);
+  }
   if (values.modify_existing_mold !== true) {
     out.push('existing_mold_ref', 'mold_change_description');
   }
