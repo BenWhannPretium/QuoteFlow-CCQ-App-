@@ -85,6 +85,13 @@ Every role that can read a quote sees its pricing, margin and capital figures. O
 | 31 | KAM | Open the emails QuoteFlow sent about this quote. | No price, margin or capital amount in any email. | | |
 | 32 | Analyst | Sign back in as yourself. Repeat step 30. | The same columns, on screen and in the CSV. | | |
 
+## Part F: From engineering (FB-06)
+
+| # | Who | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|---|
+| 33 | Analyst | Open `<CCQ-QT-4>` (came through G2 as **Advance – capital required**) → **Quoting** tab. | A **From engineering** card shows the **Equipment BOM** (file name, version, who uploaded it and when) with a download link, the two-step details if Engineering ticked **Two-step process** (preform plant, blow plant, preform number, freight between plants), and the pack-out (units per bag, tray, case and pallet). "No two-step or pack-out details entered." when there are none. Nothing on the card is editable. | | |
+| 34 | Analyst | Download the equipment BOM. Is it the one-page CSR BOM you need for costing, with each line flagged **C** (capital) or **P** (customer paid)? | Write yes, or what is missing, in Notes (A-030: Kal Kaliszewski's minimum fields are still to come). | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

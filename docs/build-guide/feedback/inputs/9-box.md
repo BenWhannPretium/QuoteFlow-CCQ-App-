@@ -1,5 +1,7 @@
 # Where to Play 9-box (strategic fit by market)
 
+> **Superseded for placement and points (2026-11-10)** by [`markets.md`](markets.md): Melanie Rasche sent the slide image and her answer on 2026-11-09 (score by sub-market; 80 / 50 / 20 by colour). Kept for history.
+
 **Sources:**
 - Melanie Rasche posted "WTP 9-box" as an image in the Sales & Marketing walkthrough meeting chat (2026-11-03, tracker A-009). The image is not readable through the connector. **Ask Melanie for the file**, or export the image here as `9-box.png`.
 - The matrix below is from `Where We Play and How We Win (2026-11-03).pptx` (SharePoint, Molder site › Claude outputs), slide "Strategic Where to Play Matrix". It is likely the same grid Melanie shared. Budget figures are left out on purpose.

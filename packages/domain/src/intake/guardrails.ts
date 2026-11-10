@@ -4,8 +4,9 @@ import { z } from 'zod';
  * FB-10 (F-066, T-025, D-004 open): the platform-minimum guardrail. A quote whose annual volume is below the
  * new-mold planning minimum of a machine platform gets a WARNING on the intake ("You can still submit") and
  * the warning is recorded on the quote for G1. It never blocks. Config: app_setting `intake_guardrails`,
- * seeded OFF until Danielle Leu confirms the column mapping of the platform guide
- * (`docs/build-guide/feedback/inputs/platform-guide.md`).
+ * seeded OFF. The minimums are Danielle Leu's corrected table (reply of 2026-11-09 to "please confirm our
+ * read of the Machine Platforms guide"; `docs/build-guide/feedback/inputs/platform-guide.md`). An Admin
+ * switches the warning on once D-004 agrees to warn at these volumes.
  *
  * The intake has no platform field (Engineering picks the process type later), so while the platform is not
  * known the minimum is the LOWEST platform minimum: a quote under it is under every platform's minimum.
@@ -25,13 +26,16 @@ export const intakeGuardrailsSchema = z
   .strict();
 export type IntakeGuardrails = z.infer<typeof intakeGuardrailsSchema>;
 
-/** Seed (provisional, OFF): the platform guide as read on 2026-11-05; the column mapping is unconfirmed. */
+/**
+ * Seed (provisional, OFF): Danielle Leu's corrected platform table (2026-11-09). FB-10 had read the PDF
+ * with ISBM at 3M and Injection (IMM) at 1M; Danielle's correction swaps them (ISBM 1M, IMM 3M).
+ */
 export const INTAKE_GUARDRAILS_SEED: IntakeGuardrails = {
   enabled: false,
   minAnnualVolumeByProcess: {
-    ISBM: 3_000_000,
+    ISBM: 1_000_000,
     RHB: 1_000_000,
-    IMM: 1_000_000,
+    IMM: 3_000_000,
     IBM: 3_000_000,
     EBM: 1_000_000,
   },

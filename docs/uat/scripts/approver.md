@@ -58,6 +58,12 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 | 21 | Look for **Record price approval**, **Save terms** or a gate button for G1, G2, G3 or G5 on any quote. | None. Approvers only decide G4. | | |
 | 22 | Check **Home** → **Decided recently**. | Your decisions from Part B are listed. | | |
 
+## Part D: Engineering details at Final Review (FB-06)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 23 | Open a quote in Final Review that came through G2 as **Advance – capital required**. Find the engineering section of the review. | The equipment BOM (file, version, uploader, date, download), the two-step details and the pack-out are shown, read-only. A quote created before FB-06 may also show **Legacy notes** (the old downstream-equipment and BOM text), read-only. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

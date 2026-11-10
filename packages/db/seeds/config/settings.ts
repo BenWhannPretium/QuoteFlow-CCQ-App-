@@ -220,7 +220,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'intake_guardrails',
     value: INTAKE_GUARDRAILS_SEED,
     description:
-      'FB-10 (F-066, T-025, D-004 open): non-blocking platform-minimum warning at intake, seeded OFF until Danielle Leu confirms the column mapping of the machine platform guide. minAnnualVolumeByProcess = new-mold planning minimum (units/yr) by process_type; while the platform is not known the lowest minimum applies. The warning is shown on the intake and kept on the quote for G1; it never blocks a submit.',
+      'FB-10 (F-066, T-025, D-004 open): non-blocking platform-minimum warning at intake, seeded OFF. minAnnualVolumeByProcess = new-mold planning minimum (units/yr) by process_type, from Danielle Leu’s corrected Machine Platforms table (2026-11-09): ISBM 1M, RHB 1M, Injection (IMM) 3M, IBM 3M, EBM 1M. While the platform is not known the lowest minimum applies. The warning is shown on the intake and kept on the quote for G1; it never blocks a submit. An Admin switches it on once D-004 agrees to warn at these volumes.',
   },
   {
     key: 'qualification_exception_note_outcomes',

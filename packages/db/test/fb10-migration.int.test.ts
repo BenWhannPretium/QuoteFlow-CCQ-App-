@@ -24,11 +24,30 @@ const MIGRATION = readFileSync(
   'utf8',
 );
 
-function block(name: string): string[] {
-  const start = MIGRATION.indexOf(`-- ${name}:start`);
-  const end = MIGRATION.indexOf(`-- ${name}:end`);
+/** 0035: Danielle Leu's correction of the platform minimums (2026-11-09). */
+const MIGRATION_0035 = readFileSync(
+  new URL('../migrations/0035_platform_minimums_correction.sql', import.meta.url),
+  'utf8',
+);
+
+/** What 0034 seeded, before Danielle Leu's correction (ISBM and IMM were swapped). */
+const FB10_GUARDRAILS = {
+  ...INTAKE_GUARDRAILS_SEED,
+  minAnnualVolumeByProcess: {
+    ISBM: 3_000_000,
+    RHB: 1_000_000,
+    IMM: 1_000_000,
+    IBM: 3_000_000,
+    EBM: 1_000_000,
+  },
+};
+
+function block(name: string, source = MIGRATION): string[] {
+  const start = source.indexOf(`-- ${name}:start`);
+  const end = source.indexOf(`-- ${name}:end`);
   expect(start, name).toBeGreaterThan(0);
-  return MIGRATION.slice(start, end)
+  return source
+    .slice(start, end)
     .split('--> statement-breakpoint')
     .map((s) => s.trim())
     .filter((s) => s.replace(/--.*$/gm, '').trim() !== '');
@@ -159,7 +178,7 @@ describe('0034 migration', () => {
         ['intake_guardrails', false],
       ]);
       expect(rows[0]!.value).toEqual(VOLUME_ROUTING_SEED);
-      expect(rows[1]!.value).toEqual(INTAKE_GUARDRAILS_SEED);
+      expect(rows[1]!.value).toEqual(FB10_GUARDRAILS); // 0035 corrects it (below)
       await tx.execute(
         sql`update app_setting set value = jsonb_set(value, '{min}', '2500000') where key = 'g1_volume_routing'`,
       );
@@ -208,5 +227,61 @@ describe('0034 migration', () => {
       await run(tx, block('fb10-config'));
       expect(await models(tx)).toHaveLength(0);
     });
+  });
+});
+
+describe('0035 migration (platform minimums, Danielle Leu 2026-11-09)', () => {
+  const guardrails = (tx: Tx) =>
+    raw<{ value: Record<string, unknown>; version: number; provisional: boolean }>(
+      tx,
+      sql`select value, version, provisional from app_setting where key = 'intake_guardrails'`,
+    );
+  const asFb10Seeded = (tx: Tx) =>
+    tx.execute(sql`update app_setting
+      set value = ${JSON.stringify(FB10_GUARDRAILS)}::jsonb, version = 1, approved_at = null, provisional = true
+      where key = 'intake_guardrails'`);
+  const fix = () => block('fb10-platform-minimums', MIGRATION_0035);
+
+  it('corrects the FB-10 minimums to the seed, keeps the warning off, and is idempotent', async () => {
+    await rolledBack(async (tx) => {
+      await asFb10Seeded(tx);
+      await run(tx, fix());
+      await run(tx, fix());
+      const [row] = await guardrails(tx);
+      expect(row!.value).toEqual(INTAKE_GUARDRAILS_SEED);
+      expect(row!.value.enabled).toBe(false);
+      expect(row!.provisional).toBe(true);
+    });
+  });
+
+  it('keeps the enabled flag an Admin set while the minimums are still the FB-10 ones', async () => {
+    await rolledBack(async (tx) => {
+      await asFb10Seeded(tx);
+      await tx.execute(
+        sql`update app_setting set value = jsonb_set(value, '{enabled}', 'true') where key = 'intake_guardrails'`,
+      );
+      await run(tx, fix());
+      const [row] = await guardrails(tx);
+      expect(row!.value.enabled).toBe(true);
+      expect(row!.value.minAnnualVolumeByProcess).toEqual(
+        INTAKE_GUARDRAILS_SEED.minAnnualVolumeByProcess,
+      );
+    });
+  });
+
+  it('leaves an Admin-edited, approved or different row alone', async () => {
+    for (const change of [
+      sql`update app_setting set version = 2 where key = 'intake_guardrails'`,
+      sql`update app_setting set approved_at = now(), provisional = false where key = 'intake_guardrails'`,
+      sql`update app_setting set value = jsonb_set(value, '{minAnnualVolumeByProcess,EBM}', '2000000') where key = 'intake_guardrails'`,
+    ]) {
+      await rolledBack(async (tx) => {
+        await asFb10Seeded(tx);
+        await tx.execute(change);
+        const before = (await guardrails(tx))[0]!.value;
+        await run(tx, fix());
+        expect((await guardrails(tx))[0]!.value).toEqual(before);
+      });
+    }
   });
 });

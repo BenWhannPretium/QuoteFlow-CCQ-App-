@@ -294,7 +294,7 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   spec(
     'intake_guardrails',
     'intake',
-    'Platform-minimum warning (non-blocking): minimum annual volume per process type. Off until the platform guide is confirmed',
+    'Platform-minimum warning (non-blocking): minimum annual volume per process type (Danielle Leu’s platform table, 2026-11-09). Off until D-004',
     'json',
     z_('intake_guardrails', intakeGuardrailsSchema),
   ),
