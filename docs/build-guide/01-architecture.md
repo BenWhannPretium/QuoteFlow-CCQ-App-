@@ -118,6 +118,8 @@ Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future res
 
 ### 3.4 Permission matrix (source of truth: `packages/domain/src/policy/matrix.ts`)
 
+*FB-08 (2026-11-10, D-003 provisional): four new permissions. **`terms.engineering.edit`** (EngLead; Engineer on assigned quotes): MOQ and the tooling funding model, which moved from `terms.edit` (`PUT /quotes/:qn/terms/engineering`). **`terms.finalize`** (Approver, stage-qualified to `FINAL_REVIEW`): edit and confirm the capital terms on the Final Review screen (`PUT /quotes/:qn/terms/capital`). **`terms.exception.decide`** (PricingLead): approve or reject a non-standard payment-terms exception with a rationale (`POST /quotes/:qn/terms/exception/decision`). **`finalReview.signoff`** (SalesLeader, Leadership): an extra Final Review sign-off when `g4_additional_approvals` asks for one (F-082, seeded off; `POST /quotes/:qn/final-review/signoffs`). `terms.edit` keeps the payment terms, the tooling payment milestones, the terms check, the Legal review and the capital-terms pre-fill.*
+
 *FB-07 (2026-11-09): new role **Finance** (`quote.read`, `quote.read.commercialFields`, `roi.upload`, nothing else) and new permission **`roi.upload`** (Finance, PricingLead, Admin), the gate of `POST /quotes/:qn/roi-model`. The costing model and the updated price table go through `POST /quotes/:qn/attachments` (`attachment.upload`) with kind `cost_model` / `price_table`; the service then requires `quoting.edit` / `gate.G3.submit` on the quote (`MODEL_UPLOAD_PERMISSION`, `packages/domain/src/quoting-steps`). Finance holds no `feedback.submit` (prompt: "nothing else"); add it in one line if Finance should use "Report an issue".*
 
 *FB-03 (2026-11-05): no new permission. `GET /quotes/:qn/capacity-evidence.csv` uses `quote.read` (the floor of the Engineering tab it exports) and is audited as an `export`; the "Ready for CER development" box on the hand-off record uses `handoff.edit`.*
@@ -138,6 +140,7 @@ Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future res
 | roi.upload (FB-07, F-083: the ROI model, Quoting step 2; the pricing lead is a provisional fallback until Finance is provisioned, A-032) | | | | | | ✔ | ✔ | | | ✔ |
 | finalReview.read (B-12: the Final Review queue, Approvals tab) | | | | | | | | ✔ | ✔ | ✔ |
 | gate.G4.decide | | | | | | | | ✔ | | |
+| finalReview.signoff (FB-08, F-082: extra sign-offs; the rule is seeded off, A-035) | | ✔ | | | | | | | ✔ | |
 | outcome.record | ✔ (own) | ✔ | | | | | | | | |
 | outcome.assignOwner (B-13: name a closure owner other than the default) | | ✔ | | | | | | | | |
 | handoff.edit (B-13: the hand-off record; B-26: in Commit & Hand Off) | ✔ (own) | ✔ | | | | | | | | ✔ |
@@ -155,7 +158,10 @@ Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future res
 | pricingQueue.assign (B-26: assign / reassign pricers) | | | | | | ✔ | | | | ✔ |
 | capacity.signoff (B-26: G2 capacity sign-off) | | | ✔ | | | | | | | |
 | capitalFlag.edit (B-26: capital likely) | ✔ (own) | ✔ | ✔ | ✔ (assigned) | ✔ | ✔ | | | | |
-| terms.edit (B-26: terms check, Legal review record) | ✔ (own) | ✔ | | | ✔ | ✔ | | | | |
+| terms.edit (B-26: terms check, Legal review record; FB-08: payment terms, milestones, capital-terms pre-fill) | ✔ (own) | ✔ | | | ✔ | ✔ | | | | |
+| terms.engineering.edit (FB-08, F-021: MOQ and tooling funding) | | | ✔ | ✔ (assigned) | | | | | | |
+| terms.finalize (FB-08, F-068: confirm the capital terms) | | | | | | | | ✔ (in Final Review) | | |
+| terms.exception.decide (FB-08, T-007: non-standard payment terms) | | | | | | ✔ | | | | |
 | gate.G6.decide (B-26: Commit & Hand Off) | ✔ (own) | ✔ | | | | | | | | |
 | quote.escalate (B-26: raise an escalation) | ✔ (own) | ✔ | ✔ | ✔ (assigned) | ✔ | ✔ | | ✔ | | ✔ |
 | feedback.submit (B-23: "Report an issue") | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | | ✔ | ✔ | ✔ |
@@ -208,6 +214,8 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
 - A closing transition records its closure (B-13, CR-39): outcome = `closeAs`, the reason code (always required to close), the closure owner (`transition_rule.closure_owner`: `kam` for customer outcomes, `decider` for internal no-gos; `outcome.assignOwner` may name another) and `closed_at`.
 - On-hold time is tracked separately so cycle time can exclude customer holds (CR-57).
 
+**Commercial terms at Final Review (FB-08, F-021 / F-068; D-003 and D-029 provisional).** The payment terms are a code from the `requested_payment_terms` list (the one intake asks from); a code outside `standard_payment_terms` (Net 15, Net 30) sets `terms_nonstandard` (a Legal trigger) and opens a `terms_exception_request` for the pricing lead (`terms.exception.decide`), who approves or rejects it with a rationale; changing the terms supersedes it, going back to a standard term withdraws it. The tooling payment is a `tooling_payment_terms` option (upfront, 50/50 at the order and at qualification, amortized per piece; list meta `milestones`) with a short note. The capital terms (funding model, mold ownership, amortization and months, minimum supply / shortfall, agreement in place and its duration) are pre-filled by Sales and confirmed by the approver (`terms_finalized_at`); a change afterwards clears the confirmation. `g4_required_checks` gains `terms_exception` and `terms_finalized` (both seeded on): G4 Advance reads the derived `terms_exception_open` and `terms_finalized_at`; the terms lock at G4 Approve (FB-01 `commercialTerms` lock). `capital_terms_required` names what the approver must fill. Extra sign-offs (`g4_additional_approvals`, F-082) are a rule list by funding model, in order, per quote version (`g4_signoff`); G4 Approve is refused while one applies and is missing. The proposal (customer-funded or $0 CER: sales leader, then leadership) is seeded `active: false`.
+
 **Holds (B-26):** every Hold outcome needs `holdOwnerId` (an active user; the dialog defaults to the decider), stored on `quote_hold.owner_id` and on `quote.hold_owner_id` while the hold lasts. **Definitions (B-26):** every outcome carries `help_text`, shown as an ⓘ in the decision dialog.
 
 **Gate decision API (built in B-08; reuse it for G2–G6)**
@@ -255,6 +263,8 @@ Every notification is written **in the same transaction as the change** that cau
 | Waiting at G1 (`quote.to_qualify`); FB-10: with volume-band routing on, the body says why the volume put it here | holders of the G1 decider permission (`SalesLeader`) | yes | **daily digest, 7:00 AM Central**: one email listing everything waiting |
 | Ready for its ROI (`quote.ready_for_roi`, FB-07): Pricing uploads a costing model (or a new version) on a quote that needs an ROI | the `Finance` role | yes | yes (uploader and version; no figures) |
 | ROI uploaded (`quote.roi_uploaded`, FB-07) | holders of `gate.G3.submit` (`PricingLead`) | yes | yes |
+| **FB-08** Non-standard payment terms (`quote.terms_exception_requested`): a code outside `standard_payment_terms` is saved | holders of `terms.exception.decide` (`PricingLead`) | yes | yes (the terms label and who entered them) |
+| **FB-08** Exception decided (`quote.terms_exception_decided`) | whoever entered the terms and the KAM, with the rationale (in-app; the email says approved or rejected) | yes | yes |
 | Awaiting Final Review (`quote.ready_for_final_review`) | holders of `gate.G4.decide` (`Approver`) | yes | yes |
 | G4 decided (`quote.approved_for_customer`, `quote.declined`) | the KAM, the pricing approver (who approved the price at G3), and on a decline the `Pricing` role | yes | yes |
 | **FB-05** Your quote moved or a decision was recorded (`quote.progress`) | the KAM, on every advance, every send-back to Engineering / Pricing, and every decision that keeps the quote where it is (G2 / G3 Redirect, G5 In negotiation); skipped when the KAM already gets another notice for the same event | yes | yes |
@@ -317,6 +327,7 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
   - **Pricing (B-26):** assigned_pricer_id, pricer_assigned_at
   - **Rework (FB-01, F-030):** rework_origin_stage_key (the stage a decision sent the quote back to the KAM from), rework_resume_at (origin | intake, from the outcome's `resume_at`). Set when a decision enters INTAKE, cleared on resubmit (migration 0026)
   - **Commercial (B-26):** capital_likely (+ set_by / set_at), capital_notice_sent_at, market_dev_notice_sent_at, tooling_funding_model; terms_payment_terms, terms_moq, terms_tooling_commitment, terms_nonstandard, terms_notes, terms_checked_at / terms_checked_by; legal_reviewed_on, legal_reviewer_name, legal_review_note, legal_recorded_by; hold_owner_id (while on hold)
+  - **FB-08 terms (F-021, F-068, D-029):** terms_payment_terms_code (value list `requested_payment_terms`; `terms_payment_terms` becomes the detail for Other and keeps pre-FB-08 free text), terms_tooling_payment (value list `tooling_payment_terms`), terms_milestone_note (≤ 300), terms_exception_status (pending | approved | rejected; null = none); capital terms terms_mold_ownership (value list `mold_ownership`), terms_amortized + terms_amortization_months (1–120), terms_min_supply (≤ 300), terms_agreement_in_place + terms_agreement_months (1–240), terms_finalized_at / terms_finalized_by (the approver's confirmation). No jsonb, arrays or numerics: nothing new for the Fabric companions.
   - **Links and dates:** erf_number (B-26: the legacy ERF number, transition only), cer_id (mirrored from the hand-off), bpr_id (B-13; **deprecated in B-26**, no longer written), proposal_issued_at, validity_until, validity_expired_flagged_at (B-13 expiry job)
   - **Close-out:** outcome, outcome_reason_code, closure_owner_id, closed_at
 - `quote_draft` (B-07): owner_user_id, sf_opportunity_id, step, data jsonb, submitted_quote_id, submitted_at. Intake work in progress; visible only to its creator, plus Admin. It becomes a quote on submit.
@@ -329,6 +340,8 @@ All tables have `id uuid v7 pk`, `created_at`, `updated_at`, `created_by`. Confi
 - `attachment`: quote_id (null while on an intake draft), draft_id, kind (bottle_drawing | spec | sample_photo | capacity_analysis | other | FB-02 (F-014): bid_file | project_brief | competitor_drawing; a bottle or competitor drawing satisfies the F-016 rule), **FB-07 (F-031, F-074):** kinds `cost_model`, `roi_model`, `price_table` (uploaded on the Quoting tab only) are **versioned**: `version` (1, 2, … per quote and kind; null for other kinds), `superseded_by` (the newer version), `superseded_at`. One current version per quote and kind (`attachment_current_version_uidx`); earlier versions stay downloadable; removing the current one restores the previous. A `cost_model_summary` table (numeric(18,4)) is **not** built: the one-page extraction waits for the templates and their cell map (A-031).
 - `comment`: quote_id, author_id, body, mentions[]
 - `handoff_record`: quote_id, acceptance_evidence (verbal | po | loi | contract), acceptance_date, acceptance_document_url, receiving_role (+ receiving_role_other), receiving_contact_name, accepted_on, accepted_by_name, cer_id, cer_status (pending | approved | not_approved | not_required, B-26), cer_approved_on (B-26), bpr_id (deprecated in B-26), notes, completed_at / completed_by ("Hand-off accepted"), cer_ready_at / cer_ready_by ("Ready for CER development", FB-03: only once the award has opened the record), updated_by. Stage 6 (B-13, B-26). Opened by the G5 Awarded decision; G6 Advance needs it.
+- `terms_exception_request` (FB-08, T-007): quote_id, quote_version, payment_terms_code, payment_terms_detail, status (pending | approved | rejected | withdrawn | superseded), requested_by / requested_at, decided_by / decided_at, rationale (required with a decision), closed_at. Never deleted; `quote.terms_exception_status` mirrors the current one.
+- `g4_signoff` (FB-08, F-082, off until A-035): quote_id, quote_version, rule_key, signoff_key (unique together), signed_by, signed_at, note.
 - `quote_hold`: quote_id, stage_key, started_at, ended_at, reason_code, owner_id (B-26). Hold intervals, so cycle time can exclude holds (CR-57).
 - `segregation_rule`: rule_key, gate_keys[], outcome_keys[], deny (actor_is_kam | actor_is_assigned_engineer | actor_is_price_approver), message. Config.
 - `quote_number_counter`: year, last_value. Used only by `next_quote_number()`.
