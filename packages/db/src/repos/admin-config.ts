@@ -109,6 +109,9 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(quote.productFamily, code);
     case 'market':
       return eq(quote.market, code);
+    // FB-12 (F-073)
+    case 'sub_market':
+      return eq(quote.subMarket, code);
     case 'resin':
       return eq(quote.resin, code);
     case 'component':

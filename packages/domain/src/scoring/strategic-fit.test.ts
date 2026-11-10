@@ -56,7 +56,7 @@ describe('strategic fit by market and segment (F-073)', () => {
     const snacks = fit(model, { market: 'FOOD', market_segment: 'SNACKS' });
     const honey = fit(model, { market: 'FOOD', market_segment: 'HONEY' });
     expect([snacks.points, honey.points]).toEqual([95, 15]);
-    expect(snacks.explanation).toContain('segment');
+    expect(snacks.explanation).toContain('sub-market');
     expect(snacks.explanation).not.toContain('default');
     // Segment unknown or unlisted → fall back to the market, then to the default.
     expect(fit(model, { market: 'FOOD' }).points).toBe(60);

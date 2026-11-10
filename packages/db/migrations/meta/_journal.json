@@ -253,6 +253,13 @@
       "when": 1794269109260,
       "tag": "0035_platform_minimums_correction",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794269744385,
+      "tag": "0037_fb12_sub_market_scoring",
+      "breakpoints": true
     }
   ]
 }

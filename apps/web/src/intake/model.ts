@@ -143,6 +143,13 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
         : {}),
       // FB-10 (F-066): off unless the setting is on and well-formed.
       guardrails: parseIntakeGuardrails(s.intake_guardrails),
+      // FB-12 (F-073): the sub-market's parent market comes from the value list's meta.
+      subMarketMarkets: Object.fromEntries(
+        (lists.sub_market ?? []).flatMap((e) => {
+          const market = (e.meta as { market?: unknown }).market;
+          return typeof market === 'string' ? [[e.code, market] as const] : [];
+        }),
+      ),
       deliveredPriceBasisCodes: (lists.price_basis ?? [])
         .filter((e) => meta(e, 'delivered'))
         .map((e) => e.code),

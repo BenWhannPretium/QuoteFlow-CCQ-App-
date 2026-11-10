@@ -49,6 +49,7 @@ import {
 import { intakeFactsDto } from './intake-facts';
 import { leadReviewView } from './lead-review';
 import { sectionLockView } from './locks';
+import { marketPathLabel } from './marketLabel';
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -179,6 +180,9 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
     }
     return entry?.label ?? code;
   };
+  // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
+  const market = await marketPathLabel(db, q.market, q.subMarket);
+  if (market) facts.push({ key: 'market', label: 'Market', value: market });
   if (q.resin) {
     const resin = await label('resin', q.resin);
     facts.push({

@@ -50,6 +50,7 @@ import {
   DRAWING_ATTACHMENT_KINDS,
   evaluateIntake,
   inapplicableIntakeFields,
+  subMarketAfterMarketChange,
   ENG_QUEUE_STAGE_KEY,
   evaluateTransition,
   planResubmitRoute,
@@ -104,6 +105,16 @@ const notFound = () =>
   new IntakeError(404, INTAKE_PROBLEM_CODES.notFound, 'No intake draft with this id');
 
 /** Reads the intake config from app settings and value-list meta. Throws if a setting is missing. */
+/** FB-12: active `sub_market` entries → { code: parent market code } (value-list meta `market`). */
+function subMarketMap(entries: { code: string; meta: unknown }[]): Record<string, string> {
+  return Object.fromEntries(
+    entries.flatMap((e) => {
+      const market = meta(e.meta).market;
+      return typeof market === 'string' ? [[e.code, market] as const] : [];
+    }),
+  );
+}
+
 export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
   const [
     requiredFields,
@@ -118,6 +129,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     drawing,
     components,
     priceBasis,
+    subMarkets,
     ...customLists
   ] = await Promise.all([
     getSetting(db, 'intake_required_fields'),
@@ -132,6 +144,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     listValueList(db, 'drawing_status'),
     listValueList(db, 'component'),
     listValueList(db, 'price_basis'),
+    listValueList(db, 'sub_market'),
     ...CUSTOM_LIST_FIELDS.map((list) => listValueList(db, list)),
   ]);
   if (
@@ -157,6 +170,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
       : {}),
     // FB-10 (F-066): a missing or malformed setting leaves the platform-minimum warning off.
     guardrails: parseIntakeGuardrails(guardrails),
+    subMarketMarkets: subMarketMap(subMarkets),
     deliveredPriceBasisCodes: priceBasis
       .filter((v) => meta(v.meta).delivered === true)
       .map((v) => v.code),
@@ -444,7 +458,22 @@ export class IntakeService {
   ): Promise<IntakeDraft> {
     return withTx(async (tx) => {
       const row = await this.ownDraft(tx, actor, id, true);
-      const data = { ...(row.data as IntakeDraftData), ...(body.data ?? {}) };
+      const before = row.data as IntakeDraftData;
+      const data = { ...before, ...(body.data ?? {}) };
+      // FB-12 (F-073): a market change must not leave the old market's sub-market behind.
+      if (
+        data.subMarket &&
+        body.data &&
+        'market' in body.data &&
+        (body.data.market ?? null) !== (before.market ?? null)
+      ) {
+        const kept = subMarketAfterMarketChange(
+          data.subMarket,
+          data.market,
+          subMarketMap(await listValueList(tx, 'sub_market')),
+        );
+        if (kept === null) delete data.subMarket;
+      }
       const updated = await updateQuoteDraft(tx, id, {
         data,
         sfOpportunityId: data.sfOpportunityId ?? null,
@@ -666,6 +695,8 @@ export class IntakeService {
       },
       productFamily: data.productFamily ?? null,
       market: data.market ?? null,
+      // FB-12 (F-073): optional; evaluateIntake has already checked that it belongs to the market.
+      subMarket: values.sub_market,
       resin: data.resin ?? null,
       components: data.components ?? [],
       estAnnualVolume: data.estAnnualVolume ?? null,
@@ -774,11 +805,18 @@ export class IntakeService {
         entity: 'quote',
         entityId: quote.id,
         quoteId: quote.id,
-        before: { submittedAt: null, version: reworkOf.version },
+        before: {
+          submittedAt: null,
+          version: reworkOf.version,
+          market: reworkOf.market,
+          subMarket: reworkOf.subMarket,
+        },
         after: {
           event: 'quote.resubmitted',
           resubmitted: true,
           draftId: draft.id,
+          market: quote.market,
+          subMarket: quote.subMarket,
           shipToOverridden,
           commercialInputs: commercialInputsAudit(fields),
           scopeChanged: scopeAnswer,
@@ -828,6 +866,9 @@ export class IntakeService {
           sfOpportunityId,
           stageKey: 'INTAKE',
           draftId: draft.id,
+          // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
+          market: quote.market,
+          subMarket: quote.subMarket,
           shipToOverridden,
           commercialInputs: commercialInputsAudit(fields),
         },
@@ -1058,7 +1099,11 @@ function incompleteError(evaluation: IntakeEvaluation): IntakeError {
       : [INTAKE_PROBLEM_CODES.incomplete, 'The intake is missing required information'];
   const minSpec = evaluation.blocking.find((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED');
   return new IntakeError(422, code, title, {
-    errors: evaluation.blocking.map((b) => ({ path: b.field, message: b.message })),
+    // FB-12: a sub-market problem is named `subMarket` (the field of the request body).
+    errors: evaluation.blocking.map((b) => ({
+      path: b.field === 'sub_market' ? 'subMarket' : b.field,
+      message: b.message,
+    })),
     blocking: evaluation.blocking,
     ...(minSpec?.missing ? { missing: minSpec.missing } : {}),
   });
@@ -1136,6 +1181,7 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     sfOpportunityId: q.sfOpportunityId,
     productFamily: q.productFamily,
     market: q.market,
+    ...(q.subMarket ? { subMarket: q.subMarket } : {}),
     resin: q.resin,
     components: q.components,
     neckDiameter: q.neckDiameter,

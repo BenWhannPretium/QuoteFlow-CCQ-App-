@@ -505,6 +505,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       },
       productFamily,
       market: opp.spec.market,
+      subMarket: opp.spec.subMarket,
       resin: complete ? (RESIN_CODE[opp.spec.resin] ?? opp.spec.resin) : null,
       components: rng.chance(0.4) ? ['CONTAINER', 'CLOSURE'] : ['CONTAINER'],
       estAnnualVolume: complete ? rng.int(50, 6_000) * 1_000 : null,

@@ -119,6 +119,8 @@ export const QuoteSummary = z.object({
   requestClass: z.string().nullable(),
   productFamily: z.string().nullable(),
   market: z.string().nullable(),
+  /** FB-12 (F-073): the sub-market under `market`; sets the strategic-fit score. Optional at intake. */
+  subMarket: z.string().nullable(),
   resin: z.string().nullable(),
   estAnnualVolume: z.number().nullable(),
   estAnnualRevenue: z.number().nullable(),

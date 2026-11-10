@@ -72,6 +72,7 @@ export function quoteIntakeValues(q: Quote, customerName: string | null | undefi
     product_family: q.productFamily,
     components: q.components,
     market: q.market,
+    sub_market: q.subMarket,
     resin: q.resin,
     resin_customer_specified: q.resinCustomerSpecified,
     resin_grade: q.resinGrade,

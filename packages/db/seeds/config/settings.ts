@@ -87,6 +87,8 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   product_family: 'Tells Engineering which product line and tooling family to look at.',
   components: 'Closures, liners and labels change tooling, sourcing and the price build.',
   market: 'Market drives material, regulatory and cleanliness requirements.',
+  // FB-12 (F-073): the sub-market sets the strategic-fit score once the draft model is active.
+  sub_market: 'Pick the closest sub-market. It sets the strategic-fit score.',
   resin: 'Resin decides the process, the machine and much of the cost.',
   neck_finish: 'The neck finish is one of the details Engineering most often has to chase.',
   neck_diameter:
@@ -503,7 +505,15 @@ async function seedScoringDraftV3(db: DbOrTx): Promise<void> {
       changeReason: scoringModel.changeReason,
     })
     .from(scoringModel);
-  if (rows.some((r) => r.effectiveFrom === null || r.changeReason.startsWith('FB-10'))) return;
+  if (
+    rows.some(
+      (r) =>
+        r.effectiveFrom === null ||
+        r.changeReason.startsWith('FB-10') ||
+        r.changeReason.startsWith('FB-12'),
+    )
+  )
+    return;
   const version = Math.max(0, ...rows.map((r) => r.version)) + 1;
   await db.insert(scoringModel).values({
     ...scoringModelRow(

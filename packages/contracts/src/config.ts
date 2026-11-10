@@ -73,6 +73,11 @@ export const PublicConfigResponse = z.object({
   reasonCodes: z.array(PublicReasonCode),
   /** Active entries only, keyed by list key (resin, market, plant, …). */
   valueLists: z.record(z.string(), z.array(PublicValueListEntry)),
+  /**
+   * FB-12: labels of INACTIVE entries by list key and code, so an old quote on a retired code (a market
+   * that is no longer offered) still shows its label, marked "(no longer offered)" by the UI.
+   */
+  retiredLabels: z.record(z.string(), z.record(z.string(), z.string())).default({}),
   /** UI-relevant app settings (see PUBLIC_SETTING_KEYS). JSON null means "not decided yet". */
   settings: z.record(z.string(), z.unknown()),
   /** Priority tiers of the scoring model in effect, highest first. */

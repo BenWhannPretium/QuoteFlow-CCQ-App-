@@ -92,6 +92,11 @@ export const IntakeDraftData = z.object({
   /** Whole number 1–12 (checked by the domain). */
   decorationPrintColors: z.number().nullable().optional(),
   market: text(60),
+  /**
+   * FB-12 (F-073): a `sub_market` code that belongs to `market` (the server checks it and clears it when the
+   * market changes to one it does not belong to). Optional. It sets the strategic-fit score.
+   */
+  subMarket: text(60),
   resin: text(60),
   /** FB-02 (F-011): the customer specifies the resin; `resinGrade` (supplier / grade) is then required. */
   resinCustomerSpecified: z.boolean().optional(),
@@ -406,6 +411,7 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     product_family: data.productFamily ?? null,
     components: data.components ?? [],
     market: data.market ?? null,
+    sub_market: data.subMarket ?? null,
     resin: data.resin ?? null,
     resin_customer_specified: data.resinCustomerSpecified ?? false,
     resin_grade: blank(data.resinGrade),

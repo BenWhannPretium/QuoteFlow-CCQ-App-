@@ -14,6 +14,53 @@ export const NOT_DISCUSSED_HELP =
 
 type Entry = [code: string, label: string, meta?: Record<string, unknown>];
 
+/** FB-12 (Melanie Rasche, 2026-11-09): who approved the market list; recorded in `meta.approvedByName`. */
+export const MARKET_APPROVER = 'Melanie Rasche';
+export const MARKET_APPROVED_AT = new Date('2026-11-09T18:00:00Z');
+
+/** The five retired market codes (kept inactive) and the market they became (markets.md, "Old market codes"). */
+export const RETIRED_MARKETS = [
+  'NUTRITION',
+  'HOUSEHOLD_CHEMICAL',
+  'PHARMA_HEALTH',
+  'INDUSTRIAL_CHEMICAL',
+  'PET',
+] as const;
+
+/** The 30 sub-markets: [market code, sub-market code, label], in markets.md order. */
+export const SUB_MARKETS: readonly [market: string, code: string, label: string][] = [
+  ['FOOD', 'FOOD_CONDIMENTS', 'Condiments, Sauces & Dressings'],
+  ['FOOD', 'FOOD_FERMENTED', 'Fermented Foods'],
+  ['FOOD', 'FOOD_HONEY_SWEETENERS', 'Honey & Sweeteners'],
+  ['FOOD', 'FOOD_SNACKS', 'Snacks & Confections'],
+  ['FOOD', 'FOOD_NUT_BUTTERS', 'Nut Butters & Spreads'],
+  ['FOOD', 'FOOD_OILS', 'Oils'],
+  ['FOOD', 'FOOD_SPICES', 'Spices, Seasonings & Extracts'],
+  ['BEVERAGE', 'BEV_NON_ALCOHOLIC', 'Non-Alcoholic'],
+  ['BEVERAGE', 'BEV_SPIRITS_MIXERS', 'Spirits & Mixers'],
+  ['NUTRITION_WELLNESS', 'NW_LIQUID_SUPPLEMENTS', 'Liquid Supplements'],
+  ['NUTRITION_WELLNESS', 'NW_NUTRITIONAL_POWDERS', 'Nutritional Powders'],
+  ['NUTRITION_WELLNESS', 'NW_READY_TO_DRINK', 'Ready-to-Drink'],
+  ['NUTRITION_WELLNESS', 'NW_VMS', 'VMS'],
+  ['OTC_HEALTH', 'OTC_CONSUMER_HEALTH', 'Consumer Health'],
+  ['CLINICAL', 'CLIN_LIFE_SCIENCES', 'Life Sciences'],
+  ['CLINICAL', 'CLIN_SPECIMEN_CONTAINERS', 'Specimen Containers'],
+  ['CLINICAL', 'CLIN_SWABS', 'Swabs'],
+  ['CLINICAL', 'CLIN_HISTOLOGY', 'Histology'],
+  ['CLINICAL', 'CLIN_TUBES_VIALS', 'Tubes & Vials'],
+  ['PERSONAL_CARE', 'PC_BATH_SHOWER', 'Bath & Shower'],
+  ['PERSONAL_CARE', 'PC_HAIR', 'Hair Care'],
+  ['PERSONAL_CARE', 'PC_SKIN', 'Skin Care'],
+  ['HOME_CARE', 'HC_CLEANING', 'Cleaning Supplies'],
+  ['HOME_CARE', 'HC_PEST_CONTROL', 'Pest Control'],
+  ['HOME_CARE', 'HC_LAWN_GARDEN', 'Lawn & Garden'],
+  ['HOME_CARE', 'HC_NON_CORE', 'Non-Core'],
+  ['HOME_CARE', 'HC_PET_CARE', 'Pet Care'],
+  ['AUTO_COMMERCIAL_CHEMICAL', 'ACC_AUTO_CARE', 'Auto Care'],
+  ['AUTO_COMMERCIAL_CHEMICAL', 'ACC_AG_CROP', 'Ag & Crop Management'],
+  ['AUTO_COMMERCIAL_CHEMICAL', 'ACC_COMMERCIAL_CHEMICAL', 'Commercial Chemical'],
+];
+
 /**
  * Value lists from the ERF Template Rev D (2026-03-17). All provisional until confirmed at M4
  * (Jim Zweifel, Danielle Leu).
@@ -43,17 +90,30 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['BIO_RESIN', 'Bio-resin'],
     ['OTHER', 'Other'],
   ],
-  // TODO(M4): placeholder markets; confirm the list.
+  // FB-12 (F-020, D-004): Melanie Rasche's market list (Director of Market Development, 2026-11-09;
+  // Danielle Leu passed the question to her). Approved, in her order. The five retired codes are kept
+  // inactive so old quotes still show their label (`INACTIVE_VALUES`); migration 0037 deactivates them.
   market: [
     ['FOOD', 'Food'],
     ['BEVERAGE', 'Beverage'],
-    ['NUTRITION', 'Nutrition/Supplements'],
+    ['NUTRITION_WELLNESS', 'Nutrition & Wellness'],
+    ['OTC_HEALTH', 'OTC Health'],
+    ['CLINICAL', 'Clinical'],
     ['PERSONAL_CARE', 'Personal Care'],
+    ['HOME_CARE', 'Home Care'],
+    ['AUTO_COMMERCIAL_CHEMICAL', 'Auto & Commercial Chemical'],
+    // Retired by FB-12 (old placeholder list); see `MARKET_OLD_TO_NEW` for where each one went.
+    ['NUTRITION', 'Nutrition/Supplements'],
     ['HOUSEHOLD_CHEMICAL', 'Household Chemical'],
     ['PHARMA_HEALTH', 'Pharma/Health'],
     ['INDUSTRIAL_CHEMICAL', 'Industrial/Chemical'],
     ['PET', 'Pet'],
   ],
+  // FB-12 (F-073, D-004): the sub-market under a market, in Melanie Rasche's order (2026-11-09). `meta.market`
+  // is the parent market code. PROVISIONAL until she answers the open questions in
+  // docs/build-guide/feedback/inputs/markets.md (Sun Care not listed; what Home Care > Non-Core means;
+  // Histology and Tubes & Vials are not on the 9-box). The points live in the scoring model, not here.
+  sub_market: SUB_MARKETS.map(([market, code, label]): Entry => [code, label, { market }]),
   product_family: [
     ['BOTTLE', 'Bottle'],
     ['JAR', 'Jar'],
@@ -247,7 +307,11 @@ export const RETIRED_VALUE_LISTS: ReadonlySet<ValueListKey> = new Set(['neck_fin
  * Entries kept for old quotes but not offered (`active = false`). FB-03 (F-057): the EBM wheel is gone
  * from the machine type list. Migration 0027 deactivates it in existing environments.
  */
-const INACTIVE_VALUES: ReadonlySet<string> = new Set(['machine_type:EBM_WHEEL']);
+const INACTIVE_VALUES: ReadonlySet<string> = new Set([
+  'machine_type:EBM_WHEEL',
+  // FB-12 (F-020): the retired market codes. Migration 0037 deactivates them in existing environments.
+  ...RETIRED_MARKETS.map((code) => `market:${code}`),
+]);
 
 export function valueListRows() {
   return Object.entries(VALUE_LISTS).flatMap(([listKey, entries]) =>
@@ -259,10 +323,28 @@ export function valueListRows() {
       active:
         !RETIRED_VALUE_LISTS.has(listKey as ValueListKey) &&
         !INACTIVE_VALUES.has(`${listKey}:${code}`),
-      meta: meta ?? {},
-      provisional: true,
+      meta: {
+        ...(meta ?? {}),
+        ...(isApprovedMarket(listKey, code) ? { approvedByName: MARKET_APPROVER } : {}),
+      },
+      // FB-12: the active markets are approved (Melanie Rasche, 2026-11-09). Everything else is provisional.
+      ...approval(listKey, code),
     })),
   );
+}
+
+/**
+ * The 8 active markets are approved by Melanie Rasche. `approved_by` is a user id (FK to app_user) and she
+ * is not an app user, so her name is kept in `meta.approvedByName` and `approved_by` stays null.
+ */
+function isApprovedMarket(listKey: string, code: string): boolean {
+  return listKey === 'market' && !INACTIVE_VALUES.has(`market:${code}`);
+}
+
+function approval(listKey: string, code: string) {
+  return isApprovedMarket(listKey, code)
+    ? { provisional: false, approvedAt: MARKET_APPROVED_AT }
+    : { provisional: true };
 }
 
 export const seedValueLists = (db: DbOrTx) =>

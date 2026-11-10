@@ -154,6 +154,7 @@ export function summaryDto(row: QuoteSummaryRow, ctx: QuoteViewContext): QuoteSu
     requestClass: q.requestClass,
     productFamily: q.productFamily,
     market: q.market,
+    subMarket: q.subMarket,
     resin: q.resin,
     estAnnualVolume: q.estAnnualVolume,
     estAnnualRevenue: q.estAnnualRevenue,

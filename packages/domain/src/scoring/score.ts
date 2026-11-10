@@ -85,11 +85,14 @@ function scoreAttribute(
   let how: string;
   if (resolved.points !== undefined) {
     base = resolved.points;
-    how = `${resolved.raw}${
-      resolved.detail
-        ? ` (${resolved.detail}${resolved.detail === 'segment' ? '' : ', default'})`
-        : ''
-    }`;
+    how =
+      resolved.note !== undefined
+        ? `${resolved.note} (neutral default)`
+        : `${resolved.raw}${
+            resolved.detail
+              ? ` (${resolved.detail}${resolved.detail === 'sub-market' ? '' : ', default'})`
+              : ''
+          }`;
   } else {
     const value = Number(resolved.raw);
     const band = bandFor(attribute.bands ?? [], value);

@@ -40,6 +40,8 @@ export interface SyntheticOpportunity {
     neck: string;
     productFamily: string;
     market: string;
+    /** FB-12: a sub-market of `market`, or null (a quote with a market but no sub-market). */
+    subMarket: string | null;
   };
 }
 
@@ -58,15 +60,56 @@ const SHAPES: [shape: string, family: string][] = [
 const RESINS = ['HDPE', 'PET', 'PP', 'LDPE', 'PCR-HDPE', 'PCR-PET', 'PETG'];
 const NECKS = ['28-410', '38-400', '89-400', '110-400', '120 DC'];
 const SIZES = [2, 4, 8, 12, 16, 24, 32, 64, 128];
-const MARKETS = [
-  'FOOD',
-  'BEVERAGE',
-  'NUTRITION',
-  'PERSONAL_CARE',
-  'HOUSEHOLD_CHEMICAL',
-  'PHARMA_HEALTH',
-  'INDUSTRIAL_CHEMICAL',
-  'PET',
+type MarketPick = [market: string, subMarket: string | null];
+
+/**
+ * FB-12 (F-020, F-073): eight slots, one per market of the old placeholder list and in its order, so the
+ * single `rng.pick` draw below is unchanged and the rest of the random stream stays stable. Each slot
+ * cycles through its sub-markets by the opportunity's index (no extra draw); `null` is a quote that has a
+ * market but no sub-market yet. Old to new: Nutrition/Supplements -> Nutrition & Wellness, Household
+ * Chemical -> Home Care, Pharma/Health -> OTC Health or Clinical, Industrial/Chemical -> Auto & Commercial
+ * Chemical, Pet -> Home Care > Pet Care.
+ */
+const MARKETS: MarketPick[][] = [
+  [
+    ['FOOD', 'FOOD_SNACKS'],
+    ['FOOD', 'FOOD_HONEY_SWEETENERS'],
+    ['FOOD', 'FOOD_CONDIMENTS'],
+    ['FOOD', null],
+    ['FOOD', 'FOOD_SPICES'],
+    ['FOOD', 'FOOD_NUT_BUTTERS'],
+  ],
+  [
+    ['BEVERAGE', 'BEV_NON_ALCOHOLIC'],
+    ['BEVERAGE', 'BEV_SPIRITS_MIXERS'],
+  ],
+  [
+    ['NUTRITION_WELLNESS', 'NW_VMS'],
+    ['NUTRITION_WELLNESS', 'NW_NUTRITIONAL_POWDERS'],
+    ['NUTRITION_WELLNESS', null],
+    ['NUTRITION_WELLNESS', 'NW_LIQUID_SUPPLEMENTS'],
+  ],
+  [
+    ['PERSONAL_CARE', 'PC_SKIN'],
+    ['PERSONAL_CARE', 'PC_HAIR'],
+    ['PERSONAL_CARE', 'PC_BATH_SHOWER'],
+  ],
+  [
+    ['HOME_CARE', 'HC_CLEANING'],
+    ['HOME_CARE', 'HC_LAWN_GARDEN'],
+    ['HOME_CARE', 'HC_PEST_CONTROL'],
+  ],
+  [
+    ['OTC_HEALTH', 'OTC_CONSUMER_HEALTH'],
+    ['CLINICAL', 'CLIN_SPECIMEN_CONTAINERS'],
+    ['CLINICAL', 'CLIN_SWABS'],
+  ],
+  [
+    ['AUTO_COMMERCIAL_CHEMICAL', 'ACC_COMMERCIAL_CHEMICAL'],
+    ['AUTO_COMMERCIAL_CHEMICAL', 'ACC_AUTO_CARE'],
+    ['AUTO_COMMERCIAL_CHEMICAL', 'ACC_AG_CROP'],
+  ],
+  [['HOME_CARE', 'HC_PET_CARE']],
 ];
 
 /** 18-character id with a Salesforce-like key prefix. Fake: never a real record. */
@@ -126,6 +169,8 @@ export function buildOpportunities(
         (ch) => ch.toUpperCase(),
       );
     const close = addMonths(anchor, rng.float(2, 9));
+    const marketSlot = rng.pick(MARKETS);
+    const [market, subMarket] = marketSlot[i % marketSlot.length]!;
     return {
       id: rng.uuid(new Date(anchor.getTime() - 200 * DAY_MS + i * 1000)),
       sfOpportunityId: sfId(rng, '006'),
@@ -134,7 +179,7 @@ export function buildOpportunities(
       amount: amount(rng),
       closeDate: close.toISOString().slice(0, 10),
       sfStage,
-      spec: { sizeOz, resin, shape, neck, productFamily, market: rng.pick(MARKETS) },
+      spec: { sizeOz, resin, shape, neck, productFamily, market, subMarket },
     };
   });
 }

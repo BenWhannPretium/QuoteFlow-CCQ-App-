@@ -59,7 +59,9 @@ describe('config seeds', () => {
     expect(counts).toMatchObject({
       process_type: 8,
       resin: 11,
-      market: 8,
+      // FB-12 (F-020): Melanie Rasche's 8 markets + the 5 retired codes kept inactive; 30 sub-markets.
+      market: 13,
+      sub_market: 30,
       product_family: 7,
       component: 6, // FB-02 (F-013): + Decoration
       request_class: 4,
@@ -161,8 +163,24 @@ describe('config seeds', () => {
       'scoring_model',
       'sf_stage_map',
     ]) {
-      expect(await count(table, sql`provisional = false`), table).toBe(0);
+      // FB-12: the 8 active markets were approved by Melanie Rasche (2026-11-09); nothing else is.
+      const approved = table === 'value_list' ? 8 : 0;
+      expect(await count(table, sql`provisional = false`), table).toBe(approved);
     }
+    const approvedMarkets = await q<{ code: string; active: boolean; approved_at: Date | null }>(
+      sql`select code, active, approved_at from value_list where provisional = false order by sort`,
+    );
+    expect(approvedMarkets.map((r) => r.code)).toEqual([
+      'FOOD',
+      'BEVERAGE',
+      'NUTRITION_WELLNESS',
+      'OTC_HEALTH',
+      'CLINICAL',
+      'PERSONAL_CARE',
+      'HOME_CARE',
+      'AUTO_COMMERCIAL_CHEMICAL',
+    ]);
+    expect(approvedMarkets.every((r) => r.active && r.approved_at !== null)).toBe(true);
   });
 
   it('re-running is idempotent and never overwrites an approved value', async () => {

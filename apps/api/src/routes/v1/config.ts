@@ -4,6 +4,7 @@ import {
   getScoringModel,
   listActiveValueLists,
   listGateRows,
+  listInactiveValueLists,
   listOutcomeRows,
   listReasonCodes,
   listSettings,
@@ -18,11 +19,12 @@ const publicSettingKeys = new Set<string>(PUBLIC_SETTING_KEYS);
 
 /** Assemble the UI config from the config tables. Labels only: no rules are evaluated here. */
 export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicConfigResponse> {
-  const [workflow, reasons, values, settings, model, stageRows, gateRows, outcomeRows] =
+  const [workflow, reasons, values, retired, settings, model, stageRows, gateRows, outcomeRows] =
     await Promise.all([
       loadWorkflowConfigInput(db),
       listReasonCodes(db),
       listActiveValueLists(db),
+      listInactiveValueLists(db),
       listSettings(db),
       getScoringModel(db, now),
       listStageRows(db),
@@ -42,6 +44,9 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
       meta: (v.meta ?? {}) as Record<string, unknown>,
     });
   }
+
+  const retiredLabels: PublicConfigResponse['retiredLabels'] = {};
+  for (const v of retired) (retiredLabels[v.listKey] ??= {})[v.code] = v.label;
 
   const tiers = model
     ? parseScoringModel(scoringModelInputFromRow(model))
@@ -91,6 +96,7 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
         sort: r.sort,
       })),
     valueLists,
+    retiredLabels,
     settings: Object.fromEntries(
       settings.filter((s) => publicSettingKeys.has(s.key)).map((s) => [s.key, s.value ?? null]),
     ),

@@ -110,6 +110,14 @@ export const listActiveValueLists = (db: DbOrTx) =>
     .where(eq(valueList.active, true))
     .orderBy(asc(valueList.listKey), asc(valueList.sort), asc(valueList.code));
 
+/** FB-12: every INACTIVE value-list entry, so old quotes keep showing the label of a retired code. */
+export const listInactiveValueLists = (db: DbOrTx) =>
+  db
+    .select()
+    .from(valueList)
+    .where(eq(valueList.active, false))
+    .orderBy(asc(valueList.listKey), asc(valueList.sort), asc(valueList.code));
+
 export const listReasonCodes = (db: DbOrTx, context?: string) =>
   db
     .select()
