@@ -5,7 +5,7 @@
 | Session | **U4**, Wed Nov 11 (60 min). Run by Ben Whann with the IT security delegate. Part of the Gate 5 evidence. |
 | Tester roles | IT security delegate (observer and tester), Ben (driver) |
 | Test URL | https://quoteflow-test.azurewebsites.net |
-| Sign in | One test account per role, each in exactly one group: `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance` (FB-07, once IT has created it, A-032), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin`. Plus one account in **no** `SG-CCQ-*` group. Use a private browser window per account. |
+| Sign in | One test account per role, each in exactly one group: `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance` (FB-07; created 2026-11-10), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin`. Plus one account in **no** `SG-CCQ-*` group. Use a private browser window per account. |
 | Before you start | Ben lists the test accounts: `<TEST-USER per role, from IT>`. Quotes from U1–U3 exist. Browser developer tools are allowed (Network tab). |
 | How to log a problem | Use **Report an issue**. Every access failure is **Sev-2** or higher. |
 
@@ -17,6 +17,10 @@
 | `<CCQ-SEC-B>` | A quote owned by a different KAM, in a region KAM A does not cover |
 | `<CCQ-SEC-FR>` | A quote in Final Review |
 | `<CCQ-SEC-QT>` | A quote in Quoting with a price approval and capital readiness |
+| `<CCQ-SEC-ENG>` | A quote in Engineering Review assigned to engineer test user 1 (FB-08 steps 22a–22d) |
+| `<CCQ-SEC-EXC>` | A quote in Final Review with a non-standard payment-terms exception waiting (FB-08 steps 22c–22d) |
+
+**Changes for FB-08, FB-09, FB-12 and FB-13 (2026-11-10).** FB-08 added four permissions (`terms.engineering.edit`, `terms.finalize`, `terms.exception.decide`, `finalReview.signoff`), four routes and two quote-child tables with row-level security: steps 22a–22e and 28a cover them. FB-09, FB-12 and FB-13 changed no permission, route or row-level-security policy (value lists, one nullable quote column, data only): no steps.
 
 ## Part A: Sign-in
 
@@ -57,6 +61,11 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 21 | As the Approver who is also the KAM on a quote (Ben stages it), send the same call for that quote. | Refused (segregation). The quote stays in Final Review. | | |
 | 21a | FB-07 (F-083). As the Finance account, open `<CCQ-SEC-QT>`, then try **Save price approval**, a file upload on **Attachments**, `/queue/pricing` and a G3 decision (Ben shows how). | The quote and its Quoting tab open read-only, with **Upload the ROI model** only when the quote needs an ROI. Every other write is **403**; `/queue/pricing` is denied. The menu shows **Home** and **Pipeline** only. | | |
 | 22 | As the Engineer, `GET /api/v1/pricing/erf/<a known ERF number>`. | **200**. The pricing history is open to every role that reads a quote. | | |
+| 22a | FB-08 (F-068, T-031). Send the capital-terms save: `PUT /api/v1/quotes/<CCQ-SEC-FR>/terms/capital` with `{"termsMoldOwnership":"CUSTOMER"}` as the KAM, then as Pricing, then as the Approver on `<CCQ-SEC-QT>` (not in Final Review), then as the Approver on `<CCQ-SEC-FR>`. | **403** for the KAM, for Pricing, and for the Approver on a quote that is not in Final Review. **200** for the Approver on `<CCQ-SEC-FR>`. Only the approver confirms the capital terms, and only while the quote is in Final Review. | | |
+| 22b | FB-08 (F-021). Send `PUT /api/v1/quotes/<CCQ-SEC-ENG>/terms/engineering` with `{"termsMoq":"10 pallets"}` as Pricing, as the KAM, as engineer test user 2 (not assigned), then as engineer test user 1 (assigned) and as the Engineering lead. Then send `PUT /api/v1/quotes/<CCQ-SEC-ENG>/terms` with `{"termsMoq":"10 pallets"}` as the KAM. | **403** for Pricing, the KAM and the unassigned engineer. **200** for the assigned engineer and the lead. The last call is **400**: the terms route no longer accepts `termsMoq` or `toolingFundingModel`. Nothing changes on the quote in the refused calls. | | |
+| 22c | FB-08 (T-007). Send `POST /api/v1/quotes/<CCQ-SEC-EXC>/terms/exception/decision` with `{"decision":"approve","rationale":"test"}` as the KAM, as the Approver, as Pricing and as the sales leader. Then as the pricing lead. | **403** for the first four: only the pricing lead decides. **200** for the pricing lead (do it last: it records the decision). The decision and its rationale are in the **Audit log**. | | |
+| 22d | FB-08 (F-082). With the extra approval **off** (the default), send `POST /api/v1/quotes/<CCQ-SEC-FR>/final-review/signoffs` with `{"ruleKey":"customer_funded_capital","signoffKey":"sales_leader"}` as the KAM, as the Approver, as Pricing, as the sales leader and as Leadership. | **403** for the KAM, the Approver and Pricing (only the sales leader and leadership hold the sign-off permission). For the sales leader and Leadership the call is **422**, not recorded, because no rule is switched on. Nothing changes on the quote. | | |
+| 22e | FB-08. On a quote released at G4 (the quote from step 19 or `approver.md` step 31), send `PUT /api/v1/quotes/<number>/terms` as the KAM, `PUT /terms/engineering` as the lead and `PUT /terms/capital` as the Approver. | **409** problem+json (`…/problems/section-locked`) for each: every terms route locks at G4 Approve. | | |
 
 ## Part D: Data scope across users
 
@@ -68,6 +77,7 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 26 | As KAM A: **New intake** → **All**, search for KAM B's Salesforce opportunity. | It is not listed (Salesforce opportunities follow the same scope). | | |
 | 27 | As KAM A: **Export CSV** from **Pipeline**. | Only KAM A's quotes are in the file. | | |
 | 28 | As Admin: set KAM A back to the default scope. | KAM A sees the full pipeline again. | | |
+| 28a | FB-08. Ben, as the owner of the test database: `SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname IN ('terms_exception_request','g4_signoff');` | Both rows read `t` and `t`: row-level security is on and forced for the two new tables, which follow the visibility of their quote. | | |
 
 ## Part E: Exports
 

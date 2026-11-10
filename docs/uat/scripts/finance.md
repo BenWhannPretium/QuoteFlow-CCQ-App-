@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Session | **U3** (with Pricing), or a short session with Stacy Slocum once `SG-CCQ-Finance` exists (A-032). Run by Bailey Schmitt. |
+| Session | **U3** (with Pricing), or a short session with Stacy Slocum. Run by Bailey Schmitt. |
 | Tester role | Finance, the ROI owner (app role `CCQ.Finance`, provisional name). An input, not an approver. |
 | Test URL | https://quoteflow-test.azurewebsites.net |
-| Sign in | **Sign in with Microsoft** with your Pretium account. Your account must be in **`SG-CCQ-Finance`** (IT, A-032). Until it exists, Ben runs these steps with the dev Finance persona on a laptop. |
+| Sign in | **Sign in with Microsoft** with your Pretium account. Your account must be in **`SG-CCQ-Finance`**. The group and the `CCQ.Finance` app role exist (2026-11-10); Ben adds each tester to the group before the session. If you see "No QuoteFlow access yet", tell Ben. If your account is not in the group yet, Ben runs these steps with the dev Finance persona on a laptop. |
 | Before you start | Pricing has uploaded a costing model on `<CCQ-QT-4>` (capital required at G2) and attested costing (pricing.md steps 8a–9). |
 | How to log a problem | Tell Ben or Bailey with the step number (the **Report an issue** button is not part of the Finance role, see the FB-07 notes). |
 
@@ -36,5 +36,15 @@ Use synthetic workbooks only (a copy of your board template with made-up numbers
 | 7 | Look at the menu and the home page. | Menu: **Home**, **Pipeline**. Home: **ROI requests** with what to do. No pricing queue, no analytics, no approvals. | | |
 | 8 | On `<CCQ-QT-4>` look for **Save price approval**, **Save capital readiness**, an upload on **Attachments**, or a gate decision. | None of them. | | |
 | 9 | After the pricing lead approves the price (pricing.md step 20a), open `<CCQ-QT-4>`. | **3. Price approved** done, by whom and when. No upload buttons (locked after G3). | | |
+
+## Part C: Funding and capital terms, read-only (FB-08)
+
+Added 2026-11-10. Engineering now enters the tooling funding model on the quote, and the approver confirms the capital terms. You read them; you change none of them. Which funding models need an ROI is a provisional setting (customer-funded and $0 CER, D-001).
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 10 | On `<CCQ-QT-4>` open **Overview** → **Commercial terms**. Read **Tooling funding model**, **MOQ** and **Capital terms**. | You can read them. There is no **Save terms**, **Save MOQ and funding** or **Save capital terms** button for you. | | |
+| 11 | Ask Engineering to set **Tooling funding model** to **$0 CER (customer-reimbursed capital)** on `<CCQ-QT-2>` (engineering.md step 69). Then open `<CCQ-QT-2>` → **Quoting** → **2. ROI**. | **2. ROI** now reads "Needed: Tooling funding: $0 CER (customer-reimbursed capital)". You can upload an ROI. | | |
+| 12 | Ask Engineering to set the same quote back to **Not discussed**. Open **2. ROI** again. | "Not required: …" again, with the reason (no capital, not flagged likely, and the funding model does not call for one). | | |
 
 **Sign-off:** Tester ______________________ Date __________

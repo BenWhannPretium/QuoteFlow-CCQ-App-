@@ -21,6 +21,21 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 > - **FB-06 (engineering):** `engineering.md` step 36 now expects the equipment BOM before "Capital required", and a new **Part E** (steps 48–54) covers the engineer suggestions, removing a BOM, the lock after G2, the two-step and pack-out limits, and the **From engineering** card. Pricing checks that card in `pricing.md` **Part F** (steps 33–34), approvers in `approver.md` **Part D** (step 23).
 > - **FB-10 (priority calibration):** new script `scripts/priority-calibration.md` (session **U3b**). The Admin preview of the draft scoring model, Leadership's read-only view, and the platform-minimum warning and volume-band routing, which an Admin switches on for the test and **off again** at the end.
 
+> **Updated 2026-11-10 for FB-08, FB-09, FB-12 and FB-13.** Changes testers will notice:
+> - **"Other" rule (FB-09):** a KAM who picks **Other** for **Resin**, **PCR %** or **Additive** must type the customer's own value, and Engineering, Pricing and Final Review read it. The resin list is Danielle Leu's and approved; PCR and additive are provisional. A new packaging **Other** note is capped at 500 characters (KAM script steps 10a–10e and 13e, engineering Part G steps 62–65, pricing step 43, approver step 34).
+> - **Market and Sub-market (FB-12):** eight markets replace the old five. The KAM then picks a **Sub-market** of that market (optional; changing the market clears it). It shows as "Market › Sub-market" on the quote, in Final Review and in Engineering's product facts. The draft scoring model now scores by sub-market, and every open quote previews at the neutral 50 until KAMs pick one (KAM steps 9a–9c, engineering step 66, pricing step 44, approver step 33, priority-calibration steps 2a–4b).
+> - **Plants and machine types (FB-13):** Jim Zweifel's 22 plants and 14 machine types replace the placeholders. An old quote on a retired value still opens and reads "(no longer offered)" (engineering Part F, steps 55–61; already in the script from the FB-13 pull request).
+> - **Funding and MOQ are Engineering's (FB-08):** the assigned engineer or the lead enters the **Tooling funding model** and **MOQ** on the quote (engineering steps 69–73). Pricing and the KAM read them (pricing step 16, finance Part C).
+> - **Payment terms and exceptions (FB-08):** payment terms are a list. Anything other than Net 15 or Net 30 goes to the pricing lead as an exception, who approves or rejects it with a rationale (pricing steps 35–40).
+> - **Capital terms (FB-08):** Sales and Pricing pre-fill them (pricing steps 41–42). The approver edits and **confirms** them on the Final Review screen, and cannot release the offer without that or while an exception is waiting or rejected. The terms then lock at G4 (approver Part E, steps 24–32; steps 15–16 and 17 changed).
+> - **Extra customer-funded approval (FB-08):** ships **off**. `approver.md` **Part G** (steps 35–41) is **optional**: an Admin switches it on for the test and **off again** at step 41. The sales leader signs, then leadership (leadership step 28, sales-leader step 36).
+> - **Platform minimums (priority calibration):** corrected on Nov 9 to ISBM 1M, RHB 1M, injection (IMM) 3M, IBM 3M, EBM 1M a year; the script's numbers match the test site.
+> - **Security:** FB-08 added four permissions and two quote-child tables with row-level security (security-access steps 22a–22e and 28a). FB-09, FB-12 and FB-13 changed no permission.
+> - **Finance:** the `CCQ.Finance` app role and `SG-CCQ-Finance` group now exist. Ben adds the Finance testers to the group before U3.
+> - **Retest:** the KAM and sales-leader scripts ran on Mon Nov 9, before FB-09 and FB-12 were built. The new steps are there for a retest and for the record (KAM script, sales-leader steps 7, 7a and Part F).
+>
+> Labels come from the code as built, the Playwright specs and the build notes. Where the wording of a refusal was not fixed in the code (for example the message when capital terms are not confirmed), the step says so and asks the tester to write it in Notes.
+
 ## What is in the pack
 
 | Path | What it is |
@@ -45,7 +60,7 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 | **U0** kickoff | Mon Nov 9, 9:00 (45 min) | This README, the quick-starts | All testers | All |
 | **U1** | Mon Nov 9 (2 h) | `scripts/kam.md`, `scripts/sales-leader.md` | Jordan Albin and 1–2 KAMs (e.g. Linda Vinegar, Josh Edmonson); a sales leader (Matt Graden or Jack Gordon's delegate) | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader` |
 | **U2** | Tue Nov 10 (2 h) | `scripts/engineering.md` | Jim Zweifel's team (lead and engineers), Faron Ipox (capacity) | `SG-CCQ-EngLead`, `SG-CCQ-Engineer` |
-| **U3** | Wed Nov 11 (2 h) | `scripts/pricing.md`, `scripts/finance.md` (FB-07), `scripts/approver.md`, `scripts/leadership.md` | Gemma Cebolla and a pricing analyst, the pricing lead; Stacy Slocum (Finance, ROI); the Final Review approver candidate(s) (D-10); leadership | `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance` (A-032), `SG-CCQ-Approver`, `SG-CCQ-Leadership` |
+| **U3** | Wed Nov 11 (2 h) | `scripts/pricing.md`, `scripts/finance.md` (FB-07), `scripts/approver.md`, `scripts/leadership.md` | Gemma Cebolla and a pricing analyst, the pricing lead; Stacy Slocum (Finance, ROI); the Final Review approver candidate(s) (D-10); leadership | `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance`, `SG-CCQ-Approver`, `SG-CCQ-Leadership` |
 | **U3b** | Wed Nov 11 (30 min), after U3 | `scripts/priority-calibration.md` (FB-10) | Ben (Admin), the U3 leadership tester, a sales leader and a KAM (test accounts if the U1 testers are not free) | `SG-CCQ-Admin`, `SG-CCQ-Leadership`, `SG-CCQ-SalesLeader`, `SG-CCQ-KAM` |
 | **U4** | Wed Nov 11 (60 min) | `scripts/security-access.md` | IT security delegate, with Ben | One test account per group, plus one in no group |
 | **U5** | Thu Nov 12 (45 min) | `scripts/tie-out.md` | Zac Cairns, Graham Parle, D&A (Brennan Paul's engineer), with Ben | `SG-CCQ-Admin` (Ben); a non-commercial D&A account |

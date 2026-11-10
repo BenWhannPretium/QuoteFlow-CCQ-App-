@@ -19,6 +19,8 @@
 | `<CCQ-CD-3 staged by Ben>` | A quote in Customer Decision, still inside its validity date |
 | `<CCQ-OVR-OLD staged by Ben>` | Optional: a priority override requested **before** the November change (a KAM raised it under the old rule). Skip step 26 if Ben has none |
 
+**Retest and record (added 2026-11-10).** Session U1 ran on Mon Nov 9, before FB-09 (the "Other" rule), FB-12 (sub-market and the new market list) and FB-08 (commercial terms). Steps 7 and 7a are changed. Part F is new. Retest them on the test site. They stay here for the record.
+
 Labels for stages, outcomes and reasons are provisional configuration. Note a wrong meaning, not a different wording.
 
 ## Part A: Home and the team dashboard
@@ -36,7 +38,8 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 6 | Click **To qualify**. | Tab **To qualify**: "Submitted intakes, highest priority first. The score is advisory: it orders the list; you decide." Each row has **Decide**. | | |
-| 7 | Open `<CCQ-G1-A>`. Read the product facts, then **Why this priority?** | The Overview shows what the KAM entered (resin, PCR %, dimensions, the two needed-by dates, any variants note). **Why this priority?** shows each attribute with its points. Strategic fit shows **Market: <name>** with a **provisional** chip. "Timing" reads the **Quote needed by** date. | | |
+| 7 | Open `<CCQ-G1-A>`. Read the product facts, then **Why this priority?** | The Overview shows what the KAM entered (**Market** as "Market › Sub-market", resin, PCR %, dimensions, the two needed-by dates, any variants note). **Why this priority?** shows each attribute with its points. Strategic fit shows **Market: <Market › Sub-market>** (for example "Market: Food › Snacks & Confections") with a **provisional** chip. The live model scores strategic fit at a neutral 50; the sub-market points are only in the draft (priority-calibration.md). "Timing" reads the **Quote needed by** date. | | |
+| 7a | Open a quote where the KAM picked **Other** for resin, PCR or additive (for example the quote from kam.md steps 10a–10d). Read **Resin**, **Customer-specified resin**, **PCR %** and **Additives**. | **Resin** reads "Other". The next three show what the KAM typed, so you can qualify without asking. Write in Notes if the customer's value would change your decision. | | |
 | 8 | Click **Decide** on `<CCQ-G1-A>`. Choose **Advance**. Click **Record decision**. | The dialog shows the priority (advisory) and "Intake complete for this decision." No note is asked for a plain Advance. Then "Advance recorded". The quote leaves the list. Its stage is **Engineering Review**. | | |
 | 9 | **Decide** on the KAM's Part C quote. Choose **Rework (back to KAM)**. Pick reason **Missing information**. Type a note in "What should the KAM fix?" **Record decision**. | A note is required. The quote goes back to **Intake**. The KAM is notified and sees the banner (kam.md steps 37–40). | | |
 | 10 | **Decide** on `<CCQ-G1-B>`. Choose **Hold**. Click **Record decision** with no review date and no note. | Refused: it asks for a review date and a note. | | |
@@ -80,6 +83,16 @@ You are the only role that can change a priority tier. It applies at once, with 
 | 31 | **Pipeline** → **Columns**. | **Budgetary capital estimate** and **Capital readiness** are offered, like for every role. | | |
 | 32 | Open a quote whose G3 or G4 is decided. | The section is locked: "Locked after G3 · decided by <name> on <date> · reopens if the quote is sent back". | | |
 | 33 | **Analytics**. Pick your region and **Last 90 days**. | The **Leadership report** loads. Every chart has an ⓘ with its definition. | | |
+
+## Part F: Terms and extra approval, read and record (FB-08)
+
+Added 2026-11-10. Skipped on Nov 9, because FB-08 was not built yet.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 34 | Open a quote that has not been released at Final Review → **Overview** → **Commercial terms**. | You can edit the payment terms, the tooling payment, the terms check and the **Capital terms** pre-fill (the KAM and Pricing can too). **Tooling funding model** and **MOQ** are Engineering's: you read them. You cannot confirm the capital terms (the approver does) or approve a payment-terms exception (the pricing lead does). | | |
+| 35 | Click **Approvals**. | You see the override requests (step 26). There is no Final Review queue for you: only the approver, leadership and Admin read it. Write in Notes what the page shows you. | | |
+| 36 | **Optional.** Only if Bailey runs `approver.md` Part G (the extra customer-funded approval, switched on for the test): sign off as the **sales leader**. | See `approver.md` step 39. You sign first, on the quote's **Commercial terms**. Leadership signs after you. | | |
 
 ## Sign-off
 

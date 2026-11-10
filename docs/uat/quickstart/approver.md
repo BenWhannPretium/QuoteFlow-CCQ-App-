@@ -14,7 +14,7 @@
 ## What changed from the ERF
 
 - Final Review is separate from the customer outcome. Advance releases the offer; the KAM records Awarded or Lost later.
-- An open terms check or Legal review shows as a warning with a link. It does not stop you. Terms and Legal are shown read-only on the review screen.
+- An open terms check or Legal review shows as a warning with a link. It does not stop you. You edit and confirm the **Capital terms** on the review screen (**Confirm capital terms**). You cannot release the offer until you do, or while a non-standard payment-terms exception is waiting for the pricing lead or was rejected.
 - After you release the offer, the terms and the capital flag are locked.
 - You cannot decide a quote where you are the KAM, or whose price you approved.
 
