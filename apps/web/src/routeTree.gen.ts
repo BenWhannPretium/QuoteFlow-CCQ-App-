@@ -8,305 +8,305 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as IndexRouteImport } from './routes/index';
-import { Route as AdminRouteRouteImport } from './routes/admin/route';
-import { Route as AnalyticsRouteImport } from './routes/analytics';
-import { Route as ApprovalsRouteImport } from './routes/approvals';
-import { Route as BoardRouteImport } from './routes/board';
-import { Route as NotificationsRouteImport } from './routes/notifications';
-import { Route as PricingHistoryRouteImport } from './routes/pricing-history';
-import { Route as ProposalsRouteImport } from './routes/proposals';
-import { Route as AdminIndexRouteImport } from './routes/admin/index';
-import { Route as AdminSplatRouteImport } from './routes/admin/$';
-import { Route as AdminAuditRouteImport } from './routes/admin/audit';
-import { Route as AdminDecisionLogRouteImport } from './routes/admin/decision-log';
-import { Route as AdminFeedbackRouteImport } from './routes/admin/feedback';
-import { Route as AdminIntegrationsRouteImport } from './routes/admin/integrations';
-import { Route as AdminOverrideLogRouteImport } from './routes/admin/override-log';
-import { Route as AdminReasonCodesRouteImport } from './routes/admin/reason-codes';
-import { Route as AdminScoringRouteImport } from './routes/admin/scoring';
-import { Route as AdminSettingsRouteImport } from './routes/admin/settings';
-import { Route as AdminUiKitRouteImport } from './routes/admin/ui-kit';
-import { Route as AdminUsersRouteImport } from './routes/admin/users';
-import { Route as AdminValueListsRouteImport } from './routes/admin/value-lists';
-import { Route as AdminWorkflowRouteImport } from './routes/admin/workflow';
-import { Route as IntakeNewRouteImport } from './routes/intake/new';
-import { Route as MePreferencesRouteImport } from './routes/me/preferences';
-import { Route as QueueEngineeringRouteImport } from './routes/queue/engineering';
-import { Route as QueuePricingRouteImport } from './routes/queue/pricing';
-import { Route as QuotesIndexRouteImport } from './routes/quotes/index';
-import { Route as QuotesQuoteNumberRouteImport } from './routes/quotes/$quoteNumber';
-import { Route as AdminReportsErfLinkageRouteImport } from './routes/admin/reports/erf-linkage';
-import { Route as AdminReportsOutcomesRouteImport } from './routes/admin/reports/outcomes';
-import { Route as AdminReportsUsageRouteImport } from './routes/admin/reports/usage';
-import { Route as QuotesQuoteNumberReviewRouteImport } from './routes/quotes/$quoteNumber_.review';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as BoardRouteImport } from './routes/board'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PricingHistoryRouteImport } from './routes/pricing-history'
+import { Route as ProposalsRouteImport } from './routes/proposals'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminSplatRouteImport } from './routes/admin/$'
+import { Route as AdminAuditRouteImport } from './routes/admin/audit'
+import { Route as AdminDecisionLogRouteImport } from './routes/admin/decision-log'
+import { Route as AdminFeedbackRouteImport } from './routes/admin/feedback'
+import { Route as AdminIntegrationsRouteImport } from './routes/admin/integrations'
+import { Route as AdminOverrideLogRouteImport } from './routes/admin/override-log'
+import { Route as AdminReasonCodesRouteImport } from './routes/admin/reason-codes'
+import { Route as AdminScoringRouteImport } from './routes/admin/scoring'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminUiKitRouteImport } from './routes/admin/ui-kit'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminValueListsRouteImport } from './routes/admin/value-lists'
+import { Route as AdminWorkflowRouteImport } from './routes/admin/workflow'
+import { Route as IntakeNewRouteImport } from './routes/intake/new'
+import { Route as MePreferencesRouteImport } from './routes/me/preferences'
+import { Route as QueueEngineeringRouteImport } from './routes/queue/engineering'
+import { Route as QueuePricingRouteImport } from './routes/queue/pricing'
+import { Route as QuotesIndexRouteImport } from './routes/quotes/index'
+import { Route as QuotesQuoteNumberRouteImport } from './routes/quotes/$quoteNumber'
+import { Route as AdminReportsErfLinkageRouteImport } from './routes/admin/reports/erf-linkage'
+import { Route as AdminReportsOutcomesRouteImport } from './routes/admin/reports/outcomes'
+import { Route as AdminReportsUsageRouteImport } from './routes/admin/reports/usage'
+import { Route as QuotesQuoteNumberReviewRouteImport } from './routes/quotes/$quoteNumber_.review'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApprovalsRoute = ApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const BoardRoute = BoardRouteImport.update({
   id: '/board',
   path: '/board',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PricingHistoryRoute = PricingHistoryRouteImport.update({
   id: '/pricing-history',
   path: '/pricing-history',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ProposalsRoute = ProposalsRouteImport.update({
   id: '/proposals',
   path: '/proposals',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminSplatRoute = AdminSplatRouteImport.update({
   id: '/$',
   path: '/$',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminAuditRoute = AdminAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminDecisionLogRoute = AdminDecisionLogRouteImport.update({
   id: '/decision-log',
   path: '/decision-log',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminFeedbackRoute = AdminFeedbackRouteImport.update({
   id: '/feedback',
   path: '/feedback',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminIntegrationsRoute = AdminIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminOverrideLogRoute = AdminOverrideLogRouteImport.update({
   id: '/override-log',
   path: '/override-log',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminReasonCodesRoute = AdminReasonCodesRouteImport.update({
   id: '/reason-codes',
   path: '/reason-codes',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminScoringRoute = AdminScoringRouteImport.update({
   id: '/scoring',
   path: '/scoring',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminUiKitRoute = AdminUiKitRouteImport.update({
   id: '/ui-kit',
   path: '/ui-kit',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminValueListsRoute = AdminValueListsRouteImport.update({
   id: '/value-lists',
   path: '/value-lists',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminWorkflowRoute = AdminWorkflowRouteImport.update({
   id: '/workflow',
   path: '/workflow',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const IntakeNewRoute = IntakeNewRouteImport.update({
   id: '/intake/new',
   path: '/intake/new',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const MePreferencesRoute = MePreferencesRouteImport.update({
   id: '/me/preferences',
   path: '/me/preferences',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const QueueEngineeringRoute = QueueEngineeringRouteImport.update({
   id: '/queue/engineering',
   path: '/queue/engineering',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const QueuePricingRoute = QueuePricingRouteImport.update({
   id: '/queue/pricing',
   path: '/queue/pricing',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const QuotesIndexRoute = QuotesIndexRouteImport.update({
   id: '/quotes/',
   path: '/quotes/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const QuotesQuoteNumberRoute = QuotesQuoteNumberRouteImport.update({
   id: '/quotes/$quoteNumber',
   path: '/quotes/$quoteNumber',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AdminReportsErfLinkageRoute = AdminReportsErfLinkageRouteImport.update({
   id: '/reports/erf-linkage',
   path: '/reports/erf-linkage',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminReportsOutcomesRoute = AdminReportsOutcomesRouteImport.update({
   id: '/reports/outcomes',
   path: '/reports/outcomes',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const AdminReportsUsageRoute = AdminReportsUsageRouteImport.update({
   id: '/reports/usage',
   path: '/reports/usage',
   getParentRoute: () => AdminRouteRoute,
-} as any);
+} as any)
 const QuotesQuoteNumberReviewRoute = QuotesQuoteNumberReviewRouteImport.update({
   id: '/quotes/$quoteNumber_/review',
   path: '/quotes/$quoteNumber/review',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute;
-  '/admin': typeof AdminRouteRouteWithChildren;
-  '/analytics': typeof AnalyticsRoute;
-  '/approvals': typeof ApprovalsRoute;
-  '/board': typeof BoardRoute;
-  '/notifications': typeof NotificationsRoute;
-  '/pricing-history': typeof PricingHistoryRoute;
-  '/proposals': typeof ProposalsRoute;
-  '/admin/$': typeof AdminSplatRoute;
-  '/admin/audit': typeof AdminAuditRoute;
-  '/admin/decision-log': typeof AdminDecisionLogRoute;
-  '/admin/feedback': typeof AdminFeedbackRoute;
-  '/admin/integrations': typeof AdminIntegrationsRoute;
-  '/admin/override-log': typeof AdminOverrideLogRoute;
-  '/admin/reason-codes': typeof AdminReasonCodesRoute;
-  '/admin/scoring': typeof AdminScoringRoute;
-  '/admin/settings': typeof AdminSettingsRoute;
-  '/admin/ui-kit': typeof AdminUiKitRoute;
-  '/admin/users': typeof AdminUsersRoute;
-  '/admin/value-lists': typeof AdminValueListsRoute;
-  '/admin/workflow': typeof AdminWorkflowRoute;
-  '/intake/new': typeof IntakeNewRoute;
-  '/me/preferences': typeof MePreferencesRoute;
-  '/queue/engineering': typeof QueueEngineeringRoute;
-  '/queue/pricing': typeof QueuePricingRoute;
-  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute;
-  '/admin/': typeof AdminIndexRoute;
-  '/quotes/': typeof QuotesIndexRoute;
-  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute;
-  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute;
-  '/admin/reports/usage': typeof AdminReportsUsageRoute;
-  '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/board': typeof BoardRoute
+  '/notifications': typeof NotificationsRoute
+  '/pricing-history': typeof PricingHistoryRoute
+  '/proposals': typeof ProposalsRoute
+  '/admin/$': typeof AdminSplatRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/decision-log': typeof AdminDecisionLogRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
+  '/admin/override-log': typeof AdminOverrideLogRoute
+  '/admin/reason-codes': typeof AdminReasonCodesRoute
+  '/admin/scoring': typeof AdminScoringRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/ui-kit': typeof AdminUiKitRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/value-lists': typeof AdminValueListsRoute
+  '/admin/workflow': typeof AdminWorkflowRoute
+  '/intake/new': typeof IntakeNewRoute
+  '/me/preferences': typeof MePreferencesRoute
+  '/queue/engineering': typeof QueueEngineeringRoute
+  '/queue/pricing': typeof QueuePricingRoute
+  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
+  '/admin/': typeof AdminIndexRoute
+  '/quotes/': typeof QuotesIndexRoute
+  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute
+  '/admin/reports/usage': typeof AdminReportsUsageRoute
+  '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute;
-  '/analytics': typeof AnalyticsRoute;
-  '/approvals': typeof ApprovalsRoute;
-  '/board': typeof BoardRoute;
-  '/notifications': typeof NotificationsRoute;
-  '/pricing-history': typeof PricingHistoryRoute;
-  '/proposals': typeof ProposalsRoute;
-  '/admin/$': typeof AdminSplatRoute;
-  '/admin/audit': typeof AdminAuditRoute;
-  '/admin/decision-log': typeof AdminDecisionLogRoute;
-  '/admin/feedback': typeof AdminFeedbackRoute;
-  '/admin/integrations': typeof AdminIntegrationsRoute;
-  '/admin/override-log': typeof AdminOverrideLogRoute;
-  '/admin/reason-codes': typeof AdminReasonCodesRoute;
-  '/admin/scoring': typeof AdminScoringRoute;
-  '/admin/settings': typeof AdminSettingsRoute;
-  '/admin/ui-kit': typeof AdminUiKitRoute;
-  '/admin/users': typeof AdminUsersRoute;
-  '/admin/value-lists': typeof AdminValueListsRoute;
-  '/admin/workflow': typeof AdminWorkflowRoute;
-  '/intake/new': typeof IntakeNewRoute;
-  '/me/preferences': typeof MePreferencesRoute;
-  '/queue/engineering': typeof QueueEngineeringRoute;
-  '/queue/pricing': typeof QueuePricingRoute;
-  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute;
-  '/admin': typeof AdminIndexRoute;
-  '/quotes': typeof QuotesIndexRoute;
-  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute;
-  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute;
-  '/admin/reports/usage': typeof AdminReportsUsageRoute;
-  '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute;
+  '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/board': typeof BoardRoute
+  '/notifications': typeof NotificationsRoute
+  '/pricing-history': typeof PricingHistoryRoute
+  '/proposals': typeof ProposalsRoute
+  '/admin/$': typeof AdminSplatRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/decision-log': typeof AdminDecisionLogRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
+  '/admin/override-log': typeof AdminOverrideLogRoute
+  '/admin/reason-codes': typeof AdminReasonCodesRoute
+  '/admin/scoring': typeof AdminScoringRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/ui-kit': typeof AdminUiKitRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/value-lists': typeof AdminValueListsRoute
+  '/admin/workflow': typeof AdminWorkflowRoute
+  '/intake/new': typeof IntakeNewRoute
+  '/me/preferences': typeof MePreferencesRoute
+  '/queue/engineering': typeof QueueEngineeringRoute
+  '/queue/pricing': typeof QueuePricingRoute
+  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
+  '/admin': typeof AdminIndexRoute
+  '/quotes': typeof QuotesIndexRoute
+  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute
+  '/admin/reports/usage': typeof AdminReportsUsageRoute
+  '/quotes/$quoteNumber/review': typeof QuotesQuoteNumberReviewRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  '/': typeof IndexRoute;
-  '/admin': typeof AdminRouteRouteWithChildren;
-  '/analytics': typeof AnalyticsRoute;
-  '/approvals': typeof ApprovalsRoute;
-  '/board': typeof BoardRoute;
-  '/notifications': typeof NotificationsRoute;
-  '/pricing-history': typeof PricingHistoryRoute;
-  '/proposals': typeof ProposalsRoute;
-  '/admin/$': typeof AdminSplatRoute;
-  '/admin/audit': typeof AdminAuditRoute;
-  '/admin/decision-log': typeof AdminDecisionLogRoute;
-  '/admin/feedback': typeof AdminFeedbackRoute;
-  '/admin/integrations': typeof AdminIntegrationsRoute;
-  '/admin/override-log': typeof AdminOverrideLogRoute;
-  '/admin/reason-codes': typeof AdminReasonCodesRoute;
-  '/admin/scoring': typeof AdminScoringRoute;
-  '/admin/settings': typeof AdminSettingsRoute;
-  '/admin/ui-kit': typeof AdminUiKitRoute;
-  '/admin/users': typeof AdminUsersRoute;
-  '/admin/value-lists': typeof AdminValueListsRoute;
-  '/admin/workflow': typeof AdminWorkflowRoute;
-  '/intake/new': typeof IntakeNewRoute;
-  '/me/preferences': typeof MePreferencesRoute;
-  '/queue/engineering': typeof QueueEngineeringRoute;
-  '/queue/pricing': typeof QueuePricingRoute;
-  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute;
-  '/admin/': typeof AdminIndexRoute;
-  '/quotes/': typeof QuotesIndexRoute;
-  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute;
-  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute;
-  '/admin/reports/usage': typeof AdminReportsUsageRoute;
-  '/quotes/$quoteNumber_/review': typeof QuotesQuoteNumberReviewRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/board': typeof BoardRoute
+  '/notifications': typeof NotificationsRoute
+  '/pricing-history': typeof PricingHistoryRoute
+  '/proposals': typeof ProposalsRoute
+  '/admin/$': typeof AdminSplatRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/decision-log': typeof AdminDecisionLogRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
+  '/admin/integrations': typeof AdminIntegrationsRoute
+  '/admin/override-log': typeof AdminOverrideLogRoute
+  '/admin/reason-codes': typeof AdminReasonCodesRoute
+  '/admin/scoring': typeof AdminScoringRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/ui-kit': typeof AdminUiKitRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/value-lists': typeof AdminValueListsRoute
+  '/admin/workflow': typeof AdminWorkflowRoute
+  '/intake/new': typeof IntakeNewRoute
+  '/me/preferences': typeof MePreferencesRoute
+  '/queue/engineering': typeof QueueEngineeringRoute
+  '/queue/pricing': typeof QueuePricingRoute
+  '/quotes/$quoteNumber': typeof QuotesQuoteNumberRoute
+  '/admin/': typeof AdminIndexRoute
+  '/quotes/': typeof QuotesIndexRoute
+  '/admin/reports/erf-linkage': typeof AdminReportsErfLinkageRoute
+  '/admin/reports/outcomes': typeof AdminReportsOutcomesRoute
+  '/admin/reports/usage': typeof AdminReportsUsageRoute
+  '/quotes/$quoteNumber_/review': typeof QuotesQuoteNumberReviewRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
@@ -339,8 +339,8 @@ export interface FileRouteTypes {
     | '/admin/reports/erf-linkage'
     | '/admin/reports/outcomes'
     | '/admin/reports/usage'
-    | '/quotes/$quoteNumber/review';
-  fileRoutesByTo: FileRoutesByTo;
+    | '/quotes/$quoteNumber/review'
+  fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/analytics'
@@ -372,7 +372,7 @@ export interface FileRouteTypes {
     | '/admin/reports/erf-linkage'
     | '/admin/reports/outcomes'
     | '/admin/reports/usage'
-    | '/quotes/$quoteNumber/review';
+    | '/quotes/$quoteNumber/review'
   id:
     | '__root__'
     | '/'
@@ -406,274 +406,274 @@ export interface FileRouteTypes {
     | '/admin/reports/erf-linkage'
     | '/admin/reports/outcomes'
     | '/admin/reports/usage'
-    | '/quotes/$quoteNumber_/review';
-  fileRoutesById: FileRoutesById;
+    | '/quotes/$quoteNumber_/review'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AdminRouteRoute: typeof AdminRouteRouteWithChildren;
-  AnalyticsRoute: typeof AnalyticsRoute;
-  ApprovalsRoute: typeof ApprovalsRoute;
-  BoardRoute: typeof BoardRoute;
-  NotificationsRoute: typeof NotificationsRoute;
-  PricingHistoryRoute: typeof PricingHistoryRoute;
-  ProposalsRoute: typeof ProposalsRoute;
-  IntakeNewRoute: typeof IntakeNewRoute;
-  MePreferencesRoute: typeof MePreferencesRoute;
-  QueueEngineeringRoute: typeof QueueEngineeringRoute;
-  QueuePricingRoute: typeof QueuePricingRoute;
-  QuotesQuoteNumberRoute: typeof QuotesQuoteNumberRoute;
-  QuotesIndexRoute: typeof QuotesIndexRoute;
-  QuotesQuoteNumberReviewRoute: typeof QuotesQuoteNumberReviewRoute;
+  IndexRoute: typeof IndexRoute
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
+  AnalyticsRoute: typeof AnalyticsRoute
+  ApprovalsRoute: typeof ApprovalsRoute
+  BoardRoute: typeof BoardRoute
+  NotificationsRoute: typeof NotificationsRoute
+  PricingHistoryRoute: typeof PricingHistoryRoute
+  ProposalsRoute: typeof ProposalsRoute
+  IntakeNewRoute: typeof IntakeNewRoute
+  MePreferencesRoute: typeof MePreferencesRoute
+  QueueEngineeringRoute: typeof QueueEngineeringRoute
+  QueuePricingRoute: typeof QueuePricingRoute
+  QuotesQuoteNumberRoute: typeof QuotesQuoteNumberRoute
+  QuotesIndexRoute: typeof QuotesIndexRoute
+  QuotesQuoteNumberReviewRoute: typeof QuotesQuoteNumberReviewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      id: '/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
-      id: '/admin';
-      path: '/admin';
-      fullPath: '/admin';
-      preLoaderRoute: typeof AdminRouteRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analytics': {
-      id: '/analytics';
-      path: '/analytics';
-      fullPath: '/analytics';
-      preLoaderRoute: typeof AnalyticsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/approvals': {
-      id: '/approvals';
-      path: '/approvals';
-      fullPath: '/approvals';
-      preLoaderRoute: typeof ApprovalsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/board': {
-      id: '/board';
-      path: '/board';
-      fullPath: '/board';
-      preLoaderRoute: typeof BoardRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/board'
+      path: '/board'
+      fullPath: '/board'
+      preLoaderRoute: typeof BoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notifications': {
-      id: '/notifications';
-      path: '/notifications';
-      fullPath: '/notifications';
-      preLoaderRoute: typeof NotificationsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pricing-history': {
-      id: '/pricing-history';
-      path: '/pricing-history';
-      fullPath: '/pricing-history';
-      preLoaderRoute: typeof PricingHistoryRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/pricing-history'
+      path: '/pricing-history'
+      fullPath: '/pricing-history'
+      preLoaderRoute: typeof PricingHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/proposals': {
-      id: '/proposals';
-      path: '/proposals';
-      fullPath: '/proposals';
-      preLoaderRoute: typeof ProposalsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/proposals'
+      path: '/proposals'
+      fullPath: '/proposals'
+      preLoaderRoute: typeof ProposalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
-      id: '/admin/';
-      path: '/';
-      fullPath: '/admin/';
-      preLoaderRoute: typeof AdminIndexRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/$': {
-      id: '/admin/$';
-      path: '/$';
-      fullPath: '/admin/$';
-      preLoaderRoute: typeof AdminSplatRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/$'
+      path: '/$'
+      fullPath: '/admin/$'
+      preLoaderRoute: typeof AdminSplatRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/audit': {
-      id: '/admin/audit';
-      path: '/audit';
-      fullPath: '/admin/audit';
-      preLoaderRoute: typeof AdminAuditRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/decision-log': {
-      id: '/admin/decision-log';
-      path: '/decision-log';
-      fullPath: '/admin/decision-log';
-      preLoaderRoute: typeof AdminDecisionLogRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/decision-log'
+      path: '/decision-log'
+      fullPath: '/admin/decision-log'
+      preLoaderRoute: typeof AdminDecisionLogRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/feedback': {
-      id: '/admin/feedback';
-      path: '/feedback';
-      fullPath: '/admin/feedback';
-      preLoaderRoute: typeof AdminFeedbackRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/feedback'
+      path: '/feedback'
+      fullPath: '/admin/feedback'
+      preLoaderRoute: typeof AdminFeedbackRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/integrations': {
-      id: '/admin/integrations';
-      path: '/integrations';
-      fullPath: '/admin/integrations';
-      preLoaderRoute: typeof AdminIntegrationsRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/integrations'
+      path: '/integrations'
+      fullPath: '/admin/integrations'
+      preLoaderRoute: typeof AdminIntegrationsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/override-log': {
-      id: '/admin/override-log';
-      path: '/override-log';
-      fullPath: '/admin/override-log';
-      preLoaderRoute: typeof AdminOverrideLogRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/override-log'
+      path: '/override-log'
+      fullPath: '/admin/override-log'
+      preLoaderRoute: typeof AdminOverrideLogRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/reason-codes': {
-      id: '/admin/reason-codes';
-      path: '/reason-codes';
-      fullPath: '/admin/reason-codes';
-      preLoaderRoute: typeof AdminReasonCodesRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/reason-codes'
+      path: '/reason-codes'
+      fullPath: '/admin/reason-codes'
+      preLoaderRoute: typeof AdminReasonCodesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/scoring': {
-      id: '/admin/scoring';
-      path: '/scoring';
-      fullPath: '/admin/scoring';
-      preLoaderRoute: typeof AdminScoringRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/scoring'
+      path: '/scoring'
+      fullPath: '/admin/scoring'
+      preLoaderRoute: typeof AdminScoringRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/settings': {
-      id: '/admin/settings';
-      path: '/settings';
-      fullPath: '/admin/settings';
-      preLoaderRoute: typeof AdminSettingsRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/ui-kit': {
-      id: '/admin/ui-kit';
-      path: '/ui-kit';
-      fullPath: '/admin/ui-kit';
-      preLoaderRoute: typeof AdminUiKitRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/ui-kit'
+      path: '/ui-kit'
+      fullPath: '/admin/ui-kit'
+      preLoaderRoute: typeof AdminUiKitRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/users': {
-      id: '/admin/users';
-      path: '/users';
-      fullPath: '/admin/users';
-      preLoaderRoute: typeof AdminUsersRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/value-lists': {
-      id: '/admin/value-lists';
-      path: '/value-lists';
-      fullPath: '/admin/value-lists';
-      preLoaderRoute: typeof AdminValueListsRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/value-lists'
+      path: '/value-lists'
+      fullPath: '/admin/value-lists'
+      preLoaderRoute: typeof AdminValueListsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/workflow': {
-      id: '/admin/workflow';
-      path: '/workflow';
-      fullPath: '/admin/workflow';
-      preLoaderRoute: typeof AdminWorkflowRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/workflow'
+      path: '/workflow'
+      fullPath: '/admin/workflow'
+      preLoaderRoute: typeof AdminWorkflowRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/intake/new': {
-      id: '/intake/new';
-      path: '/intake/new';
-      fullPath: '/intake/new';
-      preLoaderRoute: typeof IntakeNewRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/intake/new'
+      path: '/intake/new'
+      fullPath: '/intake/new'
+      preLoaderRoute: typeof IntakeNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/me/preferences': {
-      id: '/me/preferences';
-      path: '/me/preferences';
-      fullPath: '/me/preferences';
-      preLoaderRoute: typeof MePreferencesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/me/preferences'
+      path: '/me/preferences'
+      fullPath: '/me/preferences'
+      preLoaderRoute: typeof MePreferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/queue/engineering': {
-      id: '/queue/engineering';
-      path: '/queue/engineering';
-      fullPath: '/queue/engineering';
-      preLoaderRoute: typeof QueueEngineeringRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/queue/engineering'
+      path: '/queue/engineering'
+      fullPath: '/queue/engineering'
+      preLoaderRoute: typeof QueueEngineeringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/queue/pricing': {
-      id: '/queue/pricing';
-      path: '/queue/pricing';
-      fullPath: '/queue/pricing';
-      preLoaderRoute: typeof QueuePricingRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/queue/pricing'
+      path: '/queue/pricing'
+      fullPath: '/queue/pricing'
+      preLoaderRoute: typeof QueuePricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/quotes/': {
-      id: '/quotes/';
-      path: '/quotes';
-      fullPath: '/quotes/';
-      preLoaderRoute: typeof QuotesIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/quotes/'
+      path: '/quotes'
+      fullPath: '/quotes/'
+      preLoaderRoute: typeof QuotesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/quotes/$quoteNumber': {
-      id: '/quotes/$quoteNumber';
-      path: '/quotes/$quoteNumber';
-      fullPath: '/quotes/$quoteNumber';
-      preLoaderRoute: typeof QuotesQuoteNumberRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/quotes/$quoteNumber'
+      path: '/quotes/$quoteNumber'
+      fullPath: '/quotes/$quoteNumber'
+      preLoaderRoute: typeof QuotesQuoteNumberRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/reports/erf-linkage': {
-      id: '/admin/reports/erf-linkage';
-      path: '/reports/erf-linkage';
-      fullPath: '/admin/reports/erf-linkage';
-      preLoaderRoute: typeof AdminReportsErfLinkageRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/reports/erf-linkage'
+      path: '/reports/erf-linkage'
+      fullPath: '/admin/reports/erf-linkage'
+      preLoaderRoute: typeof AdminReportsErfLinkageRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/reports/outcomes': {
-      id: '/admin/reports/outcomes';
-      path: '/reports/outcomes';
-      fullPath: '/admin/reports/outcomes';
-      preLoaderRoute: typeof AdminReportsOutcomesRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/reports/outcomes'
+      path: '/reports/outcomes'
+      fullPath: '/admin/reports/outcomes'
+      preLoaderRoute: typeof AdminReportsOutcomesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/reports/usage': {
-      id: '/admin/reports/usage';
-      path: '/reports/usage';
-      fullPath: '/admin/reports/usage';
-      preLoaderRoute: typeof AdminReportsUsageRouteImport;
-      parentRoute: typeof AdminRouteRoute;
-    };
+      id: '/admin/reports/usage'
+      path: '/reports/usage'
+      fullPath: '/admin/reports/usage'
+      preLoaderRoute: typeof AdminReportsUsageRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/quotes/$quoteNumber_/review': {
-      id: '/quotes/$quoteNumber_/review';
-      path: '/quotes/$quoteNumber/review';
-      fullPath: '/quotes/$quoteNumber/review';
-      preLoaderRoute: typeof QuotesQuoteNumberReviewRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/quotes/$quoteNumber_/review'
+      path: '/quotes/$quoteNumber/review'
+      fullPath: '/quotes/$quoteNumber/review'
+      preLoaderRoute: typeof QuotesQuoteNumberReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AdminRouteRouteChildren {
-  AdminSplatRoute: typeof AdminSplatRoute;
-  AdminAuditRoute: typeof AdminAuditRoute;
-  AdminDecisionLogRoute: typeof AdminDecisionLogRoute;
-  AdminFeedbackRoute: typeof AdminFeedbackRoute;
-  AdminIntegrationsRoute: typeof AdminIntegrationsRoute;
-  AdminOverrideLogRoute: typeof AdminOverrideLogRoute;
-  AdminReasonCodesRoute: typeof AdminReasonCodesRoute;
-  AdminScoringRoute: typeof AdminScoringRoute;
-  AdminSettingsRoute: typeof AdminSettingsRoute;
-  AdminUiKitRoute: typeof AdminUiKitRoute;
-  AdminUsersRoute: typeof AdminUsersRoute;
-  AdminValueListsRoute: typeof AdminValueListsRoute;
-  AdminWorkflowRoute: typeof AdminWorkflowRoute;
-  AdminIndexRoute: typeof AdminIndexRoute;
-  AdminReportsErfLinkageRoute: typeof AdminReportsErfLinkageRoute;
-  AdminReportsOutcomesRoute: typeof AdminReportsOutcomesRoute;
-  AdminReportsUsageRoute: typeof AdminReportsUsageRoute;
+  AdminSplatRoute: typeof AdminSplatRoute
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminDecisionLogRoute: typeof AdminDecisionLogRoute
+  AdminFeedbackRoute: typeof AdminFeedbackRoute
+  AdminIntegrationsRoute: typeof AdminIntegrationsRoute
+  AdminOverrideLogRoute: typeof AdminOverrideLogRoute
+  AdminReasonCodesRoute: typeof AdminReasonCodesRoute
+  AdminScoringRoute: typeof AdminScoringRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminUiKitRoute: typeof AdminUiKitRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminValueListsRoute: typeof AdminValueListsRoute
+  AdminWorkflowRoute: typeof AdminWorkflowRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminReportsErfLinkageRoute: typeof AdminReportsErfLinkageRoute
+  AdminReportsOutcomesRoute: typeof AdminReportsOutcomesRoute
+  AdminReportsUsageRoute: typeof AdminReportsUsageRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
@@ -694,9 +694,11 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminReportsErfLinkageRoute: AdminReportsErfLinkageRoute,
   AdminReportsOutcomesRoute: AdminReportsOutcomesRoute,
   AdminReportsUsageRoute: AdminReportsUsageRoute,
-};
+}
 
-const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(AdminRouteRouteChildren);
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -714,7 +716,7 @@ const rootRouteChildren: RootRouteChildren = {
   QuotesQuoteNumberRoute: QuotesQuoteNumberRoute,
   QuotesIndexRoute: QuotesIndexRoute,
   QuotesQuoteNumberReviewRoute: QuotesQuoteNumberReviewRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
