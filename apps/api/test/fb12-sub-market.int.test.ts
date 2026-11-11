@@ -411,7 +411,7 @@ describe('DR-cross-cutting-02: intake value lists are checked on the server', ()
     const draft = await createDraft({});
     await db.db
       .update(schema.quoteDraft)
-      .set({ data: { ...(draft.data), resin: 'UNOBTAINIUM' } })
+      .set({ data: { ...draft.data, resin: 'UNOBTAINIUM' } })
       .where(eq(schema.quoteDraft.id, draft.id));
     const res = await kam().post(`/api/v1/quotes/drafts/${draft.id}/submit`);
     expect(res.statusCode, res.body).toBe(422);
