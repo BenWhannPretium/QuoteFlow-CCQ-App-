@@ -172,7 +172,7 @@ function HeaderCell<T>({ header }: { header: Header<T, unknown> }) {
         <button
           type="button"
           onClick={header.column.getToggleSortingHandler()}
-          className="hover:text-foreground -mx-1 inline-flex min-h-8 items-center gap-1 rounded px-1"
+          className="hover:text-foreground -mx-1 inline-flex min-h-11 items-center sm:min-h-8 gap-1 rounded px-1"
         >
           {content}
           <SortIcon className={cn('size-3.5', !sorted && 'opacity-50')} aria-hidden="true" />

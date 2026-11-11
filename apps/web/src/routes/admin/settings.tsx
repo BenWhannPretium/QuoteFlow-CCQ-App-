@@ -77,21 +77,31 @@ function SettingsPage() {
       ) : !data ? (
         <SkeletonRows rows={10} />
       ) : (
-        <div className="grid gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
           {data.groups
             .map((g) => [g, data.items.filter((s) => s.group === g)] as const)
             .filter(([, items]) => items.length > 0)
             .map(([group, items]) => (
-              <section key={group} aria-labelledby={`settings-${group}`} className="grid gap-2">
+              <section
+                key={group}
+                aria-labelledby={`settings-${group}`}
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
+              >
                 <h2 id={`settings-${group}`} className="font-display text-lg">
                   {GROUP_LABEL[group] ?? group}
                 </h2>
                 <ul className="bg-card rounded-card divide-y border">
                   {items.map((s) => (
-                    <li key={s.key} className="grid gap-1.5 p-3" data-testid={`setting-${s.key}`}>
+                    <li
+                      key={s.key}
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5 p-3"
+                      data-testid={`setting-${s.key}`}
+                    >
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                         <span className="font-medium">{s.label}</span>
-                        <span className="text-muted-foreground font-mono text-xs">{s.key}</span>
+                        <span className="text-muted-foreground font-mono text-xs break-all">
+                          {s.key}
+                        </span>
                         <ApprovalBadge approval={s.approval} />
                         <span className="flex-1" />
                         {canEdit && (
@@ -108,10 +118,15 @@ function SettingsPage() {
                           </Button>
                         )}
                       </div>
-                      <p className="text-sm" data-testid="setting-value">
+                      <p
+                        className="text-sm break-words [overflow-wrap:anywhere]"
+                        data-testid="setting-value"
+                      >
                         {formatSetting(s, ctx.users)}
                       </p>
-                      <p className="text-muted-foreground text-xs">{s.description}</p>
+                      <p className="text-muted-foreground text-xs break-words [overflow-wrap:anywhere]">
+                        {s.description}
+                      </p>
                     </li>
                   ))}
                 </ul>

@@ -87,7 +87,7 @@ export function OverriddenMarker({
           type="button"
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'text-emphasis border-emphasis/40 inline-flex min-h-6 items-center rounded-full border px-2 text-[11px] font-semibold tracking-wide uppercase',
+            'text-emphasis border-emphasis/40 inline-flex min-h-11 items-center rounded-full border px-2 sm:min-h-6 text-[11px] font-semibold tracking-wide uppercase',
             className,
           )}
           data-testid={`overridden-${override.field}`}
@@ -152,7 +152,7 @@ export function FieldOverride({ quote, field }: { quote: QuoteDetail; field: str
         <Button
           variant="ghost"
           size="sm"
-          className="text-emphasis h-8 min-h-8 px-2"
+          className="text-emphasis min-h-11 px-2 sm:h-8 sm:min-h-8"
           onClick={() => setOpen(true)}
           aria-label={`Override ${f.label.toLowerCase()}`}
           data-testid={`override-${field}`}

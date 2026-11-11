@@ -203,6 +203,13 @@ test('an Approver approves one quote and declines another from a phone', async (
   // The sticky bar is on screen above the tab bar without scrolling, and so is it after scrolling down.
   const bar = page.getByTestId('decision-bar');
   await expect(bar).toBeInViewport({ ratio: 1 });
+  // DR-approver-leadership-admin-02: every decision label fits its button (it wraps, never clipped).
+  const clipped = await bar
+    .getByRole('button')
+    .evaluateAll((els) =>
+      els.filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.textContent),
+    );
+  expect(clipped).toEqual([]);
   await page.mouse.wheel(0, 4000);
   await expect(bar).toBeInViewport({ ratio: 1 });
   for (const name of [

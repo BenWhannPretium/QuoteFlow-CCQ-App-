@@ -647,7 +647,7 @@ export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
       <Button
         variant="ghost"
         size="sm"
-        className="ml-auto h-8 min-h-8 px-2"
+        className="ml-auto min-h-11 px-2 sm:h-8 sm:min-h-8"
         aria-label="Dismiss the Salesforce reminder"
         onClick={() => queryClient.setQueryData(key, null)}
       >

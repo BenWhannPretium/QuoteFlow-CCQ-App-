@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 
+import { seriousViolations } from './axe';
 import { prepareModels } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
@@ -106,6 +107,8 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
     .fill('Strategic account; financing cost priced in.');
   await exception.getByTestId('approve-terms-exception').click();
   await expect(exception.getByTestId('terms-exception-status')).toHaveText('Approved');
+  // DR-cross-cutting-06: the "Approved" pill meets WCAG AA contrast.
+  expect(await seriousViolations(lead)).toEqual([]);
   await expect(exception.getByTestId('terms-exception-rationale')).toContainText(
     'Strategic account',
   );

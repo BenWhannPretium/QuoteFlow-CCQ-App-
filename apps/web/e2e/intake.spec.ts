@@ -267,6 +267,8 @@ test.describe('KAM intake', () => {
     // Fix jumps back to the field; filling it unblocks the submit.
     await status.getByRole('button', { name: 'Fix' }).click();
     await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '3');
+    // DR-kam-sales-leader-18: focus lands on the field to fix, not on the page body.
+    await expect(page.locator('#intake-gram-weight-g')).toBeFocused();
     await page.locator('#intake-gram-weight-g').fill('24');
     await page.getByRole('button', { name: /^Next/ }).click();
     await expect(page.getByTestId('drawing-or-spec')).toHaveAttribute('data-state', 'spec');

@@ -465,7 +465,7 @@ function Card({
               onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLButtonElement> | undefined}
               aria-label={`Move ${card.quoteNumber} (drag)`}
               aria-roledescription="draggable quote"
-              className="text-muted-foreground hover:bg-accent -m-1 inline-flex size-8 items-center justify-center rounded"
+              className="text-muted-foreground hover:bg-accent -m-1 inline-flex size-11 items-center sm:size-8 justify-center rounded"
             >
               <GripVerticalIcon className="size-4" aria-hidden="true" />
             </button>

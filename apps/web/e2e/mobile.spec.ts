@@ -1,7 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
 import { signInAs, visibleNavKeys } from './personas';
+import { freeOpportunities, submitQuote } from './quotes';
 
 test.describe('390 × 844', () => {
   test('landing: bottom tab bar, no horizontal scroll, snapshot', async ({ page }, testInfo) => {
@@ -66,7 +67,8 @@ test.describe('390 × 844', () => {
             h: r.height,
           };
         })
-        .filter((r) => r.w < 44 || r.h < 44),
+        // 43.5: a 44 px control can measure 43.99998 after sub-pixel rounding.
+        .filter((r) => r.w < 43.5 || r.h < 43.5),
     );
     expect(small).toEqual([]);
   });
@@ -108,4 +110,67 @@ test('UI kit on mobile: tables become cards, no horizontal scroll, no serious ax
   );
   expect(overflow).toBeLessThanOrEqual(0);
   expect(await seriousViolations(page)).toEqual([]);
+});
+
+/**
+ * DR-engineering-08, DR-kam-sales-leader-08, DR-pricing-finance-12, DR-approver-leadership-admin-08,
+ * -11, -12, DR-cross-cutting-10, -11: on a phone every link, button and tab in the page is at least
+ * 44 px, nothing scrolls sideways, and the screens pass axe.
+ */
+test.describe('390 × 844: tap targets and overflow on the working screens', () => {
+  const smallTargets = (page: Page) =>
+    page.locator('main a, main button, main [role="tab"]').evaluateAll((els) =>
+      els
+        .filter((el) => (el as HTMLElement).offsetParent !== null)
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return {
+            label: (el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40),
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+          };
+        })
+        .filter((r) => r.w > 0 && (r.w < 43.5 || r.h < 43.5)),
+    );
+  const sideways = (page: Page) =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+
+  test('quote page, queues, analytics and preferences', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const qn = await submitQuote(request, await freeOpportunities(request, 1));
+    for (const [persona, path] of [
+      ['kam', `/quotes/${qn}`],
+      ['kam', '/quotes'],
+      ['eng-lead', '/queue/engineering'],
+      ['pricing-lead', '/queue/pricing'],
+      ['leadership', '/analytics'],
+      ['kam', '/me/preferences'],
+    ] as const) {
+      await signInAs(page, persona);
+      await page.goto(path);
+      await page.locator('main').waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await smallTargets(page), `${persona} ${path}`).toEqual([]);
+      expect(await sideways(page), `${persona} ${path}`).toBeLessThanOrEqual(0);
+    }
+  });
+
+  test('App settings and the usage report fit; the usage table scrolls by keyboard', async ({
+    page,
+  }) => {
+    await signInAs(page, 'admin');
+    await page.goto('/admin/settings');
+    await expect(page.getByTestId('setting-value').first()).toBeVisible();
+    expect(await sideways(page)).toBeLessThanOrEqual(0);
+    expect(await seriousViolations(page)).toEqual([]);
+
+    await page.goto('/admin/reports/usage');
+    await page.waitForLoadState('networkidle');
+    const box = page.getByRole('region', { name: /Daily active users by role/ });
+    if ((await box.count()) > 0) await expect(box).toHaveAttribute('tabindex', '0');
+    expect(await sideways(page)).toBeLessThanOrEqual(0);
+    expect(await seriousViolations(page)).toEqual([]);
+  });
 });

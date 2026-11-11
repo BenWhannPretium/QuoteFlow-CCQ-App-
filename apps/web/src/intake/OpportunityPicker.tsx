@@ -204,13 +204,10 @@ function OpportunityCard({
           Add the account to this opportunity in Salesforce, then pick it.
         </p>
       ) : (
-        <Button
-          onClick={onPick}
-          disabled={disabled}
-          variant={selected ? 'primary' : 'action'}
-          aria-label={`Use ${o.name}`}
-        >
+        <Button onClick={onPick} disabled={disabled} variant={selected ? 'primary' : 'action'}>
+          {/* DR-kam-sales-leader-07 (WCAG 2.5.3): the name starts with the visible words, then says which. */}
           {busy ? 'Loading…' : selected ? 'Selected' : 'Use this opportunity'}
+          <span className="sr-only">: {o.name}</span>
         </Button>
       )}
     </li>

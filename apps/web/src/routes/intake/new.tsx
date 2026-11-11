@@ -26,7 +26,7 @@ import {
   type WizardConfig,
 } from '@/intake/model';
 import { OpportunityPicker } from '@/intake/OpportunityPicker';
-import { CustomerStep, ProductStep, ReviewStep } from '@/intake/Steps';
+import { CustomerStep, focusIntakeField, ProductStep, ReviewStep } from '@/intake/Steps';
 import { Notice, Section, Stepper } from '@/intake/ui';
 import { useIntakeDraft, type SaveState } from '@/intake/useIntakeDraft';
 import { isApiError, api } from '@/lib/api';
@@ -251,10 +251,12 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
   );
   const [submitted, setSubmitted] = useState<SubmitIntakeResponse | null>(null);
 
-  const goTo = (n: number) => {
+  const goTo = (n: number, field?: string) => {
     setSubmitError(null);
     void draft.setStep(n);
     window.scrollTo({ top: 0 });
+    // DR-kam-sales-leader-18: "Fix" lands on the field, not on the page body.
+    if (field) requestAnimationFrame(() => focusIntakeField(field));
   };
 
   const pick = async (o: SfOpportunitySummary) => {

@@ -328,7 +328,7 @@ export function QuoteTimeline({ quoteNumber }: { quoteNumber: string }) {
               aria-pressed={filter === f.key}
               onClick={() => setFilter(f.key)}
               className={cn(
-                'min-h-9 rounded-full border px-3 text-xs font-medium sm:min-h-8',
+                'min-h-11 min-w-11 rounded-full border px-3 text-xs font-medium sm:min-h-8 sm:min-w-0',
                 filter === f.key
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-line-strong bg-card hover:bg-accent',

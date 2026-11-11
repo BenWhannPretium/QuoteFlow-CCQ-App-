@@ -27,7 +27,7 @@ export function ReviewTabs({
           aria-selected={value === key}
           data-testid={`review-tab-${key}`}
           onClick={() => onChange(key)}
-          className="text-foreground-2 aria-selected:border-action aria-selected:text-foreground hover:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-3 text-sm font-medium transition-colors sm:px-4"
+          className="text-foreground-2 aria-selected:border-action aria-selected:text-foreground hover:text-foreground -mb-px min-h-11 min-w-11 shrink-0 border-b-2 border-transparent px-3 text-sm font-medium transition-colors sm:px-4"
         >
           {label}
         </button>

@@ -18,7 +18,7 @@ export function FundingHelp({
     <div className={cn('flex items-end pb-1.5', className)}>
       <Popover>
         <PopoverTrigger
-          className="text-emphasis inline-flex min-h-8 items-center gap-1 rounded px-1 text-xs underline-offset-4 hover:underline"
+          className="text-emphasis inline-flex min-h-11 items-center gap-1 rounded px-1 sm:min-h-8 text-xs underline-offset-4 hover:underline"
           data-testid="funding-help"
         >
           <InfoIcon className="size-3.5" aria-hidden="true" />

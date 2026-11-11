@@ -56,7 +56,7 @@ function PreferencesPage() {
         actions={
           <Link
             to="/notifications"
-            className="text-emphasis text-sm font-medium underline-offset-4 hover:underline"
+            className="text-emphasis inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline sm:min-h-0"
           >
             Back to notifications
           </Link>
