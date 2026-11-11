@@ -22,7 +22,7 @@ import {
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig, useValueList } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
@@ -80,7 +80,7 @@ export function CommercialPanel({ quote }: { quote: QuoteDetail }) {
         {quote.status === 'on_hold' && (
           <p className="text-sm" data-testid="hold-owner-display">
             <span className="font-medium">Hold owner:</span> {c.hold.ownerName ?? 'Not named'}
-            {quote.reviewDate ? ` · review by ${quote.reviewDate}` : ''}
+            {quote.reviewDate ? ` · review by ${calendarDate(quote.reviewDate)}` : ''}
           </p>
         )}
         <CapitalFlag quote={quote} />

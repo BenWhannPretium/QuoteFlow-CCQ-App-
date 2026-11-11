@@ -26,7 +26,7 @@ import { SkeletonCard } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, calendarDate } from '@/lib/time';
 import { cn } from '@/lib/utils';
 
 /**
@@ -155,7 +155,7 @@ function Expiring({ items }: { items: ExpiringProposal[] }) {
               : p.daysLeft === 0
                 ? 'Ends today'
                 : `${p.daysLeft} d left`}{' '}
-            · {p.validityUntil}
+            · {calendarDate(p.validityUntil)}
           </span>
         </li>
       ))}

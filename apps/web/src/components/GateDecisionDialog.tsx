@@ -17,7 +17,7 @@ import {
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
-import { toLocalInput } from '@/lib/time';
+import { calendarDate, toLocalInput, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -180,6 +180,11 @@ export function GateDecisionDialog({
     !action && 'Choose a decision.',
     needsReason && !reason && 'Choose a reason.',
     needsDate && !holdUntil && 'Choose a review date.',
+    // DR-engineering-04 / DR-approver-leadership-admin-04: the server refuses a date already passed.
+    needsDate &&
+      !!holdUntil &&
+      holdUntil < todayCentral() &&
+      'Choose a review date today or later.',
     needsTarget && !target && 'Choose where it goes back to.',
     releases &&
       issuedInFuture &&
@@ -424,9 +429,10 @@ export function GateDecisionDialog({
                     <Input
                       id={ids.date}
                       type="date"
+                      min={todayCentral()}
                       value={holdUntil}
                       onChange={(e) => setHoldUntil(e.target.value)}
-                      aria-invalid={submitted && !holdUntil}
+                      aria-invalid={submitted && (!holdUntil || holdUntil < todayCentral())}
                     />
                   </div>
                 )}
@@ -483,7 +489,8 @@ export function GateDecisionDialog({
                     />
                     {validityDays !== null && (
                       <p className="text-muted-foreground text-xs" data-testid="validity-preview">
-                        Valid until {validityUntil(issuedAt ?? new Date(), validityDays)} (
+                        Valid until{' '}
+                        {calendarDate(validityUntil(issuedAt ?? new Date(), validityDays))} (
                         {validityDays} days from the issue date, provisional).
                       </p>
                     )}

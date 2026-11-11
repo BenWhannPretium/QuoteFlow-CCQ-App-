@@ -221,7 +221,8 @@ test('an Approver approves one quote and declines another from a phone', async (
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByTestId('release-dates')).toContainText('does not award the quote');
   await expect(dialog.getByTestId('validity-preview')).toContainText(
-    /Valid until \d{4}-\d{2}-\d{2}/,
+    // DR-kam-sales-leader-13: the one date style ("Dec 11, 2026"), not ISO.
+    /Valid until [A-Z][a-z]{2} \d{1,2}, \d{4}/,
   );
   expect(await seriousViolations(page)).toEqual([]);
   await dialog.getByRole('button', { name: 'Record decision' }).click();

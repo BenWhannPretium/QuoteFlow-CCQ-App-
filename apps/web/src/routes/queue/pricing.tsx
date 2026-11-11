@@ -41,7 +41,7 @@ import {
 import { Input, NativeSelect } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, type PricingQueueParams } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, calendarDate } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -386,7 +386,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
               </Link>
               <span className="text-muted-foreground text-xs" data-testid="approval-status">
                 {q.status === 'on_hold' ? (
-                  `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
+                  `On hold${q.reviewDate ? ` until ${calendarDate(q.reviewDate)}` : ''}`
                 ) : q.priceApproved ? (
                   <span className="inline-flex items-center gap-1">
                     <CheckIcon className="size-3" aria-hidden="true" />

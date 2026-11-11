@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { api } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -55,7 +55,7 @@ export function ValidityChip({
     <span
       data-testid="validity-chip"
       data-state={validity.state}
-      title={`Valid until ${validity.validityUntil}`}
+      title={`Valid until ${calendarDate(validity.validityUntil)}`}
       className={cn(
         'rounded-pill inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap',
         validity.state === 'valid' && 'bg-secondary text-foreground',
@@ -127,7 +127,11 @@ export function CustomerDecisionHeader({ quote }: { quote: QuoteDetail }) {
             label: 'Proposal issued',
             value: cd.proposalIssuedAt ? absoluteTime(cd.proposalIssuedAt) : null,
           },
-          { id: 'valid', label: 'Valid until', value: cd.validity.validityUntil },
+          {
+            id: 'valid',
+            label: 'Valid until',
+            value: calendarDate(cd.validity.validityUntil) || null,
+          },
           { id: 'sf', label: 'Salesforce stage', value: <SfStageCompare sf={cd.sf} /> },
         ]}
       />
