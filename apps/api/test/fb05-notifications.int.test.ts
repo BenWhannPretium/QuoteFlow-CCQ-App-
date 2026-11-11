@@ -432,6 +432,12 @@ describe('F-079: lead review of pricing (T-037)', () => {
     expect((await since(qn, afterSubmit, undefined, 'email')).map((n) => n.userId)).toEqual([
       pricer,
     ]);
+    // DR-pricing-finance-05 (decided 2026-11-11): the email carries no note text; the app does.
+    await dispatch();
+    const mails = sentAbout(qn).filter((m) => m.subject.includes('was sent back to you'));
+    expect(mails).toHaveLength(1);
+    expect(mails[0]!.text + mails[0]!.html).not.toContain('Use the October resin index');
+    expect(told.find((n) => n.userId === pricer)!.body).toContain('Use the October resin index');
     // The lead who sent it back is not told.
     expect(told.map((n) => n.userId)).not.toContain(await userId('PricingLead'));
   });

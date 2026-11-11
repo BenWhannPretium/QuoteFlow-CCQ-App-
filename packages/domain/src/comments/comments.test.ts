@@ -6,12 +6,13 @@ const ana = { userId: 'u-ana', name: 'Ana Ruiz' };
 const an = { userId: 'u-an', name: 'Ana' };
 
 describe('sanitizeCommentBody', () => {
-  it('strips tags and control characters, normalises newlines and blank lines', () => {
+  // DR-engineering-12 (decided 2026-11-11): tags are kept as typed (shown as text, never as HTML).
+  it('keeps the text as typed, strips control characters, normalises newlines and blank lines', () => {
     expect(
       sanitizeCommentBody(
         '  <script>alert(1)</script>Hello\u0007 <b>there</b>\r\n\r\n\r\n\r\nNext   \n<!-- x -->line  ',
       ),
-    ).toBe('alert(1)Hello there\n\nNext\nline');
+    ).toBe('<script>alert(1)</script>Hello <b>there</b>\n\nNext\n<!-- x -->line');
   });
 
   it('keeps comparison operators that are not tags', () => {

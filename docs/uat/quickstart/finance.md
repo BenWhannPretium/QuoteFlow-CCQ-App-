@@ -2,7 +2,7 @@
 
 **What QuoteFlow is for you.** Quotes that need an ROI before the price is approved: capital is required, $0 CER included. Pricing uploads the costing model (costs and the initial price assumptions); you build the ROI from it on your template and upload the ROI model. You are an input, not an approver: the pricing lead approves the price (G3, **Price approved**) once your ROI is on file.
 
-**Your home screen.** **ROI requests**, with what to do. Your menu: **Home**, **Pipeline**. Your role reads quotes and uploads the ROI model, nothing else.
+**Your home screen.** **ROI requests**, with what to do. Your menu: **Home**, **Pipeline**. Your role reads quotes, uploads the ROI model and may comment on a quote; it changes nothing else.
 
 ## What you'll do
 

@@ -100,7 +100,7 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
       {
         title: 'What you don’t do',
         description:
-          'You are an input, not an approver: the pricing lead approves the price (G3) after your ROI is on file. Your role reads quotes and uploads the ROI model, nothing else.',
+          'You are an input, not an approver: the pricing lead approves the price (G3) after your ROI is on file. Your role reads quotes, uploads the ROI model and may comment on a quote; it changes nothing else.',
       },
     ],
   },

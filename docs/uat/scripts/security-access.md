@@ -92,7 +92,7 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 33 | As Admin: **Admin** → **Audit log**. Filter by each test user and today. | Every action from this session is there: sign-ins, quote views, the refused calls, the scope change, each export and any upload. | | |
+| 33 | As Admin: **Admin** → **Audit log**. Filter by each test user and today. | Every action from this session is there: sign-ins, quote views, the scope change, each export and any upload. Refused (403) calls are not audited (decided 2026-11-11, DR-cross-cutting-09). | | |
 | 34 | Check one entry for a quote view. | Who, when (US Central day), which quote, which action. | | |
 | 35 | Ben runs `UPDATE audit_event SET … WHERE …` and `DELETE FROM audit_event WHERE …` against the test database as the app role and as the owner. | Both refused: "audit_event is append-only". | | |
 | 36 | As Admin: **Admin** → **Audit log** → **Export CSV**. | The export itself appears as a new audit entry. | | |

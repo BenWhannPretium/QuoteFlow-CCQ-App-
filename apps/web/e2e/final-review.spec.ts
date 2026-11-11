@@ -324,3 +324,47 @@ test('a KAM cannot reach the approvals queue, and a reader of the review cannot 
   await expect(lead.getByTestId('final-review-counts')).not.toContainText('You can decide');
   expect(await seriousViolations(lead)).toEqual([]);
 });
+
+// DR-approver-leadership-admin-05 (decided 2026-11-11): a quote held at Final Review says so on the
+// review screen, with its review date and what a decision does to the hold.
+test('a quote on hold at Final Review shows the hold on the review screen', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  for (const p of ['approver', 'kam', 'pricing', 'eng-lead', 'sales-leader']) {
+    await request.get('/api/v1/me', { headers: as(p) });
+  }
+  const id = async (persona: string) =>
+    (
+      (await (await request.get('/api/v1/me', { headers: as(persona) })).json()) as {
+        user: { id: string };
+      }
+    ).user.id;
+  const qn = await quoteInFinalReview(
+    request,
+    await id('engineer'),
+    await id('pricing'),
+    'proceed',
+  );
+  const reviewDate = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+  await ok(
+    request.post(`/api/v1/quotes/${qn}/gates/G4/decisions`, {
+      headers: as('approver'),
+      data: {
+        outcomeKey: 'hold',
+        reasonCode: 'awaiting_customer_info',
+        note: 'Customer is confirming the volume',
+        holdUntil: reviewDate,
+        holdOwnerId: await id('approver'),
+      },
+    }),
+    201,
+  );
+  await signInAs(page, 'approver');
+  await page.goto(`/quotes/${qn}/review`);
+  const banner = page.getByTestId('review-on-hold');
+  await expect(banner).toContainText('On hold until');
+  await expect(banner).toContainText('A Final Review decision ends the hold');
+  expect(await seriousViolations(page)).toEqual([]);
+});

@@ -116,8 +116,9 @@ describe('comments', () => {
     expect(res.statusCode, res.body).toBe(201);
     const { item } = CommentResponse.parse(res.json());
     expect(item).toMatchObject({ kind: 'comment', category: 'comment', type: 'comment_added' });
+    // DR-engineering-12 (decided 2026-11-11): kept as typed; the screen shows it as text.
     expect(item.comment!.body).toBe(
-      `Heads up @${engLead.displayName}: **sample** due _Friday_ x()`,
+      `<b>Heads up</b> @${engLead.displayName}: **sample** due _Friday_ <script>x()</script>`,
     );
     expect(item.comment!.mentions).toEqual([{ userId: engLead.id, name: engLead.displayName }]);
 
@@ -156,8 +157,12 @@ describe('comments', () => {
     expect(audit).toMatchObject({ action: 'create', quoteId });
   });
 
+  // DR-engineering-12 (decided 2026-11-11): tags are now kept as typed, so "<p></p>" is text; a comment
+  // of only spaces, blank lines and control characters is still empty.
   it('refuses a comment that is empty once sanitized', async () => {
-    const res = await as('SalesLeader').post(`/api/v1/quotes/${qn}/comments`, { body: '<p></p>' });
+    const res = await as('SalesLeader').post(`/api/v1/quotes/${qn}/comments`, {
+      body: ' \n\n\u0007  ',
+    });
     expect(res.statusCode).toBe(422);
   });
 

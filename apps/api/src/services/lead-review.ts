@@ -224,7 +224,8 @@ export async function returnToAssignee(
     at: now,
   });
   const leadName = nameOf(actor.userId);
-  // The assignee is told with the note (in-app and email). FB-05 (F-079): the KAM sees the send-back,
+  // The assignee is told in-app with the note, and by email without it (DR-pricing-finance-05: a note
+  // can carry a price, and email never carries comment text). FB-05 (F-079): the KAM sees the send-back,
   // in-app only, without the note's detail in any email (there is none for that type).
   await deliverPlanned(
     tx,
@@ -235,7 +236,8 @@ export async function returnToAssignee(
         ? {
             title: `${quoteNumber} was sent back to you`,
             body: `${leadName ?? `The ${LEAD_REVIEW[kind].noun.lead}`} asked for changes: ${trimmed}`,
-            payload: { kind, note: trimmed, ...(leadName ? { actor: leadName } : {}) },
+            // DR-pricing-finance-05: the note is in the in-app body only, never in the email payload.
+            payload: { kind, ...(leadName ? { actor: leadName } : {}) },
           }
         : {
             title: `${quoteNumber}: the ${workName(kind)} was sent back to the ${LEAD_REVIEW[kind].noun.assignee}`,

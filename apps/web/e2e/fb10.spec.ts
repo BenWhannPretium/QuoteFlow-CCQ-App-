@@ -171,6 +171,13 @@ test('a quote below the platform minimum shows a warning at G1 and is not blocke
     await dialog.getByRole('radio', { name: 'Advance' }).check();
     await expect(dialog.getByRole('button', { name: 'Record decision' })).toBeEnabled();
     expect(await seriousViolations(page)).toEqual([]);
+    // DR-kam-sales-leader-09 (decided 2026-11-11): the quote page shows the warning too.
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await signInAs(page, 'kam');
+    await page.goto(`/quotes/${quoteNumber}`);
+    await expect(page.getByTestId('guardrail-note')).toContainText(
+      'Below the platform minimum for our machine platforms: 400,000 units/yr.',
+    );
   } finally {
     await patchSetting(request, 'intake_guardrails', (v) => ({ ...v, enabled: false }));
   }

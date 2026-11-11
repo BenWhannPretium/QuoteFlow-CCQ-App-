@@ -42,6 +42,7 @@ const FIXTURES: Record<string, Record<string, string>> = {
   'quote.returned_by_lead': {
     kind: 'engineering',
     actor: 'Jim Lead',
+    // DR-pricing-finance-05: even if a payload still carried the note, the email leaves it out.
     note: 'Check the cavitation',
   },
   // FB-05 (F-079, F-034)
@@ -296,6 +297,20 @@ describe('digest', () => {
     const e = renderEmail(digest(2, 5));
     expect(e.subject).toContain('7 quotes');
     expect(e.text).toContain('…and 5 more in the queue.');
+  });
+});
+
+describe('the lead send-back email (DR-pricing-finance-05)', () => {
+  it('never carries the lead’s note: it stays in the app', () => {
+    const e = renderEmail(
+      model('quote.returned_by_lead', {
+        payload: { kind: 'pricing', actor: 'Pat Lead', note: 'Price it at $1.23 a unit' },
+      }),
+    );
+    expect(e.text).not.toContain('$1.23');
+    expect(e.html).not.toContain('$1.23');
+    expect(e.text).not.toContain('Note:');
+    expect(e.text).toContain('Open the quote to read what to change');
   });
 });
 
