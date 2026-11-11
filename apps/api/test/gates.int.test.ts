@@ -307,8 +307,9 @@ describe('G1 decisions through the generic route', () => {
     ]);
     // A decided gate can't be decided again: the quote has left INTAKE.
     const again = await decide(q.quoteNumber, { outcomeKey: 'advance' });
-    expect(again.statusCode).toBe(422);
-    expect(errorCodes(again)).toEqual(['WRONG_STAGE']);
+    // DR-cross-cutting-01: a plain 409 "already decided", not a 422 with the raw stage keys.
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ code: 'already_decided' });
   });
 
   it('Hold needs a review date, a reason and a note; then the quote is on hold with the date recorded', async () => {

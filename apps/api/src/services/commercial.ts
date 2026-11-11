@@ -66,6 +66,8 @@ import {
   PASS_THROUGH_SEED,
   PROCESS_OWNER_SEED,
   can,
+  capitalTermsSegregation,
+  capitalTermsSegregationMessage,
   derivedDecisionFields,
   g4CheckWarnings,
   parseCapitalNotice,
@@ -88,7 +90,7 @@ import {
   type EscalationRoute,
   type G4Check,
   type LegalTrigger,
-  type LockConfig,
+  type WorkflowConfig,
   type MarketDevNoticeSetting,
   type ProcessOwnerSetting,
   type QuoteState,
@@ -119,7 +121,7 @@ export class CommercialError extends ServiceProblem {
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 function fail(errors: readonly DomainError[]): never {
-  const forbidden = errors.filter((e) => e.code === 'NOT_PERMITTED');
+  const forbidden = errors.filter((e) => e.code === 'NOT_PERMITTED' || e.code === 'SEGREGATION');
   if (forbidden.length > 0) {
     throw new CommercialError(
       403,
@@ -324,7 +326,12 @@ function capitalTermsView(
   settings: CommercialSettings,
   locked: boolean,
   name: (id: string | null) => string | null,
+  workflow: WorkflowConfig,
 ): CapitalTermsView {
+  // DR-approver-leadership-admin-01: the G4 segregation rules bar the capital terms too.
+  const segregation =
+    can(actor, 'terms.finalize', state) &&
+    capitalTermsSegregationMessage(capitalTermsSegregation(workflow, state, actor));
   return {
     toolingFundingModel: q.toolingFundingModel,
     moldOwnership: q.termsMoldOwnership,
@@ -336,7 +343,9 @@ function capitalTermsView(
     finalizedAt: iso(q.termsFinalizedAt),
     finalizedByName: name(q.termsFinalizedBy),
     required: [...settings.terms.capitalTermsRequired],
-    canFinalize: q.status !== 'closed' && !locked && can(actor, 'terms.finalize', state),
+    canFinalize:
+      q.status !== 'closed' && !locked && can(actor, 'terms.finalize', state) && !segregation,
+    finalizeBlockedReason: segregation || null,
   };
 }
 
@@ -467,7 +476,7 @@ export async function finalReviewChecks(
       termsNotes: q.termsNotes,
       checkedAt: iso(q.termsCheckedAt),
       checkedByName: name(q.termsCheckedBy),
-      capital: capitalTermsView(q, actor, state, settings, locked, name),
+      capital: capitalTermsView(q, actor, state, settings, locked, name, workflow),
       exception,
       additionalApprovals,
       legal: {
@@ -493,8 +502,8 @@ export async function commercialView(
   settings: CommercialSettings,
   q: Quote,
   state: QuoteState,
-  /** FB-01 (F-001): the workflow config the section locks read. */
-  workflow: LockConfig,
+  /** FB-01 (F-001): the workflow config the section locks (and the segregation rules) read. */
+  workflow: WorkflowConfig,
 ): Promise<CommercialDetail> {
   const people = await listUsersByIds(
     db,
@@ -545,7 +554,7 @@ export async function commercialView(
       checkedByName: name(q.termsCheckedBy),
       canEdit: open && !termsLock.locked && can(actor, 'terms.edit', state),
       canEditEngineering: open && !termsLock.locked && can(actor, 'terms.engineering.edit', state),
-      capital: capitalTermsView(q, actor, state, settings, termsLock.locked, name),
+      capital: capitalTermsView(q, actor, state, settings, termsLock.locked, name, workflow),
       exception,
       lock: await lockView(db, workflow, termsLock),
     },
@@ -746,6 +755,14 @@ export class CommercialService {
       const permission = TERMS_SCOPE_PERMISSION[scope];
       if (!can(actor, permission, state)) {
         fail([{ code: 'NOT_PERMITTED', message: `Requires ${permission}` } as DomainError]);
+      }
+      // DR-approver-leadership-admin-01: whoever may not release the offer (the G4 segregation rules:
+      // the quote's KAM, its price approver) may not edit or confirm its capital terms either.
+      if (scope === 'finalize') {
+        const barred = capitalTermsSegregationMessage(
+          capitalTermsSegregation(await lockConfig(tx), state, actor),
+        );
+        if (barred) fail([{ code: 'SEGREGATION', message: barred } as DomainError]);
       }
       const current = termsValues(q);
       const settings = await loadCommercialSettings(tx);

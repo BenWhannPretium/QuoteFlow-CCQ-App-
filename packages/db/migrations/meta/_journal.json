@@ -281,6 +281,13 @@
       "when": 1794330000000,
       "tag": "0039_fb13_plants_machine_types",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794340000000,
+      "tag": "0040_dr_g2_capacity_calculated",
+      "breakpoints": true
     }
   ]
 }

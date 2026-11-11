@@ -358,3 +358,91 @@ describe('a quote on a retired market (F-020)', () => {
     expect(row!.market).toBe('PHARMA_HEALTH');
   });
 });
+
+/**
+ * DR-cross-cutting-02 / DR-kam-sales-leader-06 (Sev-2): every list-backed intake field is checked against
+ * the ACTIVE value-list codes on the server, at draft save (new writes) and at submit, with the sub-market
+ * check's wording. A quote that already holds a retired value still loads, and its rework keeps it.
+ */
+describe('DR-cross-cutting-02: intake value lists are checked on the server', () => {
+  const BAD: [field: string, value: unknown, message: string][] = [
+    ['market', 'ZZZ_NOT_A_MARKET', 'Pick a market from the list'],
+    ['market', 'PHARMA_HEALTH', 'Pick a market from the list'], // retired by FB-12
+    ['resin', 'UNOBTAINIUM', 'Pick a resin from the list'],
+    ['productFamily', 'SPACESHIP', 'Pick a product family from the list'],
+    ['neckDiameter', '9999', 'Pick a neck diameter from the list'],
+    ['pcrLevel', '77', 'Pick a PCR level from the list'],
+    ['packagingType', 'LASER', 'Pick a packaging type from the list'],
+    ['components', ['CONTAINER', 'WARP_DRIVE'], 'Pick a component from the list'],
+  ];
+
+  it.each(BAD)('a new draft with %s = %j is refused (422)', async (field, value, message) => {
+    const res = await kam().post('/api/v1/quotes/drafts', {
+      data: { ...(await prefill(free[0]!)), [field]: value },
+    });
+    expect(res.statusCode, res.body).toBe(422);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.json()).toMatchObject({
+      code: 'invalid_list_value',
+      errors: [{ path: field, message }],
+    });
+  });
+
+  it('a draft save that writes an unknown code is refused; the stored draft is unchanged', async () => {
+    const draft = await createDraft({});
+    const res = await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, {
+      data: { market: 'ZZZ_NOT_A_MARKET' },
+    });
+    expect(res.statusCode, res.body).toBe(422);
+    expect(res.json()).toMatchObject({ errors: [{ path: 'market' }] });
+    const [row] = await db.db
+      .select()
+      .from(schema.quoteDraft)
+      .where(eq(schema.quoteDraft.id, draft.id));
+    expect((row!.data as IntakeDraftData).market).toBe('FOOD');
+    // A save that does not touch the list fields still works.
+    const ok = await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, {
+      data: { bidReference: 'BID-1' },
+    });
+    expect(ok.statusCode, ok.body).toBe(200);
+  });
+
+  it('submit refuses a draft that holds an unknown code (written before the check)', async () => {
+    const draft = await createDraft({});
+    await db.db
+      .update(schema.quoteDraft)
+      .set({ data: { ...(draft.data), resin: 'UNOBTAINIUM' } })
+      .where(eq(schema.quoteDraft.id, draft.id));
+    const res = await kam().post(`/api/v1/quotes/drafts/${draft.id}/submit`);
+    expect(res.statusCode, res.body).toBe(422);
+    expect(res.json<{ errors: { path: string; message: string }[] }>().errors).toContainEqual({
+      path: 'resin',
+      message: 'Pick a resin from the list',
+    });
+  });
+
+  it('a quote on a retired value still loads, and its rework keeps the value', async () => {
+    const q = await submitQuote({ market: 'FOOD' });
+    await db.db
+      .update(schema.quote)
+      .set({ market: 'PHARMA_HEALTH', subMarket: null })
+      .where(eq(schema.quote.id, q.quote.id));
+    expect((await detailAs('KAM', q.quoteNumber)).statusCode).toBe(200);
+    // Send it back to the KAM, open the rework draft, change something else and resubmit.
+    const back = await asRole(app, 'SalesLeader').post(
+      `/api/v1/quotes/${q.quoteNumber}/gates/G1/decisions`,
+      { outcomeKey: 'rework', reasonCode: 'missing_information', note: 'Add the bid reference' },
+    );
+    expect(back.statusCode, back.body).toBe(201);
+    const rework = await kam().post(`/api/v1/quotes/${q.quoteNumber}/rework`);
+    expect(rework.statusCode, rework.body).toBeLessThan(300);
+    const draft = IntakeDraft.parse(rework.json());
+    const patched = await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, {
+      data: { market: 'PHARMA_HEALTH', bidReference: 'BID-2' },
+    });
+    expect(patched.statusCode, patched.body).toBe(200);
+    expect(
+      IntakeDraft.parse(patched.json()).evaluation.blocking.filter((b) => b.field === 'market'),
+    ).toEqual([]);
+  });
+});

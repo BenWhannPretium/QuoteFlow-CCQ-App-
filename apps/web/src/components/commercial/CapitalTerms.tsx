@@ -98,22 +98,32 @@ export function CapitalTerms({
   onSaved: (next: QuoteDetail) => Promise<void> | void;
 }) {
   const items = useCapitalTermItems(view);
+  // DR-approver-leadership-admin-01: say why an approver cannot confirm them on this quote.
+  const blocked = view.finalizeBlockedReason ? (
+    <p className="text-muted-foreground text-sm" data-testid="capital-terms-blocked">
+      {view.finalizeBlockedReason}
+    </p>
+  ) : null;
   if (mode === 'readonly') {
     return (
       <section aria-label="Capital terms" className="grid gap-2" data-testid="capital-terms">
         <p className="text-sm font-medium">Capital terms</p>
+        {blocked}
         <KeyValueGrid items={items} />
       </section>
     );
   }
   return (
-    <CapitalTermsForm
-      key={`${view.finalizedAt}|${view.toolingFundingModel}|${view.moldOwnership}`}
-      quoteNumber={quoteNumber}
-      view={view}
-      mode={mode}
-      onSaved={onSaved}
-    />
+    <>
+      {blocked}
+      <CapitalTermsForm
+        key={`${view.finalizedAt}|${view.toolingFundingModel}|${view.moldOwnership}`}
+        quoteNumber={quoteNumber}
+        view={view}
+        mode={mode}
+        onSaved={onSaved}
+      />
+    </>
   );
 }
 

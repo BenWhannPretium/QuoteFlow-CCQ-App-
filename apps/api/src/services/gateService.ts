@@ -14,7 +14,9 @@ import {
   listG4Signoffs,
   listGateQueue,
   listUsersByIds,
+  hasGateDecision,
   loadQuoteState,
+  lockQuoteByNumber,
   loadWorkflowConfigInput,
   persistTransition,
   updateQuote,
@@ -66,7 +68,7 @@ export type GateWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 /** A failure the route turns into problem+json. `errors` carries every domain error, not just the first. */
 export class GateError extends Error {
   constructor(
-    readonly status: 403 | 404 | 422,
+    readonly status: 403 | 404 | 409 | 422,
     readonly code: string,
     message: string,
     readonly extra: Record<string, unknown> = {},
@@ -95,6 +97,9 @@ export interface GateServiceOptions {
 
 /** Codes that mean "you may not", reported as 403 rather than 422. */
 const FORBIDDEN_CODES = new Set(['NOT_PERMITTED', 'SEGREGATION', 'TIER_APPROVER_REQUIRED']);
+
+/** Codes that mean "the quote moved on while you were deciding" (DR-cross-cutting-01), reported as 409. */
+const MOVED_ON_CODES = new Set(['WRONG_STAGE', 'QUOTE_CLOSED']);
 
 const problemErrors = (errors: readonly DomainError[]) =>
   errors.map((e) => ({
@@ -140,6 +145,11 @@ export class GateService {
       const gate = workflow.gates.find((g) => g.key === gateKey);
       if (!gate) {
         throw new GateError(404, GATE_PROBLEM_CODES.unknownGate, `No gate ${gateKey}`);
+      }
+      // DR-cross-cutting-01: lock the quote row before reading its stage. Two decisions on one quote
+      // (two approvers, two tabs) then run one after the other, and the second sees what the first did.
+      if (!(await lockQuoteByNumber(tx, quoteNumber))) {
+        throw new GateError(404, GATE_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
       }
       const row = await getQuoteSummaryByNumber(tx, quoteNumber);
       if (!row) throw new GateError(404, GATE_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
@@ -346,6 +356,27 @@ export class GateService {
               .filter((e) => FORBIDDEN_CODES.has(e.code))
               .map((e) => e.message)
               .join('; '),
+          );
+        }
+        // DR-cross-cutting-01 / DR-approver-leadership-admin-13: the gate was already decided (by someone
+        // else, or in another tab) and the quote has moved on, or it is already on hold. Plain 409.
+        if (errors.some((e) => e.code === 'ALREADY_ON_HOLD')) {
+          throw new GateError(
+            409,
+            GATE_PROBLEM_CODES.alreadyDecided,
+            'This quote is already on hold. Resume it before putting it on hold again.',
+            { title: 'This quote is already on hold' },
+          );
+        }
+        if (
+          errors.some((e) => MOVED_ON_CODES.has(e.code)) &&
+          (await hasGateDecision(tx, row.quote.id, gateKey))
+        ) {
+          throw new GateError(
+            409,
+            GATE_PROBLEM_CODES.alreadyDecided,
+            'This quote was already decided. Reload the page to see where it is now.',
+            { title: 'This quote was already decided' },
           );
         }
         throw new GateError(422, GATE_PROBLEM_CODES.rejected, 'The decision was not accepted', {

@@ -997,6 +997,44 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     return qn;
   }
 
+  it('DR-engineering-02: 0% effectiveness is refused, and Advance waits for utilization after', async () => {
+    const ok = (res: { statusCode: number; body: string }) =>
+      expect(res.statusCode, res.body).toBe(200);
+    const quoteRow = async (n: string) =>
+      (await db.db.select().from(schema.quote).where(eq(schema.quote.quoteNumber, n)))[0]!;
+    const qn = await ready({ capacity: false });
+    // 0% means no capacity at all: refused, with the limit named.
+    const zero = await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
+      rows: [await capacityRow({ assumedEffectivenessPct: 0 })],
+    });
+    expect(zero.statusCode).toBe(400);
+    expect(zero.body).toContain('Enter an assumed effectiveness above 0%, up to 100%');
+    // A row saved before the check (0%, utilization after blank) blocks every Advance.
+    ok(
+      await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
+        rows: [await capacityRow()],
+      }),
+    );
+    await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
+    const q = await quoteRow(qn);
+    await db.db.execute(
+      sql`update capacity_evidence set assumed_effectiveness_pct = 0, utilization_after_pct = null where quote_id = ${q.id}`,
+    );
+    for (const outcomeKey of ['proceed', 'proceed_with_risk']) {
+      const res = await decide(qn, 'G2', { outcomeKey, note: 'Risk accepted' });
+      expect(res.statusCode, outcomeKey).toBe(422);
+      expect(errorPaths(res), outcomeKey).toEqual(['/capacity_utilization_missing']);
+    }
+    // Fixing the row (a real effectiveness) recalculates it, and Advance goes through.
+    ok(
+      await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
+        rows: [await capacityRow()],
+      }),
+    );
+    const advanced = await decide(qn, 'G2', { outcomeKey: 'proceed' });
+    expect(advanced.statusCode, advanced.body).toBe(201);
+  });
+
   it('Proceed needs the solution fields and at least one capacity row', async () => {
     const qn = await ready({ capacity: false, solution: false });
     const d = await detail(qn);
