@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { LeadReviewView } from './lead-review';
+import { numberFrom, wholeNumber } from './messages';
 import { SectionLockView } from './problem';
 
 // B-10: no imports from quotes.ts here; QuoteDetail embeds EngineeringDetail.
@@ -18,7 +19,7 @@ export const BUDGETARY_CAPITAL_HELP =
 
 const text = (max: number) => z.string().trim().max(max).nullable();
 /** A pack-out count: a whole number from 1 to 9,999,999 (the domain's PACK_OUT_MAX). */
-const PackOutCount = z.number().int().min(1).max(9_999_999).nullable();
+const PackOutCount = wholeNumber(1, 9_999_999).nullable();
 
 /**
  * PUT /api/v1/quotes/:quoteNumber/eng-review. Only the keys sent change; null clears a field.
@@ -31,10 +32,10 @@ export const EngReviewBody = z
     machineType: z.string().max(40).nullable(),
     plantCode: z.string().max(40).nullable(),
     /** F-057: a whole number, 1 to 99. */
-    cavitation: z.number().int().min(1).max(99).nullable(),
-    cycleTimeS: z.number().positive().max(999_999).nullable(),
+    cavitation: wholeNumber(1, 99).nullable(),
+    cycleTimeS: numberFrom(0, 999_999, 'seconds', true).nullable(),
     toolingNotes: text(4000),
-    prelimCapitalUsd: z.number().min(0).max(999_999_999_999).nullable(),
+    prelimCapitalUsd: numberFrom(0, 999_999_999_999, 'USD').nullable(),
     technicalConceptNotes: text(4000),
     /** B-26: Supply Chain's network and freight view. */
     supplyChainNotes: text(4000),
@@ -77,7 +78,7 @@ export const CapacitySignoff = z.object({
 });
 export type CapacitySignoff = z.infer<typeof CapacitySignoff>;
 
-const pct = z.number().min(0).max(100);
+const pct = numberFrom(0, 100, '%');
 
 export const CapacityEvidenceRowBody = z
   .object({
@@ -86,7 +87,7 @@ export const CapacityEvidenceRowBody = z
     lineAsset: z.string().trim().max(120).nullable().optional(),
     /** Required on a new row, never defaulted (DF-22: quotes assumed 85% vs ~70% demonstrated). */
     assumedEffectivenessPct: pct.nullable().optional(),
-    cycleTimeS: z.number().positive().max(999_999).nullable().optional(),
+    cycleTimeS: numberFrom(0, 999_999, 'seconds', true).nullable().optional(),
     /**
      * F-059: the line's current load, entered (replaces the typed "Utilization %"). Utilization AFTER the
      * new business is calculated by the server and is not accepted here. "Buffer %" is gone.
@@ -95,7 +96,7 @@ export const CapacityEvidenceRowBody = z
     /** Units a year allocated to this line. Blank = the quote's estimated annual volume. */
     allocatedAnnualVolume: z.number().int().min(0).max(999_999_999_999).nullable().optional(),
     /** Scheduled run days a year. Blank = the `capacity_basis` default. */
-    scheduledRunDaysPerYear: z.number().int().min(1).max(366).nullable().optional(),
+    scheduledRunDaysPerYear: wholeNumber(1, 366, 'days').nullable().optional(),
     analysisDate: z.iso.date(),
     analystId: z.uuid(),
     notes: z.string().trim().max(4000).nullable().optional(),

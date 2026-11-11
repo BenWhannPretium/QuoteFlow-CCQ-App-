@@ -4,7 +4,7 @@ import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePublicConfig } from '@/config/public-config';
 import { cn } from '@/lib/utils';
-import { marketText, parentMarket, valueListLabel } from '@/lib/value-label';
+import { marketText, parentMarket, scoreExplanationText, valueListLabel } from '@/lib/value-label';
 
 import { ScorePill } from './ScorePill';
 import { TierChip } from './TierChip';
@@ -84,7 +84,7 @@ export function ScoreBreakdownTable({
                   </span>
                 )}
                 <span className={cn('text-muted-foreground block', b.unknown && 'italic')}>
-                  {b.explanation}
+                  {scoreExplanationText(config, b.raw, b.explanation)}
                 </span>
               </th>
               <td className="py-1.5 pr-2 text-right tabular-nums">{pct(b.weight)}</td>

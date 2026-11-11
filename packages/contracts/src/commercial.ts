@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { wholeNumber } from './messages';
 import { SectionLockView } from './problem';
 
 /**
@@ -19,11 +20,11 @@ const capitalTermFields = {
   /** value_list `mold_ownership` code. */
   termsMoldOwnership: z.string().max(40).nullable(),
   termsAmortized: z.boolean().nullable(),
-  termsAmortizationMonths: z.number().int().min(1).max(120).nullable(),
+  termsAmortizationMonths: wholeNumber(1, 120, 'months').nullable(),
   /** Minimum supply / shortfall terms. */
   termsMinSupply: text(300),
   termsAgreementInPlace: z.boolean().nullable(),
-  termsAgreementMonths: z.number().int().min(1).max(240).nullable(),
+  termsAgreementMonths: wholeNumber(1, 240, 'months').nullable(),
 };
 
 /**
