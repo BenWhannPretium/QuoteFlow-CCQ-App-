@@ -28,7 +28,7 @@
 | 6 | In **Cycle time**, open the ⓘ on **Days in each stage (holds excluded)** and **Intake to G4 approval, by week**. | Holds are excluded. The definitions say so. | | |
 | 7 | For every other chart in the report, open its ⓘ. Write in Notes any definition you disagree with. | Every chart has a definition and a time window. | | |
 | 8 | On one chart click **Table**. Then **Chart**. | The same numbers as a table, then back. | | |
-| 9 | Click a **Drill down** link in a table. | The **Pipeline** list opens with the matching filter. | | |
+| 9 | Click a **View quotes** link in the **Drill down** column of a table. | The **Pipeline** list opens with the matching filter. | | |
 | 10 | Set **KAMs** to `<KAM-1 chosen by Bailey>` and **Last 90 days**. | All charts narrow to that KAM. | | |
 | 11 | Scroll to the bottom of **Analytics**. | It says "Operational metrics from QuoteFlow; not yet D&A-certified." The same line sits under the dashboard on the home screen. | | |
 

@@ -29,7 +29,7 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 1 | On your phone, open the email "[QuoteFlow] CCQ-… needs your review". | It names the quote, account, product and tier, with a link. It has **no** price, margin or capital amount. | | |
+| 1 | On your phone, open the email "[QuoteFlow] CCQ-… needs your decision: Final Review". | It names the quote, account, product and priority tier, with a link. It has **no** price, margin or capital amount. | | |
 | 2 | Tap the link and sign in. | Home **Approvals** ("Quotes waiting for your final review decision.") with **Pending final review (G4)** and **Decided recently**. Bottom tabs: **Home**, **Pipeline**, **Approvals**, **Analytics**. | | |
 | 3 | Tap **Approvals**. | Tab **Final Review**: "Quotes Pricing has submitted, highest tier first…". Chips: **Waiting**, **Capital required / with risk (G2)**, **Capital pending**, **You can decide**. | | |
 | 4 | Read one card. | It shows **Price approval**, **Capital readiness**, **Engineering (G2)**, **KAM** and **Pricing approver**, and a **Review & decide** button. | | |
@@ -47,7 +47,7 @@ Steps 7 to 9 assume the capital terms on `<CCQ-FR-2>` are already confirmed (see
 | 9 | Set it back to now. Tap **Record decision**. | "Advance (release the offer) recorded". The stage is **Customer Decision**, not Awarded. The KAM and the pricing approver are notified. | | |
 | 10 | Open `<CCQ-FR-3>`. Tap **Stop (withdraw)**. Tap **Record decision** with no reason and no note. | "Choose a reason." and "Add a note." | | |
 | 11 | Pick a reason (for example **Capacity unavailable**) and type a note. **Record decision**. | The quote closes as **Declined**. The KAM and Pricing are notified. | | |
-| 12 | Open `<CCQ-FR-4>`. Tap **Rework (back to the affected gate)**. | **Send back to (required)** offers the earlier stages (Quoting, Engineering Review). A reason and a note are required. | | |
+| 12 | Open `<CCQ-FR-4>`. Tap **Rework (back to the affected gate)**. | **Send back to (required)** offers the earlier stages (Quoting, Engineering Review). The note is required. The reason is **optional** (it reads "Reason (optional)"). | | |
 | 13 | Pick **Quoting**, type a note, **Record decision**. | The quote is back in **Quoting** as a new version. Pricing is told. | | |
 | 14 | Open `<CCQ-FR-5>`. Tap **Hold**. Pick a reason, **Review date (required)** and the hold owner. Leave the note empty and record, then add a note. | A note is required. "On hold until <date> · owner <name>". It stays in Final Review. The KAM is told. | | |
 
