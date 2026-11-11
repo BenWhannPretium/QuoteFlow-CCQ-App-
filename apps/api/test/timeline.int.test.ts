@@ -272,3 +272,26 @@ describe('the timeline', () => {
     }
   });
 });
+
+describe('double submit (DR-engineering-06)', () => {
+  it('DR-engineering-06: a double submit of the same comment stores one comment', async () => {
+    tick();
+    const body = { body: 'Double-clicked comment', mentions: [] };
+    const results = await Promise.all([
+      as('SalesLeader').post(`/api/v1/quotes/${qn}/comments`, body),
+      as('SalesLeader').post(`/api/v1/quotes/${qn}/comments`, body),
+    ]);
+    expect(results.map((r) => r.statusCode)).toEqual([201, 201]);
+    const ids = results.map((r) => CommentResponse.parse(r.json()).item.id);
+    expect(ids[0]).toBe(ids[1]);
+    const rows = await db.db
+      .select()
+      .from(schema.comment)
+      .where(eq(schema.comment.body, 'Double-clicked comment'));
+    expect(rows).toHaveLength(1);
+    // The same words later are a new comment.
+    tick();
+    const later = await as('SalesLeader').post(`/api/v1/quotes/${qn}/comments`, body);
+    expect(CommentResponse.parse(later.json()).item.id).not.toBe(ids[0]);
+  });
+});

@@ -43,7 +43,7 @@ export function Timeline({
       {items.map((item, i) => (
         <li
           key={item.id}
-          className="relative grid grid-cols-[1rem_1fr] gap-3"
+          className="relative grid grid-cols-[1rem_minmax(0,1fr)] gap-3"
           data-testid="timeline-item"
           data-kind={item.kind ?? 'system'}
         >
@@ -51,9 +51,12 @@ export function Timeline({
             <span className={cn('mt-1.5 size-2.5 rounded-full', MARKER[item.kind ?? 'system'])} />
             {i < items.length - 1 && <span className="bg-border absolute top-5 -bottom-5 w-px" />}
           </span>
-          <div className="grid min-w-0 gap-1 sm:grid-cols-[1fr_auto] sm:gap-x-4">
+          <div className="grid min-w-0 gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4">
             <div className="grid min-w-0 gap-0.5">
-              <p className="text-sm font-medium">{item.title}</p>
+              {/* DR-pricing-finance-08: a 300-character file name wraps (no sideways scroll at 390 px). */}
+              <p className="text-sm font-medium break-words [overflow-wrap:anywhere]">
+                {item.title}
+              </p>
               <p className="text-muted-foreground text-xs">
                 {item.actor && <>{item.actor} · </>}
                 <time dateTime={item.at} title={absoluteTime(item.at)}>

@@ -1,7 +1,7 @@
 import type { LeadReviewView } from '@ccq/contracts';
 import { useMutation } from '@tanstack/react-query';
 import { CornerUpLeftIcon, LockIcon, SendIcon } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -54,6 +54,7 @@ export function LeadReviewPanel<T>({
   const noun = NOUN[kind];
   const [missing, setMissing] = useState<ServerError[]>([]);
   const [sending, setSending] = useState(false);
+  const inFlight = useRef(false);
   const submitting = useMutation({
     mutationFn: submit,
     onSuccess: async (result) => {
@@ -114,7 +115,20 @@ export function LeadReviewPanel<T>({
       {(review.canSubmit || review.canSendBack) && (
         <div className="flex flex-wrap gap-2">
           {review.canSubmit && (
-            <Button size="sm" onClick={() => submitting.mutate()} disabled={submitting.isPending}>
+            <Button
+              size="sm"
+              onClick={() => {
+                // DR-pricing-finance-04: one request per click burst (the API also refuses a second).
+                if (inFlight.current) return;
+                inFlight.current = true;
+                submitting.mutate(undefined, {
+                  onSettled: () => {
+                    inFlight.current = false;
+                  },
+                });
+              }}
+              disabled={submitting.isPending}
+            >
               <SendIcon aria-hidden="true" />
               {submitting.isPending ? 'Submitting…' : `Submit to ${noun.lead}`}
             </Button>

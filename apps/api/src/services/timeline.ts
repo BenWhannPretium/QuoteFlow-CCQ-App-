@@ -12,7 +12,9 @@ import {
   findUserById,
   getQuoteByNumber,
   getSetting,
+  findRecentSameComment,
   insertComment,
+  lockCommentAuthor,
   listCommentAuthorIds,
   listOverridesWithContext,
   listTimeline,
@@ -68,6 +70,9 @@ const asMentionIds = (v: unknown): string[] =>
  * The quote timeline (F-08): activity events and comments, newest first, with filter chips and keyset
  * paging; and comments with @mentions (sanitized markdown-lite; mentions notify the user).
  */
+/** DR-engineering-06: the same comment again within this window is a double submit, not a new comment. */
+const DOUBLE_SUBMIT_MS = 10_000;
+
 export class TimelineService {
   private readonly now: () => Date;
 
@@ -209,6 +214,30 @@ export class TimelineService {
     return withTx(async (tx) => {
       const quote = await this.quoteOr404(tx, quoteNumber);
       const ctx = await this.opts.quotes.context(tx, actor, at);
+      // DR-engineering-06: a double-click (the same text by the same person within a few seconds) is
+      // one comment: the second request gets the first one back, with no second notice.
+      await lockCommentAuthor(tx, quote.id, actor.userId);
+      const same = await findRecentSameComment(
+        tx,
+        quote.id,
+        actor.userId,
+        text,
+        new Date(at.getTime() - DOUBLE_SUBMIT_MS),
+      );
+      if (same) {
+        const [again] = await this.items(tx, ctx, quote, [
+          {
+            kind: 'comment',
+            id: same.id,
+            type: 'comment_added',
+            actorId: actor.userId,
+            actorName: (await findUserById(tx, actor.userId))?.displayName ?? 'Someone',
+            at: same.createdAt,
+            payload: { body: same.body, mentions: same.mentions },
+          },
+        ]);
+        return again!;
+      }
       const picked = await listUsersByIds(
         tx,
         [...new Set(body.mentions)].slice(0, COMMENT_MAX_MENTIONS),

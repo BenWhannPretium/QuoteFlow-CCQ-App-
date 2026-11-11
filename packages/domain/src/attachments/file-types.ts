@@ -50,6 +50,17 @@ export const isVersionedKind = (kind: string): boolean =>
 export const QUOTING_MODEL_KINDS = ['cost_model', 'roi_model', 'price_table'] as const;
 export type QuotingModelKind = (typeof QUOTING_MODEL_KINDS)[number];
 
+/**
+ * DR-pricing-finance-07: the formats a kind accepts when it is narrower than the general list. The
+ * costing model, the ROI model and the price table are workbooks (the script and FB-07): a PDF passed and
+ * counted as "costing model on file". Other kinds take every type in `ATTACHMENT_FILE_TYPES`.
+ */
+export const KIND_FORMATS: Partial<Readonly<Record<AttachmentKind, readonly FileFormat[]>>> = {
+  cost_model: ['xlsx'],
+  roi_model: ['xlsx'],
+  price_table: ['xlsx'],
+};
+
 export const isQuotingModelKind = (kind: string): kind is QuotingModelKind =>
   (QUOTING_MODEL_KINDS as readonly string[]).includes(kind);
 

@@ -478,12 +478,13 @@ describe('what the recipient may see of a quote', () => {
     const peer = await userId('KAM', 'owner'); // another KAM; sees only their own quotes (owner scope)
     // A peer KAM that can see this quote needs scope "all": make that user one for this test.
     await db.db.execute(sql`update user_scope set scope_type = 'all' where user_id = ${peer}`);
-    const mention = async () => {
+    // Each post has its own text: the same words again within seconds are one comment (DR-engineering-06).
+    const mention = async (text: string) => {
       mail.sent.length = 0;
       const name = MeResponse.parse((await as('KAM', 'owner').get('/api/v1/me')).json()).user
         .displayName;
       const res = await as('EngLead').post(`/api/v1/quotes/${qn}/comments`, {
-        body: `@${name} FYI`,
+        body: `@${name} ${text}`,
         mentions: [peer],
       });
       expect(res.statusCode, res.body).toBe(201);
@@ -498,12 +499,12 @@ describe('what the recipient may see of a quote', () => {
       );
     try {
       await setPeerScores(true);
-      const shown = await mention();
+      const shown = await mention('FYI, scores on');
       expect(shown.text).toMatch(/Account: \S/);
       expect(shown.text).toMatch(/Priority: \S/);
 
       await setPeerScores(false);
-      const hidden = await mention();
+      const hidden = await mention('FYI, scores off');
       expect(hidden.text).toMatch(/Account: \S/); // the quote is theirs to see…
       expect(hidden.text).not.toMatch(/Priority:/); // …its score is not
     } finally {

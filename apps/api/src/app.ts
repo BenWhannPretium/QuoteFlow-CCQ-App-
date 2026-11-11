@@ -57,7 +57,7 @@ import { createValidityExpiryScheduler, type ValidityExpiryScheduler } from './j
 import { loggerOptions } from './logger';
 import { auditPlugin } from './plugins/audit';
 import { authPlugin } from './plugins/auth';
-import { problemJsonPlugin } from './plugins/problem-json';
+import { problem, problemJsonPlugin, sendProblem } from './plugins/problem-json';
 import { spaPlugin } from './plugins/spa';
 import { requestContextPlugin } from './requestContext';
 import { PublicConfigCache } from './routes/v1/config';
@@ -227,6 +227,20 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   const app = Fastify({
     logger: loggerOptions(config),
     trustProxy: isProd, // behind Azure App Service front end
+    // DR-cross-cutting-08: the router's own errors (a path parameter over maxParamLength, a malformed
+    // URL) are RFC 9457 problems too, without echoing the long path back.
+    frameworkErrors: (error, request, reply) => {
+      const tooLong = error.code === 'FST_ERR_MAX_PARAM_LENGTH';
+      const status = tooLong ? 414 : 400;
+      void sendProblem(
+        reply,
+        problem(status, request, {
+          instance: request.url.length > 200 ? `${request.url.slice(0, 200)}…` : request.url,
+          detail: tooLong ? 'A value in the address is too long' : 'The address is not valid',
+          code: tooLong ? 'uri_too_long' : 'bad_url',
+        }),
+      );
+    },
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
