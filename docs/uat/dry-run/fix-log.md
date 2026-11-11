@@ -24,6 +24,7 @@ Nothing here is "UAT passed". The pilot group's UAT decides.
 | [#83](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/83) | 5. Accessibility and mobile | DR-engineering-07, DR-engineering-08, DR-kam-sales-leader-07, DR-kam-sales-leader-08, DR-kam-sales-leader-18, DR-pricing-finance-12, DR-approver-leadership-admin-02, DR-approver-leadership-admin-08, DR-approver-leadership-admin-11, DR-approver-leadership-admin-12, DR-cross-cutting-06, DR-cross-cutting-10, DR-cross-cutting-11 |
 | [#86](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/86) | 6. Feedback in the screens | DR-pricing-finance-01, DR-pricing-finance-03, DR-pricing-finance-10, DR-pricing-finance-11, DR-kam-sales-leader-01, DR-kam-sales-leader-02, DR-kam-sales-leader-04, DR-kam-sales-leader-05, DR-approver-leadership-admin-06, DR-approver-leadership-admin-09, DR-approver-leadership-admin-14, DR-engineering-05, DR-cross-cutting-12 |
 | [#85](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/85) | 7. Wording and exports | DR-engineering-09 (dialog), DR-engineering-10, DR-engineering-11, DR-kam-sales-leader-11, DR-kam-sales-leader-12, DR-kam-sales-leader-14, DR-kam-sales-leader-15 (part), DR-kam-sales-leader-16, DR-kam-sales-leader-17, DR-kam-sales-leader-19, DR-pricing-finance-13, DR-pricing-finance-14, DR-pricing-finance-15, DR-approver-leadership-admin-15 |
+| [#88](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/88) | Decisions | DR-pricing-finance-05, DR-pricing-finance-09, DR-cross-cutting-09, DR-approver-leadership-admin-05, DR-kam-sales-leader-09, DR-engineering-12 |
 
 The PRs are independent of each other, and each is branched from `main`.
 
@@ -49,7 +50,7 @@ The PRs are independent of each other, and each is branched from `main`.
 | DR-engineering-09 | fixed | #84, #85 | Test only: the upload content message ("an Excel workbook"). Dialog placeholder ("Choose an engineer…") by reading the code; no test. |
 | DR-engineering-10 | fixed | #85 | Running app: `workflow-integrity.spec.ts` and `g1.spec.ts` see the outcome's own note helper. |
 | DR-engineering-11 | fixed | #85 | Test only: `engineering.int.test.ts` (the capacity CSV has "Aurora", not "AURORA"). |
-| DR-engineering-12 | needs decision | | The comment sanitiser strips tags silently. Product call: see below. |
+| DR-engineering-12 | fixed (decided) | #88 | Test only: `comments.test.ts`, `timeline.int.test.ts` (text kept as typed, tags included; shown as text). |
 
 ### KAM and sales leader (`2026-11-10-kam-sales-leader.md`)
 
@@ -63,7 +64,7 @@ The PRs are independent of each other, and each is branched from `main`.
 | DR-kam-sales-leader-06 | fixed | #80 | Reproduced first: `fb12-sub-market.int.test.ts` (retired market `PHARMA_HEALTH` refused). |
 | DR-kam-sales-leader-07 | fixed | #83 | Running app: `intake.spec.ts` still finds the buttons by `/^Use /`. Axe on intake step 1 is part of the existing intake spec. |
 | DR-kam-sales-leader-08 | fixed | #83 | Running app: tap targets measured at 390×844 (home, quotes, quote page, preferences); `mobile.spec.ts`. |
-| DR-kam-sales-leader-09 | needs decision | | Guardrail warning not on the quote page. Product call: see below. |
+| DR-kam-sales-leader-09 | fixed (decided) | #88 | Running app: `fb10.spec.ts` (the platform-minimum warning shows on the quote page). |
 | DR-kam-sales-leader-10 | not reproducible | | Running app: CCQ-2026-00057 at 390×844 measured 390 px wide, with no element past the viewport. The synthetic data here differs from the dry run's database. |
 | DR-kam-sales-leader-11 | fixed | #85 | By reading the code (the field label map). The intake e2e passed; it does not reach this message. |
 | DR-kam-sales-leader-12 | fixed | #85 | Integration: the notification suites passed. No test asserts the single full stop. |
@@ -83,11 +84,11 @@ The PRs are independent of each other, and each is branched from `main`.
 | DR-pricing-finance-02 | fixed | #81 | Test only: `rules.test.ts` (the ROI any-of reads "The ROI model, uploaded by Finance…"); `requirement-labels.test.ts`. |
 | DR-pricing-finance-03 | fixed | #86 | Test only: `pricing.int.test.ts` (lead-review status `none` after G3). |
 | DR-pricing-finance-04 | fixed | #84 | Test only: `pricing.int.test.ts` (three concurrent submits give 200, 409, 409 and one notice to the lead). |
-| DR-pricing-finance-05 | needs decision | | Send-back email repeats the lead's note. See below. |
+| DR-pricing-finance-05 | fixed (decided) | #88 | Test only: `render.test.ts`; `fb05-notifications.int.test.ts` (the sent email has no note; the in-app notice does). |
 | DR-pricing-finance-06 | fixed | #81 | Test only: `messages.test.ts` ("Enter 1 to 120 months", "Enter 1 to 240 months", the text-field limit with its name). |
 | DR-pricing-finance-07 | fixed | #84 | Test only: `attachments.int.test.ts` (a PDF is refused as the costing model, ROI model or price table). |
 | DR-pricing-finance-08 | fixed | #84 | Test only: `attachments.int.test.ts` (`%22` kept as `"`). The wrapping is CSS; the Playwright suite passed. |
-| DR-pricing-finance-09 | needs decision | | Finance can comment on any quote. See below. |
+| DR-pricing-finance-09 | fixed (decided: docs) | #88 | Finance may comment: quick-start, home text and `finance.md` step 8 now say so. No permission change. |
 | DR-pricing-finance-10 | fixed | #86 | Test only: `pricing.int.test.ts` (the unassigned quote's `submitBlockedReason`). |
 | DR-pricing-finance-11 | fixed | #86 | Running app: `quoting-steps.spec.ts` ("Hold or stop…" opens "Hold or stop" without Advance) and `workflow-integrity.spec.ts` ("Return to KAM…"). |
 | DR-pricing-finance-12 | fixed | #83 | Running app: tap targets measured at 390×844 (pricing queue, quote page); `mobile.spec.ts`. |
@@ -104,7 +105,7 @@ The PRs are independent of each other, and each is branched from `main`.
 | DR-approver-leadership-admin-02 | fixed | #83 | Running app: `final-review.spec.ts` at 390 px (no decision label clipped). |
 | DR-approver-leadership-admin-03 | fixed | #81 | Test only: `requirement-labels.test.ts` and `rules.test.ts` (G4 terms keys have plain labels). |
 | DR-approver-leadership-admin-04 | fixed | #82 | Test only: `evaluate.test.ts` (G4 hold with a past date is refused). |
-| DR-approver-leadership-admin-05 | needs decision | | Held quote released from `/review`, no Resume. See below. |
+| DR-approver-leadership-admin-05 | fixed (decided: minimum) | #88 | Running app: `final-review.spec.ts` (a held quote shows "On hold until …" on `/review` and what a decision does). The release is not blocked. |
 | DR-approver-leadership-admin-06 | fixed | #86 | Test only: `audit.int.test.ts` (the "gate decision" filter finds stage-change rows with a gateKey). |
 | DR-approver-leadership-admin-07 | fixed | #82 | Running app: `dashboards.spec.ts` (one inline message, no chart request, no toast). |
 | DR-approver-leadership-admin-08 | fixed | #83 | Running app: `/admin/settings` measured at 390 px (823 px before, 390 after); `mobile.spec.ts`. |
@@ -128,35 +129,27 @@ The PRs are independent of each other, and each is branched from `main`.
 | DR-cross-cutting-06 | fixed | #83 | Running app: `fb08.spec.ts` axe after the exception shows "Approved". |
 | DR-cross-cutting-07 | fixed | #81 | Running app: `engineering.spec.ts` (Record decision is disabled with the reason when the outcome would be refused); the G4 labels by unit test. |
 | DR-cross-cutting-08 | fixed | #84 | Test only: `dr-input.int.test.ts` (5,000-character path gives a 414 problem without the echo). |
-| DR-cross-cutting-09 | needs decision | | Refused (403) calls are not audited. See below. |
+| DR-cross-cutting-09 | fixed (decided: docs) | #88 | Refused calls stay un-audited; `security-access.md` step 33 no longer expects them. |
 | DR-cross-cutting-10 | fixed | #83 | Running app: tap targets measured at 390×844; `mobile.spec.ts`. |
 | DR-cross-cutting-11 | fixed | #83 | Running app: `mobile.spec.ts` (usage report). |
 | DR-cross-cutting-12 | fixed | #86 | By reading the code (the Solution card adds "(no longer offered)"); retiring a plant in e2e was not staged. |
 
 **Totals:** 74 defects.
-- 67 fixed (one of them in part, DR-kam-sales-leader-15).
+- 73 fixed (one of them in part, DR-kam-sales-leader-15). Six of these followed Ben's decisions of 2026-11-11, in #88.
 - 1 not reproducible (DR-kam-sales-leader-10).
-- 6 need a decision.
 
 Of the fixed ones, 4 were Sev-2, all in #80.
 
-## Needs a decision (Ben)
+## Decisions (Ben, 2026-11-11: "use the leans")
 
-These were not changed, as the brief asked.
-
-1. **DR-pricing-finance-05: the lead's send-back email repeats the lead's free-text note.** A note can carry a price, and the rule is that email never contains comment text.
-   - Lean: leave the note out of the email, as the KAM and Engineering send-back emails already do.
-2. **DR-pricing-finance-09: Finance can comment on any quote.** The script says Finance only reads and uploads the ROI model.
-   - Either restrict comments for Finance (a permission change),
-   - or correct the Finance quick-start to say Finance may comment.
-3. **DR-cross-cutting-09: refused (403) calls are not audited.** Security-access step 33 says they are.
-   - Either add an audit action for refused calls (a CHECK-constraint migration, Fabric-safe),
-   - or drop "the refused calls" from step 33.
-4. **DR-approver-leadership-admin-05: a quote on hold at Final Review can still be released from `/review`, and there is no Resume.** Decide the intended behaviour: block the release while on hold, or show how to resume.
-   - At minimum, `/review` should show the hold banner (date and owner).
-5. **DR-kam-sales-leader-09 and DR-engineering-12:** product calls.
-   - DR-kam-sales-leader-09: the guardrail warning is shown at submit and in the G1 dialog, not on the quote page. Should the quote page show it?
-   - DR-engineering-12: the comment sanitiser silently strips tags, so `<script>x</script>` becomes "x". Should it keep the text as typed (rendered as text), or warn?
+| DR id | Decision | Where |
+|---|---|---|
+| DR-pricing-finance-05 | The lead's send-back email leaves the note out, as the KAM and Engineering send-back emails do. | #88 |
+| DR-pricing-finance-09 | Finance may comment; the quick-start and the script say so. No lean was given; the docs fix was taken over a permission change. | #88 |
+| DR-cross-cutting-09 | Refused calls are not audited; step 33 is corrected. No lean was given; the docs fix was taken over a new audit action and migration. | #88 |
+| DR-approver-leadership-admin-05 | At minimum, `/review` shows the hold and says a decision ends it. Blocking the release while on hold was not done. | #88 |
+| DR-kam-sales-leader-09 | The quote page shows the platform-minimum warning. No lean was given; showing it was taken. | #88 |
+| DR-engineering-12 | Comment text is kept as typed (shown as text). No lean was given; keeping it was taken over a warning. | #88 |
 
 ## What could not be retested here
 
