@@ -89,7 +89,8 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   freight_special_arrangements: { label: 'Special freight arrangements', step: 3 },
   bid_reference: { label: 'Bid / program reference', step: 3 },
   packaging_type: { label: 'Packaging type', step: 3 },
-  packaging_notes: { label: 'Packaging requirements', step: 3 },
+  // DR-kam-sales-leader-11: the same name as the field on step 3.
+  packaging_notes: { label: 'Customer-specified packaging (describe)', step: 3 },
   est_annual_volume: { label: 'Estimated annual volume', step: 3 },
   est_annual_revenue: { label: 'Estimated annual revenue', step: 3 },
   quote_needed_by: { label: 'Quote needed by', step: 3 },

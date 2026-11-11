@@ -132,7 +132,7 @@ export function renderLayout(input: LayoutInput): { html: string; text: string }
                   >
                     This is an automated message from QuoteFlow (Commercial Capital Quoting).
                     Replies are not read. Pricing and capital figures are never sent by email; open
-                    the quote to see what you are cleared to see.
+                    the quote to see them.
                     <a href="${input.preferencesUrl}" style="color:${GREEN}"
                       >Choose which emails you get</a
                     >.
@@ -156,7 +156,7 @@ export function renderLayout(input: LayoutInput): { html: string; text: string }
     '',
     '--',
     'This is an automated message from QuoteFlow (Commercial Capital Quoting). Replies are not read.',
-    'Pricing and capital figures are never sent by email; open the quote to see what you are cleared to see.',
+    'Pricing and capital figures are never sent by email; open the quote to see them.',
     `Choose which emails you get: ${input.preferencesUrl}`,
   );
   return { html: body.value, text: lines.join('\n') };

@@ -53,7 +53,12 @@ export function compareSfStage(input: {
     sfStage,
     ccqStageHint: hint,
     mismatch: true,
-    reason: `CCQ shows ${label(input.ccqStageKey)} but Salesforce shows "${sfStage}" (${label(hint)})`,
+    // DR-kam-sales-leader-15: the CCQ stage in brackets only when it says something new
+    // ('Salesforce shows "Quoting" (Quoting)' read as a stutter).
+    reason:
+      label(hint).toLowerCase() === sfStage.toLowerCase()
+        ? `CCQ shows ${label(input.ccqStageKey)} but Salesforce shows "${sfStage}"`
+        : `CCQ shows ${label(input.ccqStageKey)} but Salesforce shows "${sfStage}" (${label(hint)})`,
   };
 }
 

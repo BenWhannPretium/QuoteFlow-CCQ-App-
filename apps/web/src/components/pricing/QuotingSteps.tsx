@@ -215,7 +215,13 @@ function Step({
 
 function ModelLine({ model, label }: { model: ModelFileView | null; label: string }) {
   if (!model) {
-    return <p className="text-muted-foreground text-sm">No {label.toLowerCase()} uploaded yet.</p>;
+    // DR-pricing-finance-13: "No ROI model uploaded yet." (lower-casing the label made it "roi").
+    return (
+      <p className="text-muted-foreground text-sm">
+        No {/^[A-Z]{2}/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1)}{' '}
+        uploaded yet.
+      </p>
+    );
   }
   return (
     <div className="grid gap-0.5 text-sm" data-testid={`model-${model.kind}`}>

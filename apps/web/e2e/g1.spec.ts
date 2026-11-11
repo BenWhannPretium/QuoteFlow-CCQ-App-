@@ -55,7 +55,8 @@ test('a SalesLeader qualifies one quote and redirects another from the G1 queue'
   // Redirect the second: a reason and (FB-01, F-027) a note are required.
   await redirectCard.getByRole('button', { name: `Decide ${toRedirect}` }).click();
   await dialog.getByRole('radio', { name: 'Redirect' }).check();
-  await expect(dialog.getByText('Required for exception decisions')).toBeVisible();
+  // DR-kam-sales-leader-16: the note helper fits the outcome.
+  await expect(dialog.getByText('Say where the work goes instead, and why.')).toBeVisible();
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(dialog.getByRole('alert')).toContainText('Choose a reason.');
   await expect(dialog.getByRole('alert')).toContainText('Add a note.');

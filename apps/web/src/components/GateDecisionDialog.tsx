@@ -406,7 +406,9 @@ export function GateDecisionDialog({
                       onChange={(e) => setReasonCode(e.target.value)}
                       aria-invalid={submitted && needsReason && !reason}
                     >
-                      <option value="">Choose a reason…</option>
+                      <option value="">
+                        {needsAcceptance ? 'Choose the evidence…' : 'Choose a reason…'}
+                      </option>
                       {action.reasonCodes.map((r) => (
                         <option key={r.code} value={r.code}>
                           {r.label}
@@ -574,10 +576,10 @@ export function GateDecisionDialog({
                       ? 'Strategic exception note (required)'
                       : `Note ${needsNote ? '(required)' : '(optional)'}`}
                   </label>
-                  {/* FB-01 (F-027, D-015): notes are for exception decisions only. */}
+                  {/* DR-engineering-10, DR-kam-sales-leader-16: say what to write for this outcome. */}
                   {action?.requiresNote && (
                     <p id={ids.noteHint} className="text-muted-foreground text-xs">
-                      Required for exception decisions
+                      {noteHelp(action.outcomeKey)}
                     </p>
                   )}
                   <Textarea
@@ -632,6 +634,22 @@ export function GateDecisionDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * DR-engineering-10, DR-kam-sales-leader-16: what the required note should say, by kind of outcome
+ * (the helper used to read "Required for exception decisions" under Hold, Rework and Stop alike).
+ */
+export function noteHelp(outcomeKey: string): string {
+  if (/hold/.test(outcomeKey)) return 'Say what you are waiting for, and from whom.';
+  if (/rework|return|requote/.test(outcomeKey)) return 'Say what needs to change, and where.';
+  if (outcomeKey === 'recost') return 'Say what changed and needs costing again.';
+  if (/redirect/.test(outcomeKey)) return 'Say where the work goes instead, and why.';
+  if (/stop|decline|lost/.test(outcomeKey)) return 'Say why it stops here.';
+  if (/expired/.test(outcomeKey)) return 'Say why it is expired now.';
+  if (/risk/.test(outcomeKey)) return 'Say what the risk is and how it is covered.';
+  if (/capital/.test(outcomeKey)) return 'Say what the capital is for.';
+  return 'Say why this decision was made.';
 }
 
 /** B-26 (A3): the outcome's definition (config help text) behind an ⓘ, on hover and on focus. */
