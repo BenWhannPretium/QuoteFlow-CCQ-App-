@@ -259,6 +259,36 @@ test('the KAM sees the Engineering tab read-only, capital included', async ({ pa
   expect(await seriousViolations(page)).toEqual([]);
 });
 
+// DR-engineering-03, DR-cross-cutting-07: the G2 dialog lists what is missing in plain words (no rule
+// keys), and "Record decision" is off, with the reason, while the outcome cannot be recorded.
+test('the G2 dialog names what is missing in words and does not offer a decision it would refuse', async ({
+  page,
+  request,
+}) => {
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  await request.post(`/api/v1/quotes/${quoteNumber}/gates/G1/decisions`, {
+    headers: { [DEV_USER_HEADER]: 'sales-leader' },
+    data: { outcomeKey: 'advance' },
+  });
+  await signInAs(page, 'eng-lead');
+  await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  await page.getByTestId('engineering-tab').getByRole('button', { name: 'Decide G2…' }).click();
+  const g2 = page.getByRole('dialog');
+  await g2.getByRole('radio', { name: 'Advance – capital required', exact: true }).check();
+  const missing = g2.getByTestId('completeness');
+  await expect(missing).toContainText('The budgetary capital estimate (Engineering tab)');
+  await expect(missing).toContainText('The equipment BOM uploaded on the Engineering tab');
+  await expect(missing).not.toContainText('prelim_capital_usd');
+  await expect(missing).not.toContainText('must equal');
+  const record = g2.getByRole('button', { name: 'Record decision' });
+  await expect(record).toBeDisabled();
+  await expect(g2.getByTestId('decision-blocked')).toContainText('can’t be recorded yet');
+  // Hold needs nothing from the quote: Record decision is available again.
+  await g2.getByRole('radio', { name: 'Hold', exact: true }).check();
+  await expect(record).toBeEnabled();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
 // Lead review (2026-10-30): the engineer submits the finished review to the engineering lead, who
 // finds it under "Ready for my review" and sends it back with a note; the engineer sees the note.
 test('the engineer submits to the engineering lead, who sends it back with a note', async ({
