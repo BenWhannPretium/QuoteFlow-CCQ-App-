@@ -343,6 +343,29 @@ describe('GET /quotes/export.csv', () => {
     expect(lines).toHaveLength(own.total + 1);
   });
 
+  it('DR-pricing-finance-15 / DR-approver-leadership-admin-15: writes labels, never stored codes', async () => {
+    const { lines } = await csv(
+      'admin',
+      'columns=quoteNumber,status,market,productFamily,resin,capitalReadiness',
+    );
+    const body = lines.slice(1).join(' ');
+    for (const code of [
+      '"pre_approved"',
+      '"not_required"',
+      '"pending"',
+
+      '"BOTTLE"',
+
+      '"active"',
+      '"on_hold"',
+    ]) {
+      expect(body, code).not.toContain(code);
+    }
+    expect(body).toMatch(
+      /"Capital pre-approved \(budgetary\)"|"Capital not required"|"Capital pending"/,
+    );
+  });
+
   it('neutralises spreadsheet formulas in cells', async () => {
     await db.db.execute(
       sql`update quote set description = '=HYPERLINK("x")', structured_description = '{}'::jsonb where quote_number = (select min(quote_number) from quote)`,

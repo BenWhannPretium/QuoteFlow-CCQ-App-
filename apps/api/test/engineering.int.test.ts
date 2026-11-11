@@ -916,7 +916,9 @@ describe('FB-03: utilization before and after, export, CER-ready inputs (F-059, 
       expect(lines[1]).toContain(`"${clock.toISOString()}"`);
       expect(lines[1]).toContain('"Trailing 12 months actual, trending OEE (provisional, D-021)"');
       // site, effectiveness, cycle, cavitation, run days, allocated, capacity, before, after
-      expect(lines[1]).toContain('"AURORA"');
+      // DR-engineering-11: the site's label, not its code.
+      expect(lines[1]).toContain('"Aurora"');
+      expect(lines[1]).not.toContain('"AURORA"');
       expect(lines[1]).toContain('"9676800"');
       expect(lines[1]).toContain('"40","71"');
       expect(lines[2]).toContain('"Line, ""2"""');

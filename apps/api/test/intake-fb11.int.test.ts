@@ -335,7 +335,10 @@ describe('search and the pipeline CSV (F-085)', () => {
     expect(lines[0]).toBe(
       'Quote,Bid / program reference,Requested payment terms,Customer tooling funding,Delivered / FOB,Freight type,Returnable dunnage',
     );
-    expect(lines[1]).toBe(`${quoteNumber},CSV-BID-9,NET_90,SHARED,DELIVERED,FLATBED,Yes`);
+    // DR-pricing-finance-15 / DR-approver-leadership-admin-15: labels, not the stored codes.
+    expect(lines[1]).toBe(
+      `${quoteNumber},CSV-BID-9,Net 90,Shared (company and customer),Delivered,Flatbed,Yes`,
+    );
 
     const plain = await asRole(app, 'KAM').get('/api/v1/quotes/export.csv?q=CSV-BID-9');
     expect(plain.body.split(/\r?\n/)[0]).not.toContain('Bid / program reference');

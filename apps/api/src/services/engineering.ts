@@ -960,6 +960,10 @@ export class EngineeringService {
         loadCapacityBasis(tx),
       ]);
       const cavitation = eng?.cavitation ?? null;
+      // DR-engineering-11: the site as its label ("St. Charles"), retired plants included, not its code.
+      const plants = new Map(
+        (await listValueList(tx, 'plant', { activeOnly: false })).map((v) => [v.code, v.label]),
+      );
       const generatedAt = now.toISOString();
       const header = [
         'quote_number',
@@ -1005,7 +1009,7 @@ export class EngineeringService {
             q.quoteNumber,
             generatedAt,
             basis.basisLabel,
-            row.site,
+            plants.get(row.site) ?? row.site,
             row.lineAsset,
             row.assumedEffectivenessPct,
             row.cycleTimeS,

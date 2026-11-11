@@ -134,7 +134,8 @@ test('T-005: Pricing → KAM → "No" scope change → back in Quoting with the 
   const dialog = lead.getByRole('dialog');
   await expect(dialog.getByRole('radio', { name: 'Rework (back to KAM)' })).toBeChecked();
   await expect(dialog.getByRole('radio', { name: 'Rework (back to Engineering)' })).toBeVisible();
-  await expect(dialog.getByText('Required for exception decisions')).toBeVisible();
+  // DR-engineering-10: the note helper says what to write for this outcome.
+  await expect(dialog.getByText('Say what needs to change, and where.')).toBeVisible();
   await dialog.getByLabel('Reason (required)').selectOption({ label: 'Missing information' });
   await dialog.getByLabel('Note (required)').fill('Annual volume by SKU is missing');
   expect(await seriousViolations(lead)).toEqual([]);

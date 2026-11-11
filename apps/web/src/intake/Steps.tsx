@@ -1512,7 +1512,13 @@ export function ReviewStep({
         ['Components', (data.components ?? []).map((c) => label('component', c)).join(', ')],
         ...followUpRows,
         ['Market', marketLabel(cfg, data) ?? '—'],
-        ['Resin', label('resin', data.resin)],
+        // DR-kam-sales-leader-19: a resin typed under "Other" shows as typed.
+        [
+          'Resin',
+          isCustom(cfg, 'resin', data.resin)
+            ? (data.resinGrade ?? label('resin', data.resin))
+            : label('resin', data.resin),
+        ],
         [
           'Customer-specified resin',
           data.resinCustomerSpecified ? (data.resinGrade ?? 'Yes') : 'No',

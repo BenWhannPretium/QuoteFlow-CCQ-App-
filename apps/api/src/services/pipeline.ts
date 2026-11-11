@@ -24,6 +24,7 @@ import {
   listPipelineKeys,
   listPipelinePeople,
   listPipelineRows,
+  listValueList,
   loadQuoteStates,
   loadWorkflowConfigInput,
   type PipelineKey,
@@ -32,6 +33,7 @@ import {
 } from '@ccq/db/repos';
 import {
   availableActions,
+  CAPITAL_READINESS_LABELS,
   can,
   canSeeCommercialFields,
   compareSfStage,
@@ -409,11 +411,29 @@ export class PipelineService {
       }
       const rows = await PipelineService.rows(tx, keys);
       const label = (key: string) => s.workflow.stages.find((st) => st.key === key)?.label ?? key;
+      // DR-pricing-finance-15, DR-approver-leadership-admin-15: the file says what the screen says
+      // (labels, retired entries included), never a stored code.
+      const lists = Object.fromEntries(
+        await Promise.all(
+          Object.entries(EXPORT_LISTS).map(
+            async ([column, list]) =>
+              [
+                column,
+                new Map(
+                  (await listValueList(tx, list, { activeOnly: false })).map((v) => [
+                    v.code,
+                    v.label,
+                  ]),
+                ),
+              ] as const,
+          ),
+        ),
+      );
       const lines = [
         columns.map((c) => csvCell(QUOTE_LIST_COLUMNS[c])).join(','),
         ...rows.map((r) => {
           const item = PipelineService.item(r, s);
-          return columns.map((c) => csvCell(exportValue(item, c, label))).join(',');
+          return columns.map((c) => csvCell(exportValue(item, c, label, lists))).join(',');
         }),
       ];
       const { columns: _c, ...filters } = params;
@@ -430,12 +450,37 @@ export class PipelineService {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** The exported columns that hold a value-list code, and their list. */
+const EXPORT_LISTS = {
+  productFamily: 'product_family',
+  market: 'market',
+  resin: 'resin',
+  requestedPaymentTerms: 'requested_payment_terms',
+  toolingFundingModel: 'tooling_funding_model',
+  priceBasis: 'price_basis',
+  freightType: 'freight_type',
+} as const satisfies Partial<Record<QuoteListColumnKey, string>>;
+
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Active',
+  on_hold: 'On hold',
+  closed: 'Closed',
+};
+
 function exportValue(
   item: QuoteListItem,
   column: QuoteListColumnKey,
   stageLabel: (key: string) => string,
+  lists: Record<string, Map<string, string>> = {},
 ): unknown {
+  const listed = lists[column];
+  if (listed) {
+    const code = item[column as keyof QuoteListItem];
+    return typeof code === 'string' ? (listed.get(code) ?? code) : code;
+  }
   switch (column) {
+    case 'status':
+      return STATUS_LABELS[item.status] ?? item.status;
     case 'stage':
       return stageLabel(item.stageKey);
     case 'tier':
@@ -446,8 +491,10 @@ function exportValue(
       return item.warnings.map((w) => w.message).join('; ');
     case 'prelimCapitalUsd':
       return item.commercial?.prelimCapitalUsd ?? null;
-    case 'capitalReadiness':
-      return item.commercial?.capitalReadiness ?? null;
+    case 'capitalReadiness': {
+      const code = item.commercial?.capitalReadiness ?? null;
+      return code ? (CAPITAL_READINESS_LABELS[code] ?? code) : null;
+    }
     case 'returnableDunnage':
       return item.returnableDunnage ? 'Yes' : 'No';
     default:

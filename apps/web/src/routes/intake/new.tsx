@@ -378,7 +378,10 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
             Rework of {initial.rework.quoteNumber}
             {initial.rework.reasonLabel ? ` (${initial.rework.reasonLabel})` : ''}.
           </strong>{' '}
-          {initial.rework.note ? `What to fix: ${initial.rework.note}. ` : ''}
+          {/* DR-kam-sales-leader-12, DR-pricing-finance-14: one full stop after the note. */}
+          {initial.rework.note
+            ? `What to fix: ${initial.rework.note.trim()}${/[.!?…]$/.test(initial.rework.note.trim()) ? '' : '.'} `
+            : ''}
           {askScope
             ? 'Submitting updates the same quote. If the scope did not change, it goes straight back to Pricing.'
             : 'Submitting updates the same quote and sends it back for qualification.'}
