@@ -377,6 +377,8 @@ export const INTAKE_PROBLEM_CODES = {
   requestClassNotAllowed: 'REQUEST_CLASS_NOT_ALLOWED',
   /** FB-02 (F-016): no drawing and an incomplete minimum spec (422; `missing` names the fields). */
   drawingOrMinSpecRequired: 'DRAWING_OR_MIN_SPEC_REQUIRED',
+  /** DR-cross-cutting-02: a list-backed field holds a code that is not an active value-list entry (422). */
+  invalidListValue: 'invalid_list_value',
 } as const;
 
 // ── Draft → domain values ────────────────────────────────────────────────────────────────────────

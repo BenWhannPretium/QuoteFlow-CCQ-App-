@@ -36,7 +36,10 @@ export async function submitQuote(
   request: APIRequestContext,
   candidates: string[],
   over: Record<string, unknown> = {},
+  /** The persona who submits (and so becomes the quote's KAM): `kam` unless a spec needs another. */
+  persona = 'kam',
 ): Promise<string> {
+  const asSubmitter = { [DEV_USER_HEADER]: persona };
   while (candidates.length > 0) {
     const id = candidates.shift()!;
     const detail = await request.get(`/api/v1/salesforce/opportunities/${id}`, { headers: asKam });
@@ -57,7 +60,7 @@ export async function submitQuote(
       country: 'US',
     };
     const draft = await request.post('/api/v1/quotes/drafts', {
-      headers: asKam,
+      headers: asSubmitter,
       data: {
         data: {
           sfOpportunityId: id,
@@ -97,7 +100,7 @@ export async function submitQuote(
     expect(draft.status(), await draft.text()).toBe(201);
     const { id: draftId } = (await draft.json()) as { id: string };
     const submit = await request.post(`/api/v1/quotes/drafts/${draftId}/submit`, {
-      headers: asKam,
+      headers: asSubmitter,
     });
     if (submit.status() === 409) continue; // someone else took this opportunity
     expect(submit.status(), await submit.text()).toBe(201);

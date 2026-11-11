@@ -117,8 +117,13 @@ export const CapitalTermsView = z.object({
   finalizedByName: z.string().nullable(),
   /** `capital_terms_required`: what the approver must fill before confirming. */
   required: z.array(z.string()),
-  /** The approver may edit and confirm them (terms.finalize, Final Review, not locked). */
+  /** The approver may edit and confirm them (terms.finalize, Final Review, not locked, not segregated). */
   canFinalize: z.boolean(),
+  /**
+   * DR-approver-leadership-admin-01: why this approver may not edit or confirm them (the G4 segregation
+   * rules: they are the quote's KAM or its price approver); null otherwise.
+   */
+  finalizeBlockedReason: z.string().nullable().optional(),
 });
 export type CapitalTermsView = z.infer<typeof CapitalTermsView>;
 

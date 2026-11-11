@@ -604,3 +604,89 @@ describe('F-082: extra Final Review sign-offs (seeded off; on only after A-035)'
     }
   });
 });
+
+/**
+ * DR-approver-leadership-admin-01 (Sev-2): the G4 segregation rules (`g4-kam-cannot-approve-own`,
+ * `g4-price-approver-cannot-release`) also bar editing and confirming the capital terms, which gate the
+ * release. Allowed and denied per persona: `approver` (allowed; denied as the price approver),
+ * `multi-role` (SalesLeader + Approver; denied as the quote's KAM) and `kam-owner` (no terms.finalize).
+ */
+describe('DR-approver-leadership-admin-01: capital-terms segregation', () => {
+  const byKey = (key: string) => ({
+    get: (url: string) => app.inject({ method: 'GET', url, headers: { [DEV_USER_HEADER]: key } }),
+    put: (url: string, payload: Record<string, unknown>) =>
+      app.inject({ method: 'PUT', url, payload, headers: { [DEV_USER_HEADER]: key } }),
+  });
+  const idOf = async (key: string) =>
+    MeResponse.parse((await byKey(key).get('/api/v1/me')).json()).user.id;
+  const capital = {
+    toolingFundingModel: 'ZERO_CER',
+    termsMoldOwnership: 'CUSTOMER',
+    termsAmortized: false,
+    termsMinSupply: 'Shortfall below 80% of forecast is invoiced',
+    termsAgreementInPlace: true,
+    termsAgreementMonths: 60,
+    finalized: true,
+  };
+  const capitalView = async (qn: string, key: string) =>
+    ReviewSummary.parse((await byKey(key).get(`/api/v1/quotes/${qn}/review-summary`)).json())
+      .termsAndLegal.capital;
+
+  it("the quote's KAM (multi-role) may not edit or confirm them; another approver may", async () => {
+    const qn = await inFinalReview();
+    await db.db
+      .update(schema.quote)
+      .set({ kamUserId: await idOf('multi-role') })
+      .where(eq(schema.quote.quoteNumber, qn));
+
+    const view = await capitalView(qn, 'multi-role');
+    expect(view.canFinalize).toBe(false);
+    expect(view.finalizeBlockedReason).toContain('where you are the KAM');
+
+    const refused = await byKey('multi-role').put(`/api/v1/quotes/${qn}/terms/capital`, capital);
+    expect(refused.statusCode, refused.body).toBe(403);
+    expect(refused.headers['content-type']).toContain('application/problem+json');
+    expect(refused.json<{ detail: string }>().detail).toContain('where you are the KAM');
+    // An edit without confirming is refused too.
+    expect(
+      (
+        await byKey('multi-role').put(`/api/v1/quotes/${qn}/terms/capital`, {
+          termsMinSupply: 'x',
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect((await quoteRow(qn)).termsFinalizedAt).toBeNull();
+
+    // kam-owner (KAM only): no terms.finalize at all.
+    expect(
+      (await byKey('kam-owner').put(`/api/v1/quotes/${qn}/terms/capital`, capital)).statusCode,
+    ).toBe(403);
+
+    // The approver, who is neither the KAM nor the price approver: allowed.
+    expect((await capitalView(qn, 'approver')).canFinalize).toBe(true);
+    const confirmed = await byKey('approver').put(`/api/v1/quotes/${qn}/terms/capital`, capital);
+    expect(confirmed.statusCode, confirmed.body).toBe(200);
+    expect(detail(confirmed).commercial.terms.capital.finalizedAt).not.toBeNull();
+  });
+
+  it('the price approver may not edit or confirm them', async () => {
+    const qn = await inFinalReview();
+    const approverId = await idOf('approver');
+    const q = await quoteRow(qn);
+    await db.db
+      .update(schema.pricingRecord)
+      .set({ priceApprovedBy: approverId })
+      .where(eq(schema.pricingRecord.quoteId, q.id));
+
+    const view = await capitalView(qn, 'approver');
+    expect(view.canFinalize).toBe(false);
+    expect(view.finalizeBlockedReason).toContain('whose price you approved');
+    const refused = await byKey('approver').put(`/api/v1/quotes/${qn}/terms/capital`, capital);
+    expect(refused.statusCode, refused.body).toBe(403);
+    expect((await quoteRow(qn)).termsFinalizedAt).toBeNull();
+
+    // multi-role is an approver here (not the KAM, not the price approver): allowed.
+    const ok2 = await byKey('multi-role').put(`/api/v1/quotes/${qn}/terms/capital`, capital);
+    expect(ok2.statusCode, ok2.body).toBe(200);
+  });
+});

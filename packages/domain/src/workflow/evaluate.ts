@@ -298,6 +298,16 @@ export function evaluateTransition(
     );
   }
   if (!gate.enabled) errors.push(new DomainError('GATE_DISABLED', `Gate ${gate.key} is disabled`));
+  // DR-cross-cutting-04: a quote already on hold is not held again (a second hold would only repeat the
+  // notices). Resume it first, then hold it with the new review date.
+  if (quote.status === 'on_hold' && transition.nextStatus === 'on_hold') {
+    errors.push(
+      new DomainError(
+        'ALREADY_ON_HOLD',
+        'This quote is already on hold. Resume it before putting it on hold again.',
+      ),
+    );
+  }
 
   // 2. Decider permission (role + data scope)
   if (!can(actor, gate.deciderPermission, quote)) {

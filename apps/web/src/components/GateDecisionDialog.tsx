@@ -46,6 +46,8 @@ export const MISSING_LABELS: Record<string, string> = {
   'capital_likely,pricing_record.capital_readiness':
     'Capital is flagged likely: confirm capital readiness (not required or pre-approved)',
   capacity_signoff_status: 'Capacity sign-off by the capacity owner',
+  capacity_utilization_missing:
+    'Utilization after calculated on every capacity row (effectiveness above 0%, cycle time and volume)',
   equipment_bom_on_file: 'The equipment BOM uploaded on the Engineering tab',
   terms_checked_at: 'The terms check (tooling commitment, MOQ, payment terms)',
   'legal_review_required,legal_reviewed_on': 'The Legal review (a Legal trigger applies)',
@@ -238,6 +240,11 @@ export function GateDecisionDialog({
       onDecided?.(result);
     },
     onError: (err) => {
+      // DR-cross-cutting-01: someone else (or another tab) decided first. Refresh what the page shows.
+      if (isApiError(err, 409)) {
+        void queryClient.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) });
+        void queryClient.invalidateQueries({ queryKey: reviewSummaryKey(quoteNumber) });
+      }
       if (isApiError(err)) {
         const errors = (err.problem as { errors?: ServerError[] }).errors;
         setServerErrors(
