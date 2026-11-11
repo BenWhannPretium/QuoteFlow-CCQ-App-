@@ -111,6 +111,17 @@ test('ship-to: the KAM self-applies with a reason; the timeline and a comment wi
   await timeline.getByRole('button', { name: 'Overrides' }).click();
   await expect(timeline.getByText(/Ship-to overridden: .+ → 99 Co-packer Way/)).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
+
+  // DR-engineering-06: a double-click on Comment posts one comment.
+  await timeline.getByRole('button', { name: 'Comments' }).click();
+  await box.fill('Posted once even on a double-click');
+  await page.getByRole('button', { name: 'Comment', exact: true }).dblclick();
+  await expect(timeline.getByText('Posted once even on a double-click')).toHaveCount(1);
+  await page.reload();
+  await page.getByTestId('quote-timeline').getByRole('button', { name: 'Comments' }).click();
+  await expect(
+    page.getByTestId('quote-timeline').getByText('Posted once even on a double-click'),
+  ).toHaveCount(1);
 });
 
 test('Leadership reads the audit log and the usage report; a KAM cannot', async ({ page }) => {

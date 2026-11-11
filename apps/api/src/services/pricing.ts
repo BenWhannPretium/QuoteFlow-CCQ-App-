@@ -616,6 +616,8 @@ export class PricingService {
           now,
           // FB-07 (F-032): attesting costing needs a current costing model.
           costModelOnFile: loaded.state.fields.cost_model_on_file === true,
+          // DR-pricing-finance-16: no approval before the quote existed.
+          quoteCreatedAt: loaded.q.createdAt,
         },
       );
       if (!plan.ok) fail(plan.errors);

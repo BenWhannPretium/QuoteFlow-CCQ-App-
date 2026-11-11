@@ -227,6 +227,11 @@ export interface PricingRecordContext {
   now: Date;
   /** FB-07 (F-032): a current costing model is on file (the attestation needs one). */
   costModelOnFile: boolean;
+  /**
+   * DR-pricing-finance-16: the earliest sensible approval time, when the quote was created. A price
+   * cannot be approved before the quote existed (a 1990 date was accepted). Optional for older callers.
+   */
+  quoteCreatedAt?: Date | null;
 }
 
 export type PricingRecordPlan =
@@ -314,6 +319,19 @@ export function planPricingRecord(
     if (input.approvedAt && input.approvedAt.getTime() > ctx.now.getTime() + FUTURE_SKEW_MS) {
       errors.push(
         new DomainError('INVALID_VALUE', 'The approval time cannot be in the future', 'approvedAt'),
+      );
+    }
+    if (
+      input.approvedAt &&
+      ctx.quoteCreatedAt &&
+      input.approvedAt.getTime() < ctx.quoteCreatedAt.getTime() - FUTURE_SKEW_MS
+    ) {
+      errors.push(
+        new DomainError(
+          'INVALID_VALUE',
+          'The approval time cannot be before the quote was created',
+          'approvedAt',
+        ),
       );
     }
     next.priceApprovedAt = input.approvedAt;

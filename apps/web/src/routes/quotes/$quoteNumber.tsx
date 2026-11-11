@@ -39,6 +39,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
+import { calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
@@ -144,7 +145,7 @@ function QuotePage() {
           {q.status !== 'active' && (
             <span className="text-muted-foreground text-sm" data-testid="quote-status">
               {q.status === 'on_hold'
-                ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}${
+                ? `On hold${q.reviewDate ? ` until ${calendarDate(q.reviewDate)}` : ''}${
                     q.commercial.hold.ownerName ? ` · owner ${q.commercial.hold.ownerName}` : ''
                   }`
                 : `Closed${q.outcome ? ` (${q.outcome})` : ''}`}

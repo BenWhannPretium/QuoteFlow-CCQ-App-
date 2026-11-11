@@ -649,6 +649,10 @@ interface RowForm {
   notes: string;
 }
 const NUMBER_FIELDS = ['assumedEffectivenessPct', 'cycleTimeS', 'utilizationBeforePct'] as const;
+
+/** DR-engineering-01: row errors shown under their own field (not listed again below the table). */
+const CAPACITY_INLINE =
+  /^\/rows\/\d+\/(site|assumedEffectivenessPct|cycleTimeS|utilizationBeforePct|allocatedAnnualVolume|scheduledRunDaysPerYear|analysisDate)$/;
 const str = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n));
 const num = (v: string): number | null => (v.trim() === '' ? null : Number(v));
 
@@ -920,7 +924,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                       <Input
                         id={id}
                         type="number"
-                        min={0}
+                        // DR-engineering-02: 0% gives no capacity; the API refuses it.
+                        min={0.1}
                         max={100}
                         step="0.1"
                         inputMode="decimal"
@@ -1085,7 +1090,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                 {allocation.message} This is a warning: you can still save.
               </p>
             )}
-            <FormErrors errors={errors} />
+            <FormErrors errors={errors} inline={(p) => CAPACITY_INLINE.test(p)} />
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={add}>
                 <PlusIcon aria-hidden="true" />

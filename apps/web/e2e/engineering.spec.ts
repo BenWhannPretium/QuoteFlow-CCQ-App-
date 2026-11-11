@@ -57,7 +57,17 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(row.getByTestId('days-in-queue')).toHaveText('0 business days');
   expect(await seriousViolations(lead)).toEqual([]);
 
-  await row.getByRole('button', { name: `Actions for ${quoteNumber}` }).click();
+  // DR-engineering-07: by keyboard, Escape from the dialog returns focus to the row's Actions button.
+  const actions = row.getByRole('button', { name: `Actions for ${quoteNumber}` });
+  await actions.focus();
+  await lead.keyboard.press('Enter');
+  await lead.getByRole('menuitem', { name: 'Assign…' }).click();
+  await expect(lead.getByRole('dialog')).toBeVisible();
+  await lead.keyboard.press('Escape');
+  await expect(lead.getByRole('dialog')).toHaveCount(0);
+  await expect(actions).toBeFocused();
+
+  await actions.click();
   await lead.getByRole('menuitem', { name: 'Assign…' }).click();
   const assign = lead.getByRole('dialog');
   await assign.getByRole('button', { name: 'Assign' }).click();
@@ -181,6 +191,10 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   // No OEE default: the effectiveness assumption must be stated.
   await expect(capRow.getByRole('alert')).toContainText('state the assumed effectiveness %');
   await expect(capRow).toContainText('85% vs ~70% demonstrated');
+  // DR-engineering-02: 0% is refused (no capacity, so no utilization after), on the field.
+  await capRow.getByLabel('Assumed effectiveness %').fill('0');
+  await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
+  await expect(capRow.getByRole('alert')).toContainText('above 0%');
   await capRow.getByLabel('Assumed effectiveness %').fill('70');
   await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
   await expect(eng.getByText('Capacity evidence saved')).toBeVisible();
@@ -256,6 +270,36 @@ test('the KAM sees the Engineering tab read-only, capital included', async ({ pa
   await expect(tab).toContainText('125,000');
   await expect(tab.getByTestId('solution-form')).toHaveCount(0);
   await expect(tab.getByRole('button', { name: /Assign|Accept|Decide/ })).toHaveCount(0);
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+// DR-engineering-03, DR-cross-cutting-07: the G2 dialog lists what is missing in plain words (no rule
+// keys), and "Record decision" is off, with the reason, while the outcome cannot be recorded.
+test('the G2 dialog names what is missing in words and does not offer a decision it would refuse', async ({
+  page,
+  request,
+}) => {
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  await request.post(`/api/v1/quotes/${quoteNumber}/gates/G1/decisions`, {
+    headers: { [DEV_USER_HEADER]: 'sales-leader' },
+    data: { outcomeKey: 'advance' },
+  });
+  await signInAs(page, 'eng-lead');
+  await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  await page.getByTestId('engineering-tab').getByRole('button', { name: 'Decide G2…' }).click();
+  const g2 = page.getByRole('dialog');
+  await g2.getByRole('radio', { name: 'Advance – capital required', exact: true }).check();
+  const missing = g2.getByTestId('completeness');
+  await expect(missing).toContainText('The budgetary capital estimate (Engineering tab)');
+  await expect(missing).toContainText('The equipment BOM uploaded on the Engineering tab');
+  await expect(missing).not.toContainText('prelim_capital_usd');
+  await expect(missing).not.toContainText('must equal');
+  const record = g2.getByRole('button', { name: 'Record decision' });
+  await expect(record).toBeDisabled();
+  await expect(g2.getByTestId('decision-blocked')).toContainText('can’t be recorded yet');
+  // Hold needs nothing from the quote: Record decision is available again.
+  await g2.getByRole('radio', { name: 'Hold', exact: true }).check();
+  await expect(record).toBeEnabled();
   expect(await seriousViolations(page)).toEqual([]);
 });
 

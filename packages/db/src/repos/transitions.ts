@@ -141,6 +141,10 @@ export async function loadQuoteStates(
       ...snake(row),
       ...snake(engFields),
       capacity_evidence: (capacityBy.get(row.id) ?? []).map(snake),
+      // DR-engineering-02: a capacity row whose utilization after cannot be calculated (G2 Advance reads it).
+      capacity_utilization_missing: (capacityBy.get(row.id) ?? []).some(
+        (r) => r.utilizationAfterPct === null,
+      ),
       pricing_record: pricingRow ? snake(pricingRow) : null,
       handoff_record: handoffBy.has(row.id) ? snake(handoffBy.get(row.id)!) : null,
       // B-26: the customer's status (a Legal review trigger for a new customer).
@@ -203,6 +207,16 @@ export interface PersistTransitionAudit {
   ip?: string | null;
   userAgent?: string | null;
   requestId?: string | null;
+}
+
+/** Whether a decision has ever been recorded at `gateKey` on this quote (DR-cross-cutting-01). */
+export async function hasGateDecision(db: DbOrTx, quoteId: string, gateKey: string) {
+  const rows = await db
+    .select({ id: gateDecision.id })
+    .from(gateDecision)
+    .where(and(eq(gateDecision.quoteId, quoteId), eq(gateDecision.gateKey, gateKey)))
+    .limit(1);
+  return rows.length > 0;
 }
 
 /**

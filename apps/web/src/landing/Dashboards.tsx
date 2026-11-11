@@ -26,7 +26,7 @@ import { SkeletonCard } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, calendarDate } from '@/lib/time';
 import { cn } from '@/lib/utils';
 
 /**
@@ -96,7 +96,7 @@ const MoreLink = ({
   <Link
     to={to}
     {...(search ? { search } : {})}
-    className="text-emphasis inline-flex min-h-9 items-center gap-1 text-sm font-medium underline-offset-2 hover:underline"
+    className="text-emphasis inline-flex min-h-11 items-center gap-1 text-sm sm:min-h-9 font-medium underline-offset-2 hover:underline"
   >
     {children}
     <ArrowRightIcon className="size-4" aria-hidden="true" />
@@ -155,7 +155,7 @@ function Expiring({ items }: { items: ExpiringProposal[] }) {
               : p.daysLeft === 0
                 ? 'Ends today'
                 : `${p.daysLeft} d left`}{' '}
-            · {p.validityUntil}
+            · {calendarDate(p.validityUntil)}
           </span>
         </li>
       ))}

@@ -205,7 +205,7 @@ describe('content', () => {
 
       --
       This is an automated message from QuoteFlow (Commercial Capital Quoting). Replies are not read.
-      Pricing and capital figures are never sent by email; open the quote to see what you are cleared to see.
+      Pricing and capital figures are never sent by email; open the quote to see them.
       Choose which emails you get: https://ccq.example.com/me/preferences"
     `);
   });

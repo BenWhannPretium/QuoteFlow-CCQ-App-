@@ -51,7 +51,25 @@ describe('evaluateRule', () => {
     expect(fail(rule, { capacity_evidence: [] })).toHaveLength(1);
     expect(fail(rule, { capacity_evidence: 'nope' })).toHaveLength(1);
     expect(fail(rule, { capacity_evidence: [{}] })).toEqual([]);
-    expect(evaluateRule(rule, {})[0]!.message).toBe('capacity_evidence needs at least 1 item(s)');
+    // DR-*: a registered requirement reads in plain words; an unregistered one keeps the generated text.
+    expect(evaluateRule(rule, {})[0]!.message).toBe('At least one capacity evidence row');
+    expect(evaluateRule({ field: 'rows', op: 'minItems', value: 2 }, {})[0]!.message).toBe(
+      'rows needs at least 2 item(s)',
+    );
+  });
+
+  it('uses the plain label for a registered anyOf (DR-pricing-finance-02)', () => {
+    const rule: RequiredRule = {
+      anyOf: [
+        { field: 'roi_required', op: 'equals', value: false },
+        { field: 'roi_model_on_file', op: 'equals', value: true },
+      ],
+    };
+    const [error] = evaluateRule(rule, { roi_required: true });
+    expect(error).toMatchObject({
+      field: 'roi_required,roi_model_on_file',
+      message: 'The ROI model, uploaded by Finance (this quote needs one)',
+    });
   });
 
   it('equals / oneOf / gte', () => {

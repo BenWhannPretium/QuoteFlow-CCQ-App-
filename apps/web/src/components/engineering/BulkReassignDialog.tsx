@@ -121,14 +121,18 @@ export function BulkReassignDialog({
             From
           </label>
           <NativeSelect id={ids.from} value={fromUserId} onChange={(e) => setFrom(e.target.value)}>
-            <option value="">Choose a {noun}…</option>
+            <option value="">
+              {/^[aeiou]/i.test(noun) ? 'Choose an' : 'Choose a'} {noun}…
+            </option>
             {people.map(option)}
           </NativeSelect>
           <label htmlFor={ids.to} className="text-sm font-medium">
             To
           </label>
           <NativeSelect id={ids.to} value={toUserId} onChange={(e) => setTo(e.target.value)}>
-            <option value="">Choose a {noun}…</option>
+            <option value="">
+              {/^[aeiou]/i.test(noun) ? 'Choose an' : 'Choose a'} {noun}…
+            </option>
             {people.filter((p) => p.id !== fromUserId).map(option)}
           </NativeSelect>
           {error && (

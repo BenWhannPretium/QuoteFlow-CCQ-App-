@@ -342,4 +342,6 @@ export const GATE_PROBLEM_CODES = {
   unknownGate: 'unknown_gate',
   rejected: 'gate_decision_rejected',
   notPermitted: 'not_permitted',
+  /** DR-cross-cutting-01: the gate was decided meanwhile (another person or tab), or the quote is already on hold. */
+  alreadyDecided: 'already_decided',
 } as const;

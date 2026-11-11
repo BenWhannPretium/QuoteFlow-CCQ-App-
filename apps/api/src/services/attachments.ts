@@ -399,6 +399,19 @@ export class AttachmentService {
   ): Promise<AttachmentUploadResponse> {
     // 1. Fields and limits before reading a byte of the file.
     const fields = AttachmentUploadFields.safeParse(part.fields);
+    // DR-cross-cutting-05: a 0-byte file (the browser sends size 0) gets its own message, not the
+    // generic "choose a kind and send the size" one.
+    if (!fields.success && Number(part.fields.size) === 0) {
+      drain(part.stream);
+      throw new ServiceProblem(
+        422,
+        P.rejected,
+        'The file is empty. Choose a file that has content',
+        {
+          errors: [{ path: '/file', message: 'The file is empty', code: 'INVALID_VALUE' }],
+        },
+      );
+    }
     if (!fields.success) {
       drain(part.stream);
       throw new ServiceProblem(422, P.rejected, 'Choose a kind and send the file size first', {

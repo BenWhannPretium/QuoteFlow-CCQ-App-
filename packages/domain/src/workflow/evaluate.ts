@@ -3,6 +3,7 @@ import { planReworkReturn, type ReworkReturn } from './rework';
 import { evaluateRules, fieldsReferenced, getPath } from './rules';
 import type { FieldValues } from './rules';
 import { approverTierErrors, type ApproverTierRules } from '../final-review/tiers';
+import { todayInCentral } from '../intake/intake';
 import { closureErrors, type ClosureRecord } from '../outcome/closure';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
@@ -298,6 +299,16 @@ export function evaluateTransition(
     );
   }
   if (!gate.enabled) errors.push(new DomainError('GATE_DISABLED', `Gate ${gate.key} is disabled`));
+  // DR-cross-cutting-04: a quote already on hold is not held again (a second hold would only repeat the
+  // notices). Resume it first, then hold it with the new review date.
+  if (quote.status === 'on_hold' && transition.nextStatus === 'on_hold') {
+    errors.push(
+      new DomainError(
+        'ALREADY_ON_HOLD',
+        'This quote is already on hold. Resume it before putting it on hold again.',
+      ),
+    );
+  }
 
   // 2. Decider permission (role + data scope)
   if (!can(actor, gate.deciderPermission, quote)) {
@@ -332,6 +343,21 @@ export function evaluateTransition(
   };
   const rules = [...gate.requiredFields, ...outcome.requiredFields];
   errors.push(...validateConstraints(config, outcome, transition, request, rules, values));
+
+  // DR-engineering-04, DR-approver-leadership-admin-04, DR-cross-cutting-04: a hold's review date is
+  // today or later (US Central, Pretium HQ). A date already passed would put the quote straight into
+  // "review overdue" and tell the KAM a date that means nothing.
+  const reviewDate = request.payload?.review_date;
+  if (
+    transition.nextStatus === 'on_hold' &&
+    typeof reviewDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(reviewDate) &&
+    reviewDate < todayInCentral(now)
+  ) {
+    errors.push(
+      new DomainError('INVALID_VALUE', 'The review date must be today or later', 'review_date'),
+    );
+  }
 
   // 6. Closure owner (B-13, CR-39): only on a closing transition; naming someone other than the default
   // needs outcome.assignOwner.

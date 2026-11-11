@@ -1,5 +1,5 @@
 import { EyeOffIcon } from 'lucide-react';
-import { useId, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useId, type ReactNode } from 'react';
 
 import { isApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,10 @@ export function errorFor(errors: ServerError[], field: string): string | undefin
   return errors.find((e) => e.path === `/${field}`)?.message;
 }
 
+/**
+ * A labelled form field. The control's hint and error are tied to it with `aria-describedby`, and an
+ * error sets `aria-invalid` (DR-engineering-01: a screen reader hears the message with the field).
+ */
 export function Field({
   label,
   hint,
@@ -35,15 +39,30 @@ export function Field({
   children: (id: string) => ReactNode;
 }) {
   const id = useId();
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+  const describedBy = [hint && hintId, error && errorId].filter(Boolean).join(' ') || undefined;
+  const control = children(id);
+  const wired = isValidElement<Record<string, unknown>>(control)
+    ? cloneElement(control, {
+        'aria-describedby':
+          [control.props['aria-describedby'], describedBy].filter(Boolean).join(' ') || undefined,
+        ...(error ? { 'aria-invalid': true } : {}),
+      })
+    : control;
   return (
     <div className={cn('grid content-start gap-1.5', error && 'text-destructive')}>
       <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
-      {children(id)}
-      {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
+      {wired}
+      {hint && (
+        <span id={hintId} className="text-muted-foreground text-xs">
+          {hint}
+        </span>
+      )}
       {error && (
-        <span className="text-destructive text-xs" role="alert">
+        <span id={errorId} className="text-destructive text-xs" role="alert">
           {error}
         </span>
       )}
@@ -51,11 +70,28 @@ export function Field({
   );
 }
 
-export function FormErrors({ errors }: { errors: ServerError[] }) {
-  if (errors.length === 0) return null;
+/**
+ * The errors that have no field of their own. Pass `inline` (the paths a `Field` already shows) so a
+ * message is shown once, not under the field and again here (DR-engineering-01, DR-pricing-finance-06).
+ * The same message is listed once.
+ */
+export function FormErrors({
+  errors,
+  inline,
+}: {
+  errors: ServerError[];
+  inline?: (path: string) => boolean;
+}) {
+  const seen = new Set<string>();
+  const shown = errors.filter((e) => {
+    if (inline?.(e.path) || seen.has(e.message)) return false;
+    seen.add(e.message);
+    return true;
+  });
+  if (shown.length === 0) return null;
   return (
     <ul role="alert" className="text-destructive grid gap-1 text-sm">
-      {errors.map((e) => (
+      {shown.map((e) => (
         <li key={e.path + e.message}>{e.message}</li>
       ))}
     </ul>

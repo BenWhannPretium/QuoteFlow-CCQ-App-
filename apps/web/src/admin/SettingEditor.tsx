@@ -155,7 +155,7 @@ function RoleChecks({
       <legend className="text-xs font-medium">{legend}</legend>
       <div className="flex flex-wrap gap-x-3">
         {ROLES.filter((r) => r !== 'PostAward').map((role) => (
-          <label key={role} className="flex min-h-9 items-center gap-1.5 text-xs">
+          <label key={role} className="flex min-h-11 items-center gap-1.5 text-xs sm:min-h-9">
             <input
               type="checkbox"
               className="size-4"

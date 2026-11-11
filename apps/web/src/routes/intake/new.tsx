@@ -26,7 +26,7 @@ import {
   type WizardConfig,
 } from '@/intake/model';
 import { OpportunityPicker } from '@/intake/OpportunityPicker';
-import { CustomerStep, ProductStep, ReviewStep } from '@/intake/Steps';
+import { CustomerStep, focusIntakeField, ProductStep, ReviewStep } from '@/intake/Steps';
 import { Notice, Section, Stepper } from '@/intake/ui';
 import { useIntakeDraft, type SaveState } from '@/intake/useIntakeDraft';
 import { isApiError, api } from '@/lib/api';
@@ -253,10 +253,12 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
   );
   const [submitted, setSubmitted] = useState<SubmitIntakeResponse | null>(null);
 
-  const goTo = (n: number) => {
+  const goTo = (n: number, field?: string) => {
     setSubmitError(null);
     void draft.setStep(n);
     window.scrollTo({ top: 0 });
+    // DR-kam-sales-leader-18: "Fix" lands on the field, not on the page body.
+    if (field) requestAnimationFrame(() => focusIntakeField(field));
   };
 
   const pick = async (o: SfOpportunitySummary) => {
@@ -378,7 +380,10 @@ function Wizard({ initial, cfg }: { initial: IntakeDraft; cfg: WizardConfig }) {
             Rework of {initial.rework.quoteNumber}
             {initial.rework.reasonLabel ? ` (${initial.rework.reasonLabel})` : ''}.
           </strong>{' '}
-          {initial.rework.note ? `What to fix: ${initial.rework.note}. ` : ''}
+          {/* DR-kam-sales-leader-12, DR-pricing-finance-14: one full stop after the note. */}
+          {initial.rework.note
+            ? `What to fix: ${initial.rework.note.trim()}${/[.!?…]$/.test(initial.rework.note.trim()) ? '' : '.'} `
+            : ''}
           {askScope
             ? 'Submitting updates the same quote. If the scope did not change, it goes straight back to Pricing.'
             : 'Submitting updates the same quote and sends it back for qualification.'}

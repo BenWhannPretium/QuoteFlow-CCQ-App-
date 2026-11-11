@@ -331,6 +331,8 @@ describe('validation: all errors, in order', () => {
       ['MISSING_FIELD', 'cycle_time_s'],
       ['MISSING_FIELD', 'capacity_evidence'],
       ['MISSING_FIELD', 'capacity_signoff_status'],
+      // DR-engineering-02: no capacity row may lack its utilization after.
+      ['MISSING_FIELD', 'capacity_utilization_missing'],
     ]);
   });
 
@@ -350,10 +352,11 @@ describe('validation: all errors, in order', () => {
       ['MISSING_FIELD', 'prelim_capital_usd'],
       ['MISSING_FIELD', 'capacity_signoff_status'],
       ['MISSING_FIELD', 'equipment_bom_on_file'],
+      ['MISSING_FIELD', 'capacity_utilization_missing'],
       ['NOTE_REQUIRED', 'note'],
     ]);
     note = { note: 'Second cavity set needed' };
-    const bom = { equipment_bom_on_file: true };
+    const bom = { equipment_bom_on_file: true, capacity_utilization_missing: false };
     const blocked = run({
       prelim_capital_usd: 250_000,
       capacity_signoff_status: 'blocked',
@@ -361,12 +364,17 @@ describe('validation: all errors, in order', () => {
     });
     expect(!blocked.ok && blocked.errors.map((e) => e.field)).toEqual(['capacity_signoff_status']);
     // FB-06 (F-058): no BOM on file (or a field the loader did not supply: fail closed) stops it.
-    const noBom = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'approved' });
+    const noBom = run({
+      prelim_capital_usd: 250_000,
+      capacity_signoff_status: 'approved',
+      capacity_utilization_missing: false,
+    });
     expect(!noBom.ok && noBom.errors.map((e) => e.field)).toEqual(['equipment_bom_on_file']);
     const notOnFile = run({
       prelim_capital_usd: 250_000,
       capacity_signoff_status: 'approved',
       equipment_bom_on_file: false,
+      capacity_utilization_missing: false,
     });
     expect(!notOnFile.ok && notOnFile.errors.map((e) => e.field)).toEqual([
       'equipment_bom_on_file',
@@ -385,6 +393,7 @@ describe('validation: all errors, in order', () => {
           cycle_time_s: 12,
           capacity_evidence: [{}],
           capacity_signoff_status: 'approved',
+          capacity_utilization_missing: false,
         },
       }),
       makeActor('EngLead'),
@@ -392,6 +401,31 @@ describe('validation: all errors, in order', () => {
       NOW,
     );
     expect(proceed.ok).toBe(true);
+  });
+
+  it('DR-engineering-02: G2 Advance is refused while utilization after cannot be calculated', () => {
+    const fields = {
+      process_type: 'ISBM',
+      machine_type: 'ISBM_1STEP',
+      plant_code: 'AURORA',
+      cavitation: 4,
+      cycle_time_s: 12,
+      capacity_evidence: [{ assumed_effectiveness_pct: 0, utilization_after_pct: null }],
+      capacity_signoff_status: 'approved',
+      capacity_utilization_missing: true,
+    };
+    for (const outcomeKey of ['proceed', 'proceed_with_risk']) {
+      const res = evaluateTransition(
+        hybridConfig,
+        makeQuote('ENG_REVIEW', { fields }),
+        makeActor('EngLead'),
+        { gateKey: 'G2', outcomeKey, note: 'Risk noted' },
+        NOW,
+      );
+      expect(!res.ok && res.errors.map((e) => e.field), outcomeKey).toEqual([
+        'capacity_utilization_missing',
+      ]);
+    }
   });
 
   it('G2 Stop closes as DECLINED; Hold needs a reason, a review date (B-10) and an owner (B-26)', () => {
@@ -727,6 +761,45 @@ describe('segregation of duties', () => {
   });
 });
 
+describe('hold review date (DR-engineering-04, DR-approver-leadership-admin-04, DR-cross-cutting-04)', () => {
+  // NOW is the domain test clock; review dates are judged on the US Central calendar.
+  const hold = (reviewDate: string, stage = 'G1', outcome = 'hold') => {
+    const c = validCase(hybridConfig, stage, outcome);
+    return evaluateTransition(
+      hybridConfig,
+      makeQuote(c.gate.stageKey, { fields: c.fields }),
+      makeActor(stage === 'G4' ? 'Approver' : stage === 'G5' ? 'SalesLeader' : 'SalesLeader'),
+      { ...c.request, payload: { ...c.request.payload, review_date: reviewDate } },
+      NOW,
+    );
+  };
+  const centralToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(
+    NOW,
+  );
+  const shift = (days: number) =>
+    new Date(Date.parse(`${centralToday}T12:00:00Z`) + days * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+
+  it('refuses a review date already passed, on every hold outcome', () => {
+    for (const [stage, outcome] of [
+      ['G1', 'hold'],
+      ['G4', 'hold'],
+      ['G5', 'on_hold'],
+    ] as const) {
+      const res = hold(shift(-3), stage, outcome);
+      expect(!res.ok && res.errors.map((e) => [e.field, e.message]), stage).toEqual([
+        ['review_date', 'The review date must be today or later'],
+      ]);
+    }
+  });
+
+  it('accepts today and later', () => {
+    expect(hold(centralToday).ok).toBe(true);
+    expect(hold(shift(7)).ok).toBe(true);
+  });
+});
+
 describe('hold accounting', () => {
   const hold = (
     stage: string,
@@ -776,9 +849,14 @@ describe('hold accounting', () => {
     expect(result.ok && result.effects.nextStatus).toBe('closed');
   });
 
-  it('holding an already-held quote opens no second interval', () => {
+  // DR-cross-cutting-04: a second hold was accepted and only repeated the notices. It is refused now.
+  it('holding an already-held quote is refused (ALREADY_ON_HOLD)', () => {
     const result = hold('G2', 'hold', 'EngLead', 'on_hold');
-    expect(result.ok && result.effects.hold.action).toBe('none');
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.errors.map((e) => e.code)).toEqual(['ALREADY_ON_HOLD']);
+    // G5's own "On hold" outcome follows the same rule.
+    const g5 = hold('G5', 'on_hold', 'SalesLeader', 'on_hold');
+    expect(!g5.ok && g5.errors.map((e) => e.code)).toContain('ALREADY_ON_HOLD');
   });
 
   it('ordinary transitions leave holds alone', () => {

@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 
+import { seriousViolations } from './axe';
 import { prepareModels } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
@@ -18,7 +19,7 @@ async function ok(res: Promise<APIResponse>, status = 200) {
 }
 
 /** A quote in Final Review, set up through the API. */
-async function inFinalReview(request: APIRequestContext): Promise<string> {
+async function inFinalReview(request: APIRequestContext, kamPersona = 'kam'): Promise<string> {
   const id = async (persona: string) =>
     (
       (await (await request.get('/api/v1/me', { headers: as(persona) })).json()) as {
@@ -29,7 +30,7 @@ async function inFinalReview(request: APIRequestContext): Promise<string> {
   const pricingId = await id('pricing');
   await id('approver');
   await id('pricing-lead');
-  const qn = await submitQuote(request, await freeOpportunities(request, 1));
+  const qn = await submitQuote(request, await freeOpportunities(request, 1), {}, kamPersona);
   const post = (path: string, persona: string, data: unknown) =>
     ok(request.post(`/api/v1/quotes/${qn}/${path}`, { headers: as(persona), data }), 201);
   const put = (path: string, persona: string, data: unknown) =>
@@ -106,6 +107,8 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
     .fill('Strategic account; financing cost priced in.');
   await exception.getByTestId('approve-terms-exception').click();
   await expect(exception.getByTestId('terms-exception-status')).toHaveText('Approved');
+  // DR-cross-cutting-06: the "Approved" pill meets WCAG AA contrast.
+  expect(await seriousViolations(lead)).toEqual([]);
   await expect(exception.getByTestId('terms-exception-rationale')).toContainText(
     'Strategic account',
   );
@@ -154,4 +157,24 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   };
   expect(quote.stageKey).toBe('CUSTOMER_DECISION');
   expect(quote.commercial.terms.capital).toMatchObject({ toolingFundingModel: 'ZERO_CER' });
+});
+
+// DR-approver-leadership-admin-01: an approver who is the quote's KAM (multi-role: SalesLeader + Approver)
+// cannot edit or confirm its capital terms; the screen says why, and the API refuses (403).
+test('the KAM of the quote cannot confirm its capital terms, even as an approver', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const qn = await inFinalReview(request, 'multi-role');
+  await signInAs(page, 'multi-role');
+  await page.goto(`/quotes/${qn}/review`);
+  const terms = page.getByTestId('review-terms-legal');
+  await expect(terms.getByTestId('capital-terms-blocked')).toContainText('where you are the KAM');
+  await expect(terms.getByTestId('confirm-capital-terms')).toHaveCount(0);
+  const refused = await request.put(`/api/v1/quotes/${qn}/terms/capital`, {
+    headers: as('multi-role'),
+    data: { finalized: true },
+  });
+  expect(refused.status()).toBe(403);
 });

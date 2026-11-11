@@ -2,6 +2,7 @@ import type { QuoteIntakeFacts } from '@ccq/contracts';
 import { neckSummary } from '@ccq/domain';
 
 import type { KeyValueItem } from '@/components/KeyValueGrid';
+import { calendarDate } from '@/lib/time';
 
 import { commercialFactItems } from './CommercialInputs';
 import { factLabel, type Lists } from './factLabel';
@@ -130,8 +131,16 @@ export function intakeFactItems(
         </a>
       ) : null,
     },
-    { id: 'quote-needed-by', label: 'Quote needed by', value: f.quoteNeededBy },
-    { id: 'product-needed-by', label: 'Product needed by', value: f.productNeededBy },
+    {
+      id: 'quote-needed-by',
+      label: 'Quote needed by',
+      value: calendarDate(f.quoteNeededBy) || null,
+    },
+    {
+      id: 'product-needed-by',
+      label: 'Product needed by',
+      value: calendarDate(f.productNeededBy) || null,
+    },
     {
       id: 'variants',
       label: 'Quote variants requested',

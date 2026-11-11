@@ -385,6 +385,8 @@ export const INTAKE_PROBLEM_CODES = {
   drawingOrMinSpecRequired: 'DRAWING_OR_MIN_SPEC_REQUIRED',
   /** DR-kam-sales-leader-05: the draft was saved elsewhere (another tab) since this copy was loaded (409). */
   draftChanged: 'draft_changed',
+  /** DR-cross-cutting-02: a list-backed field holds a code that is not an active value-list entry (422). */
+  invalidListValue: 'invalid_list_value',
 } as const;
 
 // ── Draft → domain values ────────────────────────────────────────────────────────────────────────

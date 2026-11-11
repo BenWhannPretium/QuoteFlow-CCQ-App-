@@ -33,6 +33,7 @@ import {
   listGateDecisionsWithNames,
   listOpenQuoteDrafts,
   listReturnedQuotes,
+  listActiveValueLists,
   listValueList,
   loadQuoteState,
   loadWorkflowConfigInput,
@@ -55,6 +56,8 @@ import {
   evaluateTransition,
   planResubmitRoute,
   PRICING_QUEUE_STAGE_KEY,
+  INTAKE_LIST_FIELDS,
+  listValueIssues,
   parseIntakeConfig,
   parseIntakeGuardrails,
   parseVolumeRouting,
@@ -131,6 +134,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     components,
     priceBasis,
     subMarkets,
+    activeLists,
     ...customLists
   ] = await Promise.all([
     getSetting(db, 'intake_required_fields'),
@@ -147,6 +151,7 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     listValueList(db, 'component'),
     listValueList(db, 'price_basis'),
     listValueList(db, 'sub_market'),
+    listActiveValueLists(db),
     ...CUSTOM_LIST_FIELDS.map((list) => listValueList(db, list)),
   ]);
   if (
@@ -174,6 +179,15 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
     // FB-10 (F-066): a missing or malformed setting leaves the platform-minimum warning off.
     guardrails: parseIntakeGuardrails(guardrails),
     subMarketMarkets: subMarketMap(subMarkets),
+    // DR-cross-cutting-02: the active codes of every list an intake field picks from.
+    listCodes: Object.fromEntries(
+      [...new Set(Object.values(INTAKE_LIST_FIELDS).map((f) => f.list))].map((list) => [
+        list,
+        (activeLists as { listKey: string; code: string }[])
+          .filter((v) => v.listKey === list)
+          .map((v) => v.code),
+      ]),
+    ),
     deliveredPriceBasisCodes: priceBasis
       .filter((v) => meta(v.meta).delivered === true)
       .map((v) => v.code),
@@ -252,6 +266,33 @@ export class IntakeService {
     this.now = opts.now ?? (() => new Date());
   }
 
+  /**
+   * DR-cross-cutting-02: a rework keeps the values its quote already holds, so a code retired since the
+   * quote was made stays readable and resubmittable; only a new write of a retired code is refused.
+   */
+  private async keptValues(tx: DbOrTx, row: QuoteDraftRow): Promise<Record<string, unknown>> {
+    if (!row.reworkOfQuoteId) return {};
+    const q = await getQuoteById(tx, row.reworkOfQuoteId);
+    return q ? intakeValues(dataFromQuote(q)) : {};
+  }
+
+  /** DR-cross-cutting-02: refuse a NEW write of a code that is not an active value-list entry (422). */
+  private async assertListValues(
+    tx: DbOrTx,
+    row: QuoteDraftRow | null,
+    written: IntakeDraftData,
+  ): Promise<void> {
+    const issues = listValueIssues(
+      intakeValues(written),
+      await loadIntakeConfig(tx),
+      row ? await this.keptValues(tx, row) : {},
+    );
+    if (issues.length === 0) return;
+    throw new IntakeError(422, INTAKE_PROBLEM_CODES.invalidListValue, issues[0]!.message, {
+      errors: issues.map((i) => ({ path: camelField(i.field), message: i.message })),
+    });
+  }
+
   private async toDto(tx: DbOrTx, row: QuoteDraftRow): Promise<IntakeDraft> {
     const config = await loadIntakeConfig(tx);
     const data = row.data as IntakeDraftData;
@@ -259,6 +300,7 @@ export class IntakeService {
       intakeValues(data, await hasDrawingAttachment(tx, row)),
       config,
       this.now(),
+      await this.keptValues(tx, row),
     );
     const active =
       row.sfOpportunityId && !row.submittedQuoteId
@@ -310,6 +352,7 @@ export class IntakeService {
     meta: AuditMeta,
   ): Promise<IntakeDraft> {
     return withTx(async (tx) => {
+      await this.assertListValues(tx, null, body.data);
       const row = await insertQuoteDraft(tx, {
         ownerUserId: actor.userId,
         sfOpportunityId: body.data.sfOpportunityId ?? null,
@@ -479,6 +522,13 @@ export class IntakeService {
       }
       const before = row.data as IntakeDraftData;
       const data = { ...before, ...(body.data ?? {}) };
+      // DR-cross-cutting-02: only the keys this save changes are new writes.
+      const changed = Object.fromEntries(
+        Object.entries(body.data ?? {}).filter(
+          ([k, v]) => JSON.stringify(v) !== JSON.stringify((before as Record<string, unknown>)[k]),
+        ),
+      ) as IntakeDraftData;
+      await this.assertListValues(tx, row, changed);
       // FB-12 (F-073): a market change must not leave the old market's sub-market behind.
       if (
         data.subMarket &&
@@ -640,7 +690,12 @@ export class IntakeService {
     const data = draft.data as IntakeDraftData;
     const config = await loadIntakeConfig(tx);
     const values = intakeValues(data, await hasDrawingAttachment(tx, draft));
-    const evaluation: IntakeEvaluation = evaluateIntake(values, config, now);
+    const evaluation: IntakeEvaluation = evaluateIntake(
+      values,
+      config,
+      now,
+      await this.keptValues(tx, draft),
+    );
     if (!evaluation.ready) {
       throw incompleteError(evaluation);
     }
@@ -1109,6 +1164,9 @@ export class IntakeService {
  * class that isn't CCQ (F-067) whatever else is open, or the drawing-or-minimum-spec rule (F-016)
  * when it is the only thing left; otherwise `intake_incomplete`. `blocking` lists every issue.
  */
+/** `product_family` → `productFamily`: the request-body name of a snake_case intake field. */
+const camelField = (field: string) => field.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+
 function incompleteError(evaluation: IntakeEvaluation): IntakeError {
   const has = (code: string) => evaluation.blocking.some((b) => b.code === code);
   const only = (code: string) => evaluation.blocking.every((b) => b.code === code);

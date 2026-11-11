@@ -42,6 +42,17 @@ const CAPACITY_SIGNED_OFF: RequiredRule = {
 };
 
 /**
+ * DR-engineering-02: G2 Advance is refused while a capacity row has no utilization after (server-derived
+ * `capacity_utilization_missing`): an effectiveness of 0, or a missing cycle time, cavitation or volume,
+ * leaves it blank, and a feasibility call must not rest on a blank. "Capital required" still needs no row.
+ */
+const CAPACITY_CALCULATED: RequiredRule = {
+  field: 'capacity_utilization_missing',
+  op: 'equals',
+  value: false,
+};
+
+/**
  * FB-06 (F-058, D-033): "Capital required" needs the equipment BOM on file: the Engineering Program Office
  * workbook or its one-page CSR BOM, uploaded on the Engineering tab. `equipment_bom_on_file` is derived
  * from the quote's current `equipment_bom` attachment; a missing field fails closed. Provisional (Kal
@@ -67,6 +78,7 @@ const ENG_FEASIBLE: RequiredRule[] = [
   present('cycle_time_s'),
   { field: 'capacity_evidence', op: 'minItems', value: 1 },
   CAPACITY_SIGNED_OFF,
+  CAPACITY_CALCULATED,
 ];
 
 /**
@@ -414,7 +426,12 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       // starts as pending (app_setting `capital_readiness_on_outcome`).
       outcome('G2', 'capital_required', 'Advance – capital required', {
         requiresNote: true,
-        requiredFields: [present('prelim_capital_usd'), CAPACITY_SIGNED_OFF, EQUIPMENT_BOM_ON_FILE],
+        requiredFields: [
+          present('prelim_capital_usd'),
+          CAPACITY_SIGNED_OFF,
+          EQUIPMENT_BOM_ON_FILE,
+          CAPACITY_CALCULATED,
+        ],
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
       outcome('G2', 'hold', 'Hold', {

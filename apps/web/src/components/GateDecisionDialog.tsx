@@ -1,5 +1,11 @@
 import type { AvailableGateAction, GateDecisionBody, GateDecisionResponse } from '@ccq/contracts';
-import { EXPIRED_OUTCOME, LOST_OUTCOME, proposalCalendarDate, validityUntil } from '@ccq/domain';
+import {
+  EXPIRED_OUTCOME,
+  LOST_OUTCOME,
+  REQUIREMENT_LABELS,
+  proposalCalendarDate,
+  validityUntil,
+} from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, InfoIcon } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -18,7 +24,7 @@ import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
 import { writeSfReminder } from '@/lib/sf-reminder';
-import { toLocalInput } from '@/lib/time';
+import { calendarDate, toLocalInput, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -29,32 +35,8 @@ import { GuardrailNote, QualificationWarnings, ScoreBreakdownTable } from './Pri
  * Plain words for the rules' field paths (B-11, B-26); other rules show their message. Shared with the
  * lead-review "Not ready to submit yet" list.
  */
-export const MISSING_LABELS: Record<string, string> = {
-  process_type: 'Process type',
-  machine_type: 'Machine type',
-  plant_code: 'Plant / site',
-  cavitation: 'Cavitation',
-  cycle_time_s: 'Cycle time',
-  capacity_evidence: 'At least one capacity evidence row',
-  'pricing_record.price_approved_by': 'Price approver',
-  'pricing_record.price_approved_at': 'Price approval date',
-  'pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible':
-    'The price approval (approver and date), unless the quote is below the pass-through threshold',
-  'pricing_record.costing_completed': 'Costing attested as complete (before the price)',
-  'pricing_record.capital_readiness': 'Capital readiness',
-  'pricing_record.capital_readiness,pricing_record.capital_pending_justification':
-    'Capital readiness other than pending, or a pending-capital justification (D-11)',
-  'capital_likely,pricing_record.capital_readiness':
-    'Capital is flagged likely: confirm capital readiness (not required or pre-approved)',
-  capacity_signoff_status: 'Capacity sign-off by the capacity owner',
-  equipment_bom_on_file: 'The equipment BOM uploaded on the Engineering tab',
-  terms_checked_at: 'The terms check (tooling commitment, MOQ, payment terms)',
-  'legal_review_required,legal_reviewed_on': 'The Legal review (a Legal trigger applies)',
-  'handoff_record.cer_status': 'The CER approved, or marked not required',
-  'handoff_record.completed_at': 'The receiving team accepted the hand-off',
-  review_date: 'A review date',
-  hold_owner_id: 'A hold owner',
-};
+// DR-* (plain-language messages): one map, in the domain, shared with the API's refusals.
+export const MISSING_LABELS: Readonly<Record<string, string>> = REQUIREMENT_LABELS;
 
 export const quoteQueryKey = (quoteNumber: string) => ['quote', quoteNumber] as const;
 
@@ -147,6 +129,7 @@ export function GateDecisionDialog({
     owner: useId(),
     holdOwner: useId(),
     errors: useId(),
+    blocked: useId(),
     noteHint: useId(),
   };
 
@@ -196,11 +179,19 @@ export function GateDecisionDialog({
       a.targetStageKeys[0] !== quote.data?.stageKey,
   );
   const completeness = (action ?? forward)?.missing ?? [];
+  // DR-cross-cutting-07: the server will refuse this outcome until its missing items are done (they are
+  // not entered in this dialog), so Record decision is off and says why instead of failing on click.
+  const blockedBy = action?.missing ?? [];
 
   const problems = [
     !action && 'Choose a decision.',
     needsReason && !reason && 'Choose a reason.',
     needsDate && !holdUntil && 'Choose a review date.',
+    // DR-engineering-04 / DR-approver-leadership-admin-04: the server refuses a date already passed.
+    needsDate &&
+      !!holdUntil &&
+      holdUntil < todayCentral() &&
+      'Choose a review date today or later.',
     needsTarget && !target && 'Choose where it goes back to.',
     releases &&
       issuedInFuture &&
@@ -268,6 +259,11 @@ export function GateDecisionDialog({
       onDecided?.(result);
     },
     onError: (err) => {
+      // DR-cross-cutting-01: someone else (or another tab) decided first. Refresh what the page shows.
+      if (isApiError(err, 409)) {
+        void queryClient.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) });
+        void queryClient.invalidateQueries({ queryKey: reviewSummaryKey(quoteNumber) });
+      }
       if (isApiError(err)) {
         const errors = (err.problem as { errors?: ServerError[] }).errors;
         setServerErrors(
@@ -436,7 +432,9 @@ export function GateDecisionDialog({
                       onChange={(e) => setReasonCode(e.target.value)}
                       aria-invalid={submitted && needsReason && !reason}
                     >
-                      <option value="">Choose a reason…</option>
+                      <option value="">
+                        {needsAcceptance ? 'Choose the evidence…' : 'Choose a reason…'}
+                      </option>
                       {action.reasonCodes.map((r) => (
                         <option key={r.code} value={r.code}>
                           {r.label}
@@ -454,9 +452,10 @@ export function GateDecisionDialog({
                     <Input
                       id={ids.date}
                       type="date"
+                      min={todayCentral()}
                       value={holdUntil}
                       onChange={(e) => setHoldUntil(e.target.value)}
-                      aria-invalid={submitted && !holdUntil}
+                      aria-invalid={submitted && (!holdUntil || holdUntil < todayCentral())}
                     />
                   </div>
                 )}
@@ -513,7 +512,8 @@ export function GateDecisionDialog({
                     />
                     {validityDays !== null && (
                       <p className="text-muted-foreground text-xs" data-testid="validity-preview">
-                        Valid until {validityUntil(issuedAt ?? new Date(), validityDays)} (
+                        Valid until{' '}
+                        {calendarDate(validityUntil(issuedAt ?? new Date(), validityDays))} (
                         {validityDays} days from the issue date, provisional).
                       </p>
                     )}
@@ -604,10 +604,10 @@ export function GateDecisionDialog({
                       ? 'Strategic exception note (required)'
                       : `Note ${needsNote ? '(required)' : '(optional)'}`}
                   </label>
-                  {/* FB-01 (F-027, D-015): notes are for exception decisions only. */}
+                  {/* DR-engineering-10, DR-kam-sales-leader-16: say what to write for this outcome. */}
                   {action?.requiresNote && (
                     <p id={ids.noteHint} className="text-muted-foreground text-xs">
-                      Required for exception decisions
+                      {noteHelp(action.outcomeKey)}
                     </p>
                   )}
                   <Textarea
@@ -625,6 +625,16 @@ export function GateDecisionDialog({
                   />
                 </div>
 
+                {blockedBy.length > 0 && (
+                  <p
+                    id={ids.blocked}
+                    className="text-muted-foreground text-sm"
+                    data-testid="decision-blocked"
+                  >
+                    “{action?.outcomeLabel}” can’t be recorded yet: first complete what is listed
+                    under “Missing before it can move on”.
+                  </p>
+                )}
                 {((submitted && problems.length > 0) || serverErrors.length > 0) && (
                   <div id={ids.errors} role="alert">
                     <ul className="text-destructive grid gap-1 text-sm">
@@ -654,7 +664,13 @@ export function GateDecisionDialog({
             Cancel
           </Button>
           {actions.length > 0 && (
-            <Button type="submit" form="gate-decision-form" disabled={busy} aria-busy={busy}>
+            <Button
+              type="submit"
+              form="gate-decision-form"
+              disabled={busy || blockedBy.length > 0}
+              aria-busy={busy}
+              aria-describedby={blockedBy.length > 0 ? ids.blocked : undefined}
+            >
               {busy ? 'Saving…' : 'Record decision'}
             </Button>
           )}
@@ -662,6 +678,22 @@ export function GateDecisionDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * DR-engineering-10, DR-kam-sales-leader-16: what the required note should say, by kind of outcome
+ * (the helper used to read "Required for exception decisions" under Hold, Rework and Stop alike).
+ */
+export function noteHelp(outcomeKey: string): string {
+  if (/hold/.test(outcomeKey)) return 'Say what you are waiting for, and from whom.';
+  if (/rework|return|requote/.test(outcomeKey)) return 'Say what needs to change, and where.';
+  if (outcomeKey === 'recost') return 'Say what changed and needs costing again.';
+  if (/redirect/.test(outcomeKey)) return 'Say where the work goes instead, and why.';
+  if (/stop|decline|lost/.test(outcomeKey)) return 'Say why it stops here.';
+  if (/expired/.test(outcomeKey)) return 'Say why it is expired now.';
+  if (/risk/.test(outcomeKey)) return 'Say what the risk is and how it is covered.';
+  if (/capital/.test(outcomeKey)) return 'Say what the capital is for.';
+  return 'Say why this decision was made.';
 }
 
 /** B-26 (A3): the outcome's definition (config help text) behind an ⓘ, on hover and on focus. */

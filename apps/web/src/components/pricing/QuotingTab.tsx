@@ -581,6 +581,9 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
                   <Input
                     id={id}
                     type="datetime-local"
+                    // DR-pricing-finance-16: not in the future (the server also refuses a time
+                    // before the quote existed).
+                    max={toLocalInput()}
                     value={form.approvedAt}
                     disabled={!form.approvedBy}
                     onChange={(e) => set('approvedAt')(e.target.value)}

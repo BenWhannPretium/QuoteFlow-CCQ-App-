@@ -48,6 +48,27 @@ export interface StepProps {
 
 const fid = (field: string) => `intake-${field.replace(/[._]/g, '-')}`;
 
+/**
+ * DR-kam-sales-leader-18: after "Fix" moves to a step, put focus on the field to fix (its control, or
+ * the first control of its group). Tries for a moment while the step renders. The first field of a
+ * comma-joined requirement ("est_annual_volume,est_annual_revenue") is the one focused.
+ */
+export function focusIntakeField(field: string, tries = 20) {
+  const id = fid(field.split(',')[0]!.trim());
+  const el =
+    document.getElementById(id) ?? document.querySelector<HTMLElement>(`[data-field="${id}"]`);
+  const target =
+    el && !el.matches('input, select, textarea, button')
+      ? (el.querySelector<HTMLElement>('input, select, textarea, button') ?? el)
+      : el;
+  if (target) {
+    target.focus();
+    target.scrollIntoView({ block: 'center' });
+  } else if (tries > 0) {
+    requestAnimationFrame(() => focusIntakeField(field, tries - 1));
+  }
+}
+
 /** Field props from config: label, "why we ask" help and the required marker. */
 function meta(cfg: WizardConfig, field: string) {
   return {
@@ -1366,7 +1387,7 @@ function DrawingOrSpec({
   evaluation: IntakeEvaluation;
   cfg: WizardConfig;
   hasDrawing: boolean;
-  goTo: (step: number) => void;
+  goTo: (step: number, field?: string) => void;
 }) {
   const blocked = evaluation.blocking.find((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED');
   const missing = blocked?.missing ?? [];
@@ -1397,7 +1418,7 @@ function DrawingOrSpec({
                   variant="link"
                   size="sm"
                   className="h-auto min-h-0 px-0"
-                  onClick={() => goTo(FIELD_META[f]?.step ?? 3)}
+                  onClick={() => goTo(FIELD_META[f]?.step ?? 3, f)}
                 >
                   Fix
                 </Button>
@@ -1430,7 +1451,7 @@ export function ReviewStep({
   hasDrawing = false,
   goTo,
   draftId,
-}: StepProps & { goTo: (step: number) => void; draftId: string }) {
+}: StepProps & { goTo: (step: number, field?: string) => void; draftId: string }) {
   const drawingMissing = evaluation.warnings.find((w) => w.code === 'DRAWING_MISSING');
   const rfpIssue = evaluation.blocking.find(
     (b) => b.field === 'rfp_link' && b.code === 'INVALID_VALUE',
@@ -1491,7 +1512,13 @@ export function ReviewStep({
         ['Components', (data.components ?? []).map((c) => label('component', c)).join(', ')],
         ...followUpRows,
         ['Market', marketLabel(cfg, data) ?? '—'],
-        ['Resin', label('resin', data.resin)],
+        // DR-kam-sales-leader-19: a resin typed under "Other" shows as typed.
+        [
+          'Resin',
+          isCustom(cfg, 'resin', data.resin)
+            ? (data.resinGrade ?? label('resin', data.resin))
+            : label('resin', data.resin),
+        ],
         [
           'Customer-specified resin',
           data.resinCustomerSpecified ? (data.resinGrade ?? 'Yes') : 'No',
@@ -1663,7 +1690,7 @@ export function ReviewStep({
                     variant="link"
                     size="sm"
                     className="h-auto min-h-0 px-0"
-                    onClick={() => goTo(issueStep(b))}
+                    onClick={() => goTo(issueStep(b), b.field)}
                   >
                     Fix
                   </Button>
@@ -1687,7 +1714,7 @@ export function ReviewStep({
                     variant="link"
                     size="sm"
                     className="text-warning-foreground h-auto min-h-0 px-0"
-                    onClick={() => goTo(issueStep(w))}
+                    onClick={() => goTo(issueStep(w), w.field)}
                   >
                     Add it
                   </Button>

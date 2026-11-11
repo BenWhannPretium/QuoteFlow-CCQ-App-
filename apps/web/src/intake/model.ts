@@ -20,6 +20,7 @@ import {
   type ListEntry,
 } from '@ccq/domain';
 
+import { calendarDate } from '@/lib/time';
 import { marketText, valueListLabel } from '@/lib/value-label';
 
 /**
@@ -89,7 +90,8 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   freight_special_arrangements: { label: 'Special freight arrangements', step: 3 },
   bid_reference: { label: 'Bid / program reference', step: 3 },
   packaging_type: { label: 'Packaging type', step: 3 },
-  packaging_notes: { label: 'Packaging requirements', step: 3 },
+  // DR-kam-sales-leader-11: the same name as the field on step 3.
+  packaging_notes: { label: 'Customer-specified packaging (describe)', step: 3 },
   est_annual_volume: { label: 'Estimated annual volume', step: 3 },
   est_annual_revenue: { label: 'Estimated annual revenue', step: 3 },
   quote_needed_by: { label: 'Quote needed by', step: 3 },
@@ -348,8 +350,8 @@ export const formatUsd = (n: number | null | undefined) =>
     ? '—'
     : n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
-export const formatDate = (iso: string | null | undefined) =>
-  iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—';
+/** DR-kam-sales-leader-13: the one calendar-date style ("Nov 30, 2026"). */
+export const formatDate = (iso: string | null | undefined) => calendarDate(iso, '—');
 
 export const formatAddress = (a: IntakeDraftData['shipTo']) =>
   a

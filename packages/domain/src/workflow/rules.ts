@@ -1,4 +1,5 @@
 import { DomainError } from '../errors';
+import { REQUIREMENT_LABELS } from './requirement-labels';
 import type { RequiredRule } from '../types/workflow-config';
 
 export type FieldValues = Readonly<Record<string, unknown>>;
@@ -74,17 +75,24 @@ export function evaluateRule(rule: RequiredRule, values: FieldValues): DomainErr
   if ('allOf' in rule) return rule.allOf.flatMap((child) => evaluateRule(child, values));
   if ('anyOf' in rule) {
     if (rule.anyOf.some((child) => evaluateRule(child, values).length === 0)) return [];
+    const key = fieldsReferenced(rule).join(',');
     return [
       new DomainError(
         'MISSING_FIELD',
-        `At least one of: ${describe(rule)}`,
-        fieldsReferenced(rule).join(','),
+        REQUIREMENT_LABELS[key] ?? `At least one of: ${describe(rule)}`,
+        key,
       ),
     ];
   }
   return leafPasses(rule, values)
     ? []
-    : [new DomainError('MISSING_FIELD', describeLeaf(rule), rule.field)];
+    : [
+        new DomainError(
+          'MISSING_FIELD',
+          REQUIREMENT_LABELS[rule.field] ?? describeLeaf(rule),
+          rule.field,
+        ),
+      ];
 }
 
 export function evaluateRules(rules: readonly RequiredRule[], values: FieldValues): DomainError[] {

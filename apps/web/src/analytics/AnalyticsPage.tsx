@@ -51,6 +51,13 @@ import { EngineeringLens } from './EngineeringLens';
 import { RatePair } from './RatePair';
 import { Boundary, Section, useChart } from './shared';
 
+/**
+ * DR-approver-leadership-admin-07: a From later than To is one message beside the filter; no chart asks
+ * the API (the API refuses it, which used to show one red toast per chart).
+ */
+export const invalidRange = (search: Pick<AnalyticsSearch, 'from' | 'to'>) =>
+  !!search.from && !!search.to && search.from > search.to;
+
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
 
@@ -90,6 +97,7 @@ function FilterBar({
   const from = search.from ?? filters?.window.from ?? '';
   const to = search.to ?? filters?.window.to ?? '';
   const count = activeFilterCount(search);
+  const badRange = invalidRange(search);
   return (
     <form
       aria-label="Analytics filters"
@@ -97,6 +105,16 @@ function FilterBar({
       onSubmit={(e) => e.preventDefault()}
       data-testid="analytics-filters"
     >
+      {badRange && (
+        <p
+          id="analytics-range-error"
+          role="alert"
+          className="text-destructive text-sm"
+          data-testid="analytics-range-error"
+        >
+          “From” must be on or before “To”. Change one of the dates to see the charts.
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <label className="grid gap-1 text-xs font-medium">
           From
@@ -105,6 +123,8 @@ function FilterBar({
             className={selectClass}
             value={from}
             max={to || undefined}
+            aria-invalid={badRange || undefined}
+            aria-describedby={badRange ? 'analytics-range-error' : undefined}
             onChange={(e) => set('from', e.target.value)}
           />
         </label>
@@ -115,6 +135,8 @@ function FilterBar({
             className={selectClass}
             value={to}
             min={from || undefined}
+            aria-invalid={badRange || undefined}
+            aria-describedby={badRange ? 'analytics-range-error' : undefined}
             onChange={(e) => set('to', e.target.value)}
           />
         </label>
@@ -1172,7 +1194,7 @@ export function AnalyticsPage({
         </div>
       )}
       <FilterBar search={search} filters={filters.data} onChange={onSearchChange} />
-      {lens === 'engineering' ? (
+      {invalidRange(search) ? null : lens === 'engineering' ? (
         <EngineeringLens search={search} />
       ) : (
         <>

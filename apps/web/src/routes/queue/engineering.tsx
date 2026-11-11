@@ -35,7 +35,7 @@ import { Input, NativeSelect } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError, type EngQueueParams } from '@/lib/api';
-import { relativeTime } from '@/lib/time';
+import { calendarDate, relativeTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { valueListLabel } from '@/lib/value-label';
@@ -177,7 +177,7 @@ function AgingChips({
             data-bucket={b}
             onClick={() => onChange(on ? selected.filter((x) => x !== b) : [...selected, b])}
             className={cn(
-              'rounded-pill inline-flex min-h-9 items-center gap-2 border px-3 text-sm',
+              'rounded-pill inline-flex min-h-11 min-w-11 items-center justify-center gap-2 border px-3 text-sm sm:min-h-9',
               on ? 'border-primary ring-ring ring-2' : 'border-transparent',
               BUCKET_STYLE[b],
             )}
@@ -359,6 +359,22 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<string[]>([]);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  // DR-engineering-07: closing a dialog opened from a row's menu puts focus back on that row's
+  // Actions button (it went to the top of the page, 37 Tab presses away).
+  const closeDialog = () => {
+    const qn =
+      dialog && 'quoteNumbers' in dialog
+        ? dialog.quoteNumbers[0]
+        : dialog && 'quoteNumber' in dialog
+          ? dialog.quoteNumber
+          : undefined;
+    setDialog(null);
+    if (qn) {
+      setTimeout(() => {
+        document.querySelector<HTMLElement>(`button[aria-label="Actions for ${qn}"]`)?.focus();
+      }, 0);
+    }
+  };
   const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   const now = new Date();
 
@@ -445,7 +461,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
               </span>
               <span className="text-muted-foreground text-xs" data-testid="queue-status">
                 {q.status === 'on_hold'
-                  ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
+                  ? `On hold${q.reviewDate ? ` until ${calendarDate(q.reviewDate)}` : ''}`
                   : statusLabel(q)}
               </span>
               {/* FB-02 (F-015, T-012) */}
@@ -693,7 +709,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
       {dialog?.kind === 'assign' && (
         <AssignDialog
           open
-          onOpenChange={(open) => !open && setDialog(null)}
+          onOpenChange={(open) => !open && closeDialog()}
           quoteNumbers={dialog.quoteNumbers}
           engineers={data.engineers}
           currentEngineerId={dialog.current ?? null}
@@ -708,7 +724,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
       {dialog?.kind === 'reassign' && (
         <BulkReassignDialog
           open
-          onOpenChange={(open) => !open && setDialog(null)}
+          onOpenChange={(open) => !open && closeDialog()}
           title="Reassign an engineer's work"
           noun="engineer"
           people={data.engineers}
@@ -721,7 +737,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
       {dialog?.kind === 'return' && (
         <GateDecisionDialog
           open
-          onOpenChange={(open) => !open && setDialog(null)}
+          onOpenChange={(open) => !open && closeDialog()}
           gateKey="G2"
           quoteNumber={dialog.quoteNumber}
           initialOutcomeKey="rework"
@@ -730,7 +746,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
       {dialog?.kind === 'pin' && (
         <OverrideDialog
           open
-          onOpenChange={(open) => !open && setDialog(null)}
+          onOpenChange={(open) => !open && closeDialog()}
           quoteNumber={dialog.item.quoteNumber}
           field={{
             field: 'queue_position',
@@ -755,7 +771,7 @@ function CompletenessCell({ item }: { item: EngQueueItem }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="inline-flex min-h-8 items-center gap-1 rounded px-1 text-xs"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded px-1 text-xs sm:min-h-8 sm:min-w-0"
           aria-label={`${n} completeness warning${n === 1 ? '' : 's'}: ${item.completeness.map((c) => c.field).join(', ')}`}
           onClick={(e) => e.stopPropagation()}
         >

@@ -4,7 +4,7 @@ import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePublicConfig } from '@/config/public-config';
 import { cn } from '@/lib/utils';
-import { marketText, parentMarket, valueListLabel } from '@/lib/value-label';
+import { marketText, parentMarket, scoreExplanationText, valueListLabel } from '@/lib/value-label';
 
 import { ScorePill } from './ScorePill';
 import { TierChip } from './TierChip';
@@ -84,7 +84,7 @@ export function ScoreBreakdownTable({
                   </span>
                 )}
                 <span className={cn('text-muted-foreground block', b.unknown && 'italic')}>
-                  {b.explanation}
+                  {scoreExplanationText(config, b.raw, b.explanation)}
                 </span>
               </th>
               <td className="py-1.5 pr-2 text-right tabular-nums">{pct(b.weight)}</td>
@@ -156,7 +156,7 @@ export function PriorityBadge({
       {showWhy && priority.score !== null && (
         <Popover>
           <PopoverTrigger
-            className="text-emphasis inline-flex min-h-8 items-center gap-1 rounded px-1 text-xs underline-offset-4 hover:underline"
+            className="text-emphasis inline-flex min-h-11 items-center gap-1 rounded px-1 text-xs sm:min-h-8 underline-offset-4 hover:underline"
             aria-label={`Why this priority? ${quoteNumber}`}
           >
             <InfoIcon className="size-3.5" aria-hidden="true" />

@@ -142,7 +142,14 @@ function UsageReportPage() {
             {table.days.length === 0 ? (
               <p className="text-muted-foreground text-sm">No activity in this range.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
+              // DR-approver-leadership-admin-11, DR-cross-cutting-11: a scroll box keyboard users can
+              // reach (Tab, then the arrow keys), named for screen readers.
+              <div
+                className="focus-visible:ring-ring overflow-x-auto rounded-lg border focus-visible:ring-2 focus-visible:outline-none"
+                tabIndex={0}
+                role="region"
+                aria-label="Daily active users by role (scrolls sideways)"
+              >
                 <table className="w-full text-sm" data-testid="usage-dau">
                   <thead className="bg-muted text-muted-foreground text-xs">
                     <tr>

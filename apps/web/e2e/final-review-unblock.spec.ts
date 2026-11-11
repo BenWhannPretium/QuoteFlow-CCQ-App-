@@ -130,7 +130,7 @@ test('T-026: the approver releases the offer with open terms and Legal checks (p
   const bar = page.getByTestId('decision-bar');
   await bar.getByRole('button', { name: 'Advance (release the offer)', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Required for exception decisions')).toHaveCount(0);
+  await expect(dialog.getByText('Say why this decision was made.')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(page).toHaveURL(/\/approvals/);
 

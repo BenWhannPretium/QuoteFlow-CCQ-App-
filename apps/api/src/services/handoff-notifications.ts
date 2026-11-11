@@ -45,6 +45,10 @@ const shorten = (s: string) => (s.length > NOTE_MAX ? `${s.slice(0, NOTE_MAX - 1
 const sentence = (...parts: (string | false | null | undefined)[]) =>
   parts.filter((p): p is string => Boolean(p)).join(' ');
 
+/** DR-kam-sales-leader-12: one full stop at the end of free text (none added after "." "!" "?" or "…"). */
+export const endSentence = (text: string) =>
+  /[.!?…]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`;
+
 /** What the notice needs to say; everything is read in the decision's transaction. */
 export interface HandoffContext {
   quote: { id: string; quoteNumber: string };
@@ -93,7 +97,7 @@ export function composeHandoff(
   const from = stageLabel(ctx.workflow, e.fromStageKey);
   const reasonAndNote = sentence(
     ctx.reasonLabel && `Reason: ${ctx.reasonLabel}.`,
-    ctx.note && `Note: ${shorten(ctx.note)}`,
+    ctx.note && `Note: ${endSentence(shorten(ctx.note))}`,
   );
   const payload: Record<string, string> = {
     ...(ctx.actorName ? { actor: ctx.actorName } : {}),
@@ -194,7 +198,7 @@ export function composeHandoff(
           owner ? 'You are the hold owner.' : `Put on hold at ${from}.`,
           ctx.reasonLabel && `Reason: ${ctx.reasonLabel}.`,
           e.holdUntil && `Review date: ${e.holdUntil}.`,
-          ctx.note && `Note: ${shorten(ctx.note)}`,
+          ctx.note && `Note: ${endSentence(shorten(ctx.note))}`,
         ),
         payload: {
           ...payload,

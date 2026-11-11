@@ -2,6 +2,7 @@ import type { DbOrTx, Tx } from '@ccq/db';
 import {
   getLeadReview,
   getQuoteByNumber,
+  getQuoteForUpdate,
   insertActivityEvent,
   listUsersByIds,
   loadQuoteState,
@@ -95,6 +96,9 @@ export async function leadReviewView(
 async function load(tx: Tx, deps: LeadReviewDeps, quoteNumber: string) {
   const q = await getQuoteByNumber(tx, quoteNumber);
   if (!q) throw deps.notFound(quoteNumber);
+  // DR-pricing-finance-04: submit and send-back lock the quote row first, so a double-click runs one
+  // after the other: the second sees "already submitted" (409), with no second notice or email.
+  await getQuoteForUpdate(tx, q.id);
   const state = (await loadQuoteState(tx, q.id))!;
   return { q, state };
 }

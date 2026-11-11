@@ -1000,6 +1000,15 @@ describe('lead review (2026-10-30): the pricer submits to the pricing lead', () 
     expect((await detail(qn, 'PricingLead')).dto.quoting.leadReview.canSendBack).toBe(true);
   });
 
+  it('DR-pricing-finance-04: a double submit records one submission and tells the lead once', async () => {
+    const qn = await assignedToPricer();
+    await approve(qn);
+    await putCapital(qn, { capitalReadiness: 'not_required' });
+    const results = await Promise.all([submit(qn), submit(qn), submit(qn)]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409, 409]);
+    expect(await inAppTold(qn, 'quote.submitted_to_lead', await userId('PricingLead'))).toBe(1);
+  });
+
   it('the lead sends it back with a note, the pricer resubmits, and the lead decides G3', async () => {
     const qn = await assignedToPricer();
     await approve(qn);

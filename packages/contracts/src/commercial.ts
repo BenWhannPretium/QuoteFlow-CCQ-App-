@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { wholeNumber } from './messages';
 import { SectionLockView } from './problem';
 
 /**
@@ -19,11 +20,11 @@ const capitalTermFields = {
   /** value_list `mold_ownership` code. */
   termsMoldOwnership: z.string().max(40).nullable(),
   termsAmortized: z.boolean().nullable(),
-  termsAmortizationMonths: z.number().int().min(1).max(120).nullable(),
+  termsAmortizationMonths: wholeNumber(1, 120, 'months').nullable(),
   /** Minimum supply / shortfall terms. */
   termsMinSupply: text(300),
   termsAgreementInPlace: z.boolean().nullable(),
-  termsAgreementMonths: z.number().int().min(1).max(240).nullable(),
+  termsAgreementMonths: wholeNumber(1, 240, 'months').nullable(),
 };
 
 /**
@@ -117,8 +118,13 @@ export const CapitalTermsView = z.object({
   finalizedByName: z.string().nullable(),
   /** `capital_terms_required`: what the approver must fill before confirming. */
   required: z.array(z.string()),
-  /** The approver may edit and confirm them (terms.finalize, Final Review, not locked). */
+  /** The approver may edit and confirm them (terms.finalize, Final Review, not locked, not segregated). */
   canFinalize: z.boolean(),
+  /**
+   * DR-approver-leadership-admin-01: why this approver may not edit or confirm them (the G4 segregation
+   * rules: they are the quote's KAM or its price approver); null otherwise.
+   */
+  finalizeBlockedReason: z.string().nullable().optional(),
 });
 export type CapitalTermsView = z.infer<typeof CapitalTermsView>;
 

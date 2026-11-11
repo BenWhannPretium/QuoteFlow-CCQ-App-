@@ -255,7 +255,7 @@ function CommercialLink({ quoteNumber }: { quoteNumber: string }) {
       params={{ quoteNumber }}
       hash="commercial"
       // Inherits the surrounding text colour (contrast on the warning background), underlined.
-      className="font-medium underline underline-offset-2"
+      className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 sm:min-h-0"
     >
       Open the Commercial panel
     </Link>
@@ -720,7 +720,8 @@ function DecisionBar({
               still decline or return it.
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+          {/* DR-approver-leadership-admin-02: at 360-414 px the long labels wrap instead of being clipped. */}
+          <div className="grid grid-cols-2 gap-2 max-sm:*:py-2 max-sm:*:leading-tight max-sm:*:whitespace-normal sm:flex sm:justify-end">
             {has('decline') && (
               <Button variant="outline" size="lg" onClick={() => onDecide('decline')}>
                 {label('decline', 'Decline')}

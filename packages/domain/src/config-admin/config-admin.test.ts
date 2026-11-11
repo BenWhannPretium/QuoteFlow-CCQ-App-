@@ -48,6 +48,12 @@ describe('app setting specs', () => {
     expect(invalid(() => parseSettingValue('validity_days_default', null))).toMatch(
       /needs a value/,
     );
+    // DR-approver-leadership-admin-10: the message names the setting's label, not its key.
+    const message = invalid(() => parseSettingValue('validity_days_default', 0));
+    expect(message).toBe(
+      'Default proposal validity (days) must be a whole number of days from 1 to 730',
+    );
+    expect(message).not.toContain('validity_days_default');
   });
 
   it('accepts null only where "not set" means off', () => {

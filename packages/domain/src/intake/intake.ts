@@ -131,6 +131,11 @@ export const intakeConfigSchema = z
      */
     subMarketMarkets: z.record(z.string(), z.string()).default({}),
     /**
+     * DR-cross-cutting-02: the ACTIVE codes of each value list an intake field picks from (list key →
+     * codes, `value_list`). A list that is absent is not checked (unit tests, older callers).
+     */
+    listCodes: z.record(z.string(), z.array(z.string())).optional(),
+    /**
      * FB-10 (F-066): platform-minimum warning (app_setting `intake_guardrails`, seeded OFF, provisional).
      * A non-blocking amber warning; recorded on the quote for G1.
      */
@@ -297,6 +302,66 @@ export function subMarketIssues(values: FieldValues, config: IntakeConfig): Inta
     ];
   }
   return [];
+}
+
+/**
+ * DR-cross-cutting-02: the intake fields that pick from a value list (snake_case field → list key and the
+ * words for "Pick a … from the list"). `sub_market` and `request_class` have their own checks above.
+ */
+export const INTAKE_LIST_FIELDS: Readonly<Record<string, { list: string; label: string }>> = {
+  product_family: { list: 'product_family', label: 'product family' },
+  components: { list: 'component', label: 'component' },
+  market: { list: 'market', label: 'market' },
+  resin: { list: 'resin', label: 'resin' },
+  pcr_level: { list: 'pcr_level', label: 'PCR level' },
+  additive: { list: 'additive', label: 'additive' },
+  neck_diameter: { list: 'neck_diameter', label: 'neck diameter' },
+  neck_finish_type: { list: 'neck_finish_type', label: 'neck finish type' },
+  neck_special_feature: { list: 'neck_special_feature', label: 'neck special feature' },
+  color_type: { list: 'color_type', label: 'color' },
+  labels_purchased_by: { list: 'labels_purchased_by', label: '"labels purchased by" option' },
+  decoration_type: { list: 'decoration_type', label: 'decoration type' },
+  packaging_type: { list: 'packaging_type', label: 'packaging type' },
+  drawing_status: { list: 'drawing_status', label: 'drawing status' },
+  requested_payment_terms: { list: 'requested_payment_terms', label: 'payment term' },
+  tooling_funding_model: { list: 'tooling_funding_model', label: 'tooling funding model' },
+  price_basis: { list: 'price_basis', label: 'price basis' },
+  freight_type: { list: 'freight_type', label: 'freight type' },
+};
+
+/**
+ * DR-cross-cutting-02 (Sev-2): every list-backed intake field must hold an ACTIVE code of its value list
+ * (the UI only offers those; the server is the control). `keep` holds the values the quote already had
+ * (a rework of an older quote): a retired value it already carries stays readable and resubmittable;
+ * only a new write of a retired or unknown code is refused, with the sub-market check's wording.
+ */
+export function listValueIssues(
+  values: FieldValues,
+  config: Pick<IntakeConfig, 'listCodes'>,
+  keep: FieldValues = {},
+): IntakeIssue[] {
+  const lists = config.listCodes;
+  if (!lists) return [];
+  const issues: IntakeIssue[] = [];
+  for (const [field, { list, label }] of Object.entries(INTAKE_LIST_FIELDS)) {
+    const active = lists[list];
+    if (!active) continue;
+    const kept = keep[field];
+    const allowed = (code: string) =>
+      active.includes(code) ||
+      code === kept ||
+      (Array.isArray(kept) && (kept as unknown[]).includes(code));
+    const value = values[field];
+    const codes = Array.isArray(value) ? value : isPresent(value) ? [value] : [];
+    if (codes.some((code) => typeof code !== 'string' || !allowed(code))) {
+      issues.push({
+        code: 'INVALID_VALUE',
+        field,
+        message: `Pick ${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label} from the list`,
+      });
+    }
+  }
+  return issues;
 }
 
 /**
@@ -506,6 +571,8 @@ export function evaluateIntake(
   values: FieldValues,
   config: IntakeConfig,
   now: Date,
+  /** DR-cross-cutting-02: the reworked quote's own values (a retired code it already holds is kept). */
+  keep: FieldValues = {},
 ): IntakeEvaluation {
   const blocking: IntakeIssue[] = evaluateRules(config.requiredFields, values).map((e) => ({
     code: 'MISSING_FIELD',
@@ -531,6 +598,7 @@ export function evaluateIntake(
   blocking.push(...needByDateIssues(values, now));
   blocking.push(...productFactIssues(values, config));
   blocking.push(...subMarketIssues(values, config));
+  blocking.push(...listValueIssues(values, config, keep));
   blocking.push(...moldAndLinkIssues(values));
   const commercial = commercialInputIssues(values, {
     standardPaymentTerms: config.standardPaymentTerms,

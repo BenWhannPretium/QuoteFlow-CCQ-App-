@@ -30,9 +30,81 @@ export interface ProblemJsonOptions {
   spaFallback?: boolean;
 }
 
+/**
+ * DR-cross-cutting-03: the first NUL character (`\u0000`) in a request's text, as a JSON-pointer path.
+ * Postgres cannot store it in `text`, so it used to end in a bare 500. Pasted PDF or Excel text can carry
+ * one. Plain objects and arrays are walked; anything else (a multipart stream) is left to its route.
+ */
+export function findNulPath(value: unknown, path = ''): string | null {
+  if (typeof value === 'string') return value.includes('\u0000') ? path || '/' : null;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const found = findNulPath(value[i], `${path}/${i}`);
+      if (found) return found;
+    }
+    return null;
+  }
+  const proto: unknown =
+    value && typeof value === 'object' ? Object.getPrototypeOf(value) : undefined;
+  // A plain object, or Fastify's query object (null prototype).
+  if (value && (proto === Object.prototype || proto === null)) {
+    for (const [key, v] of Object.entries(value)) {
+      if (key.includes('\u0000')) return `${path}/${key}`;
+      const found = findNulPath(v, `${path}/${key}`);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 /** RFC 9457 problem+json for every error and 404. Never leaks internals on 5xx. */
 export const problemJsonPlugin = fp(
   (app: FastifyInstance, opts: ProblemJsonOptions) => {
+    // DR-cross-cutting-03: refuse a NUL character anywhere in the path, query or body, before any hook,
+    // schema or handler sees it: 400 "contains an invalid character", never a 500. The path and query
+    // are checked first thing (onRequest: later hooks already read them), the body once it is parsed.
+    const refuseNul = (
+      request: FastifyRequest,
+      reply: FastifyReply,
+      parts: readonly (readonly ['body' | 'query' | 'params', unknown])[],
+    ) => {
+      for (const [part, value] of parts) {
+        const at = findNulPath(value);
+        if (!at) continue;
+        return sendProblem(
+          reply,
+          problem(400, request, {
+            title: 'Validation failed',
+            detail:
+              'The request contains an invalid character (a NUL character). Remove it and try again.',
+            code: 'invalid_character',
+            errors: [
+              {
+                path: part === 'body' ? at : `/${part}${at === '/' ? '' : at}`,
+                message: 'Contains an invalid character',
+              },
+            ],
+          }),
+        );
+      }
+      return undefined;
+    };
+    app.addHook('onRequest', async (request, reply) => {
+      const sent = refuseNul(request, reply, [
+        ['query', request.query],
+        ['params', request.params],
+      ]);
+      if (sent) return sent;
+      // The raw URL, for a NUL the query parser may have dropped.
+      if (/%00/.test(request.url)) {
+        return refuseNul(request, reply, [['query', { url: '\u0000' }]]);
+      }
+      return undefined;
+    });
+    app.addHook('preValidation', async (request, reply) =>
+      refuseNul(request, reply, [['body', request.body]]),
+    );
+
     app.setErrorHandler((error: FastifyError, request, reply) => {
       if (hasZodFastifySchemaValidationErrors(error)) {
         return sendProblem(
