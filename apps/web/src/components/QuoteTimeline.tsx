@@ -410,6 +410,18 @@ function CommentComposer({ quoteNumber }: { quoteNumber: string }) {
   });
   const options = q ? (users.data?.items ?? []) : [];
 
+  // DR-engineering-06: a double-click fires twice before React re-renders the disabled button; this
+  // flag is set synchronously, so the second click sends nothing.
+  const sending = useRef(false);
+  const post = () => {
+    if (sending.current || !body.trim()) return;
+    sending.current = true;
+    send.mutate(undefined, {
+      onSettled: () => {
+        sending.current = false;
+      },
+    });
+  };
   const send = useMutation({
     mutationFn: () =>
       api.addComment(quoteNumber, {
@@ -464,7 +476,7 @@ function CommentComposer({ quoteNumber }: { quoteNumber: string }) {
         return;
       }
     }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && body.trim()) send.mutate();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && body.trim()) post();
   };
 
   return (
@@ -472,7 +484,7 @@ function CommentComposer({ quoteNumber }: { quoteNumber: string }) {
       className="grid gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        if (body.trim()) send.mutate();
+        post();
       }}
     >
       <label htmlFor={ids.box} className="sr-only">

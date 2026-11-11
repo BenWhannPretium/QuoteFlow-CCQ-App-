@@ -3,11 +3,14 @@ import {
   ATTACHMENT_KINDS,
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_EXTENSIONS,
+  ATTACHMENT_FILE_TYPES,
   DRAWING_ATTACHMENT_KINDS,
+  KIND_FORMATS,
   fileTypeForName,
   isQuotingModelKind,
   sniffMatches,
   type AttachmentFileType,
+  type AttachmentKind,
 } from './file-types';
 import { renderFolderTemplate } from './names';
 import { can, hasPermission, type PolicyResource } from '../policy/can';
@@ -106,6 +109,23 @@ export function checkUploadRequest(req: UploadRequest): {
       ),
     );
   }
+  // DR-pricing-finance-07: a kind with its own formats (the Quoting models: workbooks only).
+  const only = KIND_FORMATS[req.kind as AttachmentKind];
+  if (type && only && !only.includes(type.format)) {
+    const labels = ATTACHMENT_FILE_TYPES.filter((t) => only.includes(t.format));
+    errors.push(
+      new DomainError(
+        'INVALID_VALUE',
+        `This file must be ${labels
+          .map(
+            (t) =>
+              `${/^[aeiou]/i.test(t.label) ? 'an' : 'a'} ${t.label} (.${t.extensions.join(', .')})`,
+          )
+          .join(' or ')}`,
+        'file',
+      ),
+    );
+  }
   if (!(ATTACHMENT_KINDS as readonly string[]).includes(req.kind)) {
     errors.push(
       new DomainError(
@@ -124,7 +144,8 @@ export function checkFileContent(type: AttachmentFileType, head: Uint8Array): Do
     ? null
     : new DomainError(
         'INVALID_VALUE',
-        `The file's content is not a ${type.label}; check the file and its extension`,
+        // DR-engineering-09: "an Excel workbook", not "a Excel workbook".
+        `The file's content is not ${/^[aeiou]/i.test(type.label) ? 'an' : 'a'} ${type.label}; check the file and its extension`,
         'file',
       );
 }

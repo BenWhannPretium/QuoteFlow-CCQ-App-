@@ -701,6 +701,40 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
       expect((await auditRows(item.id)).map((a) => a.action)).toEqual(['upload', 'update']);
     });
   });
+  it('DR-pricing-finance-07: the costing model, ROI model and price table take a workbook only', async () => {
+    for (const kind of ['cost_model', 'roi_model', 'price_table']) {
+      const res = await upload(
+        `/api/v1/quotes/${qn}/attachments`,
+        { name: 'costing.pdf', content: PDF },
+        { kind },
+        'Pricing',
+      );
+      expect(res.statusCode, kind).toBe(422);
+      expect(problemOf(res).detail, kind).toBe('This file must be an Excel workbook (.xlsx)');
+    }
+  });
+
+  it('DR-cross-cutting-05: an empty file gets its own message', async () => {
+    const res = await upload(`/api/v1/quotes/${qn}/attachments`, {
+      name: 'empty.pdf',
+      content: Buffer.alloc(0),
+    });
+    expect(res.statusCode).toBe(422);
+    expect(problemOf(res).detail).toBe('The file is empty. Choose a file that has content');
+    expect(problemOf(res).errors).toEqual([
+      expect.objectContaining({ path: '/file', message: 'The file is empty' }),
+    ]);
+  });
+
+  it('DR-pricing-finance-08: a quote mark in the name is kept, not %22', async () => {
+    // Browsers send `"` in a multipart file name as %22.
+    const res = await upload(`/api/v1/quotes/${qn}/attachments`, {
+      name: 'Spec %22A%22 rev 2.pdf',
+      content: PDF,
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(AttachmentUploadResponse.parse(res.json()).item.fileName).toBe('Spec "A" rev 2.pdf');
+  });
 });
 
 describe('the same flow on SharePoint (mock Graph) and Blob (memory), chosen by the store alone', () => {

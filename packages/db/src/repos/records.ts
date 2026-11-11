@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { excludedSet, first } from './_util';
@@ -338,6 +338,40 @@ export async function listCommentAuthorIds(db: DbOrTx, quoteId: string): Promise
     .where(eq(comment.quoteId, quoteId));
   return rows.map((r) => r.authorId);
 }
+
+/**
+ * DR-engineering-06: one author's comments on one quote are written one at a time (a transaction-level
+ * advisory lock), so a double-click cannot slip two inserts past `findRecentSameComment`.
+ */
+export async function lockCommentAuthor(db: DbOrTx, quoteId: string, authorId: string) {
+  await db.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`comment:${quoteId}:${authorId}`}, 0))`,
+  );
+}
+
+/** The same comment by the same author on the same quote since `since` (a double submit), if any. */
+export const findRecentSameComment = async (
+  db: DbOrTx,
+  quoteId: string,
+  authorId: string,
+  body: string,
+  since: Date,
+) =>
+  first(
+    await db
+      .select()
+      .from(comment)
+      .where(
+        and(
+          eq(comment.quoteId, quoteId),
+          eq(comment.authorId, authorId),
+          eq(comment.body, body),
+          gte(comment.createdAt, since),
+        ),
+      )
+      .orderBy(desc(comment.createdAt))
+      .limit(1),
+  );
 
 export async function insertComment(db: DbOrTx, values: typeof comment.$inferInsert) {
   const [row] = await db.insert(comment).values(values).returning();

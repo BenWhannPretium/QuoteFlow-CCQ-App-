@@ -35,10 +35,17 @@ export function ConfirmDialog({
 }) {
   return (
     <AlertDialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <AlertDialogContent>
-        <div className="grid gap-1.5">
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
+      {/* DR-pricing-finance-08: a long unbroken file name wraps instead of pushing the buttons out. */}
+      <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
+        <div className="grid min-w-0 gap-1.5">
+          <AlertDialogTitle className="break-words [overflow-wrap:anywhere]">
+            {title}
+          </AlertDialogTitle>
+          {description && (
+            <AlertDialogDescription className="break-words [overflow-wrap:anywhere]">
+              {description}
+            </AlertDialogDescription>
+          )}
         </div>
         {children}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

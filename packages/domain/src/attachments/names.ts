@@ -16,7 +16,10 @@ const RESERVED = /^(con|prn|aux|nul|com\d|lpt\d|desktop\.ini|\.lock)$/i;
  * it, so "P&G, bottle 1/2 rev.pdf" stays whole. Never used as a storage key (see `sanitizeFileName`).
  */
 export function displayFileName(original: string): string {
-  const leaf = (original.split('\\').pop() ?? '')
+  // DR-pricing-finance-08: browsers escape `"`, LF and CR in a multipart file name as %22, %0A and %0D
+  // (HTML form-data encoding); undo that so 'Quote "A".xlsx' does not show as 'Quote %22A%22.xlsx'.
+  const unescaped = original.replace(/%22/g, '"').replace(/%0A|%0D/gi, ' ');
+  const leaf = (unescaped.split('\\').pop() ?? '')
     .replace(/[\t\n\r]+/g, ' ')
     .replace(CONTROL, '')
     .normalize('NFC')
