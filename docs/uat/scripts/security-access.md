@@ -41,7 +41,7 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 6 | `/approvals?gate=G1` (the **To qualify** tab) | Denied | Allowed (To qualify, Overrides) | Overrides tab only | Denied | Denied | Denied | Final Review tab only | Final Review tab only | Final Review and Overrides tabs, no To qualify | | |
 | 7 | `/queue/engineering` | Denied | Denied | Allowed | Allowed (My assignments) | Denied | Denied | Denied | Allowed (read-only) | Allowed | | |
 | 8 | `/queue/pricing` | Denied | Denied | Denied | Denied | Allowed | Allowed (with assign) | Denied | Allowed (read-only) | Allowed | | |
-| 9 | `/quotes/<CCQ-SEC-FR>/review` | Denied | Denied | Denied | Denied | Denied | Denied | Allowed (decide) | Allowed (read) | Allowed (read) | | |
+| 9 | `/quotes/<CCQ-SEC-FR>/review` | Allowed (read-only) | Allowed (read-only) | Allowed (read-only) | Allowed (read-only) | Allowed (read-only) | Allowed (read-only) | Allowed (decide) | Allowed (read-only) | Allowed (read-only) | | Only the Approver sees the decision controls. Everyone else sees the review with "You are reading this review. Final Review decisions are taken by an approver." Every role that can read a quote can read its review (the review summary route needs only `quote.read`). |
 | 10 | `/analytics` | Denied | Allowed | Allowed | Denied | Allowed | Allowed | Allowed | Allowed | Allowed | | |
 | 11 | `/admin/override-log` | Denied | Denied | Denied | Denied | Denied | Denied | Denied | Allowed | Allowed | | |
 | 12 | `/admin/audit` | Denied | Denied | Denied | Denied | Denied | Denied | Denied | Allowed | Allowed | | |
