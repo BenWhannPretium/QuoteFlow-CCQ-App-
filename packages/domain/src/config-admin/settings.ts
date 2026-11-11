@@ -559,8 +559,17 @@ export function settingSpec(key: string): SettingSpec {
 export function parseSettingValue(key: string, value: unknown): unknown {
   const s = settingSpec(key);
   if (value === null || value === undefined) {
-    if (!s.nullable) throw new DomainError('INVALID_CONFIG', `${key} needs a value`);
+    if (!s.nullable) throw new DomainError('INVALID_CONFIG', `${s.label} needs a value`);
     return null;
   }
-  return s.parse(value);
+  try {
+    return s.parse(value);
+  } catch (err) {
+    // DR-approver-leadership-admin-10: the Admin reads the setting's label, never its key
+    // ("validity_days_default must be …" → "Proposal validity (days) must be …").
+    if (err instanceof DomainError && s.label !== key) {
+      throw new DomainError(err.code, err.message.split(key).join(s.label), err.field);
+    }
+    throw err;
+  }
 }

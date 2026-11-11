@@ -42,3 +42,41 @@ export function parentMarket(
   const market = config?.valueLists.sub_market?.find((e) => e.code === subMarket)?.meta.market;
   return typeof market === 'string' ? market : null;
 }
+
+/** A code from any value list as its label (the first list that knows it), or the code itself. */
+function anyListLabel(
+  config: Pick<PublicConfigResponse, 'valueLists' | 'retiredValues'> | undefined,
+  code: string,
+): string {
+  for (const [list, entries] of Object.entries(config?.valueLists ?? {})) {
+    if (entries.some((e) => e.code === code)) return valueListLabel(config, list, code) ?? code;
+  }
+  for (const [list, codes] of Object.entries(config?.retiredValues ?? {})) {
+    if (codes && code in codes) return valueListLabel(config, list, code) ?? code;
+  }
+  return code;
+}
+
+/**
+ * DR-kam-sales-leader-03: a score explanation in plain words. The domain explains a map attribute with
+ * its stored codes ("HOME_CARE (not listed, default) → 50 points", "BOTTLE+HDPE (not listed, default)");
+ * the screen shows the labels ("Home Care", "Bottle + HDPE") and says what "not listed" means.
+ */
+export function scoreExplanationText(
+  config: Pick<PublicConfigResponse, 'valueLists' | 'retiredValues'> | undefined,
+  raw: string | number | null,
+  explanation: string,
+): string {
+  let text = explanation.replace(
+    '(not listed, default)',
+    '(no points set for it: neutral default)',
+  );
+  if (typeof raw === 'string' && raw && text.includes(raw)) {
+    const label = raw
+      .split('+')
+      .map((part) => anyListLabel(config, part))
+      .join(' + ');
+    text = text.replace(raw, label);
+  }
+  return text;
+}
