@@ -168,7 +168,9 @@ test.describe('390 × 844: tap targets and overflow on the working screens', () 
 
     await page.goto('/admin/reports/usage');
     await page.waitForLoadState('networkidle');
-    const box = page.getByRole('region', { name: /Daily active users by role/ });
+    const box = page.getByRole('region', {
+      name: 'Daily active users by role (scrolls sideways)',
+    });
     if ((await box.count()) > 0) await expect(box).toHaveAttribute('tabindex', '0');
     expect(await sideways(page)).toBeLessThanOrEqual(0);
     expect(await seriousViolations(page)).toEqual([]);
