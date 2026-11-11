@@ -65,16 +65,18 @@ export const intakeRoutes: FastifyPluginAsyncZod<{ service: IntakeService }> = a
       config: { permission: 'quote.create' },
       schema: {
         tags,
-        summary: 'Start an intake draft (usually with the picked SF opportunity pre-filled)',
+        summary:
+          'Start an intake draft (usually with the picked SF opportunity pre-filled). 422 when a list-backed field holds a code that is not an active value-list entry',
         security,
         body: CreateIntakeDraftBody,
         response: { 201: IntakeDraft },
       },
     },
-    async (req, reply) => {
-      const draft = await service.create(withTx(req), requireActor(req), req.body, meta(req));
-      return reply.status(201).send(draft);
-    },
+    async (req, reply) =>
+      handle(req, reply, async () => {
+        const draft = await service.create(withTx(req), requireActor(req), req.body, meta(req));
+        return reply.status(201).send(draft);
+      }),
   );
 
   app.get(

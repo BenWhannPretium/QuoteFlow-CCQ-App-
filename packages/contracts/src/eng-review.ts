@@ -86,7 +86,13 @@ export const CapacityEvidenceRowBody = z
     site: z.string().trim().min(1).max(40),
     lineAsset: z.string().trim().max(120).nullable().optional(),
     /** Required on a new row, never defaulted (DF-22: quotes assumed 85% vs ~70% demonstrated). */
-    assumedEffectivenessPct: pct.nullable().optional(),
+    assumedEffectivenessPct: z
+      .number()
+      // DR-engineering-02: 0% means no capacity at all, so utilization after cannot be calculated.
+      .gt(0, 'Enter an assumed effectiveness above 0%, up to 100%')
+      .max(100, 'Enter an assumed effectiveness above 0%, up to 100%')
+      .nullable()
+      .optional(),
     cycleTimeS: numberFrom(0, 999_999, 'seconds', true).nullable().optional(),
     /**
      * F-059: the line's current load, entered (replaces the typed "Utilization %"). Utilization AFTER the

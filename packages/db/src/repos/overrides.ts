@@ -18,6 +18,20 @@ export const getOverrideForUpdate = async (db: DbOrTx, id: string) =>
 export const getQuoteForUpdate = async (db: DbOrTx, id: string) =>
   first(await db.select().from(quote).where(eq(quote.id, id)).for('update'));
 
+/**
+ * Lock a quote row by its number for the rest of the transaction (DR-cross-cutting-01). Gate decisions
+ * take it before reading the stage, so two decisions on one quote run one after the other: the second
+ * reads the state the first committed. Returns the id, or undefined when RLS hides the quote.
+ */
+export const lockQuoteByNumber = async (db: DbOrTx, quoteNumber: string) =>
+  first(
+    await db
+      .select({ id: quote.id })
+      .from(quote)
+      .where(eq(quote.quoteNumber, quoteNumber))
+      .for('update'),
+  )?.id;
+
 export async function hasOpenOverride(db: DbOrTx, quoteId: string, field: string) {
   const rows = await db
     .select({ id: override.id })

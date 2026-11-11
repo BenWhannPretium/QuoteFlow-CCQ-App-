@@ -10,6 +10,7 @@ import {
   sectionLock,
   sectionLockedError,
   type LockConfig,
+  type WorkflowConfig,
   type LockSection,
   type QuoteState,
   type SectionLock,
@@ -59,7 +60,7 @@ export async function sectionLockView(
 }
 
 /** The workflow config the locks read (stage order, gates). */
-export async function lockConfig(db: DbOrTx): Promise<LockConfig> {
+export async function lockConfig(db: DbOrTx): Promise<WorkflowConfig> {
   return parseWorkflowConfig(await loadWorkflowConfigInput(db));
 }
 

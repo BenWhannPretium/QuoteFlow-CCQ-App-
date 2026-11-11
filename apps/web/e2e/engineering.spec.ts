@@ -181,6 +181,10 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   // No OEE default: the effectiveness assumption must be stated.
   await expect(capRow.getByRole('alert')).toContainText('state the assumed effectiveness %');
   await expect(capRow).toContainText('85% vs ~70% demonstrated');
+  // DR-engineering-02: 0% is refused (no capacity, so no utilization after), on the field.
+  await capRow.getByLabel('Assumed effectiveness %').fill('0');
+  await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
+  await expect(capRow.getByRole('alert')).toContainText('above 0%');
   await capRow.getByLabel('Assumed effectiveness %').fill('70');
   await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
   await expect(eng.getByText('Capacity evidence saved')).toBeVisible();

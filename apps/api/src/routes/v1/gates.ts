@@ -75,7 +75,7 @@ export const gateRoutes: FastifyPluginAsyncZod<{ service: GateService }> = async
       schema: {
         tags: ['gates'],
         summary:
-          'Record a gate decision (generic for G1–G5). The domain checks stage, decider permission, segregation, required fields, note / reason code / review date; the effects are persisted in one transaction. 403 if you may not decide, 422 lists every unmet rule',
+          'Record a gate decision (generic for G1–G5). The domain checks stage, decider permission, segregation, required fields, note / reason code / review date; the effects are persisted in one transaction, under a lock on the quote row. 403 if you may not decide, 409 if the gate was already decided (another person or tab) or the quote is already on hold, 422 lists every unmet rule',
         security,
         params: GateDecisionParams,
         body: GateDecisionBody,

@@ -763,8 +763,12 @@ describe('G4 Approve', () => {
     const qn = await inFinalReview();
     ok(await decide(qn, { outcomeKey: 'approve' }));
     const again = await decide(qn, { outcomeKey: 'approve' });
-    expect(again.statusCode).toBe(422);
-    expect(errorCodes(again)).toContain('WRONG_STAGE');
+    // DR-approver-leadership-admin-13 / DR-cross-cutting-01: a plain 409, not the raw stage keys.
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({
+      code: 'already_decided',
+      detail: 'This quote was already decided. Reload the page to see where it is now.',
+    });
     expect(await g4Decisions(qn)).toHaveLength(1);
   });
 

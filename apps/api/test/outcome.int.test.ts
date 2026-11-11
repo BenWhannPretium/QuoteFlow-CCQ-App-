@@ -1245,3 +1245,163 @@ describe('the outcomes report (GET /admin/reports/outcomes)', () => {
     }
   });
 });
+
+/**
+ * DR-cross-cutting-01 (Sev-2): gate decisions are serialised per quote. Requests fired at the same moment
+ * (two approvers, or one person in two tabs) record exactly one decision; every other request gets a
+ * plain 409 problem+json, never a 500, and no duplicate stage-history row or notice.
+ */
+describe('DR-cross-cutting-01: concurrent gate decisions', () => {
+  const race = async (
+    qn: string,
+    gate: string,
+    attempts: { body: Record<string, unknown>; by: string }[],
+  ) => {
+    const results = await Promise.all(attempts.map((a) => decide(qn, gate, a.body, a.by)));
+    const statuses = results.map((r) => r.statusCode).sort();
+    const won = results.filter((r) => r.statusCode === 201);
+    const lost = results.filter((r) => r.statusCode !== 201);
+    expect(won, results.map((r) => r.body).join('\n')).toHaveLength(1);
+    for (const r of lost) {
+      expect(r.statusCode, r.body).toBe(409);
+      expect(r.headers['content-type']).toContain('application/problem+json');
+      expect(r.json()).toMatchObject({
+        status: 409,
+        code: 'already_decided',
+        title: 'This quote was already decided',
+      });
+    }
+    expect(await decisions(qn, gate)).toHaveLength(1);
+    const open = await db.db
+      .select()
+      .from(schema.stageHistory)
+      .where(
+        and(
+          eq(schema.stageHistory.quoteId, (await quoteRow(qn)).id),
+          sql`${schema.stageHistory.exitedAt} is null`,
+        ),
+      );
+    expect(open.length).toBeLessThanOrEqual(1);
+    return { statuses, won: won[0]! };
+  };
+
+  it('G1: two sales-leader advances record one decision', async () => {
+    const qn = await submitted();
+    await race(qn, 'G1', [
+      { body: { outcomeKey: 'advance' }, by: 'sales-leader' },
+      { body: { outcomeKey: 'advance' }, by: 'sales-leader' },
+      { body: { outcomeKey: 'advance' }, by: 'sales-leader' },
+    ]);
+    expect((await quoteRow(qn)).stageKey).toBe('ENG_REVIEW');
+  });
+
+  it('G2: two lead advances record one decision', async () => {
+    const qn = await inEngineering();
+    await race(qn, 'G2', [
+      { body: { outcomeKey: 'proceed' }, by: 'eng-lead' },
+      { body: { outcomeKey: 'proceed' }, by: 'eng-lead' },
+    ]);
+    expect((await quoteRow(qn)).stageKey).toBe('QUOTING');
+  });
+
+  it('G3: two pricing-lead advances record one decision', async () => {
+    const qn = await inQuoting();
+    await race(qn, 'G3', [
+      { body: { outcomeKey: 'submit' }, by: 'pricing-lead' },
+      { body: { outcomeKey: 'submit' }, by: 'pricing-lead' },
+    ]);
+    expect((await quoteRow(qn)).stageKey).toBe('FINAL_REVIEW');
+  });
+
+  it('G4: three approves racing a decline record one decision and one notice per person', async () => {
+    const qn = await inFinalReview();
+    ok(
+      await persona('kam').put(`/api/v1/quotes/${qn}/terms`, {
+        termsPaymentTermsCode: 'NET_30',
+        termsToolingCommitment: false,
+        checked: true,
+      }),
+      200,
+    );
+    await confirmCapitalTerms(app, qn);
+    const approve = { body: { outcomeKey: 'approve' }, by: 'approver' };
+    const { won } = await race(qn, 'G4', [
+      approve,
+      approve,
+      approve,
+      {
+        body: { outcomeKey: 'decline', reasonCode: 'other', note: 'Withdrawn in the race test' },
+        by: 'approver',
+      },
+    ]);
+    const outcome = GateDecisionResponse.parse(won.json()).decision.outcomeKey;
+    const row = await quoteRow(qn);
+    if (outcome === 'approve') {
+      expect(row).toMatchObject({ stageKey: 'CUSTOMER_DECISION', status: 'active' });
+      // One notice per recipient (KAM and pricer), not one per request.
+      const notices = await notifications(qn, 'quote.approved_for_customer');
+      expect(notices.length).toBeGreaterThan(0);
+      expect(new Set(notices.map((n) => n.userId)).size).toBe(notices.length);
+    } else {
+      expect(row).toMatchObject({ stageKey: 'DECLINED', status: 'closed' });
+      expect(await notifications(qn, 'quote.approved_for_customer')).toHaveLength(0);
+    }
+  });
+
+  it('G4: a stale second tab gets the plain 409 (DR-approver-leadership-admin-13)', async () => {
+    const qn = await inCustomerDecision();
+    const res = await decide(qn, 'G4', { outcomeKey: 'approve' }, 'approver');
+    expect(res.statusCode, res.body).toBe(409);
+    expect(res.json()).toMatchObject({
+      code: 'already_decided',
+      detail: 'This quote was already decided. Reload the page to see where it is now.',
+    });
+    expect(res.body).not.toContain('FINAL_REVIEW');
+  });
+
+  it('G5: Awarded racing Lost records one outcome, no 500', async () => {
+    const qn = await inCustomerDecision();
+    await race(qn, 'G5', [
+      {
+        body: { outcomeKey: 'awarded', reasonCode: 'po', acceptedAt: today() },
+        by: 'kam',
+      },
+      { body: { outcomeKey: 'lost', reasonCode: 'price' }, by: 'kam' },
+      {
+        body: { outcomeKey: 'awarded', reasonCode: 'po', acceptedAt: today() },
+        by: 'kam',
+      },
+    ]);
+  });
+
+  it('G6: two closes record one decision', async () => {
+    const qn = await committed('po');
+    await race(qn, 'G6', [
+      { body: { outcomeKey: 'advance', reasonCode: 'po' }, by: 'kam' },
+      { body: { outcomeKey: 'advance', reasonCode: 'po' }, by: 'kam' },
+    ]);
+    expect(await closure(qn)).toMatchObject({ stageKey: 'AWARDED', status: 'closed' });
+  });
+
+  it('a second hold on a held quote is refused with 409, with no extra notice (DR-cross-cutting-04)', async () => {
+    const qn = await submitted();
+    const hold = {
+      outcomeKey: 'hold',
+      reasonCode: 'awaiting_customer_info',
+      note: 'Customer is confirming the volume',
+      holdUntil: addCalendarDays(today(), 7),
+      holdOwnerId: ids['sales-leader'],
+    };
+    const results = await Promise.all([
+      decide(qn, 'G1', hold, 'sales-leader'),
+      decide(qn, 'G1', hold, 'sales-leader'),
+    ]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([201, 409]);
+    const refused = results.find((r) => r.statusCode === 409)!;
+    expect(refused.json()).toMatchObject({
+      code: 'already_decided',
+      title: 'This quote is already on hold',
+    });
+    expect(await decisions(qn, 'G1')).toHaveLength(1);
+  });
+});

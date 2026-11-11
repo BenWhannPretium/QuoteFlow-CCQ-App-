@@ -54,6 +54,8 @@ export const DOMAIN_ERROR_CODES = [
   'ADDITIONAL_APPROVAL_REQUIRED',
   'ALREADY_SIGNED',
   'OUT_OF_ORDER',
+  // DR-cross-cutting-04: a hold on a quote that is already on hold.
+  'ALREADY_ON_HOLD',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

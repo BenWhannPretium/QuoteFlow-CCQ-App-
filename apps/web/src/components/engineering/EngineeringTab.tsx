@@ -907,7 +907,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                       <Input
                         id={id}
                         type="number"
-                        min={0}
+                        // DR-engineering-02: 0% gives no capacity; the API refuses it.
+                        min={0.1}
                         max={100}
                         step="0.1"
                         inputMode="decimal"

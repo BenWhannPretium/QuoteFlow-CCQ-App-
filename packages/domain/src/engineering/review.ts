@@ -310,6 +310,18 @@ export function planCapacityEvidence(
         );
       }
     }
+    // DR-engineering-02: an effectiveness of 0% makes the line's capacity zero, so utilization after
+    // cannot be calculated. The formula needs more than 0 (`invalidCapacityInputs`); say so on the row.
+    const stated = value('assumedEffectivenessPct');
+    if (stated !== null && !(stated > 0 && stated <= 100)) {
+      errors.push(
+        new DomainError(
+          'INVALID_VALUE',
+          `Row ${i + 1}: enter an assumed effectiveness above 0%, up to 100%`,
+          `rows/${i}/assumedEffectivenessPct`,
+        ),
+      );
+    }
     // Not commercial: omitted keeps the stored value, blank (null) falls back to the default.
     const allocated =
       row.allocatedAnnualVolume ??

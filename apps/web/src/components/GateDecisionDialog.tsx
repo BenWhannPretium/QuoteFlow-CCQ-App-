@@ -224,6 +224,11 @@ export function GateDecisionDialog({
       onDecided?.(result);
     },
     onError: (err) => {
+      // DR-cross-cutting-01: someone else (or another tab) decided first. Refresh what the page shows.
+      if (isApiError(err, 409)) {
+        void queryClient.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) });
+        void queryClient.invalidateQueries({ queryKey: reviewSummaryKey(quoteNumber) });
+      }
       if (isApiError(err)) {
         const errors = (err.problem as { errors?: ServerError[] }).errors;
         setServerErrors(
