@@ -110,8 +110,9 @@ const COPY: Record<string, Copy> = {
     action: (p) =>
       sentence(
         p.actor ? `${p.actor} asked for changes.` : 'Your lead asked for changes.',
-        p.note ? `Note: ${p.note}` : undefined,
-        'Make the changes, then submit it again.',
+        // DR-pricing-finance-05 (decided 2026-11-11): the lead's note can carry a price, and email
+        // never carries comment text, so it stays in the app, as for the KAM and Engineering returns.
+        'Open the quote to read what to change, then submit it again.',
       ),
     cta: 'Open the quote',
   },

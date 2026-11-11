@@ -34,7 +34,7 @@ Use synthetic workbooks only (a copy of your board template with made-up numbers
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 7 | Look at the menu and the home page. | Menu: **Home**, **Pipeline**. Home: **ROI requests** with what to do. No pricing queue, no analytics, no approvals. | | |
-| 8 | On `<CCQ-QT-4>` look for **Save price approval**, **Save capital readiness**, an upload on **Attachments**, or a gate decision. | None of them. | | |
+| 8 | On `<CCQ-QT-4>` look for **Save price approval**, **Save capital readiness**, an upload on **Attachments**, or a gate decision. | None of them. The comment box on **Overview** is there: Finance may comment on a quote (decided 2026-11-11, DR-pricing-finance-09). | | |
 | 9 | After the pricing lead approves the price (pricing.md step 20a), open `<CCQ-QT-4>`. | **3. Price approved** done, by whom and when. No upload buttons (locked after G3). | | |
 
 ## Part C: Funding and capital terms, read-only (FB-08)

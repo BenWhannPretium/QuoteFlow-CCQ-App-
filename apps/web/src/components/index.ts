@@ -23,7 +23,12 @@ export {
 export { OverrideInbox } from './OverrideInbox';
 export { GateRail } from './GateRail';
 export { PageHeader } from './PageHeader';
-export { PriorityBadge, QualificationWarnings, ScoreBreakdownTable } from './Priority';
+export {
+  GuardrailNote,
+  PriorityBadge,
+  QualificationWarnings,
+  ScoreBreakdownTable,
+} from './Priority';
 export { describeEvent, QuoteTimeline } from './QuoteTimeline';
 export { ScorePill } from './ScorePill';
 export { LoadingRegion, Skeleton, SkeletonCard, SkeletonRows } from './Skeletons';

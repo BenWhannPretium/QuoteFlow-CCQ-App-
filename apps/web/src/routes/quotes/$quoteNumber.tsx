@@ -11,6 +11,7 @@ import {
   FieldOverride,
   GateDecisionDialog,
   GateRail,
+  GuardrailNote,
   KeyValueGrid,
   PageHeader,
   PriorityBadge,
@@ -158,6 +159,8 @@ function QuotePage() {
       <CustomerDecisionHeader quote={q} />
       <ReworkBanner quote={q} />
       <QualificationWarnings warnings={q.warnings} />
+      {/* DR-kam-sales-leader-09 (decided 2026-11-11): the platform-minimum warning on the quote too. */}
+      <GuardrailNote text={q.intakeFacts.guardrailWarning} />
       <StageTimeBar quoteNumber={q.quoteNumber} />
 
       <Tabs.Root

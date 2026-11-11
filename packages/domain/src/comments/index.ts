@@ -8,14 +8,17 @@
 export const COMMENT_MAX_LENGTH = 4000;
 export const COMMENT_MAX_MENTIONS = 20;
 
-/** Strip HTML tags and control characters, normalise newlines and blank lines. */
+/**
+ * Strip control characters, normalise newlines and blank lines. DR-engineering-12 (decided 2026-11-11):
+ * the text is kept as typed, tags included ("<b>B</b>" stays "<b>B</b>"), as Engineering notes are: it
+ * is shown as text, never as HTML, and email never carries comment text, so nothing is silently lost.
+ */
 export function sanitizeCommentBody(raw: string): string {
   return (
     raw
       .replace(/\r\n?/g, '\n')
       // eslint-disable-next-line no-control-regex -- removing control characters is the point
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-      .replace(/<\/?[A-Za-z!][^>]*>/g, '')
       .split('\n')
       .map((line) => line.replace(/\s+$/, ''))
       .join('\n')

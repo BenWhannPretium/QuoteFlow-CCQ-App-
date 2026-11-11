@@ -85,6 +85,30 @@ function Section({
  * Commercial parts arrive only for roles that may read them. Everything the bar offers comes from
  * the server's availableActions: the decision itself is the generic G4 gate route.
  */
+/**
+ * DR-approver-leadership-admin-05 (decided 2026-11-11: at minimum, show the hold here): a held quote
+ * says so on the review screen, with its review date, and what a decision does to the hold. Taking a
+ * decision resumes it (the hold ends); to keep it on hold, take none.
+ */
+function OnHoldBanner({ reviewDate }: { reviewDate: string | null }) {
+  const date = reviewDate
+    ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(
+        new Date(`${reviewDate}T12:00:00Z`),
+      )
+    : null;
+  return (
+    <p
+      role="status"
+      className="bg-warning text-warning-foreground rounded-card px-4 py-3 text-sm"
+      data-testid="review-on-hold"
+    >
+      <strong>On hold{date ? ` until ${date}` : ''}.</strong> A Final Review decision ends the hold:
+      Advance releases the offer now. To keep it on hold, record no decision; the hold owner and the
+      reason are on the full quote.
+    </p>
+  );
+}
+
 export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
   const summary = useQuery({
     queryKey: reviewSummaryKey(quoteNumber),
@@ -132,6 +156,7 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
       />
 
       <Header s={s} now={summary.dataUpdatedAt} />
+      {q.status === 'on_hold' && <OnHoldBanner reviewDate={q.reviewDate} />}
       {!s.inFinalReview && <NotInFinalReview s={s} />}
       <Warnings s={s} quoteNumber={quoteNumber} />
       <RequestSection s={s} />
