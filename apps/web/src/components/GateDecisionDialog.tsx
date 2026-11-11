@@ -17,6 +17,7 @@ import {
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
+import { writeSfReminder } from '@/lib/sf-reminder';
 import { toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -82,6 +83,8 @@ export function GateDecisionDialog({
   initialOutcomeKey = '',
   initialTargetStageKey = '',
   acknowledgedWarnings,
+  outcomeKeys,
+  title,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,6 +97,13 @@ export function GateDecisionDialog({
   initialTargetStageKey?: string;
   /** FB-01 (F-069), G4: the warning codes the review screen showed; recorded on the decision. */
   acknowledgedWarnings?: string[];
+  /**
+   * DR-pricing-finance-11: the outcomes the button that opened the dialog stands for ("Hold or stop…"
+   * offers Hold and Stop, not "Advance – price approved"). Omitted: every outcome the caller may take.
+   */
+  outcomeKeys?: readonly string[];
+  /** DR-pricing-finance-11: the dialog's title (the action), instead of the gate's label. */
+  title?: string;
 }) {
   const queryClient = useQueryClient();
   const { data: config } = usePublicConfig();
@@ -103,7 +113,7 @@ export function GateDecisionDialog({
     enabled: open,
   });
   const actions: AvailableGateAction[] = (quote.data?.availableActions ?? []).filter(
-    (a) => a.gateKey === gateKey,
+    (a) => a.gateKey === gateKey && (!outcomeKeys || outcomeKeys.includes(a.outcomeKey)),
   );
   const gateLabel = actions[0]?.gateLabel ?? config?.gates.find((g) => g.key === gateKey)?.label;
 
@@ -141,7 +151,18 @@ export function GateDecisionDialog({
   };
 
   const action = actions.find((a) => a.outcomeKey === outcomeKey);
-  const reason = action?.reasonCodes.find((r) => r.code === reasonCode);
+  // DR-kam-sales-leader-02: a reason an earlier gate already recorded (G5's acceptance evidence, when G6
+  // closes Won) is offered as the default, not asked for again. The user can still change it.
+  const inheritedReason =
+    action?.requiresReasonCode && action.nextStatus === 'closed' && quote.data
+      ? ([...quote.data.decisions]
+          .filter((d) => d.gateKey !== gateKey && d.reasonCode)
+          .sort((x, y) => y.decidedAt.localeCompare(x.decidedAt))
+          .map((d) => d.reasonCode!)
+          .find((code) => action.reasonCodes.some((r) => r.code === code)) ?? '')
+      : '';
+  const reasonValue = reasonCode || inheritedReason;
+  const reason = action?.reasonCodes.find((r) => r.code === reasonValue);
   const showReason = !!action && action.reasonCodes.length > 0;
   const needsReason = !!action?.requiresReasonCode;
   const needsNote =
@@ -218,7 +239,14 @@ export function GateDecisionDialog({
       // FB-04 (F-076): after a customer outcome (G5), remind the KAM to update the Salesforce opportunity.
       if (gateKey === 'G5' && action) {
         queryClient.setQueryData(sfReminderKey(quoteNumber), action.outcomeKey);
+        writeSfReminder(quoteNumber, action.outcomeKey);
       }
+      // DR-kam-sales-leader-01: the Salesforce stage to set is also in the toast, wherever the outcome
+      // was recorded (My proposals has no quote page to show the reminder on).
+      const sfStage =
+        gateKey === 'G5' && action
+          ? result.quote.customerDecision.sfStageByOutcome[action.outcomeKey]
+          : undefined;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['gate-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['eng-queue'] }),
@@ -231,7 +259,9 @@ export function GateDecisionDialog({
       ]);
       toast.success({
         title: `${action?.outcomeLabel ?? 'Decision'} recorded`,
-        description: `${quoteNumber} is now in ${stageLabel(config, result.quote.stageKey)}.`,
+        description: `${quoteNumber} is now in ${stageLabel(config, result.quote.stageKey)}.${
+          sfStage ? ` Update the Salesforce opportunity to match: ${sfStage}.` : ''
+        }`,
       });
       reset();
       onOpenChange(false);
@@ -261,7 +291,7 @@ export function GateDecisionDialog({
     >
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{gateLabel ?? gateKey}</DialogTitle>
+          <DialogTitle>{title ?? gateLabel ?? gateKey}</DialogTitle>
           <DialogDescription>
             Record the decision for {quoteNumber}
             {quote.data?.customerName ? ` (${quote.data.customerName})` : ''}.
@@ -402,7 +432,7 @@ export function GateDecisionDialog({
                     </label>
                     <NativeSelect
                       id={ids.reason}
-                      value={reasonCode}
+                      value={reasonValue}
                       onChange={(e) => setReasonCode(e.target.value)}
                       aria-invalid={submitted && needsReason && !reason}
                     >

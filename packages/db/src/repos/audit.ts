@@ -53,7 +53,17 @@ export function searchAuditEvents(db: DbOrTx, s: AuditSearch) {
   const where: SQL[] = [];
   if (s.actorId) where.push(eq(auditEvent.actorId, s.actorId));
   if (s.quoteId) where.push(eq(auditEvent.quoteId, s.quoteId));
-  if (s.action) where.push(eq(auditEvent.action, s.action));
+  if (s.action === 'gate_decision') {
+    // DR-approver-leadership-admin-06: a gate decision that moves the quote is written as
+    // `stage_change` with its gateKey (and one that does not, a hold, as `gate_decision`). Filtering on
+    // gate decisions finds both. Read side only: audit rows are append-only and never rewritten.
+    where.push(
+      or(
+        eq(auditEvent.action, 'gate_decision'),
+        and(eq(auditEvent.action, 'stage_change'), sql`${auditEvent.after} ? 'gateKey'`),
+      )!,
+    );
+  } else if (s.action) where.push(eq(auditEvent.action, s.action));
   if (s.entity) where.push(eq(auditEvent.entity, s.entity));
   if (s.from) where.push(gte(auditEvent.at, s.from));
   if (s.to) where.push(lt(auditEvent.at, s.to));

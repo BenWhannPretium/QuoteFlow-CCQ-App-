@@ -19,7 +19,7 @@ import { SkeletonRows } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePublicConfig } from '@/config/public-config';
+import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
@@ -804,7 +804,8 @@ function Preview({
                           {r.quoteNumber}
                         </Link>
                         <span className="text-muted-foreground block text-xs">
-                          {r.stageKey}
+                          {/* DR-approver-leadership-admin-14: the stage's label, not its key. */}
+                          {stageLabel(config, r.stageKey)}
                           {r.market || r.subMarket
                             ? ` · ${marketText(config, r.market, r.subMarket) ?? ''}`
                             : ''}

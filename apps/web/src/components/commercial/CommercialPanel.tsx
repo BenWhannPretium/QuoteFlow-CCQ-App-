@@ -344,6 +344,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
         view={c.terms.capital}
         mode={c.terms.capital.canFinalize ? 'finalize' : c.terms.canEdit ? 'prefill' : 'readonly'}
         onSaved={apply}
+        termsCheckedAt={c.terms.checkedAt}
       />
       <TermsExceptionCard
         quoteNumber={quote.quoteNumber}

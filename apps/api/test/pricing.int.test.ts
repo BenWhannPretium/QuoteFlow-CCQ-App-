@@ -954,6 +954,26 @@ describe('lead review (2026-10-30): the pricer submits to the pricing lead', () 
     return qn;
   }
 
+  it('DR-pricing-finance-10 / -03: an unassigned quote says why there is no Submit; the banner goes after G3', async () => {
+    const qn = await inQuoting();
+    const unassigned = (await detail(qn, 'Pricing')).dto.quoting.leadReview;
+    expect(unassigned.canSubmit).toBe(false);
+    expect(unassigned.submitBlockedReason).toContain('ask the pricing lead to assign it');
+    const res = await as('PricingLead').post(`/api/v1/quotes/${qn}/pricing-assignment`, {
+      pricerId: await userId('Pricing'),
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect((await detail(qn, 'Pricing')).dto.quoting.leadReview.submitBlockedReason).toBeNull();
+    await approve(qn);
+    await putCapital(qn, { capitalReadiness: 'not_required' });
+    expect((await submit(qn)).statusCode).toBe(200);
+    const decided = await as('PricingLead').post(`/api/v1/quotes/${qn}/gates/G3/decisions`, {
+      outcomeKey: 'submit',
+    });
+    expect(decided.statusCode, decided.body).toBe(201);
+    expect((await detail(qn, 'PricingLead')).dto.quoting.leadReview.status).toBe('none');
+  });
+
   it('the pricer submits complete work, is locked out, and the lead is told', async () => {
     const qn = await assignedToPricer();
     const empty = await submit(qn);

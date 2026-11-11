@@ -209,6 +209,13 @@ test('no capital: the ROI step says "Not required" and the lead approves without
   await pricingRecorded(request, qn, await id('pricing'));
   await page.reload();
   await expect(page.getByTestId('quoting-steps')).toHaveAttribute('data-current', 'price');
+  // DR-pricing-finance-11: "Hold or stop…" opens a dialog titled for it, without Advance.
+  await page.getByRole('button', { name: 'Hold or stop…' }).click();
+  const hold = page.getByRole('dialog');
+  await expect(hold.getByRole('heading', { name: 'Hold or stop' })).toBeVisible();
+  await expect(hold.getByRole('radio', { name: 'Advance – price approved' })).toHaveCount(0);
+  await expect(hold.getByRole('radio', { name: 'Hold', exact: true })).toBeVisible();
+  await hold.getByRole('button', { name: 'Cancel' }).click();
   await page.getByRole('button', { name: 'Price approved: advance to Final Review…' }).click();
   const g3 = page.getByRole('dialog');
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');

@@ -281,6 +281,13 @@
       "when": 1794330000000,
       "tag": "0039_fb13_plants_machine_types",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794350000000,
+      "tag": "0041_dr_assignment_imm_preform",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { readSfReminder, writeSfReminder } from '@/lib/sf-reminder';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -622,7 +623,8 @@ export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
     queryKey: key,
     queryFn: () => null,
     enabled: false,
-    initialData: null,
+    // DR-kam-sales-leader-01: still there after a reload, or when recorded from My proposals.
+    initialData: () => readSfReminder(quote.quoteNumber),
     staleTime: Infinity,
     gcTime: Infinity,
   });
@@ -649,7 +651,10 @@ export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
         size="sm"
         className="ml-auto h-8 min-h-8 px-2"
         aria-label="Dismiss the Salesforce reminder"
-        onClick={() => queryClient.setQueryData(key, null)}
+        onClick={() => {
+          queryClient.setQueryData(key, null);
+          writeSfReminder(quote.quoteNumber, null);
+        }}
       >
         <XIcon aria-hidden="true" />
         Dismiss

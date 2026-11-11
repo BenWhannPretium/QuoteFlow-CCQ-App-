@@ -457,10 +457,26 @@ export class IntakeService {
     withTx: WithTx,
     actor: Actor,
     id: string,
-    body: { data?: IntakeDraftData | undefined; step?: number | undefined },
+    body: {
+      data?: IntakeDraftData | undefined;
+      step?: number | undefined;
+      expectedUpdatedAt?: string | undefined;
+    },
   ): Promise<IntakeDraft> {
     return withTx(async (tx) => {
       const row = await this.ownDraft(tx, actor, id, true);
+      // DR-kam-sales-leader-05: refuse a save made from an older copy (another tab saved since), so it
+      // cannot silently overwrite. The draft row is locked (ownDraft forUpdate), so this is race-free.
+      if (
+        body.expectedUpdatedAt !== undefined &&
+        new Date(body.expectedUpdatedAt).getTime() !== row.updatedAt.getTime()
+      ) {
+        throw new IntakeError(
+          409,
+          INTAKE_PROBLEM_CODES.draftChanged,
+          'This draft was changed in another tab or window. Reload it to see the latest, then make your change again.',
+        );
+      }
       const before = row.data as IntakeDraftData;
       const data = { ...before, ...(body.data ?? {}) };
       // FB-12 (F-073): a market change must not leave the old market's sub-market behind.

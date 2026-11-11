@@ -138,6 +138,36 @@ export function canSubmitToLead(
   );
 }
 
+/**
+ * DR-pricing-finance-10: why a member of the team sees no "Submit to lead" (the assignee submits, so on
+ * an unassigned quote, or one assigned to someone else, nobody else can). Null when there is nothing to
+ * explain: the caller may submit, it is already submitted, they are a lead, or the stage has passed.
+ */
+export function submitBlockedReason(
+  kind: LeadReviewKind,
+  actor: Actor,
+  quote: LeadReviewQuote,
+  review: LeadReviewState,
+): string | null {
+  const { noun, workPermission } = LEAD_REVIEW[kind];
+  if (!inStage(kind, quote) || isSubmitted(review) || isLead(kind, actor, quote)) return null;
+  if (!can(actor, workPermission, quote)) return null;
+  const assignee = assigneeOf(kind, quote);
+  if (assignee === actor.userId) return null;
+  return assignee === null
+    ? `Only the assigned ${noun.assignee} submits to the ${noun.lead}. This quote has no ${noun.assignee} yet: ask the ${noun.lead} to assign it.`
+    : `Only the assigned ${noun.assignee} submits to the ${noun.lead}. This quote is assigned to someone else.`;
+}
+
+/** DR-pricing-finance-03: the lead-review state once the stage has passed is no longer shown. */
+export function leadReviewStatusInStage(
+  kind: LeadReviewKind,
+  quote: LeadReviewQuote,
+  status: 'none' | 'submitted' | 'returned',
+): 'none' | 'submitted' | 'returned' {
+  return inStage(kind, quote) ? status : 'none';
+}
+
 /** A lead may send a submitted part back to the assignee. */
 export function canReturnToAssignee(
   kind: LeadReviewKind,

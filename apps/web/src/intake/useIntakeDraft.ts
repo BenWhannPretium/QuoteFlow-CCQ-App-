@@ -1,12 +1,12 @@
 import type { IntakeDraft, IntakeDraftData } from '@ccq/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { api } from '@/lib/api';
+import { api, isApiError } from '@/lib/api';
 
 /** Autosave cadence while the KAM types (plus a save on every step change and on leaving). */
 export const AUTOSAVE_MS = 5_000;
 
-export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
 
 /**
  * Local draft state with autosave. Edits mark the draft dirty; every 5 s a dirty draft is PATCHed,
@@ -27,23 +27,37 @@ export function useIntakeDraft(initial: IntakeDraft) {
   const revision = useRef(0);
   const savedRevision = useRef(0);
   const inFlight = useRef<Promise<void> | null>(null);
+  // DR-kam-sales-leader-05: the version this copy is based on; a save from an older copy is refused.
+  const version = useRef(initial.updatedAt);
+  const conflicted = useRef(false);
 
   const save = useCallback(async (): Promise<void> => {
     if (inFlight.current) await inFlight.current;
-    if (revision.current === savedRevision.current) return;
+    if (revision.current === savedRevision.current || conflicted.current) return;
     const target = revision.current;
     setSaveState('saving');
     const run = api
-      .patchDraft(initial.id, { data: latest.current.data, step: latest.current.step })
+      .patchDraft(initial.id, {
+        data: latest.current.data,
+        step: latest.current.step,
+        expectedUpdatedAt: version.current,
+      })
       .then((saved) => {
+        version.current = saved.updatedAt;
         savedRevision.current = target;
         setActiveQuote(saved.activeQuote);
         setSfCloseDate(saved.sfCloseDate);
         setSavedAt(new Date());
         setSaveState(revision.current === target ? 'saved' : 'dirty');
       })
-      .catch(() => {
-        setSaveState('error');
+      .catch((err: unknown) => {
+        // Saved in another tab since: stop autosaving here and say so (no silent overwrite).
+        if (isApiError(err, 409)) {
+          conflicted.current = true;
+          setSaveState('conflict');
+        } else {
+          setSaveState('error');
+        }
       })
       .finally(() => {
         inFlight.current = null;

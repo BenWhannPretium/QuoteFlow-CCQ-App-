@@ -362,6 +362,9 @@ export function overrideActions(
   return {
     canDecide:
       record.status === 'requested' &&
+      // DR-kam-sales-leader-04: a request on a closed quote can no longer be decided, so it leaves the
+      // approver's inbox instead of failing on every Approve.
+      quote.status !== 'closed' &&
       config !== undefined &&
       record.requestedBy !== actor.userId &&
       canDecideOverride(config, actor, quote, record),

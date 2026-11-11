@@ -67,7 +67,7 @@ export function LeadReviewPanel<T>({
     onError: (err) => setMissing(problemErrors(err)),
   });
 
-  if (review.status === 'none' && !review.canSubmit) return null;
+  if (review.status === 'none' && !review.canSubmit && !review.submitBlockedReason) return null;
   return (
     <section
       className="bg-card rounded-card grid gap-3 border p-4 text-sm"
@@ -98,6 +98,11 @@ export function LeadReviewPanel<T>({
           </p>
           {review.returnNote && <p className="whitespace-pre-wrap">{review.returnNote}</p>}
         </div>
+      )}
+      {review.submitBlockedReason && (
+        <p className="text-muted-foreground" data-testid="lead-review-blocked">
+          {review.submitBlockedReason}
+        </p>
       )}
       {missing.length > 0 && (
         <div role="alert" className="text-destructive grid gap-1" data-testid="lead-review-missing">

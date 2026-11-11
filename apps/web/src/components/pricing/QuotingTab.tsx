@@ -9,7 +9,7 @@ import { BUDGETARY_CAPITAL_LABEL } from '@ccq/contracts';
 import { CAPITAL_READINESS_LABELS, roundPct } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ export function QuotingTab({
   onDecide,
 }: {
   quote: QuoteDetail;
-  onDecide: (outcomeKey?: string) => void;
+  onDecide: (outcomeKey?: string, scope?: { outcomes: string[]; title: string }) => void;
 }) {
   const quoting = quote.quoting;
   const canDecideG3 = quote.availableActions.some((a) => a.gateKey === 'G3');
@@ -98,19 +98,34 @@ export function QuotingTab({
               <Button onClick={() => onDecide('submit')}>
                 Price approved: advance to Final Review…
               </Button>
-              <Button variant="outline" onClick={() => onDecide('rework')}>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  onDecide('rework', { outcomes: ['rework'], title: 'Return to Engineering' })
+                }
+              >
                 Return to Engineering…
               </Button>
               {canReturnToKam && (
                 <Button
                   variant="outline"
-                  onClick={() => onDecide('rework_kam')}
+                  onClick={() =>
+                    onDecide('rework_kam', { outcomes: ['rework_kam'], title: 'Return to KAM' })
+                  }
                   data-testid="return-to-kam"
                 >
                   Return to KAM…
                 </Button>
               )}
-              <Button variant="ghost" onClick={() => onDecide()}>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  onDecide(undefined, {
+                    outcomes: ['hold', 'stop', 'redirect', 'recost'],
+                    title: 'Hold or stop',
+                  })
+                }
+              >
                 Hold or stop…
               </Button>
             </div>
@@ -125,6 +140,15 @@ export function QuotingTab({
     </div>
   );
 }
+
+/** DR-pricing-finance-01: the price-record fields that show their own error (the rest are listed once below). */
+const RECORD_INLINE = new Set([
+  '/costingCompleted',
+  '/approvedBy',
+  '/approvedAt',
+  '/pricingBasisNote',
+  '/approvedRangeNote',
+]);
 
 /**
  * Who prices this quote, and (for the pricing lead) Assign… / Reassign… right here, like the
@@ -392,6 +416,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     approvedAt: record?.priceApprovedAt ? initial.approvedAt : '',
   };
   const [form, setForm] = useState(initial);
+  const costingErrorId = useId();
   const [errors, setErrors] = useState<ServerError[]>([]);
   const set =
     <K extends keyof typeof form>(k: K) =>
@@ -420,7 +445,14 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
         title: detail.approval.approved ? 'Price approval recorded' : 'Pricing record saved',
       });
     },
-    onError: (err) => setErrors(problemErrors(err)),
+    onError: (err) => {
+      const next = problemErrors(err);
+      setErrors(next);
+      // DR-pricing-finance-01: a refused tick (no costing model yet) must not stay ticked as if saved.
+      if (next.some((e) => e.path === '/costingCompleted')) {
+        setForm((f) => ({ ...f, costingCompleted: record?.costingCompleted ?? false }));
+      }
+    },
   });
   const refError = errors.find(
     (e) => e.path === '/erfRefs' || e.path.startsWith('/erfRefs/'),
@@ -489,6 +521,8 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
                 checked={form.costingCompleted}
                 onChange={(e) => set('costingCompleted')(e.target.checked)}
                 data-testid="costing-completed"
+                aria-invalid={!!errorFor(errors, 'costingCompleted')}
+                aria-describedby={errorFor(errors, 'costingCompleted') ? costingErrorId : undefined}
               />
               Costing completed (Cost-to-Serve)
               <span className="text-muted-foreground text-xs">
@@ -496,6 +530,16 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
                 1 above). Costing stays in Excel and the pricing app; QuoteFlow keeps the file.
               </span>
             </label>
+            {errorFor(errors, 'costingCompleted') && (
+              <p
+                id={costingErrorId}
+                role="alert"
+                className="text-destructive text-sm"
+                data-testid="costing-completed-error"
+              >
+                {errorFor(errors, 'costingCompleted')}
+              </p>
+            )}
             {record?.costingAttestedByName && record.costingCompleted && (
               <p className="text-muted-foreground text-xs">
                 Ticked by {record.costingAttestedByName}
@@ -571,9 +615,10 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
               )}
             </Field>
           </fieldset>
+          {/* DR-pricing-finance-01: every error is shown once: under its field, or here. */}
           <FormErrors
             errors={errors.filter(
-              (e) => !e.path.match(/^\/\w+$/) && !e.path.startsWith('/erfRefs'),
+              (e) => !RECORD_INLINE.has(e.path) && !e.path.startsWith('/erfRefs'),
             )}
           />
           <div>

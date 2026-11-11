@@ -391,7 +391,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'engineering_assignment_rules',
     value: ASSIGNMENT_RULES_SEED,
     description:
-      'FB-06 (F-062, D-008 open): routing suggestions for the engineering assignment. A rule lists process types and / or resins (value-list codes; an empty list means any) and the engineer by surname or full name; the first matching rule wins and the assign dialog shows "Suggested: <name>". It never assigns: the lead still does. Seeded from the Nov 4 email from Paul Slomkowski (ISBM, RHB, IMM → Neiberger; EBM, IBM → Pasillas); the resin rules are a fallback while the process type is not yet chosen. Provisional until D-008 is decided.',
+      'FB-06 (F-062, D-008 open): routing suggestions for the engineering assignment. A rule lists process types and / or resins (value-list codes; an empty list means any) and the engineer by surname or full name; the first matching rule wins and the assign dialog shows "Suggested: <name>". It never assigns: the lead still does. Seeded from the Nov 4 email from Paul Slomkowski (ISBM, RHB, IMM, IMM Preform → Neiberger; EBM, IBM → Pasillas); the resin rules are a fallback while the process type is not yet chosen. Provisional until D-008 is decided.',
   },
   {
     key: 'capital_readiness_on_outcome',

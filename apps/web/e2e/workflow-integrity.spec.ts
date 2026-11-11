@@ -133,7 +133,9 @@ test('T-005: Pricing → KAM → "No" scope change → back in Quoting with the 
   await lead.getByTestId('return-to-kam').click();
   const dialog = lead.getByRole('dialog');
   await expect(dialog.getByRole('radio', { name: 'Rework (back to KAM)' })).toBeChecked();
-  await expect(dialog.getByRole('radio', { name: 'Rework (back to Engineering)' })).toBeVisible();
+  // DR-pricing-finance-11: "Return to KAM…" offers only that outcome, under its own title.
+  await expect(dialog.getByRole('radio', { name: 'Rework (back to Engineering)' })).toHaveCount(0);
+  await expect(dialog.getByRole('heading', { name: 'Return to KAM' })).toBeVisible();
   await expect(dialog.getByText('Required for exception decisions')).toBeVisible();
   await dialog.getByLabel('Reason (required)').selectOption({ label: 'Missing information' });
   await dialog.getByLabel('Note (required)').fill('Annual volume by SKU is missing');
