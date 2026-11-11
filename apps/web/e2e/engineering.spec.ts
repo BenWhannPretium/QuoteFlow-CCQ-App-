@@ -57,7 +57,17 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(row.getByTestId('days-in-queue')).toHaveText('0 business days');
   expect(await seriousViolations(lead)).toEqual([]);
 
-  await row.getByRole('button', { name: `Actions for ${quoteNumber}` }).click();
+  // DR-engineering-07: by keyboard, Escape from the dialog returns focus to the row's Actions button.
+  const actions = row.getByRole('button', { name: `Actions for ${quoteNumber}` });
+  await actions.focus();
+  await lead.keyboard.press('Enter');
+  await lead.getByRole('menuitem', { name: 'Assign…' }).click();
+  await expect(lead.getByRole('dialog')).toBeVisible();
+  await lead.keyboard.press('Escape');
+  await expect(lead.getByRole('dialog')).toHaveCount(0);
+  await expect(actions).toBeFocused();
+
+  await actions.click();
   await lead.getByRole('menuitem', { name: 'Assign…' }).click();
   const assign = lead.getByRole('dialog');
   await assign.getByRole('button', { name: 'Assign' }).click();

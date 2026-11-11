@@ -51,6 +51,8 @@
   --color-action-foreground: var(--action-foreground);
   --color-emphasis: var(--emphasis);
   --color-success: var(--pf-success);
+  /* DR-cross-cutting-06: text on the success colour ("Approved" pill), never left to inherit. */
+  --color-success-foreground: var(--pf-success-fg);
   --color-warning: var(--pf-warning-bg);
   --color-warning-foreground: var(--pf-warning-fg);
 
@@ -155,6 +157,29 @@
 }
 
 @layer components {
+  /*
+   * DR-engineering-08, DR-kam-sales-leader-08, DR-pricing-finance-12, DR-approver-leadership-admin-12,
+   * DR-cross-cutting-10: 44 px tap targets on a phone, for every screen at once. Quote-number links in
+   * lists, queues and tables were 18-24 px tall; checkboxes 13-20 px. Desktop keeps its density.
+   */
+  @media (max-width: 639px) {
+    main a[href*='/quotes/CCQ-'] {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+    }
+    main input[type='checkbox'],
+    main input[type='radio'] {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+    main label:has(> input[type='checkbox']),
+    main label:has(> input[type='radio']) {
+      min-height: 44px;
+      align-items: center;
+    }
+  }
+
   /* Spec-sheet label: tracked uppercase mono, the eyebrow of every page and section. */
   .spec-label {
     font-family: var(--pf-font-mono);

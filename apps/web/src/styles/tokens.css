@@ -66,6 +66,7 @@
   /* Status */
   --pf-danger: #b3261e;
   --pf-success: #1f6b45;
+  --pf-success-fg: #ffffff; /* 6.6:1 on #1f6b45 (DR-cross-cutting-06) */
   --pf-warning-bg: #f7d774;
   --pf-warning-fg: #3b2a00;
 
@@ -174,6 +175,7 @@
 
   --pf-danger: #f2a093;
   --pf-success: #8fd1ab;
+  --pf-success-fg: #0b2618; /* 10:1 on #8fd1ab */
   --pf-warning-bg: #5a4500;
   --pf-warning-fg: #ffe9a8;
 

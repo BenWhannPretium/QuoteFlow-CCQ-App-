@@ -156,7 +156,7 @@ export function PriorityBadge({
       {showWhy && priority.score !== null && (
         <Popover>
           <PopoverTrigger
-            className="text-emphasis inline-flex min-h-8 items-center gap-1 rounded px-1 text-xs underline-offset-4 hover:underline"
+            className="text-emphasis inline-flex min-h-11 items-center gap-1 rounded px-1 text-xs sm:min-h-8 underline-offset-4 hover:underline"
             aria-label={`Why this priority? ${quoteNumber}`}
           >
             <InfoIcon className="size-3.5" aria-hidden="true" />

@@ -14,7 +14,7 @@ export function InfoTip({ label, info }: { label: string; info: MetricInfo }) {
         <button
           type="button"
           aria-label={`About ${label}: definition and time window`}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-8 shrink-0 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-11 shrink-0 sm:size-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
         >
           <InfoIcon className="size-4" aria-hidden="true" />
         </button>

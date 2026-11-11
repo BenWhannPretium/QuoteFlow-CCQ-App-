@@ -132,7 +132,7 @@ export function ChartCard({
                 type="button"
                 aria-pressed={asTable}
                 onClick={() => setAsTable((v) => !v)}
-                className="text-foreground-2 hover:bg-accent focus-visible:ring-ring rounded-pill inline-flex min-h-8 items-center gap-1.5 border px-3 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+                className="text-foreground-2 hover:bg-accent focus-visible:ring-ring rounded-pill inline-flex min-h-11 items-center sm:min-h-8 gap-1.5 border px-3 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
               >
                 {asTable ? (
                   <BarChart3Icon className="size-3.5" aria-hidden="true" />

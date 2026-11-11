@@ -96,7 +96,7 @@ const MoreLink = ({
   <Link
     to={to}
     {...(search ? { search } : {})}
-    className="text-emphasis inline-flex min-h-9 items-center gap-1 text-sm font-medium underline-offset-2 hover:underline"
+    className="text-emphasis inline-flex min-h-11 items-center gap-1 text-sm sm:min-h-9 font-medium underline-offset-2 hover:underline"
   >
     {children}
     <ArrowRightIcon className="size-4" aria-hidden="true" />

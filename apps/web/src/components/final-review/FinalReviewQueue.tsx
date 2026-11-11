@@ -170,7 +170,7 @@ function Counts({ data }: { data: FinalReviewQueueResponse }) {
       {chips.map((c) => (
         <li
           key={c.key}
-          className="bg-secondary text-secondary-foreground rounded-pill inline-flex min-h-9 items-center gap-2 px-3 text-sm"
+          className="bg-secondary text-secondary-foreground rounded-pill inline-flex min-h-11 items-center sm:min-h-9 gap-2 px-3 text-sm"
         >
           {c.label}
           <span className="font-semibold tabular-nums">{c.n}</span>

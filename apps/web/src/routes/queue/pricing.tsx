@@ -155,7 +155,7 @@ function Counts({ data }: { data: PricingQueueResponse }) {
       {chips.map((c) => (
         <li
           key={c.key}
-          className="bg-secondary text-secondary-foreground rounded-pill inline-flex min-h-9 items-center gap-2 px-3 text-sm"
+          className="bg-secondary text-secondary-foreground rounded-pill inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-3 sm:min-h-9 text-sm"
         >
           {c.label}
           <span className="font-semibold tabular-nums">{c.n}</span>
@@ -309,6 +309,17 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
   const [deciding, setDeciding] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [dialog, setDialog] = useState<AssignDialogState | null>(null);
+  // DR-engineering-07: closing a dialog opened from a row's menu puts focus back on that row's
+  // Actions button (it went to the top of the page, 37 Tab presses away).
+  const closeDialog = () => {
+    const qn = dialog && 'quoteNumbers' in dialog ? dialog.quoteNumbers[0] : undefined;
+    setDialog(null);
+    if (qn) {
+      setTimeout(() => {
+        document.querySelector<HTMLElement>(`button[aria-label="Actions for ${qn}"]`)?.focus();
+      }, 0);
+    }
+  };
   const label = (list: string, code: string | null) =>
     code ? (config?.valueLists[list]?.find((v) => v.code === code)?.label ?? code) : null;
 
@@ -601,7 +612,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
       {dialog?.kind === 'assign' && (
         <PricerAssignDialog
           open
-          onOpenChange={(open) => !open && setDialog(null)}
+          onOpenChange={(open) => !open && closeDialog()}
           quoteNumbers={dialog.quoteNumbers}
           currentPricerId={dialog.current ?? null}
           pricers={data.pricers}
@@ -611,7 +622,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
       {dialog?.kind === 'reassign' && (
         <BulkReassignDialog
           open
-          onOpenChange={(open) => !open && setDialog(null)}
+          onOpenChange={(open) => !open && closeDialog()}
           title="Reassign a pricer's work"
           noun="pricer"
           people={data.pricers.map((p) => ({
