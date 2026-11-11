@@ -79,7 +79,11 @@ function QuotePage() {
     queryKey: quoteQueryKey(quoteNumber),
     queryFn: () => api.quote(quoteNumber),
   });
-  const [deciding, setDeciding] = useState<{ gate: string; outcome?: string } | null>(null);
+  const [deciding, setDeciding] = useState<{
+    gate: string;
+    outcome?: string;
+    scope?: { outcomes: string[]; title: string };
+  } | null>(null);
   /** B-13/B-26: right after recording Awarded (into Commit & Hand Off), the hand-off form opens with focus. */
   const [handoffFocus, setHandoffFocus] = useState(false);
   const canReadFinalReview = useCan('finalReview.read');
@@ -236,7 +240,13 @@ function QuotePage() {
         <Tabs.Content value="quoting">
           <QuotingTab
             quote={q}
-            onDecide={(outcome) => setDeciding({ gate: 'G3', ...(outcome ? { outcome } : {}) })}
+            onDecide={(outcome, scope) =>
+              setDeciding({
+                gate: 'G3',
+                ...(outcome ? { outcome } : {}),
+                ...(scope ? { scope } : {}),
+              })
+            }
           />
         </Tabs.Content>
       </Tabs.Root>
@@ -250,6 +260,9 @@ function QuotePage() {
           gateKey={deciding.gate}
           quoteNumber={q.quoteNumber}
           {...(deciding.outcome ? { initialOutcomeKey: deciding.outcome } : {})}
+          {...(deciding.scope
+            ? { outcomeKeys: deciding.scope.outcomes, title: deciding.scope.title }
+            : {})}
           onDecided={(result) => {
             if (result.quote.stageKey === 'COMMIT_HANDOFF' && q.stageKey === 'CUSTOMER_DECISION') {
               setHandoffFocus(true);

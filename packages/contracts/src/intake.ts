@@ -278,6 +278,12 @@ export type CreateIntakeDraftBody = z.input<typeof CreateIntakeDraftBody>;
 export const PatchIntakeDraftBody = z.object({
   data: IntakeDraftData.optional(),
   step: z.number().int().min(1).max(4).optional(),
+  /**
+   * DR-kam-sales-leader-05: the draft's `updatedAt` this save was made from. When the stored draft has
+   * changed since (another tab or window saved it), the save is refused with 409 `draft_changed`
+   * instead of silently overwriting the other change. Omitted: no check (older clients).
+   */
+  expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
 });
 export type PatchIntakeDraftBody = z.input<typeof PatchIntakeDraftBody>;
 
@@ -377,6 +383,8 @@ export const INTAKE_PROBLEM_CODES = {
   requestClassNotAllowed: 'REQUEST_CLASS_NOT_ALLOWED',
   /** FB-02 (F-016): no drawing and an incomplete minimum spec (422; `missing` names the fields). */
   drawingOrMinSpecRequired: 'DRAWING_OR_MIN_SPEC_REQUIRED',
+  /** DR-kam-sales-leader-05: the draft was saved elsewhere (another tab) since this copy was loaded (409). */
+  draftChanged: 'draft_changed',
   /** DR-cross-cutting-02: a list-backed field holds a code that is not an active value-list entry (422). */
   invalidListValue: 'invalid_list_value',
 } as const;

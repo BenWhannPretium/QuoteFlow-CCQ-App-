@@ -203,13 +203,15 @@ function SaveStatus({ state, savedAt }: { state: SaveState; savedAt: Date | null
   const text =
     state === 'saving'
       ? 'Saving…'
-      : state === 'error'
-        ? 'Couldn’t save; will retry'
-        : state === 'dirty'
-          ? 'Unsaved changes'
-          : savedAt
-            ? `Draft saved ${savedAt.toLocaleTimeString(undefined, { timeStyle: 'short' })}`
-            : 'Draft saved';
+      : state === 'conflict'
+        ? 'This draft was changed in another tab or window. Reload to see the latest; your latest change here is not saved.'
+        : state === 'error'
+          ? 'Couldn’t save; will retry'
+          : state === 'dirty'
+            ? 'Unsaved changes'
+            : savedAt
+              ? `Draft saved ${savedAt.toLocaleTimeString(undefined, { timeStyle: 'short' })}`
+              : 'Draft saved';
   return (
     <p
       className="text-muted-foreground text-xs"

@@ -365,6 +365,7 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
           view={t.capital}
           mode={t.capital.canFinalize ? 'finalize' : 'readonly'}
           onSaved={refresh}
+          termsCheckedAt={t.checkedAt}
         />
       </div>
       <AdditionalApprovals

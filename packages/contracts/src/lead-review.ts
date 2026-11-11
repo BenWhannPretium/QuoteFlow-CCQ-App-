@@ -17,6 +17,8 @@ export const LeadReviewView = z.object({
   canSubmit: z.boolean(),
   /** The caller is a lead and may send it back now. */
   canSendBack: z.boolean(),
+  /** DR-pricing-finance-10: why a team member sees no Submit (not the assignee, or nobody assigned). */
+  submitBlockedReason: z.string().nullable().optional(),
 });
 export type LeadReviewView = z.infer<typeof LeadReviewView>;
 

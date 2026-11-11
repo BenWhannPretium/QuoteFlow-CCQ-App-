@@ -18,6 +18,8 @@ import {
   canReturnToAssignee,
   canSubmitToLead,
   leadReviewStatus,
+  leadReviewStatusInStage,
+  submitBlockedReason,
   parseWorkflowConfig,
   planLeadReturned,
   planLeadSubmitted,
@@ -59,6 +61,7 @@ export interface LeadReviewView {
   returnNote: string | null;
   canSubmit: boolean;
   canSendBack: boolean;
+  submitBlockedReason: string | null;
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -77,7 +80,8 @@ export async function leadReviewView(
   );
   const name = (id: string | null) => (id && people.find((p) => p.id === id)?.displayName) || null;
   return {
-    status: leadReviewStatus(review),
+    // DR-pricing-finance-03: after the gate is decided the "Submitted to the lead" banner is gone.
+    status: leadReviewStatusInStage(kind, state, leadReviewStatus(review)),
     submittedAt: iso(review.submittedAt),
     submittedByName: name(review.submittedBy),
     returnedAt: iso(review.returnedAt),
@@ -85,6 +89,7 @@ export async function leadReviewView(
     returnNote: review.returnNote,
     canSubmit: canSubmitToLead(kind, actor, state, review),
     canSendBack: canReturnToAssignee(kind, actor, state, review),
+    submitBlockedReason: submitBlockedReason(kind, actor, state, review),
   };
 }
 

@@ -165,6 +165,8 @@ describe('engineering assignment rules (F-062, D-008 open)', () => {
     expect(by('ISBM')).toBe('u-neiberger');
     expect(by('RHB')).toBe('u-neiberger');
     expect(by('IMM')).toBe('u-neiberger');
+    // DR-engineering-05: IMM Preform is injection too.
+    expect(by('IMM_PREFORM')).toBe('u-neiberger');
     expect(by('EBM')).toBe('u-pasillas');
     expect(by('IBM')).toBe('u-pasillas');
     expect(by('ASSEMBLY')).toBeNull();

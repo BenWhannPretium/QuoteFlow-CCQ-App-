@@ -446,3 +446,37 @@ describe('DR-cross-cutting-02: intake value lists are checked on the server', ()
     ).toEqual([]);
   });
 });
+
+/** DR-kam-sales-leader-05: a draft save from an older copy (another tab saved since) is refused. */
+describe('DR-kam-sales-leader-05: draft version check', () => {
+  it('a save made from an older copy gets 409 and changes nothing', async () => {
+    const draft = await createDraft({});
+    const tab1 = await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, {
+      data: { bidReference: 'FROM-TAB-1' },
+      expectedUpdatedAt: draft.updatedAt,
+    });
+    expect(tab1.statusCode, tab1.body).toBe(200);
+    // Tab 2 still holds the first copy.
+    const tab2 = await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, {
+      data: { bidReference: 'FROM-TAB-2' },
+      expectedUpdatedAt: draft.updatedAt,
+    });
+    expect(tab2.statusCode).toBe(409);
+    expect(tab2.json()).toMatchObject({ code: 'draft_changed' });
+    const [row] = await db.db
+      .select()
+      .from(schema.quoteDraft)
+      .where(eq(schema.quoteDraft.id, draft.id));
+    expect((row!.data as IntakeDraftData).bidReference).toBe('FROM-TAB-1');
+    // From the latest copy, the save goes through; without a version, no check (older clients).
+    const latest = IntakeDraft.parse(tab1.json());
+    expect(
+      (
+        await kam().patch(`/api/v1/quotes/drafts/${draft.id}`, {
+          data: { bidReference: 'FROM-TAB-1-AGAIN' },
+          expectedUpdatedAt: latest.updatedAt,
+        })
+      ).statusCode,
+    ).toBe(200);
+  });
+});

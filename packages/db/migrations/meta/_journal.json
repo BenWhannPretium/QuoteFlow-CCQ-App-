@@ -288,6 +288,13 @@
       "when": 1794340000000,
       "tag": "0040_dr_g2_capacity_calculated",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794350000000,
+      "tag": "0041_dr_assignment_imm_preform",
+      "breakpoints": true
     }
   ]
 }

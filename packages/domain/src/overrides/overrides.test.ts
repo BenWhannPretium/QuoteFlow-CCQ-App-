@@ -368,6 +368,12 @@ describe('planOverrideDecision', () => {
     expect(overrideActions(settings, kam, quote(), record()).canDecide).toBe(false);
   });
 
+  it('DR-kam-sales-leader-04: a request on a closed quote is not decidable (it leaves the inbox)', () => {
+    expect(overrideActions(settings, leader, quote({ status: 'closed' }), record()).canDecide).toBe(
+      false,
+    );
+  });
+
   it('fails with STALE_VALUE when the field changed since the request (→ 409)', () => {
     expect(codes(decide(leader, 'approve', 'LOW'))).toEqual(['STALE_VALUE']);
   });

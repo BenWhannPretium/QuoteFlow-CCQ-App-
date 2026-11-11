@@ -34,6 +34,30 @@ async function rolledBack(fn: (tx: Tx) => Promise<void>) {
       if (!(err instanceof Rollback)) throw err;
     });
 }
+const MIGRATION_0041 = readFileSync(
+  new URL('../migrations/0041_dr_assignment_imm_preform.sql', import.meta.url),
+  'utf8',
+);
+
+/**
+ * The value 0033 seeds: today's seed with the later changes undone. FB-09 (0036) removed the retired
+ * resin codes, and DR-engineering-05 (0041) added IMM_PREFORM to the PET rule.
+ */
+const fb06Rules = () =>
+  ASSIGNMENT_RULES_SEED.rules.map((r, i) =>
+    i === 0
+      ? {
+          ...r,
+          processTypes: ['ISBM', 'RHB', 'IMM'],
+          note: 'Paul Slomkowski, Nov 4: ISBM, RHB and injection (IMM) go to the PET engineer.',
+        }
+      : i === 2
+        ? { ...r, resins: ['PET', 'PCR_PET', 'PETG'] }
+        : i === 3
+          ? { ...r, resins: ['HDPE', 'PCR_HDPE', 'PP', 'LDPE'] }
+          : r,
+  );
+
 const runMigration = async (tx: Tx) => {
   for (const s of statements) await tx.execute(sql.raw(s));
 };
@@ -119,15 +143,31 @@ describe('0033 FB-06 data migration', () => {
         sql`select value, provisional from app_setting where key = 'engineering_assignment_rules'`,
       );
       expect(setting!.provisional).toBe(true);
-      // Migration 0033 seeds the FB-06 value; FB-09 (0036) later removes the retired resin codes from it.
-      const fb06 = ASSIGNMENT_RULES_SEED.rules.map((r, i) =>
-        i === 2
-          ? { ...r, resins: ['PET', 'PCR_PET', 'PETG'] }
-          : i === 3
-            ? { ...r, resins: ['HDPE', 'PCR_HDPE', 'PP', 'LDPE'] }
-            : r,
+      expect(setting!.value).toEqual({ rules: fb06Rules() });
+    });
+  });
+
+  it('0041 adds IMM Preform to the PET rule of the seeded setting (DR-engineering-05)', async () => {
+    await rolledBack(async (tx) => {
+      await toPreFb06State(tx);
+      await runMigration(tx);
+      await tx.execute(sql.raw(MIGRATION_0041));
+      const [setting] = await raw<{ value: { rules: { processTypes: string[]; note: string }[] } }>(
+        tx,
+        sql`select value from app_setting where key = 'engineering_assignment_rules'`,
       );
-      expect(setting!.value).toEqual({ rules: fb06 });
+      expect(setting!.value.rules[0]).toEqual({
+        ...fb06Rules()[0],
+        processTypes: ['ISBM', 'RHB', 'IMM', 'IMM_PREFORM'],
+        note: ASSIGNMENT_RULES_SEED.rules[0]!.note,
+      });
+      // Run twice: nothing more changes.
+      await tx.execute(sql.raw(MIGRATION_0041));
+      const [again] = await raw<{ value: unknown }>(
+        tx,
+        sql`select value from app_setting where key = 'engineering_assignment_rules'`,
+      );
+      expect(again!.value).toEqual(setting!.value);
     });
   });
 

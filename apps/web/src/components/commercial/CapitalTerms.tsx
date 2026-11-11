@@ -91,11 +91,14 @@ export function CapitalTerms({
   view,
   mode,
   onSaved,
+  termsCheckedAt = null,
 }: {
   quoteNumber: string;
   view: CapitalTermsView;
   mode: CapitalTermsMode;
   onSaved: (next: QuoteDetail) => Promise<void> | void;
+  /** DR-approver-leadership-admin-09: whether the terms were checked, to say when a change clears it. */
+  termsCheckedAt?: string | null;
 }) {
   const items = useCapitalTermItems(view);
   // DR-approver-leadership-admin-01: say why an approver cannot confirm them on this quote.
@@ -122,6 +125,7 @@ export function CapitalTerms({
         view={view}
         mode={mode}
         onSaved={onSaved}
+        termsCheckedAt={termsCheckedAt}
       />
     </>
   );
@@ -144,11 +148,13 @@ function CapitalTermsForm({
   view,
   mode,
   onSaved,
+  termsCheckedAt,
 }: {
   quoteNumber: string;
   view: CapitalTermsView;
   mode: 'prefill' | 'finalize';
   onSaved: (next: QuoteDetail) => Promise<void> | void;
+  termsCheckedAt: string | null;
 }) {
   const funding = useValueList('tooling_funding_model');
   const mold = useValueList('mold_ownership');
@@ -193,11 +199,21 @@ function CapitalTermsForm({
     onSuccess: async (next, finalized) => {
       setErrors([]);
       await onSaved(next);
+      // DR-approver-leadership-admin-09: say what a change cleared, not just that it saved.
+      const fundingChanged =
+        view.toolingFundingModel !== next.commercial.terms.capital.toolingFundingModel;
+      const checkedBefore = !!termsCheckedAt;
+      const cleared = [
+        view.finalizedAt && !next.commercial.terms.capital.finalizedAt
+          ? 'the approver’s confirmation'
+          : null,
+        fundingChanged && checkedBefore && !next.commercial.terms.checkedAt
+          ? 'the Sales or Pricing terms check (the funding model is part of the checked terms)'
+          : null,
+      ].filter(Boolean);
       toast.success({
         title: finalized ? 'Capital terms confirmed' : 'Capital terms saved',
-        ...(view.finalizedAt && !next.commercial.terms.capital.finalizedAt
-          ? { description: 'The change cleared the approver’s confirmation.' }
-          : {}),
+        ...(cleared.length ? { description: `The change cleared ${cleared.join(' and ')}.` } : {}),
       });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -225,7 +241,11 @@ function CapitalTermsForm({
       <div className="grid gap-4 sm:grid-cols-2">
         {finalize && (
           <>
-            <Field label="Funding model" error={errorFor(errors, 'toolingFundingModel')}>
+            <Field
+              label="Funding model"
+              hint="Changing it clears the Sales or Pricing terms check: the terms are checked again."
+              error={errorFor(errors, 'toolingFundingModel')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

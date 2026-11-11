@@ -36,11 +36,12 @@ export interface AssignmentRules {
 export const ASSIGNMENT_RULES_SEED: AssignmentRules = {
   rules: [
     {
-      processTypes: ['ISBM', 'RHB', 'IMM'],
+      // DR-engineering-05: IMM Preform is injection too (it is in the process list).
+      processTypes: ['ISBM', 'RHB', 'IMM', 'IMM_PREFORM'],
       resins: [],
       engineerName: 'Neiberger',
       engineerUserId: null,
-      note: 'Paul Slomkowski, Nov 4: ISBM, RHB and injection (IMM) go to the PET engineer.',
+      note: 'Paul Slomkowski, Nov 4: ISBM, RHB and injection (IMM, IMM Preform) go to the PET engineer.',
     },
     {
       processTypes: ['EBM', 'IBM'],

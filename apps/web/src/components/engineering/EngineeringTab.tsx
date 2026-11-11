@@ -27,6 +27,7 @@ import { usePublicConfig } from '@/config/public-config';
 import { api, downloadBlob, uploadAttachment } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
 import { EquipmentBomCard, LegacyNotes, PricingInputsCard } from './EngineeringExtras';
@@ -282,6 +283,7 @@ const NUMERIC: SolutionKey[] = ['cavitation', 'cycleTimeS', 'prelimCapitalUsd'];
 function SolutionCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
   const review = eng.review;
+  const { data: config } = usePublicConfig();
   const refresh = useRefresh(quote.quoteNumber);
   const capitalHidden = !('prelimCapitalUsd' in review);
   const initial = solutionForm(review);
@@ -312,6 +314,12 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
   });
 
   if (!eng.canEdit) {
+    // DR-cross-cutting-12: a plant, machine or process taken off its list reads "(no longer offered)",
+    // as on Final Review (the pickers list active entries only).
+    const shown = (list: string, code: string | null | undefined, label: string | null) =>
+      code && label && config && !config.valueLists[list]?.some((v) => v.code === code)
+        ? `${label}${RETIRED_SUFFIX}`
+        : label;
     return (
       <Card>
         <CardHeader>
@@ -322,9 +330,18 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
         <CardContent>
           <KeyValueGrid
             items={[
-              { label: 'Process', value: eng.selectedLabels.processType },
-              { label: 'Machine', value: eng.selectedLabels.machineType },
-              { label: 'Plant / site', value: eng.selectedLabels.plantCode },
+              {
+                label: 'Process',
+                value: shown('process_type', review.processType, eng.selectedLabels.processType),
+              },
+              {
+                label: 'Machine',
+                value: shown('machine_type', review.machineType, eng.selectedLabels.machineType),
+              },
+              {
+                label: 'Plant / site',
+                value: shown('plant', review.plantCode, eng.selectedLabels.plantCode),
+              },
               { label: 'Cavitation', value: review.cavitation?.toString() },
               { label: 'Cycle time (s)', value: review.cycleTimeS?.toString() },
               {

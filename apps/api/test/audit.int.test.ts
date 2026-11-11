@@ -257,6 +257,45 @@ describe('admin audit viewer, export and usage report', () => {
     expect((await as('Admin').get('/api/v1/admin/audit?cursor=zzz')).statusCode).toBe(400);
   });
 
+  it('DR-approver-leadership-admin-06: "gate decision" finds every gate decision, moves included', async () => {
+    const leader = await userId('Leadership');
+    const [q] = await db.db.select().from(schema.quote).where(eq(schema.quote.quoteNumber, qn));
+    const at = new Date('2026-10-27T18:00:00Z');
+    const base = {
+      at,
+      actorId: leader,
+      actorRoles: ['Leadership'],
+      entity: 'quote',
+      entityId: q!.id,
+      quoteId: q!.id,
+      createdBy: leader,
+    };
+    await db.db.insert(schema.auditEvent).values([
+      {
+        ...base,
+        action: 'stage_change',
+        after: { stageKey: 'CUSTOMER_DECISION', gateKey: 'G4', outcomeKey: 'approve' },
+      },
+      {
+        ...base,
+        action: 'gate_decision',
+        after: { stageKey: 'FINAL_REVIEW', gateKey: 'G4', outcomeKey: 'hold' },
+      },
+      // A stage change that is not a gate decision (e.g. a resubmit) is not one.
+      { ...base, action: 'stage_change', after: { stageKey: 'INTAKE' } },
+    ]);
+    const body = AuditListResponse.parse(
+      (
+        await as('Admin').get(
+          `/api/v1/admin/audit?quoteNumber=${qn}&action=gate_decision&from=2026-10-27&to=2026-10-27`,
+        )
+      ).json(),
+    );
+    const outcomes = body.items.map((i) => (i.after as { outcomeKey?: string } | null)?.outcomeKey);
+    expect(outcomes).toEqual(expect.arrayContaining(['approve', 'hold']));
+    expect(body.items.every((i) => (i.after as { gateKey?: string } | null)?.gateKey)).toBe(true);
+  });
+
   it('exports CSV, and the export is audited too', async () => {
     const res = await as('Leadership').get(`/api/v1/admin/audit/export.csv?quoteNumber=${qn}`);
     expect(res.statusCode, res.body).toBe(200);

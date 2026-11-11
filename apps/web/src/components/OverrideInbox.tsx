@@ -81,9 +81,11 @@ function InboxItem({ override: o }: { override: OverrideDto }) {
     },
     onError: async (err) => {
       if (isApiError(err) && err.status < 500) {
+        // DR-kam-sales-leader-04: the API's own reason ("The quote is closed"), not its generic title.
+        const reasons = (err.problem as { errors?: { message: string }[] }).errors;
         toast.error({
           title: 'Could not record the decision',
-          description: describeError(err).message,
+          description: reasons?.[0]?.message ?? describeError(err).message,
         });
         await queryClient.invalidateQueries({ queryKey: overrideInboxQueryKey });
       }

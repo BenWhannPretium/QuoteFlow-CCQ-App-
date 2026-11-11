@@ -114,6 +114,8 @@ test('a KAM records Awarded, hands off and closes Won at G6, and records Lost wi
   await g6.getByRole('radio', { name: 'Advance (close Won)' }).check();
   await expect(g6.getByTestId('outcome-definition')).toBeVisible();
   await expect(g6.getByTestId('completeness')).toContainText('Nothing missing');
+  // DR-kam-sales-leader-02: the acceptance evidence G5 recorded is offered, not asked for again.
+  await expect(g6.getByLabel(/^Reason/)).not.toHaveValue('');
   await g6.getByLabel(/^Reason/).selectOption({ label: 'Purchase order (PO)' });
   await g6.getByRole('button', { name: 'Record decision' }).click();
   await expect(g6).toHaveCount(0);
