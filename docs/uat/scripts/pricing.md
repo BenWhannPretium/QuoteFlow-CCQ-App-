@@ -73,7 +73,7 @@ The pricer submits to the pricing lead. **The pricing lead decides G3, not the p
 | 24 | Lead | On `<CCQ-QT-6>` click **Return to Engineering…** → **Rework (back to Engineering)** with a reason and a note. | The quote goes back to **Engineering Review** as a new version. The engineer and the engineering lead are told. | | |
 | 25 | Analyst | When `<CCQ-QT-6>` returns to Quoting, open the **Quoting** tab. | **Earlier versions** shows the first version's record, unchanged. | | |
 | 26 | Lead | On `<CCQ-QT-5>` click **Hold or stop…** → **Rework (re-cost)** with a reason and a note. Then repeat on another quote with **Hold**: reason, review date, owner and a note. | A note is required each time. Re-cost keeps the quote in **Quoting**, clears **Costing completed**, and tells the pricer. Hold shows "On hold until <date> · owner <name>". | | |
-| 27 | Analyst | Look for **Approvals** in the navigation. Type `/quotes/<CCQ-QT-2>/review` after the test URL. | No **Approvals** item. "You don’t have access to this". Pricing never decides Final Review. | | |
+| 27 | Analyst | Look for **Approvals** in the navigation. Type `/quotes/<CCQ-QT-2>/review` after the test URL. | No **Approvals** item. The Final Review page at that address opens **read-only** (every role that can read a quote sees its figures): the three Quoting steps, the capital readiness and the terms, with no decision buttons. Pricing never decides Final Review. | | |
 
 ## Part E: What other roles see (sign in as a KAM)
 
