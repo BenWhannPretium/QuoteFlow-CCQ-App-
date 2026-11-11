@@ -80,6 +80,27 @@ describe('who edits the Quoting tab', () => {
 });
 
 describe('price approval record', () => {
+  it('DR-pricing-finance-16: refuses an approval time before the quote existed', () => {
+    const plan = planPricingRecord(
+      pricing,
+      quoting,
+      EMPTY_PRICING_RECORD,
+      { approvedBy: PRICER_2, approvedAt: new Date('1990-01-01T00:00:00Z') },
+      { ...ctx, quoteCreatedAt: new Date('2026-10-01T15:00:00Z') },
+    );
+    expect(!plan.ok && plan.errors.map((e) => [e.field, e.message])).toEqual([
+      ['approvedAt', 'The approval time cannot be before the quote was created'],
+    ]);
+    const ok = planPricingRecord(
+      pricing,
+      quoting,
+      EMPTY_PRICING_RECORD,
+      { approvedBy: PRICER_2, approvedAt: new Date('2026-10-02T15:00:00Z') },
+      { ...ctx, quoteCreatedAt: new Date('2026-10-01T15:00:00Z') },
+    );
+    expect(ok.ok).toBe(true);
+  });
+
   it('records approver, time, basis, range, refs and the costing attestation', () => {
     const at = new Date('2026-10-20T14:00:00Z');
     const plan = planPricingRecord(

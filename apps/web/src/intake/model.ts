@@ -20,6 +20,7 @@ import {
   type ListEntry,
 } from '@ccq/domain';
 
+import { calendarDate } from '@/lib/time';
 import { marketText, valueListLabel } from '@/lib/value-label';
 
 /**
@@ -348,8 +349,8 @@ export const formatUsd = (n: number | null | undefined) =>
     ? '—'
     : n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
-export const formatDate = (iso: string | null | undefined) =>
-  iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—';
+/** DR-kam-sales-leader-13: the one calendar-date style ("Nov 30, 2026"). */
+export const formatDate = (iso: string | null | undefined) => calendarDate(iso, '—');
 
 export const formatAddress = (a: IntakeDraftData['shipTo']) =>
   a

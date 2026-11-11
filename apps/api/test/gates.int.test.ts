@@ -324,6 +324,24 @@ describe('G1 decisions through the generic route', () => {
       'REASON_REQUIRED',
     ]);
     const owner = await userIdOf('SalesLeader');
+    // DR-engineering-04 / DR-cross-cutting-04: a review date already passed is refused.
+    const past = await decide(q.quoteNumber, {
+      outcomeKey: 'hold',
+      reasonCode: 'awaiting_customer_info',
+      note: 'Customer is confirming the volume',
+      holdUntil: '2026-10-23', // the test clock is Oct 26
+      holdOwnerId: owner,
+    });
+    expect(past.statusCode).toBe(422);
+    expect(past.json()).toMatchObject({
+      errors: [
+        {
+          path: '/review_date',
+          message: 'The review date must be today or later',
+          code: 'INVALID_VALUE',
+        },
+      ],
+    });
 
     const res = await decide(q.quoteNumber, {
       outcomeKey: 'hold',

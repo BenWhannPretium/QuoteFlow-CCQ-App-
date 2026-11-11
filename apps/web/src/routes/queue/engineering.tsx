@@ -35,7 +35,7 @@ import { Input, NativeSelect } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError, type EngQueueParams } from '@/lib/api';
-import { relativeTime } from '@/lib/time';
+import { calendarDate, relativeTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { valueListLabel } from '@/lib/value-label';
@@ -445,7 +445,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
               </span>
               <span className="text-muted-foreground text-xs" data-testid="queue-status">
                 {q.status === 'on_hold'
-                  ? `On hold${q.reviewDate ? ` until ${q.reviewDate}` : ''}`
+                  ? `On hold${q.reviewDate ? ` until ${calendarDate(q.reviewDate)}` : ''}`
                   : statusLabel(q)}
               </span>
               {/* FB-02 (F-015, T-012) */}

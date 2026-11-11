@@ -277,10 +277,26 @@ test.describe('analytics', () => {
     await expect(pair.getByTestId('rate-pair-capture')).toContainText('–');
   });
 
-  test('a bad date range shows an error the user can act on', async ({ page }) => {
+  // DR-approver-leadership-admin-07: one message beside the filter, no chart request, no toasts.
+  test('a bad date range shows one message beside the filter and asks the API nothing', async ({
+    page,
+  }) => {
     await signInAs(page, 'leadership');
+    const chartCalls: string[] = [];
+    page.on('request', (r) => {
+      if (/\/api\/v1\/analytics\/(?!filters)/.test(r.url())) chartCalls.push(r.url());
+    });
     await page.goto('/analytics?from=2026-10-10&to=2026-10-01');
-    await expect(page.getByText('`from` is after `to`').first()).toBeVisible();
+    await expect(page.getByTestId('analytics-range-error')).toHaveText(
+      '“From” must be on or before “To”. Change one of the dates to see the charts.',
+    );
+    await expect(page.getByText('`from` is after `to`')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'Bad Request' })).toHaveCount(0);
+    expect(chartCalls).toEqual([]);
+    // Fixing a date brings the charts back.
+    await page.getByLabel('To', { exact: true }).fill('2026-10-31');
+    await expect(page.getByTestId('analytics-range-error')).toHaveCount(0);
+    await expect(page.getByTestId('rate-pair')).toBeVisible();
   });
 
   test('a KAM is refused the analytics page', async ({ page }) => {

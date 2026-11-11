@@ -25,6 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
+import { calendarDate } from '@/lib/time';
 import { valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -303,7 +304,7 @@ function QueueCard({
           <PriorityBadge priority={quote.priority} quoteNumber={quote.quoteNumber} />
           {quote.status === 'on_hold' && (
             <span className="text-muted-foreground text-xs">
-              On hold{quote.reviewDate ? ` until ${quote.reviewDate}` : ''}
+              On hold{quote.reviewDate ? ` until ${calendarDate(quote.reviewDate)}` : ''}
             </span>
           )}
         </div>

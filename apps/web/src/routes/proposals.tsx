@@ -17,7 +17,7 @@ import { SfStageCompare, ValidityChip } from '@/components/outcome/CustomerDecis
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { api } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, calendarDate } from '@/lib/time';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 export const Route = createFileRoute('/proposals')({ component: MyProposalsPage });
@@ -111,7 +111,7 @@ function ProposalCard({ proposal: p, onRecord }: { proposal: OpenProposal; onRec
               <ValidityChip validity={p.validity} />
               {p.status === 'on_hold' && (
                 <span className="text-foreground-2 text-xs">
-                  On hold{p.reviewDate ? ` until ${p.reviewDate}` : ''}
+                  On hold{p.reviewDate ? ` until ${calendarDate(p.reviewDate)}` : ''}
                 </span>
               )}
               <PriorityBadge priority={p.priority} quoteNumber={p.quoteNumber} />
@@ -122,7 +122,7 @@ function ProposalCard({ proposal: p, onRecord }: { proposal: OpenProposal; onRec
             <p className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
               <span>
                 Issued {p.proposalIssuedAt ? absoluteTime(p.proposalIssuedAt) : '–'}, valid until{' '}
-                {p.validity.validityUntil ?? '–'}
+                {calendarDate(p.validity.validityUntil, '–')}
               </span>
               <span className="inline-flex items-center gap-1">
                 Salesforce: <SfStageCompare sf={p.sf} />

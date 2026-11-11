@@ -47,7 +47,7 @@ import {
   type PipelineSearch,
 } from '@/lib/pipeline-search';
 import { readColumns, writeColumns } from '@/lib/saved-views';
-import { relativeTime } from '@/lib/time';
+import { calendarDate, relativeTime } from '@/lib/time';
 import { valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -388,7 +388,7 @@ function QuoteTable({
               cell: ({ row }) =>
                 row.original.validityUntil ? (
                   <span className={row.original.validityExpired ? 'font-semibold' : undefined}>
-                    {row.original.validityUntil}
+                    {calendarDate(row.original.validityUntil)}
                     {row.original.validityExpired && ' (expired)'}
                   </span>
                 ) : (

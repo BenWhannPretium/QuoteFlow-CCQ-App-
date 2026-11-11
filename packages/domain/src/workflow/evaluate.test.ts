@@ -761,6 +761,45 @@ describe('segregation of duties', () => {
   });
 });
 
+describe('hold review date (DR-engineering-04, DR-approver-leadership-admin-04, DR-cross-cutting-04)', () => {
+  // NOW is the domain test clock; review dates are judged on the US Central calendar.
+  const hold = (reviewDate: string, stage = 'G1', outcome = 'hold') => {
+    const c = validCase(hybridConfig, stage, outcome);
+    return evaluateTransition(
+      hybridConfig,
+      makeQuote(c.gate.stageKey, { fields: c.fields }),
+      makeActor(stage === 'G4' ? 'Approver' : stage === 'G5' ? 'SalesLeader' : 'SalesLeader'),
+      { ...c.request, payload: { ...c.request.payload, review_date: reviewDate } },
+      NOW,
+    );
+  };
+  const centralToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(
+    NOW,
+  );
+  const shift = (days: number) =>
+    new Date(Date.parse(`${centralToday}T12:00:00Z`) + days * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+
+  it('refuses a review date already passed, on every hold outcome', () => {
+    for (const [stage, outcome] of [
+      ['G1', 'hold'],
+      ['G4', 'hold'],
+      ['G5', 'on_hold'],
+    ] as const) {
+      const res = hold(shift(-3), stage, outcome);
+      expect(!res.ok && res.errors.map((e) => [e.field, e.message]), stage).toEqual([
+        ['review_date', 'The review date must be today or later'],
+      ]);
+    }
+  });
+
+  it('accepts today and later', () => {
+    expect(hold(centralToday).ok).toBe(true);
+    expect(hold(shift(7)).ok).toBe(true);
+  });
+});
+
 describe('hold accounting', () => {
   const hold = (
     stage: string,
