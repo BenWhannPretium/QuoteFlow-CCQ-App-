@@ -1,6 +1,5 @@
-// rg-ccq-prod (B-22). Nothing exists yet. Names follow the runbook's pattern and must be globally
-// unique: confirm with IT (naming standard) before the first apply. Every '<confirm: ...>' is a
-// deliberately invalid value ARM refuses until it is replaced.
+// rg-ccq-prod (B-22). IT created the group on 2026-11-12; this file was first applied the same day.
+// Names follow test's pattern ('prod' for 'test', suffix 'ptpk'); all were free when checked.
 // The Postgres admin password is NOT here: pass it on the command line on the create only
 // (`postgresAdminPassword=$(openssl rand -hex 24)`), then store the connection string in Key Vault.
 using './main.bicep'
@@ -8,7 +7,7 @@ using './main.bicep'
 param environmentName = 'prod'
 param location = 'centralus'
 param tags = {
-  // costCenter: '<ask IT>'
+  // costCenter: '<ask IT>' (IT left it blank on the resource group; add it here and re-apply, no downtime)
 }
 
 param webAppName = 'quoteflow-prod'
@@ -29,8 +28,12 @@ param deployNetwork = false
 // D-H2: 'public' = option 1 (public URL, Entra sign-in; Ben, 2026-11-12).
 param exposure = 'public'
 
-param appServicePlanSku = 'P1v3'
-param enableStagingSlot = true
+// Target: P1v3 + staging slot. Interim B1, no slot (Ben, 2026-11-12): the subscription's App Service
+// quota in Central US is 0 for every tier above B1 (P1v3, P0v3, S1, P1v2: SubscriptionIsOverQuotaForSku
+// on the first apply). When IT raises P1v3 (Quotas, provider App Service, Central US), restore P1v3 and
+// enableStagingSlot = true and re-apply: an in-place scale-up with a brief restart.
+param appServicePlanSku = 'B1'
+param enableStagingSlot = false
 
 param postgresSkuName = 'Standard_D2ds_v5'
 param postgresSkuTier = 'GeneralPurpose'
@@ -55,7 +58,9 @@ param notificationDispatchIntervalSeconds = 0
 param sfMode = 'live'
 param sfAuthFlow = 'client_credentials'
 param sfLoginUrl = 'https://pretiumpkg.my.salesforce.com'
-param sfClientId = '<confirm: SF_CLIENT_ID>'
+// The same connected app as test (Ben, 2026-11-12): same org, so the same consumer key; the secret goes in
+// the prod vault as 'sf-client-secret'.
+param sfClientId = '3MVG9WQsPp5nH_EpyovYhv7bEyY7Cr3g1GW4jMg747LVlaX1o_oszK.Np_bUA5wUgEqOe1lseDy9DFa5CKa3z' // gitleaks:allow (connected-app consumer key, an identifier; the secret is in Key Vault)
 param sfClientSecretName = 'sf-client-secret'
 
 param fabricWorkspaceId = ''
@@ -76,7 +81,9 @@ param githubSubjects = [
 ]
 
 param manageRoleAssignments = true
-// Developers get Reader only in prod (06 §4). Fill object ids (e.g. Ben's) before the apply.
-param developerObjectIds = []
-param developerRgRoles = ['Reader']
-param developersAreKeyVaultOfficers = false
+// Ben (2026-11-12): IT made him Owner of rg-ccq-prod, so no RG roles here; he needs Key Vault Secrets
+// Officer to set 'database-url' and 'sf-client-secret' (README "What stays manual"). Other developers get
+// Reader only in prod (06 §4): add them with developerRgRoles = ['Reader'] and officers off.
+param developerObjectIds = ['63ab69fc-8689-4afb-924f-3d8a38b4bca0'] // Ben Whann (Entra object id)
+param developerRgRoles = []
+param developersAreKeyVaultOfficers = true

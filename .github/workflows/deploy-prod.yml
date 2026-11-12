@@ -1,0 +1,159 @@
+name: Deploy (production)
+
+# B-22: build and deploy to the Azure **production** App Service (rg-ccq-prod). Manual only: Actions →
+# Deploy (production) → Run workflow, from `main` or a release tag (`v*`, e.g. the UAT freeze tag). It
+# deploys the commit the run starts from, after CI passed on it, and only once a reviewer approves the
+# `production` environment's protection rule.
+#
+# The steps mirror deploy.yml (test). Keep them in step when one changes.
+#
+# Auth is OpenID Connect to id-quoteflow-deploy-prod (federated subject
+# repo:<owner>/<repo>:environment:production, infra/main.prod.bicepparam), so the job must keep
+# `environment: production`. Variables live on the **production environment** (Settings → Environments →
+# production), where they override the repository's test values. None are secrets:
+#   AZURE_CLIENT_ID        client id of id-quoteflow-deploy-prod
+#   AZURE_TENANT_ID        Pretium's Entra tenant id      (the repository value is the same)
+#   AZURE_SUBSCRIPTION_ID  subscription holding rg-ccq-prod (the repository value is the same)
+#   AZURE_RESOURCE_GROUP   rg-ccq-prod (the job refuses anything else)
+#   AZURE_WEBAPP_NAME      quoteflow-prod
+#   AZURE_WEBAPP_SLOT      `staging` once the plan is P1v3 with the slot; empty = deploy straight to the
+#                          app (the interim B1 plan has no slots: infra/main.prod.bicepparam)
+#   FABRIC_WORKSPACE_ID    B-27: D&A's prod Fabric workspace (empty = no mirror yet, steps skip)
+#   FABRIC_MIRRORED_DB_ID  B-27: the prod mirrored database item in it
+# Runbook: docs/build-guide/06-azure-entra-setup.md; B-22 in docs/build-guide/03-build-steps.md.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build and deploy to production
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net
+    env:
+      SHA: ${{ github.sha }}
+      RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+      APP: ${{ vars.AZURE_WEBAPP_NAME }}
+      SLOT: ${{ vars.AZURE_WEBAPP_SLOT }}
+
+    steps:
+      # A missing environment variable would fall back to the repository's test value.
+      - name: Check the target is production
+        run: |
+          if [ "$RG" != "rg-ccq-prod" ] || [ -z "$APP" ]; then
+            echo "the production environment's variables aren't set (resource group '$RG', app '$APP')" >&2
+            exit 1
+          fi
+
+      - name: Check CI passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ok="$(gh run list -R "${{ github.repository }}" --workflow ci.yml --commit "$SHA" \
+            --status success --json databaseId --jq length)"
+          if [ "${ok:-0}" -lt 1 ]; then
+            echo "no successful CI run for $SHA: deploy a commit CI has passed" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          # B-27: the full history, to diff migrations against the commit production is running now.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package for App Service
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          scripts/package-azure.sh .azure-deploy
+          (cd .azure-deploy && zip -qry ../quoteflow.zip .)
+          ls -lh quoteflow.zip
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # B-27 (L-8): as in deploy.yml. The slot shares the production database, so stop before the
+      # slot starts and migrates, not before the swap.
+      - name: Fabric mirroring (stop if migrations change)
+        id: fabric_stop
+        if: vars.FABRIC_WORKSPACE_ID != '' && vars.FABRIC_MIRRORED_DB_ID != ''
+        env:
+          FABRIC_WORKSPACE_ID: ${{ vars.FABRIC_WORKSPACE_ID }}
+          FABRIC_MIRRORED_DB_ID: ${{ vars.FABRIC_MIRRORED_DB_ID }}
+        run: |
+          url="https://$APP.azurewebsites.net/api/v1/health"
+          deployed="$(curl -fsS --max-time 10 "$url" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)"
+          if scripts/fabric-mirroring.sh migrations-changed "$deployed" "$SHA"; then
+            scripts/fabric-mirroring.sh stop
+            echo "stopped=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy
+        run: |
+          slot_arg=()
+          if [ -n "$SLOT" ]; then slot_arg=(--slot "$SLOT"); fi
+          az webapp deploy --resource-group "$RG" --name "$APP" "${slot_arg[@]}" \
+            --src-path quoteflow.zip --type zip --clean true --restart true \
+            --timeout 900000
+
+      # Wait for /health to report this commit with the database up (the old container keeps serving
+      # until the new one starts). With a slot: check the slot, swap, then check production.
+      - name: Smoke test and swap
+        run: |
+          wait_healthy() {
+            local url="https://$1.azurewebsites.net/api/v1/health" body i
+            for i in $(seq 1 60); do
+              body="$(curl -fsS --max-time 10 "$url" || true)"
+              if echo "$body" | grep -q '"status":"ok"' && echo "$body" | grep -q "\"version\":\"$SHA\"" \
+                && echo "$body" | grep -q '"db":"up"'; then
+                echo "$1 healthy on $SHA: $body"; return 0
+              fi
+              echo "waiting for $1 on $SHA ($i/60): ${body:-no response}"; sleep 10
+            done
+            echo "$1 did not report healthy in 10 minutes: check Log stream in the portal" >&2
+            return 1
+          }
+          if [ -n "$SLOT" ]; then
+            wait_healthy "$APP-$SLOT"
+            az webapp deployment slot swap --resource-group "$RG" --name "$APP" \
+              --slot "$SLOT" --target-slot production
+          fi
+          wait_healthy "$APP"
+
+      - name: Fabric mirroring (start and wait until Running)
+        if: always() && steps.fabric_stop.outputs.stopped == 'true'
+        env:
+          FABRIC_WORKSPACE_ID: ${{ vars.FABRIC_WORKSPACE_ID }}
+          FABRIC_MIRRORED_DB_ID: ${{ vars.FABRIC_MIRRORED_DB_ID }}
+        run: |
+          scripts/fabric-mirroring.sh start
+          scripts/fabric-mirroring.sh wait 900
