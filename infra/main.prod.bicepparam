@@ -13,21 +13,20 @@ param tags = {
 
 param webAppName = 'quoteflow-prod'
 param appServicePlanName = 'asp-quoteflow-prod'
-param postgresServerName = 'psql-quoteflow-prod'
-param keyVaultName = 'kv-quoteflow-prod'
-param storageAccountName = 'stquoteflowprod'
+param postgresServerName = 'psql-quoteflow-prod-ptpk'
+param keyVaultName = 'kv-quoteflow-prod-ptpk'
+param storageAccountName = 'stquoteflowprodptpk'
 param logAnalyticsName = 'log-quoteflow-prod'
 param appInsightsName = 'appi-quoteflow-prod'
 param deployIdentityName = 'id-quoteflow-deploy-prod'
 
-// Prod: VNet, private endpoints (Postgres, Key Vault, Blob), Fabric VNet data gateway subnet.
-// Address space is a placeholder: IT allocates it (and may want a hub spoke instead).
-param deployNetwork = true
-param vnetAddressPrefix = '10.60.0.0/24'
-param appSubnetPrefix = '10.60.0.0/26'
-param privateEndpointSubnetPrefix = '10.60.0.64/27'
-param fabricGatewaySubnetPrefix = '10.60.0.96/27'
-// D-H2 is open (M8): 'public' = option 1 (Entra sign-in + Conditional Access); 'private' = option 2.
+// Prod network posture (Ben, 2026-11-12): the same as test. No VNet and no private endpoints: Postgres,
+// Key Vault and Blob keep public endpoints, protected by their credentials, TLS and Entra/RBAC
+// (Postgres also has the "Allow Azure services" rule). Fabric connects directly, so no VNet data
+// gateway is needed either. To go private later, set deployNetwork = true and restore the subnet
+// prefixes (the module defaults in main.bicep apply: 10.60.0.0/24), then follow infra/README.md.
+param deployNetwork = false
+// D-H2: 'public' = option 1 (public URL, Entra sign-in; Ben, 2026-11-12).
 param exposure = 'public'
 
 param appServicePlanSku = 'P1v3'

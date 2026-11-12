@@ -414,7 +414,7 @@ Why mirroring and not the alternatives:
 | DDL on a mirrored table (add/alter column) is not supported | **Built:** the API migrates at start-up, so `deploy.yml` diffs `packages/db/migrations` between the commit `/health` reports and the new one; if they differ it stops mirroring before the deploy, and starts it and waits for `Running` after (also when the deploy fails). `scripts/fabric-mirroring.sh` (Fabric REST via `az rest`, the OIDC deploy identity). Start-up applies only table and column comments that changed (`applyChangedComments`, 2026-10-27), so a plain restart issues no DDL on mirrored tables; the analytics views it re-creates are not mirrored. |
 | Source permissions are not propagated | Fabric security is rebuilt: workspace limited to D&A + CCQ Admin; commercial columns (§3.3) only through the commercial `SG-CCQ-*` groups; KAM scope as semantic-model RLS. |
 | The mirroring role must own the tables; RLS is `FORCE`d | A dedicated `ccq_fabric_mirror` Entra role; the spike proves the snapshot copies every row (count tie-out). |
-| Private endpoint needs a gateway | Prod: VNet data gateway on a delegated subnet (`snet-fabric-gw` in `infra/modules/network.bicep`). Test: public access + "Allow Azure services", direct. |
+| Private endpoint needs a gateway | Prod: VNet data gateway on a delegated subnet (`snet-fabric-gw` in `infra/modules/network.bicep`). Test and prod (decided 2026-11-12): public access + "Allow Azure services", direct, so no gateway is built. A gateway is needed only if prod goes private later. |
 | Server needs SAMI, `wal_level=logical`, `azure_cdc`, `max_worker_processes` + 3 (restart) | Set in Bicep (`infra/modules/postgres.bicep`; `max_worker_processes = 16`, as `azure_cdc` checks for at least 13; written 2026-10-26, not yet applied) and runbook `06`. The restart is scheduled with IT. |
 | PITR restore or major-version upgrade breaks mirroring; the mirrored item's owner can't be changed | Runbook steps; the item is created by a D&A service principal, not a person. |
 | Mirroring stops if the capacity is paused | D&A keeps the capacity running. **Built:** an hourly check (`apps/api/src/jobs/fabricMirrorCheck.ts`, on when `FABRIC_WORKSPACE_ID` and `FABRIC_MIRRORED_DB_ID` are set) writes `integration_run` (source `fabric`), shows on Admin → Integrations, and alerts Admins when the mirror becomes unhealthy. The app's managed identity needs read on the mirrored item. |
@@ -433,6 +433,7 @@ Why mirroring and not the alternatives:
 - Roles come from the `roles` claim. Groups are mapped to app roles by IT.
 
 **Exposure** (open item for IT, see D-H2)
+- **Prod decided 2026-11-12 (Ben):** a public `*.azurewebsites.net` URL; the Entra sign-in and the assigned-role requirement keep out anyone who shouldn't be in, as for Pretium's other software. The pattern below stays as the option if security later requires private access.
 - The PRD says "internal only, no public domain" **and** "phone access without VPN". These conflict.
 - Recommended pattern: an App Service **private endpoint**, published through **Microsoft Entra Application Proxy / Private Access**, which gives pre-authenticated access from phones without VPN.
 - Interim for the test environment: App Service built-in authentication (Entra, require sign-in) plus Conditional Access, with access restrictions to Pretium IP ranges where possible.
@@ -443,7 +444,7 @@ Why mirroring and not the alternatives:
 - GitHub Actions deploys via OIDC federated credentials.
 
 **Database**
-- Postgres: TLS required. **Target (prod):** private endpoint, Entra authentication for the app's managed identity. **Test today:** public access with "Allow Azure services" and the admin password login, read from Key Vault (`06` runbook); Entra auth is on alongside it for the Fabric mirroring role (`infra/modules/postgres.bicep`).
+- Postgres: TLS required. **Prod (decided 2026-11-12, same as test):** public access with "Allow Azure services" and the admin password login, no VNet or private endpoint (`infra/main.prod.bicepparam`, `deployNetwork = false`); the private-endpoint design stays in `infra/modules/network.bicep` for later. **Test:** public access with "Allow Azure services" and the admin password login, read from Key Vault (`06` runbook); Entra auth is on alongside it for the Fabric mirroring role (`infra/modules/postgres.bicep`).
 - RLS policies on `quote` and child tables, and on `sf_opportunity_snapshot` (L-6).
 - `audit_event` is insert-only for the app role.
 
@@ -469,7 +470,7 @@ Why mirroring and not the alternatives:
 |---|---|---|---|
 | local | Laptop: docker Postgres, `AUTH_MODE=dev` | Synthetic | — |
 | test | Azure RG `rg-ccq-test`, live at `https://quoteflow-test.azurewebsites.net` since 2026-10-21 (App Service B1, Postgres Burstable B1ms → **General Purpose for Fabric mirroring**, D-FB3; KV, AI). Mirrors to Fabric workspace `QuoteFlow (CCQ) - test` once set up | SF **production org** since 2026-10-24 (production data approved, D-23) | Auto on merge to `main` |
-| prod | Azure RG `rg-ccq-prod` (App Service P1v3 + staging slot, Postgres General Purpose D2ds_v5 with HA off for MVP, PITR 7–35 days; VNet data gateway subnet). Mirrors to Fabric workspace `QuoteFlow (CCQ) - prod` | Approved production SF + pricing | Manual approval in GitHub Actions; slot swap |
+| prod | Azure RG `rg-ccq-prod` (App Service P1v3 + staging slot, Postgres General Purpose D2ds_v5 with HA off for MVP, PITR 7–35 days; public endpoints, no VNet, as test). Mirrors to Fabric workspace `QuoteFlow (CCQ) - prod` | Approved production SF + pricing | Manual approval in GitHub Actions; slot swap |
 
 **CI** (every PR):
 - install
