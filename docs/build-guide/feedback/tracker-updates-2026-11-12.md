@@ -6,7 +6,7 @@ Sources read: `tracker-updates-2026-11-09.md`, `feedback-change-log.md`, `03-bui
 
 | Tab | Change |
 |---|---|
-| Build Backlog | The Nov 9 pack edits (F-021, F-026, F-031, F-032, F-058, F-063, F-068); new rows F-080 to F-085 and F-086 (Capacity at a glance); a dated build note on each of the 50 items changed by FB-01 to FB-14; **Status set to In Progress** on those built items (it stays In Progress until UAT passes); F-062 deviation (one assignee, not several) |
+| Build Backlog | The Nov 9 pack edits (F-021, F-026, F-031, F-032, F-058, F-063, F-068); new rows F-080 to F-085 and F-086 (Capacity at a glance); a dated build note on each of the 54 items changed by FB-01 to FB-14; **Status set to In Progress** on those built items (it stays In Progress until UAT passes); F-062 deviation (one assignee, not several) |
 | Test Scenarios | **Ready to Test set to Y** for T-001, 004, 005, 007, 008, 009, 010, 012, 013, 014, 015, 016, 017, 020, 022, 023, 024, 026, 027, 030, 031, 034, 035, 037 (built and merged); notes on T-006, 011, 021, 025, 028, 029, 032, 033, 036 explaining why they stay blocked. Result stays Not Run |
 | Q&A | Q-030 answered; build or meeting notes added to Q-013, 014, 015, 018, 021, 027, 028, 034, 035 |
 | Decision Log | Interim-build notes on D-002, 003, 004, 006, 007, 008, 010, 013, 016, 017, 021; D-025 pilot UAT dates; Nov 4 notes on D-019 and D-022. No status changed |
