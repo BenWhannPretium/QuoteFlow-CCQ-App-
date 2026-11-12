@@ -39,7 +39,7 @@ jobs:
     name: Build and deploy to production
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     environment:
       name: production
       url: https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net
@@ -117,29 +117,35 @@ jobs:
             echo "stopped=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # --track-status false: the next step's health check decides, not App Service's startup tracking.
+      # On the first prod deploy (2026-11-12) the tracker reported "site failed to start within 10 mins"
+      # six minutes after the site had started: it read the stale ContainerStartupFailure the empty app
+      # had logged before any code existed. Upload errors still fail this step.
       - name: Deploy
         run: |
           slot_arg=()
           if [ -n "$SLOT" ]; then slot_arg=(--slot "$SLOT"); fi
           az webapp deploy --resource-group "$RG" --name "$APP" "${slot_arg[@]}" \
             --src-path quoteflow.zip --type zip --clean true --restart true \
-            --timeout 900000
+            --track-status false --timeout 900000
 
-      # Wait for /health to report this commit with the database up (the old container keeps serving
-      # until the new one starts). With a slot: check the slot, swap, then check production.
+      # The authoritative check: wait for /health to report this commit with the database up (the old
+      # container keeps serving until the new one starts). Up to 15 minutes: on B1 a cold start with
+      # migrations, the startup Salesforce sync and the warm-up probe took about 5. With a slot: check the
+      # slot, swap, then check production.
       - name: Smoke test and swap
         run: |
           wait_healthy() {
             local url="https://$1.azurewebsites.net/api/v1/health" body i
-            for i in $(seq 1 60); do
+            for i in $(seq 1 90); do
               body="$(curl -fsS --max-time 10 "$url" || true)"
               if echo "$body" | grep -q '"status":"ok"' && echo "$body" | grep -q "\"version\":\"$SHA\"" \
                 && echo "$body" | grep -q '"db":"up"'; then
                 echo "$1 healthy on $SHA: $body"; return 0
               fi
-              echo "waiting for $1 on $SHA ($i/60): ${body:-no response}"; sleep 10
+              echo "waiting for $1 on $SHA ($i/90): ${body:-no response}"; sleep 10
             done
-            echo "$1 did not report healthy in 10 minutes: check Log stream in the portal" >&2
+            echo "$1 did not report healthy in 15 minutes: check Log stream in the portal" >&2
             return 1
           }
           if [ -n "$SLOT" ]; then
