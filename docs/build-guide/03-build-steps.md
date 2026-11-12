@@ -719,7 +719,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
 ### B-22: Production data load and UAT environment prep · **Fri Nov 6** · Ben + IT/D&A
 - **People:** **M9 (Nov 2)** confirms production-data approval (Oliver Kade, Brennan Paul); Rachel Dew switches the integration user to production; Bailey confirms the UAT cohort and IT adds them to groups.
 - **Done when:**
-  - [ ] prod environment deployed
+  - [x] prod environment deployed (2026-11-12, on the interim B1 plan without the staging slot until IT raises the P1v3 quota; see the first-apply notes below)
   - [ ] SF prod sync run and reconciled (count vs the SF report)
   - [ ] value lists approved, or flagged provisional
   - [ ] UAT users can sign in with the correct roles
@@ -743,7 +743,8 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **SPA redirect URI:** `https://quoteflow-prod.azurewebsites.net` added to `QuoteFlow-SPA` (next to localhost and test).
   - **Prod deploy job:** `.github/workflows/deploy-prod.yml`, manual (`workflow_dispatch`) from `main` or a `v*` tag, `environment: production`. It refuses unless the environment's `AZURE_RESOURCE_GROUP` is `rg-ccq-prod` (a missing environment variable would otherwise fall back to the repository's test value) and unless CI passed on the commit. It deploys straight to the app while `AZURE_WEBAPP_SLOT` is empty, or to the slot, checks it, and swaps once the slot exists. It has the same Fabric stop/start and health smoke test as `deploy.yml`.
   - **GitHub `production` environment** (created by `BenWhannPretium`, the repo owner; `ben-whannai` has push only): required reviewer `BenWhannPretium` (self-approval allowed), deployments only from branch `main` and tags `v*`, variables `AZURE_CLIENT_ID=e50c20ff-057e-4737-b057-00c12544adb3`, `AZURE_RESOURCE_GROUP=rg-ccq-prod`, `AZURE_WEBAPP_NAME=quoteflow-prod`. `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` come from the repository variables (same values). Add `AZURE_WEBAPP_SLOT=staging` with the P1v3 move, and `FABRIC_*` once D&A creates the prod mirror.
-  - **Still open:** the first prod deploy (`deploy-prod.yml` must be on `main` before it can be run); `costCenter` and the alert mailbox from IT; the P1v3 quota above; the prod mirrored database (D&A).
+  - **First prod deploy, 2026-11-12 (run 43285209403, commit `c471243`, the PR #91 merge).** Attempt 1 stopped at "Check CI passed": it was started ten minutes after the merge, while CI on the merge commit was still running (it takes 14–21 min). Start the prod deploy only once CI is green on `main`. Attempt 2 (approved by Ben) deployed. At start-up the app applied the migrations, seeded config and ran the live Salesforce sync (32,188 records fetched), and App Service's warm-up probe passed after 150 s on B1. The site started at 19:12:36. `az webapp deploy` still failed the step at 19:18 with "site failed to start within 10 mins": its status tracking read the stale `ContainerStartupFailure` the empty app had logged before it had any code. Prod was healthy: `/api/v1/health` = `{"status":"ok","version":"c471243…","db":"up"}`, `/` serves the SPA, no warnings or errors in the log. Since then `deploy-prod.yml` passes `--track-status false` and relies on its own health check (this commit, database up, up to 15 min).
+  - **Still open:** sign-in with a `CCQ.*` role on prod; `costCenter` and the alert mailbox from IT; the P1v3 quota above; the prod mirrored database (D&A).
 - **Prompt:** `prompts/B-22-prod-data-uat-env.md`
 
 ### B-23: UAT pack, in-app feedback, training aids · **Mon Nov 9 – Thu Nov 12** · Ben + Bailey
