@@ -129,7 +129,7 @@ export function readingOf(cell: ExcelCell): WorkbookCellReading | null {
     if (typeof r === 'boolean') return { kind: 'boolean', value: r, formula: true };
     if (r instanceof Date) return { kind: 'date', value: r, formula: true };
     if (typeof r === 'object' && 'error' in r) {
-      return { kind: 'error', code: String((r).error), formula: true };
+      return { kind: 'error', code: String(r.error), formula: true };
     }
     return { kind: 'error', code: null, formula: true };
   }
@@ -140,15 +140,15 @@ export function readingOf(cell: ExcelCell): WorkbookCellReading | null {
   if (v instanceof Date) return { kind: 'date', value: v, formula: false };
   if (typeof v === 'object') {
     if ('error' in v) {
-      return { kind: 'error', code: String((v).error), formula: false };
+      return { kind: 'error', code: String(v.error), formula: false };
     }
-    if ('richText' in v && Array.isArray((v).richText)) {
+    if ('richText' in v && Array.isArray(v.richText)) {
       const text = (v as { richText: { text?: unknown }[] }).richText
         .map((t) => (typeof t.text === 'string' ? t.text : ''))
         .join('');
       return { kind: 'text', value: text.slice(0, MAX_TEXT), formula: false };
     }
-    if ('text' in v && typeof (v).text === 'string') {
+    if ('text' in v && typeof v.text === 'string') {
       return {
         kind: 'text',
         value: (v as { text: string }).text.slice(0, MAX_TEXT),
