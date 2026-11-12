@@ -34,6 +34,12 @@ import {
   SF_STATUS_FLAGS,
   TERMS_EXCEPTION_STATUSES,
   VERSIONED_ATTACHMENT_KINDS,
+  MODEL_SUMMARY_FIELD_STATES,
+  MODEL_SUMMARY_FIELD_TYPES,
+  MODEL_SUMMARY_KINDS,
+  MODEL_SUMMARY_REASONS,
+  MODEL_SUMMARY_STATUSES,
+  MODEL_SUMMARY_UNITS,
 } from './enums';
 import { appUser, baseColumns, timestamptz } from './identity';
 
@@ -1484,6 +1490,116 @@ export const attachment = documented(
     owner: 'Uploader',
     description:
       'Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.quoteFolder, /CCQ/{quote_number}/), or Blob/local by FILESTORE_MODE. Removal is soft.',
+  },
+);
+
+/**
+ * FB-14 (F-031 summary half, D-013): the one-page summary read from one version of a Quoting model
+ * (cost_model, roi_model, price_table) when it was uploaded. One row per attachment version, written
+ * once and never changed (insert-only for the app): a superseded version keeps its own summary, and
+ * removing the current version makes the previous version's summary current again with it. The cells
+ * read are config (`app_setting.model_summary_templates`); the values are in `model_summary_field`.
+ */
+export const modelSummary = documented(
+  pgTable(
+    'model_summary',
+    {
+      ...baseColumns(),
+      attachmentId: c(
+        uuid('attachment_id')
+          .notNull()
+          .unique()
+          .references(() => attachment.id, { onDelete: 'restrict' }),
+        'The attachment version the summary was read from.',
+      ),
+      quoteId: c(quoteRef(), "Quote (the attachment's)."),
+      kind: c(text('kind').notNull(), 'Attachment kind: cost_model | roi_model | price_table.'),
+      status: c(
+        text('status').notNull(),
+        'complete | partial (some fields not found or not calculated) | unavailable (see reason) | not_configured (no active map for the kind).',
+      ),
+      reason: c(
+        text('reason'),
+        'Why it is unavailable: not_xlsx | too_large | unreadable | timed_out | not_recognised | not_calculated | fields_not_found. Never cell contents.',
+      ),
+      templateId: c(
+        text('template_id'),
+        'The model_summary_templates map used (null when none matched).',
+      ),
+      mapProvisional: c(
+        boolean('map_provisional'),
+        'Whether that map was provisional when the summary was read.',
+      ),
+      fieldCount: c(integer('field_count').notNull(), 'Fields stored in model_summary_field.'),
+      extractedAt: c(timestamptz('extracted_at').notNull(), 'When the workbook was read (UTC).'),
+      durationMs: c(integer('duration_ms'), 'How long the read took (ms).', SYSTEM),
+    },
+    (t) => [
+      index('model_summary_quote_idx').on(t.quoteId),
+      check('model_summary_kind_check', inList(t.kind, MODEL_SUMMARY_KINDS)),
+      check('model_summary_status_check', inList(t.status, MODEL_SUMMARY_STATUSES)),
+      check('model_summary_reason_check', inList(t.reason, MODEL_SUMMARY_REASONS)),
+      check('model_summary_field_count_check', sql`${t.fieldCount} >= 0`),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: 'Uploader (read from the workbook)',
+    description:
+      'FB-14 (D-013): the one-page summary read from an uploaded costing or payback model version (cached cell values only; QuoteFlow never recomputes them). Insert-only.',
+  },
+);
+
+/** FB-14: one figure of a model summary, as the workbook holds it. Insert-only. */
+export const modelSummaryField = documented(
+  pgTable(
+    'model_summary_field',
+    {
+      ...baseColumns(),
+      summaryId: c(
+        uuid('summary_id')
+          .notNull()
+          .references(() => modelSummary.id, { onDelete: 'restrict' }),
+        'The summary.',
+      ),
+      quoteId: c(quoteRef(), 'Quote (for row-level security).'),
+      sort: c(integer('sort').notNull(), 'Order in the map.'),
+      fieldKey: c(text('field_key').notNull(), "The map's field key (payback_years, irr, ...)."),
+      label: c(text('label').notNull(), 'Label shown, as the map said at the time.'),
+      unit: c(text('unit').notNull(), 'usd | units | years | percent (a fraction) | count | text.'),
+      valueType: c(text('value_type').notNull(), 'number | text | date.'),
+      sheet: c(text('sheet').notNull(), 'Sheet the value was read from.'),
+      cellRef: c(text('cell_ref').notNull(), 'A1 address read (or the defined name not found).'),
+      definedName: c(text('defined_name'), 'The defined name used, when there was one.'),
+      state: c(
+        text('state').notNull(),
+        'ok | blank | error (an Excel error: value_text holds the code) | not_calculated | not_found | wrong_type (value_text holds the text) | out_of_range (value_text holds the number).',
+      ),
+      valueNumber: c(
+        numeric('value_number', { precision: 18, scale: 4, mode: 'number' }),
+        'The number as cached in the workbook (numeric(18,4): Fabric-safe).',
+        'Uploader (workbook)',
+      ),
+      valueText: c(text('value_text'), 'Text, an error code, or what a number field held instead.'),
+      valueDate: c(timestamptz('value_date'), 'A date value (UTC midnight).'),
+      headline: c(boolean('headline').notNull().default(false), 'A headline figure.'),
+      proposed: c(
+        boolean('proposed').notNull().default(true),
+        'The cell mapping was a proposal awaiting the template owner when read.',
+      ),
+    },
+    (t) => [
+      index('model_summary_field_summary_idx').on(t.summaryId, t.sort),
+      check('model_summary_field_state_check', inList(t.state, MODEL_SUMMARY_FIELD_STATES)),
+      check('model_summary_field_type_check', inList(t.valueType, MODEL_SUMMARY_FIELD_TYPES)),
+      check('model_summary_field_unit_check', inList(t.unit, MODEL_SUMMARY_UNITS)),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: 'Uploader (read from the workbook)',
+    description:
+      'FB-14: the figures of a model summary, one row per mapped field, as the workbook holds them (errors, blanks and negatives kept). Insert-only.',
   },
 );
 

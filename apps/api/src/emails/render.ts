@@ -223,27 +223,27 @@ const COPY: Record<string, Copy> = {
   },
   // FB-07 (D-001): costing, then ROI, then price approved. `version` is the model's version number.
   'quote.ready_for_roi': {
-    phrase: 'is ready for its ROI',
+    phrase: 'is ready for its payback model',
     context: 'Quoting',
-    heading: 'A costing model is ready for the ROI',
+    heading: 'A costing model is ready for the payback model',
     action: (p) =>
       sentence(
         p.actor
           ? `${p.actor} uploaded the costing model${p.version ? ` (version ${p.version})` : ''}.`
           : 'Pricing uploaded the costing model.',
-        'Capital is required on this quote: build the ROI from it and upload the ROI model on the Quoting tab.',
+        'Capital is required on this quote: build the payback model from it and upload it on the Quoting tab.',
       ),
     cta: 'Open Quoting',
   },
   'quote.roi_uploaded': {
-    phrase: 'has its ROI',
+    phrase: 'has its payback model',
     context: 'Quoting',
-    heading: 'The ROI model is uploaded',
+    heading: 'The payback model is uploaded',
     action: (p) =>
       sentence(
         p.actor
-          ? `${p.actor} uploaded the ROI model${p.version ? ` (version ${p.version})` : ''}.`
-          : 'Finance uploaded the ROI model.',
+          ? `${p.actor} uploaded the payback model${p.version ? ` (version ${p.version})` : ''}.`
+          : 'Finance uploaded the payback model.',
         'Review it and approve the price (G3), or send the quote back.',
       ),
     cta: 'Open Quoting',

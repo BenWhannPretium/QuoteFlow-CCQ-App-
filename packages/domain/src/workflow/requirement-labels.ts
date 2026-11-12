@@ -51,7 +51,7 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   'pricing_record.costing_completed': 'Costing attested as complete (before the price)',
   'cost_model_on_file,pricing_record.cost_model_requirement':
     'The costing model, uploaded by Pricing on the Quoting tab',
-  'roi_required,roi_model_on_file': 'The ROI model, uploaded by Finance (this quote needs one)',
+  'roi_required,roi_model_on_file': 'The payback model, uploaded by Finance (this quote needs one)',
   'pricing_record.capital_readiness': 'Capital readiness',
   'pricing_record.capital_readiness,pricing_record.capital_pending_justification':
     'Capital readiness other than pending, or a pending-capital justification (D-11)',

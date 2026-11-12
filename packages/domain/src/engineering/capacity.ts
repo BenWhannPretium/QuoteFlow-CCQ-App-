@@ -238,3 +238,79 @@ export function allocationCheck(
         : `The rows allocate ${n(allocated)} units a year, ${n(difference)} fewer than the quote's ${n(quoteAnnualVolume)}.`,
   };
 }
+
+/**
+ * FB-14 (Capacity Exhibit, Stacy Slocum 2026-11-11; no tracker ID yet): capacity at a glance for one
+ * capacity-evidence row, in the exhibit's three definitions. Read-only and advisory: it changes no
+ * utilization figure, no G2 rule and adds no input.
+ *
+ *   theoretical  = parts a day at 100 % (24 h), and x 365 a year (24/7/365)
+ *   expected     = theoretical x OEE (the row's effectiveness %), x 365 a year
+ *   practical    = expected a day, x the row's scheduled run days a year (capacity_basis, provisional)
+ *
+ * OEE is applied once (as FB-03's utilization formula, A-023). The practical year is exactly the
+ * `annualCapacityUnits` that utilization divides by. The exhibit's own sheet multiplies by an "annual
+ * days" input of 360 while its footnote says 365 (24/7) and about 261 (24/5): that is a question for
+ * Finance, so QuoteFlow uses the calendar year for the 24/7 figures and the configured run days for the
+ * practical one. Pounds are given only when the part weight is known (intake's gram weight).
+ */
+export const DAYS_PER_YEAR_24_7 = 365;
+export const GRAMS_PER_POUND = 453.59237;
+
+export interface CapacityGlanceInputs {
+  cycleTimeS: number | null | undefined;
+  cavitation: number | null | undefined;
+  effectivenessPct: number | null | undefined;
+  scheduledRunDaysPerYear: number | null | undefined;
+  /** Average part weight in grams (intake), when known. */
+  partWeightG?: number | null | undefined;
+}
+
+export interface CapacityFigure {
+  perDay: number;
+  perYear: number;
+  /** Pounds, when the part weight is known. */
+  lbsPerDay: number | null;
+  lbsPerYear: number | null;
+}
+
+export interface CapacityGlance {
+  theoretical: CapacityFigure;
+  expected: CapacityFigure;
+  practical: CapacityFigure;
+  runDaysPerYear: number;
+}
+
+/** The three capacities, or null when an input is missing or unusable (never a zero). */
+export function capacityAtAGlance(input: CapacityGlanceInputs): CapacityGlance | null {
+  const { cycleTimeS, cavitation, effectivenessPct, scheduledRunDaysPerYear, partWeightG } = input;
+  if (
+    !finite(cycleTimeS) ||
+    cycleTimeS <= 0 ||
+    !finite(cavitation) ||
+    cavitation < 1 ||
+    !finite(effectivenessPct) ||
+    effectivenessPct <= 0 ||
+    effectivenessPct > 100 ||
+    !finite(scheduledRunDaysPerYear) ||
+    scheduledRunDaysPerYear < 1 ||
+    scheduledRunDaysPerYear > 366
+  ) {
+    return null;
+  }
+  const lbsPerPart = finite(partWeightG) && partWeightG > 0 ? partWeightG / GRAMS_PER_POUND : null;
+  const figure = (perDay: number, days: number): CapacityFigure => ({
+    perDay,
+    perYear: perDay * days,
+    lbsPerDay: lbsPerPart === null ? null : perDay * lbsPerPart,
+    lbsPerYear: lbsPerPart === null ? null : perDay * days * lbsPerPart,
+  });
+  const theoreticalPerDay = (SECONDS_PER_DAY / cycleTimeS) * cavitation;
+  const expectedPerDay = theoreticalPerDay * (effectivenessPct / 100);
+  return {
+    theoretical: figure(theoreticalPerDay, DAYS_PER_YEAR_24_7),
+    expected: figure(expectedPerDay, DAYS_PER_YEAR_24_7),
+    practical: figure(expectedPerDay, scheduledRunDaysPerYear),
+    runDaysPerYear: scheduledRunDaysPerYear,
+  };
+}

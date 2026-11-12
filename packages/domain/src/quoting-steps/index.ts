@@ -134,7 +134,7 @@ export function roiReasonText(reason: RoiReason, labels: RoiReasonLabels = {}): 
 
 /** Why no ROI is needed, in words (shown on the ROI step instead of an upload). */
 export const ROI_NOT_REQUIRED_TEXT =
-  'Not required: an ROI is needed only when capital is required ($0 CER included). Engineering did not say capital is required, capital is not flagged likely, and the funding model does not call for one.';
+  'Not required: a payback model is needed only when capital is required ($0 CER included). Engineering did not say capital is required, capital is not flagged likely, and the funding model does not call for one.';
 
 // ── Who uploads which model ──────────────────────────────────────────────────────────────────────
 
@@ -175,7 +175,7 @@ export type ModelUploadPlan = { ok: true } | { ok: false; errors: DomainError[] 
 
 const MODEL_NOUN: Record<QuotingModelKind, string> = {
   cost_model: 'costing model',
-  roi_model: 'ROI model',
+  roi_model: 'payback model',
   price_table: 'updated price table',
 };
 
@@ -232,14 +232,14 @@ export function planModelUpload(
       errors.push(
         new DomainError(
           'ROI_NOT_REQUIRED',
-          'This quote does not need an ROI (capital is not required), so there is nothing to upload',
+          'This quote does not need a payback model (capital is not required), so there is nothing to upload',
         ),
       );
     } else if (!ctx.costModelOnFile && !ctx.costModelGrandfathered) {
       errors.push(
         new DomainError(
           'COSTING_FIRST',
-          'Costing comes first: Pricing uploads the costing model, then Finance builds the ROI from it',
+          'Costing comes first: Pricing uploads the costing model, then Finance builds the payback model from it',
         ),
       );
     }

@@ -447,7 +447,7 @@ describe('ROI not required (no capital)', () => {
     expect(await notified(qn, 'quote.ready_for_roi')).toEqual([]);
     const roi = await uploadModel(app, qn, 'roi_model', 'Finance');
     expect(roi.statusCode).toBe(409);
-    expect(roi.body).toContain('does not need an ROI');
+    expect(roi.body).toContain('does not need a payback model');
     await pricingRecorded(qn);
     expect((await steps(qn)).current).toBe('price');
     ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'));

@@ -98,8 +98,8 @@ describe('subjects', () => {
     ['quote.on_hold', '[QuoteFlow] CCQ-2026-00042 is on hold: Hold'],
     ['quote.closed', '[QuoteFlow] CCQ-2026-00042 was closed: Outcome recorded'],
     ['comment.posted', '[QuoteFlow] CCQ-2026-00042 has 3 new comments: Comments'],
-    ['quote.ready_for_roi', '[QuoteFlow] CCQ-2026-00042 is ready for its ROI: Quoting'],
-    ['quote.roi_uploaded', '[QuoteFlow] CCQ-2026-00042 has its ROI: Quoting'],
+    ['quote.ready_for_roi', '[QuoteFlow] CCQ-2026-00042 is ready for its payback model: Quoting'],
+    ['quote.roi_uploaded', '[QuoteFlow] CCQ-2026-00042 has its payback model: Quoting'],
     [
       'quote.terms_exception_requested',
       '[QuoteFlow] CCQ-2026-00042 has non-standard payment terms: Payment-terms exception',

@@ -82,25 +82,25 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
   Finance: {
     role: 'Finance',
     roleLabel: 'Finance',
-    title: 'ROI requests',
+    title: 'Payback requests',
     description:
-      'Quotes that need an ROI: take the assumptions from the costing model on the quote and upload the ROI model.',
+      'Quotes that need a payback model: take the assumptions from the costing model on the quote and upload the payback model.',
     action: { label: 'Find a quote', to: '/quotes', permission: 'quote.read' },
     cards: [
       {
         title: 'When a quote needs you',
         description:
-          'You are told (bell and email) when Pricing uploads a costing model on a quote that needs an ROI: capital is required, $0 CER included. The notice opens the quote’s Quoting tab.',
+          'You are told (bell and email) when Pricing uploads a costing model on a quote that needs a payback model: capital is required, $0 CER included. The notice opens the quote’s Quoting tab.',
       },
       {
         title: 'What you do',
         description:
-          'On the Quoting tab, step 2 (ROI): download the current costing model, build the ROI on your template, then upload the ROI model. A new upload replaces the current version; earlier versions stay in the history.',
+          'On the Quoting tab, step 2 (Payback): download the current costing model, build the payback model on your template, then upload it. QuoteFlow shows a short summary of its headline figures, read from the workbook. A new upload replaces the current version; earlier versions stay in the history.',
       },
       {
         title: 'What you don’t do',
         description:
-          'You are an input, not an approver: the pricing lead approves the price (G3) after your ROI is on file. Your role reads quotes, uploads the ROI model and may comment on a quote; it changes nothing else.',
+          'You are an input, not an approver: the pricing lead approves the price (G3) after your payback model is on file. Your role reads quotes, uploads the payback model and may comment on a quote; it changes nothing else.',
       },
     ],
   },

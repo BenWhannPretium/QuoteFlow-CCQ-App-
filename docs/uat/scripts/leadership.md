@@ -54,7 +54,7 @@
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 20 | Open `<CCQ-ANY-1>` → **Quoting** tab. | You can read the pricing record and capital readiness. There is no **Save price approval** and no **Price approved: advance to Final Review…**. The **Costing, ROI and price approval** steps show who did each and when, with no upload buttons. | | |
+| 20 | Open `<CCQ-ANY-1>` → **Quoting** tab. | You can read the pricing record and capital readiness. There is no **Save price approval** and no **Price approved: advance to Final Review…**. The **Costing, payback and price approval** steps show who did each and when, with no upload buttons. | | |
 | 21 | Look at the quote header. | No gate decision buttons. | | |
 | 22 | **Approvals** → **Final Review** → open a quote. | The bar says "You are reading this review. Final Review decisions are taken by an approver." | | |
 | 23 | **Admin** → **App settings**. Then **Reason codes**. | You can read every setting. There are no edit controls. | | |

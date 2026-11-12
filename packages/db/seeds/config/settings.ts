@@ -21,6 +21,9 @@ import {
   SCORING_MODEL_V2_INPUT,
   COMMENT_EMAIL_COLLAPSE_MINUTES_SEED,
   ROI_REQUIRED_WHEN_SEED,
+  MODEL_SUMMARY_LIMITS_SEED,
+  MODEL_SUMMARY_TEMPLATES_SEED,
+  MODEL_SUMMARY_VISIBLE_SEED,
   SCORING_DRAFT_V3_CHANGE_REASON,
   SCORING_MODEL_V3_INPUT,
   INTAKE_GUARDRAILS_SEED,
@@ -441,7 +444,26 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'roi_required_when',
     value: ROI_REQUIRED_WHEN_SEED,
     description:
-      "FB-07 (D-001): when a quote needs Finance's ROI model before the pricing lead approves the price (G3). Any of: Engineering's latest G2 outcome is in g2Outcomes, the quote is flagged capital likely (capitalLikely), or the tooling funding model is in fundingModels. Seed: capital required, $0 CER included. Provisional.",
+      'FB-07 (D-001): when a quote needs Finance\'s payback model (roi_model; "Payback" since FB-14) before the pricing lead approves the price (G3). Any of: Engineering\'s latest G2 outcome is in g2Outcomes, the quote is flagged capital likely (capitalLikely), or the tooling funding model is in fundingModels. Seed: capital required, $0 CER included. Provisional.',
+  },
+  // ── FB-14 (F-031 summary half, D-013, A-031 partly received): the model summary. Provisional.
+  {
+    key: 'model_summary_templates',
+    value: MODEL_SUMMARY_TEMPLATES_SEED,
+    description:
+      'FB-14 (F-031 summary half, D-013, A-031 partly received): the one-page summary maps. One entry per template: the attachment kind, how to recognise it (a sheet plus label cells) and the fields to read (a defined name when the workbook has one, else an A1 address; fallbackRef is used until the name exists). Inactive maps are not used. Seeded: the payback calculator (Finance, draft #3: cells proposed, Finance to confirm and add the QF_ names) and the pre-makeover ERF costing layout (inactive). Provisional.',
+  },
+  {
+    key: 'model_summary_visible',
+    value: MODEL_SUMMARY_VISIBLE_SEED,
+    description:
+      'FB-14 (04 §2a, open): may QuoteFlow show the figures read from uploaded models (costing, payback) to the roles that read the quote? Seeded on (CLAUDE.md rule 2: every role that reads a quote sees its commercial figures). Off hides the figures everywhere; the files and their versions still show. Provisional until Gemma Cebolla decides.',
+  },
+  {
+    key: 'model_summary_limits',
+    value: MODEL_SUMMARY_LIMITS_SEED,
+    description:
+      'FB-14: the work cap for reading a model summary at upload: maxBytes (a larger file is stored and shows "too large"), timeoutMs (well inside the upload request), maxCells. Provisional.',
   },
   {
     key: 'capital_management_notice',

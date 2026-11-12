@@ -68,7 +68,7 @@ describe('evaluateRule', () => {
     const [error] = evaluateRule(rule, { roi_required: true });
     expect(error).toMatchObject({
       field: 'roi_required,roi_model_on_file',
-      message: 'The ROI model, uploaded by Finance (this quote needs one)',
+      message: 'The payback model, uploaded by Finance (this quote needs one)',
     });
   });
 

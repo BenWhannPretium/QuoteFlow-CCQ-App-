@@ -11,7 +11,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
-- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
+- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`feedback`](#feedback), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
@@ -603,6 +603,66 @@ Hand-off record (CR-41/42, B-13): opened by an award, completed in Commit & Hand
 | `updated_by` | uuid | yes |  | app_user.id | B-13: who last edited the record. | KAM |
 
 **Checks:** `handoff_record_cer_ready_consistency_check`, `handoff_record_acceptance_evidence_check`, `handoff_record_cer_status_check`, `handoff_record_completed_consistency_check`
+
+### model_summary
+
+FB-14 (D-013): the one-page summary read from an uploaded costing or payback model version (cached cell values only; QuoteFlow never recomputes them). Insert-only.
+
+**Owner:** Uploader (read from the workbook)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `attachment_id` | uuid | no |  | attachment.id | The attachment version the summary was read from. | Uploader (read from the workbook) |
+| `quote_id` | uuid | no |  | quote.id | Quote (the attachment's). | Uploader (read from the workbook) |
+| `kind` | text | no |  |  | Attachment kind: cost_model \| roi_model \| price_table. | Uploader (read from the workbook) |
+| `status` | text | no |  |  | complete \| partial (some fields not found or not calculated) \| unavailable (see reason) \| not_configured (no active map for the kind). | Uploader (read from the workbook) |
+| `reason` | text | yes |  |  | Why it is unavailable: not_xlsx \| too_large \| unreadable \| timed_out \| not_recognised \| not_calculated \| fields_not_found. Never cell contents. | Uploader (read from the workbook) |
+| `template_id` | text | yes |  |  | The model_summary_templates map used (null when none matched). | Uploader (read from the workbook) |
+| `map_provisional` | boolean | yes |  |  | Whether that map was provisional when the summary was read. | Uploader (read from the workbook) |
+| `field_count` | integer | no |  |  | Fields stored in model_summary_field. | Uploader (read from the workbook) |
+| `extracted_at` | timestamp with time zone | no |  |  | When the workbook was read (UTC). | Uploader (read from the workbook) |
+| `duration_ms` | integer | yes |  |  | How long the read took (ms). | CCQ (system) |
+
+**Checks:** `model_summary_kind_check`, `model_summary_status_check`, `model_summary_reason_check`, `model_summary_field_count_check`
+
+**Indexes:** `model_summary_quote_idx`
+
+### model_summary_field
+
+FB-14: the figures of a model summary, one row per mapped field, as the workbook holds them (errors, blanks and negatives kept). Insert-only.
+
+**Owner:** Uploader (read from the workbook)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `summary_id` | uuid | no |  | model_summary.id | The summary. | Uploader (read from the workbook) |
+| `quote_id` | uuid | no |  | quote.id | Quote (for row-level security). | Uploader (read from the workbook) |
+| `sort` | integer | no |  |  | Order in the map. | Uploader (read from the workbook) |
+| `field_key` | text | no |  |  | The map's field key (payback_years, irr, ...). | Uploader (read from the workbook) |
+| `label` | text | no |  |  | Label shown, as the map said at the time. | Uploader (read from the workbook) |
+| `unit` | text | no |  |  | usd \| units \| years \| percent (a fraction) \| count \| text. | Uploader (read from the workbook) |
+| `value_type` | text | no |  |  | number \| text \| date. | Uploader (read from the workbook) |
+| `sheet` | text | no |  |  | Sheet the value was read from. | Uploader (read from the workbook) |
+| `cell_ref` | text | no |  |  | A1 address read (or the defined name not found). | Uploader (read from the workbook) |
+| `defined_name` | text | yes |  |  | The defined name used, when there was one. | Uploader (read from the workbook) |
+| `state` | text | no |  |  | ok \| blank \| error (an Excel error: value_text holds the code) \| not_calculated \| not_found \| wrong_type (value_text holds the text) \| out_of_range (value_text holds the number). | Uploader (read from the workbook) |
+| `value_number` | numeric(18, 4) | yes |  |  | The number as cached in the workbook (numeric(18,4): Fabric-safe). | Uploader (workbook) |
+| `value_text` | text | yes |  |  | Text, an error code, or what a number field held instead. | Uploader (read from the workbook) |
+| `value_date` | timestamp with time zone | yes |  |  | A date value (UTC midnight). | Uploader (read from the workbook) |
+| `headline` | boolean | no | false |  | A headline figure. | Uploader (read from the workbook) |
+| `proposed` | boolean | no | true |  | The cell mapping was a proposal awaiting the template owner when read. | Uploader (read from the workbook) |
+
+**Checks:** `model_summary_field_state_check`, `model_summary_field_type_check`, `model_summary_field_unit_check`
+
+**Indexes:** `model_summary_field_summary_idx`
 
 ### override
 

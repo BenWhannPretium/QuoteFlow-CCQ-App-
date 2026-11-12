@@ -13,3 +13,7 @@ Put business inputs for the FB steps here, so a build session can read them with
 | `value-lists-danielle.md` (**added 2026-11-10**: product family, resin, PCR, additive and the "Other" rule) | Danielle Leu (2026-11-09) | FB-09 |
 | `plants.csv`, `machine-types.csv` (**not received**) | Jim Zweifel | FB-09 |
 | `plant-packaging-standards.csv` | Engineering with the plants (A-028) | FB-09 (F-012) |
+| `payback-calculator-structure.md` (**added 2026-11-12**: structure only of *DRAFT #3 Pretium Savings Calculator*; the workbook holds real plant financials and stays out of the repo) | Stacy Slocum (A-031, 2026-11-11) | FB-14 (F-031 summary, D-013) |
+| `costing-template-structure.md` (**added 2026-11-12**: structure only of the pre-makeover ERF costing workbook; a real quote, stays out of the repo; the new template is **not received**) | Gemma Cebolla (A-031, 2026-11-11) | FB-14 (inactive map) |
+| `capacity-exhibit.md` (**added 2026-11-12**: layout and formulas; 360 vs 365 days to confirm) | Stacy Slocum (2026-11-11, not asked for) | FB-14 (capacity helper) |
+| One-page summary template + cell map (**not received**; the payback calculator's `0. Financial Summary` may be it: asked) | Stacy Slocum / Gemma Cebolla (A-031) | FB-14 |

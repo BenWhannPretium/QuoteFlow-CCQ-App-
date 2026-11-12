@@ -153,7 +153,13 @@ describe('0031 FB-07 data migration', () => {
       );
       const seeded = hybridConfig.outcomes.find((x) => x.gateKey === 'G3' && x.key === 'submit')!;
       expect(o!.label).toBe(seeded.label);
-      expect(o!.help_text).toBe(seeded.helpText);
+      // 0031 writes the FB-07 wording; FB-14's 0042 then says "payback model" (fb14-migration test).
+      expect(o!.help_text).toBe(
+        (seeded.helpText ?? '').replace(
+          'the payback model is on file too.',
+          'the ROI model is on file too.',
+        ),
+      );
       expect(o!.required_fields).toEqual(seeded.requiredFields);
       const [setting] = await raw<{ value: unknown; provisional: boolean }>(
         tx,

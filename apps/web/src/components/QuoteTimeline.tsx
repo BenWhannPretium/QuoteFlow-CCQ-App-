@@ -390,7 +390,7 @@ const mentionQuery = (text: string, caret: number) =>
 /** FB-07: the Quoting step each model belongs to, for the timeline. */
 const MODEL_STEP: Record<string, string> = {
   cost_model: 'Costing model',
-  roi_model: 'ROI model',
+  roi_model: 'Payback model',
   price_table: 'Updated price table',
 };
 

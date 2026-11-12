@@ -20,6 +20,11 @@ import { parseApproverTierRules } from '../final-review/tiers';
 import { intakeGuardrailsSchema } from '../intake/guardrails';
 import { intakeConfigSchema } from '../intake/intake';
 import { MIN_SPEC_KEYS } from '../intake/product-facts';
+import {
+  parseModelSummaryLimits,
+  parseModelSummaryTemplates,
+  parseModelSummaryVisible,
+} from '../model-summary';
 import { COMMENT_EMAIL_COLLAPSE_MINUTES_MAX } from '../notifications/events';
 import { parseReceivingRoles } from '../outcome/handoff';
 import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome/sf-stage';
@@ -366,9 +371,31 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   spec(
     'roi_required_when',
     'pricing',
-    "When a quote needs Finance's ROI model before the price is approved (G2 outcomes, capital likely, funding models)",
+    "When a quote needs Finance's payback model before the price is approved (G2 outcomes, capital likely, funding models)",
     'json',
     notNull('roi_required_when', parseRoiRequiredWhen),
+  ),
+  // FB-14 (F-031 summary half, D-013, A-031): the one-page summary read from an uploaded model.
+  spec(
+    'model_summary_templates',
+    'pricing',
+    'Model summary maps: per template, the attachment kind, how to recognise it (sheet + label cells) and the cells to read (a defined name, else an A1 address). Inactive maps are not used',
+    'json',
+    notNull('model_summary_templates', parseModelSummaryTemplates),
+  ),
+  spec(
+    'model_summary_visible',
+    'pricing',
+    'Show the figures read from uploaded models (costing, payback) on the Quoting tab and at Final Review',
+    'boolean',
+    notNull('model_summary_visible', parseModelSummaryVisible),
+  ),
+  spec(
+    'model_summary_limits',
+    'pricing',
+    'Model summary work cap: largest file read (bytes), time limit (ms), most cells kept',
+    'json',
+    notNull('model_summary_limits', parseModelSummaryLimits),
   ),
   // Capital and Market Development notices (B-26, D-27)
   spec(

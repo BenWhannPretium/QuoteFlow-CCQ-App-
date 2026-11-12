@@ -16,6 +16,15 @@ export const CAPITAL_READINESS = [
 export { ATTACHMENT_KINDS, VERSIONED_ATTACHMENT_KINDS } from '@ccq/domain';
 /** FB-07 (F-032): whether costing needs the costing model (grandfathered: in Quoting before FB-07). */
 export { COST_MODEL_REQUIREMENTS } from '@ccq/domain';
+/** FB-14 (D-013): model summaries read from uploaded workbooks. */
+export {
+  MODEL_SUMMARY_FIELD_STATES,
+  MODEL_SUMMARY_FIELD_TYPES,
+  MODEL_SUMMARY_KINDS,
+  MODEL_SUMMARY_REASONS,
+  MODEL_SUMMARY_STATUSES,
+  MODEL_SUMMARY_UNITS,
+} from '@ccq/domain';
 // FB-08 (T-007): payment-terms exception statuses (the request history and the quote's current one).
 export { QUOTE_TERMS_EXCEPTION_STATUSES, TERMS_EXCEPTION_STATUSES } from '@ccq/domain';
 /** B-16: where an attachment's bytes are (FILESTORE_MODE). */

@@ -247,47 +247,48 @@
 <ol>
 <li><strong>Pricing lead: assign pricers.</strong> <strong>Pricing queue</strong> → row menu <strong>…</strong> → <strong>Assign pricer…</strong>. Use <strong>Reassign work…</strong> to balance the load.</li>
 <li><strong>Read what the KAM told you.</strong> On the <strong>Quoting</strong> tab, <strong>From intake</strong> shows the payment terms the customer asked for (a non-standard request is flagged <strong>Non-standard: Pricing will review</strong>: it is for awareness and negotiation and does not change the costing), whether the customer funds any tooling, returnable or single-trip dunnage, delivered or FOB with the freight type and any special arrangement (drop trailers and T-bars are costly), and the bid / program reference. A blank means the KAM did not say: ask.</li>
-<li><strong>Step 1, costing: upload the costing model.</strong> On the <strong>Quoting</strong> tab, <strong>Costing, ROI and price approval</strong> → <strong>1. Costing</strong> → <strong>Upload the costing model</strong> (one workbook: costs and the initial price assumptions). A changed model? <strong>Upload a new version</strong>: the earlier one stays under <strong>Earlier versions</strong>. When capital is required ($0 CER included), Finance is told to build the ROI.</li>
+<li><strong>Step 1, costing: upload the costing model.</strong> On the <strong>Quoting</strong> tab, <strong>Costing, payback and price approval</strong> → <strong>1. Costing</strong> → <strong>Upload the costing model</strong> (one workbook: costs and the initial price assumptions). A changed model? <strong>Upload a new version</strong>: the earlier one stays under <strong>Earlier versions</strong>. When capital is required ($0 CER included), Finance is told to build the payback model.</li>
 <li><strong>Record the price approval.</strong> Check the <strong>Engineering summary</strong> and <strong>Pricing history</strong>. Tick <strong>Costing completed (Cost-to-Serve)</strong> (it needs the costing model on file), set <strong>Approved by</strong> and <strong>Approved at</strong>, then <strong>Save price approval</strong>.</li>
 <li><strong>Record capital readiness.</strong> Pick a <strong>Status</strong> (a pending status needs a justification). Click <strong>Save capital readiness</strong>.</li>
 <li><strong>Check the terms.</strong> On <strong>Overview</strong> → <strong>Commercial terms</strong>, check the payment terms (the customer's request, else Net 30), pick the tooling payment, answer the tooling commitment, tick <strong>Terms checked</strong> and <strong>Save terms</strong>. A payment term other than Net 15 or Net 30 goes to the pricing lead as an exception, to approve or reject with a rationale. You can pre-fill the <strong>Capital terms</strong>: the approver confirms them. Funding and MOQ are Engineering's. Final Review shows an open warning if the terms check is not done.</li>
 <li><strong>Submit to the pricing lead.</strong> Pricers click <strong>Submit to pricing lead</strong>. It is locked for you until the lead decides or sends it back.</li>
-<li><strong>Step 2, ROI (Finance).</strong> When the quote needs one, <strong>2. ROI</strong> says why; Finance uploads the ROI model and the pricing lead is told. Otherwise it says <strong>Not required</strong>.</li>
-<li><strong>Step 3, pricing lead: approve the price (G3).</strong> <strong>Ready for my review</strong> lists what was submitted. Optionally <strong>Upload an updated price table</strong> if the price changed (otherwise the price in the models stands). Choose <strong>Price approved: advance to Final Review…</strong> (it needs the costing model and, when required, the ROI model), <strong>Return to Engineering…</strong>, <strong>Return to KAM…</strong> or <strong>Hold or stop…</strong> (Hold, Rework (re-cost), Redirect, Stop). Every send-back, hold and stop needs a note. Once you advance, the pricing section is locked until a send-back reopens it.</li>
+<li><strong>Step 2, Payback (Finance).</strong> When the quote needs one, <strong>2. Payback</strong> says why; Finance uploads the payback model and the pricing lead is told. Otherwise it says <strong>Not required</strong>.</li>
+<li><strong>Step 3, pricing lead: approve the price (G3).</strong> <strong>Ready for my review</strong> lists what was submitted. Optionally <strong>Upload an updated price table</strong> if the price changed (otherwise the price in the models stands). Choose <strong>Price approved: advance to Final Review…</strong> (it needs the costing model and, when required, the payback model), <strong>Return to Engineering…</strong>, <strong>Return to KAM…</strong> or <strong>Hold or stop…</strong> (Hold, Rework (re-cost), Redirect, Stop). Every send-back, hold and stop needs a note. Once you advance, the pricing section is locked until a send-back reopens it.</li>
 </ol>
 <h2>What changed from the ERF</h2>
 <ul>
 <li>The preliminary capital figure is now the <strong>Budgetary capital estimate</strong>. There is no CER reference box.</li>
 <li>No price figures are typed into QuoteFlow. You record who approved, when, the basis and the range.</li>
 <li>BPR is retired. The legacy ERF # is optional.</li>
-<li>Costing, then ROI, then price approval (D-001): the costing model and, when capital is required, Finance's ROI model are on file before the price is approved. Each model keeps its versions; the latest is flagged.</li>
+<li>Costing, then payback, then price approval (D-001): the costing model and, when capital is required, Finance's payback model are on file before the price is approved. Each model keeps its versions; the latest is flagged.</li>
 <li>Quotes already in Quoting with costing attested before this change show <strong>No model on file</strong> and keep working.</li>
 <li>You never decide Final Review on a quote you priced.</li>
 </ul>
 <h2>Who to ask</h2>
 <ul>
-<li><strong>Gemma Cebolla</strong>, Sr Director Pricing: pricing rules. <strong>Stacy Slocum</strong>, Finance: the ROI.</li>
+<li><strong>Gemma Cebolla</strong>, Sr Director Pricing: pricing rules. <strong>Stacy Slocum</strong>, Finance: the payback model.</li>
 <li><strong>Bailey Schmitt</strong>, product owner. <strong>Tre Curry</strong>, coordination. <strong>Ben Whann</strong>, builder.</li>
 <li>Found a problem? Click <strong>Report an issue</strong> in your user menu or at the bottom of any page.</li>
 </ul>
 </section>
 
 <section class="role" id="finance">
-<h1>QuoteFlow quick-start: Finance (ROI)</h1>
-<p><strong>What QuoteFlow is for you.</strong> Quotes that need an ROI before the price is approved: capital is required, $0 CER included. Pricing uploads the costing model (costs and the initial price assumptions); you build the ROI from it on your template and upload the ROI model. You are an input, not an approver: the pricing lead approves the price (G3, <strong>Price approved</strong>) once your ROI is on file.</p>
-<p><strong>Your home screen.</strong> <strong>ROI requests</strong>, with what to do. Your menu: <strong>Home</strong>, <strong>Pipeline</strong>. Your role reads quotes, uploads the ROI model and may comment on a quote; it changes nothing else.</p>
+<h1>QuoteFlow quick-start: Finance (payback model)</h1>
+<p><strong>What QuoteFlow is for you.</strong> Quotes that need a payback model before the price is approved: capital is required, $0 CER included. Pricing uploads the costing model (costs and the initial price assumptions); you build the payback from it on your template and upload the payback model. You are an input, not an approver: the pricing lead approves the price (G3, <strong>Price approved</strong>) once your payback model is on file.</p>
+<p><strong>Your home screen.</strong> <strong>Payback requests</strong>, with what to do. Your menu: <strong>Home</strong>, <strong>Pipeline</strong>. Your role reads quotes, uploads the payback model and may comment on a quote; it changes nothing else.</p>
 <h2>What you'll do</h2>
 <ol>
-<li><strong>Get told.</strong> When Pricing uploads a costing model on a quote that needs an ROI, you get a bell notice and an email: "… is ready for its ROI". It opens the quote's <strong>Quoting</strong> tab.</li>
-<li><strong>Take the assumptions.</strong> <strong>Costing, ROI and price approval</strong> → <strong>1. Costing</strong>: download the current costing model (the latest version is flagged <strong>current</strong>).</li>
-<li><strong>Upload the ROI.</strong> <strong>2. ROI</strong> says why the ROI is needed. Click <strong>Upload the ROI model</strong>. The pricing lead is told.</li>
-<li><strong>Costing changed?</strong> If Pricing uploads a new costing model version, you are told again, and step 2 says when your ROI is older than the costing model. <strong>Upload a new version</strong>: the earlier one stays under <strong>Earlier versions</strong>.</li>
+<li><strong>Get told.</strong> When Pricing uploads a costing model on a quote that needs a payback model, you get a bell notice and an email: "… is ready for its payback model". It opens the quote's <strong>Quoting</strong> tab.</li>
+<li><strong>Take the assumptions.</strong> <strong>Costing, payback and price approval</strong> → <strong>1. Costing</strong>: download the current costing model (the latest version is flagged <strong>current</strong>).</li>
+<li><strong>Upload the payback model.</strong> <strong>2. Payback</strong> says why the payback model is needed. Click <strong>Upload the payback model</strong>. The pricing lead is told.</li>
+<li><strong>Check the summary.</strong> After the upload, QuoteFlow shows a short summary of the headline figures it read from your workbook. It is read-only: you cannot edit it in QuoteFlow. An Excel error, a negative or zero payback, or a blank headline figure shows as a warning. A warning never blocks anything.</li>
+<li><strong>Costing changed?</strong> If Pricing uploads a new costing model version, you are told again, and step 2 says when your payback model is older than the costing model. <strong>Upload a new version</strong>: the earlier one stays under <strong>Earlier versions</strong>.</li>
 <li><strong>After the price is approved</strong> the steps are locked. A send-back to Quoting reopens them.</li>
 </ol>
 <h2>What changed</h2>
 <ul>
 <li>Assumptions come from QuoteFlow, not from email: the costing model is on the quote.</li>
-<li>The ROI is a step inside Quoting, after costing and before the price is approved (D-001). No ROI is needed when capital is not required; the step says <strong>Not required</strong> and why.</li>
+<li>The payback is a step inside Quoting, after costing and before the price is approved (D-001). No payback model is needed when capital is not required; the step says <strong>Not required</strong> and why.</li>
 </ul>
 <h2>Who to ask</h2>
 <ul>
