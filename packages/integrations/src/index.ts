@@ -12,3 +12,4 @@ export * from './pricing/index';
 export * from './graph/index';
 export * from './mail/index';
 export * from './fabric/index';
+export * from './workbook/index';

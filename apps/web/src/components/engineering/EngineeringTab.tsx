@@ -9,11 +9,14 @@ import {
 import {
   EXCEEDS_CAPACITY_MESSAGE,
   allocationCheck,
+  capacityAtAGlance,
   computeUtilization,
   roundPct,
   storedUtilizationPct,
   utilizationLevel,
   type UtilizationLevel,
+  type CapacityFigure,
+  type CapacityGlance,
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DownloadIcon, EyeOffIcon, PaperclipIcon, PlusIcon, Trash2Icon } from 'lucide-react';
@@ -761,6 +764,19 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
     // Numbers hidden from this role and left blank: show what the server stored.
     return hidden && r.id ? r.storedAfterPct : null;
   };
+  // FB-14 (Capacity Exhibit): capacity at a glance, from the row's own inputs (OEE once; practical at
+  // the row's run days or capacity_basis). Read-only; it changes no utilization figure and no G2 rule.
+  const glanceOf = (row: RowForm) => (
+    <CapacityGlanceTable
+      glance={capacityAtAGlance({
+        cycleTimeS: num(row.cycleTimeS),
+        cavitation,
+        effectivenessPct: num(row.assumedEffectivenessPct),
+        scheduledRunDaysPerYear: num(row.scheduledRunDaysPerYear) ?? basis.scheduledRunDaysPerYear,
+        partWeightG: quote.intakeFacts.gramWeightG,
+      })}
+    />
+  );
   // T-030: the rows should add up to the quote's volume. A warning, never a block.
   const allocation = allocationCheck(
     rows.map((r) => ({ allocatedAnnualVolume: volumeOf(r) })),
@@ -867,6 +883,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                     { id: 'notes', label: 'Notes', value: r.notes || null },
                   ]}
                 />
+                {!hidden && glanceOf(r)}
               </li>
             ))}
           </ul>
@@ -1017,6 +1034,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                     </output>
                     <span className="text-muted-foreground text-xs">Read-only. Not typed.</span>
                   </div>
+                  <div className="sm:col-span-4">{glanceOf(r)}</div>
                   <Field label="Analysis date" error={errorFor(errors, `rows/${i}/analysisDate`)}>
                     {(id) => (
                       <Input
@@ -1264,5 +1282,48 @@ function ValueListSelect({
         </option>
       ))}
     </NativeSelect>
+  );
+}
+
+const glanceNumber = (v: number) => Math.round(v).toLocaleString('en-US');
+
+/** FB-14: the Capacity Exhibit's three definitions for one row (nothing shown until the inputs are in). */
+function CapacityGlanceTable({ glance }: { glance: CapacityGlance | null }) {
+  if (!glance) return null;
+  const rows: [string, CapacityFigure][] = [
+    ['Theoretical (24/7/365 at 100%)', glance.theoretical],
+    ['Expected (24/7/365 at effectiveness)', glance.expected],
+    [`Practical (${glance.runDaysPerYear} run days at effectiveness)`, glance.practical],
+  ];
+  const lbs = glance.theoretical.lbsPerDay !== null;
+  return (
+    <details className="text-xs" data-testid="capacity-glance">
+      <summary className="text-muted-foreground cursor-pointer">
+        Capacity at a glance (calculated from the row above)
+      </summary>
+      <table className="mt-1 w-full text-left tabular-nums">
+        <thead className="text-muted-foreground">
+          <tr>
+            <th className="font-normal">Parts</th>
+            <th className="text-right font-normal">Per day</th>
+            <th className="text-right font-normal">Per year</th>
+            {lbs && <th className="text-right font-normal">Lb per year</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, f]) => (
+            <tr key={label}>
+              <th className="font-normal">{label}</th>
+              <td className="text-right">{glanceNumber(f.perDay)}</td>
+              <td className="text-right">{glanceNumber(f.perYear)}</td>
+              {lbs && <td className="text-right">{glanceNumber(f.lbsPerYear ?? 0)}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-muted-foreground mt-1">
+        Effectiveness is applied once. Read-only: utilization above is what counts for G2.
+      </p>
+    </details>
   );
 }

@@ -147,16 +147,16 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
   // FB-07 (D-001, F-032): costing, then ROI, then price confirmation inside Quoting.
   {
     type: 'quote.ready_for_roi',
-    label: 'A quote is ready for its ROI',
+    label: 'A quote is ready for its payback model',
     description:
-      'Finance: Pricing uploaded the costing model (or a new version of it) on a quote that needs an ROI (capital is required, $0 CER included). Build the ROI from it and upload the ROI model.',
+      'Finance: Pricing uploaded the costing model (or a new version of it) on a quote that needs a payback model (capital is required, $0 CER included). Build the payback model from it and upload it.',
     email: 'immediate',
   },
   {
     type: 'quote.roi_uploaded',
-    label: 'An ROI model is uploaded',
+    label: 'A payback model is uploaded',
     description:
-      'Pricing leads: Finance uploaded the ROI model (or a new version), so the price can be confirmed.',
+      'Pricing leads: Finance uploaded the payback model (or a new version), so the price can be confirmed.',
     email: 'immediate',
   },
   // FB-05 (F-079): hand-offs, holds and closures reach the next owner and the KAM.

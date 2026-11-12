@@ -6,6 +6,7 @@ import {
   AttachmentParams,
   AttachmentUploadResponse,
   IntakeDraftParams,
+  ModelSummaryListResponse,
   QuoteNumberParams,
 } from '@ccq/contracts';
 import { fileTypeForName } from '@ccq/domain';
@@ -105,7 +106,7 @@ export const attachmentRoutes: FastifyPluginAsyncZod<AttachmentRoutesOptions> = 
       config: { permission: 'roi.upload' },
       schema: {
         tags,
-        summary: `Upload a new version of the quote's ROI model (Quoting step 2). Finance, the pricing lead or Admin, while the quote is in Quoting, after the costing model, and only when the quote needs an ROI (roi_required_when). The earlier version is kept and superseded; the pricing lead is told. 409 when the quote's state refuses it (SECTION_LOCKED after G3, costing first, not required). The \`kind\` field is ignored. ${UPLOAD_HELP}`,
+        summary: `Upload a new version of the quote's payback model (Quoting step 2, roi_model; "Payback" since FB-14). Finance, the pricing lead or Admin, while the quote is in Quoting, after the costing model, and only when the quote needs a payback model (roi_required_when). The earlier version is kept and superseded; the pricing lead is told. 409 when the quote's state refuses it (SECTION_LOCKED after G3, costing first, not required). The \`kind\` field is ignored. ${UPLOAD_HELP}`,
         security,
         consumes: ['multipart/form-data'],
         params: QuoteNumberParams,
@@ -142,6 +143,35 @@ export const attachmentRoutes: FastifyPluginAsyncZod<AttachmentRoutesOptions> = 
         );
         req.auditView = { entity: 'quote', entityId: quoteId, quoteId };
         return list;
+      }),
+  );
+
+  // FB-14 (F-031 summary half, D-013): the one-page summary of the current costing, payback and price
+  // table models, read from each workbook at upload. Figures, so quote.read.commercialFields (every role
+  // that reads a quote holds it today, CLAUDE.md rule 2); app_setting.model_summary_visible off returns
+  // no figures at all.
+  app.get(
+    '/quotes/:quoteNumber/model-summaries',
+    {
+      config: { permission: 'quote.read.commercialFields' },
+      schema: {
+        tags,
+        summary:
+          "The summaries of the quote's current Quoting models (costing, payback, price table): the figures read from each workbook's cached values at upload, the file, version, uploader and date, and advisory warnings (an Excel error, a blank headline figure, a zero or negative payback, a payback above the hurdle). Read-only; nothing is recomputed. `visible: false` when an Admin has turned the figures off. Follows quote.read scope",
+        security,
+        params: QuoteNumberParams,
+        response: { 200: ModelSummaryListResponse },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, async () => {
+        const { quoteId, view } = await service.modelSummaries(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+        );
+        req.auditView = { entity: 'quote', entityId: quoteId, quoteId };
+        return view;
       }),
   );
 

@@ -18,14 +18,17 @@ import { cn } from '@/lib/utils';
 
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { timelineQueryKey } from '../Overrides';
+import { ModelSummaryPanel } from './ModelSummary';
 
 /**
- * FB-07 (D-001, decided Nov 9): costing, then ROI, then price approved, as steps inside Quoting.
+ * FB-07 (D-001, decided Nov 9): costing, then payback, then price approved, as steps inside Quoting.
  * 1. Costing: Pricing uploads the costing model (costs and the initial price assumptions) and attests it.
- * 2. ROI: Finance builds the ROI from it and uploads the ROI model, only when capital is required.
+ * 2. Payback (`roi_model`; "Payback" since FB-14, Stacy Slocum): Finance builds the payback model from
+ *    it and uploads it, only when capital is required.
  * 3. Price approved: the pricing lead approves the price (G3), with an updated price table if it changed.
- * Each step shows who did it and when. QuoteFlow keeps the files and their versions; it never shows
- * or edits a figure from them (CLAUDE.md rule 5). The server decides who may upload (`canUpload`).
+ * Each step shows who did it and when. QuoteFlow keeps the files and their versions, and (FB-14) shows
+ * a read-only summary of figures read from the workbook; it never edits or recomputes a figure
+ * (CLAUDE.md rule 5). The server decides who may upload (`canUpload`).
  */
 export function QuotingSteps({
   quoteNumber,
@@ -55,11 +58,11 @@ export function QuotingSteps({
     >
       <div className="grid gap-1">
         <h2 id="quoting-steps-h" className="text-base font-semibold">
-          Costing, ROI and price approval
+          Costing, payback and price approval
         </h2>
         <p className="text-muted-foreground text-sm">
-          In order: Pricing’s costing model, then Finance’s ROI when capital is required, then the
-          pricing lead approves the price.
+          In order: Pricing’s costing model, then Finance’s payback model when capital is required,
+          then the pricing lead approves the price.
         </p>
       </div>
       <ol className="grid gap-3 lg:grid-cols-3">
@@ -71,6 +74,13 @@ export function QuotingSteps({
           body={
             <>
               <ModelLine model={steps.costing.model} label="Costing model" />
+              {steps.costing.model && (
+                <ModelSummaryPanel
+                  quoteNumber={quoteNumber}
+                  kind="cost_model"
+                  label="Costing model"
+                />
+              )}
               {steps.costing.noModelOnFile && (
                 <p className="text-sm" data-testid="no-model-on-file">
                   No model on file: costed before QuoteFlow kept the costing model (grandfathered).
@@ -94,7 +104,7 @@ export function QuotingSteps({
         />
         <Step
           n={2}
-          title="ROI"
+          title="Payback"
           status={steps.roi.status}
           testId="step-roi"
           body={
@@ -103,13 +113,21 @@ export function QuotingSteps({
                 <p className="text-sm">
                   Needed: <span data-testid="roi-reasons">{steps.roi.reasons.join('; ')}</span>
                 </p>
-                <ModelLine model={steps.roi.model} label="ROI model" />
+                <ModelLine model={steps.roi.model} label="Payback model" />
+                {steps.roi.model && (
+                  <ModelSummaryPanel
+                    quoteNumber={quoteNumber}
+                    kind="roi_model"
+                    label="Payback model"
+                  />
+                )}
                 {steps.roi.olderThanCostModel && (
                   <p
                     className="bg-warning text-warning-foreground rounded-md px-2 py-1 text-xs"
                     data-testid="roi-older"
                   >
-                    The ROI was uploaded before the current costing model: check it still holds.
+                    The payback model was uploaded before the current costing model: check it still
+                    holds.
                   </p>
                 )}
                 {!compact && <History items={history('roi_model')} />}
@@ -117,7 +135,7 @@ export function QuotingSteps({
                   <ModelUpload
                     quoteNumber={quoteNumber}
                     kind="roi_model"
-                    label={steps.roi.model ? 'Upload a new version' : 'Upload the ROI model'}
+                    label={steps.roi.model ? 'Upload a new version' : 'Upload the payback model'}
                   />
                 )}
               </>
@@ -138,7 +156,7 @@ export function QuotingSteps({
               <p className="text-sm" data-testid="price-confirmed">
                 {steps.price.status === 'done'
                   ? `Approved${steps.price.confirmedByName ? ` by ${steps.price.confirmedByName}` : ''}${steps.price.confirmedAt ? ` on ${absoluteTime(steps.price.confirmedAt)}` : ''}`
-                  : 'The pricing lead approves the price (G3) once costing and, when needed, the ROI are on file.'}
+                  : 'The pricing lead approves the price (G3) once costing and, when needed, the payback model are on file.'}
               </p>
               {steps.price.priceTable ? (
                 <ModelLine model={steps.price.priceTable} label="Updated price table" />

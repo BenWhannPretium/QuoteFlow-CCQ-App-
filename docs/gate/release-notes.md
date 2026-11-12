@@ -12,7 +12,7 @@ Sign in at **TBD (prod URL, B-22)**. During UAT: `https://quoteflow-test.azurewe
 
 1. **Intake** (KAM) → **G1 Qualify & prioritize** (sales leader)
 2. **Engineering Review** (engineering lead and engineers) → **G2 Feasible solution?**
-3. **Quoting** (Pricing) → **G3 Price approved** (FB-07: costing, then ROI when capital is required, then the pricing lead approves the price; capital readiness is its own field)
+3. **Quoting** (Pricing) → **G3 Price approved** (FB-07: costing, then payback when capital is required, then the pricing lead approves the price; capital readiness is its own field)
 4. **Final Review** (approver) → **G4 Release proposition**
 5. **Customer Decision** (KAM) → **G5** customer outcome
 6. **Commit & Hand Off** (KAM) → **G6**, which closes **Closed – Won**
@@ -38,6 +38,7 @@ Every gate offers the standard outcomes where they apply (Advance, Hold, Rework,
 - One engineering queue sorted by tier, score and age, with aging buckets. Alert on arrival.
 - Assign, bulk-assign and reassign; return incomplete intakes to the KAM; pin a quote to the top (logged).
 - Capacity sign-off and the G2 decision. Engineering analytics view.
+- FB-14: **Capacity at a glance** under each capacity row (theoretical, expected and practical parts per day and per year), read-only; utilization and G2 are unchanged.
 
 **Engineer**
 - **My assignments**, with an alert when work is assigned.
@@ -48,13 +49,14 @@ Every gate offers the standard outcomes where they apply (Advance, Hold, Rework,
 - Pricing queue. The pricing lead assigns and reassigns pricers.
 - Record the price **approval** (who, when, basis, range), the costing attestation and capital readiness. No price figures are typed into QuoteFlow.
 - FB-07: upload the **costing model** (step 1). It is one record with version history; the latest is flagged. The costing attestation needs it on file.
-- The pricing lead may upload an **updated price table** (optional) and approves the price: **G3 Price approved**. It needs the costing model and, when capital is required ($0 CER included), Finance's ROI model.
+- The pricing lead may upload an **updated price table** (optional) and approves the price: **G3 Price approved**. It needs the costing model and, when capital is required ($0 CER included), Finance's payback model.
 - Pricing history panel from the retired pricing app (ERF and SPR on the quote; BPR on the Pricing history page).
 - Decide G3.
 
 **Finance (FB-07, new role `CCQ.Finance`)**
-- Told when a quote needs an ROI (capital required, $0 CER included) and Pricing has uploaded its costing model.
-- Downloads the costing model and uploads the **ROI model** (step 2, versioned). An input, not an approver. Reads quotes; changes nothing else.
+- Told when a quote needs a payback model (capital required, $0 CER included) and Pricing has uploaded its costing model.
+- Downloads the costing model and uploads the **payback model** (step 2, versioned). An input, not an approver. Reads quotes; changes nothing else.
+- FB-14: after the upload, the Payback step shows a **summary** of the workbook's headline figures (incremental units, net sales and margin, P&L savings, capital request, payback, simple payback, NPV, IRR and the assumptions behind them), read from the file and not editable in QuoteFlow. An Excel error, a blank headline, a zero or negative payback, or a payback above the hurdle shows as a warning that never blocks. Pricing, the pricing lead and the Final Review approver see the same summary.
 
 **Final Review approver**
 - One-page review and a sticky decision bar; works on a phone.
@@ -82,7 +84,7 @@ Every gate offers the standard outcomes where they apply (Advance, Hold, Rework,
 - Qualification, feasibility, price approval and release are **recorded decisions** with reasons, not emails.
 - Capacity evidence and the capacity sign-off are part of the G2 record.
 - Price approval is a record of who and when; price figures stay with Pricing. BPR is retired; the legacy ERF # is optional.
-- Costing, ROI and price confirmation run in order inside Quoting (D-001). The costing and ROI workbooks live on the quote with their versions, not in email.
+- Costing, payback and price confirmation run in order inside Quoting (D-001). The costing and payback workbooks live on the quote with their versions, not in email.
 - Final Review is separate from the customer outcome. "No response" is not a loss.
 - A quote closes only with an outcome, a reason, an owner and a date. A win closes only after Commit & Hand Off.
 - Overrides need a justification, keep the original value and can be reverted.
@@ -107,6 +109,7 @@ Every gate offers the standard outcomes where they apply (Advance, Hold, Rework,
 - Escalation routes; no Process Owner named (D-28, D-02)
 - Engineering aging buckets 3 / 10 business days, not an SLA (D-20); Pricing borrows them
 - Gate owners are set in code, not in the admin console (`03` B-19)
+- FB-14: the payback summary's cells are a proposal awaiting Finance (the template is a draft); the costing summary is off until the new costing template arrives; showing the figures (`model_summary_visible`) is on and still an open question; "Payback" (was "ROI") is Finance's wording
 
 **Integrations** (state on 2026-10-27; update at U6, see `05` §5):
 - Salesforce: live on the production org. Field meanings still to confirm (Zac Cairns / Graham Parle).

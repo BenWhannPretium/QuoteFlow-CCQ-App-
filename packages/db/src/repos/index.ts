@@ -11,6 +11,7 @@ export * from './engineering';
 export * from './events';
 export * from './intake';
 export * from './lead-review';
+export * from './model-summary';
 export * from './integration';
 export * from './notifications';
 export * from './outcome';

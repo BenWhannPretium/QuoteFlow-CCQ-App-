@@ -16,6 +16,7 @@ export * from './final-review';
 export * from './intake';
 export * from './lead-review';
 export * from './locks';
+export * from './model-summary';
 export * from './notifications';
 export * from './outcome';
 export * from './overrides';

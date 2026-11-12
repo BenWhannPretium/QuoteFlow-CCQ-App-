@@ -1,3 +1,4 @@
+import { buildPaybackWorkbook } from '@ccq/integrations/test/synthetic-workbooks';
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 import { seriousViolations } from './axe';
@@ -5,10 +6,10 @@ import { SYNTHETIC_XLSX, uploadBom } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
-// FB-07 (D-001, decided Nov 9; F-031, F-032, F-074, F-081, F-083; T-034): costing, then ROI, then price
+// FB-07 (D-001, decided Nov 9; F-031, F-032, F-074, F-081, F-083; T-034): costing, then payback, then price
 // approved, as steps inside Quoting. The pricer uploads the costing model (two versions), Finance uploads
-// the ROI model, the pricing lead approves the price ("Advance – price approved") and the Approver sees
-// the models at Final Review. A second quote with no capital shows the ROI step as "Not required".
+// the payback model, the pricing lead approves the price ("Advance – price approved") and the Approver sees
+// the models at Final Review. A second quote with no capital shows the Payback step as "Not required".
 // The quotes are qualified and engineered through the API (those stages have their own specs).
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
@@ -78,9 +79,9 @@ async function pricingRecorded(request: APIRequestContext, qn: string, pricingId
   );
 }
 
-const file = (name: string) => ({ name, mimeType: XLSX, buffer: SYNTHETIC_XLSX });
+const file = (name: string, buffer: Buffer = SYNTHETIC_XLSX) => ({ name, mimeType: XLSX, buffer });
 
-test('costing → ROI → price approved → Final Review, with versions and the Finance role', async ({
+test('costing → payback → price approved → Final Review, with versions and the Finance role', async ({
   browser,
   request,
 }) => {
@@ -145,10 +146,35 @@ test('costing → ROI → price approved → Final Review, with versions and the
   await expect(fSteps.getByTestId('step-roi')).toHaveAttribute('data-status', 'waiting');
   await expect(fSteps.getByTestId('upload-cost_model')).toHaveCount(0);
   await expect(finance.getByTestId('pricing-record-form')).toHaveCount(0);
+  // FB-14: a workbook QuoteFlow cannot read is stored, and the step says "Summary unavailable" (never
+  // blocks). Then the synthetic payback workbook: its summary, with the IRR error flagged.
+  await fSteps.getByTestId('upload-roi_model').setInputFiles(file('Notes.synthetic.xlsx'));
+  await expect(fSteps.getByTestId('model-roi_model')).toContainText('v1 · current');
+  await expect(fSteps.getByTestId('summary-roi_model')).toHaveAttribute(
+    'data-status',
+    'unavailable',
+  );
+  await expect(fSteps.getByTestId('summary-roi_model')).toContainText('Summary unavailable');
+  await expect(fSteps).toHaveAttribute('data-current', 'price');
   await fSteps
     .getByTestId('upload-roi_model')
-    .setInputFiles(file('ROI board template.synthetic.xlsx'));
-  await expect(fSteps.getByTestId('model-roi_model')).toContainText('v1 · current');
+    .setInputFiles(
+      file(
+        'Payback board template.synthetic.xlsx',
+        await buildPaybackWorkbook({ irr: { error: '#NUM!' } }),
+      ),
+    );
+  await expect(fSteps.getByTestId('model-roi_model')).toContainText('v2 · current');
+  const summary = fSteps.getByTestId('summary-roi_model');
+  await expect(summary).toHaveAttribute('data-status', 'complete');
+  await expect(summary.getByTestId('summary-field-payback_years')).toContainText('2.5 years');
+  await expect(summary.getByTestId('summary-field-capital_request')).toContainText('$400,000');
+  await expect(summary.getByTestId('summary-warnings-roi_model')).toContainText(
+    'The workbook shows an error in IRR. Ask Finance to check it.',
+  );
+  await expect(summary.getByTestId('summary-provenance-roi_model')).toContainText(
+    'Read from v2, uploaded by',
+  );
   await expect(fSteps).toHaveAttribute('data-current', 'price');
   expect(await seriousViolations(finance)).toEqual([]);
 
@@ -177,13 +203,19 @@ test('costing → ROI → price approved → Final Review, with versions and the
   await approver.goto(`/quotes/${qn}/review`);
   const review = approver.getByTestId('quoting-steps');
   await expect(review.getByTestId('model-cost_model')).toContainText('v2 · current');
-  await expect(review.getByTestId('model-roi_model')).toContainText('ROI board template');
+  await expect(review.getByTestId('model-roi_model')).toContainText('Payback board template');
+  // FB-14: the payback summary, read-only, at Final Review too.
+  await expect(review.getByTestId('summary-roi_model')).toHaveAttribute('data-status', 'complete');
+  await expect(review.getByTestId('summary-field-payback_years')).toContainText('2.5 years');
+  await expect(review.getByTestId('summary-provenance-roi_model')).toContainText(
+    'Figures come from the workbook and cannot be edited here.',
+  );
   await expect(review.getByTestId('step-price')).toHaveAttribute('data-status', 'done');
   await expect(review.getByTestId('upload-cost_model')).toHaveCount(0);
   expect(await seriousViolations(approver)).toEqual([]);
 });
 
-test('no capital: the ROI step says "Not required" and the lead approves without it', async ({
+test('no capital: the Payback step says "Not required" and the lead approves without it', async ({
   page,
   request,
 }) => {

@@ -5,6 +5,7 @@ import {
   MAX_STORED_UTILIZATION_PCT,
   allocationCheck,
   annualCapacityUnits,
+  capacityAtAGlance,
   computeUtilization,
   invalidCapacityInputs,
   parseCapacityBasis,
@@ -162,5 +163,55 @@ describe('allocationCheck (T-030: the business split across lines)', () => {
   it('has nothing to compare without rows or a quote volume', () => {
     expect(allocationCheck([], 1_000_000)).toBeNull();
     expect(allocationCheck([{ allocatedAnnualVolume: 5 }], null)).toBeNull();
+  });
+});
+
+// FB-14: the Capacity Exhibit's three definitions, against hand-computed values from made-up inputs:
+// 12 s cycle, 4 cavities, 75 % OEE, 30 g part.
+//   theoretical: 86,400 / 12 x 4 = 28,800 a day; x 365 = 10,512,000 a year
+//   expected:    28,800 x 0.75   = 21,600 a day; x 365 =  7,884,000 a year
+//   practical:   21,600 a day x 350 run days = 7,560,000 (24/5 at 261 days: 5,637,600)
+describe('capacityAtAGlance (FB-14)', () => {
+  const base = {
+    cycleTimeS: 12,
+    cavitation: 4,
+    effectivenessPct: 75,
+    scheduledRunDaysPerYear: 350,
+  };
+
+  it('gives theoretical, expected and practical capacity per day and per year', () => {
+    const g = capacityAtAGlance(base)!;
+    expect(g.theoretical).toMatchObject({ perDay: 28_800, perYear: 10_512_000 });
+    expect(g.expected).toMatchObject({ perDay: 21_600, perYear: 7_884_000 });
+    expect(g.practical).toMatchObject({ perDay: 21_600, perYear: 7_560_000 });
+    expect(g.runDaysPerYear).toBe(350);
+    expect(g.practical.lbsPerDay).toBeNull();
+  });
+
+  it('applies OEE once: the practical year is exactly the utilization denominator', () => {
+    const g = capacityAtAGlance(base)!;
+    expect(g.practical.perYear).toBe(annualCapacityUnits(base));
+    expect(g.expected.perDay / g.theoretical.perDay).toBeCloseTo(0.75, 10);
+  });
+
+  it('a 24/5 schedule (261 run days) changes only the practical year', () => {
+    const g = capacityAtAGlance({ ...base, scheduledRunDaysPerYear: 261 })!;
+    expect(g.practical.perYear).toBe(5_637_600);
+    expect(g.expected.perYear).toBe(7_884_000);
+  });
+
+  it('gives pounds only when the part weight is known', () => {
+    const g = capacityAtAGlance({ ...base, partWeightG: 30 })!;
+    // 28,800 parts x 30 g = 864,000 g = 1,904.79 lb
+    expect(g.theoretical.lbsPerDay!).toBeCloseTo(1904.79, 1);
+    expect(g.practical.lbsPerYear!).toBeCloseTo((7_560_000 * 30) / 453.59237, 3);
+  });
+
+  it('a missing or unusable input gives no result, never zero', () => {
+    expect(capacityAtAGlance({ ...base, cycleTimeS: null })).toBeNull();
+    expect(capacityAtAGlance({ ...base, cavitation: undefined })).toBeNull();
+    expect(capacityAtAGlance({ ...base, effectivenessPct: 0 })).toBeNull();
+    expect(capacityAtAGlance({ ...base, scheduledRunDaysPerYear: null })).toBeNull();
+    expect(capacityAtAGlance({ ...base, effectivenessPct: 120 })).toBeNull();
   });
 });

@@ -10,6 +10,7 @@ import {
   type AttachmentListResponse,
   type AttachmentUploadResponse,
   type IntakeDraftData,
+  type ModelSummaryListResponse,
 } from '@ccq/contracts';
 import type { DbOrTx, Tx } from '@ccq/db';
 import {
@@ -23,6 +24,7 @@ import {
   insertActivityEvent,
   insertAttachment,
   insertAttachmentVersion,
+  insertModelSummary,
   listAttachments,
   listDraftAttachments,
   listUsersByIds,
@@ -67,6 +69,15 @@ import type { FastifyBaseLogger } from 'fastify';
 import { loadCommercialSettings } from './commercial';
 import { deliverPlanned } from './handoff-notifications';
 import { assertSectionUnlocked } from './locks';
+import {
+  collectUpTo,
+  isSummaryKind,
+  loadModelSummarySettings,
+  modelSummariesView,
+  pipeThrough,
+  runModelSummary,
+  summaryFieldRows,
+} from './model-summary';
 import { ServiceProblem, problemErrors } from './problem';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
 
@@ -149,7 +160,7 @@ async function authorizeEngineeringFile(db: DbOrTx, actor: Actor, state: QuoteSt
 
 const MODEL_LABEL: Record<QuotingModelKind, string> = {
   cost_model: 'costing model',
-  roi_model: 'ROI model',
+  roi_model: 'payback model',
   price_table: 'updated price table',
 };
 
@@ -370,6 +381,24 @@ export class AttachmentService {
     return { quoteId: result.quoteId, list: result.list };
   }
 
+  /**
+   * FB-14 (D-013): the summaries of the quote's current Quoting models. The route needs
+   * `quote.read.commercialFields`; the quote's scope is checked here (404 when it is not readable).
+   */
+  async modelSummaries(
+    withTx: AttachmentsWithTx,
+    actor: Actor,
+    quoteNumber: string,
+  ): Promise<{ quoteId: string; view: ModelSummaryListResponse }> {
+    return withTx(async (tx) => {
+      const { quote, state } = await this.readableQuote(tx, actor, quoteNumber);
+      if (!can(actor, 'quote.read.commercialFields', state)) {
+        throw new ServiceProblem(403, 'forbidden', 'You cannot see the figures on this quote');
+      }
+      return { quoteId: quote.id, view: await modelSummariesView(tx, quote.id) };
+    });
+  }
+
   async listForDraft(
     withTx: AttachmentsWithTx,
     actor: Actor,
@@ -455,13 +484,15 @@ export class AttachmentService {
         return {
           settings,
           folder: renderFolderTemplate(settings.quoteFolder, { quote_number: quote.quoteNumber }),
+          // FB-14: a Quoting model's summary is read once the file is stored.
+          summary: isSummaryKind(kind) ? await loadModelSummarySettings(tx) : null,
         };
       }
       if (isQuotingModelKind(kind)) {
         throw new ServiceProblem(
           422,
           P.rejected,
-          'The costing model, ROI model and price table are uploaded on the Quoting tab, not at intake',
+          'The costing model, payback model and price table are uploaded on the Quoting tab, not at intake',
           {
             errors: [{ path: '/kind', message: 'Not an intake file kind', code: 'INVALID_VALUE' }],
           },
@@ -481,6 +512,7 @@ export class AttachmentService {
       return {
         settings,
         folder: renderFolderTemplate(settings.draftFolder, { draft_id: target.draftId }),
+        summary: null,
       };
     }).catch((err: unknown) => {
       drain(part.stream);
@@ -497,13 +529,19 @@ export class AttachmentService {
       });
     }
 
-    // 4. Stream into the store.
+    // 4. Stream into the store. FB-14: a Quoting model's bytes are also kept (up to the summary's size
+    // cap) so its summary can be read once it is stored; a larger file streams on and is not read.
     const storedName = sanitizeFileName(fileName);
+    const summarySettings = where.summary && isSummaryKind(kind) ? where.summary : null;
+    const collector =
+      summarySettings && size <= summarySettings.limits.maxBytes
+        ? collectUpTo(summarySettings.limits.maxBytes)
+        : null;
     let stored: StoredFile;
     try {
       stored = await this.store.upload(
         `${where.folder}/${storedName}`,
-        peeked.stream,
+        collector ? pipeThrough(peeked.stream, collector.tap) : peeked.stream,
         size,
         type.mime,
       );
@@ -511,6 +549,11 @@ export class AttachmentService {
       throw this.storeProblem(err, 'upload');
     }
     const sha256 = peeked.digest();
+    // FB-14: read the summary outside any transaction (CPU, capped in time). It never throws.
+    const summaryRun =
+      summarySettings && isSummaryKind(kind)
+        ? await runModelSummary(kind, collector ? collector.result() : null, summarySettings)
+        : null;
 
     // 5. Metadata, side effects and audit in one transaction. If it fails, the file is moved to the
     // removed folder so nothing unreferenced is left in the quote folder.
@@ -592,6 +635,42 @@ export class AttachmentService {
               : {}),
           },
         });
+        // FB-14 (D-013): the summary read from this version, and its audit row (no figures in it).
+        if (summaryRun && quoteId && isSummaryKind(kind)) {
+          const s = summaryRun.extraction;
+          const summary = await insertModelSummary(
+            tx,
+            {
+              attachmentId: row.id,
+              quoteId,
+              kind,
+              status: s.status,
+              reason: s.reason,
+              templateId: s.templateId,
+              mapProvisional: summaryRun.template?.provisional ?? null,
+              extractedAt: now,
+              durationMs: summaryRun.durationMs,
+              createdBy: actor.userId,
+            },
+            summaryFieldRows(s.fields),
+          );
+          await recordAudit(tx, actor, meta, {
+            at: now,
+            action: 'create',
+            entity: 'model_summary',
+            entityId: summary.id,
+            quoteId,
+            after: {
+              attachmentId: row.id,
+              kind,
+              version: row.version,
+              templateId: s.templateId,
+              status: s.status,
+              reason: s.reason,
+              fieldCount: s.fields.length,
+            },
+          });
+        }
         if (superseded) {
           await recordAudit(tx, actor, meta, {
             at: now,
@@ -683,12 +762,12 @@ export class AttachmentService {
       () =>
         kind === 'cost_model'
           ? {
-              title: `${quote.quoteNumber} is ready for its ROI`,
-              body: `${who ?? 'Pricing'} uploaded the ${label} (version ${version}). Capital is required on this quote: build the ROI from it and upload the ROI model on the Quoting tab.`,
+              title: `${quote.quoteNumber} is ready for its payback model`,
+              body: `${who ?? 'Pricing'} uploaded the ${label} (version ${version}). Capital is required on this quote: build the payback model from it and upload it on the Quoting tab.`,
               payload: { version: String(version), ...(who ? { actor: who } : {}) },
             }
           : {
-              title: `${quote.quoteNumber}: the ROI model is uploaded`,
+              title: `${quote.quoteNumber}: the payback model is uploaded`,
               body: `${who ?? 'Finance'} uploaded the ${label} (version ${version}). Review it and approve the price (G3), or send the quote back.`,
               payload: { version: String(version), ...(who ? { actor: who } : {}) },
             },
@@ -766,7 +845,9 @@ export class AttachmentService {
       const onOpenDraft = row.quoteId === null;
       const rule = attachmentRemoval(
         actor,
-        { uploadedBy: row.uploadedBy, createdAt: row.createdAt, onOpenDraft },
+        // FB-14: the kind decides which upload permission counts (Finance removes its own payback
+        // model with roi.upload; without the kind it was held to attachment.upload and refused).
+        { uploadedBy: row.uploadedBy, createdAt: row.createdAt, onOpenDraft, kind: row.kind },
         now,
         settings,
       );

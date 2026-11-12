@@ -714,7 +714,7 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
               {
                 quoteId,
                 kind,
-                fileName: `${kind === 'cost_model' ? 'Costing model' : 'ROI model'} v${version} (synthetic).xlsx`,
+                fileName: `${kind === 'cost_model' ? 'Costing model' : 'Payback model'} v${version} (synthetic).xlsx`,
                 size: 0,
                 mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 uploadedBy: by.id,

@@ -32,7 +32,7 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   project_brief: 'Project brief',
   competitor_drawing: 'Competitor / incumbent drawing',
   cost_model: 'Costing model',
-  roi_model: 'ROI model',
+  roi_model: 'Payback model',
   price_table: 'Updated price table',
   equipment_bom: 'Equipment BOM',
 };

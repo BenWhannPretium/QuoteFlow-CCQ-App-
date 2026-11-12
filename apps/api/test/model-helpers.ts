@@ -47,7 +47,20 @@ export function uploadModel(
   fileName = `${kind}.xlsx`,
   persona?: string,
 ): Promise<LightMyRequestResponse> {
-  const body = multipart({ kind, size: String(XLSX.length) }, { name: fileName, content: XLSX });
+  return uploadModelFile(app, quoteNumber, kind, role, fileName, XLSX, persona);
+}
+
+/** FB-14: upload a given workbook (a synthetic one from `@ccq/integrations/test/synthetic-workbooks`). */
+export function uploadModelFile(
+  app: FastifyInstance,
+  quoteNumber: string,
+  kind: ModelKind,
+  role: Role,
+  fileName: string,
+  content: Buffer,
+  persona?: string,
+): Promise<LightMyRequestResponse> {
+  const body = multipart({ kind, size: String(content.length) }, { name: fileName, content });
   const url =
     kind === 'roi_model'
       ? `/api/v1/quotes/${quoteNumber}/roi-model`

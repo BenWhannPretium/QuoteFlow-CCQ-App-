@@ -622,6 +622,13 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/roi-model`,
     permission: 'roi.upload',
   },
+  // FB-14 (D-013): model summaries are figures (quote.read.commercialFields: every role today, rule 2).
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/model-summaries',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/model-summaries`,
+    permission: 'quote.read.commercialFields',
+  },
   {
     method: 'GET',
     route: '/api/v1/quotes/:quoteNumber/attachments',

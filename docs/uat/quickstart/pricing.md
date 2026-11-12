@@ -8,25 +8,25 @@
 
 1. **Pricing lead: assign pricers.** **Pricing queue** → row menu **…** → **Assign pricer…**. Use **Reassign work…** to balance the load.
 2. **Read what the KAM told you.** On the **Quoting** tab, **From intake** shows the payment terms the customer asked for (a non-standard request is flagged **Non-standard: Pricing will review**: it is for awareness and negotiation and does not change the costing), whether the customer funds any tooling, returnable or single-trip dunnage, delivered or FOB with the freight type and any special arrangement (drop trailers and T-bars are costly), and the bid / program reference. A blank means the KAM did not say: ask.
-3. **Step 1, costing: upload the costing model.** On the **Quoting** tab, **Costing, ROI and price approval** → **1. Costing** → **Upload the costing model** (one workbook: costs and the initial price assumptions). A changed model? **Upload a new version**: the earlier one stays under **Earlier versions**. When capital is required ($0 CER included), Finance is told to build the ROI.
+3. **Step 1, costing: upload the costing model.** On the **Quoting** tab, **Costing, payback and price approval** → **1. Costing** → **Upload the costing model** (one workbook: costs and the initial price assumptions). A changed model? **Upload a new version**: the earlier one stays under **Earlier versions**. When capital is required ($0 CER included), Finance is told to build the payback model.
 4. **Record the price approval.** Check the **Engineering summary** and **Pricing history**. Tick **Costing completed (Cost-to-Serve)** (it needs the costing model on file), set **Approved by** and **Approved at**, then **Save price approval**.
 5. **Record capital readiness.** Pick a **Status** (a pending status needs a justification). Click **Save capital readiness**.
 6. **Check the terms.** On **Overview** → **Commercial terms**, check the payment terms (the customer's request, else Net 30), pick the tooling payment, answer the tooling commitment, tick **Terms checked** and **Save terms**. A payment term other than Net 15 or Net 30 goes to the pricing lead as an exception, to approve or reject with a rationale. You can pre-fill the **Capital terms**: the approver confirms them. Funding and MOQ are Engineering's. Final Review shows an open warning if the terms check is not done.
 7. **Submit to the pricing lead.** Pricers click **Submit to pricing lead**. It is locked for you until the lead decides or sends it back.
-8. **Step 2, ROI (Finance).** When the quote needs one, **2. ROI** says why; Finance uploads the ROI model and the pricing lead is told. Otherwise it says **Not required**.
-9. **Step 3, pricing lead: approve the price (G3).** **Ready for my review** lists what was submitted. Optionally **Upload an updated price table** if the price changed (otherwise the price in the models stands). Choose **Price approved: advance to Final Review…** (it needs the costing model and, when required, the ROI model), **Return to Engineering…**, **Return to KAM…** or **Hold or stop…** (Hold, Rework (re-cost), Redirect, Stop). Every send-back, hold and stop needs a note. Once you advance, the pricing section is locked until a send-back reopens it.
+8. **Step 2, Payback (Finance).** When the quote needs one, **2. Payback** says why; Finance uploads the payback model and the pricing lead is told. Otherwise it says **Not required**.
+9. **Step 3, pricing lead: approve the price (G3).** **Ready for my review** lists what was submitted. Optionally **Upload an updated price table** if the price changed (otherwise the price in the models stands). Choose **Price approved: advance to Final Review…** (it needs the costing model and, when required, the payback model), **Return to Engineering…**, **Return to KAM…** or **Hold or stop…** (Hold, Rework (re-cost), Redirect, Stop). Every send-back, hold and stop needs a note. Once you advance, the pricing section is locked until a send-back reopens it.
 
 ## What changed from the ERF
 
 - The preliminary capital figure is now the **Budgetary capital estimate**. There is no CER reference box.
 - No price figures are typed into QuoteFlow. You record who approved, when, the basis and the range.
 - BPR is retired. The legacy ERF # is optional.
-- Costing, then ROI, then price approval (D-001): the costing model and, when capital is required, Finance's ROI model are on file before the price is approved. Each model keeps its versions; the latest is flagged.
+- Costing, then payback, then price approval (D-001): the costing model and, when capital is required, Finance's payback model are on file before the price is approved. Each model keeps its versions; the latest is flagged.
 - Quotes already in Quoting with costing attested before this change show **No model on file** and keep working.
 - You never decide Final Review on a quote you priced.
 
 ## Who to ask
 
-- **Gemma Cebolla**, Sr Director Pricing: pricing rules. **Stacy Slocum**, Finance: the ROI.
+- **Gemma Cebolla**, Sr Director Pricing: pricing rules. **Stacy Slocum**, Finance: the payback model.
 - **Bailey Schmitt**, product owner. **Tre Curry**, coordination. **Ben Whann**, builder.
 - Found a problem? Click **Report an issue** in your user menu or at the bottom of any page.

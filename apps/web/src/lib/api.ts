@@ -118,6 +118,7 @@ import {
   ProblemDetails,
   PublicConfigResponse,
   SfSyncTriggerResponse,
+  ModelSummaryListResponse,
 } from '@ccq/contracts';
 import { z } from 'zod';
 
@@ -507,6 +508,9 @@ export const api = {
   // B-16 attachments (uploads: uploadAttachment below, for progress)
   quoteAttachments: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/attachments`, AttachmentListResponse),
+  /** FB-14 (D-013): the summaries read from the current costing / payback / price table models. */
+  modelSummaries: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/model-summaries`, ModelSummaryListResponse),
   draftAttachments: (draftId: string) =>
     getJson(`/api/v1/quotes/drafts/${draftId}/attachments`, AttachmentListResponse),
   /** A short-lived link (the download is authorized and audited server-side first). */
