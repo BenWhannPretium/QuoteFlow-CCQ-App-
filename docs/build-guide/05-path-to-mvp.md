@@ -126,7 +126,7 @@ Request all four of these as soon as Step 1 is done. They can run in any order; 
 
 #### Step 6a. Fabric data landing · *MF* (added 2026-10-24)
 - **Who:** Brennan Paul + the D&A engineer who'll own the workspace; Oliver Kade or Tim Webb (IT); Oleg Yarovinski optional.
-- **Why:** L-8 (Oleg + Brennan): all new data QuoteFlow creates is stored in Pretium's Fabric tenant. The plan is Fabric mirroring of the CCQ Postgres database (`01-architecture.md` §6.1). It's mostly Azure and Fabric setup with long-ish lead times (capacity, tenant settings, a server restart, a VNet data gateway for prod), so ask early.
+- **Why:** L-8 (Oleg + Brennan): all new data QuoteFlow creates is stored in Pretium's Fabric tenant. The plan is Fabric mirroring of the CCQ Postgres database (`01-architecture.md` §6.1). It's mostly Azure and Fabric setup with long-ish lead times (capacity, tenant settings, a server restart; prod needs no VNet data gateway, because it uses public access like test, decided 2026-11-12), so ask early.
 - **Leave the meeting with:**
   - [x] D-FB1: a continuous mirror is enough; Postgres stays the app's store (Brennan Paul accepted the mirroring plan, 2026-10-26)
   - [ ] D-FB2: the table list (SF snapshot and pricing history in or out)

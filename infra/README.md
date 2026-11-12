@@ -17,8 +17,8 @@ in `03-build-steps.md` B-20 (see also [First apply against test](#first-apply-ag
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `main.bicep`                    | Resource-group-scope entry point. Wires the modules and builds the web app's settings (as runbook B6 sets them).                                                                                                                                                                                                                                                         |
 | `main.test.bicepparam`          | `rg-ccq-test` values: public endpoints, B1 plan, no slot, Salesforce live, no synthetic seed.                                                                                                                                                                                                                                                                            |
-| `main.prod.bicepparam`          | `rg-ccq-prod` values: VNet + private endpoints, P1v3 plan + `staging` slot, 35-day backups, purge protection.                                                                                                                                                                                                                                                            |
-| `modules/network.bicep`         | Prod only. VNet with `snet-app` (App Service VNet integration, delegated to `Microsoft.Web/serverFarms`), `snet-pe` (private endpoints) and `snet-fabric-gw` (**Fabric VNet data gateway**, delegated to `Microsoft.PowerPlatform/vnetaccesslinks`). Private DNS zones for Postgres, Key Vault and Blob (and App Service when `exposure = private`), linked to the VNet. |
+| `main.prod.bicepparam`          | `rg-ccq-prod` values: public endpoints like test (`deployNetwork = false`, see [Prod network posture](#prod-network-posture)), P1v3 plan + `staging` slot, 35-day backups, purge protection.                                                                                                                                                                                                                                                            |
+| `modules/network.bicep`         | Only when `deployNetwork = true` (not used by prod since 2026-11-12). VNet with `snet-app` (App Service VNet integration, delegated to `Microsoft.Web/serverFarms`), `snet-pe` (private endpoints) and `snet-fabric-gw` (**Fabric VNet data gateway**, delegated to `Microsoft.PowerPlatform/vnetaccesslinks`). Private DNS zones for Postgres, Key Vault and Blob (and App Service when `exposure = private`), linked to the VNet. |
 | `modules/privateEndpoint.bicep` | One private endpoint + its DNS zone group. Used for Postgres, Key Vault, Blob and (option 2) the web app.                                                                                                                                                                                                                                                                |
 | `modules/monitoring.bicep`      | Log Analytics workspace + workspace-based Application Insights (B3).                                                                                                                                                                                                                                                                                                     |
 | `modules/keyvault.bicep`        | Key Vault, RBAC mode, soft delete; purge protection on in prod (B4). No secret values.                                                                                                                                                                                                                                                                                   |
@@ -55,7 +55,7 @@ in the parameter file is removed by the next apply. Put every change in the para
 | `azure_cdc` allow-listed                         | **Not settable through ARM/CLI** (see the 2026-11-03 record below). Set by the portal's Fabric mirroring **Prepare** workflow. `azure.extensions = pg_trgm,pgcrypto` (`pg_trgm`, `pgcrypto`: migrations `0001` and later) |
 | `azure_cdc` preloaded                            | **Not settable through ARM/CLI.** Set by the same workflow. `shared_preload_libraries = pg_cron,pg_stat_statements` (Azure's PG16 default)                                                                                |
 | `max_worker_processes` + 3 per mirrored database | `21` (default 8). The Prepare workflow raised it from the Bicep's 16; the Bicep now matches. `azure_cdc`'s readiness check flags anything under 13.                                                                       |
-| Private endpoint needs a gateway (prod)          | `snet-fabric-gw`, delegated to `Microsoft.PowerPlatform/vnetaccesslinks` (`fabricGatewaySubnetId` output). Fabric creates the gateway in it.                                                                              |
+| Private endpoint needs a gateway (only if prod goes private) | `snet-fabric-gw`, delegated to `Microsoft.PowerPlatform/vnetaccesslinks` (`fabricGatewaySubnetId` output). Fabric creates the gateway in it.                                                                              |
 | Test: Fabric connects directly                   | public access + "Allow Azure services" rule                                                                                                                                                                               |
 
 > **Restart required.** `wal_level`, `shared_preload_libraries` and `max_worker_processes` are static
@@ -121,12 +121,36 @@ adds the exporter (or a diagnostic setting sends `AppServiceConsoleLogs` to the 
 `Microsoft.Insights/scheduledQueryRules` rule on that message. Until then `-pg-replication-lag` covers the
 most damaging failure (a stalled slot filling the disk), and the check's `integration_run` rows show the rest.
 
+## Prod network posture
+
+**Decided 2026-11-12 (Ben): prod uses the same network posture as test.** `main.prod.bicepparam` sets
+`deployNetwork = false` and `exposure = 'public'`:
+
+- The website is public (`https://quoteflow-prod.azurewebsites.net`); Entra sign-in and the assigned-role
+  requirement decide who gets in (D-H2 option 1).
+- Postgres, Key Vault and Blob storage keep public endpoints, protected by their credentials, TLS and RBAC.
+  Postgres has the "Allow Azure services" firewall rule. Key Vault and storage allow all networks.
+- No VNet, private endpoints, private DNS zones or Fabric VNet data gateway. Fabric connects to Postgres
+  directly, as on test, so D&A builds no gateway.
+- The CLI works from a laptop: Key Vault secrets are set with Key Vault Secrets Officer, no VPN or firewall
+  exception needed.
+
+Why: simpler to provision and operate, about $25 a month less, no IT network work. Cost: the database and
+vault are reachable from the internet, so they rest on the password, TLS and RBAC alone, and "Allow Azure
+services" admits any Azure subscription (runbook 06 B2). Tighten later without a rebuild by replacing that
+rule with the web app's outbound IPs, or go fully private by setting `deployNetwork = true` (the network
+module and private endpoints stay in this folder, and the earlier plan's `10.60.0.0/24` range is the
+default). A move to private needs the Postgres and Key Vault private endpoints re-applied, a Fabric VNet
+data gateway from D&A, and Key Vault access from inside the VNet.
+
+What IT provisions for this posture: [`08-prod-azure-it-request.md`](../docs/build-guide/08-prod-azure-it-request.md).
+
 ## Deploy
 
 Needs the Azure CLI with Bicep **0.38 or later** (`az bicep upgrade`; Cloud Shell is current), signed in
 as someone with Contributor on the resource group. With `manageRoleAssignments = true` (prod) it also
-needs Owner, or User Access Administrator, to create the role assignments. Register the providers once per subscription: the runbook B1 list plus `Microsoft.Network`,
-and `Microsoft.PowerPlatform` for the Fabric gateway (prod).
+needs Owner, or User Access Administrator, to create the role assignments. Register the providers once per subscription: the runbook B1 list (plus `Microsoft.Network`,
+and `Microsoft.PowerPlatform` only if prod is ever deployed with `deployNetwork = true`).
 
 ```bash
 # 1. Always look first. Nothing changes.
@@ -187,14 +211,13 @@ Optimized, on purpose (mirroring), so it can't be applied to test with Burstable
 - **Entra:** the `QuoteFlow-API` / `QuoteFlow-SPA` app registrations, app roles, groups, consent (runbook
   Part A). For prod, add the prod URL as an SPA redirect URI.
 - **Secrets:** `database-url` and `sf-client-secret` values in Key Vault (B4, Part E). In prod the vault
-  has no public access: set them from inside the VNet, or through a short-lived firewall exception agreed
-  with IT.
+  is public like test's (see [Prod network posture](#prod-network-posture)): Ben sets them with the CLI.
 - **Postgres:** the restart above; the Entra admin (`postgresEntraAdmins`, or the portal); the portal's
   Fabric mirroring **Prepare** workflow (registers `azure_cdc`, sets `azure.fabric_mirror_enabled`); the
   mirroring grants to the admin login (`ALTER ROLE ccqadmin WITH REPLICATION`, `azure_cdc_admin`, `CREATE`
   on `ccq`; runbook `07` B6, done on test 2026-11-03); the
   `ccq_app` / `ccq_migrator` roles are created by the app at start-up.
-- **Fabric (D&A):** workspaces, the mirrored database (created by a D&A service principal), the VNet data
+- **Fabric (D&A):** workspaces, the mirrored database (created by a D&A service principal), (only if prod goes private) the VNet data
   gateway in `snet-fabric-gw` (its creator needs `subnets/join/action` on the VNet, e.g. Network
   Contributor), the deploy identity's Read and write share on the mirrored database (runbook `07` C5), Fabric security (B-27 §3).
 - **GitHub:** the `test` / `production` environments, their variables and the production protection
@@ -216,7 +239,7 @@ pricing calculator before asking for approval.
 | Postgres storage 32 GB + backups               | ≈ $5                              | ≈ $5–10 (35 days)           |
 | Key Vault, Storage, App Insights/Log Analytics | ≈ $5–15 (by log volume)           | ≈ $10–30                    |
 | Availability test + alert rules (B-21)         | per-run test price × ≈ 26,300     | per-run price × ≈ 43,800    |
-| Private endpoints (3) + DNS zones              | —                                 | ≈ $25                       |
-| **Total**                                      | **≈ $150–160**                    | **≈ $290–320**              |
+| Private endpoints (3) + DNS zones              | —                                 | — (public posture; ≈ $25 saved) |
+| **Total**                                      | **≈ $150–160**                    | **≈ $265–295**              |
 
 The Fabric capacity and the VNet data gateway run on D&A's F-SKU capacity and aren't in this table.
