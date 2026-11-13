@@ -1,6 +1,6 @@
-# FB-18 · Command Center and screen polish: one home with analytics, on-hold at a glance, "Saved" beside the button, Salesforce links
+# FB-18 · Command Center and screen polish: one home with analytics, on-hold at a glance, "Progress saved" beside the button, Salesforce links
 
-**Run with:** Claude Code · a standard model · **high** effort · **Wave 2: start when FB-15 and FB-16 have merged** (it touches their Save buttons) · in parallel with FB-17 · one draft PR · branch `claude/fb-18-command-center`
+**Run with:** Claude Code · a standard model · **high** effort · **Wave 2: start when FB-15 and FB-16 have merged** (it touches their Save buttons) · in parallel with FB-17, **merging after it** · one draft PR · branch `claude/fb-18-command-center`
 **Walkthrough items:** W13-29, W13-30, W13-31, and the Command Center half of W13-26 (`docs/build-guide/feedback/inputs/walkthrough-2026-11-13.md`). FB-17 builds the timeline half of W13-26. **Tracker rows it follows:** F-076 (Salesforce link)
 
 **Paste into Claude Code from the repo root.**
@@ -8,12 +8,12 @@
 ---
 
 ## Stop check
-Confirm FB-15 and FB-16 have merged into `main`. If not, stop and say so. Don't edit `GateDecisionDialog.tsx`, `hybrid.ts` or the timeline: FB-17 owns them.
+Confirm FB-15 and FB-16 have merged into `main`. If not, stop and say so. Don't edit `GateDecisionDialog.tsx`, `hybrid.ts` or the timeline: FB-17 owns them. FB-17 also edits `EngineeringTab.tsx`, `EngineeringExtras.tsx`, `QuotingTab.tsx`, `final-review/FinalReviewQueue.tsx`, `routes/queue/pricing.tsx` and `routes/queue/engineering.tsx` (button text, the BOM text, capital checks, filter labels) and merges first: in those files add only your Save status and links, then rebase on FB-17 before opening the PR for review.
 
 ## Ground rules for this step
 - **Start from the latest `origin/main`.** Read `CLAUDE.md` (non-negotiable rules 1–11), then `docs/build-guide/01-architecture.md`, `docs/build-guide/03-build-steps.md` → "Walkthrough updates (FB-15 to FB-19)" (this step, the run order and the change-log procedure), and `docs/build-guide/04-decisions-and-risks.md` §2a. **Read `docs/build-guide/feedback/inputs/walkthrough-2026-11-13.md`**: it is the record of what was asked (the W13 IDs below), with the triage Ben agreed. Nothing else from the meeting is in the repo.
 - **Verify before you build.** The "What the code does today" notes below were read from the code on 2026-11-13 (`main` at `f19bfc7`). Earlier FB steps may have merged since. Re-read every file you change. If the code differs from a note, follow the code and record the difference as a deviation. Never build on a note you have not checked.
-- **Authorization on the server.** Every changed or new route declares its permission through `packages/domain/src/policy`. Add permission-matrix tests that check **allowed and denied for every role** (KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Finance, Approver, Leadership, Admin, PostAward, plus ProductionScheduler once FB-16 has merged). Keep `docs/security/route-inventory.md` current (its test fails otherwise). The UI may hide things; it is never the control.
+- **Authorization on the server.** Every changed or new route declares its permission through `packages/domain/src/policy`. Add permission-matrix tests that check **allowed and denied for every role** (KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Finance, Approver, Leadership, Admin, PostAward, plus ProductionScheduler: FB-16 adds it). Keep `docs/security/route-inventory.md` current (its test fails otherwise). The UI may hide things; it is never the control.
 - **No hard-coded open rules (rule 4).** Lists, labels, thresholds, messages, required-field sets and mappings go in config tables or app settings, seeded `provisional: true`. Change config in existing environments with a **data migration** that leaves a row alone when the business has approved it (`approved_at` set) or an Admin has edited it (follow `0026_fb01_workflow_integrity.sql` and `0036_fb09_value_lists_other.sql`). Editing a seed alone does not reach existing environments.
 - **Audit everything** a user changes (append-only `audit_event`). Never update or delete audit rows.
 - **Fabric-safe schema (rule 10).**
@@ -22,7 +22,7 @@ Confirm FB-15 and FB-16 have merged into `main`. If not, stop and say so. Don't 
   - No partitioning, no `TRUNCATE`. Deprecate columns; don't drop them.
   - A new analytics view needs a T-SQL twin in `packages/db/sql/fabric/`.
   - The guard tests (`fabricCompat.test.ts`, `fabricTwins.test.ts`, `test/fabric.int.test.ts`) must pass.
-- **Migrations.** The last migration on 2026-11-13 was `0043_funding_help_text.sql`. Use the next free number when you start (`ls packages/db/migrations`). Before you open the PR, `git fetch origin main`. If a new migration has landed, rebase and renumber yours: the file name, `meta/NNNN_snapshot.json`, and `idx`/`tag` in `meta/_journal.json`. Then re-run the integration tests. FB-15 and FB-16 run in parallel and both add migrations.
+- **Migrations.** The last migration on 2026-11-13 was `0043_funding_help_text.sql`. Use the next free number when you start (`ls packages/db/migrations`). Before you open the PR, `git fetch origin main`. If a new migration has landed, rebase and renumber yours: the file name, `meta/NNNN_snapshot.json`, and `idx`/`tag` in `meta/_journal.json`. Then re-run the integration tests. FB-17 and FB-18 run in parallel; FB-17 adds a migration and merges first.
 - **Synthetic data only (rule 8).** No real customer, opportunity or person data in code, seeds, fixtures, screenshots or the PR. People's names that are already in the build guide may be used in docs.
 - **Tests come with the feature.** Domain rules → Vitest unit tests. Routes → permission-matrix and integration tests on a real Postgres. UI → at least one Playwright happy path for each changed stage; check the changed screens at 1366 × 768 and at 390 px wide, in light and dark themes.
 - **Before you open the PR, run `pnpm verify`** (lint, typecheck, unit, integration, build) with `docker compose up -d db`. If the session can't run Docker, use a local Postgres 16, or say so in the PR and let CI run the integration tests. Fix every failure. **Never skip, delete or weaken a test to get green.**
@@ -48,8 +48,8 @@ Confirm FB-15 and FB-16 have merged into `main`. If not, stop and say so. Don't 
 ### B. On hold at a glance (W13-26, Command Center half)
 - In `StageBoard` and every Command Center list of quotes, an on-hold quote shows an **orange "On hold" chip** with the owner and review date on hover and focus ("On hold until 12 Dec · owner Jane Doe"), and is listed first within its stage. Use the same chip in the KAM's "Returned to me" if an on-hold quote can appear there. Add the fields the dashboard contract needs (owner name, review date) through the existing dashboard repo; respect RLS.
 
-### C. "Saved" beside the button (W13-30)
-- Turn the `48f5506` pattern into one shared component (e.g. `SaveStatus` in `components/forms.tsx`): "Saving…", then "Saved" (role `status`) beside the button until the form changes, or "Not saved: <reason>" (role `alert`) on failure. Use it on **every explicit Save button**: Engineering (solution, two-step and pack-out, capacity rows), Quoting (capital card and any other save), the commercial panel, Final Review's terms, Admin settings and lists. Keep the toast too. Reuse FB-15's required-marker component wherever these forms mark required fields.
+### C. "Progress saved" beside the button (W13-30)
+- Turn the `48f5506` pattern into one shared component (e.g. `SaveStatus` in `components/forms.tsx`): "Saving…", then **"Progress saved"** (the words Ben and Bailey asked for; role `status`) beside the button until the form changes, or "Not saved: <reason>" (role `alert`) on failure. Use it on **every explicit Save button**: Engineering (solution, two-step and pack-out, capacity rows), Quoting (capital card and any other save), the commercial panel, Final Review's terms, Admin settings and lists. Keep the toast too. Reuse FB-15's required-marker component wherever these forms mark required fields.
 
 ### D. Salesforce links everywhere the ID shows (W13-31)
 - Use `SalesforceLink` wherever the opportunity ID is shown: the IntakeCard's opportunity row, the G1 queue card, the Engineering and Pricing queue rows, Final Review. It opens in a new tab with `rel="noopener noreferrer"`; Lightning URLs also open in the Salesforce mobile app.
@@ -59,9 +59,9 @@ Confirm FB-15 and FB-16 have merged into `main`. If not, stop and say so. Don't 
 ## Done when
 - [ ] "Command Center" with "My work" and "Analytics"; no Analytics nav item; `/analytics` redirects with its params; permissions unchanged and enforced on the server
 - [ ] orange "On hold" chip with owner and review date on the Command Center lists
-- [ ] `SaveStatus` beside every explicit Save button, toast kept
+- [ ] `SaveStatus` ("Progress saved") beside every explicit Save button, toast kept
 - [ ] the Salesforce link wherever the ID shows; Admin hint when the URL is unset
-- [ ] tests: component tests for `SaveStatus` and the chip, the redirect, permission tests for any changed route, Playwright (KAM sees an on-hold chip; SalesLeader opens Analytics from the Command Center; a Save shows "Saved" beside the button); checked at 1366 × 768 and 390 px in both themes
+- [ ] tests: component tests for `SaveStatus` and the chip, the redirect, permission tests for any changed route, Playwright (KAM sees an on-hold chip; SalesLeader opens Analytics from the Command Center; a Save shows "Progress saved" beside the button); checked at 1366 × 768 and 390 px in both themes
 - [ ] `pnpm verify` passes; close-out done
 
 ## Close-out: update the build docs and the change log (do this last)
@@ -71,7 +71,7 @@ Confirm FB-15 and FB-16 have merged into `main`. If not, stop and say so. Don't 
    - Update `04-decisions-and-risks.md` §2a: add a table **"Provisional values FB-<n> seeded"** (value, seed, waits on, who signs off), as earlier steps did.
    - Update the "User feedback updates" row in `05-path-to-mvp.md` §1 with one sentence for this step.
    - Update `01-architecture.md` where you changed the workflow (§4), roles and permissions (§3.4), notifications (§4.3) or the data model (§5). Run `pnpm db:dictionary` if the schema changed.
-   - UAT: update the affected scripts in `docs/uat/scripts/` and quick-starts in `docs/uat/quickstart/` (and `apps/web/public/help/quickstart.html` with `print.html` if they name a changed label) so Bailey's Tue Nov 17 round-table can follow them.
+   - UAT: update the affected scripts in `docs/uat/scripts/` and quick-starts in `docs/uat/quickstart/` so Bailey's Tue Nov 17 round-table can follow them. The in-app help page is generated: edit `docs/uat/quickstart/print.html` (the source), then run `UPDATE_QUICKSTART=1 pnpm --filter @ccq/web test` to rewrite `apps/web/public/help/quickstart.html` (`apps/web/src/landing/quickstart.test.ts` checks they match).
 2. **Repo change log (same PR):** in `docs/build-guide/feedback-change-log.md`, add one row per W13 item this step addressed, with these columns:
    - **Date** (today, US Central)
    - **Type** `Build change`

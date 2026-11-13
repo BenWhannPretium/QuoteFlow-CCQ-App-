@@ -1342,8 +1342,8 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 
 | Bucket | Meaning | Items |
 |---|---|---|
-| **Build** | Agreed in the meeting, no open question | W13-01 to W13-05, W13-11 to W13-13, W13-17, W13-18, W13-20 to W13-22, W13-26 to W13-31 (W13-04 only the part that needs no new Salesforce field names) |
-| **Build as provisional** | Built now on a stated assumption, seeded `provisional: true` (rule 4); an Admin changes it when the owner answers | W13-06 to W13-10, W13-14 to W13-16, W13-19, W13-23 to W13-25, W13-32 to W13-34 |
+| **Build** | Agreed in the meeting, no open question | W13-01 to W13-05, W13-11 to W13-13, W13-17, W13-18, W13-20 to W13-22, W13-26 to W13-31, W13-33, W13-34 (W13-04 only the part that needs no new Salesforce field names) |
+| **Build as provisional** | Built now on a stated assumption, seeded `provisional: true` (rule 4); an Admin changes it when the owner answers | W13-06 to W13-10, W13-14 to W13-16, W13-19, W13-23 to W13-25, W13-32 |
 | **Wait** | Needs information first; sent to Bailey Schmitt for follow-up, not built | W13-W1 to W13-W11 (payment terms and ERP customer number source, quote-type list, description wording, neck list vs MDM, PET stock colorants, plant costing examples, Engineering questions, Teams notifications, lead and scheduler names, Salesforce product field names, process for non-forming machine types) |
 
 ### Steps and run order
@@ -1355,12 +1355,12 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 | **FB-15** | Intake fixes: the submit bug, red required markers (Market and Sub-market required), "Other" asks, send-backs land on the field, small field changes | W13-01 to W13-11 | **1** | Most capable · high | The submit bug has several causes across web, API and domain; it blocks every walkthrough |
 | **FB-16** | Engineering and capacity: one process & machine pick filtered by plant, input checks, colours, pack-out rule, **Production Scheduler role**, a block goes straight back, capacity decided inside "Decide feasibility", "Engineering & Capacity" label | W13-12 to W13-21 | **1** | Most capable · high | A new role (matrix, RLS, migration, Entra) and a change to how G2 is reached |
 | **FB-17** | Gate decisions: outcomes can be switched off, no "Capital required" (capital needed from preliminary capital), Advance / Send back to… / Hold / Stop, hold owner, holds on the timeline, the "Why?" popover | W13-22 to W13-25, W13-27, W13-28, W13-26 (timeline) | **2**, after FB-16 merges | Most capable · high | Touches the gate engine, a capital rule that Pricing and Final Review read, and outcome keys that analytics read |
-| **FB-18** | Command Center (Home + Analytics), on-hold chip, "Saved" beside every Save button, Salesforce links | W13-29 to W13-31, W13-26 (Command Center) | **2**, after FB-15 and FB-16 merge | Standard · high | UI only; no workflow or permission change |
+| **FB-18** | Command Center (Home + Analytics), on-hold chip, "Progress saved" beside every Save button, Salesforce links | W13-29 to W13-31, W13-26 (Command Center) | **2**, after FB-15 and FB-16 merge | Standard · high | Screens plus one dashboard contract change; no workflow or permission change |
 | **FB-19** | Multi-item quotes (F-084 promoted to MVP): `quote_item`, items at intake, engineering per item, the `quote` mirror, one-active-quote rule as a setting | W13-32 to W13-34 | **3**, after FB-15 to FB-18 merge | Most capable · high | The largest data-model change since B-03; it touches every stage |
 
 **Order:**
 1. **Wave 1 now:** FB-15 and FB-16 in two sessions. Merge FB-16 first if both are ready (FB-17 waits on it).
-2. **Wave 2:** FB-17 when FB-16 has merged; FB-18 when FB-15 and FB-16 have merged. They run in parallel (FB-18 must not edit the gate dialog, `hybrid.ts` or the timeline).
+2. **Wave 2:** FB-17 when FB-16 has merged; FB-18 when FB-15 and FB-16 have merged. They run in parallel; **merge FB-17 first** and rebase FB-18 on it. FB-18 must not edit the gate dialog, `hybrid.ts` or the timeline, and adds only its Save status and links in the six screen files both touch (listed in both prompts).
 3. **Wave 3:** FB-19 when the other four have merged. Its prompt has a cut line (items at intake and downstream first, engineering per item in a same-day follow-up) if time runs short.
 4. **Tue 2026-11-17:** Bailey's role-by-role round-table (one person per role, each with only their role). Aim to have FB-15 to FB-18 merged before it. **FB-19 is unlikely to be ready by Monday 2026-11-16** if it waits for the other four; Ben decides whether to show multi-item at the round-table or straight after.
 
@@ -1403,18 +1403,19 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 - **Done when:**
   - [ ] outcomes can be switched off (`active`), with history intact
   - [ ] "Capital required" off; capital needed derived from preliminary capital; BOM, readiness, flags and texts follow it
-  - [ ] the dialog offers Advance / Send back to… / Hold / Stop; send-back targets named by destination; reason and note on every send-back; no closure-owner picker
+  - [ ] G2 needs a preliminary capital figure ($0 allowed)
+  - [ ] the dialog offers Advance / Send back to… / Hold / Stop (G5 unchanged); send-back targets named by destination; reason and note on every send-back; no closure-owner picker on decider-owned closures
   - [ ] hold owner defaults to the stage's assignee and is notified; hold help text; holds readable on the timeline
   - [ ] the popover fits; no outcome key renamed; analytics and Fabric twins unchanged
   - [ ] tests, `pnpm verify`, close-out
 - **Prompt:** `prompts/feedback/FB-17-gate-decisions-holds.md`
 
-### FB-18: Command Center and screen polish · **Wave 2 (after FB-15 and FB-16)** · Ben (standard model · high)
+### FB-18: Command Center and screen polish · **Wave 2 (after FB-15 and FB-16; merges after FB-17)** · Ben (standard model · high)
 - **Why:** one home per role with its analytics (W13-29); KAMs couldn't see a hold (W13-26); the save toast was easy to miss (W13-30); the Salesforce ID wasn't a link (W13-31).
 - **Done when:**
   - [ ] "Command Center" with "My work" and "Analytics"; `/analytics` redirects; permissions unchanged
   - [ ] orange "On hold" chip with owner and review date
-  - [ ] "Saved" beside every explicit Save button
+  - [ ] "Progress saved" beside every explicit Save button
   - [ ] Salesforce link wherever the ID shows; Admin hint when the URL is unset
   - [ ] tests, `pnpm verify`, close-out
 - **Prompt:** `prompts/feedback/FB-18-command-center-polish.md`
