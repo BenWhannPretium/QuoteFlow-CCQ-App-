@@ -17,6 +17,7 @@ import {
   claimDraftAttachments,
   getAttachment,
   getQuoteById,
+  getPricingRecord,
   getQuoteByNumber,
   getQuoteDraft,
   getQuoteDraftForUpdate,
@@ -34,6 +35,7 @@ import {
   updateAttachment,
   updateQuote,
   updateQuoteDraft,
+  upsertPricingRecord,
 } from '@ccq/db/repos';
 import {
   ATTACHMENT_MAX_BYTES,
@@ -718,6 +720,7 @@ export class AttachmentService {
               quoteNumber: quoteNumber!,
             });
           }
+          if (kind === 'cost_model') await this.markCostingCompleted(tx, actor, quoteId, now, meta);
         }
         const [item] = await this.dtos(tx, actor, [row], settings, now);
         return { item: item!, drawingStatus };
@@ -730,6 +733,38 @@ export class AttachmentService {
       );
       throw err;
     }
+  }
+
+  /**
+   * Bailey Schmitt (2026-11-12): uploading the costing model is what says the costing is done, so the
+   * pricer does not tick a second box for it. The uploader is recorded as the one who attested it, with
+   * the upload time. The box stays on the Quoting tab (it can be unticked), and a re-cost still clears it.
+   */
+  private async markCostingCompleted(
+    tx: Tx,
+    actor: Actor,
+    quoteId: string,
+    now: Date,
+    meta: AuditMeta,
+  ) {
+    const record = await getPricingRecord(tx, quoteId);
+    if (!record || record.costingCompleted) return;
+    const { id, createdAt: _createdAt, updatedAt: _updatedAt, ...columns } = record;
+    await upsertPricingRecord(tx, {
+      ...columns,
+      costingCompleted: true,
+      costingAttestedBy: actor.userId,
+      costingAttestedAt: now,
+    });
+    await recordAudit(tx, actor, meta, {
+      at: now,
+      action: 'update',
+      entity: 'pricing_record',
+      entityId: id,
+      quoteId,
+      before: { costingCompleted: false },
+      after: { costingCompleted: true, reason: 'costing model uploaded' },
+    });
   }
 
   /**

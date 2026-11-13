@@ -93,8 +93,20 @@ export function LeadReviewActions<T>({
   submit: () => Promise<T>;
   sendBack: (note: string) => Promise<T>;
   onDone: (result: T) => Promise<unknown>;
-  /** The lead's decision (the gate), when the viewer may decide it: the primary button here. */
-  decide?: { label: string; onClick: () => void } | undefined;
+  /**
+   * The lead's decision (the gate), when the viewer may decide it. The primary button appears only when
+   * the quote can move forward (`ready`); until then the list says what is missing, and `onOther` opens
+   * the decisions that do not need the work finished (hold, send back to the KAM, stop).
+   */
+  decide?:
+    | {
+        label: string;
+        onClick: () => void;
+        ready: boolean;
+        missing: readonly { field: string; message: string }[];
+        onOther?: (() => void) | undefined;
+      }
+    | undefined;
 }) {
   const noun = NOUN[kind];
   const [missing, setMissing] = useState<ServerError[]>([]);
@@ -113,6 +125,8 @@ export function LeadReviewActions<T>({
     onError: (err) => setMissing(problemErrors(err)),
   });
 
+  // Submit appears once the server says nothing is missing (unknown right after a save: held back).
+  const submitReady = review.canSubmit && review.submitMissing?.length === 0;
   if (!review.canSubmit && !review.canSendBack && !review.submitBlockedReason && !decide) {
     return null;
   }
@@ -125,10 +139,24 @@ export function LeadReviewActions<T>({
       <h2 className="text-base font-semibold">
         {decide ? 'Your decision' : 'When you are finished'}
       </h2>
-      {review.canSubmit && (
+      {review.canSubmit && submitReady && (
         <p className="text-muted-foreground">
-          Save your work above, then submit it. The {noun.lead} reviews it and decides.
+          Everything needed is filled in. Submit it and the {noun.lead} reviews it and decides.
         </p>
+      )}
+      {review.canSubmit && review.submitMissing && review.submitMissing.length > 0 && (
+        <StillNeeded
+          intro={`Fill these in and save. Then you can submit to the ${noun.lead}:`}
+          items={review.submitMissing}
+          testId="lead-review-needed"
+        />
+      )}
+      {decide && !decide.ready && decide.missing.length > 0 && (
+        <StillNeeded
+          intro="Still needed before this quote can move forward:"
+          items={decide.missing}
+          testId="decide-needed"
+        />
       )}
       {review.submitBlockedReason && (
         <p className="text-muted-foreground" data-testid="lead-review-blocked">
@@ -147,14 +175,19 @@ export function LeadReviewActions<T>({
           </ul>
         </div>
       )}
-      {(review.canSubmit || review.canSendBack || decide) && (
+      {(submitReady || review.canSendBack || decide) && (
         <div className="flex flex-wrap gap-2">
-          {decide && (
+          {decide?.ready && (
             <Button onClick={decide.onClick} data-testid="decide-gate">
               {decide.label}
             </Button>
           )}
-          {review.canSubmit && (
+          {decide && !decide.ready && decide.onOther && (
+            <Button variant="outline" onClick={decide.onOther} data-testid="decide-other">
+              Hold, send back or stop
+            </Button>
+          )}
+          {submitReady && (
             <Button
               onClick={() => {
                 // DR-pricing-finance-04: one request per click burst (the API also refuses a second).
@@ -184,6 +217,28 @@ export function LeadReviewActions<T>({
         <SendBackDialog kind={kind} onOpenChange={setSending} sendBack={sendBack} onDone={onDone} />
       )}
     </section>
+  );
+}
+
+/** What is left to do before the next step, in the same words the decision dialog uses. */
+function StillNeeded({
+  intro,
+  items,
+  testId,
+}: {
+  intro: string;
+  items: readonly { field: string; message: string }[];
+  testId: string;
+}) {
+  return (
+    <div className="grid gap-1" data-testid={testId}>
+      <p className="font-medium">{intro}</p>
+      <ul className="text-muted-foreground list-disc pl-5">
+        {items.map((m) => (
+          <li key={m.field + m.message}>{MISSING_LABELS[m.field] ?? m.message}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

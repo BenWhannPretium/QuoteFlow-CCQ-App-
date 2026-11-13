@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { decisionLabel } from '@/lib/decision-label';
+import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { valueListLabel } from '@/lib/value-label';
@@ -64,6 +64,7 @@ export function QuotingTab({
 }) {
   const quoting = quote.quoting;
   const g3 = quote.availableActions.find((a) => a.gateKey === 'G3');
+  const forward = forwardReadiness(quote.availableActions, 'G3');
   const record = quoting.pricingRecord ?? null;
   return (
     <div className="grid gap-6" data-testid="quoting-tab">
@@ -102,7 +103,19 @@ export function QuotingTab({
         quote={quote}
         decide={
           g3 && !quoting.commercialRedacted
-            ? { label: decisionLabel('G3', g3.gateLabel), onClick: () => onDecide() }
+            ? {
+                label: decisionLabel('G3', g3.gateLabel),
+                onClick: () => onDecide(),
+                ...forward,
+                onOther:
+                  forward.others.length > 0
+                    ? () =>
+                        onDecide(undefined, {
+                          outcomes: forward.others,
+                          title: 'Hold, send back or stop',
+                        })
+                    : undefined,
+              }
             : undefined
         }
       />
@@ -241,7 +254,7 @@ function PricingLeadActions({
   decide,
 }: {
   quote: QuoteDetail;
-  decide: { label: string; onClick: () => void } | undefined;
+  decide: Parameters<typeof LeadReviewActions>[0]['decide'];
 }) {
   const refresh = useRefresh(quote.quoteNumber);
   return (
@@ -507,9 +520,9 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
               />
               Costing completed (Cost-to-Serve)
               <span className="text-muted-foreground text-xs">
-                Tick this once the costing is done. Upload the costing model first (step 1 above).
-                It is required before the price can be approved. Costing itself stays in Excel and
-                the pricing app; QuoteFlow only keeps the file.
+                Ticked for you when the costing model is uploaded (step 1 above). It is required
+                before the price can be approved. Untick it if the costing is not final. Costing
+                itself stays in Excel and the pricing app; QuoteFlow only keeps the file.
               </span>
             </label>
             {errorFor(errors, 'costingCompleted') && (
@@ -628,11 +641,12 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
   const record = quoting.pricingRecord ?? null;
   const refresh = useRefresh(quote.quoteNumber);
   const capitalRequired = quoting.g2?.outcomeKey === 'capital_required';
-  const [form, setForm] = useState({
+  const saved = {
     capitalReadiness: record?.capitalReadiness ?? '',
     capitalNotes: record?.capitalNotes ?? '',
     capitalPendingJustification: record?.capitalPendingJustification ?? '',
-  });
+  };
+  const [form, setForm] = useState(saved);
   const [errors, setErrors] = useState<ServerError[]>([]);
   const save = useMutation({
     mutationFn: () =>
@@ -766,7 +780,15 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
           </Field>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
           <div>
-            <Button type="submit" disabled={!form.capitalReadiness || save.isPending}>
+            <Button
+              type="submit"
+              disabled={
+                !form.capitalReadiness ||
+                save.isPending ||
+                // Nothing to save: stays grey after a save until something changes.
+                (Object.keys(form) as (keyof typeof form)[]).every((k) => form[k] === saved[k])
+              }
+            >
               {save.isPending ? 'Saving…' : 'Save capital readiness'}
             </Button>
           </div>

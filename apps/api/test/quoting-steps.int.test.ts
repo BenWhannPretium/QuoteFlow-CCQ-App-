@@ -227,9 +227,10 @@ describe('F-083: the Finance role', () => {
     const qn = await inQuoting('capital_required');
     ok(await uploadModel(app, qn, 'cost_model', 'Pricing'));
     const d = await detail(qn, 'Finance');
+    // The upload completes the costing step (Bailey Schmitt, 2026-11-12), so the payback step is next.
     expect(d.quoting.steps.roi).toMatchObject({
       required: true,
-      status: 'blocked',
+      status: 'waiting',
       canUpload: true,
     });
     expect(d.quoting.commercialRedacted).toBe(false);

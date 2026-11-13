@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { raw, testDb } from './helpers';
 import { SF_STAGES } from '../seeds/config/settings';
-import { SHARED_HELP, ZERO_CER_HELP } from '../seeds/config/value-lists';
+import { ZERO_CER_HELP } from '../seeds/config/value-lists';
 import type { Tx } from '../src/client';
 
 /**
@@ -142,7 +142,10 @@ describe('0029 FB-04 data migration', () => {
         provisional: true,
         sort: 50,
       });
-      expect(by.SHARED!.meta.helpText).toBe(SHARED_HELP);
+      // 0029's own wording; 0043 later replaces it with the plain-language text (SHARED_HELP in the seed).
+      expect(by.SHARED!.meta.helpText).toBe(
+        'Split agreed with the customer; record the split in the terms notes until the terms structure is decided (D-003).',
+      );
       expect(rows.map((r) => r.code)).toEqual([
         'COMPANY_FUNDED',
         'CUSTOMER_FUNDED',

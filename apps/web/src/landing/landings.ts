@@ -90,7 +90,7 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
       {
         title: 'When a quote needs you',
         description:
-          'You are told (bell and email) when Pricing uploads a costing model on a quote that needs a payback model: capital is required, $0 CER included. The notice opens the quote’s Quoting tab.',
+          'You get a notification here and an email when Pricing uploads a costing model on a quote that needs a payback model (capital is required, $0 CER included). The notification opens the Quoting tab, where you take action.',
       },
       {
         title: 'What you do',

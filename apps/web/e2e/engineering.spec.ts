@@ -97,23 +97,24 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
 
   const solution = eng.getByTestId('solution-form');
   await solution.getByLabel('Process type').selectOption({ label: 'EBM' });
-  // FB-13 (F-057): Jim Zweifel's 14 machine types and 22 locations, as sent; the placeholders are gone.
+  // FB-13 (F-057): Jim Zweifel's 14 machine types and 22 locations; the placeholders are gone.
+  // Bailey Schmitt (2026-11-12): listed alphabetically.
   const machineOptions = solution.getByLabel('Machine type').locator('option');
   await expect(machineOptions).toHaveText([
     'Choose…',
+    '12B',
+    'DECO',
+    'DIE CUTTING',
     'EBM',
     'IBM',
-    'ISBM',
-    'RHB',
     'INJ - CAP',
-    'INJ - PREFORM',
     'INJ - OTHER',
-    'DECO',
-    'PAD PRINTING',
-    '12B',
-    'DIE CUTTING',
+    'INJ - PREFORM',
+    'ISBM',
     'LAMINATION',
+    'PAD PRINTING',
     'PRINTING',
+    'RHB',
     'STAMPING',
   ]);
   const plantOptions = solution.getByLabel('Plant / site').locator('option');
@@ -178,7 +179,7 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await inputs.getByLabel('Freight between the plants').fill('Preforms ship by truck, weekly.');
   await inputs.getByTestId('pack-out-unitsPerCase').fill('600');
   await inputs.getByTestId('pack-out-unitsPerPallet').fill('14400');
-  await inputs.getByRole('button', { name: 'Save' }).click();
+  await inputs.getByRole('button', { name: 'Save process and pack-out' }).click();
   await expect(eng.getByText('Saved', { exact: true })).toBeVisible();
   await expect(inputs.getByLabel('Preform number')).toHaveValue('PF-2210');
 
@@ -275,7 +276,9 @@ test('the KAM sees the Engineering tab read-only, capital included', async ({ pa
 
 // DR-engineering-03, DR-cross-cutting-07: the G2 dialog lists what is missing in plain words (no rule
 // keys), and "Record decision" is off, with the reason, while the outcome cannot be recorded.
-test('the G2 dialog names what is missing in words and does not offer a decision it would refuse', async ({
+// Bailey Schmitt (2026-11-12): no button moves a quote forward until the work it needs is filled in. The
+// tab says what is still needed, in words; holding, sending back and stopping stay available.
+test('an unfinished review shows what is still needed in words and offers no button to move it forward', async ({
   page,
   request,
 }) => {
@@ -286,23 +289,21 @@ test('the G2 dialog names what is missing in words and does not offer a decision
   });
   await signInAs(page, 'eng-lead');
   await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
-  await page
-    .getByTestId('engineering-tab')
-    .getByRole('button', { name: 'Decide feasibility' })
-    .click();
+  const tab = page.getByTestId('engineering-tab');
+  const needed = tab.getByTestId('decide-needed');
+  await expect(needed).toContainText('Still needed before this quote can move forward');
+  await expect(needed).not.toContainText('process_type');
+  await expect(needed).not.toContainText('must equal');
+  await expect(page.getByRole('button', { name: 'Decide feasibility' })).toHaveCount(0);
+  // The fields the quote needs say so.
+  await expect(tab.getByLabel('Cavitation (required)')).toBeVisible();
+  // Hold needs nothing from the quote: it is offered, and Advance is not.
+  await tab.getByTestId('decide-other').click();
   const g2 = page.getByRole('dialog');
-  await g2.getByRole('radio', { name: 'Advance – capital required', exact: true }).check();
-  const missing = g2.getByTestId('completeness');
-  await expect(missing).toContainText('The budgetary capital estimate (Engineering tab)');
-  await expect(missing).toContainText('The equipment BOM uploaded on the Engineering tab');
-  await expect(missing).not.toContainText('prelim_capital_usd');
-  await expect(missing).not.toContainText('must equal');
-  const record = g2.getByRole('button', { name: 'Record decision' });
-  await expect(record).toBeDisabled();
-  await expect(g2.getByTestId('decision-blocked')).toContainText('can’t be recorded yet');
-  // Hold needs nothing from the quote: Record decision is available again.
+  await expect(g2.getByRole('heading', { name: 'Hold, send back or stop' })).toBeVisible();
+  await expect(g2.getByRole('radio', { name: 'Advance', exact: true })).toHaveCount(0);
   await g2.getByRole('radio', { name: 'Hold', exact: true }).check();
-  await expect(record).toBeEnabled();
+  await expect(g2.getByRole('button', { name: 'Record decision' })).toBeEnabled();
   expect(await seriousViolations(page)).toEqual([]);
 });
 

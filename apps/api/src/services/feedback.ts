@@ -5,6 +5,8 @@ import {
   findFeedbackScreenshot,
   findUserById,
   insertFeedback,
+  insertNotificationRows,
+  listActiveUserIdsWithRole,
   listFeedback,
   updateFeedback,
   type FeedbackListRow,
@@ -129,6 +131,26 @@ export class FeedbackService {
           screenshot: screenshot !== null,
         },
       });
+      // Bailey Schmitt and Ben (2026-11-12): a report used to sit on Admin → Feedback with nobody told.
+      // Each active Admin gets an in-app notice (not the reporter). No description in it: a report
+      // can quote commercial figures, and the triage page is where it is read.
+      // `insertNotificationRows` has no RETURNING: the reporter's context cannot read an Admin's row back.
+      const admins = (await listActiveUserIdsWithRole(tx, 'Admin')).filter(
+        (userId) => userId !== actor.userId,
+      );
+      await insertNotificationRows(
+        tx,
+        admins.map((userId) => ({
+          id: uuidv7(),
+          userId,
+          type: 'feedback.reported',
+          title: 'New issue report',
+          body: `Someone sent a report (${body.type}) from ${body.route}. Open Admin → Feedback to read it.`,
+          channel: 'in_app',
+          createdAt: at,
+          updatedAt: at,
+        })),
+      );
     });
     return { id };
   }

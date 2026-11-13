@@ -503,7 +503,7 @@ export function AttachmentDownloadLink({ id, fileName }: { id: string; fileName:
   return (
     <button
       type="button"
-      className="text-emphasis min-h-11 text-left underline underline-offset-4 sm:min-h-0"
+      className="text-foreground min-h-11 text-left underline underline-offset-4 sm:min-h-0"
       disabled={download.isPending}
       onClick={() => download.mutate()}
     >

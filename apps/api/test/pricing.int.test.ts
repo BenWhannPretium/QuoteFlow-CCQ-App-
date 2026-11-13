@@ -374,7 +374,7 @@ describe('the price approval record', () => {
     expect(JSON.stringify(timeline.map((e) => e.payload))).not.toContain(SECRETS.range);
     expect(JSON.stringify(timeline.map((e) => e.payload))).not.toContain(SECRETS.erf);
 
-    const [audit] = await db.db
+    const audits = await db.db
       .select()
       .from(schema.auditEvent)
       .where(
@@ -383,6 +383,10 @@ describe('the price approval record', () => {
           eq(schema.auditEvent.entity, 'pricing_record'),
         ),
       );
+    // The record's own save (a costing model upload writes its own row: "costing model uploaded").
+    const audit = audits.find(
+      (a) => (a.after as Record<string, unknown> | null)?.approvedRangeNote !== undefined,
+    );
     expect(audit).toMatchObject({ action: 'update', actorId: pricer });
     expect(audit!.after).toMatchObject({ approvedRangeNote: SECRETS.range });
   });
@@ -537,8 +541,9 @@ describe('G3 Submit to Final Review', () => {
     expect(missing).toHaveLength(5);
     await prepareModels(app, qn);
 
-    // Cost before price: the approval alone is not enough.
-    await putRecord(qn, { approvedBy: await userId('Pricing') });
+    // Cost before price: the approval alone is not enough. Uploading the costing model ticked
+    // "Costing completed" (Bailey Schmitt, 2026-11-12), so untick it to see the rule.
+    await putRecord(qn, { approvedBy: await userId('Pricing'), costingCompleted: false });
     await putCapital(qn, { capitalReadiness: 'not_required' });
     expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
       '/pricing_record.costing_completed',

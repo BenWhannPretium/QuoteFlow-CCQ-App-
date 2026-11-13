@@ -28,7 +28,7 @@ export const Route = createFileRoute('/pricing-history')({
 });
 
 const KINDS = [
-  { key: 'erf', label: 'ERF', hint: 'Engineering request forms' },
+  { key: 'erf', label: 'ERF', hint: 'Past quote requests' },
   { key: 'bpr', label: 'BPR', hint: 'Price implementations' },
   { key: 'spr', label: 'SPR', hint: 'Stock pricing (retired Nov 2025)' },
 ] as const;
@@ -68,7 +68,7 @@ function PricingHistoryPage() {
     <div className="grid gap-6">
       <PageHeader
         title="Pricing history"
-        description="ERFs, BPRs and SPRs from the retired pricing app, imported from its export. Read-only."
+        description="Past pricing records from the retired pricing app. Read-only."
       />
       <form
         className="grid gap-3"
@@ -149,10 +149,9 @@ function PricingHistoryPage() {
       )}
       {source?.imported && (
         <p className="text-muted-foreground text-xs">
-          {source.counts.erf.toLocaleString()} ERFs, {source.counts.bpr.toLocaleString()} BPRs and{' '}
-          {source.counts.spr.toLocaleString()} SPRs
-          {source.importedAt ? `, imported ${absoluteTime(source.importedAt)}` : ''}. Estimates and
-          prices the old app left blank (or wrote as 0) show as Unknown.
+          {(source.counts.erf + source.counts.bpr + source.counts.spr).toLocaleString()} past
+          records{source.importedAt ? `, imported ${absoluteTime(source.importedAt)}` : ''}.
+          Estimates and prices the old app left blank (or wrote as 0) show as Unknown.
         </p>
       )}
     </div>

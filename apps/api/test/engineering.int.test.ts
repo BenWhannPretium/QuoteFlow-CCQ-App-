@@ -1432,6 +1432,15 @@ describe('lead review (2026-10-30): the engineer submits to the engineering lead
     const empty = await submit(qn);
     expect(empty.statusCode).toBe(422);
     expect(errorCodes(empty).every((c) => c === 'MISSING_FIELD')).toBe(true);
+    // Bailey Schmitt (2026-11-12): the tab knows what is still needed before it offers Submit, and
+    // which fields to mark "(required)".
+    const before = (await detail(qn, 'Engineer')).engineering.leadReview;
+    expect(before.canSubmit).toBe(true);
+    expect(before.submitMissing!.map((m) => m.field)).toEqual(
+      expect.arrayContaining(['process_type', 'cavitation', 'capacity_evidence']),
+    );
+    expect(before.requiredFields).toEqual(expect.arrayContaining(['process_type', 'plant_code']));
+    expect(before.requiredFields).not.toContain('capacity_signoff_status'); // the lead's own step
 
     expect((await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION)).statusCode).toBe(
       200,
@@ -1444,6 +1453,7 @@ describe('lead review (2026-10-30): the engineer submits to the engineering lead
       ).statusCode,
     ).toBe(200);
     // Not signed off yet: that is the lead's step, so it does not block the submission.
+    expect((await detail(qn, 'Engineer')).engineering.leadReview.submitMissing).toEqual([]);
     const res = await submit(qn);
     expect(res.statusCode, res.body).toBe(200);
     const eng = EngineeringDetail.parse(res.json());

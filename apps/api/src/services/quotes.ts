@@ -1,6 +1,7 @@
 import type {
   AvailableGateAction,
   GateDecisionSummary,
+  LeadReviewView,
   QualificationWarning,
   QuoteDetail,
   QuotePriority,
@@ -25,11 +26,13 @@ import {
   qualificationWarnings,
   redactScore,
   salesforceOpportunityUrl,
+  submissionRules,
   withDerivedFields,
   type Actor,
   type EngQueueSettings,
   type OverrideSettings,
   type QualificationSettings,
+  type LeadReviewKind,
   type QuoteState,
   type ScoreResult,
   type ScoringModel,
@@ -165,6 +168,31 @@ export function summaryDto(row: QuoteSummaryRow, ctx: QuoteViewContext): QuoteSu
     priority: priorityDto(q, ctx),
     warnings: warningsFor(row, ctx),
   };
+}
+
+/**
+ * Bailey Schmitt (2026-11-12): the tab offers "Submit to lead" only once the assignee's part is complete.
+ * The same rules the submit itself checks (`planSubmitToLead`), listed for the caller who may submit.
+ */
+function withSubmitMissing<T extends { leadReview: LeadReviewView }>(
+  kind: LeadReviewKind,
+  view: T,
+  workflow: WorkflowConfig,
+  state: QuoteState,
+  ctx: QuoteViewContext,
+): T {
+  const rules = submissionRules(kind, workflow);
+  // Every field those rules name, so the tab can mark them "(required)" for anyone who edits it.
+  const requiredFields = [...new Set(rules.flatMap(fieldsReferenced))];
+  if (!view.leadReview.canSubmit) {
+    return { ...view, leadReview: { ...view.leadReview, requiredFields } };
+  }
+  const fields = withDerivedFields(state, ctx.commercial.derived).fields;
+  const submitMissing = evaluateRules(rules, fields).map((e) => ({
+    field: e.field ?? '',
+    message: e.message,
+  }));
+  return { ...view, leadReview: { ...view.leadReview, requiredFields, submitMissing } };
 }
 
 /** The domain's available actions, plus what the decision dialog needs to guide the user. */
@@ -354,8 +382,20 @@ export class QuoteReadService {
         { actor: ctx.actor, settings: ctx.overrides, kamCanSeePeerScores: ctx.kamCanSeePeerScores },
         { ...q, accountId: state?.accountId ?? null },
       ),
-      engineering: await engineeringView(db, ctx.actor, ctx.engQueue, q, state!, workflow),
-      quoting: await quotingView(db, ctx.actor, workflow, q, state!),
+      engineering: withSubmitMissing(
+        'engineering',
+        await engineeringView(db, ctx.actor, ctx.engQueue, q, state!, workflow),
+        workflow,
+        state!,
+        ctx,
+      ),
+      quoting: withSubmitMissing(
+        'pricing',
+        await quotingView(db, ctx.actor, workflow, q, state!),
+        workflow,
+        state!,
+        ctx,
+      ),
       customerDecision: await customerDecisionView(db, {
         actor: ctx.actor,
         workflow,
