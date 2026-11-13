@@ -17,3 +17,4 @@ Put business inputs for the FB steps here, so a build session can read them with
 | `costing-template-structure.md` (**added 2026-11-12**: structure only of the pre-makeover ERF costing workbook; a real quote, stays out of the repo; the new template is **not received**) | Gemma Cebolla (A-031, 2026-11-11) | FB-14 (inactive map) |
 | `capacity-exhibit.md` (**added 2026-11-12**: layout and formulas; 360 vs 365 days to confirm) | Stacy Slocum (2026-11-11, not asked for) | FB-14 (capacity helper) |
 | One-page summary template + cell map (**not received**; the payback calculator's `0. Financial Summary` may be it: asked) | Stacy Slocum / Gemma Cebolla (A-031) | FB-14 |
+| `walkthrough-2026-11-13.md` (**added 2026-11-13**: every piece of feedback from the walkthrough continuation, W13-01 to W13-34 and the W13-W follow-ups, with the agreed triage and what the code does today) | Ben Whann, Bailey Schmitt, Zachary Cairns, Tre Curry (meeting 2026-11-13) | FB-15 to FB-19 |
