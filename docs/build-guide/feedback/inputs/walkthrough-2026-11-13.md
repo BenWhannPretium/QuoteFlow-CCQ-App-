@@ -16,9 +16,9 @@ Each item has a **W13** ID. The build steps cite these IDs. Proposed tracker row
 | ID | Feedback | Raised by | Triage | Step |
 |---|---|---|---|---|
 | W13-01 | **Bug:** an intake with every field filled still says "The intake is missing required information" and won't submit. It does not say which field is missing; once it said components was blank (0:53–0:59). Bailey's resubmit of 00002 kept the warning after she filled "Quote needed by" (1:13) | Zachary Cairns; Bailey Schmitt | Build | FB-15 |
-| W13-02 | Mark required fields with a red asterisk before the label, as Salesforce does; today required and optional look the same. Include Sub-market (0:54, 1:12) | Zachary Cairns; Bailey Schmitt | Build | FB-15 |
-| W13-03 | Picking "Other" still shows nothing (also reported Nov 12) (1:12) | Bailey Schmitt | Build | FB-15 |
-| W13-04 | Product facts from the opportunity's products (container size, neck finish, from MDM via Salesforce) do not pre-fill. Check the field API names: market and sub-market moved from the opportunity to the product record (parent market, end-use market). Fields stay editable (0:13–0:17) | Zachary Cairns; Ben Whann (confirmed bug) | Build | FB-15 |
+| W13-02 | Mark required fields with a red asterisk before the label, as Salesforce does; today required and optional look the same. Include Sub-market (0:54, 1:12). *Code check:* "(required)" is small grey text; the minimum-spec fields (needed when there is no drawing) carry no marker; Market and Sub-market are optional | Zachary Cairns; Bailey Schmitt | Build. Making Market and Sub-market required is a D-006 change; Bailey owns D-006 and asked for it, so it ships as provisional config | FB-15 |
+| W13-03 | Picking "Other" still shows nothing (also reported Nov 12) (1:12). *Code check:* Product family Other, Component Other and Decoration type Other open no description field; Freight Other only shows a hint | Bailey Schmitt | Build | FB-15 |
+| W13-04 | Product facts from the opportunity's products (container size, neck finish, from MDM via Salesforce) do not pre-fill. Check the field API names: market and sub-market moved from the opportunity to the product record (parent market, end-use market). Fields stay editable (0:13–0:17). *Code check:* the intake pre-fills only from the first `Opportunity_Product_Specifications__c` record and reads no `OpportunityLineItem` / `Product2`; market and sub-market are not read from Salesforce at all | Zachary Cairns; Ben Whann (confirmed bug) | Build the part that needs no new field names (diagnose, say when Salesforce sent no product details, keep every spec for FB-19); reading the product record waits for its API names (W13-W10) | FB-15 |
 | W13-05 | A send-back notification should open the intake at the field to fix, not at the top of the page (1:07) | Bailey Schmitt; Zachary Cairns | Build | FB-15 |
 | W13-06 | Bid / program reference: customers rarely send their own ID. Remove it or reword it (0:10) | Bailey Schmitt; Zachary Cairns | Build as provisional: keep the field (Pricing asked for it, F-085), make sure it is optional, relabel it "Customer bid / RFP reference (if the customer gave one)" | FB-15 |
 | W13-07 | Color is missing the stock colorants by resin (PET, HDPE, PP). HDPE and PP stock colors are white and black (0:26–0:29) | Zachary Cairns | Build as provisional: add "Stock white" and "Stock black" for HDPE and PP now; PET stock colors wait for Seamus's list | FB-15 |
@@ -49,7 +49,7 @@ Each item has a **W13** ID. The build steps cite these IDs. Proposed tracker row
 | W13-22 | Remove "Advance – capital required" from G2 (agreed Nov 12) (2:00) | Bailey Schmitt; Ben Whann | Build | FB-17 |
 | W13-23 | Merge Rework and Redirect into one "Send back to…" with a target and a required reason (2:01–2:03) | Bailey Schmitt; Zachary Cairns | Build as provisional | FB-17 |
 | W13-24 | Keep Hold, but make clear it is for a pause (e.g. "customer says revisit in 6 months"), not for a fix (1:58–1:59) | Zachary Cairns; Bailey Schmitt | Build as provisional (help text) | FB-17 |
-| W13-25 | The hold owner defaults to the KAM, who has nothing to do with capacity. It should be the person responsible for clearing the hold, and they should be notified (1:53, 1:55) | Zachary Cairns; Bailey Schmitt | Build as provisional: the decider by default, changeable in the dialog | FB-17 |
+| W13-25 | The hold owner showed the KAM, who has nothing to do with capacity. It should be the person responsible for clearing the hold, and they should be notified (1:53, 1:55). *Code check:* the dialog defaults to the decider ("Me") and offers "The KAM"; the decider is never notified | Zachary Cairns; Bailey Schmitt | Build as provisional: offer the stage's assignee (engineer, production scheduler, pricer) and default to them when there is one | FB-17 |
 | W13-26 | A KAM can't see that a quote is on hold. Show an orange "On hold" next to it in the KAM's open quotes and on the timeline (1:51) | Zachary Cairns; Bailey Schmitt | Build | FB-17 |
 | W13-27 | Stop: remove the "Closure owner" picker. Whoever stops the quote owns the closure (2:13) | Ben Whann; Zachary Cairns | Build | FB-17 |
 | W13-28 | The score explanation popover ("Y") is cut off by the taskbar on a laptop (1:00) | Zachary Cairns | Build | FB-17 |
@@ -60,7 +60,7 @@ Each item has a **W13** ID. The build steps cite these IDs. Proposed tracker row
 |---|---|---|---|---|
 | W13-29 | Rename Home to "Command Center" and merge each role's analytics into it (no separate Analytics tab) (0:03) | Ben Whann; Bailey Schmitt; Tre Curry | Build | FB-18 |
 | W13-30 | Show a small "Progress saved" next to the Save button; the bottom-right toast is easy to miss (1:22) | Ben Whann; Bailey Schmitt | Build | FB-18 |
-| W13-31 | Make the Salesforce opportunity a clickable link (helps on mobile), and show the customer's ERP number in the intake summary when known (1:02–1:04) | Zachary Cairns; Bailey Schmitt | Build (the customer number shows only once a source exists: see W13-W1) | FB-18 |
+| W13-31 | Make the Salesforce opportunity a clickable link (helps on mobile), and show the customer's ERP number in the intake summary when known (1:02–1:04). *Code check:* the link exists ("Open in Salesforce ↗") but `salesforce_instance_url` is seeded empty, so only the ID shows | Zachary Cairns; Bailey Schmitt | Build (link in more places, an Admin hint when the URL is not set; an Admin sets the URL). The customer number waits for a source (W13-W1) | FB-18 |
 
 ## Multi-item quotes
 
@@ -83,6 +83,8 @@ Each item has a **W13** ID. The build steps cite these IDs. Proposed tracker row
 | W13-W7 | Is fluorination an additive; do engineers know pack-out at quote time; pack-out field names; "two-step" vs "two-stage"; effectiveness cap 100 or 200 | Engineering (Jim Zweifel) |
 | W13-W8 | Teams notifications (Graph permission or bot) | IT |
 | W13-W9 | The engineering lead names (Paul Slomkowski's team) and the production scheduler user(s) | Operations engineering; Supply Chain |
+| W13-W10 | Salesforce API names for the product record's capacity, neck finish, parent market and end-use market (Zac offered to check) | Zachary Cairns (Ben asks) |
+| W13-W11 | The process behind each non-forming machine type (DECO, PAD PRINTING, PRINTING, LAMINATION, DIE CUTTING, STAMPING, 12B) for the merged pick (FB-16 seeds OTHER, provisional) | Engineering (Jim Zweifel) |
 
 **No change needed:** Salesforce write-back (not in the MVP, D-014); dimensions stay optional behind the drawing-or-minimum-spec rule; uploads are not read (Engineering can send back); per-item close dates are handled by "Product needed by" per item (FB-19); the capacity-bottleneck concern (Faron) is a process question.
 

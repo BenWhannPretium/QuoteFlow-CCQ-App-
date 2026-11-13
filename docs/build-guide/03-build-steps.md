@@ -1334,6 +1334,103 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Left for later:** `.xlsm` (Stacy's print-view macro would make the file one; rejected today); a "Download the current template" link (needs the blank template stored by an Admin, never in git); extraction for the new costing template; re-reading earlier uploads when an Admin changes a map; `price_table` summaries; any AI reading of CERs or workbooks (rule 9; Ranger is separate); Stacy's EBITDA add-backs and sub-$25K note (her model).
 - **Prompt:** `prompts/feedback/FB-14-model-templates-summary.md` is **not committed**: it names the received costing workbook (a real ERF number and person). Ben keeps it locally.
 
+## Walkthrough updates (FB-15 to FB-19, added 2026-11-13)
+
+**Source:** the "QuoteFlow Walkthrough Continuation" on Fri 2026-11-13 (Ben Whann, Bailey Schmitt, Zachary Cairns, Tre Curry). Zachary walked the app end to end as a first-time user with every role. Each piece of feedback is recorded with a **W13** ID, the triage Ben agreed and what the code does today in [`feedback/inputs/walkthrough-2026-11-13.md`](feedback/inputs/walkthrough-2026-11-13.md). The prompts are in [`prompts/feedback/`](prompts/feedback/). These steps use the same change-log procedure as FB-01 to FB-14 (above), written out at the end of each prompt.
+
+### Triage
+
+| Bucket | Meaning | Items |
+|---|---|---|
+| **Build** | Agreed in the meeting, no open question | W13-01 to W13-05, W13-11 to W13-13, W13-17, W13-18, W13-20 to W13-22, W13-26 to W13-31 (W13-04 only the part that needs no new Salesforce field names) |
+| **Build as provisional** | Built now on a stated assumption, seeded `provisional: true` (rule 4); an Admin changes it when the owner answers | W13-06 to W13-10, W13-14 to W13-16, W13-19, W13-23 to W13-25, W13-32 to W13-34 |
+| **Wait** | Needs information first; sent to Bailey Schmitt for follow-up, not built | W13-W1 to W13-W11 (payment terms and ERP customer number source, quote-type list, description wording, neck list vs MDM, PET stock colorants, plant costing examples, Engineering questions, Teams notifications, lead and scheduler names, Salesforce product field names, process for non-forming machine types) |
+
+### Steps and run order
+
+**Grouping rule** (as for FB-01 to FB-14): one step per area of the code, so two sessions running in parallel don't edit the same files.
+
+| Step | Scope | W13 items | Wave | Model / effort | Why |
+|---|---|---|---|---|---|
+| **FB-15** | Intake fixes: the submit bug, red required markers (Market and Sub-market required), "Other" asks, send-backs land on the field, small field changes | W13-01 to W13-11 | **1** | Most capable · high | The submit bug has several causes across web, API and domain; it blocks every walkthrough |
+| **FB-16** | Engineering and capacity: one process & machine pick filtered by plant, input checks, colours, pack-out rule, **Production Scheduler role**, a block goes straight back, capacity decided inside "Decide feasibility", "Engineering & Capacity" label | W13-12 to W13-21 | **1** | Most capable · high | A new role (matrix, RLS, migration, Entra) and a change to how G2 is reached |
+| **FB-17** | Gate decisions: outcomes can be switched off, no "Capital required" (capital needed from preliminary capital), Advance / Send back to… / Hold / Stop, hold owner, holds on the timeline, the "Why?" popover | W13-22 to W13-25, W13-27, W13-28, W13-26 (timeline) | **2**, after FB-16 merges | Most capable · high | Touches the gate engine, a capital rule that Pricing and Final Review read, and outcome keys that analytics read |
+| **FB-18** | Command Center (Home + Analytics), on-hold chip, "Saved" beside every Save button, Salesforce links | W13-29 to W13-31, W13-26 (Command Center) | **2**, after FB-15 and FB-16 merge | Standard · high | UI only; no workflow or permission change |
+| **FB-19** | Multi-item quotes (F-084 promoted to MVP): `quote_item`, items at intake, engineering per item, the `quote` mirror, one-active-quote rule as a setting | W13-32 to W13-34 | **3**, after FB-15 to FB-18 merge | Most capable · high | The largest data-model change since B-03; it touches every stage |
+
+**Order:**
+1. **Wave 1 now:** FB-15 and FB-16 in two sessions. Merge FB-16 first if both are ready (FB-17 waits on it).
+2. **Wave 2:** FB-17 when FB-16 has merged; FB-18 when FB-15 and FB-16 have merged. They run in parallel (FB-18 must not edit the gate dialog, `hybrid.ts` or the timeline).
+3. **Wave 3:** FB-19 when the other four have merged. Its prompt has a cut line (items at intake and downstream first, engineering per item in a same-day follow-up) if time runs short.
+4. **Tue 2026-11-17:** Bailey's role-by-role round-table (one person per role, each with only their role). Aim to have FB-15 to FB-18 merged before it. **FB-19 is unlikely to be ready by Monday 2026-11-16** if it waits for the other four; Ben decides whether to show multi-item at the round-table or straight after.
+
+**Migrations:** FB-15 and FB-16 both add one in Wave 1 (0044 and 0045, whichever starts first). Each prompt carries the renumbering rule.
+
+**Actions outside the code:**
+- **IT:** the `CCQ.ProductionScheduler` app role and the `SG-CCQ-ProductionScheduler` group (FB-16 writes the A4c steps in `06-azure-entra-setup.md`). Until then the role works in dev and test only.
+- **Admin, each environment:** set `salesforce_instance_url` (the Pretium Lightning URL) so "Open in Salesforce ↗" shows instead of the bare ID (FB-18).
+- **Ben:** ask Zachary Cairns for the Salesforce API names of the product record's capacity, neck finish, parent market and end-use market (W13-W10).
+- **Bailey:** the W13-W follow-ups, and the proposed tracker rows each PR lists.
+
+---
+
+### FB-15: Intake fixes · **Wave 1** · Ben (most capable model · high)
+- **Why:** the intake refused a fully filled form without saying why (W13-01), and the KAM could not tell required from optional (W13-02). "Other" asked nothing (W13-03), product facts did not pre-fill (W13-04), and a send-back landed at the top of the quote (W13-05). Small field changes: W13-06 to W13-11.
+- **Done when:**
+  - [ ] every cause of the submit refusal reproduced in a test and fixed; a 422 lists each missing field with a working Fix link; a failed autosave stops the submit; no stale warning after a resubmit
+  - [ ] red asterisk on every field the server requires (incl. min-spec without a drawing); Market and Sub-market required (provisional, D-006 owner Bailey)
+  - [ ] "Other" on product family, component and decoration asks for a description; freight Other requires the arrangements
+  - [ ] the pre-fill cause found; "no product details" notice; all Salesforce product specs kept for FB-19; new field names wait for W13-W10
+  - [ ] the send-back notification opens the rework at the review step with the note
+  - [ ] bid reference relabelled; stock white / black (HDPE, PP); Fluorination; shared %; not-yet-customer notice at hand-off; Spirits & Mixers FAQ
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-15-intake-fixes.md`
+
+### FB-16: Engineering and capacity · **Wave 1** · Ben (most capable model · high)
+- **Why:** two picks for one decision and no plant filter (W13-12, W13-13); 750 % accepted and no green (W13-20, W13-21); pack-out looked like it needed all three (W13-14); a Production Scheduler role for capacity (W13-15, W13-19); a capacity block left the quote stuck and the lead clicked twice (W13-17, W13-18); capacity named on the timeline (W13-16).
+- **Done when:**
+  - [ ] one "Process & machine type" pick filtered by plant; process derived from `machine_type_process_map`; routing unchanged
+  - [ ] plant pickers filtered; inputs validated as typed; utilization green / amber / red
+  - [ ] pack-out grouped; bag and case not together; `requireOneOf` built and off
+  - [ ] Production Scheduler role end to end with a second assignee, notifications and "your part" labels; lead send-back to either; A4c written
+  - [ ] a block returns the work to the engineer and notifies; the lead approves capacity inside "Decide feasibility"
+  - [ ] ENG_REVIEW relabelled "Engineering & Capacity" by migration
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-16-engineering-capacity.md`
+
+### FB-17: Gate decisions and holds · **Wave 2 (after FB-16)** · Ben (most capable model · high)
+- **Why:** "Advance – capital required" is to go (W13-22); Rework and Redirect read as the same thing (W13-23); Hold's purpose was unclear and its owner wrong (W13-24, W13-25); Stop asked for a closure owner (W13-27); holds were hard to read on the timeline (W13-26); the "Why?" popover ran off a laptop screen (W13-28).
+- **Done when:**
+  - [ ] outcomes can be switched off (`active`), with history intact
+  - [ ] "Capital required" off; capital needed derived from preliminary capital; BOM, readiness, flags and texts follow it
+  - [ ] the dialog offers Advance / Send back to… / Hold / Stop; send-back targets named by destination; reason and note on every send-back; no closure-owner picker
+  - [ ] hold owner defaults to the stage's assignee and is notified; hold help text; holds readable on the timeline
+  - [ ] the popover fits; no outcome key renamed; analytics and Fabric twins unchanged
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-17-gate-decisions-holds.md`
+
+### FB-18: Command Center and screen polish · **Wave 2 (after FB-15 and FB-16)** · Ben (standard model · high)
+- **Why:** one home per role with its analytics (W13-29); KAMs couldn't see a hold (W13-26); the save toast was easy to miss (W13-30); the Salesforce ID wasn't a link (W13-31).
+- **Done when:**
+  - [ ] "Command Center" with "My work" and "Analytics"; `/analytics` redirects; permissions unchanged
+  - [ ] orange "On hold" chip with owner and review date
+  - [ ] "Saved" beside every explicit Save button
+  - [ ] Salesforce link wherever the ID shows; Admin hint when the URL is unset
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-18-command-center-polish.md`
+
+### FB-19: Multi-item quotes · **Wave 3 (after FB-15 to FB-18)** · Ben (most capable model · high)
+- **Why:** a bid for several custom items should be one quote, quoted together (W13-32; F-084, promoted from P1 by Bailey Schmitt on 2026-11-13). Single-item quotes and separate quotes on one opportunity stay possible (W13-33), and each variant is its own item (W13-34).
+- **Done when:**
+  - [ ] plan committed first (`feedback/fb19-plan.md`)
+  - [ ] `quote_item` (RLS, Fabric), existing quotes migrated to item 1, drafts backfilled, the `quote` mirror (item 1, summed volume)
+  - [ ] one-active-quote rule a setting (`warn`)
+  - [ ] Items step: add, add from Salesforce products, duplicate, remove; per-item validation and drawings
+  - [ ] engineering and capacity per item; G2 evaluated per item from config
+  - [ ] Quoting, Final Review, hand-off, lists and exports show the items; `analytics_quote_item` and its twin
+  - [ ] tests (a single-item quote still runs end to end), `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-19-multi-item-quotes.md`
+
 ## Post-MVP backlog (P1 / P2, not before Nov 13)
 
 | Item | Priority | Blocked by |
