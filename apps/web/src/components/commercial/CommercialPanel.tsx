@@ -590,7 +590,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
           </Field>
           <Field
             label="Reviewed by (Legal)"
-            hint="Legal is not a CCQ role: name the reviewer."
+            hint="The name of the person in Legal who reviewed it"
             error={errorFor(errors, 'legal/reviewerName')}
           >
             {(id) => (

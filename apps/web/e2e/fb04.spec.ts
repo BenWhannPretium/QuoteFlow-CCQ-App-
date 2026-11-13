@@ -131,7 +131,7 @@ test('Salesforce: the quote links to its opportunity, and recording Awarded show
     await expect(page.getByTestId('sf-update-reminder')).toHaveCount(0);
 
     // Record Awarded (T-035).
-    await page.getByRole('button', { name: 'Outcome recorded' }).click();
+    await page.getByRole('button', { name: 'Record customer decision' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('radio', { name: 'Awarded' }).check();
     await dialog.getByLabel(/^Acceptance evidence/).selectOption({ label: 'Purchase order (PO)' });

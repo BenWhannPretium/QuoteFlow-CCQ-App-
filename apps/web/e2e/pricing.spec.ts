@@ -234,7 +234,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await capital.getByLabel('Pending-capital justification').fill('CER goes to the board Nov 10');
   // F-064: no CER reference is needed to quote, and none can be typed here.
   await expect(capital.getByLabel('CER reference')).toHaveCount(0);
-  await expect(capital).toContainText('No CER reference is needed to quote');
+  await expect(capital).toContainText('You do not need a CER reference to quote');
   await capital.getByRole('button', { name: 'Save capital readiness' }).click();
   await expect(pricing.getByText('Capital readiness saved')).toBeVisible();
   await expect(tab.getByTestId('quoting-warnings')).toContainText('Capital is still pending');
