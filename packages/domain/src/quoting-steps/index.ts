@@ -124,7 +124,7 @@ export interface RoiReasonLabels {
 export function roiReasonText(reason: RoiReason, labels: RoiReasonLabels = {}): string {
   switch (reason.code) {
     case 'g2_outcome':
-      return `Engineering (G2): ${labels.g2Outcome?.(reason.value ?? '') ?? reason.value}`;
+      return `Engineering’s decision: ${labels.g2Outcome?.(reason.value ?? '') ?? reason.value}`;
     case 'capital_likely':
       return 'Capital is flagged likely';
     case 'funding_model':

@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, downloadBlob, uploadAttachment } from '@/lib/api';
+import { decisionLabel } from '@/lib/decision-label';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
@@ -46,12 +47,12 @@ import {
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { IntakeFactsHeader } from '../intake/IntakeFacts';
 import { KeyValueGrid } from '../KeyValueGrid';
-import { LeadReviewPanel } from '../LeadReviewPanel';
+import { LeadReviewActions, LeadReviewStatus } from '../LeadReviewPanel';
 import { FieldOverride, timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
 
 const DF22_HELP =
-  'State your assumption. Quotes have historically assumed 85% vs ~70% demonstrated (DF-22).';
+  'Enter the effectiveness you are assuming. Past quotes assumed 85%; lines have actually run at about 70%.';
 
 /**
  * The quote's "Engineering" tab (B-10): assignment and acceptance, the Engineering Review solution
@@ -68,14 +69,16 @@ export function EngineeringTab({
 }) {
   const eng = quote.engineering;
   const refresh = useRefresh(quote.quoteNumber);
-  const canDecideG2 = quote.availableActions.some((a) => a.gateKey === 'G2');
+  const g2 = quote.availableActions.find((a) => a.gateKey === 'G2');
+  // The tab reads top to bottom in the order the work is done: who has it, where it stands, the
+  // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
   return (
     <div className="grid gap-6" data-testid="engineering-tab">
       {/* FB-02: destination and mold modification from intake. */}
       <IntakeFactsHeader facts={quote.intakeFacts} shipTo={quote.shipTo} />
       <ProductFactsHeader facts={eng.productFacts} />
-      <AssignmentCard quote={quote} canDecideG2={canDecideG2} onDecide={onDecide} />
-      <EngLeadReview quote={quote} />
+      <AssignmentCard quote={quote} />
+      <LeadReviewStatus kind="engineering" review={eng.leadReview} />
       <SectionLockLine lock={eng.lock} />
       {eng.commercialRedacted && eng.canEdit && (
         <p
@@ -95,6 +98,16 @@ export function EngineeringTab({
       <CapacitySignoffCard
         key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
         quote={quote}
+      />
+      <LeadReviewActions
+        kind="engineering"
+        review={eng.leadReview}
+        submit={() => api.submitEngReviewToLead(quote.quoteNumber)}
+        sendBack={(note) => api.sendBackEngReview(quote.quoteNumber, note)}
+        onDone={(detail) => refresh(detail)}
+        decide={
+          g2 ? { label: decisionLabel('G2', g2.gateLabel), onClick: () => onDecide() } : undefined
+        }
       />
     </div>
   );
@@ -124,20 +137,6 @@ function ProductFactsHeader({ facts }: { facts: EngineeringDetail['productFacts'
   );
 }
 
-/** Lead review: the engineer submits to the engineering lead, who may send it back. */
-function EngLeadReview({ quote }: { quote: QuoteDetail }) {
-  const refresh = useRefresh(quote.quoteNumber);
-  return (
-    <LeadReviewPanel
-      kind="engineering"
-      review={quote.engineering.leadReview}
-      submit={() => api.submitEngReviewToLead(quote.quoteNumber)}
-      sendBack={(note) => api.sendBackEngReview(quote.quoteNumber, note)}
-      onDone={(detail) => refresh(detail)}
-    />
-  );
-}
-
 function useRefresh(quoteNumber: string) {
   const queryClient = useQueryClient();
   return (detail?: EngineeringDetail) => {
@@ -154,16 +153,9 @@ function useRefresh(quoteNumber: string) {
   };
 }
 
-function AssignmentCard({
-  quote,
-  canDecideG2,
-  onDecide,
-}: {
-  quote: QuoteDetail;
-  canDecideG2: boolean;
-  onDecide: (outcomeKey?: string) => void;
-}) {
+function AssignmentCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
+  const isAssignee = useCurrentUser().user.id === eng.assignedEngineerId;
   const refresh = useRefresh(quote.quoteNumber);
   const [assigning, setAssigning] = useState(false);
   // The picker's engineers (with open counts) come with the queue; load them when the dialog opens.
@@ -177,13 +169,13 @@ function AssignmentCard({
     onSuccess: async (detail) => {
       await refresh(detail);
       toast.success({
-        title: 'Review accepted',
-        description: 'The engineering review is in progress.',
+        title: 'Review started',
+        description: 'Fill in the sections below, then submit at the bottom.',
       });
     },
     onError: (err) =>
       toast.error({
-        title: 'Could not accept',
+        title: 'Could not start the review',
         description: problemErrors(err)[0]?.message ?? 'Try again.',
       }),
   });
@@ -211,11 +203,11 @@ function AssignmentCard({
             },
             {
               id: 'accepted',
-              label: 'Accepted',
+              label: 'Review started',
               value: eng.acceptedAt
                 ? `${absoluteTime(eng.acceptedAt)}${eng.acceptedByName ? ` by ${eng.acceptedByName}` : ''}`
                 : eng.inQueue
-                  ? 'Awaiting acceptance'
+                  ? 'Not started yet'
                   : null,
             },
             {
@@ -230,28 +222,30 @@ function AssignmentCard({
             },
           ]}
         />
-        <div className="flex flex-wrap gap-2">
-          {eng.canAssign && (
-            <Button variant="outline" size="sm" onClick={() => setAssigning(true)}>
-              {eng.assignedEngineerId ? 'Reassign…' : 'Assign…'}
-            </Button>
-          )}
-          {eng.canAccept && (
-            <Button size="sm" onClick={() => accept.mutate()} disabled={accept.isPending}>
-              Accept (start review)
-            </Button>
-          )}
-          {canDecideG2 && (
-            <>
-              <Button size="sm" onClick={() => onDecide()}>
-                Decide G2…
+        {/* One step at a time: assign first, then the engineer starts. Reassigning stays available, quietly. */}
+        {(eng.canAssign || eng.canAccept) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {eng.canAssign && !eng.assignedEngineerId && (
+              <Button onClick={() => setAssigning(true)}>Assign engineer</Button>
+            )}
+            {/* Starting is the assigned engineer's step; a lead may start it for them (quieter). */}
+            {eng.canAccept && eng.assignedEngineerId && (
+              <Button
+                variant={isAssignee ? 'action' : 'outline'}
+                size={isAssignee ? 'default' : 'sm'}
+                onClick={() => accept.mutate()}
+                disabled={accept.isPending}
+              >
+                Start review
               </Button>
-              <Button variant="outline" size="sm" onClick={() => onDecide('rework')}>
-                Return to KAM…
+            )}
+            {eng.canAssign && eng.assignedEngineerId && (
+              <Button variant="ghost" size="sm" onClick={() => setAssigning(true)}>
+                Reassign
               </Button>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
         {assigning && picker.data && (
           <AssignDialog
             open
@@ -408,7 +402,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
             </Field>
             <Field
               label="Plant / site"
-              hint="Decided by Engineering, Ops and Supply Chain (DF-10)"
+              hint="Agreed by Engineering, Operations and Supply Chain"
               error={errorFor(errors, 'plantCode')}
             >
               {(id) => (
@@ -456,8 +450,8 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
               label={BUDGETARY_CAPITAL_LABEL}
               hint={
                 capitalHidden
-                  ? `${BUDGETARY_CAPITAL_HELP} Hidden from your role: leave blank to keep.`
-                  : `${BUDGETARY_CAPITAL_HELP} Saving it rescores the quote.`
+                  ? `${BUDGETARY_CAPITAL_HELP} Your role cannot see the saved figure. Leave this blank to keep it.`
+                  : `${BUDGETARY_CAPITAL_HELP} Saving it updates the quote’s priority score.`
               }
               error={errorFor(errors, 'prelimCapitalUsd')}
             >
@@ -495,7 +489,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
           </Field>
           <Field
             label="Supply Chain"
-            hint="Supply Chain's network, resin and freight view on the chosen plant (B-26)"
+            hint="What Supply Chain says about the chosen plant: network, resin and freight"
             error={errorFor(errors, 'supplyChainNotes')}
           >
             {(id) => (
@@ -580,8 +574,7 @@ function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
             </>
           ) : (
             <span className="text-muted-foreground">
-              Not signed off yet. G2 &ldquo;Advance&rdquo; needs the capacity owner to approve
-              capacity.
+              Not signed off yet. The quote can only advance once capacity is approved.
             </span>
           )}
         </p>
@@ -589,28 +582,33 @@ function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
           <div className="grid gap-3">
             <Field
               label="Sign-off note"
-              hint="Required to block capacity"
+              hint="Only needed if you block capacity: say why"
               error={errorFor(errors, 'note')}
             >
               {(id) => <Textarea id={id} value={note} onChange={(e) => setNote(e.target.value)} />}
             </Field>
             <FormErrors errors={errors.filter((e) => e.path !== '/note')} />
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                disabled={save.isPending}
-                onClick={() => save.mutate('approved')}
-              >
-                Approve capacity
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={save.isPending || note.trim() === ''}
-                onClick={() => save.mutate('blocked')}
-              >
-                Block capacity
-              </Button>
+              {/* Only the choices that change something: an approved sign-off does not offer Approve again. */}
+              {signoff.status !== 'approved' && (
+                <Button
+                  type="button"
+                  disabled={save.isPending}
+                  onClick={() => save.mutate('approved')}
+                >
+                  Approve capacity
+                </Button>
+              )}
+              {signoff.status !== 'blocked' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={save.isPending || note.trim() === ''}
+                  onClick={() => save.mutate('blocked')}
+                >
+                  Block capacity
+                </Button>
+              )}
               {signoff.status && (
                 <Button
                   type="button"
@@ -618,7 +616,7 @@ function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
                   disabled={save.isPending}
                   onClick={() => save.mutate(null)}
                 >
-                  Clear
+                  Undo sign-off
                 </Button>
               )}
             </div>
@@ -827,8 +825,9 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
           <h2 className="text-base font-semibold">Capacity evidence</h2>
         </CardTitle>
         <p className="text-muted-foreground text-sm">
-          At least one row is needed to Proceed (CR-19). There is no OEE default. Enter the line’s
-          utilization before this business; utilization after is calculated.
+          Add at least one row before the quote can advance. Enter how loaded the line is today;
+          QuoteFlow calculates the load with this business added. No effectiveness figure is assumed
+          for you.
         </p>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -934,7 +933,11 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                   </Field>
                   <Field
                     label="Assumed effectiveness %"
-                    hint={hidden && r.id ? 'Hidden. Leave blank to keep.' : DF22_HELP}
+                    hint={
+                      hidden && r.id
+                        ? 'Your role cannot see the saved figure. Leave blank to keep it.'
+                        : DF22_HELP
+                    }
                     error={errorFor(errors, `rows/${i}/assumedEffectivenessPct`)}
                   >
                     {(id) => (
@@ -969,7 +972,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                   </Field>
                   <Field
                     label="Utilization before %"
-                    hint="The line’s current load, before this business"
+                    hint="How loaded the line is today, before this business"
                     error={errorFor(errors, `rows/${i}/utilizationBeforePct`)}
                   >
                     {(id) => (
@@ -990,7 +993,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                     label="Allocated annual volume (units)"
                     hint={
                       eng.quoteAnnualVolume !== null
-                        ? `Blank = the quote’s ${eng.quoteAnnualVolume.toLocaleString('en-US')}. Set each row’s share when the business is split.`
+                        ? `Leave blank to use the quote’s ${eng.quoteAnnualVolume.toLocaleString('en-US')}. If the business is split across lines, enter each line’s share.`
                         : 'The quote has no estimated volume: enter this line’s share.'
                     }
                     error={errorFor(errors, `rows/${i}/allocatedAnnualVolume`)}
@@ -1010,7 +1013,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                   </Field>
                   <Field
                     label="Scheduled run days per year"
-                    hint={`Blank = ${basis.scheduledRunDaysPerYear}`}
+                    hint={`Leave blank to use ${basis.scheduledRunDaysPerYear}`}
                     error={errorFor(errors, `rows/${i}/scheduledRunDaysPerYear`)}
                   >
                     {(id) => (
@@ -1129,9 +1132,9 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
           </p>
         )}
         <p className="text-muted-foreground text-xs" data-testid="capacity-basis">
-          Basis: {basis.basisLabel}. Run days default to {basis.scheduledRunDaysPerYear} a year;
-          utilization after is amber above {basis.warnAbovePct}% and red over 100%. Effectiveness is
-          applied once.
+          How this is calculated: {basis.basisLabel}. A line runs {basis.scheduledRunDaysPerYear}{' '}
+          days a year unless you enter another number. Utilization after shows amber above{' '}
+          {basis.warnAbovePct}% and red above 100%.
         </p>
         <CapacityEvidenceActions
           quoteNumber={quote.quoteNumber}
@@ -1322,7 +1325,7 @@ function CapacityGlanceTable({ glance }: { glance: CapacityGlance | null }) {
         </tbody>
       </table>
       <p className="text-muted-foreground mt-1">
-        Effectiveness is applied once. Read-only: utilization above is what counts for G2.
+        These figures are calculated from the row above and cannot be edited.
       </p>
     </details>
   );

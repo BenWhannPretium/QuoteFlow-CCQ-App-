@@ -40,6 +40,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
+import { decisionLabel } from '@/lib/decision-label';
 import { calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -106,7 +107,14 @@ function QuotePage() {
     );
   }
   const q = quote.data;
-  const gates = [...new Set(q.availableActions.map((a) => a.gateKey))];
+  // Final Review is decided on its own screen (the full summary, then the decision), so the header
+  // offers that one way in rather than a second button that decides the same thing.
+  const onFinalReviewScreen =
+    q.stageKey === 'FINAL_REVIEW' && q.status !== 'closed' && canReadFinalReview;
+  const gates = [...new Set(q.availableActions.map((a) => a.gateKey))].filter(
+    (g) => !(onFinalReviewScreen && g === 'G4'),
+  );
+  const canDecideFinalReview = q.availableActions.some((a) => a.gateKey === 'G4');
   const tierOverride = q.overridableFields.find((f) => f.field === 'priority_tier')?.applied;
 
   return (
@@ -119,19 +127,21 @@ function QuotePage() {
         actions={
           <>
             <SalesforceLink quote={q} />
-            {q.stageKey === 'FINAL_REVIEW' && q.status !== 'closed' && canReadFinalReview && (
+            {onFinalReviewScreen && (
               <Link
                 to="/quotes/$quoteNumber/review"
                 params={{ quoteNumber: q.quoteNumber }}
-                className={cn(buttonVariants({ variant: 'outline' }))}
+                className={cn(
+                  buttonVariants({ variant: canDecideFinalReview ? 'action' : 'outline' }),
+                )}
                 data-testid="open-final-review"
               >
-                Open Final Review
+                {canDecideFinalReview ? 'Review and decide' : 'Open Final Review'}
               </Link>
             )}
             {gates.map((g) => (
               <Button key={g} onClick={() => setDeciding({ gate: g })}>
-                {q.availableActions.find((a) => a.gateKey === g)?.gateLabel ?? g}
+                {decisionLabel(g, q.availableActions.find((a) => a.gateKey === g)?.gateLabel)}
               </Button>
             ))}
           </>
@@ -450,7 +460,7 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
                   {d.superseded && (
                     <span
                       className="bg-muted text-muted-foreground rounded-pill ml-2 px-2 py-0.5 text-xs font-normal"
-                      title="Taken on an earlier version (re-quote or return). Kept as recorded."
+                      title="Made on an earlier version of this quote, before it was re-quoted or sent back."
                     >
                       Superseded
                     </span>

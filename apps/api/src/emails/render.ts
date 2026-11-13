@@ -218,7 +218,7 @@ const COPY: Record<string, Copy> = {
     context: 'Final Review',
     heading: 'A quote is awaiting Final Review',
     action: () =>
-      'The pricing lead approved the price (G3 Price approved). Open it to release or return the proposition.',
+      'The pricing lead approved the price. Open it to approve the offer or send it back.',
     cta: 'Open Final Review',
   },
   // FB-07 (D-001): costing, then ROI, then price approved. `version` is the model's version number.
@@ -244,7 +244,7 @@ const COPY: Record<string, Copy> = {
         p.actor
           ? `${p.actor} uploaded the payback model${p.version ? ` (version ${p.version})` : ''}.`
           : 'Finance uploaded the payback model.',
-        'Review it and approve the price (G3), or send the quote back.',
+        'Review it, then approve the price or send the quote back.',
       ),
     cta: 'Open Quoting',
   },

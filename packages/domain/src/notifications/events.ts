@@ -48,7 +48,7 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     type: 'quote.ready_for_final_review',
     label: 'A quote is awaiting Final Review',
     description:
-      'Approvers: the pricing lead approved the price (G3 Price approved) and the proposition needs a decision.',
+      'Approvers: the pricing lead approved the price and the quote needs a Final Review decision.',
     email: 'immediate',
   },
   {

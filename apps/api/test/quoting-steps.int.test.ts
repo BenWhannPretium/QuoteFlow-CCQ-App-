@@ -262,7 +262,7 @@ describe('D-001: costing, then ROI, then price approved (capital required)', () 
     const qn = await inQuoting('capital_required');
     let s = await steps(qn);
     expect(s.current).toBe('costing');
-    expect(s.roi.reasons).toEqual(['Engineering (G2): Advance – capital required']);
+    expect(s.roi.reasons).toEqual(['Engineering’s decision: Advance – capital required']);
     expect([s.costing.status, s.roi.status, s.price.status]).toEqual([
       'waiting',
       'blocked',

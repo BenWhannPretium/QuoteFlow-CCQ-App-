@@ -139,7 +139,7 @@ export function FinalReviewQueue({
               }
               description={
                 data.total === 0
-                  ? 'Quotes arrive here when Pricing submits them at G3. Approvers are notified.'
+                  ? 'Quotes arrive here once the pricing lead has approved the price. Approvers are notified.'
                   : 'Clear a filter or the search to see more.'
               }
             />
@@ -159,7 +159,7 @@ export function FinalReviewQueue({
 function Counts({ data }: { data: FinalReviewQueueResponse }) {
   const chips = [
     { key: 'waiting', label: 'Waiting', n: data.total },
-    { key: 'flagged', label: 'Capital required / with risk (G2)', n: data.counts.flagged },
+    { key: 'flagged', label: 'Capital required / with risk', n: data.counts.flagged },
     { key: 'capital', label: 'Capital pending', n: data.counts.capitalPending },
     ...(data.canDecide
       ? [{ key: 'decidable', label: 'You can decide', n: data.counts.decidable }]
@@ -208,7 +208,7 @@ function Toolbar({
     },
     {
       key: 'g2',
-      label: 'Engineering outcome (G2)',
+      label: 'Engineering decision',
       options: data.g2Outcomes.map((o) => ({ value: o.key, label: o.label })),
     },
     {
@@ -338,7 +338,7 @@ function ApprovalCard({ item, canDecide }: { item: FinalReviewItem; canDecide: b
           </dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-muted-foreground text-xs font-medium">Engineering (G2)</dt>
+          <dt className="text-muted-foreground text-xs font-medium">Engineering decision</dt>
           <dd
             className={cn(
               'inline-flex items-center gap-1 text-xs',

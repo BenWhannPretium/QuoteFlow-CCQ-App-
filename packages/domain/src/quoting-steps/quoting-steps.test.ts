@@ -100,7 +100,7 @@ describe('roi_required_when (FB-07, D-001; provisional)', () => {
         { code: 'g2_outcome', value: 'capital_required' },
         { g2Outcome: () => 'Advance – capital required' },
       ),
-    ).toBe('Engineering (G2): Advance – capital required');
+    ).toBe('Engineering’s decision: Advance – capital required');
     expect(roiReasonText({ code: 'capital_likely', value: null })).toBe(
       'Capital is flagged likely',
     );

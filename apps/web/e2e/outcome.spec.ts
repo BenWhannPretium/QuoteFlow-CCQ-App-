@@ -65,7 +65,7 @@ test('a KAM records Awarded, hands off and closes Won at G6, and records Lost wi
   await expect(header).toContainText('Proposal issued');
   await expect(header.getByTestId('validity-chip')).toBeVisible();
   await expect(header.getByTestId('sf-stage')).toBeVisible();
-  await page.getByRole('button', { name: 'Outcome recorded' }).click();
+  await page.getByRole('button', { name: 'Record customer decision' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('radio', { name: 'Awarded' }).check();
   await expect(dialog.getByTestId('acceptance-fields')).toBeVisible();
@@ -109,7 +109,7 @@ test('a KAM records Awarded, hands off and closes Won at G6, and records Lost wi
   await expect(handoff.getByTestId('handoff-completed-by')).toContainText('Confirmed by');
 
   // ── G6: commit and close Won ──
-  await page.getByRole('button', { name: 'Commit & hand off' }).click();
+  await page.getByRole('button', { name: 'Commit and hand off' }).click();
   const g6 = page.getByRole('dialog');
   await g6.getByRole('radio', { name: 'Advance (close Won)' }).check();
   await expect(g6.getByTestId('outcome-definition')).toBeVisible();

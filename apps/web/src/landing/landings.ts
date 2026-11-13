@@ -100,7 +100,7 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
       {
         title: 'What you don’t do',
         description:
-          'You are an input, not an approver: the pricing lead approves the price (G3) after your payback model is on file. Your role reads quotes, uploads the payback model and may comment on a quote; it changes nothing else.',
+          'You provide the payback model; the pricing lead approves the price once it is uploaded. You can read quotes, upload the payback model and comment. You cannot change anything else.',
       },
     ],
   },

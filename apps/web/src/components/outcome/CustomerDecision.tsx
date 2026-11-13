@@ -112,7 +112,7 @@ export function CustomerDecisionHeader({ quote }: { quote: QuoteDetail }) {
         {cd.inNegotiation && (
           <span
             data-testid="negotiating-chip"
-            title="The customer countered within the approved range (G5 In negotiation)."
+            title="The customer made a counter-offer that is inside the approved range."
             className="bg-secondary text-foreground rounded-pill inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold"
           >
             <HandshakeIcon className="size-3.5" aria-hidden="true" />
@@ -353,9 +353,9 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
       </CardHeader>
       <CardContent className="grid gap-4">
         <p className="text-muted-foreground text-sm">
-          The customer said yes; commitment comes next. Record the CER (a reference to Apex: status,
-          ID, approval date) and the receiving team that accepted the hand-off. Closing Won (G6
-          Advance) needs the CER approved or not required and the hand-off accepted.
+          The customer said yes. Two things are left before the quote closes as won: record the
+          capital request (CER) from Apex (its status, ID and approval date), and name the team that
+          accepted the hand-off. The CER must be approved or not required.
         </p>
         {!editable ? (
           <KeyValueGrid
@@ -432,7 +432,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
               </div>
               <Field
                 label="CER status"
-                hint="Per the official CER approval matrix (provisional, D-26)."
+                hint="Where the capital request stands in Apex"
                 error={errorFor(errors, 'cerStatus')}
               >
                 {(id) => (
@@ -557,8 +557,8 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
               Ready for CER development
               <span className="text-muted-foreground text-xs">
                 {h
-                  ? 'The quoted capital was budgetary; tick this when the CER can be started. Recorded with who and when.'
-                  : 'Available once the award (G5) has opened the hand-off record.'}
+                  ? 'The capital in the quote was an estimate. Tick this when the capital request (CER) can be started. Your name and the time are recorded.'
+                  : 'Available after the customer has awarded the quote.'}
               </span>
             </label>
             {h?.cerReady && h.cerReadyByName && (

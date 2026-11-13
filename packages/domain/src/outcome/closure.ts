@@ -51,8 +51,7 @@ export function closureErrors(
       closure.closedAt && !Number.isNaN(closure.closedAt.getTime()) ? closure.closedAt : null,
   };
   return CLOSURE_FIELDS.filter((f) => values[f] === null).map(
-    (f) =>
-      new DomainError('CLOSURE_INCOMPLETE', `A quote can't close without ${LABELS[f]} (CR-39)`, f),
+    (f) => new DomainError('CLOSURE_INCOMPLETE', `A quote can't close without ${LABELS[f]}`, f),
   );
 }
 

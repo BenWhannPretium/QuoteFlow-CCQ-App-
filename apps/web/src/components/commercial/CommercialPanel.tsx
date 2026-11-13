@@ -59,7 +59,7 @@ export function CommercialPanel({ quote }: { quote: QuoteDetail }) {
             {c.passThroughEligible && (
               <span
                 data-testid="pass-through-chip"
-                title="Below the pricing pass-through threshold: the price may proceed without formal approval."
+                title="This quote is small enough that it does not need a price approval."
                 className="bg-secondary text-foreground rounded-pill px-2 py-0.5 text-xs font-semibold"
               >
                 Pass-through eligible
@@ -139,8 +139,8 @@ function CapitalFlag({ quote }: { quote: QuoteDetail }) {
         Capital likely
       </label>
       <p className="text-muted-foreground text-xs">
-        Gives Capital Management early notice (awareness, not approval). While it is set, the price
-        can’t advance at G3 until capital readiness is confirmed (not required or pre-approved).
+        Tick this to give Capital Management early notice. It is a heads-up, not an approval. While
+        it is ticked, the price can’t be approved until capital readiness is confirmed.
       </p>
       {(cap.setByName || cap.noticeSentAt) && (
         <p className="text-muted-foreground text-xs">
@@ -590,7 +590,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
           </Field>
           <Field
             label="Reviewed by (Legal)"
-            hint="Legal is not a CCQ role: name the reviewer."
+            hint="The name of the person in Legal who reviewed it"
             error={errorFor(errors, 'legal/reviewerName')}
           >
             {(id) => (

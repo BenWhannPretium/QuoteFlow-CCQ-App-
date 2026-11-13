@@ -52,7 +52,7 @@ export const IntakeDraftData = z.object({
   sfOpportunityName: text(300),
   /**
    * FB-02 (F-008): the product facts the opportunity's Salesforce product specification supplied when
-   * it was picked. The wizard shows these read-only with a "from Salesforce" tag (no double entry);
+   * it was picked. The wizard pre-fills these with a "from Salesforce" tag (no double entry) and the KAM may change them;
    * a null entry means SF had nothing usable and the KAM enters it.
    */
   sfPrefill: z

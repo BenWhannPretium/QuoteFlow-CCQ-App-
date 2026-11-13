@@ -197,8 +197,8 @@ function Body({ context, use }: { context: PricingContext; use: UseRef }) {
         >
           <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           The ERF number on the Salesforce opportunity ({context.refs.sfErfNumber}) differs from the
-          quote&apos;s ({context.refs.quoteErfNumber}). Check which one is right; CCQ never writes
-          to Salesforce.
+          quote&apos;s ({context.refs.quoteErfNumber}). Check which one is right. QuoteFlow never
+          changes Salesforce.
         </p>
       )}
       {noRefs && (
@@ -258,7 +258,7 @@ function Body({ context, use }: { context: PricingContext; use: UseRef }) {
       <p className="text-muted-foreground text-xs">
         Read-only history from the retired pricing app
         {context.source.importedAt ? `, imported ${absoluteTime(context.source.importedAt)}` : ''}.
-        Matched on the customer name; nothing here can be edited in CCQ.
+        Matched on the customer name. This history is read-only.
       </p>
     </>
   );

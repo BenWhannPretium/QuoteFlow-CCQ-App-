@@ -73,7 +73,7 @@ export function ScoreBreakdownTable({
                   <span
                     className="bg-secondary text-foreground-2 rounded-pill ml-2 px-1.5 py-0.5 text-[0.6875rem] font-medium"
                     data-testid={`score-provisional-${b.key}`}
-                    title="No points are set for this attribute yet (decision D-004 is open), so every value scores the neutral default."
+                    title="Points for this attribute have not been set yet, so every quote gets the same middle score for it."
                   >
                     provisional
                   </span>

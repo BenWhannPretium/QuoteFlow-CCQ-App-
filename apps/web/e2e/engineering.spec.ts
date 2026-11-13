@@ -61,14 +61,14 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   const actions = row.getByRole('button', { name: `Actions for ${quoteNumber}` });
   await actions.focus();
   await lead.keyboard.press('Enter');
-  await lead.getByRole('menuitem', { name: 'Assign…' }).click();
+  await lead.getByRole('menuitem', { name: 'Assign engineer' }).click();
   await expect(lead.getByRole('dialog')).toBeVisible();
   await lead.keyboard.press('Escape');
   await expect(lead.getByRole('dialog')).toHaveCount(0);
   await expect(actions).toBeFocused();
 
   await actions.click();
-  await lead.getByRole('menuitem', { name: 'Assign…' }).click();
+  await lead.getByRole('menuitem', { name: 'Assign engineer' }).click();
   const assign = lead.getByRole('dialog');
   await assign.getByRole('button', { name: 'Assign' }).click();
   await expect(assign.getByRole('alert')).toHaveText('Choose an engineer.');
@@ -78,7 +78,7 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await picker.selectOption(await option.getAttribute('value'));
   await assign.getByRole('button', { name: 'Assign' }).click();
   await expect(assign).toHaveCount(0);
-  await expect(row.getByTestId('queue-status')).toHaveText('Awaiting acceptance');
+  await expect(row.getByTestId('queue-status')).toHaveText('Not started');
   await expect(row).toContainText(engineerName);
 
   // ── Engineer: accepts and completes the review ──
@@ -86,12 +86,12 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await eng.goto('/queue/engineering');
   await expect(eng.getByRole('heading', { level: 1, name: 'My assignments' })).toBeVisible();
   const mine = eng.locator(`[data-testid="my-assignment"][data-quote="${quoteNumber}"]`);
-  await expect(mine).toContainText('Awaiting acceptance');
+  await expect(mine).toContainText('Not started');
   await mine.getByRole('link', { name: quoteNumber }).click();
   await expect(eng).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=engineering`));
   const tab = eng.getByTestId('engineering-tab');
-  await tab.getByRole('button', { name: 'Accept (start review)' }).click();
-  await expect(tab).toContainText(/Accepted.*by/);
+  await tab.getByRole('button', { name: 'Start review' }).click();
+  await expect(tab).toContainText(/Review started.*by/);
   // 2026-10-30: the Engineer sees the commercial figures they enter.
   await expect(eng.getByTestId('commercial-hidden')).toHaveCount(0);
 
@@ -129,7 +129,7 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   // F-057: a whole number from 1 to 99.
   await expect(solution.getByLabel('Cavitation')).toHaveAttribute('max', '99');
   // F-064: budgetary, not a CER figure.
-  await expect(solution.getByText('A budgetary figure for quoting.')).toBeVisible();
+  await expect(solution.getByText('A rough estimate for quoting.')).toBeVisible();
   // F-057: the EBM wheel is no longer offered.
   await expect(
     solution.getByLabel('Machine type').locator('option', { hasText: 'EBM wheel' }),
@@ -190,7 +190,7 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
   // No OEE default: the effectiveness assumption must be stated.
   await expect(capRow.getByRole('alert')).toContainText('state the assumed effectiveness %');
-  await expect(capRow).toContainText('85% vs ~70% demonstrated');
+  await expect(capRow).toContainText('Past quotes assumed 85%');
   // DR-engineering-02: 0% is refused (no capacity, so no utilization after), on the field.
   await capRow.getByLabel('Assumed effectiveness %').fill('0');
   await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
@@ -214,7 +214,7 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(signoff.getByTestId('capacity-signoff-status')).toContainText('Not signed off yet');
   await signoff.getByRole('button', { name: 'Approve capacity' }).click();
   await expect(signoff.getByTestId('capacity-signoff-status')).toContainText('Capacity approved');
-  await leadTab.getByRole('button', { name: 'Decide G2…' }).click();
+  await leadTab.getByRole('button', { name: 'Decide feasibility' }).click();
   const g2 = lead.getByRole('dialog');
   await expect(g2.getByTestId('completeness')).toContainText('Nothing missing for this decision');
   await g2.getByRole('radio', { name: 'Advance', exact: true }).check();
@@ -286,7 +286,10 @@ test('the G2 dialog names what is missing in words and does not offer a decision
   });
   await signInAs(page, 'eng-lead');
   await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
-  await page.getByTestId('engineering-tab').getByRole('button', { name: 'Decide G2…' }).click();
+  await page
+    .getByTestId('engineering-tab')
+    .getByRole('button', { name: 'Decide feasibility' })
+    .click();
   const g2 = page.getByRole('dialog');
   await g2.getByRole('radio', { name: 'Advance – capital required', exact: true }).check();
   const missing = g2.getByTestId('completeness');
@@ -355,9 +358,12 @@ test('the engineer submits to the engineering lead, who sends it back with a not
   // ── The engineer submits ──
   const eng = await open('engineer');
   await eng.goto(`/quotes/${quoteNumber}?tab=engineering`);
-  const panel = eng.getByTestId('lead-review');
-  await panel.getByRole('button', { name: 'Submit to engineering lead' }).click();
-  await expect(panel.getByTestId('lead-review-submitted')).toContainText(
+  // The submit button is the last thing on the tab, after the work.
+  await eng
+    .getByTestId('lead-review-actions')
+    .getByRole('button', { name: 'Submit to engineering lead' })
+    .click();
+  await expect(eng.getByTestId('lead-review-submitted')).toContainText(
     'Submitted to the engineering lead',
   );
   await expect(eng.getByTestId('solution-form')).toHaveCount(0); // locked for the engineer
@@ -368,7 +374,7 @@ test('the engineer submits to the engineering lead, who sends it back with a not
   await lead.getByTestId('review-tab-ready').click();
   await expect(lead.getByRole('link', { name: quoteNumber })).toBeVisible();
   await lead.goto(`/quotes/${quoteNumber}?tab=engineering`);
-  await lead.getByRole('button', { name: 'Send back to engineer…' }).click();
+  await lead.getByRole('button', { name: 'Send back to engineer' }).click();
   const dialog = lead.getByRole('dialog');
   await dialog
     .getByLabel('What should change?')
@@ -384,7 +390,9 @@ test('the engineer submits to the engineering lead, who sends it back with a not
   );
   await expect(eng.getByTestId('solution-form')).toBeVisible();
   await expect(
-    eng.getByTestId('lead-review').getByRole('button', { name: 'Submit to engineering lead' }),
+    eng
+      .getByTestId('lead-review-actions')
+      .getByRole('button', { name: 'Submit to engineering lead' }),
   ).toBeVisible();
   expect(await seriousViolations(eng)).toEqual([]);
 });
@@ -421,7 +429,7 @@ test('the engineer enters two lines, sees before and after, and downloads the CS
   await signInAs(page, 'engineer');
   await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
   const capacity = page.getByTestId('capacity-form');
-  await expect(page.getByTestId('capacity-basis')).toContainText('Run days default to 350');
+  await expect(page.getByTestId('capacity-basis')).toContainText('A line runs 350 days a year');
 
   const fill = async (
     index: number,

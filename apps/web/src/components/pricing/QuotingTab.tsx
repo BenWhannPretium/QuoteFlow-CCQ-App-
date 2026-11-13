@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
+import { decisionLabel } from '@/lib/decision-label';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { valueListLabel } from '@/lib/value-label';
@@ -26,7 +27,7 @@ import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '..
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { IntakeCommercialCard } from '../intake/CommercialInputs';
 import { KeyValueGrid } from '../KeyValueGrid';
-import { LeadReviewPanel } from '../LeadReviewPanel';
+import { LeadReviewActions, LeadReviewStatus } from '../LeadReviewPanel';
 import { timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
 import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
@@ -62,17 +63,13 @@ export function QuotingTab({
   onDecide: (outcomeKey?: string, scope?: { outcomes: string[]; title: string }) => void;
 }) {
   const quoting = quote.quoting;
-  const canDecideG3 = quote.availableActions.some((a) => a.gateKey === 'G3');
-  // FB-01 (F-029): offered only when the config has the outcome and the caller may decide G3.
-  const canReturnToKam = quote.availableActions.some(
-    (a) => a.gateKey === 'G3' && a.outcomeKey === 'rework_kam',
-  );
+  const g3 = quote.availableActions.find((a) => a.gateKey === 'G3');
   const record = quoting.pricingRecord ?? null;
   return (
     <div className="grid gap-6" data-testid="quoting-tab">
       <ApprovalStatus quoting={quoting} passThrough={quote.commercial.passThroughEligible} />
       <PricerAssignment quote={quote} />
-      <PricingLeadReview quote={quote} />
+      <LeadReviewStatus kind="pricing" review={quoting.leadReview} />
       <SectionLockLine lock={quoting.lock} />
       {/* FB-11 (D-032): what the KAM told Pricing at intake (payment terms, funding, dunnage, freight, bid reference). */}
       <IntakeCommercialCard quote={quote} />
@@ -86,50 +83,12 @@ export function QuotingTab({
           data-testid="quoting-redacted"
         >
           <EyeOffIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Pricing details, references and capital readiness are commercial. Your role sees whether
+          Pricing details, references and capital readiness are restricted. Your role sees whether
           the price is approved, by whom and when.
         </p>
       ) : (
         <>
           {record && record.warnings.length > 0 && <Warnings record={record} />}
-          {canDecideG3 && (
-            <div className="flex flex-wrap gap-2">
-              {/* FB-07 (F-081, D-031): the button says what it records. */}
-              <Button onClick={() => onDecide('submit')}>
-                Price approved: advance to Final Review…
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  onDecide('rework', { outcomes: ['rework'], title: 'Return to Engineering' })
-                }
-              >
-                Return to Engineering…
-              </Button>
-              {canReturnToKam && (
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    onDecide('rework_kam', { outcomes: ['rework_kam'], title: 'Return to KAM' })
-                  }
-                  data-testid="return-to-kam"
-                >
-                  Return to KAM…
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                onClick={() =>
-                  onDecide(undefined, {
-                    outcomes: ['hold', 'stop', 'redirect', 'recost'],
-                    title: 'Hold or stop',
-                  })
-                }
-              >
-                Hold or stop…
-              </Button>
-            </div>
-          )}
           <EngineeringSummary quote={quote} />
           <PricingContextForQuote quote={quote} />
           <PricingRecordCard key={`${quote.version}-${record?.updatedAt ?? ''}`} quote={quote} />
@@ -137,6 +96,16 @@ export function QuotingTab({
           <History records={quoting.pricingRecords ?? []} />
         </>
       )}
+      {/* The one next step, after the work: the pricer submits to the lead; the lead decides (one button,
+          every outcome in its dialog) or sends the work back. */}
+      <PricingLeadActions
+        quote={quote}
+        decide={
+          g3 && !quoting.commercialRedacted
+            ? { label: decisionLabel('G3', g3.gateLabel), onClick: () => onDecide() }
+            : undefined
+        }
+      />
     </div>
   );
 }
@@ -181,11 +150,16 @@ function PricerAssignment({ quote }: { quote: QuoteDetail }) {
           <span className="text-muted-foreground">Unassigned</span>
         )}
       </span>
-      {quoting.canAssign && (
-        <Button variant="outline" size="sm" onClick={() => setAssigning(true)}>
-          {quoting.assignedPricerId ? 'Reassign…' : 'Assign…'}
-        </Button>
-      )}
+      {quoting.canAssign &&
+        (quoting.assignedPricerId ? (
+          <Button variant="ghost" size="sm" onClick={() => setAssigning(true)}>
+            Reassign
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => setAssigning(true)}>
+            Assign pricer
+          </Button>
+        ))}
       {assigning && picker.data && (
         <PricerAssignDialog
           open
@@ -230,7 +204,7 @@ function ApprovalStatus({
           <span>
             {passThrough ? (
               <span data-testid="price-approval-not-required">
-                Price approval not required: below the pass-through threshold (D-24).
+                No price approval needed: this quote is small enough to go straight through.
               </span>
             ) : (
               <>
@@ -261,16 +235,23 @@ function Warnings({ record }: { record: PricingRecordView }) {
   );
 }
 
-/** Lead review: the pricer submits to the pricing lead, who may send it back. */
-function PricingLeadReview({ quote }: { quote: QuoteDetail }) {
+/** The bottom of the tab: the pricer submits to the pricing lead; the lead decides or sends it back. */
+function PricingLeadActions({
+  quote,
+  decide,
+}: {
+  quote: QuoteDetail;
+  decide: { label: string; onClick: () => void } | undefined;
+}) {
   const refresh = useRefresh(quote.quoteNumber);
   return (
-    <LeadReviewPanel
+    <LeadReviewActions
       kind="pricing"
       review={quote.quoting.leadReview}
       submit={() => api.submitQuotingToLead(quote.quoteNumber)}
       sendBack={(note) => api.sendBackQuoting(quote.quoteNumber, note)}
       onDone={(detail) => refresh(detail)}
+      decide={decide}
     />
   );
 }
@@ -341,7 +322,7 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
           items={[
             {
               id: 'g2',
-              label: 'G2 outcome',
+              label: 'Engineering decision',
               value: g2 ? (
                 <span data-testid="quoting-g2">
                   {g2.outcomeLabel}
@@ -499,7 +480,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
             <legend className="mb-2 text-sm font-semibold">Legacy reference</legend>
             <Field
               label="Legacy ERF #"
-              hint={`Optional, transition only (B-26): the ${quoting.refFormats.erf.label}, if the opportunity started in the legacy ERF app. Separate with commas, e.g. ${quoting.refFormats.erf.example}. No gate needs it.`}
+              hint={`Optional. If this opportunity started in the old ERF app, enter the ${quoting.refFormats.erf.label}. Separate several with commas, e.g. ${quoting.refFormats.erf.example}.`}
               error={refError}
             >
               {(id) => (
@@ -526,8 +507,9 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
               />
               Costing completed (Cost-to-Serve)
               <span className="text-muted-foreground text-xs">
-                Required to submit to Final Review (G3). FB-07: upload the costing model first (step
-                1 above). Costing stays in Excel and the pricing app; QuoteFlow keeps the file.
+                Tick this once the costing is done. Upload the costing model first (step 1 above).
+                It is required before the price can be approved. Costing itself stays in Excel and
+                the pricing app; QuoteFlow only keeps the file.
               </span>
             </label>
             {errorFor(errors, 'costingCompleted') && (
@@ -555,8 +537,8 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
                 className="bg-secondary rounded-md px-3 py-2 text-sm"
                 data-testid="pass-through-notice"
               >
-                This quote is below the pricing pass-through threshold (D-24): a price approval is
-                not required at G3. Costing must still be attested.
+                This quote is small enough that it does not need a price approval. You still need to
+                tick “Costing completed”.
               </p>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -593,7 +575,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
             </div>
             <Field
               label="Pricing basis"
-              hint="e.g. resin index month, FOB terms. No price figures are kept in CCQ."
+              hint="For example: resin index month, FOB terms. Do not enter prices; QuoteFlow does not store them."
               error={errorFor(errors, 'pricingBasisNote')}
             >
               {(id) => (
@@ -606,7 +588,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
             </Field>
             <Field
               label="Approved negotiation range"
-              hint="In words. Guardrails are still open (D-10)."
+              hint="Describe the range in words, not figures"
               error={errorFor(errors, 'approvedRangeNote')}
             >
               {(id) => (
@@ -721,8 +703,8 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
               label="Status"
               hint={
                 capitalRequired
-                  ? 'Engineering said capital is required (G2), so it cannot be "Not required". The capital figure is budgetary; it is refined after award, before any CER. No CER reference is needed to quote.'
-                  : 'The capital figure is budgetary. It is refined after award, before any CER. No CER reference is needed to quote.'
+                  ? 'Engineering said capital is required, so you cannot choose “Not required”. The capital figure is an estimate for quoting; it is firmed up after award. You do not need a CER reference to quote.'
+                  : 'The capital figure is an estimate for quoting; it is firmed up after award. You do not need a CER reference to quote.'
               }
               error={errorFor(errors, 'capitalReadiness')}
             >
@@ -759,7 +741,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
           {form.capitalReadiness === 'pending' && (
             <Field
               label="Pending-capital justification"
-              hint="Needed to submit to Final Review while capital is pending. Final Review sees it as a warning (D-11)."
+              hint="Required while capital is still pending: say why the quote should go ahead. The approver sees this at Final Review."
               error={errorFor(errors, 'capitalPendingJustification')}
             >
               {(id) => (

@@ -184,10 +184,11 @@ test('costing → payback → price approved → Final Review, with versions and
   await expect(lSteps.getByTestId('step-price')).toHaveAttribute('data-status', 'waiting');
   await lSteps.getByTestId('upload-price_table').setInputFiles(file('Price table.synthetic.xlsx'));
   await expect(lSteps.getByTestId('model-price_table')).toContainText('v1 · current');
-  await lead.getByRole('button', { name: 'Price approved: advance to Final Review…' }).click();
+  await lead.getByTestId('decide-gate').click();
   const g3 = lead.getByRole('dialog');
+  await expect(g3.getByRole('heading', { name: 'Decide price approval' })).toBeVisible();
+  await g3.getByRole('radio', { name: 'Advance – price approved' }).check();
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
-  await expect(g3.getByRole('radio', { name: 'Advance – price approved' })).toBeChecked();
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(g3).toHaveCount(0);
   await expect(lead.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'FINAL_REVIEW');
@@ -241,15 +242,12 @@ test('no capital: the Payback step says "Not required" and the lead approves wit
   await pricingRecorded(request, qn, await id('pricing'));
   await page.reload();
   await expect(page.getByTestId('quoting-steps')).toHaveAttribute('data-current', 'price');
-  // DR-pricing-finance-11: "Hold or stop…" opens a dialog titled for it, without Advance.
-  await page.getByRole('button', { name: 'Hold or stop…' }).click();
-  const hold = page.getByRole('dialog');
-  await expect(hold.getByRole('heading', { name: 'Hold or stop' })).toBeVisible();
-  await expect(hold.getByRole('radio', { name: 'Advance – price approved' })).toHaveCount(0);
-  await expect(hold.getByRole('radio', { name: 'Hold', exact: true })).toBeVisible();
-  await hold.getByRole('button', { name: 'Cancel' }).click();
-  await page.getByRole('button', { name: 'Price approved: advance to Final Review…' }).click();
+  // One decision button at the end of the tab; its dialog is titled like the button and lists every outcome.
+  await page.getByTestId('decide-gate').click();
   const g3 = page.getByRole('dialog');
+  await expect(g3.getByRole('heading', { name: 'Decide price approval' })).toBeVisible();
+  await expect(g3.getByRole('radio', { name: 'Hold', exact: true })).toBeVisible();
+  await g3.getByRole('radio', { name: 'Advance – price approved' }).check();
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'FINAL_REVIEW');
