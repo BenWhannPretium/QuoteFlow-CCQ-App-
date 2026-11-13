@@ -169,8 +169,9 @@ describe('FB-12 seed: markets and sub-markets', () => {
         sql`select value from app_setting where key = 'intake_field_help'`,
       ),
     );
+    // FB-15 (W13-11) added the Midas name for Spirits & Mixers to the FB-12 wording.
     expect(row!.value.sub_market).toBe(
-      'Pick the closest sub-market. It sets the strategic-fit score.',
+      'Pick the closest sub-market. It sets the strategic-fit score. Beverage › Spirits & Mixers covers alcoholic drinks (Midas calls it Alcoholic).',
     );
   });
 });
@@ -198,7 +199,11 @@ describe('0037 migration: markets and sub-markets', () => {
         tx,
         sql`select value from app_setting where key = 'intake_field_help'`,
       );
-      expect(help[0]!.value.sub_market).toBe(seededHelp[0]!.value.sub_market);
+      // 0037 writes FB-12's wording; FB-15's note is added later by 0044 (where untouched).
+      expect(seededHelp[0]!.value.sub_market).toContain(help[0]!.value.sub_market);
+      expect(help[0]!.value.sub_market).toBe(
+        'Pick the closest sub-market. It sets the strategic-fit score.',
+      );
       // Idempotent: a second run changes nothing (not even the config version).
       const once = await rows(tx, 'market');
       await run(tx, block('fb12-markets'));

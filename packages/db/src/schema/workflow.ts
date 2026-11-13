@@ -373,6 +373,23 @@ export const quote = documented(
         'FB-02 (F-013): number of print colors (1–12) when Decoration is picked.',
         KAM,
       ),
+      // FB-15 (W13-03): what an "Other" product family, component or decoration is. Product facts:
+      // FB-19 moves them to quote_item with the other per-item fields.
+      productFamilyOther: c(
+        text('product_family_other'),
+        'FB-15 (W13-03): what the product family is when product_family is Other (≤ intake_other_description_max_length, seed 200); null otherwise.',
+        KAM,
+      ),
+      componentOther: c(
+        text('component_other'),
+        'FB-15 (W13-03): what the "Other" component is when components include Other (≤ intake_other_description_max_length); null otherwise.',
+        KAM,
+      ),
+      decorationTypeOther: c(
+        text('decoration_type_other'),
+        'FB-15 (W13-03): what the decoration is when decoration_type is Other and Decoration is picked (≤ intake_other_description_max_length); null otherwise.',
+        KAM,
+      ),
       // FB-02 (F-016, D-018): dimensions for the drawing-or-minimum-spec rule.
       heightMm: c(
         numeric('height_mm', { precision: 10, scale: 2, mode: 'number' }),
@@ -451,6 +468,11 @@ export const quote = documented(
       freightSpecialArrangements: c(
         text('freight_special_arrangements'),
         'FB-11 (F-080): special freight arrangements (≤ 200), e.g. a drop trailer or T-bars; cleared when the price basis is not delivered.',
+        KAM,
+      ),
+      customerSharePct: c(
+        numeric('customer_share_pct', { precision: 5, scale: 2, mode: 'number' }),
+        "FB-15 (W13-09, provisional): the customer's share of the tooling in percent (0–100, a whole number or one decimal) when tooling_funding_model is Shared (value_list meta customerShare); Pretium covers the rest. Optional; null for any other funding.",
         KAM,
       ),
       bidReference: c(

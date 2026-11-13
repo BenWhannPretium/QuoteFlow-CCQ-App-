@@ -25,6 +25,9 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   'ship_to.city': 'The ship-to city',
   'ship_to.state': 'The ship-to state',
   product_family: 'The product family',
+  // FB-15 (W13-02): required at intake (provisional, D-006).
+  market: 'The market',
+  sub_market: 'The sub-market',
   resin: 'The resin',
   est_annual_volume: 'The annual volume',
   'est_annual_volume,est_annual_revenue': 'An annual volume or an annual revenue',

@@ -70,6 +70,7 @@ async function prefill(sfOpportunityId: string): Promise<IntakeDraftData> {
     productFamily: 'BOTTLE',
     components: ['CONTAINER', 'CLOSURE'],
     market: 'FOOD',
+    subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
     resin: 'HDPE',
     neckDiameter: '38',
     neckFinishType: '400',
@@ -225,6 +226,7 @@ describe('"Other" resin, PCR level and additive (FB-09)', () => {
       'Barrier',
       'Antistat',
       'Impact Modifier',
+      'Fluorination', // FB-15 (W13-08, provisional)
       'Other',
     ]);
     expect(config.valueLists.pcr_level?.map((e) => e.label)).toEqual([

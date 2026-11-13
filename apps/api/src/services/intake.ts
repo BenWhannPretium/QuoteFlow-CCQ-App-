@@ -47,19 +47,19 @@ import {
 import {
   asksScopeChange,
   availableActions,
-  CUSTOM_LIST_FIELDS,
   DRAWING_ATTACHMENT_KINDS,
   evaluateIntake,
   inapplicableIntakeFields,
   subMarketAfterMarketChange,
   ENG_QUEUE_STAGE_KEY,
   evaluateTransition,
+  isSharedFunding,
   planResubmitRoute,
   PRICING_QUEUE_STAGE_KEY,
   INTAKE_LIST_FIELDS,
+  INTAKE_SETTING_KEYS,
+  intakeConfigFromSources,
   listValueIssues,
-  parseIntakeConfig,
-  parseIntakeGuardrails,
   parseVolumeRouting,
   parseWorkflowConfig,
   routeByVolumeBand,
@@ -107,7 +107,6 @@ export class IntakeError extends Error {
 const notFound = () =>
   new IntakeError(404, INTAKE_PROBLEM_CODES.notFound, 'No intake draft with this id');
 
-/** Reads the intake config from app settings and value-list meta. Throws if a setting is missing. */
 /** FB-12: active `sub_market` entries → { code: parent market code } (value-list meta `market`). */
 function subMarketMap(entries: { code: string; meta: unknown }[]): Record<string, string> {
   return Object.fromEntries(
@@ -118,94 +117,35 @@ function subMarketMap(entries: { code: string; meta: unknown }[]): Record<string
   );
 }
 
+/**
+ * Reads the intake config from app settings and the ACTIVE value lists. FB-15 (W13-01): built by the
+ * domain's `intakeConfigFromSources`, the same function the wizard uses, so the two cannot disagree on
+ * what blocks a submit. Throws if a required setting is missing.
+ */
 export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
-  const [
-    requiredFields,
-    volumePlaceholder,
-    defaultRequestClass,
-    allowedRequestClasses,
-    redirectMessage,
-    variantsNoteMaxLength,
-    freeTextMaxLength,
-    minSpecFields,
-    standardPaymentTerms,
-    guardrails,
-    drawing,
-    components,
-    priceBasis,
-    subMarkets,
-    activeLists,
-    ...customLists
-  ] = await Promise.all([
-    getSetting(db, 'intake_required_fields'),
-    getSetting(db, 'intake_volume_placeholder'),
-    getSetting(db, 'intake_default_request_class'),
-    getSetting(db, 'intake_allowed_request_classes'),
-    getSetting(db, 'intake_redirect_message'),
-    getSetting(db, 'intake_variants_note_max_length'),
-    getSetting(db, 'intake_free_text_max_length'),
-    getSetting(db, 'intake_min_spec_fields'),
-    getSetting(db, 'standard_payment_terms'),
-    getSetting(db, 'intake_guardrails'),
-    listValueList(db, 'drawing_status'),
-    listValueList(db, 'component'),
-    listValueList(db, 'price_basis'),
-    listValueList(db, 'sub_market'),
+  const [values, activeLists] = await Promise.all([
+    Promise.all(INTAKE_SETTING_KEYS.map((key) => getSetting(db, key))),
     listActiveValueLists(db),
-    ...CUSTOM_LIST_FIELDS.map((list) => listValueList(db, list)),
   ]);
+  const settings = Object.fromEntries(
+    INTAKE_SETTING_KEYS.map((key, i) => [key, values[i]] as const).filter(
+      ([, v]) => v !== undefined,
+    ),
+  );
   if (
-    requiredFields === undefined ||
-    volumePlaceholder === undefined ||
-    !defaultRequestClass ||
-    allowedRequestClasses === undefined ||
-    !redirectMessage
+    settings.intake_required_fields === undefined ||
+    settings.intake_volume_placeholder === undefined ||
+    !settings.intake_default_request_class ||
+    settings.intake_allowed_request_classes === undefined ||
+    !settings.intake_redirect_message
   ) {
     throw new Error('intake settings are not seeded (run pnpm db:seed)');
   }
-  return parseIntakeConfig({
-    requiredFields: requiredFields as never,
-    volumePlaceholder: volumePlaceholder ?? {},
-    defaultRequestClass: typeof defaultRequestClass === 'string' ? defaultRequestClass : '',
-    allowedRequestClasses: allowedRequestClasses as never,
-    redirectMessage: typeof redirectMessage === 'string' ? redirectMessage : '',
-    ...(typeof variantsNoteMaxLength === 'number' ? { variantsNoteMaxLength } : {}),
-    ...(typeof freeTextMaxLength === 'number' ? { freeTextMaxLength } : {}),
-    ...(Array.isArray(minSpecFields) ? { minSpecFields: minSpecFields as never } : {}),
-    // FB-11 (F-080): a missing setting means no payment terms are flagged (it is seeded, provisional).
-    ...(Array.isArray(standardPaymentTerms)
-      ? { standardPaymentTerms: standardPaymentTerms as never }
-      : {}),
-    // FB-10 (F-066): a missing or malformed setting leaves the platform-minimum warning off.
-    guardrails: parseIntakeGuardrails(guardrails),
-    subMarketMarkets: subMarketMap(subMarkets),
-    // DR-cross-cutting-02: the active codes of every list an intake field picks from.
-    listCodes: Object.fromEntries(
-      [...new Set(Object.values(INTAKE_LIST_FIELDS).map((f) => f.list))].map((list) => [
-        list,
-        (activeLists as { listKey: string; code: string }[])
-          .filter((v) => v.listKey === list)
-          .map((v) => v.code),
-      ]),
-    ),
-    deliveredPriceBasisCodes: priceBasis
-      .filter((v) => meta(v.meta).delivered === true)
-      .map((v) => v.code),
-    drawingProvidedCodes: drawing
-      .filter((v) => meta(v.meta).hasDrawing === true)
-      .map((v) => v.code),
-    customCodes: Object.fromEntries(
-      CUSTOM_LIST_FIELDS.map((list, i) => [
-        list,
-        customLists[i]!.filter((v) => meta(v.meta).freeText === true).map((v) => v.code),
-      ]),
-    ),
-    componentFollowUps: Object.fromEntries(
-      components
-        .filter((v) => Array.isArray(meta(v.meta).followUps))
-        .map((v) => [v.code, meta(v.meta).followUps as never]),
-    ),
-  });
+  const lists: Record<string, { code: string; meta: unknown }[]> = {};
+  for (const v of activeLists as { listKey: string; code: string; meta: unknown }[]) {
+    (lists[v.listKey] ??= []).push({ code: v.code, meta: v.meta });
+  }
+  return intakeConfigFromSources({ settings, lists });
 }
 
 const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
@@ -296,11 +236,12 @@ export class IntakeService {
   private async toDto(tx: DbOrTx, row: QuoteDraftRow): Promise<IntakeDraft> {
     const config = await loadIntakeConfig(tx);
     const data = row.data as IntakeDraftData;
+    const kept = await this.keptValues(tx, row);
     const evaluation = evaluateIntake(
       intakeValues(data, await hasDrawingAttachment(tx, row)),
       config,
       this.now(),
-      await this.keptValues(tx, row),
+      kept,
     );
     const active =
       row.sfOpportunityId && !row.submittedQuoteId
@@ -319,6 +260,7 @@ export class IntakeService {
       sfCloseDate: opportunity?.closeDate ?? null,
       activeQuote: row.reworkOfQuoteId ? null : activeRef(active),
       rework: row.reworkOfQuoteId ? await this.reworkInfo(tx, row.reworkOfQuoteId) : null,
+      keptListValues: keptListCodes(kept),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -757,6 +699,9 @@ export class IntakeService {
       Boolean(blankToNull(data.shipToOverrideReason)) && values.ship_to !== null;
     const cleared = new Set(inapplicableIntakeFields(values, config));
     const keep = <T>(field: string, value: T): T | null => (cleared.has(field) ? null : value);
+    const toolingFundingModel =
+      values.tooling_funding_model ??
+      (reworkOf ? reworkOf.toolingFundingModel : await defaultFundingCode(tx));
     const fields = {
       customerId,
       description: blankToNull(data.description),
@@ -808,6 +753,10 @@ export class IntakeService {
       labelsPurchasedBy: keep('labels_purchased_by', values.labels_purchased_by),
       decorationType: keep('decoration_type', values.decoration_type),
       decorationPrintColors: keep('decoration_print_colors', values.decoration_print_colors),
+      // FB-15 (W13-03): what an "Other" product family, component or decoration is; cleared otherwise.
+      productFamilyOther: keep('product_family_other', values.product_family_other),
+      componentOther: keep('component_other', values.component_other),
+      decorationTypeOther: keep('decoration_type_other', values.decoration_type_other),
       // F-016 dimensions (2 decimals), F-015 mold modification, F-014 RFP link.
       heightMm: round2(values.height_mm),
       widthOrDiameterMm: round2(values.width_or_diameter_mm),
@@ -825,9 +774,13 @@ export class IntakeService {
         'requested_payment_terms_other',
         values.requested_payment_terms_other,
       ),
-      toolingFundingModel:
-        values.tooling_funding_model ??
-        (reworkOf ? reworkOf.toolingFundingModel : await defaultFundingCode(tx)),
+      toolingFundingModel,
+      // FB-15 (W13-09): the customer's share, kept only while funding is Shared (checked 0–100 above).
+      customerSharePct:
+        isSharedFunding(toolingFundingModel, config.sharedFundingCodes) &&
+        typeof values.customer_share_pct === 'number'
+          ? round2(values.customer_share_pct)
+          : null,
       returnableDunnage: values.returnable_dunnage,
       priceBasis: values.price_basis,
       freightType: keep('freight_type', values.freight_type),
@@ -1190,6 +1143,22 @@ function incompleteError(evaluation: IntakeEvaluation): IntakeError {
   });
 }
 
+/**
+ * FB-15 (W13-01): the list codes a reworked quote already holds, by snake_case field, for the wizard's copy
+ * of the server's list check (`listValueIssues` with `keep`).
+ */
+function keptListCodes(kept: Record<string, unknown>): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const field of Object.keys(INTAKE_LIST_FIELDS)) {
+    const v = kept[field];
+    const codes = (Array.isArray(v) ? v : [v]).filter(
+      (c): c is string => typeof c === 'string' && c !== '',
+    );
+    if (codes.length > 0) out[field] = codes;
+  }
+  return out;
+}
+
 /** FB-01 (F-030): the rework record a gate decision left on the quote. */
 function reworkOfQuote(q: Quote) {
   return {
@@ -1217,6 +1186,7 @@ function commercialInputsAudit(f: {
   requestedPaymentTerms: string | null;
   requestedPaymentTermsOther: string | null;
   toolingFundingModel: string | null;
+  customerSharePct: number | null;
   returnableDunnage: boolean;
   priceBasis: string | null;
   freightType: string | null;
@@ -1227,6 +1197,7 @@ function commercialInputsAudit(f: {
     requestedPaymentTerms: f.requestedPaymentTerms,
     requestedPaymentTermsOther: f.requestedPaymentTermsOther,
     toolingFundingModel: f.toolingFundingModel,
+    customerSharePct: f.customerSharePct,
     returnableDunnage: f.returnableDunnage,
     priceBasis: f.priceBasis,
     freightType: f.freightType,
@@ -1284,6 +1255,9 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     labelsPurchasedBy: q.labelsPurchasedBy,
     decorationType: q.decorationType,
     decorationPrintColors: q.decorationPrintColors,
+    productFamilyOther: q.productFamilyOther,
+    componentOther: q.componentOther,
+    decorationTypeOther: q.decorationTypeOther,
     heightMm: q.heightMm,
     widthOrDiameterMm: q.widthOrDiameterMm,
     depthMm: q.depthMm,
@@ -1295,6 +1269,7 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     requestedPaymentTerms: q.requestedPaymentTerms,
     requestedPaymentTermsOther: q.requestedPaymentTermsOther,
     toolingFundingModel: q.toolingFundingModel,
+    customerSharePct: q.customerSharePct,
     returnableDunnage: q.returnableDunnage,
     priceBasis: q.priceBasis,
     freightType: q.freightType,

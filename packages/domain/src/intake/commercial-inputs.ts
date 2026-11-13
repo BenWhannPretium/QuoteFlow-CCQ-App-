@@ -21,6 +21,8 @@ export const COMMERCIAL_INPUT_FIELDS = [
   'freight_type',
   'freight_special_arrangements',
   'bid_reference',
+  // FB-15 (W13-09): the customer's share when funding is Shared.
+  'customer_share_pct',
 ] as const;
 
 /** The freight fields that only apply to a delivered price; cleared when the price basis is FOB. */
@@ -59,15 +61,40 @@ export function inapplicableCommercialFields(
   return isDeliveredPrice(priceBasis, deliveredCodes) ? [] : [...FREIGHT_FIELDS];
 }
 
+/** FB-15 (W13-09): funding is "Shared" (a code whose list meta says `customerShare`). */
+export function isSharedFunding(code: unknown, sharedFundingCodes: readonly string[]): boolean {
+  return typeof code === 'string' && sharedFundingCodes.includes(code);
+}
+
+/** FB-15 (W13-09): "Customer share %" is 0–100, a whole number or one decimal (numeric(5,2) on the quote). */
+export const CUSTOMER_SHARE_RANGE = { min: 0, max: 100 } as const;
+
+export function isValidCustomerShare(v: unknown): boolean {
+  return (
+    typeof v === 'number' &&
+    Number.isFinite(v) &&
+    v >= CUSTOMER_SHARE_RANGE.min &&
+    v <= CUSTOMER_SHARE_RANGE.max &&
+    Math.abs(v * 10 - Math.round(v * 10)) < 1e-9
+  );
+}
+
+export const CUSTOMER_SHARE_MESSAGE =
+  'Customer share must be a percentage from 0 to 100, a whole number or one decimal';
+
 export interface CommercialInputConfig {
   /** app_setting `standard_payment_terms`. */
   standardPaymentTerms: readonly string[];
   /** `price_basis` list codes whose meta says `delivered: true`. */
   deliveredPriceBasisCodes: readonly string[];
+  /** FB-15 (W13-03): `freight_type` codes whose meta says `freeText` ("Other"): the arrangements are then required. */
+  freightOtherCodes?: readonly string[];
+  /** FB-15 (W13-09): `tooling_funding_model` codes whose meta says `customerShare` ("Shared"). */
+  sharedFundingCodes?: readonly string[];
 }
 
 export interface CommercialInputIssue {
-  code: 'INVALID_VALUE' | 'ENRICH';
+  code: 'INVALID_VALUE' | 'ENRICH' | 'MISSING_FIELD';
   field: string;
   message: string;
 }
@@ -95,10 +122,33 @@ export function commercialInputIssues(
     }
   }
   const priceBasis = typeof values.price_basis === 'string' ? values.price_basis : null;
+  const delivered = isDeliveredPrice(priceBasis, config.deliveredPriceBasisCodes);
+  // FB-15 (W13-03, Bailey Schmitt): freight "Other" says what it is, in the special arrangements.
   if (
-    isDeliveredPrice(priceBasis, config.deliveredPriceBasisCodes) &&
-    !isPresent(values.freight_type)
+    delivered &&
+    typeof values.freight_type === 'string' &&
+    (config.freightOtherCodes ?? []).includes(values.freight_type) &&
+    !isPresent(values.freight_special_arrangements)
   ) {
+    blocking.push({
+      code: 'MISSING_FIELD',
+      field: 'freight_special_arrangements',
+      message: 'Describe the freight under Special freight arrangements',
+    });
+  }
+  // FB-15 (W13-09): the customer's share of Shared funding is optional; out of range is refused.
+  if (
+    isSharedFunding(values.tooling_funding_model, config.sharedFundingCodes ?? []) &&
+    isPresent(values.customer_share_pct) &&
+    !isValidCustomerShare(values.customer_share_pct)
+  ) {
+    blocking.push({
+      code: 'INVALID_VALUE',
+      field: 'customer_share_pct',
+      message: CUSTOMER_SHARE_MESSAGE,
+    });
+  }
+  if (delivered && !isPresent(values.freight_type)) {
     warnings.push({
       code: 'ENRICH',
       field: 'freight_type',

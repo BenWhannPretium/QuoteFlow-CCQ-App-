@@ -74,8 +74,9 @@ describe('config seeds', () => {
       neck_finish_type: 18,
       neck_special_feature: 5,
       pcr_level: 6, // FB-09: 0% / Virgin, 25, 30, 50, 100, Other
-      additive: 6, // FB-09: None, UV, Barrier, Antistat, Impact Modifier, Other
-      color_type: 2,
+      // FB-09: None, UV, Barrier, Antistat, Impact Modifier, Other. FB-15 (W13-08): + Fluorination.
+      additive: 7,
+      color_type: 4, // FB-15 (W13-07): Natural, Stock white, Stock black, Custom color
       labels_purchased_by: 2,
       decoration_type: 4,
     });

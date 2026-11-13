@@ -175,6 +175,7 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
     productFamily: 'BOTTLE',
     components: ['CONTAINER'],
     market: 'FOOD',
+    subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
     resin: 'HDPE',
     neckDiameter: '38',
     neckFinishType: '400',
@@ -492,7 +493,8 @@ describe('F-079: every rework and return', () => {
     const mails = sentAbout(qn).filter((m) => m.subject.includes('was returned to you'));
     expect(mails).toHaveLength(1);
     expect(mails[0]!.text + mails[0]!.html).not.toContain('ZEBRA-NOTE');
-    expect(mails[0]!.text).toContain('/quotes/');
+    // FB-15 (W13-05): the link opens the KAM's rework at the review step, not the top of the quote.
+    expect(mails[0]!.text).toContain(`/intake/new?rework=${qn}`);
   });
 
   it('G3 -> KAM: the KAM is told it was returned to them (reason and note); the loop back to Quoting tells the pricer and the PricingLead', async () => {

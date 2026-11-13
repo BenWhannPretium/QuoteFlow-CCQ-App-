@@ -57,6 +57,15 @@ export function NotificationRow({
         <Link to="/quotes/$quoteNumber/review" params={params} onClick={open} className={rowClass}>
           {content}
         </Link>
+      ) : kind === 'rework' ? (
+        <Link
+          to="/intake/new"
+          search={{ rework: item.quoteNumber }}
+          onClick={open}
+          className={rowClass}
+        >
+          {content}
+        </Link>
       ) : kind === 'engineering' ? (
         <Link
           to="/quotes/$quoteNumber"

@@ -153,6 +153,7 @@ describe('GET /api/v1/salesforce/opportunities/:id', () => {
       erfNumber: (raw.ERF_Number__c as string | null)?.trim() || null,
     });
     expect(body.productSpecs.length).toBeGreaterThan(0);
+    expect(body.productSpecsStatus).toBe('found'); // FB-15 (W13-04)
     expect(body.ccqStageHint).not.toBeUndefined();
     expect(body.snapshotSyncedAt).not.toBeNull();
     expect(body.liveRefreshedAt).toBe(clock.toISOString());
@@ -161,6 +162,14 @@ describe('GET /api/v1/salesforce/opportunities/:id', () => {
     if (raw.AccountId) {
       expect(body.account?.shipTo).toMatchObject({ state: expect.any(String) as string });
     }
+  });
+
+  it('FB-15 (W13-04): an opportunity with no product specification says so', async () => {
+    const withSpec = new Set(fixture.productSpecs.map((p) => p.Opportunity__c as string));
+    const id = fixture.opportunities.map((o) => o.Id as string).find((o) => !withSpec.has(o))!;
+    const body = SfOpportunityDetail.parse((await detail(id)).json());
+    expect(body.productSpecs).toEqual([]);
+    expect(body.productSpecsStatus).toBe('none');
   });
 
   it('caches the live read for 60 s', async () => {
@@ -183,6 +192,8 @@ describe('GET /api/v1/salesforce/opportunities/:id', () => {
       expect(body.liveRefreshedAt).toBeNull();
       expect(body.liveError).toContain('REQUEST_LIMIT_EXCEEDED');
       expect(body.productSpecs).toEqual([]);
+      // FB-15 (W13-04): unknown, not absent: the intake says the live read failed.
+      expect(body.productSpecsStatus).toBe('unavailable');
     } finally {
       reader.failWith = null;
     }

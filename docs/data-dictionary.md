@@ -783,6 +783,9 @@ The CCQ quote: the workflow record CCQ owns.
 | `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. | KAM |
 | `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |
 | `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. | KAM |
+| `product_family_other` | text | yes |  |  | FB-15 (W13-03): what the product family is when product_family is Other (≤ intake_other_description_max_length, seed 200); null otherwise. | KAM |
+| `component_other` | text | yes |  |  | FB-15 (W13-03): what the "Other" component is when components include Other (≤ intake_other_description_max_length); null otherwise. | KAM |
+| `decoration_type_other` | text | yes |  |  | FB-15 (W13-03): what the decoration is when decoration_type is Other and Decoration is picked (≤ intake_other_description_max_length); null otherwise. | KAM |
 | `height_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product height (mm). | KAM |
 | `width_or_diameter_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product width or diameter (mm). | KAM |
 | `depth_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product depth (mm). | KAM |
@@ -798,6 +801,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `price_basis` | text | yes |  |  | FB-11 (F-080): value_list price_basis code (FOB Pretium plant / Delivered). | KAM |
 | `freight_type` | text | yes |  |  | FB-11 (F-080): value_list freight_type code (flatbed, van, drop trailer, T-bar, other) when the price basis is delivered; cleared otherwise. | KAM |
 | `freight_special_arrangements` | text | yes |  |  | FB-11 (F-080): special freight arrangements (≤ 200), e.g. a drop trailer or T-bars; cleared when the price basis is not delivered. | KAM |
+| `customer_share_pct` | numeric(5, 2) | yes |  |  | FB-15 (W13-09, provisional): the customer's share of the tooling in percent (0–100, a whole number or one decimal) when tooling_funding_model is Shared (value_list meta customerShare); Pretium covers the rest. Optional; null for any other funding. | KAM |
 | `bid_reference` | text | yes |  |  | FB-11 (F-085): optional bid / program reference (≤ 60). A plain reference: it does not link quotes or relax one active quote per opportunity (F-084 is P1). | KAM |
 | `guardrail_warning` | text | yes |  |  | FB-10 (F-066): the platform-minimum warning shown to the KAM at the last submit ("Below the platform minimum for …"), kept for G1. Null when none. A warning only: it never blocked the submit. | KAM |
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |

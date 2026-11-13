@@ -87,6 +87,24 @@ export const PRODUCT_SPEC_FIELDS = {
   annualVolume: custom('Line_Annual_Volume__c'),
 } as const satisfies Record<string, FieldRef>;
 
+/*
+ * FB-15 (W13-04, Nov 13 walkthrough): WAITING ON W13-W10. Zachary Cairns says the product facts (container
+ * size, neck finish, from MDM) and the market / sub-market moved from the opportunity to the opportunity's
+ * product record (OpportunityLineItem → Product2: "parent market" and "end-use market"). Their API names are
+ * not known yet; do not guess them. Once Zac sends them, map them here, e.g.
+ *
+ *   export const OPPORTUNITY_LINE_ITEM_OBJECT = 'OpportunityLineItem';
+ *   export const OPPORTUNITY_LINE_ITEM_FIELDS = {
+ *     id: std('Id'),
+ *     opportunityId: std('OpportunityId'),
+ *     // capacity, neck finish, parent market, end-use market: custom('<API name from Zac>')
+ *   } as const satisfies Record<string, FieldRef>;
+ *
+ * add them to MAPPED_OBJECTS (the live contract test then checks they resolve), and read them in the reader.
+ * Until then the intake pre-fills from the first Opportunity_Product_Specifications__c row only, keeps every
+ * row on the draft (`sfProductSpecs`, for FB-19's items) and says when Salesforce sent none.
+ */
+
 export type OpportunityField = keyof typeof OPPORTUNITY_FIELDS;
 export type AccountField = keyof typeof ACCOUNT_FIELDS;
 export type ProductSpecField = keyof typeof PRODUCT_SPEC_FIELDS;

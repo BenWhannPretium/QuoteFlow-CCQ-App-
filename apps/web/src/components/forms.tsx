@@ -106,3 +106,38 @@ export function HiddenValue() {
     </span>
   );
 }
+
+/**
+ * FB-15 (W13-02, Zachary Cairns, Bailey Schmitt): a red asterisk before a required field's label, as
+ * Salesforce shows it. The asterisk is hidden from screen readers; `RequiredLabel` adds the word.
+ */
+export function RequiredMark({ className }: { className?: string }) {
+  return (
+    <span aria-hidden="true" className={cn('text-destructive mr-1 font-semibold', className)}>
+      *
+    </span>
+  );
+}
+
+/** A label's text with the asterisk before it and a visually hidden "required" after it. */
+export function RequiredLabel({ required, children }: { required: boolean; children: ReactNode }) {
+  return (
+    <>
+      {required && <RequiredMark />}
+      {children}
+      {required && <span className="sr-only"> (required)</span>}
+    </>
+  );
+}
+
+/** FB-15 (W13-02): the one-line key at the top of a form that uses `RequiredMark`. */
+export function RequiredKey({ className }: { className?: string }) {
+  return (
+    <p className={cn('text-muted-foreground text-xs', className)} data-testid="required-key">
+      <span aria-hidden="true" className="text-destructive font-semibold">
+        *
+      </span>{' '}
+      Required to submit
+    </p>
+  );
+}

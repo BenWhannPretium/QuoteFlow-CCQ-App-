@@ -76,6 +76,7 @@ export async function submitQuote(
           productFamily: 'BOTTLE',
           components: ['CONTAINER'],
           market: 'FOOD',
+          subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
           resin: 'HDPE',
           // FB-02 (F-010, F-055, F-023, F-016): the product facts and the minimum spec (no drawing file).
           neckDiameter: '28',

@@ -25,7 +25,11 @@ import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringE
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
 import { GateDecisionDialog, quoteQueryKey } from '../GateDecisionDialog';
-import { NonStandardTermsBadge, standardTermsFrom } from '../intake/CommercialInputs';
+import {
+  customerShareText,
+  NonStandardTermsBadge,
+  standardTermsFrom,
+} from '../intake/CommercialInputs';
 import { intakeFactItems } from '../intake/IntakeFacts';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
@@ -295,6 +299,7 @@ function CommercialLink({ quoteNumber }: { quoteNumber: string }) {
  */
 function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string }) {
   const t = s.termsAndLegal;
+  const { data: config } = usePublicConfig();
   const queryClient = useQueryClient();
   const yesNo = (v: boolean | null) => (v === null ? null : v ? 'Yes' : 'No');
   const required = (check: string) => t.requiredChecks.includes(check);
@@ -321,7 +326,17 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
           {
             id: 'funding',
             label: 'Funding model',
-            value: t.toolingFundingModelLabel ?? t.toolingFundingModel,
+            // FB-15 (W13-09): with the customer's share from intake while funding is Shared.
+            value: [
+              t.toolingFundingModelLabel ?? t.toolingFundingModel,
+              customerShareText(
+                config?.valueLists,
+                t.toolingFundingModel,
+                s.intake.facts.customerSharePct,
+              ),
+            ]
+              .filter(Boolean)
+              .join(' · '),
           },
           { id: 'tooling', label: 'Tooling commitment', value: yesNo(t.termsToolingCommitment) },
           { id: 'moq', label: 'MOQ', value: t.termsMoq },

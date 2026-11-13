@@ -227,6 +227,12 @@ export const QuoteIntakeFacts = z.object({
   freightSpecialArrangements: z.string().nullable(),
   /** F-085: the bid / program reference. */
   bidReference: z.string().nullable(),
+  /** FB-15 (W13-09, provisional): the customer's share in percent when funding is Shared; Pretium covers the rest. */
+  customerSharePct: z.number().nullable(),
+  /** FB-15 (W13-03): what an "Other" product family, component or decoration is. */
+  productFamilyOther: z.string().nullable(),
+  componentOther: z.string().nullable(),
+  decorationTypeOther: z.string().nullable(),
   /** FB-10 (F-066): the platform-minimum warning shown at the last submit, kept for G1; null when none. */
   guardrailWarning: z.string().nullable(),
 });

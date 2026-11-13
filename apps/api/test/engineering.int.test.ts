@@ -89,6 +89,7 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
     productFamily: 'BOTTLE',
     components: ['CONTAINER'],
     market: 'FOOD',
+    subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
     resin: 'HDPE',
     neckDiameter: '38',
     neckFinishType: '400',
@@ -301,10 +302,11 @@ describe('the queue', () => {
   });
 
   it('flags what Engineering may have to chase (completeness warnings)', async () => {
-    const qn = await inQueue({ drawingStatus: 'COMING', market: null });
+    // FB-15 (W13-02): Market is required now, so an optional field stands in for "left blank".
+    const qn = await inQueue({ drawingStatus: 'COMING', packagingType: null });
     const codes = find(await queue(), qn)!.completeness.map((c) => `${c.code}:${c.field}`);
     expect(codes).toContain('DRAWING_MISSING:drawing_status');
-    expect(codes).toContain('ENRICH:market');
+    expect(codes).toContain('ENRICH:packaging_type');
   });
 
   it('who sees it: EngLead the whole queue and the picker; Engineer read-only; Leadership read; others 403', async () => {

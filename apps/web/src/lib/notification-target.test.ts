@@ -19,9 +19,12 @@ describe('notificationTarget', () => {
     expect(notificationTarget('quote.ready_for_final_review')).toBe('review');
   });
 
+  it('opens a send-back at the rework review step (FB-15, W13-05)', () => {
+    expect(notificationTarget('quote.reworked')).toBe('rework');
+  });
+
   it('opens the quote for everything else', () => {
     for (const type of [
-      'quote.reworked',
       'quote.progress',
       'quote.on_hold',
       'quote.closed',

@@ -28,6 +28,22 @@ export function NonStandardTermsBadge({ show }: { show: boolean }) {
   );
 }
 
+/**
+ * FB-15 (W13-09, provisional): "Customer 40%, Pretium 60%" while funding is Shared (a funding code whose
+ * list meta says `customerShare`) and a share was given; null otherwise. Pretium covers the rest.
+ */
+export function customerShareText(
+  lists: Lists,
+  fundingCode: string | null | undefined,
+  pct: number | null | undefined,
+): string | null {
+  if (pct == null || !fundingCode) return null;
+  const entry = lists?.tooling_funding_model?.find((v) => v.code === fundingCode);
+  if (entry?.meta.customerShare !== true) return null;
+  const rest = Math.round((100 - pct) * 10) / 10;
+  return `Customer ${pct}%, Pretium ${rest}%`;
+}
+
 /** "Net 60", with an "Other" request shown as its description. */
 export const requestedTermsText = (lists: Lists, f: QuoteIntakeFacts): string | null =>
   factLabel(
@@ -55,7 +71,7 @@ export function commercialFactItems(
   return [
     {
       id: 'bid-reference',
-      label: 'Bid / program reference',
+      label: 'Customer bid / RFP reference',
       value: f.bidReference ? <span data-testid="fact-bid-reference">{f.bidReference}</span> : null,
     },
     {
@@ -74,6 +90,15 @@ export function commercialFactItems(
       value: f.toolingFundingModel ? (
         <span data-testid="fact-funding">
           {factLabel(lists, 'tooling_funding_model', f.toolingFundingModel)}
+        </span>
+      ) : null,
+    },
+    {
+      id: 'customer-share',
+      label: 'Customer share',
+      value: customerShareText(lists, f.toolingFundingModel, f.customerSharePct) ? (
+        <span data-testid="fact-customer-share">
+          {customerShareText(lists, f.toolingFundingModel, f.customerSharePct)}
         </span>
       ) : null,
     },

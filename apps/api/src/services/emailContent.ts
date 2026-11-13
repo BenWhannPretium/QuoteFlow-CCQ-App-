@@ -59,6 +59,8 @@ export class EmailContentBuilder {
   private quoteUrl(type: string, quoteNumber: string, payload: Record<string, string>): string {
     const n = encodeURIComponent(quoteNumber);
     if (type === 'quote.ready_for_final_review') return this.url(`/quotes/${n}/review`);
+    // FB-15 (W13-05): a send-back opens the KAM's rework at the review step, at the field to fix.
+    if (type === 'quote.reworked') return this.url(`/intake/new?rework=${n}`);
     // Lead review and pricing assignment: the tab of the work in question.
     if (
       type === 'quote.pricing_assigned' ||

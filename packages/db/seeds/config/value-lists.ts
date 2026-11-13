@@ -14,8 +14,9 @@ import { valueList } from '../../src/schema/index';
 
 export const ZERO_CER_HELP =
   'Follows the standard quoting process. The capital is reimbursed by the customer as a lump sum or through amortization, and is approved after award like company-funded capital. At purchasing, the customer invoice or contract goes with the mold PO.';
+// FB-15 (W13-09): the customer's share is now its own field ("Customer share %"). Provisional wording.
 export const SHARED_HELP =
-  'Pretium and the customer each pay part. Record the agreed split in the terms notes.';
+  "Pretium and the customer each pay part. Enter the customer's share; Pretium covers the rest.";
 // Bailey Schmitt (2026-11-12): every funding option is explained, Amortized above all. Provisional wording.
 export const COMPANY_FUNDED_HELP = 'Pretium pays for the tooling.';
 export const CUSTOMER_FUNDED_HELP = 'The customer pays for the tooling up front.';
@@ -132,7 +133,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['PREFORM', 'Preform'],
     ['CANISTER_TUB', 'Canister/Tub'],
     ['HANDLEWARE', 'Handleware'],
-    ['OTHER', 'Other'],
+    // FB-15 (W13-03): "Other" asks what it is. Only this behaviour flag is new: the approved values are unchanged.
+    ['OTHER', 'Other', { freeText: true }],
   ],
   // FB-02 (F-013): meta.followUps = the fields a picked component asks for (required while picked,
   // cleared when not). Decoration added. Bailey: Pretium's component list isn't final (V-090).
@@ -142,7 +144,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['LINER', 'Liner', { followUps: ['liner_spec'] }],
     ['LABEL', 'Label', { followUps: ['labels_purchased_by'] }],
     ['DECORATION', 'Decoration', { followUps: ['decoration_type', 'decoration_print_colors'] }],
-    ['OTHER', 'Other'],
+    // FB-15 (W13-03): "Other" asks what the component is.
+    ['OTHER', 'Other', { freeText: true }],
   ],
   request_class: [
     ['CCQ', 'CCQ (new business + capital/engineering)'],
@@ -268,11 +271,17 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['BARRIER', 'Barrier'],
     ['ANTISTAT', 'Antistat'],
     ['IMPACT_MODIFIER', 'Impact Modifier'],
+    // FB-15 (W13-08, Zachary Cairns): provisional; Engineering confirms it is an additive (W13-W7).
+    ['FLUORINATION', 'Fluorination'],
     ['OTHER', 'Other', { freeText: true }],
   ],
   // FB-02 (F-023, Kyle Arnold, Tania Nazario): Custom needs a short description.
+  // FB-15 (W13-07, Zachary Cairns): the stock colorants by resin. `meta.resins`: offered only for those resins.
+  // HDPE and PP for now (provisional); PET stock colors wait for Seamus's list (W13-W5).
   color_type: [
     ['NATURAL', 'Natural'],
+    ['STOCK_WHITE', 'Stock white', { resins: ['HDPE', 'PP'] }],
+    ['STOCK_BLACK', 'Stock black', { resins: ['HDPE', 'PP'] }],
     ['CUSTOM', 'Custom color', { freeText: true }],
   ],
   // FB-02 (F-013): who buys the labels.
@@ -285,7 +294,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['SILK_SCREEN', 'Silk screen'],
     ['HOT_STAMP', 'Hot stamp'],
     ['SHRINK_SLEEVE', 'Shrink sleeve'],
-    ['OTHER', 'Other'],
+    // FB-15 (W13-03): "Other" asks what the decoration is.
+    ['OTHER', 'Other', { freeText: true }],
   ],
   // B-26 (future-state deck slide 12): how the tooling / capital is funded. Provisional.
   tooling_funding_model: [
@@ -299,7 +309,12 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ],
     ['AMORTIZED', 'Amortized', { helpText: AMORTIZED_HELP, taxHint: true }],
     // FB-04 (V-055, D-003 open): provisional until the terms structure is decided.
-    ['SHARED', 'Shared (company and customer)', { helpText: SHARED_HELP, taxHint: true }],
+    // FB-15 (W13-09): `customerShare` asks for the optional "Customer share %" (provisional).
+    [
+      'SHARED',
+      'Shared (company and customer)',
+      { helpText: SHARED_HELP, taxHint: true, customerShare: true },
+    ],
     // FB-11 (F-080, D-032): intake only asks WHETHER the customer funds any tooling (not how much or how).
     // `defaultAtIntake`: preselected in the wizard and stored when the KAM doesn't change it.
     ['NOT_DISCUSSED', 'Not discussed', { helpText: NOT_DISCUSSED_HELP, defaultAtIntake: true }],
@@ -351,7 +366,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['VAN', 'Van'],
     ['DROP_TRAILER', 'Drop trailer'],
     ['T_BAR', 'T-bar'],
-    ['OTHER', 'Other'],
+    // FB-15 (W13-03, Bailey Schmitt): "Other" makes "Special freight arrangements" required.
+    ['OTHER', 'Other', { freeText: true }],
   ],
 };
 

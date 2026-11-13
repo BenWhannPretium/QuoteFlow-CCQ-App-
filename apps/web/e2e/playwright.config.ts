@@ -57,6 +57,7 @@ export default defineConfig({
         'workflow-integrity.spec.ts',
         'notifications-handoff.spec.ts',
         'quoting-steps.spec.ts',
+        'fb15.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },
