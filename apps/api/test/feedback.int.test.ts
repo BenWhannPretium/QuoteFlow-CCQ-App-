@@ -145,6 +145,20 @@ describe('Report an issue (B-23)', () => {
     ).toBe(400);
   });
 
+  it('tells each Admin in the app that a report came in, without the report text', async () => {
+    // The Admin signed in above (triage), so there is someone to tell.
+    const res = await asRole(app, 'Pricing').post('/api/v1/feedback', report);
+    expect(res.statusCode, res.body).toBe(201);
+    const feed = await asRole(app, 'Admin').get('/api/v1/notifications');
+    expect(feed.statusCode, feed.body).toBe(200);
+    const notice = (
+      feed.json<{ items: { type: string; title: string; body: string }[] }>().items ?? []
+    ).find((n) => n.type === 'feedback.reported');
+    expect(notice).toMatchObject({ title: 'New issue report' });
+    expect(notice!.body).toContain('Admin → Feedback');
+    expect(notice!.body).not.toContain(report.description);
+  });
+
   it('the app role has no DELETE on feedback, and RLS is forced', async () => {
     const [row] = await db.db.execute<{ del: boolean; forced: boolean }>(sql`
       select has_table_privilege('ccq_app', 'feedback', 'DELETE') as del,

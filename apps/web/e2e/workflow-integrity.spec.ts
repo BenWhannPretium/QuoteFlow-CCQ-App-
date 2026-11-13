@@ -130,10 +130,13 @@ test('T-005: Pricing → KAM → "No" scope change → back in Quoting with the 
   const lead = await (await browser.newContext()).newPage();
   await signInAs(lead, 'pricing-lead');
   await lead.goto(`/quotes/${qn}?tab=quoting`);
-  await lead.getByTestId('decide-gate').click();
+  // The decision button when the quote can move forward; otherwise "Hold, send back or stop". Both
+  // open a dialog that offers the way back to the KAM.
+  await lead.getByTestId('decide-gate').or(lead.getByTestId('decide-other')).click();
   const dialog = lead.getByRole('dialog');
-  // One decision button: the dialog is titled like it and offers every outcome, back to the KAM included.
-  await expect(dialog.getByRole('heading', { name: 'Decide price approval' })).toBeVisible();
+  await expect(
+    dialog.getByRole('heading', { name: /Decide price approval|Hold, send back or stop/ }),
+  ).toBeVisible();
   await dialog.getByRole('radio', { name: 'Rework (back to KAM)' }).check();
   // DR-engineering-10: the note helper says what to write for this outcome.
   await expect(dialog.getByText('Say what needs to change, and where.')).toBeVisible();

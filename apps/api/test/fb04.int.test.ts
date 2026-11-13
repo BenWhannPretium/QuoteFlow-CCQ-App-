@@ -166,6 +166,8 @@ describe('F-022 / V-055: the funding options', () => {
     expect(zero.meta.helpText).toMatch(/mold PO/);
     const shared = list.find((v) => v.code === 'SHARED')!;
     expect(shared.label).toBe('Shared (company and customer)');
-    expect(shared.meta.helpText).toMatch(/D-003/);
+    // 0043 (Bailey Schmitt, 2026-11-12): plain wording, and every option is explained.
+    expect(shared.meta.helpText).toMatch(/each pay part/);
+    expect(list.find((v) => v.code === 'AMORTIZED')!.meta.helpText).toMatch(/over time/);
   });
 });
