@@ -862,26 +862,50 @@ export class AttachmentService {
         const state = await loadQuoteState(tx, row.quoteId);
         if (state) await assertSectionUnlocked(tx, 'engineering', state);
       }
-      await this.removeRow(tx, actor, row, settings, now, meta);
-      // F-074: removing the current version makes the newest remaining one current again.
-      if (row.quoteId && row.version !== null && row.supersededAt === null) {
-        const restored = await restorePreviousVersion(tx, row.quoteId, row.kind, now);
-        if (restored) {
-          await recordAudit(tx, actor, meta, {
-            at: now,
-            action: 'update',
-            entity: 'attachment',
-            entityId: restored.id,
-            quoteId: row.quoteId,
-            before: { current: false, supersededBy: row.id },
-            after: { current: true, version: restored.version, reason: 'newer version removed' },
-          });
+      const moved = await this.removeRow(tx, actor, row, settings, now, meta);
+      try {
+        // F-074: removing the current version makes the newest remaining one current again.
+        if (row.quoteId && row.version !== null && row.supersededAt === null) {
+          const restored = await restorePreviousVersion(tx, row.quoteId, row.kind, now);
+          if (restored) {
+            await recordAudit(tx, actor, meta, {
+              at: now,
+              action: 'update',
+              entity: 'attachment',
+              entityId: restored.id,
+              quoteId: row.quoteId,
+              before: { current: false, supersededBy: row.id },
+              after: { current: true, version: restored.version, reason: 'newer version removed' },
+            });
+          }
         }
+      } catch (err) {
+        await this.putBack(moved, row);
+        throw err;
       }
     });
   }
 
-  /** Move the bytes to the removed folder (inside the transaction: a store failure changes nothing). */
+  /**
+   * The removal failed after the bytes moved: put them back (best effort), so the row the rollback
+   * leaves in place still points at its file.
+   */
+  private async putBack(moved: StoredFile | null, row: AttachmentRow) {
+    if (!moved || !row.storagePath) return;
+    try {
+      await this.store.move(moved.itemId, row.storagePath);
+    } catch (err) {
+      this.opts.log.warn(
+        { op: 'remove-undo', code: err instanceof FileStoreError ? err.code : 'UNKNOWN' },
+        'file store failed',
+      );
+    }
+  }
+
+  /**
+   * Move the bytes to the removed folder (inside the transaction: a store failure changes nothing, and
+   * a database failure after the move puts the bytes back). Returns the moved file, if any.
+   */
   private async removeRow(
     tx: Tx,
     actor: Actor,
@@ -889,7 +913,7 @@ export class AttachmentService {
     settings: AttachmentSettings,
     now: Date,
     meta: AuditMeta,
-  ) {
+  ): Promise<StoredFile | null> {
     let moved: StoredFile | null = null;
     if (row.storage === this.store.kind && row.storageItemId) {
       try {
@@ -900,39 +924,45 @@ export class AttachmentService {
         }
       }
     }
-    await updateAttachment(tx, row.id, {
-      removedAt: now,
-      removedBy: actor.userId,
-      updatedAt: now,
-      ...(moved
-        ? {
-            storageItemId: moved.itemId,
-            storagePath: moved.folder,
-            ...(row.storage === 'sharepoint'
-              ? { spItemId: moved.itemId, spWebUrl: moved.webUrl }
-              : {}),
-          }
-        : {}),
-    });
-    await recordAudit(tx, actor, meta, {
-      at: now,
-      action: 'update',
-      entity: 'attachment',
-      entityId: row.id,
-      quoteId: row.quoteId,
-      before: { removed: false, folder: row.storagePath },
-      after: { removed: true, folder: moved?.folder ?? row.storagePath, fileName: row.fileName },
-    });
-    if (row.quoteId) {
-      await insertActivityEvent(tx, {
-        quoteId: row.quoteId,
-        type: 'attachment_removed',
-        actorId: actor.userId,
-        at: now,
-        payload: { attachmentId: row.id, fileName: row.fileName, kind: row.kind },
-        createdBy: actor.userId,
+    try {
+      await updateAttachment(tx, row.id, {
+        removedAt: now,
+        removedBy: actor.userId,
+        updatedAt: now,
+        ...(moved
+          ? {
+              storageItemId: moved.itemId,
+              storagePath: moved.folder,
+              ...(row.storage === 'sharepoint'
+                ? { spItemId: moved.itemId, spWebUrl: moved.webUrl }
+                : {}),
+            }
+          : {}),
       });
+      await recordAudit(tx, actor, meta, {
+        at: now,
+        action: 'update',
+        entity: 'attachment',
+        entityId: row.id,
+        quoteId: row.quoteId,
+        before: { removed: false, folder: row.storagePath },
+        after: { removed: true, folder: moved?.folder ?? row.storagePath, fileName: row.fileName },
+      });
+      if (row.quoteId) {
+        await insertActivityEvent(tx, {
+          quoteId: row.quoteId,
+          type: 'attachment_removed',
+          actorId: actor.userId,
+          at: now,
+          payload: { attachmentId: row.id, fileName: row.fileName, kind: row.kind },
+          createdBy: actor.userId,
+        });
+      }
+    } catch (err) {
+      await this.putBack(moved, row);
+      throw err;
     }
+    return moved;
   }
 
   // ── Intake drafts: submit and delete ────────────────────────────────────────────────────────

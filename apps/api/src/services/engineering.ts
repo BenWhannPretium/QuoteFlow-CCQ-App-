@@ -427,7 +427,7 @@ export class EngineeringService {
 
     await updateQuote(tx, q.id, { assignedEngineerId: plan.to, assignedAt: now });
     // A new engineer starts their own review: acceptance is per assignee.
-    if (plan.from) await resetEngReviewAcceptance(tx, q.id);
+    if (plan.from) await resetEngReviewAcceptance(tx, q.id, { keepCapacitySignoff: true });
     await insertActivityEvent(tx, {
       quoteId: q.id,
       type: 'engineer_assigned',
@@ -1041,7 +1041,10 @@ export class EngineeringService {
   }
 
   /** GET /quotes/:qn/stage-times: per-stage durations excluding holds (`computeTimeInStage`). */
-  async stageTimes(withTx: EngWithTx, quoteNumber: string): Promise<StageTimesResponse> {
+  async stageTimes(
+    withTx: EngWithTx,
+    quoteNumber: string,
+  ): Promise<{ quoteId: string; response: StageTimesResponse }> {
     const now = this.now();
     return withTx(async (tx) => {
       const q = await getQuoteByNumber(tx, quoteNumber);
@@ -1054,17 +1057,20 @@ export class EngineeringService {
       const visits = computeTimeInStage(history, holds, now);
       const label = (key: string) => workflow.stages.find((s) => s.key === key)?.label ?? key;
       return {
-        quoteNumber,
-        asOf: now.toISOString(),
-        stages: summarizeStageTimes(visits).map((s) => ({ ...s, label: label(s.stageKey) })),
-        visits: visits.map((v) => ({
-          stageKey: v.stageKey,
-          enteredAt: v.enteredAt.toISOString(),
-          exitedAt: iso(v.exitedAt),
-          elapsedMs: v.elapsedMs,
-          heldMs: v.heldMs,
-          activeMs: v.activeMs,
-        })),
+        quoteId: q.id,
+        response: {
+          quoteNumber,
+          asOf: now.toISOString(),
+          stages: summarizeStageTimes(visits).map((s) => ({ ...s, label: label(s.stageKey) })),
+          visits: visits.map((v) => ({
+            stageKey: v.stageKey,
+            enteredAt: v.enteredAt.toISOString(),
+            exitedAt: iso(v.exitedAt),
+            elapsedMs: v.elapsedMs,
+            heldMs: v.heldMs,
+            activeMs: v.activeMs,
+          })),
+        },
       };
     });
   }

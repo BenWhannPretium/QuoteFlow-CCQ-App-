@@ -226,7 +226,10 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
 
   const app = Fastify({
     logger: loggerOptions(config),
-    trustProxy: isProd, // behind Azure App Service front end
+    // Behind the Azure App Service front end: trust that one hop (the socket peer) only. The front end
+    // appends the caller's address to X-Forwarded-For, so `true` (trust every entry) took req.ip from
+    // what the caller sent. A function, not a hop count: Fastify treats a number as "trust nothing".
+    trustProxy: isProd ? (_address: string, hop: number) => hop === 0 : false,
     // DR-cross-cutting-08: the router's own errors (a path parameter over maxParamLength, a malformed
     // URL) are RFC 9457 problems too, without echoing the long path back.
     frameworkErrors: (error, request, reply) => {

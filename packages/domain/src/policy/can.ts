@@ -40,6 +40,18 @@ function grantApplies(grant: Grant, actor: Actor, resource: PolicyResource | und
   }
 }
 
+/** The roles RLS never narrows by an `owner` scope (`app_sees_all_quotes`, migration 0031). Keep in step. */
+const SEES_ALL_QUOTES: readonly Role[] = [
+  'Admin',
+  'Leadership',
+  'EngLead',
+  'Pricing',
+  'PricingLead',
+  'Finance',
+  'Approver',
+  'SalesLeader',
+];
+
 /** Data scope: all | owner (KAM of the quote, or assigned engineer for an Engineer) | region | account_list. */
 export function inScope(actor: Actor, resource: PolicyResource): boolean {
   const scope = actor.scope;
@@ -48,7 +60,10 @@ export function inScope(actor: Actor, resource: PolicyResource): boolean {
       return true;
     case 'owner':
       // Owner means "mine": the KAM of the quote, or for an Engineer the assigned engineer (matches RLS).
+      // Only KAM and Engineer follow it: the roles RLS shows every quote are not narrowed, so the
+      // `default_scope_type = owner` setting cannot lock the leads and approvers out of every gate.
       return (
+        actor.roles.some((role) => SEES_ALL_QUOTES.includes(role)) ||
         (resource.kamUserId !== undefined && resource.kamUserId === actor.userId) ||
         (actor.roles.includes('Engineer') &&
           resource.assignedEngineerId != null &&

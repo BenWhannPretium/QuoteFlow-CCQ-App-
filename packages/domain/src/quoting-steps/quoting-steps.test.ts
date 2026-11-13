@@ -211,8 +211,9 @@ describe('planModelUpload: who uploads which model, allowed and denied for every
   });
 
   it('a Finance user with no data scope over the quote is denied', () => {
-    const owner = makeActor('Finance', { scope: { type: 'owner' } });
-    const plan = planModelUpload('roi_model', owner, quoting, ready);
+    // A region the quote is not in (an `owner` scope narrows only KAM and Engineer, as RLS does).
+    const outside = makeActor('Finance', { scope: { type: 'region', values: ['Elsewhere'] } });
+    const plan = planModelUpload('roi_model', outside, quoting, ready);
     expect(!plan.ok && plan.errors[0]!.code).toBe('NOT_PERMITTED');
   });
 });

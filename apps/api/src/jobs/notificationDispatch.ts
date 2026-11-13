@@ -162,6 +162,9 @@ async function enqueueDigest(deps: DispatchDeps, state: DigestState, now: Date):
   return queued;
 }
 
+/** An email is about something happening now: one still waiting after this long is skipped, not sent. */
+export const STALE_EMAIL_MS = 24 * 60 * 60_000;
+
 /** Try one due row inside its own transaction. Null when nothing is due. */
 async function dispatchOne(deps: DispatchDeps, now: () => Date): Promise<RowOutcome | null> {
   return withSystemContext(deps.database, async (tx) => {
@@ -176,6 +179,9 @@ async function dispatchOne(deps: DispatchDeps, now: () => Date): Promise<RowOutc
     if (((await getSetting<boolean>(tx, EMAIL_ENABLED_SETTING)) ?? true) === false) {
       return skip('email notifications are switched off');
     }
+    // A backlog is not sent late: rows queued while the dispatcher was off (prod until the shared mailbox
+    // exists) or down would arrive days after the event. The in-app notification is unaffected.
+    if (at.getTime() - row.createdAt.getTime() > STALE_EMAIL_MS) return skip('too old to send');
     const [recipient] = await listUsersForEmail(tx, [row.userId]);
     if (!recipient?.active || !recipient.email) return skip('recipient has no active address');
     if ((await listEmailOptOuts(tx, [row.userId], emailPreferenceKey(row.type))).has(row.userId)) {

@@ -6,6 +6,7 @@ import {
   hasAuditSince,
   insertAuditEvent,
   listSettings,
+  lockKey,
   setUserScope,
   syncUserRoles,
   upsertUser,
@@ -88,6 +89,8 @@ export function createPgDirectory(db: Database, now: () => Date = () => new Date
 
     recordSignIn: (user, since, meta) =>
       withRequestContext(db, user, async (tx) => {
+        // Serialized per user, so several API instances still write one row per window.
+        await lockKey(tx, `audit-sign-in:${user.userId}`);
         if (await hasAuditSince(tx, user.userId, 'sign_in', since)) return false;
         await insertAuditEvent(tx, {
           actorId: user.userId,
@@ -156,9 +159,16 @@ export function createIdentityService(
 
       const checked = lastSignInCheck.get(user.userId);
       if (checked === undefined || t - checked >= signInWindowMs) {
-        await directory.recordSignIn(user, new Date(t - signInWindowMs), meta);
+        // Marked before the write: the page's first requests arrive together and each would record one.
         if (lastSignInCheck.size >= MAX_CACHE_ENTRIES) lastSignInCheck.clear();
         lastSignInCheck.set(user.userId, t);
+        try {
+          await directory.recordSignIn(user, new Date(t - signInWindowMs), meta);
+        } catch (err) {
+          if (checked === undefined) lastSignInCheck.delete(user.userId);
+          else lastSignInCheck.set(user.userId, checked);
+          throw err;
+        }
       }
       return user;
     },

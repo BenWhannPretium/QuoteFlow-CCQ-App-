@@ -42,9 +42,17 @@ export const timelineRoutes: FastifyPluginAsyncZod<{ service: TimelineService }>
       },
     },
     async (req, reply) =>
-      handleProblems(req, reply, () =>
-        service.timeline(withTx(req), requireActor(req), req.params.quoteNumber, req.query),
-      ),
+      handleProblems(req, reply, async () => {
+        const { quoteId, response } = await service.timeline(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.query,
+        );
+        // Reading a quote's history is a view of the quote (B-09 audit plugin, debounced).
+        req.auditView = { entity: 'quote', entityId: quoteId, quoteId };
+        return response;
+      }),
   );
 
   app.post(

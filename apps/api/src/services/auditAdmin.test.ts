@@ -39,6 +39,7 @@ describe('csvCell', () => {
     expect(csvCell({ a: 1 })).toBe('"{""a"":1}"');
     expect(csvCell('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
     expect(csvCell('-1')).toBe(`"'-1"`);
+    expect(csvCell(-3.5)).toBe('"-3.5"');
   });
 });
 
