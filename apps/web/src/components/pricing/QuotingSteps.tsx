@@ -89,7 +89,7 @@ export function QuotingSteps({
               <p className="text-muted-foreground text-xs" data-testid="costing-attested">
                 {steps.costing.attested
                   ? `Costing attested${steps.costing.attestedByName ? ` by ${steps.costing.attestedByName}` : ''}${steps.costing.attestedAt ? ` on ${absoluteTime(steps.costing.attestedAt)}` : ''}`
-                  : 'Costing not attested yet (tick “Costing completed” below once the model is on file).'}
+                  : 'Costing is not marked completed yet. It is ticked for you when the costing model is uploaded.'}
               </p>
               {!compact && <History items={history('cost_model')} />}
               {!compact && steps.costing.canUpload && (

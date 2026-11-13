@@ -82,6 +82,9 @@ const PRESETS = [
 const selectClass =
   'bg-card border-input focus-visible:ring-ring min-h-11 w-full rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none sm:min-h-9';
 
+/** How many weeks a weekly chart's table view lists (the chart itself shows the whole window). */
+const TABLE_WEEKS = 6;
+
 function FilterBar({
   search,
   filters,
@@ -454,13 +457,14 @@ function FlowSection({ search }: { search: AnalyticsSearch }) {
               summary="Weekly count of quotes created and quotes closed."
               empty={total === 0}
               table={{
-                caption: 'Quotes created and closed per week',
+                // Bailey Schmitt (2026-11-12): the table shows the latest weeks only; the chart has them all.
+                caption: `Quotes created and closed per week (latest ${TABLE_WEEKS} weeks)`,
                 columns: [
                   { key: 'week', label: 'Week of' },
                   { key: 'created', label: 'Created', numeric: true },
                   { key: 'closed', label: 'Closed', numeric: true },
                 ],
-                rows: f.weekly.map((w) => ({
+                rows: f.weekly.slice(-TABLE_WEEKS).map((w) => ({
                   week: weekLabel(w.week),
                   created: fmtCount(w.created),
                   closed: fmtCount(w.closed),
@@ -484,12 +488,12 @@ function FlowSection({ search }: { search: AnalyticsSearch }) {
               summary="Open quotes per stage at the end of each week."
               empty={wipTotal === 0}
               table={{
-                caption: 'Work in progress by stage at the end of each week',
+                caption: `Work in progress by stage at the end of each week (latest ${TABLE_WEEKS} weeks)`,
                 columns: [
                   { key: 'week', label: 'Week of' },
                   ...f.wip.stages.map((s) => ({ key: s.stageKey, label: s.label, numeric: true })),
                 ],
-                rows: f.wip.weeks.map((w) => ({
+                rows: f.wip.weeks.slice(-TABLE_WEEKS).map((w) => ({
                   week: weekLabel(w.week),
                   ...Object.fromEntries(
                     f.wip.stages.map((s) => [s.stageKey, fmtCount(w.counts[s.stageKey] ?? 0)]),

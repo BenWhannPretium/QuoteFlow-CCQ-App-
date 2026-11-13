@@ -520,9 +520,9 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
               />
               Costing completed (Cost-to-Serve)
               <span className="text-muted-foreground text-xs">
-                Tick this once the costing is done. Upload the costing model first (step 1 above).
-                It is required before the price can be approved. Costing itself stays in Excel and
-                the pricing app; QuoteFlow only keeps the file.
+                Ticked for you when the costing model is uploaded (step 1 above). It is required
+                before the price can be approved. Untick it if the costing is not final. Costing
+                itself stays in Excel and the pricing app; QuoteFlow only keeps the file.
               </span>
             </label>
             {errorFor(errors, 'costingCompleted') && (
