@@ -15,7 +15,12 @@ import { valueList } from '../../src/schema/index';
 export const ZERO_CER_HELP =
   'Follows the standard quoting process. The capital is reimbursed by the customer as a lump sum or through amortization, and is approved after award like company-funded capital. At purchasing, the customer invoice or contract goes with the mold PO.';
 export const SHARED_HELP =
-  'Split agreed with the customer; record the split in the terms notes until the terms structure is decided (D-003).';
+  'Pretium and the customer each pay part. Record the agreed split in the terms notes.';
+// Bailey Schmitt (2026-11-12): every funding option is explained, Amortized above all. Provisional wording.
+export const COMPANY_FUNDED_HELP = 'Pretium pays for the tooling.';
+export const CUSTOMER_FUNDED_HELP = 'The customer pays for the tooling up front.';
+export const AMORTIZED_HELP =
+  'The customer pays for the tooling over time: its cost is spread across an agreed volume and added to the piece price, instead of being paid up front.';
 
 /** FB-11 (F-080, Gemma Cebolla): the sales-tax and contract note shown when the customer funds tooling. */
 export const NOT_DISCUSSED_HELP =
@@ -284,15 +289,15 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   ],
   // B-26 (future-state deck slide 12): how the tooling / capital is funded. Provisional.
   tooling_funding_model: [
-    ['COMPANY_FUNDED', 'Company-funded'],
-    ['CUSTOMER_FUNDED', 'Customer-funded', { taxHint: true }],
+    ['COMPANY_FUNDED', 'Company-funded', { helpText: COMPANY_FUNDED_HELP }],
+    ['CUSTOMER_FUNDED', 'Customer-funded', { helpText: CUSTOMER_FUNDED_HELP, taxHint: true }],
     // FB-04 (F-022, D-023): Oleg Yarovinski's definition. meta.helpText shows as an (i) next to the option.
     [
       'ZERO_CER',
       '$0 CER (customer-reimbursed capital)',
       { helpText: ZERO_CER_HELP, taxHint: true },
     ],
-    ['AMORTIZED', 'Amortized', { taxHint: true }],
+    ['AMORTIZED', 'Amortized', { helpText: AMORTIZED_HELP, taxHint: true }],
     // FB-04 (V-055, D-003 open): provisional until the terms structure is decided.
     ['SHARED', 'Shared (company and customer)', { helpText: SHARED_HELP, taxHint: true }],
     // FB-11 (F-080, D-032): intake only asks WHETHER the customer funds any tooling (not how much or how).

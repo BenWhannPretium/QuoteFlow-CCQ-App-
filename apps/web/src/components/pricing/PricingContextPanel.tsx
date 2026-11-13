@@ -203,8 +203,7 @@ function Body({ context, use }: { context: PricingContext; use: UseRef }) {
       )}
       {noRefs && (
         <p className="text-muted-foreground text-sm" data-testid="pricing-context-empty">
-          No Legacy ERF # on this quote. That is fine: it is optional during the transition and no
-          gate needs it.
+          No past record is linked to this quote. That is fine: the Legacy ERF # is optional.
         </p>
       )}
       {context.erfRecords.map((erf) => (
@@ -219,12 +218,12 @@ function Body({ context, use }: { context: PricingContext; use: UseRef }) {
       {context.customerMatch && (
         <section className="grid gap-2" aria-labelledby="pricing-context-customer-erfs">
           <h3 id="pricing-context-customer-erfs" className="text-sm font-semibold">
-            Other ERFs for {context.customerMatch} ({context.customerErfs.length})
+            Other past records for {context.customerMatch} ({context.customerErfs.length})
           </h3>
           {context.customerErfs.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              No other ERF under this customer name. The export has no Salesforce id, so a customer
-              spelled differently in the old app won&apos;t match: search the pricing history.
+              No other past record under this customer name. A customer spelled differently in the
+              old app won&apos;t match: search the pricing history.
             </p>
           ) : (
             <ul className="grid gap-2" data-testid="pricing-context-customer-erfs">

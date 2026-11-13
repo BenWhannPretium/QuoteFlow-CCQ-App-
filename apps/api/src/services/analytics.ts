@@ -134,7 +134,7 @@ export function outcomeRates(r: OutcomeRow | undefined): OutcomeRates {
 }
 
 export const OUTCOME_DEFINITION =
-  'Of the proposals issued in the window: win rate = awarded ÷ (awarded + lost), decided quotes only (a proposal that expired with no answer is not a loss, and one still waiting is not decided). Shown only beside the outcome capture rate, because a win rate on few recorded outcomes misleads.';
+  'The share of decided proposals that were won. Win rate = awarded ÷ (awarded + lost). Only decided quotes count: a proposal that expired with no answer is not a loss, and one still waiting is not counted. Always shown beside the outcome capture rate, because a win rate based on few recorded outcomes is misleading.';
 export const CAPTURE_DEFINITION =
   'Outcome capture rate = recorded customer outcomes (awarded, lost, expired) ÷ (recorded + gone dark). Gone dark = still open in Customer Decision after the proposal validity date. Proposals still inside their validity are waiting, not missing, so they are left out.';
 

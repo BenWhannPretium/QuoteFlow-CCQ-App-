@@ -329,8 +329,12 @@ export function PricingInputsCard({
   const initial = extrasForm(eng.review);
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
-  const set = <K extends keyof ExtrasForm>(k: K, v: ExtrasForm[K]) =>
+  // Bailey (2026-11-12): say "Saved" beside the button, where the eye already is (the toast is easy to miss).
+  const [justSaved, setJustSaved] = useState(false);
+  const set = <K extends keyof ExtrasForm>(k: K, v: ExtrasForm[K]) => {
+    setJustSaved(false);
     setForm((f) => ({ ...f, [k]: v }));
+  };
 
   const save = useMutation({
     mutationFn: () => {
@@ -350,7 +354,8 @@ export function PricingInputsCard({
       setErrors([]);
       setForm(extrasForm(detail.review));
       await refresh(detail);
-      toast.success({ title: 'Saved' });
+      setJustSaved(true);
+      toast.success({ title: 'Two-step process and pack-out saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
@@ -473,10 +478,15 @@ export function PricingInputsCard({
             ))}
           </div>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
-          <div>
+          <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" disabled={!changed || save.isPending}>
-              {save.isPending ? 'Saving…' : 'Save'}
+              {save.isPending ? 'Saving…' : 'Save process and pack-out'}
             </Button>
+            {justSaved && !changed && (
+              <span role="status" className="text-muted-foreground text-sm" data-testid="saved-note">
+                Saved
+              </span>
+            )}
           </div>
         </form>
       </CardContent>

@@ -628,11 +628,12 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
   const record = quoting.pricingRecord ?? null;
   const refresh = useRefresh(quote.quoteNumber);
   const capitalRequired = quoting.g2?.outcomeKey === 'capital_required';
-  const [form, setForm] = useState({
+  const saved = {
     capitalReadiness: record?.capitalReadiness ?? '',
     capitalNotes: record?.capitalNotes ?? '',
     capitalPendingJustification: record?.capitalPendingJustification ?? '',
-  });
+  };
+  const [form, setForm] = useState(saved);
   const [errors, setErrors] = useState<ServerError[]>([]);
   const save = useMutation({
     mutationFn: () =>
@@ -766,7 +767,15 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
           </Field>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
           <div>
-            <Button type="submit" disabled={!form.capitalReadiness || save.isPending}>
+            <Button
+              type="submit"
+              disabled={
+                !form.capitalReadiness ||
+                save.isPending ||
+                // Nothing to save: stays grey after a save until something changes.
+                (Object.keys(form) as (keyof typeof form)[]).every((k) => form[k] === saved[k])
+              }
+            >
               {save.isPending ? 'Saving…' : 'Save capital readiness'}
             </Button>
           </div>

@@ -869,6 +869,12 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
               onChange={(v) => update({ freightType: v })}
               cfg={cfg}
             />
+            {/* Bailey (2026-11-12): "Other" says where to describe it, like every other "Other". */}
+            {data.freightType === 'OTHER' && (
+              <p className="text-muted-foreground text-xs" data-testid="freight-other-prompt">
+                Describe the freight type under “Special freight arrangements” below.
+              </p>
+            )}
           </Field>
         </Reveal>
       </div>

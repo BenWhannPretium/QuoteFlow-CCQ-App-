@@ -178,7 +178,7 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await inputs.getByLabel('Freight between the plants').fill('Preforms ship by truck, weekly.');
   await inputs.getByTestId('pack-out-unitsPerCase').fill('600');
   await inputs.getByTestId('pack-out-unitsPerPallet').fill('14400');
-  await inputs.getByRole('button', { name: 'Save' }).click();
+  await inputs.getByRole('button', { name: 'Save process and pack-out' }).click();
   await expect(eng.getByText('Saved', { exact: true })).toBeVisible();
   await expect(inputs.getByLabel('Preform number')).toHaveValue('PF-2210');
 
