@@ -2,7 +2,14 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PERMISSION_MATRIX, PERMISSIONS, ROLES, type Permission } from '@ccq/domain';
+import {
+  holdsPermission,
+  PERMISSION_MATRIX,
+  PERMISSIONS,
+  permissionsForRoles,
+  ROLES,
+  type Permission,
+} from '@ccq/domain';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -107,6 +114,40 @@ describe('permission matrix (static)', () => {
     );
     const unused = PERMISSIONS.filter((p) => !declared.has(p)).sort();
     expect(unused).toEqual(Object.keys(SERVICE_CHECKED_PERMISSIONS).sort());
+  });
+});
+
+describe('PostAward (P2: no dev persona, so not in the integration matrix)', () => {
+  // The role is live (matrix, RLS, token mapping), so pin what it reaches: a new grant fails here until
+  // it is reviewed. RLS limits its quotes to AWARDED (packages/db/test/rls.int.test.ts).
+  const READS = ['quote.read', 'quote.read.commercialFields'];
+
+  it('holds the two read permissions and nothing else', () => {
+    expect([...permissionsForRoles(['PostAward'])].sort()).toEqual(READS);
+  });
+
+  it('passes only route gates that are quote reads', () => {
+    const postAward = { roles: ['PostAward' as const] };
+    const passes = (p: string | undefined) =>
+      isMatrixPermission(p ?? '') && holdsPermission(postAward, p as Permission);
+    const gates = ROUTE_REGISTRY.filter(
+      (r) => passes(r.permission) && (!r.requires || passes(r.requires)),
+    ).map((r) => r.permission);
+    expect([...new Set(gates)].sort()).toEqual(READS);
+    const writes = ROUTE_REGISTRY.filter(
+      (r) => r.method !== 'GET' && passes(r.permission) && (!r.requires || passes(r.requires)),
+    ).map((r) => `${r.method} ${r.route}`);
+    // Actions behind the `quote.read` floor: the service checks the action's own grant on the quote
+    // (a comment is open to anyone who can read the quote).
+    expect(writes.sort()).toMatchInlineSnapshot(`
+      [
+        "DELETE /api/v1/attachments/:id",
+        "POST /api/v1/overrides/:id/revert",
+        "POST /api/v1/quotes/:quoteNumber/assignment",
+        "POST /api/v1/quotes/:quoteNumber/comments",
+        "POST /api/v1/quotes/:quoteNumber/gates/:gateKey/decisions",
+      ]
+    `);
   });
 });
 

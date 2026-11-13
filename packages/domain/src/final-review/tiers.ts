@@ -50,7 +50,16 @@ export const approverTierRulesSchema = z
   .strict()
   .refine((r) => new Set(r.tiers.map((t) => t.key)).size === r.tiers.length, {
     message: 'tier keys must be unique',
-  });
+  })
+  // The LAST matching tier applies, so a higher tier listed before a lower one would never be required.
+  .refine(
+    (r) =>
+      (['minCapitalUsd', 'minAnnualRevenueUsd'] as const).every((threshold) => {
+        const values = r.tiers.map((t) => t[threshold]).filter((v) => v !== undefined);
+        return values.every((v, i) => i === 0 || v >= values[i - 1]!);
+      }),
+    { message: 'tiers must be ordered lowest to highest (a threshold may not decrease)' },
+  );
 
 export type ApproverTier = z.infer<typeof tierSchema>;
 export type ApproverTierRules = z.infer<typeof approverTierRulesSchema>;

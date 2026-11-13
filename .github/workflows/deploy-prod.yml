@@ -74,6 +74,16 @@ jobs:
           # B-27: the full history, to diff migrations against the commit production is running now.
           fetch-depth: 0
 
+      # A release tag must point at reviewed code: CI also passes on pull-request commits, so a tag on an
+      # unmerged branch would otherwise deploy.
+      - name: Check the commit is on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$SHA" FETCH_HEAD; then
+            echo "$SHA is not on main: deploy main, or a tag on a commit merged to main" >&2
+            exit 1
+          fi
+
       - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v7

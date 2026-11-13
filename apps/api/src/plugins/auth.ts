@@ -101,6 +101,12 @@ export const authPlugin = fp(
       authenticate = (req) => verify(bearerToken(req));
     }
 
+    // B-21: the rate limit runs on preHandler (it needs req.actor), which a rejected sign-in never
+    // reaches. Count those here, per client address, against the same budget.
+    const authFailureLimit = app.hasDecorator('createRateLimit')
+      ? app.createRateLimit({ keyGenerator: (req) => `auth-fail:${req.ip}` })
+      : null;
+
     app.decorateRequest('actor', null);
     app.decorateRequest('currentUser', null);
 
@@ -147,6 +153,14 @@ export const authPlugin = fp(
         });
       } catch (err) {
         if (!(err instanceof AuthError)) throw err;
+        const limit = await authFailureLimit?.(req);
+        if (limit && !limit.isAllowed && limit.isExceeded) {
+          void reply.header('retry-after', Math.ceil(limit.ttl / 1000));
+          return sendProblem(
+            reply,
+            problem(429, req, { detail: 'Too many rejected requests; try again shortly' }),
+          );
+        }
         if (err.status === 401) {
           void reply.header(
             'www-authenticate',

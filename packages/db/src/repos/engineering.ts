@@ -156,7 +156,12 @@ export function listHoldsForQuotes(db: DbOrTx, quoteIds: string[]) {
  * A quote re-entering the engineering queue waits for acceptance again. B-26: the capacity sign-off is
  * per stay too, so the capacity owner looks again (the scope, volume or site may have changed).
  */
-export async function resetEngReviewAcceptance(db: DbOrTx, quoteId: string) {
+export async function resetEngReviewAcceptance(
+  db: DbOrTx,
+  quoteId: string,
+  /** A reassignment in the same stay: the acceptance is per engineer, the capacity sign-off is not. */
+  { keepCapacitySignoff = false }: { keepCapacitySignoff?: boolean } = {},
+) {
   // Lead review: a new stay (or a new engineer) starts a new round.
   await clearLeadReview(db, quoteId, 'engineering');
   await db
@@ -164,10 +169,14 @@ export async function resetEngReviewAcceptance(db: DbOrTx, quoteId: string) {
     .set({
       acceptedAt: null,
       acceptedBy: null,
-      capacitySignoffStatus: null,
-      capacitySignoffBy: null,
-      capacitySignoffAt: null,
-      capacitySignoffNote: null,
+      ...(keepCapacitySignoff
+        ? {}
+        : {
+            capacitySignoffStatus: null,
+            capacitySignoffBy: null,
+            capacitySignoffAt: null,
+            capacitySignoffNote: null,
+          }),
       updatedAt: new Date(),
     })
     .where(eq(engReview.quoteId, quoteId));

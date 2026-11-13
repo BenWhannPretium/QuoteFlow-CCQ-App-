@@ -496,9 +496,12 @@ export class OverrideService {
       const view = await this.viewContext(tx, actor, at);
       const rows = await listOverridesWithContext(tx, { quoteId: quote.id, limit: 200 });
       return {
-        items: rows
-          .filter((r) => overrideVisible(view, r.override.field, r.kamUserId))
-          .map((r) => overrideDto(r, view)),
+        quoteId: quote.id,
+        response: {
+          items: rows
+            .filter((r) => overrideVisible(view, r.override.field, r.kamUserId))
+            .map((r) => overrideDto(r, view)),
+        },
       };
     });
   }

@@ -246,7 +246,12 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
       },
     },
     async (req, reply) =>
-      handleProblems(req, reply, () => service.stageTimes(withTx(req), req.params.quoteNumber)),
+      handleProblems(req, reply, async () => {
+        const { quoteId, response } = await service.stageTimes(withTx(req), req.params.quoteNumber);
+        // Reading a quote's stage history is a view of the quote (B-09 audit plugin, debounced).
+        req.auditView = { entity: 'quote', entityId: quoteId, quoteId };
+        return response;
+      }),
   );
 
   // Lead review (2026-10-30): the assigned engineer submits to the engineering lead, who may send it back.

@@ -73,9 +73,16 @@ export const overrideRoutes: FastifyPluginAsyncZod<{ service: OverrideService }>
       },
     },
     async (req, reply) =>
-      handleProblems(req, reply, () =>
-        service.listForQuote(withTx(req), requireActor(req), req.params.quoteNumber),
-      ),
+      handleProblems(req, reply, async () => {
+        const { quoteId, response } = await service.listForQuote(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+        );
+        // Reading a quote's overrides is a view of the quote (B-09 audit plugin, debounced).
+        req.auditView = { entity: 'quote', entityId: quoteId, quoteId };
+        return response;
+      }),
   );
 
   app.get(

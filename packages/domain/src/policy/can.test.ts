@@ -250,6 +250,15 @@ describe('data scope', () => {
     expect(inScope(kam, resource)).toBe(false);
   });
 
+  it('owner scope narrows KAM and Engineer only: the roles RLS shows every quote still decide', () => {
+    for (const role of ['EngLead', 'PricingLead', 'Approver', 'SalesLeader', 'Admin'] as const) {
+      const actor = makeActor(role, { userId: OTHER_ID, scope: { type: 'owner' } });
+      expect(inScope(actor, quote), role).toBe(true);
+    }
+    const lead = makeActor('EngLead', { userId: OTHER_ID, scope: { type: 'owner' } });
+    expect(can(lead, 'gate.G2.decide', quote)).toBe(true);
+  });
+
   it('owner scope with no kamUserId on the resource denies', () => {
     expect(inScope(makeActor('KAM', { scope: { type: 'owner' } }), {})).toBe(false);
   });

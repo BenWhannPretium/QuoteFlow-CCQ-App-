@@ -549,6 +549,13 @@ describe('approver tiers (D-10): a hook, disabled by default', () => {
       {
         tiers: [{ key: 'a', label: 'A', minCapitalUsd: 1, approverRoles: ['Approver'], extra: 1 }],
       },
+      {
+        // Highest first: the last match would be the lower tier.
+        tiers: [
+          { key: 'hi', label: 'Hi', minCapitalUsd: 1_000_000, approverRoles: ['Leadership'] },
+          { key: 'lo', label: 'Lo', minCapitalUsd: 250_000, approverRoles: ['Approver'] },
+        ],
+      },
     ]) {
       expect(() => parseApproverTierRules(bad), JSON.stringify(bad)).toThrow(/g4_tier_rules/);
     }

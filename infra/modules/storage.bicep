@@ -26,9 +26,14 @@ resource st 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
+// Soft delete: a blob (or the container) deleted or overwritten by mistake can be restored for 14 days.
 resource blob 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   parent: st
   name: 'default'
+  properties: {
+    deleteRetentionPolicy: { enabled: true, days: 14 }
+    containerDeleteRetentionPolicy: { enabled: true, days: 14 }
+  }
 }
 
 resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {

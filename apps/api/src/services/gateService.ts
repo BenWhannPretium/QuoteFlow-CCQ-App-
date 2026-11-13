@@ -598,7 +598,20 @@ export class GateService {
         : [];
       return {
         gate: { key: gate.key, label: gate.label, stageKey: gate.stageKey, enabled: gate.enabled },
-        canDecide: gate.enabled && can(actor, gate.deciderPermission),
+        // A grant limited to the caller's own quotes (the KAM's G6) needs a quote to be judged against.
+        canDecide:
+          gate.enabled &&
+          (can(actor, gate.deciderPermission) ||
+            rows.some((r) =>
+              can(actor, gate.deciderPermission, {
+                kamUserId: asUserId(r.quote.kamUserId),
+                assignedEngineerId: r.quote.assignedEngineerId
+                  ? asUserId(r.quote.assignedEngineerId)
+                  : null,
+                stageKey: r.quote.stageKey,
+                ...(r.quote.region ? { region: r.quote.region } : {}),
+              }),
+            )),
         items: rows.map((r) => summaryDto(r, ctx)),
       };
     });

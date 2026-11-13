@@ -12,6 +12,8 @@ import {
   findUserById,
   getQuoteByNumber,
   getSetting,
+  getUserScope,
+  getUserWithRoles,
   findRecentSameComment,
   insertComment,
   lockCommentAuthor,
@@ -19,11 +21,13 @@ import {
   listOverridesWithContext,
   listTimeline,
   listUsersByIds,
+  loadQuoteState,
   searchUsers,
   type TimelineRow,
 } from '@ccq/db/repos';
 import {
   asUserId,
+  can,
   canSeePriorityScore,
   COMMENT_MAX_MENTIONS,
   overrideActions,
@@ -35,6 +39,7 @@ import {
   timelineCategory,
   timelineFilterTypes,
   type Actor,
+  type Role,
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
@@ -44,6 +49,7 @@ import { persistNotifications } from './notificationService';
 import { overrideQuoteOf, overrideRecordOf } from './overrides-view';
 import { ServiceProblem } from './problem';
 import type { QuoteReadService, QuoteViewContext } from './quotes';
+import { defaultScopeFrom } from '../auth/directory';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
 
 export type TimelineWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
@@ -175,7 +181,7 @@ export class TimelineService {
     actor: Actor,
     quoteNumber: string,
     query: TimelineQuery,
-  ): Promise<TimelineResponse> {
+  ): Promise<{ quoteId: string; response: TimelineResponse }> {
     const before = query.cursor ? decodeCursor(query.cursor) : undefined;
     if (before === null) {
       throw new ServiceProblem(400, TIMELINE_PROBLEM_CODES.badCursor, 'The cursor is not valid');
@@ -193,7 +199,10 @@ export class TimelineService {
         limit: query.limit + 1,
       });
       const { items, nextCursor } = page(rows, query.limit, (r) => ({ at: r.at, id: r.id }));
-      return { items: await this.items(tx, ctx, quote, items), nextCursor };
+      return {
+        quoteId: quote.id,
+        response: { items: await this.items(tx, ctx, quote, items), nextCursor },
+      };
     });
   }
 
@@ -265,22 +274,43 @@ export class TimelineService {
       });
       const author = (await findUserById(tx, actor.userId))?.displayName ?? 'Someone';
       const excerpt = plainTextOf(text, mentions);
-      await persistNotifications(
-        tx,
-        mentions.map((m) => ({
-          type: 'comment.mention',
-          recipient: { kind: 'user', userId: asUserId(m.userId) },
-        })),
-        {
-          quoteId: quote.id,
-          title: `${author} mentioned you on ${quote.quoteNumber}`,
-          body: excerpt.length > 280 ? `${excerpt.slice(0, 277)}…` : excerpt,
-          excludeUserId: actor.userId,
-          // The email says who and where, never what: the comment may mention prices.
-          payload: { actor: author },
-        },
-        this.opts.log,
-      );
+      // The excerpt goes only to people who can read the quote: anyone can be @named, and the comment
+      // may mention prices. The others are told they were mentioned, without the text.
+      const state = await loadQuoteState(tx, quote.id);
+      const defaultScope = defaultScopeFrom(await getSetting(tx, 'default_scope_type'));
+      const readers = new Set<string>();
+      for (const m of mentions) {
+        const reader: Actor = {
+          userId: asUserId(m.userId),
+          roles: ((await getUserWithRoles(tx, m.userId))?.roles ?? []) as Role[],
+          scope: (await getUserScope(tx, m.userId)) ?? defaultScope,
+        };
+        if (state && can(reader, 'quote.read', state)) readers.add(m.userId);
+      }
+      for (const canRead of [true, false]) {
+        await persistNotifications(
+          tx,
+          mentions
+            .filter((m) => readers.has(m.userId) === canRead)
+            .map((m) => ({
+              type: 'comment.mention',
+              recipient: { kind: 'user', userId: asUserId(m.userId) },
+            })),
+          {
+            quoteId: quote.id,
+            title: `${author} mentioned you on ${quote.quoteNumber}`,
+            body: !canRead
+              ? 'You were mentioned in a comment on a quote you do not have access to.'
+              : excerpt.length > 280
+                ? `${excerpt.slice(0, 277)}…`
+                : excerpt,
+            excludeUserId: actor.userId,
+            // The email says who and where, never what: the comment may mention prices.
+            payload: { actor: author },
+          },
+          this.opts.log,
+        );
+      }
       // FB-05 (F-034): everyone following the quote hears there is a new comment: its KAM, the current
       // assignee and stage lead, and earlier commenters. Not the author; a mentioned user gets the
       // mention instead. The email is held back a few minutes so a burst goes out as one ("3 new

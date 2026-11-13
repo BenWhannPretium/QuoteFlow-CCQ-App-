@@ -103,7 +103,8 @@ export function csvCell(value: unknown): string {
       : typeof value === 'string'
         ? value
         : JSON.stringify(value);
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  // A number is data, not a formula: a negative one is left as it is so it still sums and sorts.
+  if (typeof value !== 'number' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
 }
 
