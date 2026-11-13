@@ -40,7 +40,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { decisionLabel } from '@/lib/decision-label';
+import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -111,8 +111,10 @@ function QuotePage() {
   // offers that one way in rather than a second button that decides the same thing.
   const onFinalReviewScreen =
     q.stageKey === 'FINAL_REVIEW' && q.status !== 'closed' && canReadFinalReview;
+  // The header's decision button appears once the quote can move forward (the Engineering and Quoting
+  // tabs say what is still needed, and hold the other decisions until then).
   const gates = [...new Set(q.availableActions.map((a) => a.gateKey))].filter(
-    (g) => !(onFinalReviewScreen && g === 'G4'),
+    (g) => !(onFinalReviewScreen && g === 'G4') && forwardReadiness(q.availableActions, g).ready,
   );
   const canDecideFinalReview = q.availableActions.some((a) => a.gateKey === 'G4');
   const tierOverride = q.overridableFields.find((f) => f.field === 'priority_tier')?.applied;
@@ -240,7 +242,13 @@ function QuotePage() {
         <Tabs.Content value="engineering">
           <EngineeringTab
             quote={q}
-            onDecide={(outcome) => setDeciding({ gate: 'G2', ...(outcome ? { outcome } : {}) })}
+            onDecide={(outcome, scope) =>
+              setDeciding({
+                gate: 'G2',
+                ...(outcome ? { outcome } : {}),
+                ...(scope ? { scope } : {}),
+              })
+            }
           />
         </Tabs.Content>
         <Tabs.Content value="attachments">

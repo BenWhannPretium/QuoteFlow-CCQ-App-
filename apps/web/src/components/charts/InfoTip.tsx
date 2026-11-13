@@ -19,7 +19,12 @@ export function definitionSentences(text: string): string[] {
     const ch = text[i];
     if (ch === '(') depth++;
     else if (ch === ')') depth = Math.max(0, depth - 1);
-    else if (ch === '.' && depth === 0 && text[i + 1] === ' ' && /[A-Z“"$]/.test(text[i + 2] ?? '')) {
+    else if (
+      ch === '.' &&
+      depth === 0 &&
+      text[i + 1] === ' ' &&
+      /[A-Z“"$]/.test(text[i + 2] ?? '')
+    ) {
       out.push(text.slice(start, i + 1).trim());
       start = i + 2;
     }

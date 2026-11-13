@@ -483,7 +483,11 @@ export function PricingInputsCard({
               {save.isPending ? 'Saving…' : 'Save process and pack-out'}
             </Button>
             {justSaved && !changed && (
-              <span role="status" className="text-muted-foreground text-sm" data-testid="saved-note">
+              <span
+                role="status"
+                className="text-muted-foreground text-sm"
+                data-testid="saved-note"
+              >
                 Saved
               </span>
             )}

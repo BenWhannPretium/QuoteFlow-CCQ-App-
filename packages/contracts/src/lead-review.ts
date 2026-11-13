@@ -19,6 +19,17 @@ export const LeadReviewView = z.object({
   canSendBack: z.boolean(),
   /** DR-pricing-finance-10: why a team member sees no Submit (not the assignee, or nobody assigned). */
   submitBlockedReason: z.string().nullable().optional(),
+  /**
+   * What the assignee's part still needs before it can be submitted to the lead (empty = ready). Present
+   * on the quote detail only; absent (unknown) on the tab's own save responses, where the tab keeps the
+   * Submit button back until the quote is re-read.
+   */
+  submitMissing: z.array(z.object({ field: z.string(), message: z.string() })).optional(),
+  /**
+   * The fields the assignee's part needs before the quote can advance (workflow config), so the tab can
+   * mark them "(required)". Present on the quote detail only.
+   */
+  requiredFields: z.array(z.string()).optional(),
 });
 export type LeadReviewView = z.infer<typeof LeadReviewView>;
 

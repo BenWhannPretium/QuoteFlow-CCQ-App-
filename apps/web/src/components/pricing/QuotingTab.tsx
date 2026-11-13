@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { decisionLabel } from '@/lib/decision-label';
+import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { valueListLabel } from '@/lib/value-label';
@@ -64,6 +64,7 @@ export function QuotingTab({
 }) {
   const quoting = quote.quoting;
   const g3 = quote.availableActions.find((a) => a.gateKey === 'G3');
+  const forward = forwardReadiness(quote.availableActions, 'G3');
   const record = quoting.pricingRecord ?? null;
   return (
     <div className="grid gap-6" data-testid="quoting-tab">
@@ -102,7 +103,19 @@ export function QuotingTab({
         quote={quote}
         decide={
           g3 && !quoting.commercialRedacted
-            ? { label: decisionLabel('G3', g3.gateLabel), onClick: () => onDecide() }
+            ? {
+                label: decisionLabel('G3', g3.gateLabel),
+                onClick: () => onDecide(),
+                ...forward,
+                onOther:
+                  forward.others.length > 0
+                    ? () =>
+                        onDecide(undefined, {
+                          outcomes: forward.others,
+                          title: 'Hold, send back or stop',
+                        })
+                    : undefined,
+              }
             : undefined
         }
       />
@@ -241,7 +254,7 @@ function PricingLeadActions({
   decide,
 }: {
   quote: QuoteDetail;
-  decide: { label: string; onClick: () => void } | undefined;
+  decide: Parameters<typeof LeadReviewActions>[0]['decide'];
 }) {
   const refresh = useRefresh(quote.quoteNumber);
   return (

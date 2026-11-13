@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, downloadBlob, uploadAttachment } from '@/lib/api';
-import { decisionLabel } from '@/lib/decision-label';
+import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
@@ -65,11 +65,12 @@ export function EngineeringTab({
   onDecide,
 }: {
   quote: QuoteDetail;
-  onDecide: (outcomeKey?: string) => void;
+  onDecide: (outcomeKey?: string, scope?: { outcomes: string[]; title: string }) => void;
 }) {
   const eng = quote.engineering;
   const refresh = useRefresh(quote.quoteNumber);
   const g2 = quote.availableActions.find((a) => a.gateKey === 'G2');
+  const forward = forwardReadiness(quote.availableActions, 'G2');
   // The tab reads top to bottom in the order the work is done: who has it, where it stands, the
   // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
   return (
@@ -106,7 +107,21 @@ export function EngineeringTab({
         sendBack={(note) => api.sendBackEngReview(quote.quoteNumber, note)}
         onDone={(detail) => refresh(detail)}
         decide={
-          g2 ? { label: decisionLabel('G2', g2.gateLabel), onClick: () => onDecide() } : undefined
+          g2
+            ? {
+                label: decisionLabel('G2', g2.gateLabel),
+                onClick: () => onDecide(),
+                ...forward,
+                onOther:
+                  forward.others.length > 0
+                    ? () =>
+                        onDecide(undefined, {
+                          outcomes: forward.others,
+                          title: 'Hold, send back or stop',
+                        })
+                    : undefined,
+              }
+            : undefined
         }
       />
     </div>
@@ -141,8 +156,21 @@ function useRefresh(quoteNumber: string) {
   const queryClient = useQueryClient();
   return (detail?: EngineeringDetail) => {
     if (detail) {
+      // A save's response has no required-field list (it comes with the quote): keep the one on screen.
       queryClient.setQueryData<QuoteDetail>(quoteQueryKey(quoteNumber), (q) =>
-        q ? { ...q, engineering: detail } : q,
+        q
+          ? {
+              ...q,
+              engineering: {
+                ...detail,
+                leadReview: {
+                  ...detail.leadReview,
+                  requiredFields:
+                    detail.leadReview.requiredFields ?? q.engineering.leadReview.requiredFields,
+                },
+              },
+            }
+          : q,
       );
     }
     return Promise.all([
@@ -283,6 +311,10 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
   const refresh = useRefresh(quote.quoteNumber);
   const capitalHidden = !('prelimCapitalUsd' in review);
+  // Bailey Schmitt (2026-11-12): the fields the quote needs before it can advance say so (workflow config).
+  const required = new Set(eng.leadReview.requiredFields ?? []);
+  const req = (label: string, field: string) =>
+    required.has(field) ? `${label} (required)` : label;
   const initial = solutionForm(review);
   // Reset only from our own successful save, never on a background refetch (it would wipe typing).
   const [form, setForm] = useState(initial);
@@ -378,7 +410,10 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
           }}
         >
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Process type" error={errorFor(errors, 'processType')}>
+            <Field
+              label={req('Process type', 'process_type')}
+              error={errorFor(errors, 'processType')}
+            >
               {(id) => (
                 <ValueListSelect
                   id={id}
@@ -389,7 +424,10 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                 />
               )}
             </Field>
-            <Field label="Machine type" error={errorFor(errors, 'machineType')}>
+            <Field
+              label={req('Machine type', 'machine_type')}
+              error={errorFor(errors, 'machineType')}
+            >
               {(id) => (
                 <ValueListSelect
                   id={id}
@@ -401,7 +439,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
               )}
             </Field>
             <Field
-              label="Plant / site"
+              label={req('Plant / site', 'plant_code')}
               hint="Agreed by Engineering, Operations and Supply Chain"
               error={errorFor(errors, 'plantCode')}
             >
@@ -416,7 +454,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
               )}
             </Field>
             <Field
-              label="Cavitation"
+              label={req('Cavitation', 'cavitation')}
               hint="A whole number, 1 to 99"
               error={errorFor(errors, 'cavitation')}
             >
@@ -433,7 +471,10 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                 />
               )}
             </Field>
-            <Field label="Cycle time (s)" error={errorFor(errors, 'cycleTimeS')}>
+            <Field
+              label={req('Cycle time (s)', 'cycle_time_s')}
+              error={errorFor(errors, 'cycleTimeS')}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -1275,11 +1316,16 @@ function ValueListSelect({
   const { data: config } = usePublicConfig();
   const options = config?.valueLists[list] ?? [];
   const retired = value !== '' && !options.some((v) => v.code === value);
+  // Bailey Schmitt (2026-11-12): alphabetical, so a value is found by its name; "Other" stays last.
+  const isOther = (label: string) => /^other\b/i.test(label);
+  const sorted = [...options].sort(
+    (a, b) => Number(isOther(a.label)) - Number(isOther(b.label)) || a.label.localeCompare(b.label),
+  );
   return (
     <NativeSelect id={id} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">Choose…</option>
       {retired && <option value={value}>{`${retiredLabel ?? value} (no longer offered)`}</option>}
-      {options.map((v) => (
+      {sorted.map((v) => (
         <option key={v.code} value={v.code}>
           {v.label}
         </option>
