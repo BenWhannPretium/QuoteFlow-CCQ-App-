@@ -388,7 +388,7 @@ function SalesLeader({ d }: { d: SalesLeaderDashboard }) {
   return (
     <>
       <Block
-        title="To qualify (G1)"
+        title="To qualify"
         info={d.toQualify.info}
         testId="dash-to-qualify"
         action={
@@ -489,7 +489,7 @@ function Engineering({ d }: { d: EngineeringDashboard }) {
           </ul>
         )}
       </Block>
-      <Block title="Time to assign and to G2" info={d.timeToAssign.info} testId="dash-medians">
+      <Block title="Time to assign and to decide" info={d.timeToAssign.info} testId="dash-medians">
         <div className="grid grid-cols-2 gap-2">
           <Stat
             label="Median time to assign"
@@ -499,7 +499,7 @@ function Engineering({ d }: { d: EngineeringDashboard }) {
             testId="stat-time-to-assign"
           />
           <Stat
-            label="Median assign to G2"
+            label="Median: assigned to decision"
             value={fmtDays(d.assignToG2.medianDays)}
             hint={`${d.assignToG2.n} decisions`}
             info={d.assignToG2.info}
@@ -609,7 +609,7 @@ function Approver({ d }: { d: ApproverDashboard }) {
   return (
     <>
       <Block
-        title="Pending final review (G4)"
+        title="Waiting for Final Review"
         info={d.pending.info}
         testId="dash-pending"
         action={
@@ -627,7 +627,7 @@ function Approver({ d }: { d: ApproverDashboard }) {
       </Block>
       <Block title="Decided recently" info={d.decided.info} testId="dash-decided">
         <div className="grid grid-cols-2 gap-2">
-          <Stat label="G4 decisions" value={fmtCount(d.decided.total)} />
+          <Stat label="Final Review decisions" value={fmtCount(d.decided.total)} />
           <Stat label="Yours" value={fmtCount(d.decided.mine)} />
         </div>
         {d.decided.byOutcome.length > 0 && (
@@ -681,7 +681,7 @@ function Leadership({ d }: { d: LeadershipDashboard }) {
           info={d.openQuotes.info}
         />
         <Stat
-          label="Median intake to G4"
+          label="Median: intake to Final Review decision"
           value={fmtDays(d.endToEnd.medianDays)}
           hint={`${d.endToEnd.n} quotes, holds excluded`}
           info={d.endToEnd.info}

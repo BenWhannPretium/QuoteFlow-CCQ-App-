@@ -285,9 +285,9 @@ function matchCode(cfg: WizardConfig, listKey: string, text: string | null | und
  * Everything SF already knows, so the KAM never re-keys it (FB-02, F-008): the customer (always the
  * opportunity's SF Account, F-007), the default ship / fill destination, amount → revenue, and
  * best-effort resin / neck / volume / container size from the first product specification. What came
- * from SF is recorded in `sfPrefill` and shown read-only with a "from Salesforce" tag; only revenue
- * and the destination (with a reason) can be changed. The SF close date is never copied: the draft
- * shows the latest synced one read-only.
+ * from SF is recorded in `sfPrefill`: the wizard pre-fills the field, tags it "from Salesforce" and lets
+ * the KAM change it (nothing is written back to Salesforce). The SF close date is never copied: the
+ * draft shows the latest synced one read-only.
  */
 export function prefillFromOpportunity(
   detail: SfOpportunityDetail,

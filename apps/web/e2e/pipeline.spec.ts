@@ -92,7 +92,7 @@ test('EngLead drags ENG_REVIEW → QUOTING: the G2 dialog opens on Advance; canc
   await drag(page, card, page.locator('[data-column="QUOTING"]'));
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading', { name: 'Feasible solution?' })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Decide feasibility' })).toBeVisible();
   await expect(dialog.getByRole('radio', { name: 'Advance', exact: true })).toBeChecked();
   await expect(page.locator('[data-column="QUOTING"]')).toContainText(quoteNumber);
 

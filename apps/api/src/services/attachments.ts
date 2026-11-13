@@ -768,7 +768,7 @@ export class AttachmentService {
             }
           : {
               title: `${quote.quoteNumber}: the payback model is uploaded`,
-              body: `${who ?? 'Finance'} uploaded the ${label} (version ${version}). Review it and approve the price (G3), or send the quote back.`,
+              body: `${who ?? 'Finance'} uploaded the ${label} (version ${version}). Review it, then approve the price or send the quote back.`,
               payload: { version: String(version), ...(who ? { actor: who } : {}) },
             },
       quote.id,

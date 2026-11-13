@@ -14,8 +14,7 @@ import { SectionLockView } from './problem';
  */
 export const BUDGETARY_CAPITAL_LABEL =
   'Budgetary capital estimate (USD): preliminary, includes contingency';
-export const BUDGETARY_CAPITAL_HELP =
-  'A budgetary figure for quoting. It is refined after award, before any CER.';
+export const BUDGETARY_CAPITAL_HELP = 'A rough estimate for quoting. It is firmed up after award.';
 
 const text = (max: number) => z.string().trim().max(max).nullable();
 /** A pack-out count: a whole number from 1 to 9,999,999 (the domain's PACK_OUT_MAX). */

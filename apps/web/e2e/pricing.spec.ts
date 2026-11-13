@@ -241,9 +241,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   expect(await seriousViolations(pricing)).toEqual([]);
 
   // ── Lead review (2026-10-30): the pricer submits to the pricing lead; only the lead decides G3 ──
-  await expect(
-    tab.getByRole('button', { name: 'Price approved: advance to Final Review…' }),
-  ).toHaveCount(0);
+  await expect(tab.getByTestId('decide-gate')).toHaveCount(0);
   await tab.getByRole('button', { name: 'Submit to pricing lead' }).click();
   await expect(tab.getByTestId('lead-review-submitted')).toContainText(
     'Submitted to the pricing lead',
@@ -261,10 +259,10 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await lead.goto(`/quotes/${quoteNumber}?tab=quoting`);
   const leadTab = lead.getByTestId('quoting-tab');
   await expect(leadTab.getByTestId('lead-review-submitted')).toBeVisible();
-  await leadTab.getByRole('button', { name: 'Price approved: advance to Final Review…' }).click();
+  await leadTab.getByRole('button', { name: 'Decide price approval' }).click();
   const g3 = lead.getByRole('dialog');
+  await g3.getByRole('radio', { name: 'Advance – price approved' }).check();
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
-  await expect(g3.getByRole('radio', { name: 'Advance – price approved' })).toBeChecked();
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(g3).toHaveCount(0);
   await expect(lead.getByText(`${quoteNumber} is now in Final Review`)).toBeVisible();
@@ -386,13 +384,13 @@ test('the pricing lead assigns a pricer from the Quoting tab and from the queue'
   await lead.goto(`/quotes/${quoteNumber}?tab=quoting`);
   const box = lead.getByTestId('pricer-assignment');
   await expect(box).toContainText('Unassigned');
-  await box.getByRole('button', { name: 'Assign…' }).click();
+  await box.getByRole('button', { name: 'Assign pricer' }).click();
   const dialog = lead.getByRole('dialog');
   await dialog.getByLabel('Pricer').selectOption({ value: pricer.id });
   await dialog.getByRole('button', { name: 'Assign', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(box.getByTestId('assigned-pricer')).toContainText(pricer.displayName);
-  await expect(box.getByRole('button', { name: 'Reassign…' })).toBeVisible();
+  await expect(box.getByRole('button', { name: 'Reassign' })).toBeVisible();
 
   // ── From the queue: tick the quote, Assign selected… (back to the lead) ──
   await lead.goto('/queue/pricing');

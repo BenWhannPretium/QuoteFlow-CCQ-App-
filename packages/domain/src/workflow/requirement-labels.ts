@@ -54,7 +54,7 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   'roi_required,roi_model_on_file': 'The payback model, uploaded by Finance (this quote needs one)',
   'pricing_record.capital_readiness': 'Capital readiness',
   'pricing_record.capital_readiness,pricing_record.capital_pending_justification':
-    'Capital readiness other than pending, or a pending-capital justification (D-11)',
+    'Capital readiness confirmed, or a justification for going ahead while it is pending',
   'capital_likely,pricing_record.capital_readiness':
     'Capital is flagged likely: confirm capital readiness (not required or pre-approved)',
   // G4 Final Review

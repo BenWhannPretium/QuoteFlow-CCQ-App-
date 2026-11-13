@@ -141,7 +141,7 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
       <PageHeader
         className="mb-0"
         title={q.quoteNumber}
-        eyebrow="Final Review · G4"
+        eyebrow="Final Review"
         description={[q.customerName, q.opportunityName].filter(Boolean).join(' · ') || undefined}
         actions={
           <Link
@@ -500,7 +500,7 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
       aside={
         g2 ? (
           <span className="text-muted-foreground text-xs" data-testid="review-g2">
-            G2: {g2.outcomeLabel}
+            Engineering’s decision: {g2.outcomeLabel}
             {g2.decidedByName ? ` · ${g2.decidedByName}` : ''}
           </span>
         ) : undefined

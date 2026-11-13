@@ -23,6 +23,7 @@ import {
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
+import { decisionLabel } from '@/lib/decision-label';
 import { writeSfReminder } from '@/lib/sf-reminder';
 import { calendarDate, toLocalInput, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
@@ -287,7 +288,7 @@ export function GateDecisionDialog({
     >
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{title ?? gateLabel ?? gateKey}</DialogTitle>
+          <DialogTitle>{title ?? decisionLabel(gateKey, gateLabel)}</DialogTitle>
           <DialogDescription>
             Record the decision for {quoteNumber}
             {quote.data?.customerName ? ` (${quote.data.customerName})` : ''}.
@@ -341,7 +342,7 @@ export function GateDecisionDialog({
 
             {actions.length === 0 ? (
               <p className="text-muted-foreground text-sm">
-                You can’t record a {gateLabel ?? gateKey} decision on this quote right now.
+                You can’t make this decision on this quote right now.
               </p>
             ) : (
               <form

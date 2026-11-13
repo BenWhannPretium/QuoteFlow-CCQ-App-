@@ -41,6 +41,7 @@ import {
 import { Input, NativeSelect } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, type PricingQueueParams } from '@/lib/api';
+import { decisionLabel } from '@/lib/decision-label';
 import { absoluteTime, calendarDate } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
@@ -148,7 +149,7 @@ function Counts({ data }: { data: PricingQueueResponse }) {
   const chips = [
     { key: 'awaiting', label: 'Awaiting price approval', n: data.counts.awaitingApproval },
     { key: 'capital', label: 'Capital pending', n: data.counts.capitalPending },
-    { key: 'flagged', label: 'Capital required / with risk (G2)', n: data.counts.flagged },
+    { key: 'flagged', label: 'Capital required / with risk', n: data.counts.flagged },
   ];
   return (
     <ul className="flex flex-wrap gap-2" data-testid="pricing-counts">
@@ -197,7 +198,7 @@ function Toolbar({
     },
     {
       key: 'g2',
-      label: 'Engineering outcome (G2)',
+      label: 'Engineering decision',
       options: data.g2Outcomes.map((o) => ({ value: o.key, label: o.label })),
     },
     {
@@ -445,7 +446,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
       },
       {
         id: 'g2',
-        header: 'G2 outcome',
+        header: 'Engineering decision',
         accessorFn: (q) => q.g2OutcomeLabel ?? '',
         cell: ({ row }) => {
           const q = row.original;
@@ -548,12 +549,12 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
                     })
                   }
                 >
-                  {q.assignedPricerId ? 'Reassign pricer…' : 'Assign pricer…'}
+                  {q.assignedPricerId ? 'Reassign' : 'Assign pricer'}
                 </DropdownMenuItem>
               )}
               {data.canDecide && q.canEdit && (
                 <DropdownMenuItem onSelect={() => setDeciding(q.quoteNumber)}>
-                  Decide G3…
+                  {decisionLabel('G3')}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -603,7 +604,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
             }
             description={
               data.total === 0
-                ? 'Quotes arrive here when Engineering clears them at G2. Pricing is notified.'
+                ? 'Quotes arrive here once Engineering has advanced them. Pricing is notified.'
                 : 'Clear a filter or the search to see more.'
             }
           />

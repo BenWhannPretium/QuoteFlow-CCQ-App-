@@ -53,7 +53,7 @@ const BUCKET_STYLE: Record<AgingBucket, string> = {
 };
 const STATUS_LABEL: Record<EngQueueItem['queueStatus'], string> = {
   unassigned: 'Unassigned',
-  assigned: 'Awaiting acceptance',
+  assigned: 'Not started',
   accepted: 'In review',
 };
 
@@ -110,7 +110,7 @@ function EngineeringQueuePage() {
         description={
           isEngineer
             ? 'Your engineering reviews first, then the whole queue (read-only).'
-            : 'Every quote in Engineering Review, highest priority first. You assign by hand (DEC-26); the score only orders the list.'
+            : 'Every quote in Engineering Review, highest priority first. You choose who gets each quote; the priority score only sets the order.'
         }
       />
       {queue.isPending && <SkeletonRows rows={6} />}
@@ -187,7 +187,9 @@ function AgingChips({
           </button>
         );
       })}
-      <span className="text-muted-foreground text-xs">Buckets, not an SLA (D-20).</span>
+      <span className="text-muted-foreground text-xs">
+        Age groups only. These are not deadlines.
+      </span>
     </div>
   );
 }
@@ -611,12 +613,12 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
                       })
                     }
                   >
-                    {q.assignedEngineerId ? 'Reassign…' : 'Assign…'}
+                    {q.assignedEngineerId ? 'Reassign' : 'Assign engineer'}
                   </DropdownMenuItem>
                 )}
                 {canAccept && (
                   <DropdownMenuItem onSelect={() => accept.mutate(q.quoteNumber)}>
-                    Accept (start review)
+                    Start review
                   </DropdownMenuItem>
                 )}
                 {data.canDecide && q.status !== 'on_hold' && (
@@ -700,7 +702,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
             title={data.total === 0 ? 'The queue is empty' : 'No quotes match these filters'}
             description={
               data.total === 0
-                ? 'Quotes arrive here when they pass G1. The engineering lead is alerted.'
+                ? 'Quotes arrive here once Sales has qualified them. The engineering lead is notified.'
                 : 'Clear a filter or the search to see more.'
             }
           />

@@ -10,7 +10,7 @@ import {
   type IntakeEvaluation,
 } from '@ccq/domain';
 import { CheckCircle2Icon, PencilIcon, Undo2Icon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { FundingHelp } from '@/components/commercial/FundingHelp';
@@ -365,37 +365,72 @@ function ConditionalText({
   );
 }
 
-/** F-011 / F-055: resin (read-only when SF supplied it), customer-specified grade, PCR %. */
+/**
+ * A field Salesforce filled in is an ordinary field the KAM can change (Ben, 2026-11-13). The note says
+ * what Salesforce has and, once it is changed, offers the way back. Nothing is written to Salesforce.
+ */
+function SfValueNote({
+  value,
+  changed,
+  onReset,
+  testId,
+}: {
+  value: ReactNode;
+  changed: boolean;
+  onReset: () => void;
+  testId: string;
+}) {
+  return (
+    <p
+      className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs"
+      data-testid={testId}
+    >
+      <SfTag />
+      {changed ? (
+        <>
+          <span>Salesforce has {value}.</span>
+          <Button variant="link" size="sm" className="h-auto min-h-0 px-0" onClick={onReset}>
+            Use the Salesforce value
+          </Button>
+        </>
+      ) : (
+        <span>Change it here if it is wrong. Salesforce is not updated.</span>
+      )}
+    </p>
+  );
+}
+
+/** F-011 / F-055: resin (pre-filled when SF supplied it), customer-specified grade, PCR %. */
 function ResinFields({ data, update, cfg, evaluation }: StepProps) {
   const sf = data.sfPrefill ?? {};
   return (
     <div className="grid gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        {sf.resin ? (
-          <ReadOnlyValue
-            {...meta(cfg, 'resin')}
-            value={valueLabel(cfg, 'resin', data.resin)}
-            testId="sf-resin"
+        <Field {...meta(cfg, 'resin')}>
+          <Select
+            id={fid('resin')}
+            listKey="resin"
+            value={data.resin}
+            onChange={(v) =>
+              update({
+                resin: v,
+                // FB-09: the grade is the "Other" detail; keep it for a customer-specified resin.
+                ...(isCustom(cfg, 'resin', v) || data.resinCustomerSpecified === true
+                  ? {}
+                  : { resinGrade: null }),
+              })
+            }
+            cfg={cfg}
           />
-        ) : (
-          <Field {...meta(cfg, 'resin')}>
-            <Select
-              id={fid('resin')}
-              listKey="resin"
-              value={data.resin}
-              onChange={(v) =>
-                update({
-                  resin: v,
-                  // FB-09: the grade is the "Other" detail; keep it for a customer-specified resin.
-                  ...(isCustom(cfg, 'resin', v) || data.resinCustomerSpecified === true
-                    ? {}
-                    : { resinGrade: null }),
-                })
-              }
-              cfg={cfg}
+          {sf.resin && (
+            <SfValueNote
+              testId="sf-resin"
+              value={valueLabel(cfg, 'resin', sf.resin)}
+              changed={data.resin !== sf.resin}
+              onReset={() => update({ resin: sf.resin ?? null })}
             />
-          </Field>
-        )}
+          )}
+        </Field>
         <Field {...meta(cfg, 'pcr_level')}>
           <Select
             id={fid('pcr_level')}
@@ -478,19 +513,9 @@ function NeckFields({ data, update, cfg, evaluation }: StepProps) {
   const fromSf = Boolean(sf.neckDiameter && sf.neckFinishType);
   return (
     <fieldset className="grid gap-4" data-field={fid('neck')}>
-      <legend className="mb-1.5 flex flex-wrap items-center gap-2 text-sm font-medium">
-        Neck {fromSf && <SfTag />}
-      </legend>
-      {fromSf && (
-        <ReadOnlyValue
-          id={fid('neck_from_sf')}
-          label="Neck diameter / finish"
-          value={neckLabel(cfg, data)}
-          testId="sf-neck"
-        />
-      )}
+      <legend className="mb-1.5 flex flex-wrap items-center gap-2 text-sm font-medium">Neck</legend>
       <div className="grid gap-4 sm:grid-cols-3">
-        {NECK_LISTS.filter((n) => !fromSf || n.list === 'neck_special_feature').map((n) => (
+        {NECK_LISTS.map((n) => (
           <Field key={n.list} {...meta(cfg, n.list)}>
             <Select
               id={fid(n.list)}
@@ -509,12 +534,31 @@ function NeckFields({ data, update, cfg, evaluation }: StepProps) {
           </Field>
         ))}
       </div>
+      {fromSf && (
+        <SfValueNote
+          testId="sf-neck"
+          value={neckLabel(cfg, {
+            neckDiameter: sf.neckDiameter,
+            neckFinishType: sf.neckFinishType,
+            neckFinishTypeCustom: sf.neckFinishTypeCustom,
+          })}
+          changed={
+            data.neckDiameter !== sf.neckDiameter || data.neckFinishType !== sf.neckFinishType
+          }
+          onReset={() =>
+            update({
+              neckDiameter: sf.neckDiameter ?? null,
+              neckDiameterCustom: null,
+              neckFinishType: sf.neckFinishType ?? null,
+              neckFinishTypeCustom: sf.neckFinishTypeCustom ?? null,
+            })
+          }
+        />
+      )}
       {NECK_LISTS.map((n) => (
         <ConditionalText
           key={n.custom}
-          when={
-            isCustom(cfg, n.list, data[n.key]) && !(fromSf && n.list !== 'neck_special_feature')
-          }
+          when={isCustom(cfg, n.list, data[n.key])}
           field={`${n.list}_custom`}
           value={data[n.custom]}
           onChange={(v) => update({ [n.custom]: v })}
@@ -1070,23 +1114,23 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
               cfg={cfg}
             />
           </Field>
-          {sf.containerSize ? (
-            <ReadOnlyValue
-              {...meta(cfg, 'container_size')}
-              value={data.containerSize}
-              testId="sf-container-size"
+          <Field {...meta(cfg, 'container_size')}>
+            <Input
+              id={fid('container_size')}
+              aria-describedby={`${fid('container_size')}-help`}
+              placeholder="e.g. 16 oz"
+              value={data.containerSize ?? ''}
+              onChange={(e) => update({ containerSize: nullIfBlank(e.target.value) })}
             />
-          ) : (
-            <Field {...meta(cfg, 'container_size')}>
-              <Input
-                id={fid('container_size')}
-                aria-describedby={`${fid('container_size')}-help`}
-                placeholder="e.g. 16 oz"
-                value={data.containerSize ?? ''}
-                onChange={(e) => update({ containerSize: nullIfBlank(e.target.value) })}
+            {sf.containerSize && (
+              <SfValueNote
+                testId="sf-container-size"
+                value={sf.containerSize}
+                changed={data.containerSize !== sf.containerSize}
+                onReset={() => update({ containerSize: sf.containerSize ?? null })}
               />
-            </Field>
-          )}
+            )}
+          </Field>
           <Field {...meta(cfg, 'market')}>
             <Select
               id={fid('market')}
@@ -1243,19 +1287,22 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
               ) : undefined
             }
           >
-            {sf.estAnnualVolume != null ? (
-              <p
-                id={fid('est_annual_volume')}
-                data-testid="sf-volume"
-                className="bg-muted/50 flex min-h-9 flex-wrap items-center gap-2 rounded-md px-3 py-2 text-sm"
-              >
-                {data.estAnnualVolume?.toLocaleString()} <SfTag />
-              </p>
-            ) : (
-              <NumberInput
-                id={fid('est_annual_volume')}
-                value={data.estAnnualVolume}
-                onChange={(v) => update({ estAnnualVolume: v, estAnnualVolumeConfirmed: false })}
+            <NumberInput
+              id={fid('est_annual_volume')}
+              value={data.estAnnualVolume}
+              onChange={(v) => update({ estAnnualVolume: v, estAnnualVolumeConfirmed: false })}
+            />
+            {sf.estAnnualVolume != null && (
+              <SfValueNote
+                testId="sf-volume"
+                value={sf.estAnnualVolume.toLocaleString()}
+                changed={data.estAnnualVolume !== sf.estAnnualVolume}
+                onReset={() =>
+                  update({
+                    estAnnualVolume: sf.estAnnualVolume ?? null,
+                    estAnnualVolumeConfirmed: false,
+                  })
+                }
               />
             )}
           </Field>

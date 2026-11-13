@@ -406,7 +406,7 @@ export function planCapitalReadiness(
     errors.push(
       new DomainError(
         'INVALID_VALUE',
-        'Engineering said capital is required (G2), so capital readiness cannot be "Not required"',
+        'Engineering said capital is required, so capital readiness cannot be "Not required"',
         'capitalReadiness',
       ),
     );
@@ -462,7 +462,7 @@ export function quotingWarnings(
       code: 'CAPITAL_PENDING',
       message: record.capitalPendingJustification
         ? `Capital is still pending: ${record.capitalPendingJustification}`
-        : 'Capital is still pending: give a justification to submit (D-11)',
+        : 'Capital is still pending: enter a justification before you submit',
     });
   }
   if (record.capitalReadiness === 'not_approved') {
@@ -472,7 +472,7 @@ export function quotingWarnings(
     out.push({
       code: 'COSTING_NOT_ATTESTED',
       message:
-        'Costing (Cost-to-Serve) is not marked as completed: cost comes before price (CR-25)',
+        'Tick “Costing completed” first: the costing must be done before the price is approved',
     });
   }
   // FB-07: a grandfathered quote (in Quoting before the costing model was required) has no model.

@@ -21,54 +21,30 @@ import { MISSING_LABELS } from './GateDecisionDialog';
 
 export type LeadReviewKind = 'engineering' | 'pricing';
 
-const NOUN: Record<LeadReviewKind, { assignee: string; lead: string; work: string; gate: string }> =
-  {
-    engineering: {
-      assignee: 'engineer',
-      lead: 'engineering lead',
-      work: 'engineering review',
-      gate: 'G2',
-    },
-    pricing: { assignee: 'pricer', lead: 'pricing lead', work: 'pricing work', gate: 'G3' },
-  };
+const NOUN: Record<LeadReviewKind, { assignee: string; lead: string; work: string }> = {
+  engineering: { assignee: 'engineer', lead: 'engineering lead', work: 'engineering review' },
+  pricing: { assignee: 'pricer', lead: 'pricing lead', work: 'pricing work' },
+};
 
 /**
- * Lead review (2026-10-30), on the Engineering and Quoting tabs. The assigned engineer or pricer
- * submits their part to the lead ("Submit to lead"), which locks it for them; the lead reviews, then
- * decides the gate (the tab's own buttons) or sends it back with a note ("Send back…"). The API
- * decides who may do what (`canSubmit`, `canSendBack`).
+ * Lead review (2026-10-30), on the Engineering and Quoting tabs, in two parts:
+ *
+ * - `LeadReviewStatus`, at the top of the tab: where the work stands (waiting on the lead, or sent back
+ *   with the lead's note).
+ * - `LeadReviewActions`, at the bottom, after the work: the one next step. The assignee submits to the
+ *   lead; the lead decides the gate, or sends the work back with a note.
+ *
+ * The API decides who may do what (`canSubmit`, `canSendBack`).
  */
-export function LeadReviewPanel<T>({
+export function LeadReviewStatus({
   kind,
   review,
-  submit,
-  sendBack,
-  onDone,
 }: {
   kind: LeadReviewKind;
   review: LeadReviewView;
-  submit: () => Promise<T>;
-  sendBack: (note: string) => Promise<T>;
-  onDone: (result: T) => Promise<unknown>;
 }) {
   const noun = NOUN[kind];
-  const [missing, setMissing] = useState<ServerError[]>([]);
-  const [sending, setSending] = useState(false);
-  const inFlight = useRef(false);
-  const submitting = useMutation({
-    mutationFn: submit,
-    onSuccess: async (result) => {
-      setMissing([]);
-      await onDone(result);
-      toast.success({
-        title: `Submitted to the ${noun.lead}`,
-        description: 'They have been notified. It is locked for you until they send it back.',
-      });
-    },
-    onError: (err) => setMissing(problemErrors(err)),
-  });
-
-  if (review.status === 'none' && !review.canSubmit && !review.submitBlockedReason) return null;
+  if (review.status === 'none') return null;
   return (
     <section
       className="bg-card rounded-card grid gap-3 border p-4 text-sm"
@@ -82,7 +58,7 @@ export function LeadReviewPanel<T>({
             <span className="font-semibold">Submitted to the {noun.lead}</span>
             {review.submittedAt ? ` on ${absoluteTime(review.submittedAt)}` : ''}
             {review.submittedByName ? ` by ${review.submittedByName}` : ''}. Waiting on their
-            review; the {noun.assignee} cannot edit until it is sent back.
+            review. The {noun.assignee} cannot edit until it is sent back.
           </span>
         </p>
       )}
@@ -100,6 +76,60 @@ export function LeadReviewPanel<T>({
           {review.returnNote && <p className="whitespace-pre-wrap">{review.returnNote}</p>}
         </div>
       )}
+    </section>
+  );
+}
+
+export function LeadReviewActions<T>({
+  kind,
+  review,
+  submit,
+  sendBack,
+  onDone,
+  decide,
+}: {
+  kind: LeadReviewKind;
+  review: LeadReviewView;
+  submit: () => Promise<T>;
+  sendBack: (note: string) => Promise<T>;
+  onDone: (result: T) => Promise<unknown>;
+  /** The lead's decision (the gate), when the viewer may decide it: the primary button here. */
+  decide?: { label: string; onClick: () => void } | undefined;
+}) {
+  const noun = NOUN[kind];
+  const [missing, setMissing] = useState<ServerError[]>([]);
+  const [sending, setSending] = useState(false);
+  const inFlight = useRef(false);
+  const submitting = useMutation({
+    mutationFn: submit,
+    onSuccess: async (result) => {
+      setMissing([]);
+      await onDone(result);
+      toast.success({
+        title: `Submitted to the ${noun.lead}`,
+        description: 'They have been notified. You can edit again if they send it back.',
+      });
+    },
+    onError: (err) => setMissing(problemErrors(err)),
+  });
+
+  if (!review.canSubmit && !review.canSendBack && !review.submitBlockedReason && !decide) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Next step"
+      className="bg-card rounded-card grid gap-3 border p-4 text-sm"
+      data-testid="lead-review-actions"
+    >
+      <h2 className="text-base font-semibold">
+        {decide ? 'Your decision' : 'When you are finished'}
+      </h2>
+      {review.canSubmit && (
+        <p className="text-muted-foreground">
+          Save your work above, then submit it. The {noun.lead} reviews it and decides.
+        </p>
+      )}
       {review.submitBlockedReason && (
         <p className="text-muted-foreground" data-testid="lead-review-blocked">
           {review.submitBlockedReason}
@@ -107,7 +137,7 @@ export function LeadReviewPanel<T>({
       )}
       {missing.length > 0 && (
         <div role="alert" className="text-destructive grid gap-1" data-testid="lead-review-missing">
-          <p className="font-semibold">Not ready to submit yet:</p>
+          <p className="font-semibold">Fill these in before you submit:</p>
           <ul className="list-disc pl-5">
             {missing.map((m) => (
               <li key={`${m.path}-${m.message}`}>
@@ -117,11 +147,15 @@ export function LeadReviewPanel<T>({
           </ul>
         </div>
       )}
-      {(review.canSubmit || review.canSendBack) && (
+      {(review.canSubmit || review.canSendBack || decide) && (
         <div className="flex flex-wrap gap-2">
+          {decide && (
+            <Button onClick={decide.onClick} data-testid="decide-gate">
+              {decide.label}
+            </Button>
+          )}
           {review.canSubmit && (
             <Button
-              size="sm"
               onClick={() => {
                 // DR-pricing-finance-04: one request per click burst (the API also refuses a second).
                 if (inFlight.current) return;
@@ -139,9 +173,9 @@ export function LeadReviewPanel<T>({
             </Button>
           )}
           {review.canSendBack && (
-            <Button size="sm" variant="outline" onClick={() => setSending(true)}>
+            <Button variant="outline" onClick={() => setSending(true)}>
               <CornerUpLeftIcon aria-hidden="true" />
-              Send back to {noun.assignee}…
+              Send back to {noun.assignee}
             </Button>
           )}
         </div>
@@ -186,8 +220,7 @@ function SendBackDialog<T>({
         <DialogHeader>
           <DialogTitle>Send back to the {noun.assignee}</DialogTitle>
           <DialogDescription>
-            They can edit the {noun.work} again and resubmit. To move the quote on instead, decide{' '}
-            {noun.gate}.
+            They can edit the {noun.work} again and resubmit it to you.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -197,7 +230,7 @@ function SendBackDialog<T>({
           onSubmit={(e) => {
             e.preventDefault();
             if (!note.trim()) {
-              setError('Say what to change.');
+              setError('Enter what should change.');
               return;
             }
             setError(null);

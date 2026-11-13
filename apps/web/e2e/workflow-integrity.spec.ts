@@ -130,12 +130,11 @@ test('T-005: Pricing → KAM → "No" scope change → back in Quoting with the 
   const lead = await (await browser.newContext()).newPage();
   await signInAs(lead, 'pricing-lead');
   await lead.goto(`/quotes/${qn}?tab=quoting`);
-  await lead.getByTestId('return-to-kam').click();
+  await lead.getByTestId('decide-gate').click();
   const dialog = lead.getByRole('dialog');
-  await expect(dialog.getByRole('radio', { name: 'Rework (back to KAM)' })).toBeChecked();
-  // DR-pricing-finance-11: "Return to KAM…" offers only that outcome, under its own title.
-  await expect(dialog.getByRole('radio', { name: 'Rework (back to Engineering)' })).toHaveCount(0);
-  await expect(dialog.getByRole('heading', { name: 'Return to KAM' })).toBeVisible();
+  // One decision button: the dialog is titled like it and offers every outcome, back to the KAM included.
+  await expect(dialog.getByRole('heading', { name: 'Decide price approval' })).toBeVisible();
+  await dialog.getByRole('radio', { name: 'Rework (back to KAM)' }).check();
   // DR-engineering-10: the note helper says what to write for this outcome.
   await expect(dialog.getByText('Say what needs to change, and where.')).toBeVisible();
   await dialog.getByLabel('Reason (required)').selectOption({ label: 'Missing information' });

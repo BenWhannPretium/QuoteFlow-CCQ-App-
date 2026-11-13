@@ -69,7 +69,7 @@ test.describe('role dashboards', () => {
     await signInAs(page, 'sales-leader');
     await page.goto('/');
     await expect(page.getByTestId('landing')).toHaveAttribute('data-role', 'SalesLeader');
-    await expect(page.getByRole('heading', { level: 2, name: 'To qualify (G1)' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'To qualify' })).toBeVisible();
     const waiting = page.getByTestId('dash-to-qualify').getByText('Waiting for your decision');
     await expect(waiting).toBeVisible();
     await expect(
@@ -105,7 +105,7 @@ test.describe('role dashboards', () => {
     await expect(page.getByTestId('stat-time-to-assign')).toContainText('Median time to assign');
     await expect(page.getByTestId('dash-returned-reasons')).toBeVisible();
     // The median windows are stated.
-    await page.getByRole('button', { name: /About Time to assign and to G2/ }).click();
+    await page.getByRole('button', { name: /About Time to assign and to decide/ }).click();
     await expect(page.getByTestId('info-popover')).toContainText('last 30 days');
   });
 

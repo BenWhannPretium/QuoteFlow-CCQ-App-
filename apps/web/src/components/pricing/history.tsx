@@ -40,7 +40,7 @@ export function Figure({
 }) {
   if (value === null) {
     return (
-      <span className="text-muted-foreground" title="Blank (or 0) in the pricing-app export">
+      <span className="text-muted-foreground" title="No value in the pricing history file">
         Unknown
       </span>
     );

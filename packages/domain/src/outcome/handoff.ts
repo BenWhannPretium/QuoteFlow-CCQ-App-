@@ -314,7 +314,7 @@ export function planHandoff(input: {
     errors.push(
       new DomainError(
         'NOT_AWARDED',
-        '"Ready for CER development" is available only after the award (G5 Awarded)',
+        '"Ready for CER development" is available only after the customer has awarded the quote',
         'cerReady',
       ),
     );

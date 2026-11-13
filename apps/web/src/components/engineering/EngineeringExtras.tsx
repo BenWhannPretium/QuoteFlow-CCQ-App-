@@ -166,15 +166,16 @@ export function EquipmentBomCard({ quote }: { quote: QuoteDetail }) {
       </CardHeader>
       <CardContent className="grid gap-3">
         <p className="text-muted-foreground text-sm">
-          Upload the Engineering Program Office project workbook or its one-page CSR BOM (a generic
-          ballpark at quote time). Every line is flagged C (capital) or P (customer paid). The
-          detailed BOM follows after CER approval. QuoteFlow keeps the file and its versions; it
-          does not read figures from it.
+          Upload the equipment list for this quote: the Engineering Program Office project workbook,
+          or its one-page summary (the CSR BOM). A rough estimate is fine at this stage; the
+          detailed list comes after the capital request is approved. Mark each line C (capital) or P
+          (customer paid). QuoteFlow stores the file and its versions. It does not read the numbers
+          in it.
         </p>
         <EquipmentBomLine bom={bom} />
         {bom.requiredForCapital && !bom.current && eng.inQueue && (
           <p className="bg-secondary rounded-md px-3 py-2 text-sm" data-testid="bom-required">
-            Needed before you can advance G2 as “Capital required”.
+            Upload this before you advance the quote as “Capital required”.
           </p>
         )}
         <BomHistory bom={bom} />

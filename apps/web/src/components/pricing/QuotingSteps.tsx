@@ -156,7 +156,7 @@ export function QuotingSteps({
               <p className="text-sm" data-testid="price-confirmed">
                 {steps.price.status === 'done'
                   ? `Approved${steps.price.confirmedByName ? ` by ${steps.price.confirmedByName}` : ''}${steps.price.confirmedAt ? ` on ${absoluteTime(steps.price.confirmedAt)}` : ''}`
-                  : 'The pricing lead approves the price (G3) once costing and, when needed, the payback model are on file.'}
+                  : 'The pricing lead approves the price once the costing model and, if needed, the payback model are uploaded.'}
               </p>
               {steps.price.priceTable ? (
                 <ModelLine model={steps.price.priceTable} label="Updated price table" />
