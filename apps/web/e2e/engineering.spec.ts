@@ -97,23 +97,24 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
 
   const solution = eng.getByTestId('solution-form');
   await solution.getByLabel('Process type').selectOption({ label: 'EBM' });
-  // FB-13 (F-057): Jim Zweifel's 14 machine types and 22 locations, as sent; the placeholders are gone.
+  // FB-13 (F-057): Jim Zweifel's 14 machine types and 22 locations; the placeholders are gone.
+  // Bailey Schmitt (2026-11-12): listed alphabetically.
   const machineOptions = solution.getByLabel('Machine type').locator('option');
   await expect(machineOptions).toHaveText([
     'Choose…',
+    '12B',
+    'DECO',
+    'DIE CUTTING',
     'EBM',
     'IBM',
-    'ISBM',
-    'RHB',
     'INJ - CAP',
-    'INJ - PREFORM',
     'INJ - OTHER',
-    'DECO',
-    'PAD PRINTING',
-    '12B',
-    'DIE CUTTING',
+    'INJ - PREFORM',
+    'ISBM',
     'LAMINATION',
+    'PAD PRINTING',
     'PRINTING',
+    'RHB',
     'STAMPING',
   ]);
   const plantOptions = solution.getByLabel('Plant / site').locator('option');
