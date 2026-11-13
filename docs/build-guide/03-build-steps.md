@@ -1374,7 +1374,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 
 ---
 
-### FB-15: Intake fixes · **Built 2026-11-13 (in PR)** · Ben (most capable model · high)
+### FB-15: Intake fixes · **Built 2026-11-13 (in PR [#98](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/98))** · Ben (most capable model · high)
 - **Why:** the intake refused a fully filled form without saying why (W13-01), and the KAM could not tell required from optional (W13-02). "Other" asked nothing (W13-03), product facts did not pre-fill (W13-04), and a send-back landed at the top of the quote (W13-05). Small field changes: W13-06 to W13-11.
 - **Done when:**
   - [x] every cause of the submit refusal reproduced in a test and fixed; a 422 lists each missing field with a working Fix link; a failed autosave stops the submit; no stale warning after a resubmit
