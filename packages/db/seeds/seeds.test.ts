@@ -167,6 +167,7 @@ describe('config seeds derive from the domain', () => {
       'Barrier',
       'Antistat',
       'Impact Modifier',
+      'Fluorination', // FB-15 (W13-08, provisional)
       'Other',
     ]);
     for (const k of ['resin', 'pcr_level', 'additive']) {

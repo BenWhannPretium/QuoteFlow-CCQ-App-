@@ -20,9 +20,31 @@ export const CUSTOM_DESCRIPTION_FIELDS = {
   additive: 'additives',
   // FB-09 (F-012, D-016 default): "Other" packaging is reserved for customer-dictated specs and needs the packaging note.
   packaging_type: 'packaging_notes',
+  // FB-15 (W13-03, Bailey Schmitt): "Other" product family, component and decoration ask what it is.
+  product_family: 'product_family_other',
+  component: 'component_other',
+  decoration_type: 'decoration_type_other',
 } as const;
 export type CustomListField = keyof typeof CUSTOM_DESCRIPTION_FIELDS;
 export const CUSTOM_LIST_FIELDS = Object.keys(CUSTOM_DESCRIPTION_FIELDS) as CustomListField[];
+
+/**
+ * FB-15: the intake field that holds a list's pick when it is not named like the list. Components are a
+ * multi-pick (an array): "Other" among them asks for the description.
+ */
+export const CUSTOM_LIST_VALUE_FIELD: Readonly<Partial<Record<CustomListField, string>>> = {
+  component: 'components',
+};
+
+/**
+ * FB-15 (W13-03): the descriptions of an "Other" product family, component or decoration. Their length
+ * limit is the setting `intake_other_description_max_length` (seed 200, provisional).
+ */
+export const OTHER_DESCRIPTION_FIELDS = [
+  'product_family_other',
+  'component_other',
+  'decoration_type_other',
+] as const;
 
 /** Short-text limits (characters) from the FB-02 prompt and the Field Inventory. */
 export const INTAKE_TEXT_LIMITS = {

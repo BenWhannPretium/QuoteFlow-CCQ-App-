@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
+import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { readSfReminder, writeSfReminder } from '@/lib/sf-reminder';
 import { absoluteTime, calendarDate } from '@/lib/time';
@@ -228,6 +229,29 @@ function formFrom(cd: CustomerDecisionDetail): HandoffForm {
 const HANDOFF_STAGES = new Set(['COMMIT_HANDOFF', 'AWARDED']);
 
 /**
+ * FB-15 (W13-10, Bailey Schmitt): a customer with no ERP account yet needs master-data setup during
+ * commercial activation. Shown on the Commit & Hand Off view and the closed-won quote (this card shows in
+ * both). The words are the app setting `customer_master_data_notice` (provisional); empty = no notice.
+ */
+export function MasterDataNotice({ quote }: { quote: QuoteDetail }) {
+  const { data: config } = usePublicConfig();
+  const text = config?.settings.customer_master_data_notice;
+  if (quote.customerStatus !== 'not_yet_established' || typeof text !== 'string' || !text.trim()) {
+    return null;
+  }
+  return (
+    <div
+      role="note"
+      data-testid="master-data-notice"
+      className="bg-warning text-warning-foreground flex items-start gap-2 rounded-md px-3 py-2 text-sm"
+    >
+      <CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span>{text}</span>
+    </div>
+  );
+}
+
+/**
  * The hand-off record (Stage 6, Commit & Hand Off; B-26). The CER is a reference only (no integration in
  * MVP): its status, ID and approval date. G6 Advance (close Won) needs the CER approved or not required
  * and the hand-off accepted by the receiving team. Editable by the KAM (own), a SalesLeader and Admin;
@@ -352,6 +376,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
+        <MasterDataNotice quote={quote} />
         <p className="text-muted-foreground text-sm">
           The customer said yes. Two things are left before the quote closes as won: record the
           capital request (CER) from Apex (its status, ID and approval date), and name the team that

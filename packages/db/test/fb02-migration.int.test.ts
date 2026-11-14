@@ -156,10 +156,12 @@ describe('0028 config migration (F-009, F-017)', () => {
         tx,
         sql`select value from app_setting where key = 'intake_required_fields'`,
       );
-      expect(row!.value).toEqual(
-        expect.arrayContaining([...INTAKE_REQUIRED_FIELDS, adminRule] as unknown[]),
+      // 0028 makes the FB-02 seed; FB-15's market and sub-market rules come later (0044).
+      const fb02Seed = INTAKE_REQUIRED_FIELDS.filter(
+        (r) => r.field !== 'market' && r.field !== 'sub_market',
       );
-      expect(row!.value).toHaveLength(INTAKE_REQUIRED_FIELDS.length + 1);
+      expect(row!.value).toEqual(expect.arrayContaining([...fb02Seed, adminRule] as unknown[]));
+      expect(row!.value).toHaveLength(fb02Seed.length + 1);
     });
   });
 

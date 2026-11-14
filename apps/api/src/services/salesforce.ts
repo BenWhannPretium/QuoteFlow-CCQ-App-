@@ -297,6 +297,9 @@ export class SalesforceService {
         },
         account,
         productSpecs: live?.specs ?? [],
+        // FB-15 (W13-04): say why nothing could pre-fill. The snapshot keeps no specifications, so a failed
+        // live read means they are unknown, not absent.
+        productSpecsStatus: !live ? 'unavailable' : live.specs.length > 0 ? 'found' : 'none',
         ccqStageHint: hint,
         snapshotSyncedAt: iso(snapshot?.syncedAt ?? null),
         liveRefreshedAt: live ? new Date(live.at).toISOString() : null,

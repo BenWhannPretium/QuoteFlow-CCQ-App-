@@ -1,6 +1,7 @@
 import { AlertTriangleIcon, CheckIcon, CircleAlertIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { RequiredLabel } from '@/components/forms';
 import { cn } from '@/lib/utils';
 
 import { STEPS } from './model';
@@ -29,11 +30,9 @@ export function Field({
 }) {
   return (
     <div className={cn('grid min-w-0 gap-1.5', className)} data-field={id}>
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-        {required && (
-          <span className="text-muted-foreground ml-1 text-xs font-normal">(required)</span>
-        )}
+      <label htmlFor={id} className="text-sm font-medium" data-required={required || undefined}>
+        {/* FB-15 (W13-02): a red asterisk before the label, not a grey "(required)" after it. */}
+        <RequiredLabel required={Boolean(required)}>{label}</RequiredLabel>
       </label>
       {children}
       {help && (

@@ -40,7 +40,7 @@ const present = (field: string) => ({ field, op: 'present' });
 /**
  * Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship/fill destination city
  * and state (FB-02, F-017), product family, resin, volume, and the two need-by dates (FB-02, F-009).
- * Existing environments get the FB-02 changes from migration 0028.
+ * Existing environments get the FB-02 changes from migration 0028, FB-15's market and sub-market from 0044.
  */
 export const INTAKE_REQUIRED_FIELDS = [
   present('sf_opportunity_id'),
@@ -52,7 +52,15 @@ export const INTAKE_REQUIRED_FIELDS = [
   present('est_annual_volume'),
   present('quote_needed_by'),
   present('product_needed_by'),
+  // FB-15 (W13-02, D-006 owner Bailey Schmitt, 2026-11-13): Market and Sub-market are required. Provisional.
+  // Every active market has sub-markets today; see `subMarketIssues` if one without is ever added.
+  present('market'),
+  present('sub_market'),
 ];
+
+/** FB-15 (W13-10): the master-data reminder for a customer with no ERP account (provisional wording). */
+export const CUSTOMER_MASTER_DATA_NOTICE =
+  'This customer has no ERP account yet. Request master-data setup (help-desk ticket) as part of commercial activation.';
 
 /** FB-02 (F-067): only CCQ is submitted here for MVP (provisional). */
 export const INTAKE_ALLOWED_REQUEST_CLASSES = ['CCQ'];
@@ -103,10 +111,16 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   request_class:
     'CCQ is new business that needs engineering or capital. Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application.',
   product_family: 'Tells Engineering which product line and tooling family to look at.',
+  // FB-15 (W13-03): what an "Other" product family, component or decoration is.
+  product_family_other: 'Required when the product family is Other: say what the product is.',
   components: 'Closures, liners and labels change tooling, sourcing and the price build.',
+  component_other: 'Required when a component is Other: say what it is.',
+  decoration_type_other: 'Required when the decoration is Other: say how it is decorated.',
   market: 'Market drives material, regulatory and cleanliness requirements.',
   // FB-12 (F-073): the sub-market sets the strategic-fit score once the draft model is active.
-  sub_market: 'Pick the closest sub-market. It sets the strategic-fit score.',
+  // FB-15 (W13-11, Bailey Schmitt): the Midas name for Spirits & Mixers.
+  sub_market:
+    'Pick the closest sub-market. It sets the strategic-fit score. Beverage › Spirits & Mixers covers alcoholic drinks (Midas calls it Alcoholic).',
   resin: 'Resin decides the process, the machine and much of the cost.',
   neck_finish: 'The neck finish is one of the details Engineering most often has to chase.',
   neck_diameter:
@@ -123,7 +137,8 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   pcr_level_other: 'Required when PCR is Other: the PCR level the customer asked for.',
   additive:
     'Anything added to the resin, from the standard list. Pick Other for a specialty additive.',
-  color_type: 'Color and additives drive material cost. Describe a custom color.',
+  color_type:
+    'Color and additives drive material cost. Describe a custom color. A stock color is the colorant Pretium uses for its stock items at that plant.',
   additives:
     'Optional note on additives. Required, as the customer-specified additive, when the additive is Other.',
   quote_variants_note:
@@ -143,7 +158,7 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   drawing_status:
     'A drawing is the fastest way to an accurate quote. Without a bottle or competitor drawing attached, the minimum spec is required.',
   dimensions:
-    'Height, width or diameter, depth and gram weight. Required (with neck, resin and color) when no drawing is attached.',
+    'Height, width or diameter, depth and gram weight. Required (with neck, resin and color) when no drawing is attached; the red asterisks go away once a drawing is attached.',
   modify_existing_mold:
     'Changing a mold we already run (e.g. a finish change). Attach the reference drawing or a photo of the part.',
   rfp_link: 'The customer’s RFP or bid portal page, if there is one (https link).',
@@ -162,9 +177,11 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   freight_type:
     'How it ships when the price is delivered. Drop trailers and T-bars add real cost: say so below.',
   freight_special_arrangements:
-    'Anything unusual about the freight. A drop trailer sits for about two weeks and T-bars are very expensive, so name them here if the customer expects them.',
-  bid_reference:
-    'The customer’s bid, RFP or program name or number, if it has one. A plain reference: it does not link quotes.',
+    'Anything unusual about the freight. A drop trailer sits for about two weeks and T-bars are very expensive, so name them here if the customer expects them. Required when the freight type is Other.',
+  // FB-15 (W13-09): the customer's share when funding is Shared.
+  customer_share_pct: 'Pretium covers the rest.',
+  // FB-15 (W13-06, Bailey Schmitt, Zachary Cairns): customers rarely send their own reference.
+  bid_reference: "Most customers don't send one. Leave it blank if not.",
   comments_for_engineering: 'Context only you know: the customer, competitors, history, deadlines.',
 };
 
@@ -319,6 +336,18 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: {},
     description:
       'FB-09 (F-012, D-016 default; A-028 not received): plant code → the standard pack-out configuration Engineering has published for that plant. "Plant specified" packaging is offered only for a plant listed here, and "Pretium / plant preferred" is never offered (Paul Slomkowski). Empty until Engineering sends plant-packaging-standards.csv. Provisional.',
+  },
+  {
+    key: 'intake_other_description_max_length',
+    value: 200,
+    description:
+      'FB-15 (W13-03): the longest description (characters) of an "Other" product family, component or decoration. Provisional.',
+  },
+  {
+    key: 'customer_master_data_notice',
+    value: CUSTOMER_MASTER_DATA_NOTICE,
+    description:
+      'FB-15 (W13-10, Bailey Schmitt): shown on the Commit & Hand Off view and the closed-won quote when the customer is "not yet a Pretium customer" (no ERP account). Empty = no notice. Provisional wording.',
   },
   {
     key: 'intake_min_spec_fields',

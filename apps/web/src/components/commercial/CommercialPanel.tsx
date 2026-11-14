@@ -28,6 +28,7 @@ import { toast } from '@/lib/toast';
 import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import {
+  customerShareText,
   CustomerRequested,
   NonStandardTermsBadge,
   standardTermsFrom,
@@ -661,9 +662,16 @@ function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
-  const fundingLabel = t.toolingFundingModel
+  const fundingName = t.toolingFundingModel
     ? (fundingModels.find((m) => m.code === t.toolingFundingModel)?.label ?? t.toolingFundingModel)
     : null;
+  // FB-15 (W13-09): the customer's share from intake, while funding is still Shared.
+  const share = customerShareText(
+    { tooling_funding_model: fundingModels },
+    t.toolingFundingModel,
+    quote.intakeFacts.customerSharePct,
+  );
+  const fundingLabel = fundingName && share ? `${fundingName} (${share})` : fundingName;
   if (!t.canEditEngineering) {
     return (
       <section aria-label="MOQ and funding" className="grid gap-2" data-testid="engineering-terms">
@@ -702,6 +710,11 @@ function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
           )}
         </Field>
         <FundingHelp options={fundingModels} />
+        {share && (
+          <p className="text-muted-foreground text-xs sm:col-span-2" data-testid="customer-share">
+            Customer share from intake: {share}.
+          </p>
+        )}
         <Field label="MOQ" error={errorFor(errors, 'termsMoq')}>
           {(id) => (
             <Input id={id} maxLength={200} value={moq} onChange={(e) => setMoq(e.target.value)} />

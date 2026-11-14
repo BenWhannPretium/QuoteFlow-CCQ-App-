@@ -47,6 +47,7 @@ async function readyDraft(request: APIRequestContext): Promise<string> {
           productFamily: 'BOTTLE',
           components: ['CONTAINER'],
           market: 'FOOD',
+          subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
           resin: 'HDPE',
           packagingType: 'BULK',
           estAnnualVolume: 750_000,

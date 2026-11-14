@@ -542,6 +542,7 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
         productFamily: 'BOTTLE',
         components: ['CONTAINER'],
         market: 'FOOD',
+        subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
         resin: 'HDPE',
         estAnnualVolume: 750_000,
         quoteNeededBy: '2026-12-15',

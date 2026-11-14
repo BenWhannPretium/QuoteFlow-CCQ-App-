@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SF_PRODUCT_SPECS_STATUSES, SfProductSpec } from './sf-product-spec';
+
 /**
  * KAM intake (B-07, F-03). Sales enters only what Sales can know: there is no plant, process type,
  * machine type, net capital, engineer, channel, product class or priority field (REQ-04, X-90).
@@ -66,6 +68,17 @@ export const IntakeDraftData = z.object({
     })
     .nullable()
     .optional(),
+  /**
+   * FB-15 (W13-04): EVERY product specification Salesforce returned when the opportunity was picked (the
+   * pre-fill still uses the first). Request-level, kept so FB-19 can turn each into a quote item.
+   */
+  sfProductSpecs: z.array(SfProductSpec).max(50).optional(),
+  /**
+   * FB-15 (W13-04): what the pick learned about product details: `found`, `none` (Salesforce has no
+   * product specification for the opportunity) or `unavailable` (the live read failed). The product
+   * step says so, so the KAM knows why nothing was pre-filled.
+   */
+  sfProductSpecsStatus: z.enum(SF_PRODUCT_SPECS_STATUSES).nullable().optional(),
 
   // Step 2: customer and ship / fill destination
   customer: IntakeCustomer.nullable().optional(),
@@ -79,7 +92,11 @@ export const IntakeDraftData = z.object({
   // Step 3: product and volume (value-list codes)
   requestClass: text(60),
   productFamily: text(60),
+  /** FB-15 (W13-03): what an "Other" product family is (≤ intake_other_description_max_length). */
+  productFamilyOther: text(500),
   components: z.array(z.string().max(60)).max(20).optional(),
+  /** FB-15 (W13-03): what the "Other" component is. */
+  componentOther: text(500),
   /**
    * FB-02 (F-013): follow-ups of the picked components (`component` value-list meta `followUps`):
    * shown only while the component is picked, required then, cleared when it is not.
@@ -89,6 +106,8 @@ export const IntakeDraftData = z.object({
   labelsPurchasedBy: text(60),
   /** decoration_type code. */
   decorationType: text(60),
+  /** FB-15 (W13-03): what an "Other" decoration is. */
+  decorationTypeOther: text(500),
   /** Whole number 1–12 (checked by the domain). */
   decorationPrintColors: z.number().nullable().optional(),
   market: text(60),
@@ -144,6 +163,11 @@ export const IntakeDraftData = z.object({
    * The wizard preselects the list's default ("Not discussed"); the Commercial panel edits the same field.
    */
   toolingFundingModel: text(40),
+  /**
+   * FB-15 (W13-09, provisional): when funding is Shared, the customer's share in percent (0–100, a whole
+   * number or one decimal; checked by the domain). Pretium covers the rest. Cleared for any other funding.
+   */
+  customerSharePct: z.number().nullable().optional(),
   /** Customer wants returnable (multi-trip) dunnage; false = single-trip (F-063, dunnage only). */
   returnableDunnage: z.boolean().optional(),
   /** `price_basis` code (FOB Pretium plant / Delivered). */
@@ -260,6 +284,11 @@ export const IntakeDraft = z.object({
       askScopeChange: z.boolean(),
     })
     .nullable(),
+  /**
+   * FB-15 (W13-01): for a rework, the list codes the quote already holds (snake_case field → codes). A code
+   * retired since stays acceptable on resubmit; the wizard passes these to the same check the server runs.
+   */
+  keptListValues: z.record(z.string(), z.array(z.string())).default({}),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -423,7 +452,9 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     ship_to_override_reason: data.shipToOverrideReason ?? null,
     request_class: data.requestClass ?? null,
     product_family: data.productFamily ?? null,
+    product_family_other: blank(data.productFamilyOther),
     components: data.components ?? [],
+    component_other: blank(data.componentOther),
     market: data.market ?? null,
     sub_market: data.subMarket ?? null,
     resin: data.resin ?? null,
@@ -445,6 +476,7 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     liner_spec: blank(data.linerSpec),
     labels_purchased_by: data.labelsPurchasedBy ?? null,
     decoration_type: data.decorationType ?? null,
+    decoration_type_other: blank(data.decorationTypeOther),
     decoration_print_colors: data.decorationPrintColors ?? null,
     height_mm: data.heightMm ?? null,
     width_or_diameter_mm: data.widthOrDiameterMm ?? null,
@@ -458,6 +490,7 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     requested_payment_terms: data.requestedPaymentTerms ?? null,
     requested_payment_terms_other: blank(data.requestedPaymentTermsOther),
     tooling_funding_model: data.toolingFundingModel ?? null,
+    customer_share_pct: data.customerSharePct ?? null,
     returnable_dunnage: data.returnableDunnage ?? false,
     price_basis: data.priceBasis ?? null,
     freight_type: data.freightType ?? null,

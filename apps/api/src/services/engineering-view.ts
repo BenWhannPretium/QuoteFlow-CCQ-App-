@@ -213,6 +213,24 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
   if (f.quoteVariantsNote) {
     facts.push({ key: 'variants', label: 'Variants requested', value: f.quoteVariantsNote });
   }
+  // FB-15 (W13-03): what an "Other" product family, component or decoration is.
+  if (f.productFamilyOther) {
+    facts.push({
+      key: 'product_family_other',
+      label: 'Product family (Other)',
+      value: f.productFamilyOther,
+    });
+  }
+  if (f.componentOther) {
+    facts.push({ key: 'component_other', label: 'Other component', value: f.componentOther });
+  }
+  if (f.decorationTypeOther) {
+    facts.push({
+      key: 'decoration_type_other',
+      label: 'Decoration (Other)',
+      value: f.decorationTypeOther,
+    });
+  }
   return facts;
 }
 

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 import { ActiveQuoteRef } from './intake';
+import { SF_PRODUCT_SPECS_STATUSES, SfProductSpec } from './sf-product-spec';
+
+export * from './sf-product-spec';
 
 /**
  * Salesforce DTOs (read-only, DEC-12). Every CCQ quote starts from an SF Opportunity.
@@ -67,20 +70,6 @@ export const SfAccount = z.object({
 });
 export type SfAccount = z.infer<typeof SfAccount>;
 
-/** One row of the custom "Opportunity Product Specification" object (API name confirmed at M3). */
-export const SfProductSpec = z.object({
-  id: z.string(),
-  opportunityId: z.string(),
-  name: z.string().nullable(),
-  productType: z.string().nullable(),
-  resin: z.string().nullable(),
-  capacity: z.string().nullable(),
-  neckFinish: z.string().nullable(),
-  color: z.string().nullable(),
-  annualVolume: z.number().nullable(),
-});
-export type SfProductSpec = z.infer<typeof SfProductSpec>;
-
 // ── API: GET /api/v1/salesforce/opportunities ────────────────────────────────────────────────────
 
 export const SfOpportunitySearchQuery = z.object({
@@ -139,6 +128,8 @@ export const SfOpportunityDetail = z.object({
   opportunity: SfOpportunity,
   account: SfAccount.nullable(),
   productSpecs: z.array(SfProductSpec),
+  /** FB-15 (W13-04): found, none, or unavailable (the live read failed). */
+  productSpecsStatus: z.enum(SF_PRODUCT_SPECS_STATUSES),
   /** CCQ stage hint for the SF stage (sf_stage_map), for side-by-side display. */
   ccqStageHint: z.string().nullable(),
   /** When the local snapshot was last written by the sync, if there is one. */

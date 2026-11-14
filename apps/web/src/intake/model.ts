@@ -7,12 +7,11 @@ import {
   type SfOpportunityDetail,
 } from '@ccq/contracts';
 import {
-  CUSTOM_LIST_FIELDS,
   evaluateIntake,
   fieldsReferenced,
+  intakeConfigFromSources,
+  MIN_SPEC_FIELDS,
   neckSummary,
-  parseIntakeConfig,
-  parseIntakeGuardrails,
   parseNeckText,
   renderDescriptionTemplate,
   type IntakeConfig,
@@ -41,7 +40,8 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   sf_opportunity_id: { label: 'Salesforce opportunity', step: 1 },
   customer: { label: 'Customer', step: 2 },
   'customer.name': { label: 'Customer (Salesforce Account)', step: 2 },
-  'customer.sf_account_id': { label: 'Salesforce Account', step: 1 },
+  // FB-15: the "no Salesforce Account" notice is on step 2, where its Fix lands.
+  'customer.sf_account_id': { label: 'Salesforce Account', step: 2 },
   ship_to: { label: 'Ship / fill destination', step: 2 },
   'ship_to.line1': { label: 'Destination street', step: 2 },
   'ship_to.city': { label: 'Destination city', step: 2 },
@@ -49,7 +49,10 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   ship_to_override_reason: { label: 'Reason for changing the destination', step: 2 },
   request_class: { label: 'Request class', step: 3 },
   product_family: { label: 'Product family', step: 3 },
+  // FB-15 (W13-03): the field itself is labelled "Describe the …"; these are the review-list names.
+  product_family_other: { label: 'Product family description', step: 3 },
   components: { label: 'Components', step: 3 },
+  component_other: { label: 'Other component description', step: 3 },
   market: { label: 'Market', step: 3 },
   sub_market: { label: 'Sub-market', step: 3 },
   resin: { label: 'Resin', step: 3 },
@@ -71,6 +74,7 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   liner_spec: { label: 'Liner spec', step: 3 },
   labels_purchased_by: { label: 'Labels purchased by', step: 3 },
   decoration_type: { label: 'Decoration type', step: 3 },
+  decoration_type_other: { label: 'Decoration description', step: 3 },
   decoration_print_colors: { label: 'Number of print colors', step: 3 },
   height_mm: { label: 'Height (mm)', step: 3 },
   width_or_diameter_mm: { label: 'Width or diameter (mm)', step: 3 },
@@ -84,11 +88,13 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   requested_payment_terms: { label: 'Payment terms the customer requests', step: 3 },
   requested_payment_terms_other: { label: 'Requested payment terms (describe)', step: 3 },
   tooling_funding_model: { label: 'Does the customer fund any of the tooling?', step: 3 },
+  customer_share_pct: { label: 'Customer share %', step: 3 },
   returnable_dunnage: { label: 'Returnable (multi-trip) dunnage', step: 3 },
   price_basis: { label: 'Delivered or FOB', step: 3 },
   freight_type: { label: 'Freight type', step: 3 },
   freight_special_arrangements: { label: 'Special freight arrangements', step: 3 },
-  bid_reference: { label: 'Bid / program reference', step: 3 },
+  // FB-15 (W13-06): customers rarely send their own reference (Bailey Schmitt, Zachary Cairns).
+  bid_reference: { label: 'Customer bid / RFP reference (if the customer gave one)', step: 3 },
   packaging_type: { label: 'Packaging type', step: 3 },
   // DR-kam-sales-leader-11: the same name as the field on step 3.
   packaging_notes: { label: 'Customer-specified packaging (describe)', step: 3 },
@@ -126,60 +132,18 @@ export interface WizardConfig {
   retired: Record<string, Record<string, string>>;
 }
 
-/** Builds the wizard config from `/config/public`; null while a setting is missing (not seeded). */
+/**
+ * Builds the wizard config from `/config/public`; null while a setting is missing (not seeded). FB-15
+ * (W13-01): the intake config comes from the domain's `intakeConfigFromSources`, the function the API uses
+ * too, fed the same settings and the same ACTIVE value lists, so the wizard can no longer call a draft
+ * ready that the server refuses (it used to leave the list codes out).
+ */
 export function wizardConfig(config: PublicConfigResponse | undefined): WizardConfig | null {
   if (!config) return null;
   const s = config.settings;
   const lists = config.valueLists;
-  const meta = (e: PublicValueListEntry, key: string) => e.meta[key] === true;
   try {
-    const intake = parseIntakeConfig({
-      requiredFields: (s.intake_required_fields ?? []) as never,
-      volumePlaceholder: s.intake_volume_placeholder ?? {},
-      defaultRequestClass:
-        typeof s.intake_default_request_class === 'string' ? s.intake_default_request_class : 'CCQ',
-      allowedRequestClasses: (s.intake_allowed_request_classes ?? []) as never,
-      redirectMessage:
-        typeof s.intake_redirect_message === 'string' ? s.intake_redirect_message : '',
-      ...(typeof s.intake_variants_note_max_length === 'number'
-        ? { variantsNoteMaxLength: s.intake_variants_note_max_length }
-        : {}),
-      ...(typeof s.intake_free_text_max_length === 'number'
-        ? { freeTextMaxLength: s.intake_free_text_max_length }
-        : {}),
-      ...(Array.isArray(s.intake_min_spec_fields)
-        ? { minSpecFields: s.intake_min_spec_fields as never }
-        : {}),
-      ...(Array.isArray(s.standard_payment_terms)
-        ? { standardPaymentTerms: s.standard_payment_terms as never }
-        : {}),
-      // FB-10 (F-066): off unless the setting is on and well-formed.
-      guardrails: parseIntakeGuardrails(s.intake_guardrails),
-      // FB-12 (F-073): the sub-market's parent market comes from the value list's meta.
-      subMarketMarkets: Object.fromEntries(
-        (lists.sub_market ?? []).flatMap((e) => {
-          const market = (e.meta as { market?: unknown }).market;
-          return typeof market === 'string' ? [[e.code, market] as const] : [];
-        }),
-      ),
-      deliveredPriceBasisCodes: (lists.price_basis ?? [])
-        .filter((e) => meta(e, 'delivered'))
-        .map((e) => e.code),
-      drawingProvidedCodes: (lists.drawing_status ?? [])
-        .filter((e) => meta(e, 'hasDrawing'))
-        .map((e) => e.code),
-      customCodes: Object.fromEntries(
-        CUSTOM_LIST_FIELDS.map((list) => [
-          list,
-          (lists[list] ?? []).filter((e) => meta(e, 'freeText')).map((e) => e.code),
-        ]),
-      ),
-      componentFollowUps: Object.fromEntries(
-        (lists.component ?? [])
-          .filter((e) => Array.isArray(e.meta.followUps))
-          .map((e) => [e.code, e.meta.followUps as never]),
-      ),
-    });
+    const intake = intakeConfigFromSources({ settings: s, lists });
     const required = new Set<string>();
     for (const f of intake.requiredFields.flatMap(fieldsReferenced)) {
       required.add(f);
@@ -204,14 +168,67 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
 }
 
 /**
+ * FB-15 (W13-02): every field the server would block on gets the red asterisk: the configured rules plus,
+ * while no drawing is attached, the minimum-spec fields (`intake_min_spec_fields`). The conditional
+ * follow-ups ("Describe…", a component's liner spec…) mark themselves while they are shown.
+ */
+export function requiredFieldsNow(cfg: WizardConfig, hasDrawing: boolean): Set<string> {
+  if (hasDrawing) return cfg.requiredFields;
+  const out = new Set(cfg.requiredFields);
+  for (const key of cfg.intake.minSpecFields) for (const f of MIN_SPEC_FIELDS[key]) out.add(f);
+  return out;
+}
+
+/**
  * The same evaluation the API runs at submit, for instant feedback (the API stays the authority).
- * `hasDrawing`: a bottle or competitor drawing is attached (FB-02, F-016).
+ * `hasDrawing`: a bottle or competitor drawing is attached (FB-02, F-016). FB-15 (W13-01): `kept` is the
+ * reworked quote's own list codes (the draft's `keptListValues`), so a code retired since stays accepted
+ * here exactly as on the server.
  */
 export const evaluateDraft = (
   data: IntakeDraftData,
   cfg: WizardConfig,
   hasDrawing: boolean,
-): IntakeEvaluation => evaluateIntake(intakeValues(data, hasDrawing), cfg.intake, new Date());
+  kept: Record<string, string[]> = {},
+  now: Date = new Date(),
+): IntakeEvaluation => evaluateIntake(intakeValues(data, hasDrawing), cfg.intake, now, kept);
+
+/**
+ * FB-15 (W13-01): a problem's field path as the intake's snake_case field. The server sends snake_case
+ * (`ship_to.state`), `subMarket`, and JSON-pointer-like paths (`/data/sfOpportunityId`, `/quote_needed_by`).
+ */
+export function problemField(path: string): string {
+  const bare = path.replace(/^\/(data\/)?/, '').replace(/\//g, '.');
+  return bare.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+}
+
+/**
+ * FB-15 (W13-01): every issue a refused submit (422) lists, for the list under the notice. The server's
+ * `blocking` (with codes and the min-spec `missing` list) is preferred; otherwise its `errors`.
+ */
+export function submitProblemIssues(problem: Record<string, unknown>): IntakeIssue[] {
+  const blocking = problem.blocking;
+  if (Array.isArray(blocking) && blocking.length > 0) {
+    return (blocking as IntakeIssue[]).map((b) => ({ ...b, field: problemField(b.field) }));
+  }
+  const errors = problem.errors;
+  if (!Array.isArray(errors)) return [];
+  return (errors as { path?: unknown; message?: unknown }[]).flatMap((e) =>
+    typeof e.message === 'string'
+      ? [
+          {
+            code: 'SERVER',
+            field: typeof e.path === 'string' ? problemField(e.path) : '',
+            message: e.message,
+          },
+        ]
+      : [],
+  );
+}
+
+/** The words for one issue in a list: "Market is required", or the server's own message. */
+export const issueText = (issue: IntakeIssue): string =>
+  issue.code === 'MISSING_FIELD' ? `${issueLabel(issue)} is required` : issue.message;
 
 /** The value-list entry for a code (its label and meta). */
 export const listEntry = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
@@ -296,6 +313,7 @@ export function prefillFromOpportunity(
 ): IntakeDraftData {
   const o = detail.opportunity;
   const account = detail.account;
+  // FB-15 (W13-04): the pre-fill still uses the first specification; every one is kept for FB-19.
   const spec = detail.productSpecs[0];
   const shipTo = account?.shipTo ?? null;
   const usableAmount =
@@ -342,6 +360,8 @@ export function prefillFromOpportunity(
     estAnnualVolume: sfVolume ?? current.estAnnualVolume ?? null,
     containerSize: sfSize ?? current.containerSize ?? null,
     sfPrefill,
+    sfProductSpecs: detail.productSpecs.slice(0, 50),
+    sfProductSpecsStatus: detail.productSpecsStatus,
   };
 }
 

@@ -104,6 +104,9 @@ export const PUBLIC_SETTING_KEYS = [
   // FB-09 (F-019, D-016 default): the free-text cap for new edits (provisional)
   'intake_free_text_max_length',
   'intake_min_spec_fields',
+  // FB-15 (W13-03, W13-10): the "Other" description limit and the master-data notice (provisional)
+  'intake_other_description_max_length',
+  'customer_master_data_notice',
   // FB-11 intake commercial inputs (provisional)
   'standard_payment_terms',
   // FB-08 (F-021): the payment terms pre-selected on the quote.

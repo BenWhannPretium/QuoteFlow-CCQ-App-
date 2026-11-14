@@ -5,6 +5,8 @@ import {
   INTAKE_TEXT_LIMITS,
   isDeliveredPrice,
   isNonStandardPaymentTerms,
+  isSharedFunding,
+  shipToChanged,
   todayInCentral,
   type ComponentFollowUpField,
   type IntakeEvaluation,
@@ -14,6 +16,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { FundingHelp } from '@/components/commercial/FundingHelp';
+import { RequiredKey } from '@/components/forms';
 import { NON_STANDARD_TERMS_TEXT } from '@/components/intake/CommercialInputs';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
@@ -27,6 +30,8 @@ import {
   isCustom,
   issueLabel,
   issueStep,
+  issueText,
+  listEntry,
   marketLabel,
   neckLabel,
   suggestedDescription,
@@ -126,6 +131,12 @@ function Select({
     !(cfg.lists[listKey] ?? []).some((e) => e.code === value)
       ? (cfg.retired[listKey]?.[value] ?? value)
       : undefined;
+  // FB-15 (W13-01 c, e): a stored code the filter hides still shows as itself, never as "Choose…" or as
+  // the first option while the data keeps the other code.
+  const hiddenEntry =
+    value && !options.some((e) => e.code === value)
+      ? (cfg.lists[listKey] ?? []).find((e) => e.code === value)
+      : undefined;
   return (
     <NativeSelect
       id={id}
@@ -138,6 +149,9 @@ function Select({
       <option value="">{placeholder}</option>
       {retiredLabel !== undefined && (
         <option value={value!}>{`${retiredLabel}${RETIRED_SUFFIX}`}</option>
+      )}
+      {hiddenEntry && (
+        <option value={hiddenEntry.code}>{`${hiddenEntry.label} (not offered here)`}</option>
       )}
       {options.map((e) => (
         <option key={e.code} value={e.code}>
@@ -162,8 +176,17 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
   const customer = data.customer ?? { status: 'existing' as const };
   const notYetCustomer = customer.status === 'not_yet_established';
   const hasDefault = Boolean(formatAddress(data.shipToDefault));
+  // FB-15 (W13-01 d): a changed destination opens with its reason box, so "Fix" has a field to land on.
   const [editingShipTo, setEditingShipTo] = useState(
-    !hasDefault || Boolean(data.shipToOverrideReason),
+    !hasDefault ||
+      Boolean(data.shipToOverrideReason) ||
+      shipToChanged(data.shipTo, data.shipToDefault),
+  );
+  // FB-15 (W13-01 d): the required parts the Salesforce address left blank (e.g. no state) are asked for
+  // even while the address is shown read-only. Filling a blank needs no reason.
+  const blankRequiredParts = ADDRESS_PARTS.filter(
+    (p) =>
+      cfg.requiredFields.has(`ship_to.${p.key}`) && !(data.shipToDefault?.[p.key] ?? '').trim(),
   );
   const reasonBlocking = evaluation.blocking.some((b) => b.code === 'SHIP_TO_REASON_REQUIRED');
   const noAccount = evaluation.blocking.find((b) => b.code === 'SF_ACCOUNT_REQUIRED');
@@ -174,14 +197,22 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
   return (
     <div className="grid gap-4">
       {/* FB-02 (F-007, D-011): the customer is the opportunity's Salesforce Account; nothing is typed. */}
+      <RequiredKey />
       <Section title="Customer" action={<SfTag />}>
         {noAccount ? (
-          <Notice tone="blocking" testId="no-sf-account">
-            {noAccount.message}
-          </Notice>
+          <div id={fid('customer.sf_account_id')} tabIndex={-1}>
+            <Notice tone="blocking" testId="no-sf-account">
+              {noAccount.message}
+            </Notice>
+          </div>
         ) : (
           <div className="grid gap-1">
-            <p className="font-semibold" data-testid="customer-name">
+            <p
+              className="font-semibold"
+              data-testid="customer-name"
+              id={fid('customer.name')}
+              tabIndex={-1}
+            >
               {customer.name}
             </p>
             <p className="text-muted-foreground text-xs">
@@ -227,13 +258,34 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
       >
         {cfg.help.ship_to && <p className="text-muted-foreground text-xs">{cfg.help.ship_to}</p>}
         {!editingShipTo ? (
-          <p data-testid="ship-to" className="flex flex-wrap items-center gap-2 text-sm">
-            <span>{formatAddress(data.shipTo)}</span>
-            <SfTag />
-            <span className="text-muted-foreground block w-full text-xs">
-              The Salesforce Account&apos;s shipping address.
-            </span>
-          </p>
+          <div className="grid gap-4">
+            <p data-testid="ship-to" className="flex flex-wrap items-center gap-2 text-sm">
+              <span>{formatAddress(data.shipTo)}</span>
+              <SfTag />
+              <span className="text-muted-foreground block w-full text-xs">
+                The Salesforce Account&apos;s shipping address.
+              </span>
+            </p>
+            {blankRequiredParts.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2" data-testid="ship-to-missing-parts">
+                <p className="text-muted-foreground text-xs sm:col-span-2">
+                  Salesforce has no{' '}
+                  {blankRequiredParts.map((p) => p.label.toLowerCase()).join(' or ')} for this
+                  address. Add it here; Salesforce is not updated.
+                </p>
+                {blankRequiredParts.map((p) => (
+                  <Field key={p.key} id={fid(`ship_to.${p.key}`)} label={p.label} required>
+                    <Input
+                      id={fid(`ship_to.${p.key}`)}
+                      value={data.shipTo?.[p.key] ?? ''}
+                      onChange={(e) => setShipTo(p.key, e.target.value)}
+                      autoComplete={`shipping ${p.autoComplete}`}
+                    />
+                  </Field>
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="grid gap-4">
             {hasDefault && (
@@ -400,9 +452,39 @@ function SfValueNote({
   );
 }
 
+/** FB-15 (W13-07): a color offered only for some resins (`meta.resins`, the stock colors). */
+const colorForResin = (
+  e: WizardConfig['lists'][string][number] | undefined,
+  resin: string | null | undefined,
+) => {
+  const resins = e?.meta.resins;
+  return !Array.isArray(resins) || !resin || (resins as unknown[]).includes(resin);
+};
+
+/** FB-15 (W13-04): what Salesforce sent that is not on the list, so the KAM knows why it is blank. */
+function SfUnmatched({ text, testId }: { text: string | null | undefined; testId: string }) {
+  if (!text) return null;
+  return (
+    <p
+      className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs"
+      data-testid={testId}
+    >
+      <SfTag />
+      <span>Salesforce has “{text}”, which is not on the list. Pick the closest.</span>
+    </p>
+  );
+}
+
 /** F-011 / F-055: resin (pre-filled when SF supplied it), customer-specified grade, PCR %. */
-function ResinFields({ data, update, cfg, evaluation }: StepProps) {
+function ResinFields({
+  data,
+  update,
+  cfg,
+  evaluation,
+  onNote,
+}: StepProps & { onNote: (note: string | null) => void }) {
   const sf = data.sfPrefill ?? {};
+  const sfSpec = data.sfProductSpecs?.[0];
   return (
     <div className="grid gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -411,17 +493,29 @@ function ResinFields({ data, update, cfg, evaluation }: StepProps) {
             id={fid('resin')}
             listKey="resin"
             value={data.resin}
-            onChange={(v) =>
+            onChange={(v) => {
+              // FB-15 (W13-07): a stock color the new resin doesn't offer is cleared, with a note.
+              const color = listEntry(cfg, 'color_type', data.colorType);
+              const clearColor = Boolean(color) && !colorForResin(color, v);
+              onNote(
+                clearColor
+                  ? `Color cleared: ${color!.label} is not offered for ${valueLabel(cfg, 'resin', v)}.`
+                  : null,
+              );
               update({
                 resin: v,
                 // FB-09: the grade is the "Other" detail; keep it for a customer-specified resin.
                 ...(isCustom(cfg, 'resin', v) || data.resinCustomerSpecified === true
                   ? {}
                   : { resinGrade: null }),
-              })
-            }
+                ...(clearColor ? { colorType: null } : {}),
+              });
+            }}
             cfg={cfg}
           />
+          {!sf.resin && sfSpec?.resin && (
+            <SfUnmatched text={sfSpec.resin} testId="sf-resin-unmatched" />
+          )}
           {sf.resin && (
             <SfValueNote
               testId="sf-resin"
@@ -511,6 +605,7 @@ const NECK_LISTS = [
 function NeckFields({ data, update, cfg, evaluation }: StepProps) {
   const sf = data.sfPrefill ?? {};
   const fromSf = Boolean(sf.neckDiameter && sf.neckFinishType);
+  const sfNeckText = data.sfProductSpecs?.[0]?.neckFinish;
   return (
     <fieldset className="grid gap-4" data-field={fid('neck')}>
       <legend className="mb-1.5 flex flex-wrap items-center gap-2 text-sm font-medium">Neck</legend>
@@ -555,6 +650,7 @@ function NeckFields({ data, update, cfg, evaluation }: StepProps) {
           }
         />
       )}
+      {!fromSf && <SfUnmatched text={sfNeckText} testId="sf-neck-unmatched" />}
       {NECK_LISTS.map((n) => (
         <ConditionalText
           key={n.custom}
@@ -580,6 +676,8 @@ function ColorFields({ data, update, cfg, evaluation }: StepProps) {
           <Select
             id={fid('color_type')}
             listKey="color_type"
+            // FB-15 (W13-07): a stock color shows only for the resins it is made for.
+            filter={(e) => colorForResin(e, data.resin)}
             value={data.colorType}
             onChange={(v) =>
               update({
@@ -684,7 +782,13 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
                 id={fid('decoration_type')}
                 listKey="decoration_type"
                 value={data.decorationType}
-                onChange={(v) => update({ decorationType: v })}
+                onChange={(v) =>
+                  update({
+                    decorationType: v,
+                    // FB-15 (W13-03): unpicking Other clears its description.
+                    ...(isCustom(cfg, 'decoration_type', v) ? {} : { decorationTypeOther: null }),
+                  })
+                }
                 cfg={cfg}
                 invalid={Boolean(issue('decoration_type'))}
               />
@@ -715,6 +819,17 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
           )}
         </div>
       </Reveal>
+      <ConditionalText
+        when={on('decoration_type') && isCustom(cfg, 'decoration_type', data.decorationType)}
+        field="decoration_type_other"
+        label="Describe the decoration"
+        value={data.decorationTypeOther}
+        onChange={(v) => update({ decorationTypeOther: v })}
+        cfg={cfg}
+        evaluation={evaluation}
+        max={cfg.intake.otherDescriptionMaxLength}
+        placeholder="e.g. in-mold label"
+      />
     </div>
   );
 }
@@ -723,7 +838,7 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
 function BidReferenceField({ data, update, cfg, evaluation }: StepProps) {
   const issue = evaluation.blocking.find((b) => b.field === 'bid_reference');
   return (
-    <Field {...meta(cfg, 'bid_reference')} label="Bid / program reference (optional)">
+    <Field {...meta(cfg, 'bid_reference')}>
       <Input
         id={fid('bid_reference')}
         aria-describedby={`${fid('bid_reference')}-help`}
@@ -779,6 +894,11 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
   );
   const delivered = isDeliveredPrice(data.priceBasis, cfg.intake.deliveredPriceBasisCodes);
   const freightIssue = evaluation.blocking.find((b) => b.field === 'freight_special_arrangements');
+  // FB-15 (W13-03): freight "Other" makes the special arrangements required.
+  const freightOther = delivered && isCustom(cfg, 'freight_type', data.freightType);
+  // FB-15 (W13-09): Shared funding asks for the customer's share (optional).
+  const shared = isSharedFunding(funding, cfg.intake.sharedFundingCodes);
+  const shareIssue = evaluation.blocking.find((b) => b.field === 'customer_share_pct');
 
   // The funding answer starts at the list's default ("Not discussed") and is stored with the draft.
   useEffect(() => {
@@ -807,20 +927,43 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
           />
         </Field>
         <Field {...meta(cfg, 'tooling_funding_model')}>
-          <NativeSelect
+          {/* FB-15 (W13-01 c): the shared Select, so a stored code that is no longer offered shows as
+              "(no longer offered)" instead of as the first option while the data keeps the old code. */}
+          <Select
             id={fid('tooling_funding_model')}
-            aria-describedby={`${fid('tooling_funding_model')}-help`}
-            value={funding ?? ''}
-            onChange={(e) => update({ toolingFundingModel: nullIfBlank(e.target.value) })}
-          >
-            {entries.map((e) => (
-              <option key={e.code} value={e.code}>
-                {e.label}
-              </option>
-            ))}
-          </NativeSelect>
+            listKey="tooling_funding_model"
+            value={funding}
+            onChange={(v) =>
+              update({
+                toolingFundingModel: v,
+                ...(isSharedFunding(v, cfg.intake.sharedFundingCodes)
+                  ? {}
+                  : { customerSharePct: null }),
+              })
+            }
+            cfg={cfg}
+          />
           <FundingHelp options={entries} className="pb-0" />
         </Field>
+        <Reveal when={shared}>
+          <Field {...meta(cfg, 'customer_share_pct')}>
+            <div className="relative">
+              <DecimalInput
+                id={fid('customer_share_pct')}
+                value={data.customerSharePct}
+                invalid={Boolean(shareIssue)}
+                onChange={(v) => update({ customerSharePct: v })}
+              />
+              <span
+                aria-hidden
+                className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs"
+              >
+                %
+              </span>
+            </div>
+            <FieldError issue={shareIssue} />
+          </Field>
+        </Reveal>
       </div>
       <ConditionalText
         when={isCustom(cfg, 'requested_payment_terms', data.requestedPaymentTerms)}
@@ -870,7 +1013,7 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
               cfg={cfg}
             />
             {/* Bailey (2026-11-12): "Other" says where to describe it, like every other "Other". */}
-            {data.freightType === 'OTHER' && (
+            {freightOther && (
               <p className="text-muted-foreground text-xs" data-testid="freight-other-prompt">
                 Describe the freight type under “Special freight arrangements” below.
               </p>
@@ -879,17 +1022,21 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
         </Reveal>
       </div>
       <Reveal when={delivered}>
-        <Field {...meta(cfg, 'freight_special_arrangements')}>
+        <Field
+          {...meta(cfg, 'freight_special_arrangements')}
+          {...(freightOther ? { required: true } : {})}
+        >
           <Input
             id={fid('freight_special_arrangements')}
             aria-describedby={`${fid('freight_special_arrangements')}-help`}
             aria-invalid={freightIssue ? true : undefined}
+            aria-required={freightOther || undefined}
             maxLength={INTAKE_TEXT_LIMITS.freight_special_arrangements}
             placeholder="e.g. drop trailer at the customer dock"
             value={data.freightSpecialArrangements ?? ''}
             onChange={(e) => update({ freightSpecialArrangements: nullIfBlank(e.target.value) })}
           />
-          <FieldError issue={freightIssue} />
+          {freightIssue?.code === 'INVALID_VALUE' && <FieldError issue={freightIssue} />}
         </Field>
       </Reveal>
     </div>
@@ -1039,13 +1186,30 @@ function DecimalInput({
   );
 }
 
+const SUB_MARKET_CLEARED =
+  'Sub-market cleared: it belongs to another market. Pick one of this market’s.';
+
 export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: StepProps) {
   const invalidIssue = (field: string) =>
     evaluation.blocking.find((b) => b.code === 'INVALID_VALUE' && b.field === field);
   const invalid = (field: string) => Boolean(invalidIssue(field));
   const tomorrow = isoDayAfter(todayInCentral(new Date()));
-  // F-008: what the opportunity's SF product spec supplied is read-only (fix it in Salesforce).
   const sf = data.sfPrefill ?? {};
+  // FB-15: a value cleared because it no longer fits (a sub-market of another market, a stock color the
+  // resin doesn't offer) says so, instead of silently showing "Choose…".
+  const subMarketParent = data.subMarket ? cfg.intake.subMarketMarkets[data.subMarket] : undefined;
+  const subMarketMismatch = Boolean(
+    data.subMarket && subMarketParent !== undefined && subMarketParent !== data.market,
+  );
+  // FB-15 (W13-01 e): a stored sub-market of another market (or with no market, e.g. a rework of an older
+  // quote) is cleared when the step opens, with a note. A change made here clears it in the market's onChange.
+  const [marketNote, setMarketNote] = useState<string | null>(() =>
+    subMarketMismatch ? SUB_MARKET_CLEARED : null,
+  );
+  const [colorNote, setColorNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (subMarketMismatch) update({ subMarket: null });
+  }, [subMarketMismatch, update]);
   const variantsMax = cfg.intake.variantsNoteMaxLength;
   const placeholder = evaluation.warnings.find((w) => w.code === 'VOLUME_PLACEHOLDER');
   const belowMinimum = evaluation.warnings.find((w) => w.code === 'BELOW_PLATFORM_MINIMUM');
@@ -1073,12 +1237,15 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
     const components = (cfg.lists.component ?? []).map((e) => e.code).filter((c) => set.has(c));
     // F-013: a deselected component's follow-ups are cleared.
     const active = activeFollowUps(components, cfg.intake.componentFollowUps);
-    const cleared = Object.fromEntries(
+    const cleared: Partial<IntakeDraftData> = Object.fromEntries(
       COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)).map((f) => [
         FOLLOW_UP_KEYS[f],
         null,
       ]),
     );
+    // FB-15 (W13-03): an unpicked "Other" (or Decoration) takes its description with it.
+    if (!components.some((c) => isCustom(cfg, 'component', c))) cleared.componentOther = null;
+    if (!active.includes('decoration_type')) cleared.decorationTypeOther = null;
     update({ components, ...cleared });
   };
 
@@ -1087,6 +1254,20 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
 
   return (
     <div className="grid gap-4">
+      <RequiredKey />
+      {/* FB-15 (W13-04): why nothing was pre-filled from Salesforce. */}
+      {data.sfProductSpecsStatus === 'none' && (
+        <Notice tone="info" testId="sf-no-product-details">
+          Salesforce has no product details for this opportunity. Fill these in from the
+          customer&apos;s request.
+        </Notice>
+      )}
+      {data.sfProductSpecsStatus === 'unavailable' && (
+        <Notice tone="warning" testId="sf-product-details-unavailable">
+          Salesforce could not be reached when the opportunity was picked, so no product details
+          were pre-filled. Fill these in from the customer&apos;s request.
+        </Notice>
+      )}
       <Section title="Request">
         <Field {...meta(cfg, 'request_class')}>
           <Select
@@ -1116,7 +1297,13 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
               id={fid('product_family')}
               listKey="product_family"
               value={data.productFamily}
-              onChange={(v) => update({ productFamily: v })}
+              onChange={(v) =>
+                update({
+                  productFamily: v,
+                  // FB-15 (W13-03): unpicking Other clears its description.
+                  ...(isCustom(cfg, 'product_family', v) ? {} : { productFamilyOther: null }),
+                })
+              }
               cfg={cfg}
             />
           </Field>
@@ -1143,25 +1330,30 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
               listKey="market"
               value={data.market}
               // FB-12: a sub-market that does not belong to the new market is cleared (the server does too).
-              onChange={(v) =>
-                update({
-                  market: v,
-                  subMarket:
-                    data.subMarket && cfg.intake.subMarketMarkets[data.subMarket] === v
-                      ? data.subMarket
-                      : null,
-                })
-              }
+              onChange={(v) => {
+                const keep = data.subMarket && cfg.intake.subMarketMarkets[data.subMarket] === v;
+                setMarketNote(data.subMarket && !keep ? SUB_MARKET_CLEARED : null);
+                update({ market: v, subMarket: keep ? data.subMarket : null });
+              }}
               cfg={cfg}
             />
           </Field>
-          {/* FB-12 (F-073): optional; only the chosen market's sub-markets. It sets the strategic-fit score. */}
-          <Field {...meta(cfg, 'sub_market')}>
+          {/* FB-12 (F-073): only the chosen market's sub-markets. It sets the strategic-fit score.
+              FB-15 (W13-02): required (provisional config). */}
+          <Field
+            {...meta(cfg, 'sub_market')}
+            note={
+              marketNote ? <span data-testid="sub-market-cleared">{marketNote}</span> : undefined
+            }
+          >
             <Select
               id={fid('sub_market')}
               listKey="sub_market"
               value={data.subMarket}
-              onChange={(v) => update({ subMarket: v })}
+              onChange={(v) => {
+                setMarketNote(null);
+                update({ subMarket: v });
+              }}
               cfg={cfg}
               disabled={!data.market}
               placeholder={data.market ? 'Choose…' : 'Choose a market first'}
@@ -1194,9 +1386,42 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             <p className="text-muted-foreground text-xs">{cfg.help.components}</p>
           )}
         </fieldset>
+        <ConditionalText
+          when={isCustom(cfg, 'product_family', data.productFamily)}
+          field="product_family_other"
+          label="Describe the product family"
+          value={data.productFamilyOther}
+          onChange={(v) => update({ productFamilyOther: v })}
+          cfg={cfg}
+          evaluation={evaluation}
+          max={cfg.intake.otherDescriptionMaxLength}
+          placeholder="e.g. squeeze tube"
+        />
+        <ConditionalText
+          when={(data.components ?? []).some((c) => isCustom(cfg, 'component', c))}
+          field="component_other"
+          label="Describe the other component"
+          value={data.componentOther}
+          onChange={(v) => update({ componentOther: v })}
+          cfg={cfg}
+          evaluation={evaluation}
+          max={cfg.intake.otherDescriptionMaxLength}
+          placeholder="e.g. measuring cup"
+        />
         <ComponentFollowUps data={data} update={update} cfg={cfg} evaluation={evaluation} />
-        <ResinFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <ResinFields
+          data={data}
+          update={update}
+          cfg={cfg}
+          evaluation={evaluation}
+          onNote={setColorNote}
+        />
         <NeckFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        {colorNote && (
+          <Notice tone="warning" testId="color-cleared">
+            {colorNote}
+          </Notice>
+        )}
         <ColorFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
         <DimensionFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
@@ -1448,6 +1673,9 @@ function DrawingOrSpec({
     <div
       aria-live="polite"
       data-testid="drawing-or-spec"
+      // FB-15: the target of the "Drawing or minimum spec" Fix link.
+      id={fid('drawing_or_min_spec')}
+      tabIndex={-1}
       data-state={hasDrawing ? 'drawing' : blocked ? 'missing' : 'spec'}
     >
       {hasDrawing ? (
@@ -1528,7 +1756,14 @@ export function ReviewStep({
         ]
       : []),
     ...(active.includes('decoration_type')
-      ? [['Decoration', label('decoration_type', data.decorationType)] as [string, string]]
+      ? [
+          [
+            'Decoration',
+            isCustom(cfg, 'decoration_type', data.decorationType)
+              ? (data.decorationTypeOther ?? 'Other')
+              : label('decoration_type', data.decorationType),
+          ] as [string, string],
+        ]
       : []),
     ...(active.includes('decoration_print_colors')
       ? [['Print colors', data.decorationPrintColors?.toString()] as [string, string | undefined]]
@@ -1561,8 +1796,23 @@ export function ReviewStep({
       title: 'Product & volume',
       items: [
         ['Request class', label('request_class', data.requestClass)],
-        ['Product family', label('product_family', data.productFamily)],
-        ['Components', (data.components ?? []).map((c) => label('component', c)).join(', ')],
+        // FB-15 (W13-03): an "Other" shows what the KAM described.
+        [
+          'Product family',
+          isCustom(cfg, 'product_family', data.productFamily)
+            ? `Other: ${data.productFamilyOther ?? '—'}`
+            : label('product_family', data.productFamily),
+        ],
+        [
+          'Components',
+          (data.components ?? [])
+            .map((c) =>
+              isCustom(cfg, 'component', c)
+                ? `Other: ${data.componentOther ?? '—'}`
+                : label('component', c),
+            )
+            .join(', '),
+        ],
         ...followUpRows,
         ['Market', marketLabel(cfg, data) ?? '—'],
         // DR-kam-sales-leader-19: a resin typed under "Other" shows as typed.
@@ -1635,7 +1885,14 @@ export function ReviewStep({
                 }`
               : null,
         ],
-        ['Customer funds any tooling', label('tooling_funding_model', data.toolingFundingModel)],
+        [
+          'Customer funds any tooling',
+          // FB-15 (W13-09): Shared shows the customer's share; Pretium covers the rest.
+          isSharedFunding(data.toolingFundingModel, cfg.intake.sharedFundingCodes) &&
+          data.customerSharePct != null
+            ? `${label('tooling_funding_model', data.toolingFundingModel)}: customer ${data.customerSharePct}%, Pretium ${Math.round((100 - data.customerSharePct) * 10) / 10}%`
+            : label('tooling_funding_model', data.toolingFundingModel),
+        ],
         [
           'Delivered or FOB',
           data.priceBasis
@@ -1651,7 +1908,7 @@ export function ReviewStep({
                 .join(' · ')
             : null,
         ],
-        ['Bid / program reference', data.bidReference],
+        ['Customer bid / RFP reference', data.bidReference],
         [
           'Annual volume',
           data.estAnnualVolume != null ? `${data.estAnnualVolume.toLocaleString()} units` : null,
@@ -1678,6 +1935,7 @@ export function ReviewStep({
 
   return (
     <div className="grid gap-4">
+      <RequiredKey />
       <Section title="Drawing and files">
         <DrawingOrSpec evaluation={evaluation} cfg={cfg} hasDrawing={hasDrawing} goTo={goTo} />
         <Field
@@ -1736,9 +1994,7 @@ export function ReviewStep({
             <ul className="mt-1 grid gap-1">
               {evaluation.blocking.map((b) => (
                 <li key={`${b.code}:${b.field}`} className="flex flex-wrap items-center gap-x-2">
-                  <span>
-                    {b.code === 'MISSING_FIELD' ? `${issueLabel(b)} is required` : b.message}
-                  </span>
+                  <span>{issueText(b)}</span>
                   <Button
                     variant="link"
                     size="sm"

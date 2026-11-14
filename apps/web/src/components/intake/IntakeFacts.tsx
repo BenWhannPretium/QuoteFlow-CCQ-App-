@@ -75,6 +75,21 @@ export function intakeFactItems(
         ].join(' · ') || null,
     },
   ];
+  // FB-15 (W13-03): what an "Other" product family or component is.
+  if (f.productFamilyOther) {
+    items.push({
+      id: 'product-family-other',
+      label: 'Product family (Other)',
+      value: <span data-testid="fact-product-family-other">{f.productFamilyOther}</span>,
+    });
+  }
+  if (f.componentOther) {
+    items.push({
+      id: 'component-other',
+      label: 'Other component',
+      value: <span data-testid="fact-component-other">{f.componentOther}</span>,
+    });
+  }
   if (f.linerSpec) items.push({ id: 'liner', label: 'Liner spec', value: f.linerSpec });
   if (f.labelsPurchasedBy) {
     items.push({
@@ -88,7 +103,7 @@ export function intakeFactItems(
       id: 'decoration',
       label: 'Decoration',
       value: [
-        factLabel(lists, 'decoration_type', f.decorationType),
+        factLabel(lists, 'decoration_type', f.decorationType, f.decorationTypeOther),
         f.decorationPrintColors != null
           ? `${f.decorationPrintColors} color${f.decorationPrintColors === 1 ? '' : 's'}`
           : null,

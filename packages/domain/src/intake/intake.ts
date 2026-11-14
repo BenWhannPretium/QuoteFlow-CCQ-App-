@@ -1,18 +1,25 @@
 import { z } from 'zod';
 
-import { commercialInputIssues, inapplicableCommercialFields } from './commercial-inputs';
+import {
+  commercialInputIssues,
+  inapplicableCommercialFields,
+  isSharedFunding,
+} from './commercial-inputs';
 import { guardrailWarning, INTAKE_GUARDRAILS_OFF, intakeGuardrailsSchema } from './guardrails';
 import {
   activeFollowUps,
   COMPONENT_FOLLOW_UP_FIELDS,
   CUSTOM_DESCRIPTION_FIELDS,
   CUSTOM_LIST_FIELDS,
+  CUSTOM_LIST_VALUE_FIELD,
+  type CustomListField,
   DIMENSION_FIELDS,
   DIMENSION_MAX,
   INTAKE_TEXT_LIMITS,
   MIN_SPEC_FIELD_LABELS,
   MIN_SPEC_FIELDS,
   MIN_SPEC_KEYS,
+  OTHER_DESCRIPTION_FIELDS,
   PRINT_COLORS_RANGE,
   RFP_LINK_PATTERN,
 } from './product-facts';
@@ -126,8 +133,24 @@ export const intakeConfigSchema = z
     /** FB-11 (F-080): `price_basis` codes whose meta says `delivered`; the freight fields apply to them. */
     deliveredPriceBasisCodes: z.array(z.string().min(1)).default([]),
     /**
+     * FB-15 (W13-03): `freight_type` codes whose meta says `freeText` ("Other"): "Special freight
+     * arrangements" is then required.
+     */
+    freightOtherCodes: z.array(z.string().min(1)).default([]),
+    /**
+     * FB-15 (W13-09): `tooling_funding_model` codes whose meta says `customerShare` ("Shared"): the
+     * optional "Customer share %" applies to them and is cleared otherwise.
+     */
+    sharedFundingCodes: z.array(z.string().min(1)).default([]),
+    /**
+     * FB-15 (W13-03): longest description of an "Other" product family, component or decoration
+     * (app_setting `intake_other_description_max_length`, seeded 200, provisional).
+     */
+    otherDescriptionMaxLength: z.number().int().positive().default(200),
+    /**
      * FB-12 (F-073): the active `sub_market` codes and the market each belongs to (value-list meta `market`).
-     * A sub-market must belong to the quote's market. Optional at intake (not in `intake_required_fields`).
+     * A sub-market must belong to the quote's market. FB-15 (W13-02, D-006 owner Bailey Schmitt): required
+     * through `intake_required_fields` (provisional), like the market.
      */
     subMarketMarkets: z.record(z.string(), z.string()).default({}),
     /**
@@ -193,13 +216,17 @@ const norm = (v: unknown): string => {
   return typeof v === 'number' || typeof v === 'boolean' ? String(v) : '';
 };
 
-/** Ship-to differs from the customer default (case, spacing and blank-vs-null ignored). */
+/**
+ * Ship-to differs from the customer default (case, spacing and blank-vs-null ignored). FB-15 (W13-01 d):
+ * filling a part Salesforce left blank (a default with no state) is not a change and needs no reason;
+ * changing or clearing a part Salesforce has is.
+ */
 export function shipToChanged(shipTo: unknown, original: unknown): boolean {
   if (!original || typeof original !== 'object') return false;
   const a = (shipTo ?? {}) as Address;
   const b = original as Address;
   return (['line1', 'city', 'state', 'postal', 'country'] as const).some(
-    (k) => norm(a[k]) !== norm(b[k]),
+    (k) => norm(b[k]) !== '' && norm(a[k]) !== norm(b[k]),
   );
 }
 
@@ -279,8 +306,12 @@ export function needByDateIssues(values: FieldValues, now: Date): IntakeIssue[] 
 }
 
 /**
- * FB-12 (F-073): the optional sub-market must be an active one that belongs to the quote's market
- * (Melanie Rasche, 2026-11-09). A blank is fine. The API names the problem `subMarket`.
+ * FB-12 (F-073): the sub-market must be an active one that belongs to the quote's market (Melanie Rasche,
+ * 2026-11-09). The API names the problem `subMarket`. Whether a blank blocks is config: FB-15 (W13-02) adds
+ * `present('sub_market')` to `intake_required_fields`. That is right while every active market has
+ * sub-markets (all 8 do today). The rules DSL cannot say "only if the market has sub-markets": if a market
+ * without sub-markets is ever added, that exception belongs here (a blank is fine for such a market), not
+ * in the rule.
  */
 export function subMarketIssues(values: FieldValues, config: IntakeConfig): IntakeIssue[] {
   const sub = values.sub_market;
@@ -377,13 +408,38 @@ export function subMarketAfterMarketChange(
   return market && subMarketMarkets[subMarket] === market ? subMarket : null;
 }
 
-/** Detail fields with their own limit (`INTAKE_TEXT_LIMITS`), checked below rather than at 120. */
+/** Detail fields with their own limit (`INTAKE_TEXT_LIMITS` or a setting), checked below rather than at 120. */
 const OTHER_DETAIL_OWN_LIMIT = new Set<string>([
   'resin_grade',
   'additives',
   'pcr_level_other',
   'packaging_notes',
+  ...OTHER_DESCRIPTION_FIELDS,
 ]);
+
+/**
+ * FB-15: the list's "Other" / "Custom" value (meta `freeText`) is picked, so its description applies.
+ * Components are a multi-pick; the decoration type counts only while Decoration is a picked component.
+ */
+export function customValuePicked(
+  values: FieldValues,
+  config: Pick<IntakeConfig, 'customCodes' | 'componentFollowUps'>,
+  list: CustomListField,
+): boolean {
+  const codes = config.customCodes[list] ?? [];
+  if (codes.length === 0) return false;
+  if (
+    (COMPONENT_FOLLOW_UP_FIELDS as readonly string[]).includes(list) &&
+    !activeFollowUps(values.components, config.componentFollowUps).includes(
+      list as (typeof COMPONENT_FOLLOW_UP_FIELDS)[number],
+    )
+  ) {
+    return false;
+  }
+  const value = values[CUSTOM_LIST_VALUE_FIELD[list] ?? list];
+  if (typeof value === 'string') return codes.includes(value);
+  return Array.isArray(value) && value.some((c) => typeof c === 'string' && codes.includes(c));
+}
 
 const tooLong = (v: unknown, max: number) => typeof v === 'string' && v.trim().length > max;
 
@@ -400,9 +456,8 @@ export function productFactIssues(values: FieldValues, config: IntakeConfig): In
     issues.push({ code: 'INVALID_VALUE', field, message });
 
   for (const field of CUSTOM_LIST_FIELDS) {
-    const code = values[field];
     const description = CUSTOM_DESCRIPTION_FIELDS[field];
-    if (typeof code === 'string' && (config.customCodes[field] ?? []).includes(code)) {
+    if (customValuePicked(values, config, field)) {
       if (!isPresent(values[description])) missing(description, `${description} is required`);
     }
     // FB-09: resin_grade, pcr_level_other and additives have their own limits (checked below / by the field).
@@ -411,6 +466,11 @@ export function productFactIssues(values: FieldValues, config: IntakeConfig): In
       tooLong(values[description], INTAKE_TEXT_LIMITS.custom_description)
     ) {
       invalid(description, `Keep it to ${INTAKE_TEXT_LIMITS.custom_description} characters`);
+    }
+  }
+  for (const field of OTHER_DESCRIPTION_FIELDS) {
+    if (tooLong(values[field], config.otherDescriptionMaxLength)) {
+      invalid(field, `Keep it to ${config.otherDescriptionMaxLength} characters`);
     }
   }
   if (tooLong(values.packaging_notes, config.freeTextMaxLength)) {
@@ -538,8 +598,7 @@ export function moldAndLinkIssues(values: FieldValues): IntakeIssue[] {
 export function inapplicableIntakeFields(values: FieldValues, config: IntakeConfig): string[] {
   const out: string[] = [];
   for (const field of CUSTOM_LIST_FIELDS) {
-    const code = values[field];
-    if (!(typeof code === 'string' && (config.customCodes[field] ?? []).includes(code))) {
+    if (!customValuePicked(values, config, field)) {
       const detail = CUSTOM_DESCRIPTION_FIELDS[field];
       // FB-09: the additives and packaging notes are optional for any other choice, so never cleared here.
       if (detail !== 'additives' && detail !== 'packaging_notes') out.push(detail);
@@ -557,6 +616,10 @@ export function inapplicableIntakeFields(values: FieldValues, config: IntakeConf
   out.push(...COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)));
   // FB-11 (F-080): freight applies only to a delivered price.
   out.push(...inapplicableCommercialFields(values, config.deliveredPriceBasisCodes));
+  // FB-15 (W13-09): the customer's share applies only while funding is Shared.
+  if (!isSharedFunding(values.tooling_funding_model, config.sharedFundingCodes)) {
+    out.push('customer_share_pct');
+  }
   return out;
 }
 
@@ -603,6 +666,8 @@ export function evaluateIntake(
   const commercial = commercialInputIssues(values, {
     standardPaymentTerms: config.standardPaymentTerms,
     deliveredPriceBasisCodes: config.deliveredPriceBasisCodes,
+    freightOtherCodes: config.freightOtherCodes,
+    sharedFundingCodes: config.sharedFundingCodes,
   });
   blocking.push(...commercial.blocking);
   warnings.push(...commercial.warnings);

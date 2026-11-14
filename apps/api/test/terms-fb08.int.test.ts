@@ -107,6 +107,7 @@ async function submitted(): Promise<string> {
       productFamily: 'BOTTLE',
       components: ['CONTAINER'],
       market: 'FOOD',
+      subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
       resin: 'HDPE',
       neckDiameter: '38',
       neckFinishType: '400',

@@ -74,6 +74,7 @@ async function prefill(sfOpportunityId: string): Promise<IntakeDraftData> {
     productFamily: 'BOTTLE',
     components: ['CONTAINER', 'CLOSURE'],
     market: 'FOOD',
+    subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
     resin: 'HDPE',
     neckDiameter: '38',
     neckFinishType: '400',
@@ -118,6 +119,25 @@ async function submitQuote(extra: IntakeDraftData) {
 
 const detailAs = async (role: Role, quoteNumber: string) =>
   asRole(app, role).get(`/api/v1/quotes/${quoteNumber}`);
+
+/**
+ * FB-15 (W13-02): Sub-market is required by config (`intake_required_fields`, provisional). Runs `fn` with
+ * that one rule removed, as an Admin may (and as before FB-15), then puts the setting back.
+ */
+async function withoutSubMarketRule<T>(fn: () => Promise<T>): Promise<T> {
+  const key = eq(schema.appSetting.key, 'intake_required_fields');
+  const [row] = await db.db.select().from(schema.appSetting).where(key);
+  const rules = row!.value as { field: string }[];
+  await db.db
+    .update(schema.appSetting)
+    .set({ value: rules.filter((r) => r.field !== 'sub_market') })
+    .where(key);
+  try {
+    return await fn();
+  } finally {
+    await db.db.update(schema.appSetting).set({ value: rules }).where(key);
+  }
+}
 
 beforeAll(async () => {
   const fresh = await freshSfDatabase('fb12');
@@ -171,11 +191,12 @@ describe('the lists (F-020)', () => {
       INDUSTRIAL_CHEMICAL: 'Industrial/Chemical',
       PET: 'Pet',
     });
-    // The sub-market is optional (D-006 is FB-09's proposal) and carries its help text.
+    // FB-15 (W13-02, D-006 owner Bailey Schmitt, 2026-11-13): the sub-market is required now (it was
+    // optional under FB-12), and its help names the Midas term for Spirits & Mixers (W13-11).
     const required = JSON.stringify(config.settings.intake_required_fields);
-    expect(required).not.toContain('sub_market');
+    expect(required).toContain('"sub_market"');
     expect((config.settings.intake_field_help as Record<string, string>).sub_market).toBe(
-      'Pick the closest sub-market. It sets the strategic-fit score.',
+      'Pick the closest sub-market. It sets the strategic-fit score. Beverage › Spirits & Mixers covers alcoholic drinks (Midas calls it Alcoholic).',
     );
   });
 });
@@ -221,8 +242,21 @@ describe('the sub-market on the intake and the quote (F-073)', () => {
     expect(event!.after).toMatchObject({ market: 'FOOD', subMarket: 'FOOD_SNACKS' });
   });
 
-  it('is optional: a quote with a market and no sub-market submits, scoring the neutral 50', async () => {
-    const none = await submitQuote({ market: 'BEVERAGE' });
+  it('FB-15 (W13-02): is required; without the rule (an Admin may remove it) a quote with no sub-market submits, scoring the neutral 50', async () => {
+    const blank = await createDraft({ market: 'BEVERAGE', subMarket: null });
+    expect(blank.evaluation.blocking.map((b) => `${b.code}:${b.field}`)).toEqual([
+      'MISSING_FIELD:sub_market',
+    ]);
+    expect((await kam().post(`/api/v1/quotes/drafts/${blank.id}/submit`)).statusCode).toBe(422);
+    // The rule is config (provisional): with it removed, as before FB-15, the same draft submits. (One
+    // opportunity, as before, so the later tests still get the opportunities they expect.)
+    const res = await withoutSubMarketRule(() =>
+      kam().post(`/api/v1/quotes/drafts/${blank.id}/submit`),
+    );
+    expect(res.statusCode, res.body).toBe(201);
+    const out = SubmitIntakeResponse.parse(res.json());
+    const [row] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, out.quoteId));
+    const none = { ...out, quote: row! };
     expect(none.quote.subMarket).toBeNull();
     const detail = QuoteDetail.parse((await detailAs('SalesLeader', none.quoteNumber)).json());
     expect(detail.subMarket).toBeNull();
@@ -276,7 +310,10 @@ describe('the sub-market on the intake and the quote (F-073)', () => {
     const cleared = IntakeDraft.parse(res.json());
     expect(cleared.data.market).toBe('BEVERAGE');
     expect(cleared.data.subMarket ?? null).toBeNull();
-    expect(cleared.evaluation.blocking.some((b) => b.field === 'sub_market')).toBe(false);
+    // FB-15 (W13-02): it is required now, so the blank is asked for; it no longer "does not belong".
+    expect(
+      cleared.evaluation.blocking.filter((b) => b.field === 'sub_market').map((b) => b.code),
+    ).toEqual(['MISSING_FIELD']);
     // A sub-market of the new market is kept when it is sent with the change.
     res = await patch({ market: 'FOOD', subMarket: 'FOOD_SPICES' });
     expect(IntakeDraft.parse(res.json()).data.subMarket).toBe('FOOD_SPICES');
@@ -342,9 +379,10 @@ describe('the sub-market on the intake and the quote (F-073)', () => {
 describe('a quote on a retired market (F-020)', () => {
   it('keeps its market code; the lists still know its label; nothing remaps it', async () => {
     const q = await submitQuote({ market: 'FOOD' });
+    // A quote from before FB-12 carries a retired market and no sub-market.
     await db.db
       .update(schema.quote)
-      .set({ market: 'PHARMA_HEALTH' })
+      .set({ market: 'PHARMA_HEALTH', subMarket: null })
       .where(eq(schema.quote.id, q.quote.id));
     const detail = QuoteDetail.parse((await detailAs('Engineer', q.quoteNumber)).json());
     expect(detail.market).toBe('PHARMA_HEALTH');

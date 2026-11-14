@@ -302,7 +302,9 @@ function ReworkBanner({ quote }: { quote: QuoteDetail }) {
   const navigate = useNavigate();
   const start = useMutation({
     mutationFn: () => api.startRework(quote.quoteNumber),
-    onSuccess: (draft) => void navigate({ to: '/intake/new', search: { draft: draft.id } }),
+    // FB-15 (W13-05): straight to the review step, at the first thing to fix.
+    onSuccess: (draft) =>
+      void navigate({ to: '/intake/new', search: { draft: draft.id, at: 'review' } }),
     onError: () => toast.error({ title: 'Could not open the rework draft' }),
   });
   if (!quote.rework) return null;

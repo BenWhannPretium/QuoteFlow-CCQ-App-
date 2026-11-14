@@ -95,6 +95,7 @@ async function prefill(sfOpportunityId: string): Promise<IntakeDraftData> {
     productFamily: 'BOTTLE',
     components: ['CONTAINER', 'CLOSURE'],
     market: 'FOOD',
+    subMarket: 'FOOD_SNACKS', // FB-15 (W13-02): required
     resin: 'HDPE',
     neckDiameter: '38',
     neckFinishType: '400',
@@ -131,6 +132,25 @@ async function submitQuote(extra: IntakeDraftData) {
   const out = SubmitIntakeResponse.parse(res.json());
   const [quote] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, out.quoteId));
   return { ...out, draft, quote: quote! };
+}
+
+/**
+ * FB-15 (W13-02): Sub-market is required by config (`intake_required_fields`, provisional). Runs `fn` with
+ * that one rule removed, as an Admin may (and as before FB-15), then puts the setting back.
+ */
+async function withoutSubMarketRule<T>(fn: () => Promise<T>): Promise<T> {
+  const key = eq(schema.appSetting.key, 'intake_required_fields');
+  const [row] = await db.db.select().from(schema.appSetting).where(key);
+  const rules = row!.value as { field: string }[];
+  await db.db
+    .update(schema.appSetting)
+    .set({ value: rules.filter((r) => r.field !== 'sub_market') })
+    .where(key);
+  try {
+    return await fn();
+  } finally {
+    await db.db.update(schema.appSetting).set({ value: rules }).where(key);
+  }
 }
 
 beforeAll(async () => {
@@ -319,7 +339,8 @@ describe('the v3 draft and its preview (F-073, T-036)', () => {
     expect([snacks.points, snacks.raw]).toEqual([80, 'FOOD_SNACKS']); // Strategic Growth
     const honey = await fitOf({ market: 'FOOD', subMarket: 'FOOD_HONEY_SWEETENERS' });
     expect([honey.points, honey.raw]).toEqual([20, 'FOOD_HONEY_SWEETENERS']); // Rationalization
-    const unscored = await fitOf({ market: 'FOOD' });
+    // A quote with no sub-market (before FB-15, or with the rule removed) scores the neutral 50.
+    const unscored = await withoutSubMarketRule(() => fitOf({ market: 'FOOD', subMarket: null }));
     expect([unscored.points, unscored.raw]).toEqual([50, 'FOOD']); // no sub-market: the neutral 50
     expect(unscored.explanation).toContain('Pick a sub-market to score strategic fit');
   });

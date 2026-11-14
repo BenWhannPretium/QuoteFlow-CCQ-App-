@@ -46,7 +46,8 @@ test('the funding options: $0 CER is explained and Shared is offered', async ({
     'reimbursed by the customer as a lump sum or through amortization',
   );
   await expect(help).toContainText('the customer invoice or contract goes with the mold PO');
-  await expect(help).toContainText('Record the agreed split in the terms notes');
+  // FB-15 (W13-09): Shared now asks for the customer's share instead of a note in the terms.
+  await expect(help).toContainText("Enter the customer's share; Pretium covers the rest");
   // Bailey Schmitt (2026-11-12): Amortized is explained too.
   await expect(help).toContainText('The customer pays for the tooling over time');
   expect(await seriousViolations(page)).toEqual([]);
