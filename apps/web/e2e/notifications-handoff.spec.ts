@@ -81,7 +81,7 @@ test('a KAM sees "Returned to you" in the bell after a G3 rework, with the reaso
     note: 'Annual volume by SKU is missing',
   });
 
-  // The KAM sees it in the bell and opens the quote from there.
+  // The KAM sees it in the bell and opens the rework from there.
   const kam = await (await browser.newContext()).newPage();
   await signInAs(kam, 'kam');
   await kam.goto('/');
@@ -95,8 +95,11 @@ test('a KAM sees "Returned to you" in the bell after a G3 rework, with the reaso
   await expect(item).toContainText('Reason: Missing information.');
   await expect(item).toContainText('Annual volume by SKU is missing');
   expect(await seriousViolations(kam)).toEqual([]);
+  // FB-15 (W13-05): a send-back opens the KAM's rework of the quote, the reason and note pinned on top.
   await item.click();
-  await expect(kam.getByTestId('quote-detail')).toBeVisible();
+  const notice = kam.getByTestId('rework-notice');
+  await expect(notice).toContainText(`Rework of ${qn}`);
+  await expect(notice).toContainText('Annual volume by SKU is missing');
   await kam.context().close();
 
   // The pricer, who is not the KAM, was not told it was returned "to them".

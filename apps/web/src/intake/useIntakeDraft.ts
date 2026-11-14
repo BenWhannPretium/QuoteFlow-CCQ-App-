@@ -1,6 +1,7 @@
 import type { IntakeDraft, IntakeDraftData } from '@ccq/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { onlyKnownServerChanges } from '@/intake/draft-merge';
 import { api, isApiError } from '@/lib/api';
 
 /** Autosave cadence while the KAM types (plus a save on every step change and on leaving). */
@@ -46,6 +47,8 @@ export function useIntakeDraft(initial: IntakeDraft) {
   const inFlight = useRef<Promise<void> | null>(null);
   // DR-kam-sales-leader-05: the version this copy is based on; a save from an older copy is refused.
   const version = useRef(initial.updatedAt);
+  // FB-15 (W13-01): the data as the server last returned it, to tell its own changes from another tab's.
+  const base = useRef<IntakeDraftData>(initial.data);
   const conflicted = useRef(false);
   // FB-15 (W13-01): why the last save failed (e.g. a 422 "Pick a resin from the list"), until one succeeds.
   const lastError = useRef<string | null>(null);
@@ -56,14 +59,34 @@ export function useIntakeDraft(initial: IntakeDraft) {
     if (revision.current === savedRevision.current || conflicted.current) return;
     const target = revision.current;
     setSaveState('saving');
-    const run = api
-      .patchDraft(initial.id, {
+    const send = () =>
+      api.patchDraft(initial.id, {
         data: latest.current.data,
         step: latest.current.step,
         expectedUpdatedAt: version.current,
+      });
+    // FB-15 (W13-01): a refused save (409) whose newer server copy holds only changes this copy already
+    // has is not a conflict. Uploading a drawing on the review step sets the drawing status on the
+    // server and the wizard mirrors it; without this, Submit said "changed in another tab".
+    const takeNewerVersion = async (): Promise<boolean> => {
+      try {
+        const fresh = await api.getDraft(initial.id);
+        if (!onlyKnownServerChanges(fresh.data, base.current, latest.current.data)) return false;
+        version.current = fresh.updatedAt;
+        base.current = fresh.data;
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const run = send()
+      .catch(async (err: unknown) => {
+        if (isApiError(err, 409) && (await takeNewerVersion())) return send();
+        throw err;
       })
       .then((saved) => {
         version.current = saved.updatedAt;
+        base.current = saved.data;
         savedRevision.current = target;
         setActiveQuote(saved.activeQuote);
         setSfCloseDate(saved.sfCloseDate);
