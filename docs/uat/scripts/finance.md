@@ -36,7 +36,7 @@ After you upload the payback model, QuoteFlow shows a short summary of its headl
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 7 | Look at the menu and the home page. | Menu: **Home**, **Pipeline**. Home: **Payback requests** with what to do. No pricing queue, no analytics, no approvals. | | |
+| 7 | Look at the menu and the Command Center (it was "Home" before FB-18). | Menu: **Command Center**, **Pipeline**. Command Center: **Payback requests** with what to do. No pricing queue, no **Analytics** view, no approvals. | | |
 | 8 | On `<CCQ-QT-4>` look for **Save price approval**, **Save capital readiness**, an upload on **Attachments**, or a gate decision. | None of them. The comment box on **Overview** is there: Finance may comment on a quote (decided 2026-11-11, DR-pricing-finance-09). | | |
 | 9 | After the pricing lead approves the price (pricing.md step 20a), open `<CCQ-QT-4>`. | **3. Price approved** done, by whom and when. No upload buttons (locked after G3). | | |
 

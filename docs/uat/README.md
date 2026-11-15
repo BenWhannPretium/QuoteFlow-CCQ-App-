@@ -49,7 +49,7 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 | Path | What it is |
 |---|---|
 | `scripts/*.md` | One UAT script per role. Numbered steps with the expected result, a Pass/Fail column and a sign-off table. |
-| `quickstart/*.md` | One printed page per role: what QuoteFlow is for you, your home screen, what you'll do, what changed from the ERF, who to ask. |
+| `quickstart/*.md` | One printed page per role: what QuoteFlow is for you, your Command Center (the home screen), what you'll do, what changed from the ERF, who to ask. |
 | `quickstart/print.html` | All quick-starts in one file, one role per printed page. Open it in a browser and print. |
 | `defect-log.md` | The defect log. **Generated** from the in-app reports by `pnpm uat:defects`. Do not edit it by hand. It is git-ignored: report text can name customers, so it is shared on the QuoteFlow SharePoint, not committed. |
 
@@ -118,5 +118,5 @@ Admins triage reports at **Admin → Feedback** (`/admin/feedback`). Each report
 
 ## Quick-start help page
 
-The quick-starts are linked from every home screen ("New here?"), served at `/help/quickstart.html#<role>` from `apps/web/public/help/`. After editing `quickstart/print.html`, run `UPDATE_QUICKSTART=1 pnpm --filter @ccq/web test` to republish it (a test fails until you do).
+The quick-starts are linked from every Command Center ("New here?", on **My work**), served at `/help/quickstart.html#<role>` from `apps/web/public/help/`. After editing `quickstart/print.html`, run `UPDATE_QUICKSTART=1 pnpm --filter @ccq/web test` to republish it (a test fails until you do).
 

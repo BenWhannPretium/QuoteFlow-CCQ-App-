@@ -156,7 +156,7 @@ Fields tagged `sensitivity: 'commercial'` (the registry is kept for a future res
 | attachment.upload | ✔ | ✔ | ✔ | ✔ | | ✔ | ✔ | | | | |
 | attachment.removeAny (B-16: remove anyone's file; an uploader may remove their own within 24 h) | | | | | | | | | | | ✔ |
 | export.csv | ✔ (scope) | ✔ | ✔ | | | ✔ | ✔ | | ✔ | ✔ | ✔ |
-| analytics.read | | ✔ | ✔ | | | ✔ | ✔ | | ✔ | ✔ | ✔ |
+| analytics.read (FB-18: it also decides who sees the Command Center's Analytics view; the holders are unchanged) | | ✔ | ✔ | | | ✔ | ✔ | | ✔ | ✔ | ✔ |
 | config.read (B-19: every Admin configuration screen, read-only) | | | | | | | | | | ✔ | ✔ |
 | config.manage | | | | | | | | | | | ✔ |
 | pricingQueue.assign (B-26: assign / reassign pricers) | | | | | | | ✔ | | | | ✔ |
@@ -209,7 +209,7 @@ PRD v1's five stages are reconciled with the Operating Model's six stage-gates. 
 - **Four choices.** `gate_outcome_definition.outcome_group` (`advance` | `send_back` | `hold` | `stop` | `customer_outcome`, CHECK-listed; shown in Admin, not editable there yet) is on every available action as `outcomeGroup`. The decision dialog shows Advance, Send back to…, Hold and Stop when every offered outcome sits under one of them; "Send back to…" is one choice with a required "Send to" list of the send-back outcomes named by destination (an outcome with several target stages, G4 `return` and G6 `requote`, becomes one option per stage). G5's outcomes are `customer_outcome` (its `on_hold` is `hold`) and keep the flat list. **No outcome key and no transition changed**: analytics and the SQL views read them. Every send-back needs a reason code and a note: G4 `return` now requires its `rework` reason, and G2 / G3 `redirect` take the `rework` context (the `redirect` context holds G1's not-CCQ codes). G1 `redirect` is grouped under Stop, relabelled "Stop: not CCQ work (send elsewhere)", and still closes as `redirected` with its own codes. The UI never reads a group from an outcome key (`apps/web/src/lib/decision-groups.ts`); `forwardReadiness` reads `advance` from the group.
 - **Capital needed (W13-22).** G2 `capital_required` is switched off. Capital is needed when `eng_review.prelim_capital_usd` is above `app_setting.capital_needed_above_usd` (seed 0). The server derives `eng_capital_needed` for the G2 rules (a blank figure counts as needed, so a blank can never skip the BOM); G2 `proceed` and `proceed_with_risk` require `prelim_capital_usd` present ($0 allowed) and `anyOf[eng_capital_needed = false, equipment_bom_on_file = true]`. On a forward G2 decision with capital needed the gate service sets `quote.capital_likely` (audited; timeline event `capital_needed` with the figure), sends the Capital Management notice and starts `pricing_record.capital_readiness` on `pending`; `capital_readiness_on_outcome` is still read, so a `capital_required` decision behaves as before wherever that outcome is on. Everything after G2 reads `capitalNeed()` (`packages/domain/src/engineering/capital-needed.ts`): the figure above the threshold, a historical `capital_required` decision, or `capital_likely` (there a blank figure is unknown, not capital). It drives the Pricing and Final Review queue flag and the `capital_needed` filter value, the Final Review warning (`G2_CAPITAL_REQUIRED`, code unchanged), and the refusal of capital readiness "Not required" (only when Engineering's figure or a historical decision says so, not for the flag alone). `roi_required_when` is unchanged (it fires on `capital_likely`; `capital_required` stays in its `g2Outcomes` for history). **Consequence:** an Advance with capital above the threshold sets `capital_likely`, so G3's existing rule applies and capital readiness must be `pre_approved` before the price is approved; "pending with a justification" passes G3 only for quotes that are not capital likely.
 - **Closure owner (W13-27).** The dialog asks for a closure owner only when the transition's `closure_owner` is `kam` (G5 Lost and Expired, G6 Advance; `outcome.assignOwner`). For `decider` closures (Stop, G4 Decline, G1 not CCQ work, G6 Stop) nothing is asked and the server records the decider, as it already did. The API is unchanged.
-- **Hold owner and the timeline (W13-25, W13-26).** `holdOwnerChoices` (`packages/domain/src/workflow/hold-owner.ts`) offers the stage's assignees first (the engineer and the production scheduler in Engineering, the pricer in Quoting), then "Me", then the KAM; `app_setting.hold_owner_default` (`stage_assignee`, the seed, or `decider`) picks the default. The server still accepts any active user. The `hold_started` activity event carries the reason code and label, the note, the owner id and name and the review date; `hold_ended` carries the gate, the outcome and its label (only a decision ends a hold; no job ends one on its review date). `QuoteDetail.commercial.hold.reasonLabel` gives the quote header the same sentence as the timeline.
+- **Hold owner and the timeline (W13-25, W13-26).** `holdOwnerChoices` (`packages/domain/src/workflow/hold-owner.ts`) offers the stage's assignees first (the engineer and the production scheduler in Engineering, the pricer in Quoting), then "Me", then the KAM; `app_setting.hold_owner_default` (`stage_assignee`, the seed, or `decider`) picks the default. The server still accepts any active user. The `hold_started` activity event carries the reason code and label, the note, the owner id and name and the review date; `hold_ended` carries the gate, the outcome and its label (only a decision ends a hold; no job ends one on its review date). `QuoteDetail.commercial.hold.reasonLabel` gives the quote header the same sentence as the timeline. **FB-18 (W13-26, the Command Center half):** the role dashboards (`GET /api/v1/dashboards/:role`) carry the same three facts on every listed quote that is on hold (`DashQuote.hold` and `ExpiringProposal.hold`: `reasonLabel`, `ownerName`, `reviewDate`; null when the quote is not on hold), read by the dashboard repo inside the caller's row-level-security scope, and each stage lists its on-hold quotes first (`onHoldFirst` and `holdReasonLabel`, `packages/domain/src/workflow/hold-list.ts`; the quote header reads the same `holdReasonLabel`). The Command Center shows an orange "On hold" chip that opens the sentence on hover, on keyboard focus and on a tap. No schema change.
 
 **Engine rules (all in `packages/domain/src/workflow`)**
 
@@ -261,7 +261,7 @@ CCQ owns operational stages. Salesforce stages are read and shown side by side:
 - Closed Won – Product Shipping
 - Closed Lost
 
-The mapping table `sf_stage_map` is config, so mismatches can be flagged; for example, CCQ shows Awarded while SF still shows Quoting. FB-04 (F-076): the quote header links to its opportunity (`salesforce_instance_url` + `/lightning/r/Opportunity/<id>/view`), and after a G5 outcome is saved a dismissible reminder names the SF stage to set (`sf_outcome_stage_names`); nothing is written to Salesforce. B-26: "Verbal Award" and "PO(s) in hand" hint at `COMMIT_HANDOFF`, and SF "Closed Won" agrees with a quote in Commit & Hand Off or Closed – Won.
+The mapping table `sf_stage_map` is config, so mismatches can be flagged; for example, CCQ shows Awarded while SF still shows Quoting. FB-04 (F-076): the quote header links to its opportunity (`salesforce_instance_url` + `/lightning/r/Opportunity/<id>/view`), and after a G5 outcome is saved a dismissible reminder names the SF stage to set (`sf_outcome_stage_names`); nothing is written to Salesforce. FB-18 (W13-31): the URL is on every `QuoteSummary` (`sfOpportunityUrl`, so on every list and queue item as well as the quote), and the same link is on the Intake card's opportunity ID, the G1 queue card, the Engineering and Pricing queue rows, the Final Review queue and the review screen. While the setting is empty there is no link, and Admins (`config.manage`) alone see "Set the Salesforce URL in Admin → Settings". B-26: "Verbal Award" and "PO(s) in hand" hint at `COMMIT_HANDOFF`, and SF "Closed Won" agrees with a quote in Commit & Hand Off or Closed – Won.
 
 ---
 
@@ -526,7 +526,7 @@ Why mirroring and not the alternatives:
 | PRD feature | Build step(s) |
 |---|---|
 | F-01 SSO | B-04 |
-| F-02 Role landing page | B-05, B-17 |
+| F-02 Role landing page | B-05, B-17; FB-18 (the Command Center: "My work" is the role landing, "Analytics" the role's analytics lens) |
 | F-03 Guided intake | B-07 |
 | F-04 Stages | B-02, B-03, B-10–B-13 |
 | F-05 Prioritization engine | B-08 |
@@ -541,7 +541,7 @@ Why mirroring and not the alternatives:
 | F-14 Mobile | B-05, B-21 |
 | F-15 Notifications (P1, but the P0 eng-lead alert per X-91) | B-18 |
 | F-16 Final Review (P1, delivered as a P0 decision record) | B-12 |
-| F-17 Analytics (P1, basic in MVP) | B-17 |
+| F-17 Analytics (P1, basic in MVP) | B-17; FB-18 (a view of the Command Center at `/?view=analytics`; `/analytics` redirects there with its filters) |
 
 | Op Model MUST (MVP) | Build step |
 |---|---|

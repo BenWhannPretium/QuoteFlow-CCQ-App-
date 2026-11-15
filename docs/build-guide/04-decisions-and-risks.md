@@ -250,6 +250,16 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | `app_setting.g4_additional_approvals` | One rule, **off**: customer-funded or $0 CER → Sales leader, then Leadership (`finalReview.signoff`: SalesLeader, Leadership) | **A-035**, D-002 | Oleg Yarovinski; Sarah |
 | `app_setting.g4_tier_rules` | Unchanged: null (no tiers) | **D-002** thresholds | Oleg Yarovinski |
 
+**Provisional values FB-18 seeded (built 2026-11-15; none: FB-18 adds no setting, no config row and no migration):**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| (none seeded) | FB-18 is screens plus one dashboard contract change. Nothing it built is a configurable rule, so nothing was seeded `provisional: true` | — | — |
+| `app_setting.salesforce_instance_url` (FB-04's setting; W13-31) | Unchanged: still seeded empty. Until it is set, a quote shows the plain opportunity ID wherever the link would be, and Admins alone see "Set the Salesforce URL in Admin → Settings" | An Admin sets the Pretium Lightning URL in each environment (Admin → App settings → "Salesforce Lightning URL"). It is not a secret and not code | Ben Whann (Admin) |
+| Screen wording (W13-26, W13-29, W13-30) | In the web app's code, like the other page chrome, not in config: "Command Center", its views "My work" and "Analytics", the short phone label "Command", "Progress saved", "Not saved: <reason>", and the "On hold" chip (its sentence is FB-17's: "On hold: <reason>. Owner: <name>. Review by <date>.") | Final wording, at the Nov 17 round-table | Bailey Schmitt |
+| On hold first (W13-26) | In code (`onHoldFirst`): a stage on a Command Center board lists its on-hold quotes first, then the oldest, five in all. The proposal lists keep their date order and only carry the chip | Whether on-hold quotes should also lead the proposal lists | Bailey Schmitt |
+| ERP customer number in the intake summary (W13-31) | **Not built.** There is no source for it yet | Which Phoenix / Fabric table and field holds it (W13-W1) | AR / Finance and Brennan Paul |
+
 **Provisional values FB-17 seeded (built 2026-11-15; all `provisional: true`, changed by config, not code; migration 0046):**
 
 | Value | Seed | Waits on | Who signs off |

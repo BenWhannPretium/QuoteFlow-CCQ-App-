@@ -2,11 +2,11 @@
 
 **What QuoteFlow is for you.** A read-only view of every commercial capital quote: where it is, how long it takes, what we win and lose, and how the rules are followed. You see everything, including pricing and capital figures. You do not change them.
 
-**Your home screen: Leadership overview.** It shows **Open quotes**, **Median intake to G4**, **First-pass intake completeness**, **Win rate and outcome capture** and **Pipeline by stage**. Your menu: **Home**, **Engineering queue**, **Pricing queue**, **Pipeline**, **Approvals**, **Analytics**, **Admin**.
+**Your Command Center: Leadership overview.** It shows **Open quotes**, **Median intake to G4**, **First-pass intake completeness**, **Win rate and outcome capture** and **Pipeline by stage**. At the top are two views: **My work** and **Analytics**. Your menu: **Command Center**, **Engineering queue**, **Pricing queue**, **Pipeline**, **Approvals**, **Admin**.
 
 ## What you'll do
 
-1. **Read the analytics.** **Analytics** → **Leadership report**: Pipeline, Outcomes, Cycle time, Flow, Reasons, Quality and governance, Priority, Adoption. Click the ⓘ on any chart for its definition and time window. Click **Table** to see the numbers.
+1. **Read the analytics.** **Command Center** → **Analytics** → **Leadership report**: Pipeline, Outcomes, Cycle time, Flow, Reasons, Quality and governance, Priority, Adoption. Click the ⓘ on any chart for its definition and time window. Click **Table** to see the numbers.
 2. **Review overrides.** **Admin** → **Override log**: every override, the original value, the reason and who decided.
 3. **Check the audit trail.** **Admin** → **Audit log**: every view, change, decision, export and sign-in.
 4. **Export.** **Pipeline** → **Export CSV** (every export is audited).

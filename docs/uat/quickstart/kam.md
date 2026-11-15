@@ -2,7 +2,7 @@
 
 **What QuoteFlow is for you.** One place to request a commercial capital quote and follow it to the customer's answer. You start from your Salesforce opportunity. Engineering, Pricing and Final Review do their part in QuoteFlow, and you see where it is at every step.
 
-**Your home screen: My quotes.** It shows what is **Returned to me**, **My drafts**, **My open quotes by stage**, **Proposals expiring soon** and **My outcome capture rate**. Your menu: **Home**, **New intake**, **My proposals**, **Pipeline**.
+**Your Command Center: My quotes.** It shows what is **Returned to me**, **My drafts**, **My open quotes by stage**, **Proposals expiring soon** and **My outcome capture rate**. A quote on hold carries an orange **On hold** chip: rest the mouse on it, tab to it or tap it to read why it is held, who owns the hold and the review date. Your menu: **Command Center**, **New intake**, **My proposals**, **Pipeline**.
 
 ## What you'll do
 
@@ -24,7 +24,7 @@
 - Awarded is the customer's yes. The quote closes Won only after Commit & Hand Off.
 - You can see the price approval, pricing basis and capital figures on your quotes. Only Pricing changes them.
 - Once a gate is decided, its section is locked until a send-back reopens it.
-- After you record an outcome, QuoteFlow reminds you to update the Salesforce opportunity. It does not write to Salesforce.
+- After you record an outcome, QuoteFlow reminds you to update the Salesforce opportunity. It does not write to Salesforce. The opportunity on a quote is a link (**Open in Salesforce ↗**), which opens the Salesforce app on a phone that has it; until an Admin sets the Salesforce address you see the opportunity ID.
 
 ## Who to ask
 

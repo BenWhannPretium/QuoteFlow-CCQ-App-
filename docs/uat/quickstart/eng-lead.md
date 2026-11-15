@@ -2,7 +2,7 @@
 
 **What QuoteFlow is for you.** One queue for all upfront engineering work on new business quotes. You assign it and decide whether there is a feasible solution (gate G2, **Feasible solution?**). The stage is called **Engineering & Capacity**: an engineer works the solution and a production scheduler works the capacity.
 
-**Your home screen: Engineering queue.** It shows **Queue health**, **Open load per engineer**, **Time to assign and to G2** and **Returned to the KAM: top reasons**. You are alerted (bell and email) when a quote arrives. Your menu: **Home**, **Engineering queue**, **Pipeline**, **Approvals**, **Analytics**.
+**Your Command Center: Engineering queue.** It shows **Queue health**, **Open load per engineer**, **Time to assign and to G2** and **Returned to the KAM: top reasons**. You are alerted (bell and email) when a quote arrives. At the top are two views: **My work** and **Analytics**. Your menu: **Command Center**, **Engineering queue**, **Pipeline**, **Approvals**.
 
 ## What you'll do
 
