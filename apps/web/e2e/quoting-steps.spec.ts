@@ -21,10 +21,15 @@ async function ok(res: Promise<APIResponse>, status = 200) {
   return r;
 }
 
+/**
+ * A quote Engineering advanced into Quoting. FB-17 (W13-22): "Advance – capital required" is switched
+ * off; capital is needed when the preliminary capital is above $0. `needed`: $420,000 and the equipment
+ * BOM, so the Advance flags the quote capital likely. `none`: $0.
+ */
 async function inQuoting(
   request: APIRequestContext,
   engineerId: string,
-  g2: 'proceed' | 'capital_required',
+  capital: 'none' | 'needed',
 ): Promise<string> {
   const qn = await submitQuote(request, await freeOpportunities(request, 1));
   const post = (path: string, persona: string, data: unknown) =>
@@ -38,7 +43,7 @@ async function inQuoting(
     plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
-    prelimCapitalUsd: 420000,
+    prelimCapitalUsd: capital === 'needed' ? 420000 : 0,
   });
   await put('capacity-evidence', 'eng-lead', {
     rows: [
@@ -53,13 +58,9 @@ async function inQuoting(
     ],
   });
   await put('capacity-signoff', 'eng-lead', { status: 'approved' });
-  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
-  if (g2 === 'capital_required') await uploadBom(request, qn);
-  await post(
-    'gates/G2/decisions',
-    'eng-lead',
-    g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'New mold set needed' },
-  );
+  // FB-06 (F-058) / FB-17: capital needed needs the equipment BOM on file.
+  if (capital === 'needed') await uploadBom(request, qn);
+  await post('gates/G2/decisions', 'eng-lead', { outcomeKey: 'proceed' });
   return qn;
 }
 
@@ -105,7 +106,7 @@ test('costing → payback → price approved → Final Review, with versions and
     ).user.id;
   const engineerId = await id('engineer');
   const pricingId = await id('pricing');
-  const qn = await inQuoting(request, engineerId, 'capital_required');
+  const qn = await inQuoting(request, engineerId, 'needed');
 
   const open = async (persona: string) => {
     const context = await browser.newContext();
@@ -121,7 +122,8 @@ test('costing → payback → price approved → Final Review, with versions and
   const steps = pricer.getByTestId('quoting-steps');
   await expect(steps).toHaveAttribute('data-current', 'costing');
   await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'blocked');
-  await expect(steps.getByTestId('roi-reasons')).toContainText('Advance – capital required');
+  // FB-17 (W13-22): the G2 Advance with preliminary capital above $0 flagged the quote capital likely.
+  await expect(steps.getByTestId('roi-reasons')).toContainText('Capital is flagged likely');
   await steps.getByTestId('upload-cost_model').setInputFiles(file('Costing model.synthetic.xlsx'));
   await expect(steps.getByTestId('model-cost_model')).toContainText('v1 · current');
   await steps.getByTestId('upload-cost_model').setInputFiles(file('Costing model.synthetic.xlsx'));
@@ -230,7 +232,7 @@ test('no capital: the Payback step says "Not required" and the lead approves wit
         user: { id: string };
       }
     ).user.id;
-  const qn = await inQuoting(request, await id('engineer'), 'proceed');
+  const qn = await inQuoting(request, await id('engineer'), 'none');
 
   await signInAs(page, 'pricing-lead');
   await page.goto(`/quotes/${qn}?tab=quoting`);

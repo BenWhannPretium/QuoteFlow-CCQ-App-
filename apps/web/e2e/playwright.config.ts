@@ -59,6 +59,7 @@ export default defineConfig({
         'quoting-steps.spec.ts',
         'fb15.spec.ts',
         'fb16.spec.ts',
+        'fb17.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

@@ -26,12 +26,19 @@ async function ok(res: Promise<APIResponse>, status = 200) {
   return r;
 }
 
-/** Qualified, engineered and priced: submitted by Pricing to Final Review (G3). Returns the quote number. */
+/**
+ * Qualified, engineered and priced: submitted by Pricing to Final Review (G3). Returns the quote number.
+ * FB-17 (W13-22): "Advance – capital required" is switched off, so capital is said with the figure.
+ * - `none`: $0 preliminary capital, capital readiness pre-approved.
+ * - `needed`: $420,000 preliminary capital and the equipment BOM; the Advance flags the quote capital
+ *   likely, so capital readiness must be confirmed (pre-approved) before G3.
+ * - `pending`: $0 preliminary capital, capital readiness still pending with its justification.
+ */
 async function quoteInFinalReview(
   request: APIRequestContext,
   engineerId: string,
   pricingId: string,
-  g2: 'proceed' | 'capital_required',
+  capital: 'none' | 'needed' | 'pending',
 ): Promise<string> {
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
   const post = (path: string, persona: string, data: unknown) =>
@@ -45,7 +52,7 @@ async function quoteInFinalReview(
     plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
-    prelimCapitalUsd: 420000,
+    prelimCapitalUsd: capital === 'needed' ? 420000 : 0,
   });
   await put('capacity-evidence', 'eng-lead', {
     rows: [
@@ -61,14 +68,9 @@ async function quoteInFinalReview(
   });
   // B-26: the capacity owner signs off before G2.
   await put('capacity-signoff', 'eng-lead', { status: 'approved' });
-  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
-  if (g2 === 'capital_required') await uploadBom(request, quoteNumber);
-  // FB-01 (F-027): "Capital required" is an exception decision: it needs a note.
-  await post(
-    'gates/G2/decisions',
-    'eng-lead',
-    g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Second cavity set needed' },
-  );
+  // FB-06 (F-058) / FB-17: capital needed needs the equipment BOM on file.
+  if (capital === 'needed') await uploadBom(request, quoteNumber);
+  await post('gates/G2/decisions', 'eng-lead', { outcomeKey: 'proceed' });
   // FB-07 (F-032): the costing model (and the ROI model when needed) before costing is attested.
   await prepareModels(request, quoteNumber);
   await put('pricing-record', 'pricing', {
@@ -79,8 +81,8 @@ async function quoteInFinalReview(
     costingCompleted: true,
   });
   await put('capital-readiness', 'pricing', {
-    capitalReadiness: g2 === 'capital_required' ? 'pending' : 'pre_approved',
-    ...(g2 === 'capital_required'
+    capitalReadiness: capital === 'pending' ? 'pending' : 'pre_approved',
+    ...(capital === 'pending'
       ? { capitalPendingJustification: 'CER goes to the board Nov 10' }
       : {}),
   });
@@ -134,8 +136,9 @@ test('an Approver approves one quote and declines another from a phone', async (
   const engineerId = await id('engineer');
   const pricingId = await id('pricing');
 
-  const approveMe = await quoteInFinalReview(request, engineerId, pricingId, 'proceed');
-  const declineMe = await quoteInFinalReview(request, engineerId, pricingId, 'capital_required');
+  const approveMe = await quoteInFinalReview(request, engineerId, pricingId, 'none');
+  const declineMe = await quoteInFinalReview(request, engineerId, pricingId, 'needed');
+  const pendingMe = await quoteInFinalReview(request, engineerId, pricingId, 'pending');
 
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -161,10 +164,19 @@ test('an Approver approves one quote and declines another from a phone', async (
   await page.getByLabel('Search Final Review').fill(declineMe);
   const risky = page.locator(`[data-testid="final-review-item"][data-quote="${declineMe}"]`);
   await expect(risky).toHaveCount(1);
-  await expect(risky.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
-  await expect(risky.getByTestId('capital-readiness')).toHaveText('Capital pending (budgetary)');
+  // FB-17 (W13-22): capital needed is read from the capital figure and shown beside the G2 outcome.
+  await expect(risky.getByTestId('g2-outcome')).toHaveText('Advance · capital needed');
+  await expect(risky.getByTestId('capital-readiness')).toHaveText(
+    'Capital pre-approved (budgetary)',
+  );
   await expect(risky.getByTestId('approval-status')).toContainText('Approved');
   await expect(risky.getByTestId('waiting')).toContainText('Waiting');
+  // A quote whose capital is still pending says so on its card.
+  await page.getByLabel('Search Final Review').fill(pendingMe);
+  const pending = page.locator(`[data-testid="final-review-item"][data-quote="${pendingMe}"]`);
+  await expect(pending).toHaveCount(1);
+  await expect(pending.getByTestId('g2-outcome')).toHaveText('Advance');
+  await expect(pending.getByTestId('capital-readiness')).toHaveText('Capital pending (budgetary)');
   expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
   expect(await seriousViolations(page)).toEqual([]);
 
@@ -216,7 +228,8 @@ test('an Approver approves one quote and declines another from a phone', async (
     'Advance (release the offer)',
     'Hold',
     'Stop (withdraw)',
-    'Rework (back to the affected gate)',
+    // FB-17 (W13-23): the send-back says where the quote can go.
+    'Send back to Quoting or Engineering',
   ]) {
     const box = (await bar.getByRole('button', { name, exact: true }).boundingBox())!;
     expect(box.height, `${name} tap target height`).toBeGreaterThanOrEqual(44);
@@ -260,11 +273,14 @@ test('an Approver approves one quote and declines another from a phone', async (
   await expect(page.getByTestId('final-review-item')).toHaveCount(0);
 
   // ── Decline the other one: a note and a reason are required ──
-  await page.goto(`/quotes/${declineMe}/review`);
-  await expect(page.getByTestId('review-warnings')).toContainText(
-    'Engineering flagged capital as required',
-  );
+  // Pending capital is an open warning on the review of the quote that has it.
+  await page.goto(`/quotes/${pendingMe}/review`);
   await expect(page.getByTestId('review-warnings')).toContainText('Capital is still pending');
+  await page.goto(`/quotes/${declineMe}/review`);
+  // FB-17 (W13-22): the capital warning comes from the preliminary capital figure.
+  await expect(page.getByTestId('review-warnings')).toContainText(
+    'Capital is needed: preliminary capital $420,000',
+  );
   await page
     .getByTestId('decision-bar')
     .getByRole('button', { name: 'Stop (withdraw)', exact: true })
@@ -341,12 +357,7 @@ test('a quote on hold at Final Review shows the hold on the review screen', asyn
         user: { id: string };
       }
     ).user.id;
-  const qn = await quoteInFinalReview(
-    request,
-    await id('engineer'),
-    await id('pricing'),
-    'proceed',
-  );
+  const qn = await quoteInFinalReview(request, await id('engineer'), await id('pricing'), 'none');
   const reviewDate = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
   await ok(
     request.post(`/api/v1/quotes/${qn}/gates/G4/decisions`, {

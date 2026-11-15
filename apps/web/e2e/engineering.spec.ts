@@ -171,7 +171,10 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   // ── FB-06 (F-058): the equipment BOM is an upload of the one-page CSR BOM, versioned ──
   const bom = eng.getByTestId('equipment-bom');
   await expect(bom.getByTestId('bom-none')).toBeVisible();
-  await expect(bom.getByTestId('bom-required')).toContainText('Capital required');
+  // FB-17 (W13-22): the BOM is needed when the capital figure says capital is needed.
+  await expect(bom.getByTestId('bom-required')).toHaveText(
+    'Required to advance when preliminary capital is above $0.',
+  );
   await bom.getByTestId('upload-equipment_bom').setInputFiles({
     name: 'CSR BOM one-pager.synthetic.xlsx',
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -345,7 +348,7 @@ test('an unfinished review shows what is still needed in words and offers no but
   // Hold needs nothing from the quote: it is offered, and Advance is not.
   await tab.getByTestId('decide-other').click();
   const g2 = page.getByRole('dialog');
-  await expect(g2.getByRole('heading', { name: 'Hold, send back or stop' })).toBeVisible();
+  await expect(g2.getByRole('heading', { name: 'Send back, hold or stop' })).toBeVisible();
   await expect(g2.getByRole('radio', { name: 'Advance', exact: true })).toHaveCount(0);
   await g2.getByRole('radio', { name: 'Hold', exact: true }).check();
   await expect(g2.getByRole('button', { name: 'Record decision' })).toBeEnabled();
@@ -381,6 +384,8 @@ test('the engineer submits to the engineering lead, who sends it back with a not
     plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
+    // FB-17 (W13-22): the engineer's part includes the capital figure; $0 means no capital is needed.
+    prelimCapitalUsd: 0,
   });
   await call('put', 'capacity-evidence', 'engineer', {
     rows: [

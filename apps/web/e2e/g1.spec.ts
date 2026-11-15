@@ -4,10 +4,11 @@ import { seriousViolations } from './axe';
 import { signInAs } from './personas';
 import { freeOpportunities, submitQuote } from './quotes';
 
-// B-08: a SalesLeader works the "To qualify" (G1) queue: qualifies one quote and redirects another.
+// B-08: a SalesLeader works the "To qualify" (G1) queue: qualifies one quote and stops another as not
+// CCQ work (FB-17, W13-23: the former "Redirect" sits under Stop; it still closes as Redirected).
 // The quotes are created through the API as the KAM (the intake UI has its own spec).
 
-test('a SalesLeader qualifies one quote and redirects another from the G1 queue', async ({
+test('a SalesLeader qualifies one quote and stops another as not CCQ work from the G1 queue', async ({
   page,
   request,
 }) => {
@@ -52,11 +53,17 @@ test('a SalesLeader qualifies one quote and redirects another from the G1 queue'
   await expect(page.getByText(`${toAdvance} is now in Engineering & Capacity`)).toBeVisible();
   await expect(advanceCard).toHaveCount(0);
 
-  // Redirect the second: a reason and (FB-01, F-027) a note are required.
+  // Stop the second as not CCQ work: a reason and (FB-01, F-027) a note are required.
   await redirectCard.getByRole('button', { name: `Decide ${toRedirect}` }).click();
-  await dialog.getByRole('radio', { name: 'Redirect' }).check();
+  // FB-17 (W13-23): four plain choices; "not CCQ work" is one of the two under Stop.
+  const stop = dialog.getByRole('group', { name: 'Stop', exact: true });
+  await expect(stop.getByRole('radio')).toHaveCount(2);
+  await expect(dialog.getByRole('radio', { name: /Redirect/ })).toHaveCount(0);
+  await stop.getByRole('radio', { name: 'Stop: not CCQ work (send elsewhere)' }).check();
   // DR-kam-sales-leader-16: the note helper fits the outcome.
   await expect(dialog.getByText('Say where the work goes instead, and why.')).toBeVisible();
+  // FB-17 (W13-27): the decider owns this closure, so no closure-owner question is asked.
+  await expect(dialog.getByLabel('Closure owner')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(dialog.getByRole('alert')).toContainText('Choose a reason.');
   await expect(dialog.getByRole('alert')).toContainText('Add a note.');
@@ -69,14 +76,16 @@ test('a SalesLeader qualifies one quote and redirects another from the G1 queue'
   // The quote pages show the outcomes and the decisions.
   await page.goto(`/quotes/${toRedirect}`);
   await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'REDIRECTED');
-  await expect(page.getByTestId('decisions')).toContainText('G1 · Redirect');
+  await expect(page.getByTestId('decisions')).toContainText(
+    'G1 · Stop: not CCQ work (send elsewhere)',
+  );
   await page.goto(`/quotes/${toAdvance}`);
   await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'ENG_REVIEW');
   await expect(page.getByTestId('decisions')).toContainText('Good fit for the Midwest plants');
   expect(await seriousViolations(page)).toEqual([]);
 });
 
-test('Rework sends the quote back to the KAM with what to fix', async ({ page, request }) => {
+test('Send back to… returns the quote to the KAM with what to fix', async ({ page, request }) => {
   const candidates = await freeOpportunities(request, 1);
   const quoteNumber = await submitQuote(request, candidates);
 
@@ -93,7 +102,13 @@ test('Rework sends the quote back to the KAM with what to fix', async ({ page, r
   await expect(decide).toBeFocused();
 
   await decide.click();
-  await dialog.getByRole('radio', { name: /^Rework/ }).check();
+  // FB-17 (W13-23): "Send back to…" is one choice. From G1 the quote can only go to the KAM, so that
+  // is chosen already, and shown.
+  await dialog.getByRole('radio', { name: 'Send back to…' }).check();
+  await expect(dialog.getByLabel('Send to (required)').locator('option:checked')).toHaveText(
+    'The KAM (fix the intake)',
+  );
+  await expect(dialog.getByText('Say what needs to change, and where.')).toBeVisible();
   await dialog.getByLabel('Reason (required)').selectOption({ label: 'Missing information' });
   await dialog.getByLabel('Note (required)').fill('Add the target neck finish');
   await dialog.getByRole('button', { name: 'Record decision' }).click();
