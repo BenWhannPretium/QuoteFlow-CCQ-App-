@@ -15,7 +15,11 @@ export async function freeOpportunities(
   count: number,
 ): Promise<string[]> {
   const found = new Set<string>();
-  for (const q of ['Bottle', 'Jar', 'Closure', 'Preform', 'Tub', 'Pack', 'Container']) {
+  // A search returns at most 50 rows, ranked the same way every time, so a few broad words alone stop
+  // reaching free opportunities once the specs have quoted the top 50. The synthetic names carry the
+  // size ("16oz HDPE Boston Round"), so the sizes split the pool into small, reachable groups.
+  const sizes = ['2oz', '4oz', '8oz', '12oz', '16oz', '24oz', '32oz', '64oz', '128oz'];
+  for (const q of ['Bottle', 'Jar', 'Closure', 'Preform', 'Tub', 'Pack', 'Container', ...sizes]) {
     const res = await request.get(
       `/api/v1/salesforce/opportunities?q=${q}&mine=false&openOnly=true&limit=50`,
       { headers: asKam },
