@@ -210,7 +210,8 @@ describe('the queue', () => {
     );
     expect(q.total).toBe(open[0]!.n);
     expect(q.items).toHaveLength(q.total);
-    expect(q.stage).toEqual({ key: 'ENG_REVIEW', label: 'Engineering Review' });
+    // FB-16 (W13-16): the stage is "Engineering & Capacity" (config, provisional).
+    expect(q.stage).toEqual({ key: 'ENG_REVIEW', label: 'Engineering & Capacity' });
 
     const rank = (t: string | null) => {
       const i = ['CRITICAL', 'HIGH', 'STANDARD', 'LOW'].indexOf(t ?? '');
@@ -1053,16 +1054,17 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     ]);
     // B-26: every option carries its definition.
     expect(d.availableActions.every((a) => (a.helpText ?? '').length > 20)).toBe(true);
-    expect(
-      d.availableActions.find((a) => a.outcomeKey === 'proceed')!.missing.map((m) => m.field),
-    ).toEqual([
+    // FB-16 (W13-18): the lead holds capacity.signoff and approves a not-yet-signed capacity inside the
+    // decision, so the sign-off is not "missing" for them (the decision still needs the tick, below).
+    const proceed = d.availableActions.find((a) => a.outcomeKey === 'proceed')!;
+    expect(proceed.capacityApproval).toBe(true);
+    expect(proceed.missing.map((m) => m.field)).toEqual([
       'process_type',
       'machine_type',
       'plant_code',
       'cavitation',
       'cycle_time_s',
       'capacity_evidence',
-      'capacity_signoff_status',
     ]);
     const rejected = await decide(qn, 'G2', { outcomeKey: 'proceed' });
     expect(rejected.statusCode).toBe(422);
@@ -1386,7 +1388,7 @@ describe('time in stage', () => {
     const body = StageTimesResponse.parse(res.json());
     const eng = body.stages.find((s) => s.stageKey === 'ENG_REVIEW')!;
     expect(eng).toMatchObject({
-      label: 'Engineering Review',
+      label: 'Engineering & Capacity',
       current: true,
       visits: 1,
       elapsedMs: 3 * DAY,

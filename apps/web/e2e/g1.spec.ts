@@ -49,7 +49,7 @@ test('a SalesLeader qualifies one quote and redirects another from the G1 queue'
   await dialog.getByLabel('Note (optional)').fill('Good fit for the Midwest plants');
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText(`${toAdvance} is now in Engineering Review`)).toBeVisible();
+  await expect(page.getByText(`${toAdvance} is now in Engineering & Capacity`)).toBeVisible();
   await expect(advanceCard).toHaveCount(0);
 
   // Redirect the second: a reason and (FB-01, F-027) a note are required.

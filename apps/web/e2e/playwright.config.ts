@@ -58,6 +58,7 @@ export default defineConfig({
         'notifications-handoff.spec.ts',
         'quoting-steps.spec.ts',
         'fb15.spec.ts',
+        'fb16.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

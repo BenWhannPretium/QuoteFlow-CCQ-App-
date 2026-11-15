@@ -198,16 +198,22 @@ describe('FB-13: an Engineering Review with the new codes', () => {
     );
     const r = (await detail(qn)).engineering.review;
     expect(r).toMatchObject({
-      processType: 'IMM',
+      // FB-16 (W13-12): the process type is derived from the machine type (machine_type_process_map),
+      // whatever process the caller sent: INJ - PREFORM is IMM Preform.
+      processType: 'IMM_PREFORM',
       machineType: 'INJ-PREFORM',
       plantCode: 'CLEVELAND_OH',
       preformPlantCode: 'LERMA_EDIPLAST',
       blowPlantCode: 'ETTEN_LEUR',
     });
-    // Codes that carry a space or a digit, exactly as Jim sent them.
-    ok(await putReview(qn, { machineType: 'PAD PRINTING', plantCode: 'ST_CHARLES' }));
-    ok(await putReview(qn, { machineType: '12B' }));
-    expect((await detail(qn)).engineering.review.machineType).toBe('12B');
+    // Codes that carry a space or a digit, exactly as Jim sent them. FB-16 (W13-13): each at a plant
+    // that runs it (Boxmore runs PAD PRINTING, St. Charles runs 12B).
+    ok(await putReview(qn, { machineType: 'PAD PRINTING', plantCode: 'BOXMORE' }));
+    ok(await putReview(qn, { machineType: '12B', plantCode: 'ST_CHARLES' }));
+    expect((await detail(qn)).engineering.review).toMatchObject({
+      machineType: '12B',
+      processType: 'OTHER',
+    });
   });
 
   it('refuses a placeholder plant and a retired machine type on a write', async () => {
@@ -268,26 +274,41 @@ describe('FB-13: the FB-06 routing suggestion does not change', () => {
     pasillas = await make('oid-pasillas-13', 'Rafael Pasillas');
   });
 
-  it('ISBM, RHB and IMM still go to the PET engineer, EBM and IBM to the polyolefin engineer, whatever the machine type', async () => {
+  it('ISBM, RHB and IMM still go to the PET engineer, EBM and IBM to the polyolefin engineer (FB-16: the process comes from the machine type)', async () => {
     const qn = await inEngReview({ resin: 'HDPE' });
-    const cases: [processType: string, machineType: string, engineer: () => string][] = [
+    // FB-16 (W13-12): the engineer picks the machine type and the server derives the process type; the
+    // routing still reads the process type, so each process reaches the same engineer as before.
+    const cases: [machineType: string, processType: string, engineer: () => string][] = [
       ['ISBM', 'ISBM', () => neiberger],
       ['RHB', 'RHB', () => neiberger],
-      ['IMM', 'INJ-CAP', () => neiberger],
-      ['IMM', 'INJ-PREFORM', () => neiberger],
-      ['IMM', 'INJ-OTHER', () => neiberger],
+      ['INJ-CAP', 'IMM', () => neiberger],
+      ['INJ-PREFORM', 'IMM_PREFORM', () => neiberger],
+      ['INJ-OTHER', 'IMM', () => neiberger],
       ['EBM', 'EBM', () => pasillas],
       ['IBM', 'IBM', () => pasillas],
-      // The machine type is not the routing key: the process type decides.
-      ['EBM', 'INJ-CAP', () => pasillas],
-      ['ISBM', 'EBM', () => neiberger],
     ];
-    for (const [processType, machineType, engineer] of cases) {
-      ok(await putReview(qn, { processType, machineType }));
-      expect(
-        (await detail(qn)).engineering.suggestedEngineer,
-        `${processType} / ${machineType}`,
-      ).toMatchObject({ userId: engineer(), processType });
+    for (const [machineType, processType, engineer] of cases) {
+      ok(await putReview(qn, { machineType }));
+      const eng = (await detail(qn)).engineering;
+      expect(eng.review.processType, machineType).toBe(processType);
+      expect(eng.suggestedEngineer, machineType).toMatchObject({ userId: engineer(), processType });
+    }
+    // The process type is still the routing key, not the machine type: sent on its own (an older
+    // client, or a quote with no machine type yet) it routes exactly as before.
+    ok(await putReview(qn, { machineType: null }));
+    expect((await detail(qn)).engineering.review.processType).toBeNull();
+    const byProcess: [processType: string, engineer: () => string][] = [
+      ['ISBM', () => neiberger],
+      ['IMM', () => neiberger],
+      ['EBM', () => pasillas],
+      ['IBM', () => pasillas],
+    ];
+    for (const [processType, engineer] of byProcess) {
+      ok(await putReview(qn, { processType }));
+      expect((await detail(qn)).engineering.suggestedEngineer, processType).toMatchObject({
+        userId: engineer(),
+        processType,
+      });
     }
   });
 });

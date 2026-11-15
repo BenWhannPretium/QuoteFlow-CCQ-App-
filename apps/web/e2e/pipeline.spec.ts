@@ -41,7 +41,7 @@ test('filter, then sort, then open a quote (URL holds the view)', async ({ page,
 
   // Filter: Stage = Engineering Review (Filters popover).
   await page.getByRole('button', { name: /^Filters/ }).click();
-  await page.getByRole('checkbox', { name: 'Engineering Review' }).check();
+  await page.getByRole('checkbox', { name: 'Engineering & Capacity' }).check();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page).toHaveURL(/stage=ENG_REVIEW/);
   await expect(page.getByRole('button', { name: 'Filters 1 active' })).toBeVisible();
@@ -84,7 +84,7 @@ test('EngLead drags ENG_REVIEW → QUOTING: the G2 dialog opens on Advance; canc
   // A column no G2 outcome leads to: refused, with the reason.
   await drag(page, card, page.locator('[data-column="FINAL_REVIEW"]'));
   await expect(page.getByTestId('drop-denied')).toContainText(
-    'No “Feasible solution?” outcome moves a quote from Engineering Review to Final Review',
+    'No “Feasible solution?” outcome moves a quote from Engineering & Capacity to Final Review',
   );
   await expect(page.getByRole('dialog')).toHaveCount(0);
 

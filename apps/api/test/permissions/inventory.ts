@@ -28,6 +28,8 @@ const describeGrant = (role: Role, grant: Grant): string => {
       return `${role} (own)`;
     case 'assigned':
       return `${role} (assigned)`;
+    case 'assignedScheduler':
+      return `${role} (assigned as scheduler)`;
     case 'fields':
       return `${role} (${grant.fields.join(', ')})`;
     case 'stages':

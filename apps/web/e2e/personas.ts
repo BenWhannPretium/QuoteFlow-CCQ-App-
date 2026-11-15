@@ -39,6 +39,12 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
     landing: 'PricingLead',
     nav: ['home', 'queue-pricing', 'pipeline', 'analytics'],
   },
+  // FB-16 (W13-15): the Production Scheduler works the capacity part of the quotes assigned to them.
+  {
+    persona: 'production-scheduler',
+    landing: 'ProductionScheduler',
+    nav: ['home', 'queue-engineering', 'pipeline'],
+  },
   // FB-07 (F-083): Finance reads quotes and uploads the ROI model, nothing else.
   { persona: 'finance', landing: 'Finance', nav: ['home', 'pipeline'] },
   { persona: 'approver', landing: 'Approver', nav: ['home', 'pipeline', 'approvals', 'analytics'] },

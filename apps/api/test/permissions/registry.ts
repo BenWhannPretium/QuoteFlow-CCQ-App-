@@ -330,6 +330,8 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
   // is quote.read (a backup assigner may hold no queue.assign); the domain then requires queue.assign
   // or the backup setting (engineering.int.test.ts: KAM 403, Engineer 403). Accept / edit need
   // engReview.edit; "an Engineer edits only quotes assigned to them" is engineering.int.test.ts.
+  // FB-16 (W13-15): the capacity rows need capacity.edit and the sign-off capacity.signoff; "a production
+  // scheduler works only the quotes they are assigned to as scheduler" is fb16-engineering-capacity.int.test.ts.
   { method: 'GET', route: '/api/v1/queue/engineering', permission: 'engQueue.read' },
   {
     method: 'POST',
@@ -369,7 +371,7 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     method: 'PUT',
     route: '/api/v1/quotes/:quoteNumber/capacity-evidence',
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/capacity-evidence`,
-    permission: 'engReview.edit',
+    permission: 'capacity.edit',
     sampleBody: { rows: [] },
   },
   // FB-03 (F-061): the capacity evidence as a CSV; the same read floor as the Engineering tab.

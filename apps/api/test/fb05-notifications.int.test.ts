@@ -56,6 +56,7 @@ const PERSONA: Record<Role, string> = {
   SalesLeader: 'sales-leader',
   EngLead: 'eng-lead',
   Engineer: 'engineer',
+  ProductionScheduler: 'production-scheduler',
   Pricing: 'pricing',
   PricingLead: 'pricing-lead',
   Finance: 'finance',
