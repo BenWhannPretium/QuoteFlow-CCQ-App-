@@ -472,15 +472,16 @@ describe('F-024: the two-step (preform) process', () => {
 describe('F-025: pack-out quantities', () => {
   it('saves optional whole numbers; Pricing sees them; null clears one', async () => {
     const qn = reviewQn;
+    // FB-16 (W13-14): units per bag and units per case are never filled in together
+    // (pack_out_rule.notTogether), so this uses tray and case.
     const res = await putReview(qn, {
-      unitsPerBag: 50,
       unitsPerTray: 240,
       unitsPerCase: 600,
       unitsPerPallet: 14_400,
     });
     ok(res);
     expect(EngineeringDetail.parse(res.json()).review).toMatchObject({
-      unitsPerBag: 50,
+      unitsPerBag: null,
       unitsPerTray: 240,
       unitsPerCase: 600,
       unitsPerPallet: 14_400,
@@ -493,7 +494,7 @@ describe('F-025: pack-out quantities', () => {
     ok(cleared);
     expect(EngineeringDetail.parse(cleared.json()).review).toMatchObject({
       unitsPerTray: null,
-      unitsPerBag: 50,
+      unitsPerCase: 600,
     });
   });
 

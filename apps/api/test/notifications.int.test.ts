@@ -710,6 +710,10 @@ describe('email preferences', () => {
         'comment.posted',
         'quote.approved_for_customer',
         'quote.assigned',
+        // FB-16 (W13-15, W13-17): the production scheduler and capacity.
+        'quote.capacity_assigned',
+        'quote.capacity_blocked',
+        'quote.capacity_ready',
         'quote.capital_likely',
         'quote.closed',
         'quote.declined',
