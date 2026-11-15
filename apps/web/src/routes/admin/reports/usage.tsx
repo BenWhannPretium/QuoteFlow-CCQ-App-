@@ -18,6 +18,7 @@ const ROLE_LABEL: Record<string, string> = {
   SalesLeader: 'Sales leader',
   EngLead: 'Eng lead',
   Engineer: 'Engineer',
+  ProductionScheduler: 'Production scheduler',
   Pricing: 'Pricing',
   PricingLead: 'Pricing lead',
   Finance: 'Finance',

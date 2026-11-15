@@ -9,6 +9,7 @@ export type LandingRole =
   | 'SalesLeader'
   | 'EngLead'
   | 'Engineer'
+  | 'ProductionScheduler'
   | 'Pricing'
   | 'PricingLead'
   | 'Finance'
@@ -61,6 +62,38 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     title: 'My assignments',
     description: 'The engineering reviews assigned to you.',
     action: { label: 'Open my work', to: '/queue/engineering', permission: 'engQueue.read' },
+  },
+  // FB-16 (W13-15; D-008 open, provisional): the Production Scheduler works the capacity part of a quote
+  // alongside the engineer. No data dashboard (FB-18 rebuilds Home): the action opens the queue page,
+  // which lists their capacity requests first.
+  ProductionScheduler: {
+    role: 'ProductionScheduler',
+    roleLabel: 'Production scheduler',
+    title: 'Capacity requests',
+    description:
+      'The quotes whose capacity you own: enter the capacity evidence, then approve or block capacity.',
+    action: {
+      label: 'Open my capacity requests',
+      to: '/queue/engineering',
+      permission: 'engQueue.read',
+    },
+    cards: [
+      {
+        title: 'When a quote needs you',
+        description:
+          'You get a notification here and an email when the engineering lead assigns you to a quote, and again when the engineer has saved the plant and the machine type (“Capacity can start”). You can start earlier: nothing locks you out. The notification opens the quote’s Engineering tab.',
+      },
+      {
+        title: 'What you do',
+        description:
+          'On the Engineering tab, the cards marked “Your part”: add the capacity evidence rows (site, line, effectiveness, how loaded the line is today) and QuoteFlow calculates the utilization with this business added. Then approve capacity, or block it with a note. A block sends the work straight back to the engineer with your note.',
+      },
+      {
+        title: 'What you don’t do',
+        description:
+          'The solution, the pack-out and the two-step fields are the engineer’s part: you can read them but not change them. The engineering lead decides feasibility.',
+      },
+    ],
   },
   Pricing: {
     role: 'Pricing',
@@ -149,6 +182,7 @@ export const LANDING_PRECEDENCE: readonly LandingRole[] = [
   'Pricing',
   'Finance',
   'Engineer',
+  'ProductionScheduler',
   'SalesLeader',
   'KAM',
   'Leadership',

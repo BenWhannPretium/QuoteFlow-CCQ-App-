@@ -1,16 +1,25 @@
 import {
   BUDGETARY_CAPITAL_HELP,
   BUDGETARY_CAPITAL_LABEL,
+  engInputError,
   type CapacityEvidenceRowBody,
+  type EngInputField,
   type EngineeringDetail,
   type EngReviewBody,
+  type PublicValueListEntry,
   type QuoteDetail,
 } from '@ccq/contracts';
 import {
   EXCEEDS_CAPACITY_MESSAGE,
   allocationCheck,
   capacityAtAGlance,
+  checkPlantRunsMachineType,
   computeUtilization,
+  machineTypesForPlant,
+  parseMachineTypeProcessMap,
+  plantMachineTypes,
+  plantsRunning,
+  processTypeForMachine,
   roundPct,
   storedUtilizationPct,
   utilizationLevel,
@@ -59,6 +68,9 @@ const DF22_HELP =
  * and the capacity evidence (CR-19). Editable by the EngLead and the assigned engineer while the
  * quote is in Engineering Review; read-only for everyone else. Commercial numbers come back only for
  * roles allowed to see them: for others the inputs are write-only ("leave blank to keep").
+ *
+ * FB-16 (W13-15): two people work it. The solution is the engineer's part; the capacity rows and the
+ * capacity sign-off are the production scheduler's part (when one is assigned). Each card says whose.
  */
 export function EngineeringTab({
   quote,
@@ -104,7 +116,7 @@ export function EngineeringTab({
         kind="engineering"
         review={eng.leadReview}
         submit={() => api.submitEngReviewToLead(quote.quoteNumber)}
-        sendBack={(note) => api.sendBackEngReview(quote.quoteNumber, note)}
+        sendBack={(note, to) => api.sendBackEngReview(quote.quoteNumber, note, to)}
         onDone={(detail) => refresh(detail)}
         decide={
           g2
@@ -181,6 +193,29 @@ function useRefresh(quoteNumber: string) {
   };
 }
 
+/**
+ * FB-16 (W13-15): whose part a card is. "Your part" on the viewer's own; with no production scheduler
+ * assigned, the capacity part says who fills it in instead.
+ */
+function PartLabel({ part, quote }: { part: 'engineer' | 'scheduler'; quote: QuoteDetail }) {
+  const me = useCurrentUser().user.id;
+  const eng = quote.engineering;
+  const owner = part === 'engineer' ? eng.assignedEngineerId : eng.assignedSchedulerId;
+  const text =
+    owner && owner === me
+      ? 'Your part'
+      : part === 'engineer'
+        ? 'Engineer’s part'
+        : eng.assignedSchedulerId
+          ? 'Production scheduler’s part'
+          : 'Production scheduler’s part (none assigned: the engineer or the engineering lead fills it in)';
+  return (
+    <p className="text-muted-foreground text-xs" data-testid={`part-${part}`}>
+      {text}
+    </p>
+  );
+}
+
 function AssignmentCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
   const isAssignee = useCurrentUser().user.id === eng.assignedEngineerId;
@@ -228,6 +263,14 @@ function AssignmentCard({ quote }: { quote: QuoteDetail }) {
             {
               label: 'Assigned',
               value: eng.assignedAt ? absoluteTime(eng.assignedAt) : null,
+            },
+            {
+              // FB-16 (W13-15): the second assignee, who works the capacity part.
+              id: 'scheduler',
+              label: 'Production scheduler',
+              value: eng.assignedSchedulerName ?? (
+                <span className="text-muted-foreground">None assigned</span>
+              ),
             },
             {
               id: 'accepted',
@@ -281,6 +324,8 @@ function AssignmentCard({ quote }: { quote: QuoteDetail }) {
             quoteNumbers={[quote.quoteNumber]}
             engineers={picker.data.engineers}
             currentEngineerId={eng.assignedEngineerId}
+            schedulers={picker.data.schedulers}
+            currentSchedulerId={eng.assignedSchedulerId}
             suggestions={[{ quoteNumber: quote.quoteNumber, suggested: eng.suggestedEngineer }]}
           />
         )}
@@ -302,8 +347,14 @@ type ExtrasKey =
   | 'unitsPerTray'
   | 'unitsPerCase'
   | 'unitsPerPallet';
-type SolutionKey = Exclude<keyof EngReviewBody, ExtrasKey>;
-const NUMERIC: SolutionKey[] = ['cavitation', 'cycleTimeS', 'prelimCapitalUsd'];
+/**
+ * FB-16 (W13-12): the process type is no longer picked. The form sends the plant and one "Process &
+ * machine type" pick; the server derives the process type from it (`machine_type_process_map`).
+ */
+type SolutionKey = Exclude<keyof EngReviewBody, ExtrasKey | 'processType'>;
+const NUMERIC = ['cavitation', 'cycleTimeS', 'prelimCapitalUsd'] as const satisfies SolutionKey[];
+const isNumeric = (k: SolutionKey): k is (typeof NUMERIC)[number] =>
+  (NUMERIC as readonly SolutionKey[]).includes(k);
 
 function SolutionCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
@@ -319,7 +370,58 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
   // Reset only from our own successful save, never on a background refetch (it would wipe typing).
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
+  // FB-16 (W13-13): why the machine type was cleared when the plant changed ("X does not run Y").
+  const [cleared, setCleared] = useState<string | null>(null);
   const set = (k: SolutionKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  // FB-16 (W13-12, W13-13): plant first, then one pick over the machine types that plant runs.
+  const plants = config?.valueLists.plant ?? [];
+  const machineTypes = config?.valueLists.machine_type ?? [];
+  const offered = machineTypesForPlant(machineTypes, plants, form.plantCode || null);
+  const plant = plants.find((v) => v.code === form.plantCode);
+  const machineHint =
+    form.plantCode === ''
+      ? 'Pick the plant first to see only what it runs'
+      : plant && plantMachineTypes(plant) !== null
+        ? `Only what ${plant.label} runs`
+        : undefined;
+  const setPlant = (plantCode: string) => {
+    const check = checkPlantRunsMachineType({
+      plantCode,
+      machineType: form.machineType,
+      plants,
+      machineTypes,
+    });
+    setCleared(
+      check.ok ? null : `${check.plantLabel} does not run ${check.machineLabel}; pick again`,
+    );
+    setForm((f) => ({ ...f, plantCode, ...(check.ok ? {} : { machineType: '' }) }));
+  };
+  const setMachine = (machineType: string) => {
+    setCleared(null);
+    setForm((f) => ({ ...f, machineType }));
+  };
+  // The process the pick stands for, as the server will derive it (read-only: it is never picked).
+  const derivedProcess = (() => {
+    if (!config || form.machineType === '') return null;
+    try {
+      const map = parseMachineTypeProcessMap(config.settings.machine_type_process_map);
+      const code = processTypeForMachine(map, form.machineType);
+      return code
+        ? (config.valueLists.process_type?.find((v) => v.code === code)?.label ?? code)
+        : null;
+    } catch {
+      return null; // a malformed setting: the server says so on save
+    }
+  })();
+  // FB-16 (W13-20): the numeric inputs are checked as they are typed, with the server's own rules.
+  // An old quote keeps the process it was saved with until someone picks again.
+  const machineUnchanged = form.machineType === initial.machineType;
+  const processShown = machineUnchanged
+    ? (eng.selectedLabels.processType ?? review.processType ?? null)
+    : derivedProcess;
+  const inputError = (k: (typeof NUMERIC)[number]) => engInputError(k, form[k]) ?? undefined;
+  const invalid = NUMERIC.some((k) => inputError(k));
 
   const save = useMutation({
     mutationFn: () => {
@@ -329,15 +431,17 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
         // Blank on a hidden (write-only) field means "keep".
         if (k === 'prelimCapitalUsd' && capitalHidden && form[k].trim() === '') continue;
         const v = form[k].trim();
-        body[k] = v === '' ? null : NUMERIC.includes(k) ? Number(v) : v;
+        body[k] = v === '' ? null : isNumeric(k) ? Number(v) : v;
       }
       return api.updateEngReview(quote.quoteNumber, body);
     },
     onSuccess: async (detail) => {
       setErrors([]);
+      setCleared(null);
       setForm(solutionForm(detail.review));
       await refresh(detail);
-      toast.success({ title: 'Engineering review saved' });
+      // FB-16 (W13-16): this names the card that was saved, not the stage.
+      toast.success({ title: 'Solution saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
@@ -355,21 +459,24 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
           <CardTitle>
             <h2 className="text-base font-semibold">Solution</h2>
           </CardTitle>
+          <PartLabel part="engineer" quote={quote} />
         </CardHeader>
         <CardContent>
           <KeyValueGrid
             items={[
               {
-                label: 'Process',
-                value: shown('process_type', review.processType, eng.selectedLabels.processType),
+                label: 'Plant / site',
+                value: shown('plant', review.plantCode, eng.selectedLabels.plantCode),
               },
               {
-                label: 'Machine',
+                // FB-16 (W13-12): one pick. The process below is derived from it; an old quote keeps
+                // and shows the pair it was saved with.
+                label: 'Process & machine type',
                 value: shown('machine_type', review.machineType, eng.selectedLabels.machineType),
               },
               {
-                label: 'Plant / site',
-                value: shown('plant', review.plantCode, eng.selectedLabels.plantCode),
+                label: eng.processPairLegacy ? 'Process (as saved)' : 'Process',
+                value: shown('process_type', review.processType, eng.selectedLabels.processType),
               },
               { label: 'Cavitation', value: review.cavitation?.toString() },
               { label: 'Cycle time (s)', value: review.cycleTimeS?.toString() },
@@ -398,6 +505,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
         <CardTitle>
           <h2 className="text-base font-semibold">Solution</h2>
         </CardTitle>
+        <PartLabel part="engineer" quote={quote} />
       </CardHeader>
       <CardContent>
         <form
@@ -406,38 +514,11 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
           data-testid="solution-form"
           onSubmit={(e) => {
             e.preventDefault();
-            save.mutate();
+            if (!invalid) save.mutate();
           }}
         >
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field
-              label={req('Process type', 'process_type')}
-              error={errorFor(errors, 'processType')}
-            >
-              {(id) => (
-                <ValueListSelect
-                  id={id}
-                  list="process_type"
-                  value={form.processType}
-                  retiredLabel={eng.selectedLabels.processType}
-                  onChange={set('processType')}
-                />
-              )}
-            </Field>
-            <Field
-              label={req('Machine type', 'machine_type')}
-              error={errorFor(errors, 'machineType')}
-            >
-              {(id) => (
-                <ValueListSelect
-                  id={id}
-                  list="machine_type"
-                  value={form.machineType}
-                  retiredLabel={eng.selectedLabels.machineType}
-                  onChange={set('machineType')}
-                />
-              )}
-            </Field>
+            {/* FB-16 (W13-13): the plant comes first; it decides which machine types are offered. */}
             <Field
               label={req('Plant / site', 'plant_code')}
               hint="Agreed by Engineering, Operations and Supply Chain"
@@ -449,14 +530,45 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                   list="plant"
                   value={form.plantCode}
                   retiredLabel={eng.selectedLabels.plantCode}
-                  onChange={set('plantCode')}
+                  onChange={setPlant}
                 />
               )}
             </Field>
             <Field
+              label={req('Process & machine type', 'machine_type')}
+              hint={machineHint}
+              error={errorFor(errors, 'machineType') ?? cleared ?? undefined}
+            >
+              {(id) => (
+                <ValueListSelect
+                  id={id}
+                  list="machine_type"
+                  options={offered}
+                  outsideSuffix=" (not run at this plant)"
+                  value={form.machineType}
+                  retiredLabel={eng.selectedLabels.machineType}
+                  onChange={setMachine}
+                />
+              )}
+            </Field>
+            {/* The process is derived from the pick (machine_type_process_map); it is shown, not chosen. */}
+            <div className="grid content-start gap-1.5" data-testid="derived-process">
+              <span className="text-sm font-medium">Process</span>
+              <span className="flex min-h-9 items-center text-sm">
+                {processShown ?? (
+                  <span className="text-muted-foreground">Set by the process & machine type</span>
+                )}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {eng.processPairLegacy && machineUnchanged
+                  ? 'Saved before the single pick: kept as it is until you pick again.'
+                  : 'Follows the process & machine type. Not picked separately.'}
+              </span>
+            </div>
+            <Field
               label={req('Cavitation', 'cavitation')}
               hint="A whole number, 1 to 99"
-              error={errorFor(errors, 'cavitation')}
+              error={inputError('cavitation') ?? errorFor(errors, 'cavitation')}
             >
               {(id) => (
                 <Input
@@ -473,7 +585,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
             </Field>
             <Field
               label={req('Cycle time (s)', 'cycle_time_s')}
-              error={errorFor(errors, 'cycleTimeS')}
+              error={inputError('cycleTimeS') ?? errorFor(errors, 'cycleTimeS')}
             >
               {(id) => (
                 <Input
@@ -494,7 +606,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
                   ? `${BUDGETARY_CAPITAL_HELP} Your role cannot see the saved figure. Leave this blank to keep it.`
                   : `${BUDGETARY_CAPITAL_HELP} Saving it updates the quote’s priority score.`
               }
-              error={errorFor(errors, 'prelimCapitalUsd')}
+              error={inputError('prelimCapitalUsd') ?? errorFor(errors, 'prelimCapitalUsd')}
             >
               {(id) => (
                 <Input
@@ -543,7 +655,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
           </Field>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
           <div>
-            <Button type="submit" disabled={!changed || save.isPending}>
+            <Button type="submit" disabled={!changed || invalid || save.isPending}>
               {save.isPending ? 'Saving…' : 'Save solution'}
             </Button>
           </div>
@@ -555,7 +667,6 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
 
 function solutionForm(review: EngineeringDetail['review']): Record<SolutionKey, string> {
   return {
-    processType: review.processType ?? '',
     machineType: review.machineType ?? '',
     plantCode: review.plantCode ?? '',
     cavitation: review.cavitation?.toString() ?? '',
@@ -573,12 +684,21 @@ const SIGNOFF_LABEL = { approved: 'Capacity approved', blocked: 'Capacity blocke
 
 /**
  * The capacity owner's sign-off (B-26, deck slide 9): G2 "Advance" needs capacity approved, not just
- * the evidence rows. Recorded by the EngLead (capacity.signoff) while the quote is in Engineering
- * Review; blocking needs a note. Changing the solution clears it on the server.
+ * the evidence rows. Blocking needs a note. Changing the solution does **not** clear an approval (the
+ * card says so).
+ *
+ * FB-16 (W13-15, W13-17, W13-18): recorded by the production scheduler assigned to the quote, or the
+ * EngLead (`capacity.signoff`). Everyone sees the status; the buttons are for the scheduler, and for the
+ * lead only when no scheduler is assigned (with one assigned, the lead approves capacity inside "Decide
+ * feasibility" instead; the server still accepts the lead's sign-off here). A block sends the work
+ * straight back to the engineer with the note.
  */
 function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
   const signoff = eng.capacitySignoff;
+  const me = useCurrentUser().user.id;
+  const isScheduler = !!eng.assignedSchedulerId && eng.assignedSchedulerId === me;
+  const showButtons = eng.canSignOffCapacity && (isScheduler || !eng.assignedSchedulerId);
   const refresh = useRefresh(quote.quoteNumber);
   const [note, setNote] = useState(signoff.note ?? '');
   const [errors, setErrors] = useState<ServerError[]>([]);
@@ -593,6 +713,9 @@ function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
       await refresh(detail);
       toast.success({
         title: status ? SIGNOFF_LABEL[status] : 'Capacity sign-off cleared',
+        ...(status === 'blocked'
+          ? { description: 'The work is back with the engineer, who has been told why.' }
+          : {}),
       });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -603,12 +726,19 @@ function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
         <CardTitle>
           <h2 className="text-base font-semibold">Capacity sign-off</h2>
         </CardTitle>
+        <PartLabel part="scheduler" quote={quote} />
       </CardHeader>
       <CardContent className="grid gap-4">
         <p className="text-sm" role="status" data-testid="capacity-signoff-status">
           {signoff.status ? (
             <>
-              <span className="font-medium">{SIGNOFF_LABEL[signoff.status]}</span>
+              <span
+                className={
+                  signoff.status === 'blocked' ? 'text-destructive font-semibold' : 'font-medium'
+                }
+              >
+                {SIGNOFF_LABEL[signoff.status]}
+              </span>
               {signoff.byName ? ` by ${signoff.byName}` : ''}
               {signoff.at ? ` on ${absoluteTime(signoff.at)}` : ''}
               {signoff.note ? `: ${signoff.note}` : ''}
@@ -619,11 +749,20 @@ function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
             </span>
           )}
         </p>
-        {eng.canSignOffCapacity && (
+        <p className="text-muted-foreground text-xs" data-testid="capacity-signoff-help">
+          Changing the solution does not clear an approval: check capacity again if the plant, the
+          machine or the cycle time changes.
+          {signoff.status === 'blocked' &&
+            ' While capacity is blocked the quote cannot advance; it is approved again here.'}
+          {eng.canSignOffCapacity &&
+            !showButtons &&
+            ' The production scheduler signs capacity off. If they have not, you can approve it yourself when you decide feasibility.'}
+        </p>
+        {showButtons && (
           <div className="grid gap-3">
             <Field
               label="Sign-off note"
-              hint="Only needed if you block capacity: say why"
+              hint="Only needed if you block capacity: say why. Blocking sends the work back to the engineer with this note."
               error={errorFor(errors, 'note')}
             >
               {(id) => <Textarea id={id} value={note} onChange={(e) => setNote(e.target.value)} />}
@@ -698,25 +837,74 @@ const CAPACITY_INLINE =
 const str = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n));
 const num = (v: string): number | null => (v.trim() === '' ? null : Number(v));
 
+/**
+ * FB-16 (W13-21): at or below the target is green, above it amber, above 100 % red. The words carry the
+ * meaning too ("above 85%", "exceeds line capacity"), so colour is never the only signal.
+ */
 const LEVEL_CLASS: Record<UtilizationLevel, string> = {
-  ok: 'text-foreground',
+  ok: 'font-medium text-emerald-700 dark:text-emerald-400',
   warn: 'font-semibold text-amber-700 dark:text-amber-400',
   over: 'text-destructive font-semibold',
 };
 
+/** FB-16 (W13-20): the capacity row's numeric inputs and the contract rule each is checked against. */
+const ROW_RULES = [
+  ['assumedEffectivenessPct', 'assumedEffectivenessPct', 'Assumed effectiveness %'],
+  ['cycleTimeS', 'rowCycleTimeS', 'Cycle time (s)'],
+  ['utilizationBeforePct', 'utilizationBeforePct', 'Utilization before %'],
+  ['allocatedAnnualVolume', 'allocatedAnnualVolume', 'Allocated annual volume'],
+  ['scheduledRunDaysPerYear', 'scheduledRunDaysPerYear', 'Scheduled run days per year'],
+] as const satisfies readonly (readonly [keyof RowForm, EngInputField, string])[];
+type RowNumberField = (typeof ROW_RULES)[number][0];
+
+/** What is wrong with each numeric input of a row as typed (the server's own rules and words). */
+function rowInputErrors(row: RowForm): Partial<Record<RowNumberField, string>> {
+  const out: Partial<Record<RowNumberField, string>> = {};
+  for (const [field, rule] of ROW_RULES) {
+    const message = engInputError(rule, row[field]);
+    if (message) out[field] = message;
+  }
+  return out;
+}
+
+/**
+ * The first problem, worded for the utilization preview: the real reason nothing is calculated ("Enter an
+ * assumed effectiveness above 0%, up to 100%"), not "Calculated once…".
+ */
+function rowProblem(row: RowForm): string | null {
+  const found = rowInputErrors(row);
+  for (const [field, , label] of ROW_RULES) {
+    const message = found[field];
+    if (!message) continue;
+    // The effectiveness message names its own field; the others are short ("Enter 0 to 100%").
+    return field === 'assumedEffectivenessPct' ? message : `${label}: ${message}`;
+  }
+  return null;
+}
+
 /**
  * Utilization after the new business: calculated, never typed (F-059). Over 100 % is red with "exceeds line
- * capacity"; over the basis' warning threshold, amber. One decimal place.
+ * capacity"; over the basis' warning threshold, amber; at or below it, green. One decimal place.
  */
 function UtilizationAfter({
   pct,
   basis,
+  problem = null,
   testId = 'utilization-after',
 }: {
   pct: number | null;
   basis: EngineeringDetail['capacityBasis'];
+  /** FB-16 (W13-20): an input is out of range, so nothing can be calculated; say which. */
+  problem?: string | null;
   testId?: string;
 }) {
+  if (problem) {
+    return (
+      <span className="text-destructive text-sm" data-testid={testId} data-problem="true">
+        {problem}
+      </span>
+    );
+  }
   if (pct === null) {
     return (
       <span className="text-muted-foreground text-sm" data-testid={testId}>
@@ -854,8 +1042,19 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
     onError: (err) => setErrors(problemErrors(err)),
   });
 
+  // A plant taken off the list keeps its own name on the row (FB-09 retired labels).
+  const retiredSite = (code: string) => config?.retiredValues?.plant?.[code] ?? null;
   const siteLabel = (code: string) =>
-    config?.valueLists.plant?.find((v) => v.code === code)?.label ?? code;
+    config?.valueLists.plant?.find((v) => v.code === code)?.label ?? retiredSite(code) ?? code;
+  // FB-16 (W13-13): a row's Site offers the plants that run the solution's machine type (all of them
+  // while no machine type is chosen).
+  const sitePlants = plantsRunning(
+    config?.valueLists.plant ?? [],
+    eng.review.machineType ? [eng.review.machineType] : [],
+  );
+  // FB-16 (W13-20): every row's numbers are checked as typed; Save waits until they are all valid.
+  const rowErrors = rows.map(rowInputErrors);
+  const invalid = rowErrors.some((e) => Object.keys(e).length > 0);
 
   const volumeText = (n: number | null) => (n === null ? null : n.toLocaleString('en-US'));
 
@@ -865,6 +1064,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
         <CardTitle>
           <h2 className="text-base font-semibold">Capacity evidence</h2>
         </CardTitle>
+        <PartLabel part="scheduler" quote={quote} />
         <p className="text-muted-foreground text-sm">
           Add at least one row before the quote can advance. Enter how loaded the line is today;
           QuoteFlow calculates the load with this business added. No effectiveness figure is assumed
@@ -877,7 +1077,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
             No capacity evidence yet.
           </p>
         )}
-        {!eng.canEdit && rows.length > 0 && (
+        {!eng.canEditCapacity && rows.length > 0 && (
           <ul className="grid gap-3">
             {rows.map((r) => (
               <li
@@ -928,14 +1128,14 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
             ))}
           </ul>
         )}
-        {eng.canEdit && (
+        {eng.canEditCapacity && (
           <form
             className="grid gap-4"
             noValidate
             data-testid="capacity-form"
             onSubmit={(e) => {
               e.preventDefault();
-              save.mutate();
+              if (!invalid) save.mutate();
             }}
           >
             {cavitation === null && rows.length > 0 && (
@@ -952,13 +1152,24 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
               >
                 <legend className="px-1 text-sm font-medium">Row {i + 1}</legend>
                 <div className="grid gap-3 sm:grid-cols-4">
-                  <Field label="Site" error={errorFor(errors, `rows/${i}/site`)}>
+                  <Field
+                    label="Site"
+                    hint={
+                      eng.selectedLabels.machineType
+                        ? `Plants that run ${eng.selectedLabels.machineType}`
+                        : undefined
+                    }
+                    error={errorFor(errors, `rows/${i}/site`)}
+                  >
                     {(id) => (
                       <ValueListSelect
                         id={id}
                         list="plant"
+                        options={sitePlants}
+                        outsideSuffix=" (does not run the solution’s machine type)"
                         value={r.site}
-                        retiredLabel={eng.selectedLabels.plantCode}
+                        // FB-16: the row's own plant name, not the solution plant's.
+                        retiredLabel={retiredSite(r.site)}
                         onChange={(v) => update(r.key, { site: v })}
                       />
                     )}
@@ -979,7 +1190,10 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                         ? 'Your role cannot see the saved figure. Leave blank to keep it.'
                         : DF22_HELP
                     }
-                    error={errorFor(errors, `rows/${i}/assumedEffectivenessPct`)}
+                    error={
+                      rowErrors[i]?.assumedEffectivenessPct ??
+                      errorFor(errors, `rows/${i}/assumedEffectivenessPct`)
+                    }
                   >
                     {(id) => (
                       <Input
@@ -997,7 +1211,10 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                       />
                     )}
                   </Field>
-                  <Field label="Cycle time (s)" error={errorFor(errors, `rows/${i}/cycleTimeS`)}>
+                  <Field
+                    label="Cycle time (s)"
+                    error={rowErrors[i]?.cycleTimeS ?? errorFor(errors, `rows/${i}/cycleTimeS`)}
+                  >
                     {(id) => (
                       <Input
                         id={id}
@@ -1014,7 +1231,10 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                   <Field
                     label="Utilization before %"
                     hint="How loaded the line is today, before this business"
-                    error={errorFor(errors, `rows/${i}/utilizationBeforePct`)}
+                    error={
+                      rowErrors[i]?.utilizationBeforePct ??
+                      errorFor(errors, `rows/${i}/utilizationBeforePct`)
+                    }
                   >
                     {(id) => (
                       <Input
@@ -1037,7 +1257,10 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                         ? `Leave blank to use the quote’s ${eng.quoteAnnualVolume.toLocaleString('en-US')}. If the business is split across lines, enter each line’s share.`
                         : 'The quote has no estimated volume: enter this line’s share.'
                     }
-                    error={errorFor(errors, `rows/${i}/allocatedAnnualVolume`)}
+                    error={
+                      rowErrors[i]?.allocatedAnnualVolume ??
+                      errorFor(errors, `rows/${i}/allocatedAnnualVolume`)
+                    }
                   >
                     {(id) => (
                       <Input
@@ -1055,7 +1278,10 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                   <Field
                     label="Scheduled run days per year"
                     hint={`Leave blank to use ${basis.scheduledRunDaysPerYear}`}
-                    error={errorFor(errors, `rows/${i}/scheduledRunDaysPerYear`)}
+                    error={
+                      rowErrors[i]?.scheduledRunDaysPerYear ??
+                      errorFor(errors, `rows/${i}/scheduledRunDaysPerYear`)
+                    }
                   >
                     {(id) => (
                       <Input
@@ -1074,7 +1300,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                   <div className="grid content-start gap-1" data-testid="utilization-after-field">
                     <span className="text-sm font-medium">Utilization after % (calculated)</span>
                     <output className="text-sm" aria-live="polite">
-                      <UtilizationAfter pct={afterOf(r)} basis={basis} />
+                      <UtilizationAfter pct={afterOf(r)} basis={basis} problem={rowProblem(r)} />
                     </output>
                     <span className="text-muted-foreground text-xs">Read-only. Not typed.</span>
                   </div>
@@ -1158,13 +1384,13 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
                 <PlusIcon aria-hidden="true" />
                 Add capacity row
               </Button>
-              <Button type="submit" disabled={!dirty || save.isPending}>
+              <Button type="submit" disabled={!dirty || invalid || save.isPending}>
                 {save.isPending ? 'Saving…' : 'Save capacity evidence'}
               </Button>
             </div>
           </form>
         )}
-        {!eng.canEdit && eng.allocationWarning && (
+        {!eng.canEditCapacity && eng.allocationWarning && (
           <p
             className="text-sm text-amber-700 dark:text-amber-400"
             data-testid="allocation-warning-view"
@@ -1174,8 +1400,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
         )}
         <p className="text-muted-foreground text-xs" data-testid="capacity-basis">
           How this is calculated: {basis.basisLabel}. A line runs {basis.scheduledRunDaysPerYear}{' '}
-          days a year unless you enter another number. Utilization after shows amber above{' '}
-          {basis.warnAbovePct}% and red above 100%.
+          days a year unless you enter another number. Utilization after is green up to{' '}
+          {basis.warnAbovePct}%, amber above it and red above 100%.
         </p>
         <CapacityEvidenceActions
           quoteNumber={quote.quoteNumber}
@@ -1302,20 +1528,32 @@ function CapacityEvidenceActions({
 function ValueListSelect({
   id,
   list,
+  options: offered,
+  outsideSuffix = '',
   value,
   retiredLabel,
   onChange,
 }: {
   id: string;
   list: string;
+  /** FB-16 (W13-13): a narrower set to offer (what the plant runs); default: the whole active list. */
+  options?: readonly PublicValueListEntry[];
+  /** What to say after a saved value that is still active but outside `options` (an old quote). */
+  outsideSuffix?: string;
   value: string;
   /** The label of the stored value, shown when the list no longer offers it (F-057: the EBM wheel). */
   retiredLabel?: string | null;
   onChange: (v: string) => void;
 }) {
   const { data: config } = usePublicConfig();
-  const options = config?.valueLists[list] ?? [];
-  const retired = value !== '' && !options.some((v) => v.code === value);
+  const active = config?.valueLists[list] ?? [];
+  const options = offered ?? active;
+  const retired = value !== '' && !active.some((v) => v.code === value);
+  // Still an active code, but not one this picker offers: kept visible so it is not silently dropped.
+  const outside =
+    value !== '' && !retired && !options.some((v) => v.code === value)
+      ? active.find((v) => v.code === value)
+      : undefined;
   // Bailey Schmitt (2026-11-12): alphabetical, so a value is found by its name; "Other" stays last.
   const isOther = (label: string) => /^other\b/i.test(label);
   const sorted = [...options].sort(
@@ -1325,6 +1563,7 @@ function ValueListSelect({
     <NativeSelect id={id} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">Choose…</option>
       {retired && <option value={value}>{`${retiredLabel ?? value} (no longer offered)`}</option>}
+      {outside && <option value={value}>{`${outside.label}${outsideSuffix}`}</option>}
       {sorted.map((v) => (
         <option key={v.code} value={v.code}>
           {v.label}

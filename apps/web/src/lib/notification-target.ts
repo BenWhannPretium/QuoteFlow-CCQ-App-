@@ -5,6 +5,14 @@ export function notificationTarget(type: string): NotificationTarget {
   // FB-15 (W13-05): a send-back opens the KAM's rework at the review step, at the field to fix.
   if (type === 'quote.reworked') return 'rework';
   if (type === 'quote.ready_for_eng_review' || type === 'quote.assigned') return 'engineering';
+  // FB-16 (W13-15, W13-17): the capacity notices open the Engineering tab, where capacity is worked.
+  if (
+    type === 'quote.capacity_assigned' ||
+    type === 'quote.capacity_ready' ||
+    type === 'quote.capacity_blocked'
+  ) {
+    return 'engineering';
+  }
   // FB-05: "ready for pricing" and a pricing assignment open the Quoting tab.
   // FB-07: the costing / ROI hand-offs open the Quoting tab too.
   if (

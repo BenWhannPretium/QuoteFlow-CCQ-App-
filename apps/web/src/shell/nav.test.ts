@@ -26,6 +26,8 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
     ],
     [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'approvals', 'analytics']],
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
+    // FB-16 (W13-15): the Production Scheduler reads quotes and works the capacity part; no analytics.
+    [['ProductionScheduler'], ['home', 'queue-engineering', 'pipeline']],
     [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
     // B-26: the pricing lead works the same queue (and assigns it).
     [['PricingLead'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
@@ -62,6 +64,8 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
       navItemsFor(meFor(role)).find((i) => i.key === 'queue-engineering')?.label;
     expect(label('EngLead')).toBe('Engineering queue');
     expect(label('Engineer')).toBe('My assignments');
+    // FB-16 (W13-15): the same page, as the scheduler's capacity requests.
+    expect(label('ProductionScheduler')).toBe('Capacity requests');
     expect(label('Leadership')).toBe('Engineering queue');
     expect(label('Admin')).toBe('Engineering queue');
     expect(label('KAM')).toBeUndefined();

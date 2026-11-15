@@ -70,11 +70,15 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
   }
   // B-10: the queue page needs engQueue.read. An Engineer (no queue.assign) sees it as "My assignments"
   // with the read-only queue below; Leadership reads it; the EngLead and Admin own it.
+  // FB-16 (W13-15): a Production Scheduler (capacity.signoff, no engReview.edit) sees it as "Capacity
+  // requests": the quotes they are assigned to as scheduler, then the read-only queue.
   if (can('engQueue.read')) {
     items.push(
       can('engReview.edit') && !can('queue.assign')
         ? item('queue-engineering', 'My assignments', 'Assignments', '/queue/engineering')
-        : item('queue-engineering', 'Engineering queue', 'Queue', '/queue/engineering'),
+        : can('capacity.signoff') && !can('engReview.edit') && !can('queue.assign')
+          ? item('queue-engineering', 'Capacity requests', 'Capacity', '/queue/engineering')
+          : item('queue-engineering', 'Engineering queue', 'Queue', '/queue/engineering'),
     );
   }
   // B-11: the pricing queue needs pricingQueue.read: Pricing works it, Leadership and Admin read it.

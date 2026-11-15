@@ -30,6 +30,7 @@ describe('UAT quick-start help page (B-23)', () => {
       'SalesLeader',
       'EngLead',
       'Engineer',
+      'ProductionScheduler', // FB-16 (W13-15)
       'Pricing',
       'PricingLead',
       'Approver',

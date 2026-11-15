@@ -336,10 +336,14 @@ export const api = {
   /** List filters are comma-separated (`tier: 'CRITICAL,HIGH'`). */
   engQueue: (q: EngQueueParams = {}) =>
     getJson(`/api/v1/queue/engineering${queryString({ ...q })}`, EngQueueResponse),
-  assignEngineer: (quoteNumber: string, engineerId: string) =>
+  /**
+   * FB-16 (W13-15): `schedulerId` is the production scheduler, the second assignee: undefined leaves it
+   * as it is, null clears it.
+   */
+  assignEngineer: (quoteNumber: string, engineerId: string, schedulerId?: string | null) =>
     getJson(`${quotePath(quoteNumber)}/assignment`, AssignmentResponse, {
       method: 'POST',
-      body: { engineerId },
+      body: { engineerId, ...(schedulerId !== undefined ? { schedulerId } : {}) },
     }),
   acceptEngReview: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/eng-review/accept`, EngineeringDetail, { method: 'POST' }),
@@ -365,10 +369,11 @@ export const api = {
   // Lead review (2026-10-30): the engineer submits to the engineering lead, who may send it back.
   submitEngReviewToLead: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/eng-review/submit`, EngineeringDetail, { method: 'POST' }),
-  sendBackEngReview: (quoteNumber: string, note: string) =>
+  /** FB-16 (W13-19): `to` is the engineer (`assignee`, the default) or the production scheduler. */
+  sendBackEngReview: (quoteNumber: string, note: string, to?: 'assignee' | 'scheduler') =>
     getJson(`${quotePath(quoteNumber)}/eng-review/send-back`, EngineeringDetail, {
       method: 'POST',
-      body: { note },
+      body: { note, ...(to ? { to } : {}) },
     }),
   stageTimes: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/stage-times`, StageTimesResponse),

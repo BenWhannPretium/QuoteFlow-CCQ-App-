@@ -149,6 +149,14 @@ function QuotePage() {
           </>
         }
       />
+      {/* FB-16 (W13-15): both assignees of the Engineering stage, for everyone who opens the quote. */}
+      {(q.engineering.assignedEngineerName || q.engineering.assignedSchedulerName) && (
+        <p className="text-muted-foreground -mt-3 text-sm" data-testid="quote-assignees">
+          Engineer: {q.engineering.assignedEngineerName ?? 'unassigned'}
+          {' · '}
+          Production scheduler: {q.engineering.assignedSchedulerName ?? 'none assigned'}
+        </p>
+      )}
       <section
         aria-label="Stage and priority"
         className="reg-marks bg-card rounded-card rise grid gap-5 border px-5 pt-4 pb-5"

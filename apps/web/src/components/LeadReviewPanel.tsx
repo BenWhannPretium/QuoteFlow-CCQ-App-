@@ -1,4 +1,5 @@
 import type { LeadReviewView } from '@ccq/contracts';
+import { uniqueRequirements } from '@ccq/domain';
 import { useMutation } from '@tanstack/react-query';
 import { CornerUpLeftIcon, LockIcon, SendIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
@@ -20,6 +21,13 @@ import { problemErrors, type ServerError } from './forms';
 import { MISSING_LABELS } from './GateDecisionDialog';
 
 export type LeadReviewKind = 'engineering' | 'pricing';
+/** FB-16 (W13-19): who a send-back goes to: the assignee (engineer, pricer) or the production scheduler. */
+export type SendBackTarget = NonNullable<LeadReviewView['returnTargets']>[number]['target'];
+
+const TARGET_NOUN: Record<SendBackTarget, string> = {
+  assignee: 'engineer',
+  scheduler: 'production scheduler',
+};
 
 const NOUN: Record<LeadReviewKind, { assignee: string; lead: string; work: string }> = {
   engineering: { assignee: 'engineer', lead: 'engineering lead', work: 'engineering review' },
@@ -70,7 +78,9 @@ export function LeadReviewStatus({
         >
           <p className="flex items-start gap-2 font-semibold">
             <CornerUpLeftIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Sent back by {review.returnedByName ?? `the ${noun.lead}`}
+            {/* FB-16 (W13-19, W13-17): who it went back to (the engineer or the scheduler). */}
+            Sent back{review.returnedToName ? ` to ${review.returnedToName}` : ''} by{' '}
+            {review.returnedByName ?? `the ${noun.lead}`}
             {review.returnedAt ? ` on ${absoluteTime(review.returnedAt)}` : ''}
           </p>
           {review.returnNote && <p className="whitespace-pre-wrap">{review.returnNote}</p>}
@@ -91,7 +101,8 @@ export function LeadReviewActions<T>({
   kind: LeadReviewKind;
   review: LeadReviewView;
   submit: () => Promise<T>;
-  sendBack: (note: string) => Promise<T>;
+  /** FB-16 (W13-19): `to` is sent only when the lead had a choice (a production scheduler is assigned). */
+  sendBack: (note: string, to?: SendBackTarget) => Promise<T>;
   onDone: (result: T) => Promise<unknown>;
   /**
    * The lead's decision (the gate), when the viewer may decide it. The primary button appears only when
@@ -109,6 +120,8 @@ export function LeadReviewActions<T>({
     | undefined;
 }) {
   const noun = NOUN[kind];
+  // FB-16 (W13-19): more than one target only in Engineering, when a production scheduler is assigned.
+  const targets = review.returnTargets ?? [];
   const [missing, setMissing] = useState<ServerError[]>([]);
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
@@ -167,10 +180,10 @@ export function LeadReviewActions<T>({
         <div role="alert" className="text-destructive grid gap-1" data-testid="lead-review-missing">
           <p className="font-semibold">Fill these in before you submit:</p>
           <ul className="list-disc pl-5">
-            {missing.map((m) => (
-              <li key={`${m.path}-${m.message}`}>
-                {MISSING_LABELS[m.path.replace(/^\//, '')] ?? m.message}
-              </li>
+            {uniqueRequirements(
+              missing.map((m) => ({ ...m, field: m.path.replace(/^\//, '') })),
+            ).map((m) => (
+              <li key={`${m.path}-${m.message}`}>{MISSING_LABELS[m.field] ?? m.message}</li>
             ))}
           </ul>
         </div>
@@ -208,13 +221,19 @@ export function LeadReviewActions<T>({
           {review.canSendBack && (
             <Button variant="outline" onClick={() => setSending(true)}>
               <CornerUpLeftIcon aria-hidden="true" />
-              Send back to {noun.assignee}
+              {targets.length > 1 ? 'Send back to…' : `Send back to ${noun.assignee}`}
             </Button>
           )}
         </div>
       )}
       {sending && (
-        <SendBackDialog kind={kind} onOpenChange={setSending} sendBack={sendBack} onDone={onDone} />
+        <SendBackDialog
+          kind={kind}
+          targets={targets}
+          onOpenChange={setSending}
+          sendBack={sendBack}
+          onDone={onDone}
+        />
       )}
     </section>
   );
@@ -234,7 +253,8 @@ function StillNeeded({
     <div className="grid gap-1" data-testid={testId}>
       <p className="font-medium">{intro}</p>
       <ul className="text-muted-foreground list-disc pl-5">
-        {items.map((m) => (
+        {/* FB-16 (W13-12): "Process & machine type" is two rules and one pick: listed once. */}
+        {uniqueRequirements(items).map((m) => (
           <li key={m.field + m.message}>{MISSING_LABELS[m.field] ?? m.message}</li>
         ))}
       </ul>
@@ -244,25 +264,32 @@ function StillNeeded({
 
 function SendBackDialog<T>({
   kind,
+  targets,
   onOpenChange,
   sendBack,
   onDone,
 }: {
   kind: LeadReviewKind;
+  /** FB-16 (W13-19): the people the lead may choose between; one or none = the assignee, no choice shown. */
+  targets: NonNullable<LeadReviewView['returnTargets']>;
   onOpenChange: (open: boolean) => void;
-  sendBack: (note: string) => Promise<T>;
+  sendBack: (note: string, to?: SendBackTarget) => Promise<T>;
   onDone: (result: T) => Promise<unknown>;
 }) {
   const noun = NOUN[kind];
   const id = useId();
+  const choice = targets.length > 1;
+  // The engineer is the default.
+  const [to, setTo] = useState<SendBackTarget>('assignee');
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const toNoun = choice ? TARGET_NOUN[to] : noun.assignee;
   const mutation = useMutation({
-    mutationFn: () => sendBack(note.trim()),
+    mutationFn: () => sendBack(note.trim(), choice ? to : undefined),
     onSuccess: async (result) => {
       await onDone(result);
       toast.success({
-        title: `Sent back to the ${noun.assignee}`,
+        title: `Sent back to the ${toNoun}`,
         description: 'They have been notified with your note.',
       });
       onOpenChange(false);
@@ -273,9 +300,15 @@ function SendBackDialog<T>({
     <Dialog open onOpenChange={(next) => !mutation.isPending && onOpenChange(next)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Send back to the {noun.assignee}</DialogTitle>
+          <DialogTitle>
+            {choice ? 'Send back to…' : `Send back to the ${noun.assignee}`}
+          </DialogTitle>
           <DialogDescription>
-            They can edit the {noun.work} again and resubmit it to you.
+            {!choice
+              ? `They can edit the ${noun.work} again and resubmit it to you.`
+              : to === 'scheduler'
+                ? 'The production scheduler reworks the capacity part. The engineer submits it to you again. Only the person you choose is notified.'
+                : 'The engineer can edit the solution again and resubmit it to you. Only the person you choose is notified.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -292,6 +325,27 @@ function SendBackDialog<T>({
             mutation.mutate();
           }}
         >
+          {choice && (
+            <fieldset className="grid gap-2" data-testid="send-back-target">
+              <legend className="mb-1 text-sm font-medium">Who should rework it?</legend>
+              {targets.map((t) => (
+                <label key={t.target} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name={`${id}-to`}
+                    className="size-4"
+                    value={t.target}
+                    checked={to === t.target}
+                    onChange={() => setTo(t.target)}
+                  />
+                  <span>
+                    {t.target === 'assignee' ? 'Engineer' : 'Production scheduler'}
+                    {t.name ? `: ${t.name}` : ''}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
           <label htmlFor={id} className="text-sm font-medium">
             What should change?
           </label>

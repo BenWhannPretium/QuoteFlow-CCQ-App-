@@ -4,6 +4,7 @@ import {
   LOST_OUTCOME,
   REQUIREMENT_LABELS,
   proposalCalendarDate,
+  uniqueRequirements,
   validityUntil,
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -112,6 +113,8 @@ export function GateDecisionDialog({
   const [docUrl, setDocUrl] = useState('');
   const [competitor, setCompetitor] = useState('');
   const [ownerChoice, setOwnerChoice] = useState<'' | 'me'>('');
+  /** FB-16 (W13-18): the engineering lead signs capacity off with the G2 decision. */
+  const [capacityApproved, setCapacityApproved] = useState(false);
   const me = useCurrentUser();
   /** B-26: every hold names an owner (default: me). */
   const [holdOwner, setHoldOwner] = useState<{ id: string; displayName: string } | null>(null);
@@ -129,6 +132,7 @@ export function GateDecisionDialog({
     competitor: useId(),
     owner: useId(),
     holdOwner: useId(),
+    capacity: useId(),
     errors: useId(),
     blocked: useId(),
     noteHint: useId(),
@@ -179,7 +183,14 @@ export function GateDecisionDialog({
       a.targetStageKeys.length === 1 &&
       a.targetStageKeys[0] !== quote.data?.stageKey,
   );
-  const completeness = (action ?? forward)?.missing ?? [];
+  // FB-16 (W13-12): process type and machine type are one pick, so their shared label is listed once.
+  const completeness = uniqueRequirements((action ?? forward)?.missing ?? []);
+  // FB-16 (W13-18): capacity is not signed yet and the decider may sign it: this outcome asks for the
+  // tick, and the sign-off is recorded with the decision. A block is never approved here.
+  const needsCapacity = !!action?.capacityApproval;
+  const capacity = quote.data?.engineering.capacitySignoff;
+  const capacityBlocked =
+    gateKey === 'G2' && quote.data?.stageKey === 'ENG_REVIEW' && capacity?.status === 'blocked';
   // DR-cross-cutting-07: the server will refuse this outcome until its missing items are done (they are
   // not entered in this dialog), so Record decision is off and says why instead of failing on click.
   const blockedBy = action?.missing ?? [];
@@ -194,6 +205,9 @@ export function GateDecisionDialog({
       holdUntil < todayCentral() &&
       'Choose a review date today or later.',
     needsTarget && !target && 'Choose where it goes back to.',
+    needsCapacity &&
+      !capacityApproved &&
+      'Tick “Capacity approved” to sign capacity off with this decision.',
     releases &&
       issuedInFuture &&
       'The proposal issue date can’t be in the future: enter the date it was actually sent.',
@@ -219,6 +233,7 @@ export function GateDecisionDialog({
     setDocUrl('');
     setCompetitor('');
     setOwnerChoice('');
+    setCapacityApproved(false);
     setHoldOwner(null);
     setSubmitted(false);
     setServerErrors([]);
@@ -340,6 +355,23 @@ export function GateDecisionDialog({
               )}
             </div>
 
+            {capacityBlocked && (
+              <div
+                role="status"
+                className="bg-warning text-warning-foreground grid gap-1 rounded-md px-3 py-2 text-sm"
+                data-testid="capacity-blocked-note"
+              >
+                <p className="font-semibold">
+                  Capacity is blocked{capacity.byName ? ` by ${capacity.byName}` : ''}
+                </p>
+                {capacity.note && <p className="whitespace-pre-wrap">{capacity.note}</p>}
+                <p>
+                  The quote cannot advance until capacity is approved again on the Engineering tab.
+                  Hold, send back or stop are still available.
+                </p>
+              </div>
+            )}
+
             {actions.length === 0 ? (
               <p className="text-muted-foreground text-sm">
                 You can’t make this decision on this quote right now.
@@ -370,6 +402,7 @@ export function GateDecisionDialog({
                       ? { competitor: competitor.trim() }
                       : {}),
                     ...(canPickOwner && ownerChoice === 'me' ? { closureOwnerId: me.user.id } : {}),
+                    ...(needsCapacity && capacityApproved ? { capacityApproved: true } : {}),
                     ...(acknowledgedWarnings ? { acknowledgedWarnings } : {}),
                   });
                 }}
@@ -400,6 +433,7 @@ export function GateDecisionDialog({
                           setDocUrl('');
                           setCompetitor('');
                           setOwnerChoice('');
+                          setCapacityApproved(false);
                           setServerErrors([]);
                         }}
                         className="size-4 accent-[var(--primary)]"
@@ -420,6 +454,30 @@ export function GateDecisionDialog({
                     </label>
                   ))}
                 </fieldset>
+
+                {needsCapacity && (
+                  <div className="grid gap-1" data-testid="capacity-approval">
+                    <label
+                      htmlFor={ids.capacity}
+                      className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-1 text-sm font-medium"
+                    >
+                      <input
+                        id={ids.capacity}
+                        type="checkbox"
+                        className="size-5 accent-[var(--primary)]"
+                        checked={capacityApproved}
+                        onChange={(e) => setCapacityApproved(e.target.checked)}
+                        aria-required="true"
+                        aria-invalid={submitted && !capacityApproved}
+                      />
+                      Capacity approved (I’m signing it off) (required)
+                    </label>
+                    <p className="text-muted-foreground text-xs">
+                      Capacity has not been signed off yet. Ticking this records your capacity
+                      approval together with the decision.
+                    </p>
+                  </div>
+                )}
 
                 {showReason && (
                   <div className="grid gap-1.5">
