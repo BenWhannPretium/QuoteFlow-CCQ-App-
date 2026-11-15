@@ -29,9 +29,9 @@ describe('config seeds derive from the domain', () => {
 
   it('FB-17: outcome rows carry whether they are offered and the choice the dialog shows them under', () => {
     const rows = workflowRows();
-    expect(
-      rows.outcomes.filter((o) => !o.active).map((o) => `${o.gateKey}/${o.key}`),
-    ).toEqual(['G2/capital_required']);
+    expect(rows.outcomes.filter((o) => !o.active).map((o) => `${o.gateKey}/${o.key}`)).toEqual([
+      'G2/capital_required',
+    ]);
     expect(rows.outcomes.map((o) => o.outcomeGroup)).toEqual(
       hybridConfig.outcomes.map((o) => o.outcomeGroup),
     );
