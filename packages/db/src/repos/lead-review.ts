@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { quote } from '../schema/index';
@@ -16,6 +16,7 @@ const columns = (kind: LeadReviewKindRow) =>
         returnedAt: quote.engReturnedAt,
         returnedBy: quote.engReturnedBy,
         returnNote: quote.engReturnNote,
+        returnedTo: quote.engReturnedTo,
       }
     : {
         submittedAt: quote.pricingSubmittedAt,
@@ -23,6 +24,8 @@ const columns = (kind: LeadReviewKindRow) =>
         returnedAt: quote.pricingReturnedAt,
         returnedBy: quote.pricingReturnedBy,
         returnNote: quote.pricingReturnNote,
+        // FB-16: pricing has one assignee, so no "sent back to" column; always null.
+        returnedTo: sql<string | null>`null`,
       };
 
 const keys = (kind: LeadReviewKindRow) =>
@@ -33,6 +36,7 @@ const keys = (kind: LeadReviewKindRow) =>
         returnedAt: 'engReturnedAt',
         returnedBy: 'engReturnedBy',
         returnNote: 'engReturnNote',
+        returnedTo: 'engReturnedTo',
       } as const)
     : ({
         submittedAt: 'pricingSubmittedAt',
@@ -40,6 +44,7 @@ const keys = (kind: LeadReviewKindRow) =>
         returnedAt: 'pricingReturnedAt',
         returnedBy: 'pricingReturnedBy',
         returnNote: 'pricingReturnNote',
+        returnedTo: null,
       } as const);
 
 export interface LeadReviewRow {
@@ -48,6 +53,8 @@ export interface LeadReviewRow {
   returnedAt: Date | null;
   returnedBy: string | null;
   returnNote: string | null;
+  /** FB-16 (W13-19): who the latest engineering send-back went to. Always null for pricing. */
+  returnedTo: string | null;
 }
 
 /** The current round of one kind on a quote. */
@@ -64,6 +71,7 @@ export async function getLeadReview(
       returnedAt: null,
       returnedBy: null,
       returnNote: null,
+      returnedTo: null,
     }
   );
 }
@@ -77,7 +85,11 @@ export async function setLeadReview(
 ): Promise<void> {
   const k = keys(kind);
   const set: Record<string, unknown> = { updatedAt: new Date() };
-  for (const [name, value] of Object.entries(values)) set[k[name as keyof LeadReviewRow]] = value;
+  for (const [name, value] of Object.entries(values)) {
+    const column = k[name as keyof LeadReviewRow];
+    // Pricing has no "sent back to" column (FB-16): that key is dropped.
+    if (column) set[column] = value;
+  }
   await db.update(quote).set(set).where(eq(quote.id, quoteId));
 }
 
@@ -89,5 +101,6 @@ export function clearLeadReview(db: DbOrTx, quoteId: string, kind: LeadReviewKin
     returnedAt: null,
     returnedBy: null,
     returnNote: null,
+    returnedTo: null,
   });
 }

@@ -571,6 +571,18 @@ export const quote = documented(
         'When the current engineer was assigned (B-10 "time since assignment"); reset on reassign.',
         ENG,
       ),
+      // FB-16 (W13-15, D-008 open, provisional): the second assignee in Engineering, the production
+      // scheduler who works the capacity rows and the capacity sign-off alongside the engineer.
+      assignedSchedulerId: c(
+        userRef('assigned_scheduler_id'),
+        'FB-16: the production scheduler the engineering lead assigned to the capacity part of the quote (optional).',
+        ENG,
+      ),
+      assignedSchedulerAt: c(
+        timestamptz('assigned_scheduler_at'),
+        'FB-16: when the current production scheduler was assigned; reset on reassign.',
+        ENG,
+      ),
       // B-26: Quoting assignment (the pricing lead triages the pricing queue)
       assignedPricerId: c(
         userRef('assigned_pricer_id'),
@@ -600,6 +612,11 @@ export const quote = documented(
       engReturnNote: c(
         text('eng_return_note'),
         'Lead review: what the lead asked the engineer to change.',
+        ENG,
+      ),
+      engReturnedTo: c(
+        userRef('eng_returned_to'),
+        'FB-16: who the latest send-back went to: the engineer, or the production scheduler (W13-19). A capacity block returns the work to the engineer the same way. Null before FB-16.',
         ENG,
       ),
       // Lead review (2026-10-30): the assigned pricer submits their part to the lead; the lead may send
@@ -893,6 +910,7 @@ export const quote = documented(
         .on(t.sfOpportunityId)
         .where(sql`${t.status} <> 'closed'`),
       index('quote_assigned_engineer_id_idx').on(t.assignedEngineerId),
+      index('quote_assigned_scheduler_id_idx').on(t.assignedSchedulerId),
       index('quote_region_idx').on(t.region),
       // B-14 pipeline views: search by quote number / description, and the default "last updated" sort.
       index('quote_quote_number_trgm_idx').using('gin', t.quoteNumber.op('gin_trgm_ops')),
@@ -1142,6 +1160,10 @@ export const engReview = documented(
       capacitySignoffNote: c(
         text('capacity_signoff_note'),
         "B-26: the capacity owner's note (required to block).",
+      ),
+      capacityReadyAt: c(
+        timestamptz('capacity_ready_at'),
+        'FB-16 (W13-15): when the production scheduler was told capacity can start in this stay (the plant and the machine type are saved). Cleared on a new stay, so they are told once per stay.',
       ),
       // FB-06 (F-024, D-007 open, provisional): the two-step (preform) process. The four details are
       // cleared when the box is unticked.

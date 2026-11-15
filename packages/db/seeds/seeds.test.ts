@@ -224,13 +224,15 @@ describe('synthetic generator', () => {
 
   it('has a persona per role plus the multi-role and scoped variants, all on example.com', () => {
     const personas = buildPersonas(createRng(), DEFAULT_ANCHOR);
-    expect(personas).toHaveLength(14);
+    // FB-16 added the production scheduler (15th).
+    expect(personas).toHaveLength(15);
     expect(new Set(personas.flatMap((p) => p.roles))).toEqual(
       new Set([
         'KAM',
         'SalesLeader',
         'EngLead',
         'Engineer',
+        'ProductionScheduler',
         'Pricing',
         'PricingLead',
         'Finance',
