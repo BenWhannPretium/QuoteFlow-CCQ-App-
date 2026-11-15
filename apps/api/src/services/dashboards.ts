@@ -413,10 +413,7 @@ export class DashboardService {
         reasons: returned.slice(0, 5).map((x) => ({ label: x.label, count: x.count })),
       },
       mine: {
-        info: info(
-          `Open ${eng} quotes assigned to you, oldest first.`,
-          'Open quotes right now',
-        ),
+        info: info(`Open ${eng} quotes assigned to you, oldest first.`, 'Open quotes right now'),
         items: rows
           .filter((r) => r.assigned_engineer_id === actor.userId)
           .map((r) => dashQuote(r, now))

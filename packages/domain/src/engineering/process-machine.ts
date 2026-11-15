@@ -163,8 +163,7 @@ export function plantsRunning<T extends PickListEntry>(
 }
 
 export type PlantMachineCheck =
-  | { ok: true }
-  | { ok: false; error: DomainError; plantLabel: string; machineLabel: string };
+  { ok: true } | { ok: false; error: DomainError; plantLabel: string; machineLabel: string };
 
 /**
  * The server check behind the filtered pick: a machine type the chosen plant does not run is refused,
@@ -263,8 +262,7 @@ export interface SolutionPick {
 }
 
 export type SolutionPickPlan =
-  | { ok: true; pick: SolutionPick }
-  | { ok: false; errors: DomainError[] };
+  { ok: true; pick: SolutionPick } | { ok: false; errors: DomainError[] };
 
 /**
  * What the Engineering Review stores for the plant, the machine type and the (derived) process type.

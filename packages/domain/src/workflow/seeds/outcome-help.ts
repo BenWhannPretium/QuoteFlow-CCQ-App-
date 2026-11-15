@@ -25,8 +25,7 @@ export const OUTCOME_HELP: Record<string, string> = {
     'Feasible, with a stated risk or condition (say what it is). The quote goes to Quoting and the risk travels with it.',
   'G2/capital_required':
     'Feasible, but capital is needed. Record the budgetary capital estimate (preliminary, includes contingency) and upload the equipment BOM; Pricing then confirms capital readiness before any price is released.',
-  'G2/hold':
-    'Pause it at this stage. The clock stops. Needs a reason, an owner and a review date.',
+  'G2/hold': 'Pause it at this stage. The clock stops. Needs a reason, an owner and a review date.',
   'G2/rework':
     'Not enough technical information. It goes back to the KAM to get it from the customer; say exactly what is needed.',
   'G2/redirect':

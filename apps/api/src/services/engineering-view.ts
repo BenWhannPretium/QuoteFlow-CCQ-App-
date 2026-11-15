@@ -320,12 +320,9 @@ export async function engineeringView(
   const labels = await selectedLabels(db, eng);
   const people = await listUsersByIds(
     db,
-    [
-      q.assignedEngineerId,
-      q.assignedSchedulerId,
-      eng?.acceptedBy,
-      eng?.capacitySignoffBy,
-    ].filter((id): id is string => !!id),
+    [q.assignedEngineerId, q.assignedSchedulerId, eng?.acceptedBy, eng?.capacitySignoffBy].filter(
+      (id): id is string => !!id,
+    ),
   );
   const name = (id: string | null | undefined) =>
     (id && people.find((p) => p.id === id)?.displayName) ?? null;

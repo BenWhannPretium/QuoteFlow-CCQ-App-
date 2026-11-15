@@ -357,8 +357,7 @@ export class GateService {
         ...capacityApprovalErrors(actor, state, decisionRules, body.capacityApproved),
       );
       const approvesCapacity =
-        body.capacityApproved === true &&
-        canApproveCapacityInDecision(actor, state, decisionRules);
+        body.capacityApproved === true && canApproveCapacityInDecision(actor, state, decisionRules);
       const decisionState = approvesCapacity
         ? { ...state, fields: withCapacityApproved(state.fields) }
         : state;
