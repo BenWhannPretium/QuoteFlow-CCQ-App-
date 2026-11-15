@@ -219,8 +219,14 @@ export const EquipmentBomView = z.object({
   versions: z.array(EquipmentBomFile),
   /** The caller may upload or replace it now (the review's editors, while it is open and unlocked). */
   canUpload: z.boolean(),
-  /** G2 "Advance – capital required" needs the BOM (the rule is in the gate's config). */
+  /**
+   * FB-17 (W13-22): a G2 Advance needs the BOM when capital is needed (the rule is in the gate's
+   * config). True while the preliminary capital is above `capital_needed_above_usd`, or still blank.
+   * Before FB-17 this said whether "Advance – capital required" asked for the BOM.
+   */
   requiredForCapital: z.boolean(),
+  /** FB-17: "Required to advance when preliminary capital is above $0" (the threshold is a setting). */
+  requiredWhenText: z.string(),
 });
 export type EquipmentBomView = z.infer<typeof EquipmentBomView>;
 

@@ -50,6 +50,9 @@ export function workflowRows(config: WorkflowConfig = buildHybridConfig({ g1Enab
       requiredFields: o.requiredFields,
       notify: o.notify,
       resumeAt: o.resumeAt,
+      // FB-17 (W13-22, W13-23): whether it is offered, and the choice the dialog shows it under.
+      active: o.active,
+      outcomeGroup: o.outcomeGroup ?? null,
       sort: (i + 1) * 10,
       provisional: o.provisional,
     })),

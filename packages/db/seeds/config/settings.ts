@@ -1,7 +1,9 @@
 import {
+  CAPITAL_NEEDED_ABOVE_USD_SEED,
   CAPITAL_NOTICE_SEED,
   ESCALATION_ROUTES_SEED,
   G4_REQUIRED_CHECKS_SEED,
+  HOLD_OWNER_DEFAULT_SEED,
   G4_ADDITIONAL_APPROVALS_SEED,
   CAPITAL_TERMS_REQUIRED_SEED,
   LEGAL_REVIEW_TRIGGERS_SEED,
@@ -246,6 +248,14 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description:
       'Whether the G1 qualify gate is used (D-06). When false, SUBMIT goes straight to Engineering.',
   },
+  // ── FB-17 (W13-25): who the hold-owner picker starts on. Provisional.
+  // Existing environments get the same row from migration 0046.
+  {
+    key: 'hold_owner_default',
+    value: HOLD_OWNER_DEFAULT_SEED,
+    description:
+      'FB-17 (W13-25): who the hold-owner picker in the decision dialog starts on. stage_assignee: the person working the stage (the assigned engineer or production scheduler in Engineering, the assigned pricer in Quoting) when there is exactly one, otherwise the decider. decider: always the decider ("Me"), as before FB-17. The picker offers the same people either way, and the owner is told unless they are the decider. Provisional.',
+  },
   {
     key: 'min_opportunity_value_warning_usd',
     value: null,
@@ -453,6 +463,14 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: { 'G2:capital_required': 'pending' },
     description:
       'gate:outcome → the capital_readiness the decision writes on the pricing record (B-10: "Capital required" at G2 starts Pricing on pending).',
+  },
+  // ── FB-17 (W13-22): capital needed follows the preliminary capital figure. Provisional.
+  // Existing environments get the same row from migration 0046.
+  {
+    key: 'capital_needed_above_usd',
+    value: CAPITAL_NEEDED_ABOVE_USD_SEED,
+    description:
+      'FB-17 (W13-22): capital is needed when the preliminary capital on the engineering review is above this amount (USD). Seed 0: any amount above $0 needs capital, and the engineer enters $0 to say none is needed. When capital is needed a G2 Advance needs the equipment BOM, sets "capital likely" on the quote and starts capital readiness on pending. It replaces the G2 outcome "Advance – capital required", which is switched off. Provisional.',
   },
   {
     key: 'pricing_ref_formats',

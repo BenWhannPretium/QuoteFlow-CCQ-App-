@@ -14,6 +14,7 @@ import {
 import { c, documented, inList } from './_doc';
 import {
   CLOSURE_OWNER_DEFAULTS,
+  OUTCOME_GROUPS,
   QUOTE_STATUSES,
   REASON_CONTEXTS,
   RESUME_AT,
@@ -168,6 +169,14 @@ export const gateOutcomeDefinition = documented(
         text('resume_at').notNull().default('intake'),
         "FB-01 (F-030): for an outcome that returns the quote to the KAM, where the KAM's resubmission goes: intake (a new submission, G1 then Engineering) | origin (straight back to the stage it came from unless the KAM says the scope changed).",
       ),
+      active: c(
+        boolean('active').notNull().default(true),
+        'FB-17 (W13-22): false = switched off. The outcome is no longer offered or accepted, and decisions already recorded with it keep its label.',
+      ),
+      outcomeGroup: c(
+        text('outcome_group'),
+        'FB-17 (W13-23): the choice the decision dialog shows the outcome under: advance | send_back | hold | stop | customer_outcome (G5, the customer answer, listed flat); null = none set.',
+      ),
     },
     (t) => [
       unique('gate_outcome_definition_gate_key_key_uq').on(t.gateKey, t.key),
@@ -176,6 +185,7 @@ export const gateOutcomeDefinition = documented(
         'gate_outcome_definition_reason_context_check',
         inList(t.reasonContext, REASON_CONTEXTS),
       ),
+      check('gate_outcome_definition_outcome_group_check', inList(t.outcomeGroup, OUTCOME_GROUPS)),
     ],
   ),
   {

@@ -49,6 +49,8 @@ export const PRICING_HISTORY_STATUSES = [
 /** Why a CCQ-linked opportunity needs attention: it was closed or deleted in Salesforce. */
 export const SF_STATUS_FLAGS = ['closed_won', 'closed_lost', 'deleted'] as const;
 export { CLOSURE_OWNER_DEFAULTS, SEGREGATION_DENY } from '@ccq/domain';
+/** FB-17 (W13-23): the choice an outcome sits under in the decision dialog. */
+export { OUTCOME_GROUPS } from '@ccq/domain';
 
 export const AUDIT_ACTIONS = [
   'view',

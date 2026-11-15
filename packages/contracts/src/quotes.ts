@@ -61,6 +61,20 @@ export type QualificationWarning = z.infer<typeof QualificationWarning>;
 export const MissingField = z.object({ field: z.string(), message: z.string() });
 export type MissingField = z.infer<typeof MissingField>;
 
+/**
+ * FB-17 (W13-23): the choices of the decision dialog. The same list as the domain's `OUTCOME_GROUPS`
+ * (this package does not import the domain; a web unit test keeps the two equal).
+ */
+export const OUTCOME_GROUP_VALUES = [
+  'advance',
+  'send_back',
+  'hold',
+  'stop',
+  'customer_outcome',
+] as const;
+export const OutcomeGroup = z.enum(OUTCOME_GROUP_VALUES);
+export type OutcomeGroup = z.infer<typeof OutcomeGroup>;
+
 export const AvailableGateAction = z.object({
   gateKey: z.string(),
   gateLabel: z.string(),
@@ -99,6 +113,13 @@ export const AvailableGateAction = z.object({
   requiresHoldOwner: z.boolean(),
   /** B-26: the outcome's definition (admin-editable help text); null when none is set. */
   helpText: z.string().nullable(),
+  /**
+   * FB-17 (W13-23): the choice the dialog shows the outcome under: `advance`, `send_back`, `hold`, `stop`
+   * or `customer_outcome` (G5, the customer's answer, listed flat). Config
+   * (`gate_outcome_definition.outcome_group`), never worked out from the key; null in a config without
+   * groups. Only switched-on outcomes are listed at all.
+   */
+  outcomeGroup: OutcomeGroup.nullable(),
   /**
    * FB-16 (W13-18): this outcome needs capacity approved, nobody has signed it yet, and the caller may
    * sign it off (`capacity.signoff`). The dialog shows the required checkbox "Capacity approved (I'm

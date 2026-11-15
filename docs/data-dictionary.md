@@ -191,8 +191,10 @@ The choices available at each gate and their constraints.
 | `notify` | jsonb | no | [] |  | Notifications to plan: [{type, to}]. | Admin / Knowledge Steward |
 | `sort` | integer | no | 0 |  | Display order within the gate. | Admin / Knowledge Steward |
 | `resume_at` | text | no | "intake" |  | FB-01 (F-030): for an outcome that returns the quote to the KAM, where the KAM's resubmission goes: intake (a new submission, G1 then Engineering) \| origin (straight back to the stage it came from unless the KAM says the scope changed). | Admin / Knowledge Steward |
+| `active` | boolean | no | true |  | FB-17 (W13-22): false = switched off. The outcome is no longer offered or accepted, and decisions already recorded with it keep its label. | Admin / Knowledge Steward |
+| `outcome_group` | text | yes |  |  | FB-17 (W13-23): the choice the decision dialog shows the outcome under: advance \| send_back \| hold \| stop \| customer_outcome (G5, the customer answer, listed flat); null = none set. | Admin / Knowledge Steward |
 
-**Checks:** `gate_outcome_definition_resume_at_check`, `gate_outcome_definition_reason_context_check`
+**Checks:** `gate_outcome_definition_resume_at_check`, `gate_outcome_definition_reason_context_check`, `gate_outcome_definition_outcome_group_check`
 
 ### reason_code
 
