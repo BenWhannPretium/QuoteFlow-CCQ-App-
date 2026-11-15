@@ -4,6 +4,7 @@ import type {
   TimelineFilter,
   TimelineItem as TimelineEntry,
 } from '@ccq/contracts';
+import { formatCapitalUsd } from '@ccq/domain';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
@@ -13,6 +14,7 @@ import { Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
 import { describeError } from '@/lib/errors';
+import { holdEndedSummary, holdSummary } from '@/lib/hold-text';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -81,10 +83,43 @@ export function describeEvent(
         detail: p.from ? <p>From {stageLabel(config, str(p.from) ?? '')}</p> : undefined,
         kind: 'stage',
       };
-    case 'hold_started':
-      return { title: 'Put on hold', kind: 'stage' };
+    // FB-17 (W13-26): a hold says why, who owns it and when it is reviewed; the entry's actor is who
+    // placed it. An entry recorded before FB-17 carries none of that and reads "On hold".
+    case 'hold_started': {
+      const reason =
+        str(p.reasonLabel) ??
+        config?.reasonCodes.find((r) => r.context === 'hold' && r.code === p.reasonCode)?.label;
+      return {
+        title: holdSummary({
+          reasonLabel: reason ?? null,
+          ownerName: str(p.ownerName),
+          reviewDate: str(p.reviewDate),
+        }),
+        detail: note(str(p.note)),
+        kind: 'stage',
+      };
+    }
     case 'hold_ended':
-      return { title: 'Hold ended', kind: 'stage' };
+      return {
+        title: holdEndedSummary({ actorName: e.actorName, outcomeLabel: str(p.outcomeLabel) }),
+        kind: 'stage',
+      };
+    // FB-17 (W13-22): a G2 Advance whose preliminary capital says capital is needed.
+    case 'capital_needed':
+      return {
+        title:
+          typeof p.prelimCapitalUsd === 'number'
+            ? `Capital needed: preliminary capital ${formatCapitalUsd(p.prelimCapitalUsd)}`
+            : 'Capital needed',
+        detail: (
+          <p>
+            {p.capitalLikelySet
+              ? 'The quote is now flagged capital likely. Capital readiness starts as pending.'
+              : 'Capital readiness starts as pending.'}
+          </p>
+        ),
+        kind: 'gate',
+      };
     case 'version_bumped':
       return { title: `New version: v${String(p.from)} → v${String(p.to)}`, kind: 'system' };
     case 'proposal_released':

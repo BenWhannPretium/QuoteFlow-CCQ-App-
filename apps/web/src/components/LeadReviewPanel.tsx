@@ -197,7 +197,7 @@ export function LeadReviewActions<T>({
           )}
           {decide && !decide.ready && decide.onOther && (
             <Button variant="outline" onClick={decide.onOther} data-testid="decide-other">
-              Hold, send back or stop
+              Send back, hold or stop
             </Button>
           )}
           {submitReady && (

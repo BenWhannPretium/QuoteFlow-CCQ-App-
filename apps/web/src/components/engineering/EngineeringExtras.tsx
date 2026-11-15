@@ -189,7 +189,7 @@ export function EquipmentBomCard({ quote }: { quote: QuoteDetail }) {
         <EquipmentBomLine bom={bom} />
         {bom.requiredForCapital && !bom.current && eng.inQueue && (
           <p className="bg-secondary rounded-md px-3 py-2 text-sm" data-testid="bom-required">
-            Upload this before you advance the quote as “Capital required”.
+            {bom.requiredWhenText}.
           </p>
         )}
         <BomHistory bom={bom} />

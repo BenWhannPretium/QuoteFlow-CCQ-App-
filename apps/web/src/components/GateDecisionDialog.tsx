@@ -1,11 +1,16 @@
 import type { AvailableGateAction, GateDecisionBody, GateDecisionResponse } from '@ccq/contracts';
 import {
   EXPIRED_OUTCOME,
+  HOLD_OWNER_DEFAULTS,
+  HOLD_OWNER_DEFAULT_SEED,
   LOST_OUTCOME,
   REQUIREMENT_LABELS,
+  holdOwnerChoices,
   proposalCalendarDate,
   uniqueRequirements,
   validityUntil,
+  type HoldOwnerChoice,
+  type HoldOwnerDefault,
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, InfoIcon } from 'lucide-react';
@@ -24,6 +29,17 @@ import {
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
+import {
+  DECISION_GROUP_LABELS,
+  groupDecisions,
+  noteHelp,
+  notePlaceholder,
+  sendBackOptions,
+  sendBackValue,
+  showsDecisionGroups,
+  type DecisionGroup,
+  type SendBackOption,
+} from '@/lib/decision-groups';
 import { decisionLabel } from '@/lib/decision-label';
 import { writeSfReminder } from '@/lib/sf-reminder';
 import { calendarDate, toLocalInput, todayCentral } from '@/lib/time';
@@ -53,10 +69,16 @@ interface ServerError {
   message: string;
 }
 
+type Action = AvailableGateAction;
+
 /**
  * The generic gate-decision dialog (B-08). Its options are the domain's `availableActions` for this quote
  * and gate, so outcomes, reason codes, "note required", review dates and target stages all come from config.
  * The checks here only guide the user; the server (domain engine) decides and its errors are shown as-is.
+ *
+ * FB-17 (W13-23, W13-24): the outcomes are shown as four plain choices, Advance, Send back to…, Hold and
+ * Stop, from each outcome's group (config). "Send back to…" is one choice with a "Send to" list of where
+ * the quote can go. A gate whose outcomes are the customer's answer (G5) keeps its flat list.
  */
 export function GateDecisionDialog({
   open,
@@ -113,10 +135,12 @@ export function GateDecisionDialog({
   const [docUrl, setDocUrl] = useState('');
   const [competitor, setCompetitor] = useState('');
   const [ownerChoice, setOwnerChoice] = useState<'' | 'me'>('');
+  /** FB-17: "Send back to…" is picked but where to is not chosen yet (no outcome is selected then). */
+  const [sendBackPicked, setSendBackPicked] = useState(false);
   /** FB-16 (W13-18): the engineering lead signs capacity off with the G2 decision. */
   const [capacityApproved, setCapacityApproved] = useState(false);
   const me = useCurrentUser();
-  /** B-26: every hold names an owner (default: me). */
+  /** B-26: every hold names an owner. FB-17 (W13-25): null = the default, the stage's assignee. */
   const [holdOwner, setHoldOwner] = useState<{ id: string; displayName: string } | null>(null);
   const [openedAt] = useState(() => Date.now());
   const [submitted, setSubmitted] = useState(false);
@@ -132,6 +156,7 @@ export function GateDecisionDialog({
     competitor: useId(),
     owner: useId(),
     holdOwner: useId(),
+    sendTo: useId(),
     capacity: useId(),
     errors: useId(),
     blocked: useId(),
@@ -139,6 +164,16 @@ export function GateDecisionDialog({
   };
 
   const action = actions.find((a) => a.outcomeKey === outcomeKey);
+  // FB-17 (W13-23): the four choices, when every offered outcome sits under one of them.
+  const grouped = showsDecisionGroups(actions);
+  const sendTo = grouped ? sendBackOptions(actions, (key) => stageLabel(config, key)) : [];
+  const sendingBack = grouped && (sendBackPicked || action?.outcomeGroup === 'send_back');
+  const sendToValue =
+    sendingBack && action
+      ? action.targetStageKeys.length > 1
+        ? target && sendBackValue(action.outcomeKey, target)
+        : sendBackValue(action.outcomeKey)
+      : '';
   // DR-kam-sales-leader-02: a reason an earlier gate already recorded (G5's acceptance evidence, when G6
   // closes Won) is offered as the default, not asked for again. The user can still change it.
   const inheritedReason =
@@ -163,14 +198,54 @@ export function GateDecisionDialog({
   const needsAcceptance = !!action?.requiresAcceptanceDate;
   const acceptedInFuture = !!acceptedAt && acceptedAt > proposalCalendarDate(new Date(openedAt));
   const closes = !!action?.closesAs;
+  // FB-17 (W13-27): a closure the decider owns (Stop, Decline, G1 not CCQ work, G6 Stop) asks nothing:
+  // the server records the decider. The picker stays for the KAM-owned customer outcomes (G5 Lost and
+  // Expired, G6 Advance), where a sales leader holding outcome.assignOwner names the owner (B-13, CR-39).
   const canPickOwner =
-    closes && !!quote.data?.customerDecision.canAssignClosureOwner && !!action?.closureOwnerDefault;
-  const defaultOwnerIsMe =
-    action?.closureOwnerDefault === 'decider' || quote.data?.kamUserId === me.user.id;
+    closes &&
+    !!quote.data?.customerDecision.canAssignClosureOwner &&
+    action?.closureOwnerDefault === 'kam';
+  const defaultOwnerIsMe = quote.data?.kamUserId === me.user.id;
   const needsDate = !!action?.requiresReviewDate;
   const needsHoldOwner = !!action?.requiresHoldOwner;
-  const holdOwnerChoice = holdOwner ?? { id: me.user.id, displayName: me.user.displayName };
+  // FB-17 (W13-25): the hold owner is whoever will clear the hold, so the stage's assignees come first
+  // and are the default when there is exactly one (app_setting `hold_owner_default`, provisional).
+  const holdOwnerSetting = config?.settings.hold_owner_default;
+  const holdOwners = holdOwnerChoices({
+    stageKey: quote.data?.stageKey ?? '',
+    me: { id: me.user.id, displayName: me.user.displayName },
+    kam: quote.data?.kamUserId
+      ? { id: quote.data.kamUserId, displayName: quote.data.kamName ?? 'The KAM' }
+      : null,
+    engineer: person(
+      quote.data?.engineering.assignedEngineerId,
+      quote.data?.engineering.assignedEngineerName,
+    ),
+    scheduler: person(
+      quote.data?.engineering.assignedSchedulerId,
+      quote.data?.engineering.assignedSchedulerName,
+    ),
+    pricer: person(quote.data?.quoting.assignedPricerId, quote.data?.quoting.assignedPricerName),
+    defaultTo: (HOLD_OWNER_DEFAULTS as readonly unknown[]).includes(holdOwnerSetting)
+      ? (holdOwnerSetting as HoldOwnerDefault)
+      : HOLD_OWNER_DEFAULT_SEED,
+  });
+  const holdOwnerChoice = holdOwner ?? holdOwners.defaultChoice;
   const needsTarget = !!action && action.targetStageKeys.length > 1;
+  /** Picks an outcome (and its target stage, from "Send to") and clears what the last one asked for. */
+  const choose = (key: string, targetStageKey = '', viaSendBack = false) => {
+    setOutcomeKey(key);
+    setSendBackPicked(viaSendBack);
+    setReasonCode('');
+    setTarget(targetStageKey);
+    setIssued('');
+    setAcceptedAt('');
+    setDocUrl('');
+    setCompetitor('');
+    setOwnerChoice('');
+    setCapacityApproved(false);
+    setServerErrors([]);
+  };
   // B-12: an outcome that releases the proposition asks for the actual send date and shows the validity.
   const releases = !!action?.releasesProposal;
   const issuedAt = issued ? new Date(issued) : null;
@@ -196,7 +271,7 @@ export function GateDecisionDialog({
   const blockedBy = action?.missing ?? [];
 
   const problems = [
-    !action && 'Choose a decision.',
+    !action && (sendingBack ? 'Choose who to send it back to.' : 'Choose a decision.'),
     needsReason && !reason && 'Choose a reason.',
     needsDate && !holdUntil && 'Choose a review date.',
     // DR-engineering-04 / DR-approver-leadership-admin-04: the server refuses a date already passed.
@@ -233,6 +308,7 @@ export function GateDecisionDialog({
     setDocUrl('');
     setCompetitor('');
     setOwnerChoice('');
+    setSendBackPicked(false);
     setCapacityApproved(false);
     setHoldOwner(null);
     setSubmitted(false);
@@ -291,6 +367,66 @@ export function GateDecisionDialog({
     },
   });
   const busy = mutation.isPending;
+
+  /** One outcome as a radio: its label, its definition behind the ⓘ and, once picked, in full. */
+  const outcomeRadio = (a: Action) => (
+    <label
+      key={a.outcomeKey}
+      className={cn(
+        'flex min-h-11 cursor-pointer flex-wrap items-center gap-x-3 rounded-md border px-3 py-1',
+        outcomeKey === a.outcomeKey && 'border-primary bg-secondary',
+      )}
+    >
+      <input
+        type="radio"
+        name="outcome"
+        value={a.outcomeKey}
+        // The label also holds the ⓘ definition; the radio's name is the outcome alone.
+        aria-label={a.outcomeLabel}
+        checked={outcomeKey === a.outcomeKey}
+        onChange={() => choose(a.outcomeKey)}
+        className="size-4 accent-[var(--primary)]"
+      />
+      <span className="text-sm">{a.outcomeLabel}</span>
+      {a.helpText && <OutcomeDefinition label={a.outcomeLabel} text={a.helpText} />}
+      {a.nextStatus === 'closed' && (
+        <span className="text-foreground-2 ml-auto text-xs">Closes the quote</span>
+      )}
+      {a.helpText && outcomeKey === a.outcomeKey && (
+        <span
+          className="text-muted-foreground basis-full pb-1 pl-7 text-xs"
+          data-testid="outcome-definition"
+        >
+          {a.helpText}
+        </span>
+      )}
+    </label>
+  );
+
+  /** FB-17 (W13-23): one of the four choices, with the outcomes under it. */
+  const decisionGroup = (g: { group: DecisionGroup; label: string; actions: Action[] }) => (
+    <div
+      key={g.group}
+      role="group"
+      aria-label={g.label}
+      className="grid gap-2"
+      data-testid={`decision-group-${g.group}`}
+    >
+      {g.group === 'send_back' && (
+        <SendBackChoice
+          id={ids.sendTo}
+          picked={sendingBack}
+          options={sendTo}
+          value={sendToValue}
+          helpText={sendingBack ? (action?.helpText ?? null) : null}
+          invalid={submitted && !sendToValue}
+          onPick={(to) => choose(to?.outcomeKey ?? '', to?.targetStageKey ?? '', true)}
+        />
+      )}
+      {g.group !== 'send_back' && g.actions.map(outcomeRadio)}
+    </div>
+  );
+  const choices = grouped ? groupDecisions(actions).map(decisionGroup) : actions.map(outcomeRadio);
 
   return (
     <Dialog
@@ -367,7 +503,7 @@ export function GateDecisionDialog({
                 {capacity.note && <p className="whitespace-pre-wrap">{capacity.note}</p>}
                 <p>
                   The quote cannot advance until capacity is approved again on the Engineering tab.
-                  Hold, send back or stop are still available.
+                  Send back, hold or stop are still available.
                 </p>
               </div>
             )}
@@ -409,50 +545,7 @@ export function GateDecisionDialog({
               >
                 <fieldset className="grid gap-2">
                   <legend className="mb-1 text-sm font-medium">Decision</legend>
-                  {actions.map((a) => (
-                    <label
-                      key={a.outcomeKey}
-                      className={cn(
-                        'flex min-h-11 cursor-pointer flex-wrap items-center gap-x-3 rounded-md border px-3 py-1',
-                        outcomeKey === a.outcomeKey && 'border-primary bg-secondary',
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="outcome"
-                        value={a.outcomeKey}
-                        // The label also holds the ⓘ definition; the radio's name is the outcome alone.
-                        aria-label={a.outcomeLabel}
-                        checked={outcomeKey === a.outcomeKey}
-                        onChange={() => {
-                          setOutcomeKey(a.outcomeKey);
-                          setReasonCode('');
-                          setTarget('');
-                          setIssued('');
-                          setAcceptedAt('');
-                          setDocUrl('');
-                          setCompetitor('');
-                          setOwnerChoice('');
-                          setCapacityApproved(false);
-                          setServerErrors([]);
-                        }}
-                        className="size-4 accent-[var(--primary)]"
-                      />
-                      <span className="text-sm">{a.outcomeLabel}</span>
-                      {a.helpText && <OutcomeDefinition label={a.outcomeLabel} text={a.helpText} />}
-                      {a.nextStatus === 'closed' && (
-                        <span className="text-foreground-2 ml-auto text-xs">Closes the quote</span>
-                      )}
-                      {a.helpText && outcomeKey === a.outcomeKey && (
-                        <span
-                          className="text-muted-foreground basis-full pb-1 pl-7 text-xs"
-                          data-testid="outcome-definition"
-                        >
-                          {a.helpText}
-                        </span>
-                      )}
-                    </label>
-                  ))}
+                  {choices}
                 </fieldset>
 
                 {needsCapacity && (
@@ -523,17 +616,13 @@ export function GateDecisionDialog({
                   <HoldOwnerPicker
                     id={ids.holdOwner}
                     value={holdOwnerChoice}
-                    me={{ id: me.user.id, displayName: me.user.displayName }}
-                    kam={
-                      quote.data?.kamUserId && quote.data.kamUserId !== me.user.id
-                        ? { id: quote.data.kamUserId, displayName: quote.data.kamName ?? 'The KAM' }
-                        : null
-                    }
+                    meId={me.user.id}
+                    choices={holdOwners.choices}
                     onChange={setHoldOwner}
                   />
                 )}
 
-                {needsTarget && (
+                {needsTarget && !sendingBack && (
                   <div className="grid gap-1.5">
                     <label htmlFor={ids.target} className="text-sm font-medium">
                       Send back to (required)
@@ -648,9 +737,7 @@ export function GateDecisionDialog({
                       onChange={(e) => setOwnerChoice(e.target.value as '' | 'me')}
                     >
                       <option value="">
-                        {action?.closureOwnerDefault === 'kam'
-                          ? `The KAM${quote.data?.kamName ? ` (${quote.data.kamName})` : ''}`
-                          : 'Me (the decider)'}
+                        {`The KAM${quote.data?.kamName ? ` (${quote.data.kamName})` : ''}`}
                       </option>
                       {!defaultOwnerIsMe && <option value="me">Me ({me.user.displayName})</option>}
                     </NativeSelect>
@@ -666,7 +753,7 @@ export function GateDecisionDialog({
                   {/* DR-engineering-10, DR-kam-sales-leader-16: say what to write for this outcome. */}
                   {action?.requiresNote && (
                     <p id={ids.noteHint} className="text-muted-foreground text-xs">
-                      {noteHelp(action.outcomeKey)}
+                      {noteHelp(action)}
                     </p>
                   )}
                   <Textarea
@@ -676,11 +763,7 @@ export function GateDecisionDialog({
                     aria-invalid={submitted && needsNote && note.trim() === ''}
                     aria-required={needsNote}
                     {...(action?.requiresNote ? { 'aria-describedby': ids.noteHint } : {})}
-                    placeholder={
-                      action?.outcomeKey === 'rework' || action?.outcomeKey === 'rework_kam'
-                        ? 'What should the KAM fix?'
-                        : undefined
-                    }
+                    placeholder={notePlaceholder(action)}
                   />
                 </div>
 
@@ -739,20 +822,84 @@ export function GateDecisionDialog({
   );
 }
 
+/** An assignee for the hold-owner list; null when nobody is assigned. */
+const person = (id: string | null | undefined, displayName: string | null | undefined) =>
+  id ? { id, displayName: displayName ?? 'name not shown' } : null;
+
 /**
- * DR-engineering-10, DR-kam-sales-leader-16: what the required note should say, by kind of outcome
- * (the helper used to read "Required for exception decisions" under Hold, Rework and Stop alike).
+ * FB-17 (W13-23): "Send back to…" is one choice. Picked, it asks where the quote goes: the "Send to" list
+ * names each send-back outcome by its destination, and the chosen one's definition is shown under it.
  */
-export function noteHelp(outcomeKey: string): string {
-  if (/hold/.test(outcomeKey)) return 'Say what you are waiting for, and from whom.';
-  if (/rework|return|requote/.test(outcomeKey)) return 'Say what needs to change, and where.';
-  if (outcomeKey === 'recost') return 'Say what changed and needs costing again.';
-  if (/redirect/.test(outcomeKey)) return 'Say where the work goes instead, and why.';
-  if (/stop|decline|lost/.test(outcomeKey)) return 'Say why it stops here.';
-  if (/expired/.test(outcomeKey)) return 'Say why it is expired now.';
-  if (/risk/.test(outcomeKey)) return 'Say what the risk is and how it is covered.';
-  if (/capital/.test(outcomeKey)) return 'Say what the capital is for.';
-  return 'Say why this decision was made.';
+function SendBackChoice({
+  id,
+  picked,
+  options,
+  value,
+  helpText,
+  invalid,
+  onPick,
+}: {
+  id: string;
+  picked: boolean;
+  options: readonly SendBackOption[];
+  value: string;
+  helpText: string | null;
+  invalid: boolean;
+  onPick: (to: SendBackOption | undefined) => void;
+}) {
+  return (
+    <>
+      <label
+        className={cn(
+          'flex min-h-11 cursor-pointer flex-wrap items-center gap-x-3 rounded-md border px-3 py-1',
+          picked && 'border-primary bg-secondary',
+        )}
+      >
+        <input
+          type="radio"
+          name="outcome"
+          value="send_back"
+          aria-label={DECISION_GROUP_LABELS.send_back}
+          checked={picked}
+          // One place it can go: it is chosen already, and still shown.
+          onChange={() => onPick(options.length === 1 ? options[0] : undefined)}
+          className="size-4 accent-[var(--primary)]"
+        />
+        <span className="text-sm">{DECISION_GROUP_LABELS.send_back}</span>
+        {picked && (
+          <span className="text-muted-foreground basis-full pb-1 pl-7 text-xs">
+            To get something fixed. Choose who it goes to, and say what needs to change.
+          </span>
+        )}
+      </label>
+      {picked && (
+        <div className="grid gap-1.5 pl-7" data-testid="send-to">
+          <label htmlFor={id} className="text-sm font-medium">
+            Send to (required)
+          </label>
+          <NativeSelect
+            id={id}
+            value={value}
+            onChange={(e) => onPick(options.find((o) => o.value === e.target.value))}
+            aria-required="true"
+            aria-invalid={invalid}
+          >
+            <option value="">Choose who it goes to…</option>
+            {options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </NativeSelect>
+          {helpText && (
+            <p className="text-muted-foreground text-xs" data-testid="outcome-definition">
+              {helpText}
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
 }
 
 /** B-26 (A3): the outcome's definition (config help text) behind an ⓘ, on hover and on focus. */
@@ -780,18 +927,22 @@ function OutcomeDefinition({ label, text }: { label: string; text: string }) {
   );
 }
 
-/** B-26 (deck slide 16): who owns the hold. Me by default, the KAM, or anyone found by name. */
+/**
+ * B-26 (deck slide 16): who owns the hold. FB-17 (W13-25): the person who will clear it. The stage's
+ * assignees come first (the default when there is exactly one), then "Me", the KAM, and anyone found by
+ * name. The owner is told about the hold unless the owner is the decider.
+ */
 function HoldOwnerPicker({
   id,
   value,
-  me,
-  kam,
+  meId,
+  choices,
   onChange,
 }: {
   id: string;
   value: { id: string; displayName: string };
-  me: { id: string; displayName: string };
-  kam: { id: string; displayName: string } | null;
+  meId: string;
+  choices: readonly HoldOwnerChoice[];
   onChange: (owner: { id: string; displayName: string }) => void;
 }) {
   const [q, setQ] = useState('');
@@ -800,33 +951,45 @@ function HoldOwnerPicker({
     queryFn: () => api.searchUsers(q),
     enabled: q.trim().length >= 2,
   });
+  // Someone found by name joins the list, so the choice made is always one of the options shown.
+  const options = choices.some((c) => c.id === value.id)
+    ? choices
+    : [...choices, { id: value.id, displayName: value.displayName, label: value.displayName }];
   return (
-    <div className="grid gap-1.5" data-testid="hold-owner">
-      <label htmlFor={id} className="text-sm font-medium">
-        Hold owner (required)
-      </label>
+    <fieldset className="grid gap-1.5" data-testid="hold-owner">
+      <legend className="text-sm font-medium">Hold owner (required)</legend>
       <p className="text-muted-foreground text-xs">
-        Owns getting it moving again by the review date.{' '}
+        The person who will clear the hold and get the quote moving again by the review date. They
+        are told about it.{' '}
         <span data-testid="hold-owner-choice">
           Now: {value.displayName}
-          {value.id === me.id ? ' (me)' : ''}
+          {value.id === meId ? ' (me)' : ''}
         </span>
       </p>
-      <div className="flex flex-wrap gap-2">
-        {value.id !== me.id && (
-          <Button type="button" size="sm" variant="outline" onClick={() => onChange(me)}>
-            Me
-          </Button>
-        )}
-        {kam && value.id !== kam.id && (
-          <Button type="button" size="sm" variant="outline" onClick={() => onChange(kam)}>
-            The KAM ({kam.displayName})
-          </Button>
-        )}
+      <div className="grid gap-1">
+        {options.map((c) => (
+          <label
+            key={c.id}
+            className={cn(
+              'flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-1 text-sm',
+              value.id === c.id && 'border-primary bg-secondary',
+            )}
+          >
+            <input
+              type="radio"
+              name={`${id}-owner`}
+              checked={value.id === c.id}
+              onChange={() => onChange({ id: c.id, displayName: c.displayName })}
+              className="size-4 accent-[var(--primary)]"
+            />
+            {c.label}
+          </label>
+        ))}
       </div>
       <Input
         id={id}
         type="search"
+        aria-label="Find someone else by name"
         placeholder="Find someone else by name…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -850,6 +1013,6 @@ function HoldOwnerPicker({
           ))}
         </ul>
       )}
-    </div>
+    </fieldset>
   );
 }

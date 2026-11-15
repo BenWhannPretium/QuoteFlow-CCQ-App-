@@ -1,4 +1,5 @@
 import type { FinalReviewItem, FinalReviewQueueResponse } from '@ccq/contracts';
+import { g2DecisionText } from '@ccq/domain';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { CheckIcon, InboxIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
@@ -159,7 +160,7 @@ export function FinalReviewQueue({
 function Counts({ data }: { data: FinalReviewQueueResponse }) {
   const chips = [
     { key: 'waiting', label: 'Waiting', n: data.total },
-    { key: 'flagged', label: 'Capital required / with risk', n: data.counts.flagged },
+    { key: 'flagged', label: 'Capital needed / with risk', n: data.counts.flagged },
     { key: 'capital', label: 'Capital pending', n: data.counts.capitalPending },
     ...(data.canDecide
       ? [{ key: 'decidable', label: 'You can decide', n: data.counts.decidable }]
@@ -347,7 +348,7 @@ function ApprovalCard({ item, canDecide }: { item: FinalReviewItem; canDecide: b
             data-testid="g2-outcome"
           >
             {item.g2Flag && <TriangleAlertIcon className="size-3 shrink-0" aria-hidden="true" />}
-            {item.g2OutcomeLabel ?? '–'}
+            {g2DecisionText(item) ?? '–'}
           </dd>
         </div>
         <div className="min-w-0">

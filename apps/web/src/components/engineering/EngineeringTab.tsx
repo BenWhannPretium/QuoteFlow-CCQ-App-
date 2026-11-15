@@ -129,7 +129,7 @@ export function EngineeringTab({
                     ? () =>
                         onDecide(undefined, {
                           outcomes: forward.others,
-                          title: 'Hold, send back or stop',
+                          title: 'Send back, hold or stop',
                         })
                     : undefined,
               }

@@ -112,7 +112,7 @@ export function QuotingTab({
                     ? () =>
                         onDecide(undefined, {
                           outcomes: forward.others,
-                          title: 'Hold, send back or stop',
+                          title: 'Send back, hold or stop',
                         })
                     : undefined,
               }
@@ -640,7 +640,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
   const quoting = quote.quoting;
   const record = quoting.pricingRecord ?? null;
   const refresh = useRefresh(quote.quoteNumber);
-  const capitalRequired = quoting.g2?.outcomeKey === 'capital_required';
+  const capitalRequired = quoting.capitalNeeded;
   const saved = {
     capitalReadiness: record?.capitalReadiness ?? '',
     capitalNotes: record?.capitalNotes ?? '',
@@ -717,7 +717,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
               label="Status"
               hint={
                 capitalRequired
-                  ? 'Engineering said capital is required, so you cannot choose “Not required”. The capital figure is an estimate for quoting; it is firmed up after award. You do not need a CER reference to quote.'
+                  ? 'Engineering said capital is needed, so you cannot choose “Not required”. The capital figure is an estimate for quoting; it is firmed up after award. You do not need a CER reference to quote.'
                   : 'The capital figure is an estimate for quoting; it is firmed up after award. You do not need a CER reference to quote.'
               }
               error={errorFor(errors, 'capitalReadiness')}

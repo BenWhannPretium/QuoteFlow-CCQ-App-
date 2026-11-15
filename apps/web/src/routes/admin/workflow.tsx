@@ -20,6 +20,7 @@ import { SkeletonRows } from '@/components/Skeletons';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { DECISION_GROUP_LABELS, type DecisionGroup } from '@/lib/decision-groups';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -35,8 +36,21 @@ interface Draft {
   helpText: string;
   requiresNote: boolean;
   requiresReasonCode: boolean;
+  /** FB-17 (W13-22): outcomes only: offered to deciders, or switched off. */
+  active: boolean;
   rules: RequiredRule[];
 }
+
+/**
+ * FB-17 (W13-23): which of the decision dialog's four choices an outcome is shown under (config, shown
+ * here, not edited here). G5's outcomes are the customer's answer and stay a flat list.
+ */
+const groupText = (group: string | null): string | null =>
+  !group
+    ? null
+    : group === 'customer_outcome'
+      ? 'Customer outcome (listed as it is)'
+      : `Shown under “${DECISION_GROUP_LABELS[group as DecisionGroup] ?? group}”`;
 
 function Chip({ on, children }: { on: boolean; children: string }) {
   return (
@@ -88,7 +102,15 @@ function Header({
 function WorkflowPage() {
   useDocumentTitle('Workflow');
   const canEdit = useCanEditConfig();
-  const ids = { label: useId(), help: useId(), note: useId(), reason: useId(), g1: useId() };
+  const ids = {
+    label: useId(),
+    help: useId(),
+    note: useId(),
+    reason: useId(),
+    active: useId(),
+    activeHint: useId(),
+    g1: useId(),
+  };
   const wf = useQuery({ queryKey: adminKey('workflow'), queryFn: api.admin.workflow });
   // FB-16 (W13-16): the stage a submit reaches when G1 is off, by its configured label.
   const engStage =
@@ -99,6 +121,7 @@ function WorkflowPage() {
     helpText: '',
     requiresNote: false,
     requiresReasonCode: false,
+    active: true,
     rules: [],
   });
   const [g1Open, setG1Open] = useState(false);
@@ -110,6 +133,7 @@ function WorkflowPage() {
       helpText: e.row.helpText ?? '',
       requiresNote: e.kind === 'outcome' ? e.row.requiresNote : false,
       requiresReasonCode: e.kind === 'outcome' ? e.row.requiresReasonCode : false,
+      active: e.kind === 'outcome' ? e.row.active : true,
       rules: e.kind === 'stage' ? [] : (e.row.requiredFields as RequiredRule[]),
     });
     setEditing(e);
@@ -232,7 +256,13 @@ function WorkflowPage() {
                                 )
                               }
                             />
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Chip on={o.active}>{o.active ? 'On' : 'Switched off'}</Chip>
+                              {groupText(o.outcomeGroup) && (
+                                <span className="text-muted-foreground text-xs">
+                                  {groupText(o.outcomeGroup)}
+                                </span>
+                              )}
                               <Chip on={o.requiresNote}>Note required</Chip>
                               <Chip on={o.requiresReasonCode}>
                                 {`Reason code${o.reasonContext ? ` (${o.reasonContext})` : ''}`}
@@ -292,6 +322,7 @@ function WorkflowPage() {
             ...(draft.requiresReasonCode !== e.row.requiresReasonCode
               ? { requiresReasonCode: draft.requiresReasonCode }
               : {}),
+            ...(draft.active !== e.row.active ? { active: draft.active } : {}),
             ...(rulesChanged ? { requiredFields: draft.rules } : {}),
           });
         }}
@@ -322,6 +353,21 @@ function WorkflowPage() {
         </div>
         {editing?.kind === 'outcome' && (
           <div className="grid gap-1">
+            <label htmlFor={ids.active} className="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                id={ids.active}
+                type="checkbox"
+                className="size-4"
+                checked={draft.active}
+                aria-describedby={ids.activeHint}
+                onChange={(e) => setDraft((d) => ({ ...d, active: e.target.checked }))}
+              />
+              Offered to deciders (on)
+            </label>
+            <p id={ids.activeHint} className="text-muted-foreground text-xs">
+              Switched off, it is no longer offered or accepted. Decisions already recorded with it
+              keep this label. A gate must keep at least one Advance outcome on.
+            </p>
             <label htmlFor={ids.note} className="flex min-h-11 items-center gap-2 text-sm">
               <input
                 id={ids.note}

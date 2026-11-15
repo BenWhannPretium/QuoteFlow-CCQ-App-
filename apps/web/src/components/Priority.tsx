@@ -1,5 +1,6 @@
 import type { QualificationWarning, QuotePriority } from '@ccq/contracts';
 import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePublicConfig } from '@/config/public-config';
@@ -154,21 +155,61 @@ export function PriorityBadge({
         />
       )}
       {showWhy && priority.score !== null && (
-        <Popover>
-          <PopoverTrigger
-            className="text-emphasis inline-flex min-h-11 items-center gap-1 rounded px-1 text-xs sm:min-h-8 underline-offset-4 hover:underline"
-            aria-label={`Why this priority? ${quoteNumber}`}
-          >
-            <InfoIcon className="size-3.5" aria-hidden="true" />
-            Why?
-          </PopoverTrigger>
-          <PopoverContent className="w-[min(28rem,calc(100vw-2rem))]" align="start">
-            <p className="mb-2 text-sm font-semibold">Why this priority?</p>
-            <ScoreBreakdownTable priority={priority} {...(market ? { market } : {})} />
-          </PopoverContent>
-        </Popover>
+        <WhyPopover priority={priority} quoteNumber={quoteNumber} market={market} />
       )}
     </span>
+  );
+}
+
+/**
+ * The "Why?" score explanation. FB-17 (W13-28): on a laptop the breakdown ran off the bottom of the
+ * screen. It now opens on the side of the trigger with more room (upward when that is above), is never
+ * taller than the room there (Radix measures it, with the wrapper's collision padding), and scrolls
+ * inside. The scrolling part takes keyboard focus, so it can be read without a mouse.
+ */
+function WhyPopover({
+  priority,
+  quoteNumber,
+  market,
+}: {
+  priority: QuotePriority;
+  quoteNumber: string;
+  market: { market: string | null; subMarket: string | null } | undefined;
+}) {
+  const trigger = useRef<HTMLButtonElement>(null);
+  const [side, setSide] = useState<'top' | 'bottom'>('bottom');
+  return (
+    <Popover
+      onOpenChange={(open) => {
+        const rect = open ? trigger.current?.getBoundingClientRect() : undefined;
+        if (rect) setSide(rect.top > window.innerHeight - rect.bottom ? 'top' : 'bottom');
+      }}
+    >
+      <PopoverTrigger
+        ref={trigger}
+        className="text-emphasis inline-flex min-h-11 items-center gap-1 rounded px-1 text-xs sm:min-h-8 underline-offset-4 hover:underline"
+        aria-label={`Why this priority? ${quoteNumber}`}
+      >
+        <InfoIcon className="size-3.5" aria-hidden="true" />
+        Why?
+      </PopoverTrigger>
+      <PopoverContent
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-[min(28rem,calc(100vw-2rem))] flex-col"
+        align="start"
+        side={side}
+        data-testid="why-priority"
+      >
+        <p className="mb-2 text-sm font-semibold">Why this priority?</p>
+        <div
+          className="min-h-0 overflow-y-auto"
+          tabIndex={0}
+          role="group"
+          aria-label="Score breakdown"
+        >
+          <ScoreBreakdownTable priority={priority} {...(market ? { market } : {})} />
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
