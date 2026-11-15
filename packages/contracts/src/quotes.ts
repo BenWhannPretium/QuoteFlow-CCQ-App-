@@ -139,6 +139,12 @@ export const QuoteSummary = z.object({
   status: z.string(),
   version: z.number().int(),
   sfOpportunityId: z.string(),
+  /**
+   * FB-04 (F-076): the Lightning link to the Salesforce opportunity; null until `salesforce_instance_url`
+   * is set. FB-18 (W13-31): on the summary, so every list that names the opportunity (the queues, Final
+   * Review, the pipeline) can link to it, not only the quote page.
+   */
+  sfOpportunityUrl: z.string().nullable(),
   opportunityName: z.string().nullable(),
   customerName: z.string().nullable(),
   customerStatus: z.string().nullable(),
@@ -296,8 +302,6 @@ export const QuoteDetail = QuoteSummary.extend({
   quoting: QuotingDetail,
   /** B-13: the Customer Decision header (validity countdown, SF stage), the closure and the hand-off. */
   customerDecision: CustomerDecisionDetail,
-  /** FB-04 (F-076): the Lightning link to the Salesforce opportunity; null until `salesforce_instance_url` is set. */
-  sfOpportunityUrl: z.string().nullable(),
   /** B-26: capital flag, commercial terms, Legal review, hold owner and escalations. */
   commercial: CommercialDetail,
 });

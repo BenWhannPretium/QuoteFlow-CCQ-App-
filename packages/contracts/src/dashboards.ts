@@ -23,6 +23,20 @@ export type DashboardRole = z.infer<typeof DashboardRole>;
 
 export const DashboardParams = z.object({ role: DashboardRole });
 
+/**
+ * FB-18 (W13-26): what the "On hold" chip on a Command Center list says about a hold: the reason, who
+ * owns it and when it is reviewed. The same three facts as the quote header and the timeline (FB-17);
+ * each is null when it is not known. No figure in it.
+ */
+export const DashHold = z.object({
+  /** The hold's reason code as its label ("Awaiting customer information"). */
+  reasonLabel: z.string().nullable(),
+  ownerName: z.string().nullable(),
+  /** The review date, `YYYY-MM-DD`. */
+  reviewDate: z.string().nullable(),
+});
+export type DashHold = z.infer<typeof DashHold>;
+
 /** A quote row on a dashboard list. */
 export const DashQuote = z.object({
   quoteNumber: z.string(),
@@ -34,6 +48,8 @@ export const DashQuote = z.object({
   kamName: z.string().nullable(),
   /** Calendar days in the current stage (holds included); null when unknown. */
   daysInStage: z.number().nullable(),
+  /** FB-18 (W13-26): set while the quote is on hold (`status` is `on_hold`), else null. */
+  hold: DashHold.nullable(),
 });
 export type DashQuote = z.infer<typeof DashQuote>;
 
@@ -73,6 +89,8 @@ export const ExpiringProposal = z.object({
   daysLeft: z.number(),
   lapsed: z.boolean(),
   kamName: z.string().nullable(),
+  /** FB-18 (W13-26): set while the proposal is on hold (a G5 "On hold"), else null. */
+  hold: DashHold.nullable(),
 });
 export type ExpiringProposal = z.infer<typeof ExpiringProposal>;
 
