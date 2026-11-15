@@ -37,6 +37,7 @@ import { CapitalChip } from '../pricing/CapitalChip';
 import { PricingContextPanel } from '../pricing/PricingContextPanel';
 import { QuotingSteps } from '../pricing/QuotingSteps';
 import { PriorityBadge, ScoreBreakdownTable } from '../Priority';
+import { SalesforceLink } from '../SalesforceLink';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
 import { reviewSummaryKey } from './keys';
@@ -429,7 +430,8 @@ function RequestSection({ s }: { s: ReviewSummary }) {
     : null;
   const items: KeyValueItem[] = [
     { label: 'Customer', value: q.customerName },
-    { label: 'Opportunity', value: q.opportunityName },
+    // FB-18 (W13-31): the opportunity opens in Salesforce (an Admin is shown where to set the URL).
+    { label: 'Opportunity', value: <SalesforceLink quote={q} label={q.opportunityName} /> },
     { label: 'Product', value: i.standardDescription ?? i.description },
     { label: 'Product family', value: label('product_family', q.productFamily) },
     { label: 'Resin', value: label('resin', q.resin) },

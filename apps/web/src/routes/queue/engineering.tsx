@@ -24,6 +24,7 @@ import { BulkReassignDialog } from '@/components/engineering/BulkReassignDialog'
 import { businessDays } from '@/components/engineering/format';
 import { MoldModificationChip } from '@/components/intake/IntakeFacts';
 import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
+import { SalesforceLink, SalesforceUrlHint } from '@/components/SalesforceLink';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -538,7 +539,15 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
           <span className="grid max-w-56 min-w-0 gap-0.5">
             <span className="break-words">{row.original.customerName ?? 'Unknown customer'}</span>
             <span className="text-muted-foreground text-xs break-words">
-              {row.original.opportunityName}
+              {/* FB-18 (W13-31): the opportunity opens in Salesforce once the URL is set. */}
+              {row.original.opportunityName && (
+                <SalesforceLink
+                  quote={row.original}
+                  label={row.original.opportunityName}
+                  hint={false}
+                  className="text-xs"
+                />
+              )}
             </span>
           </span>
         ),
@@ -736,6 +745,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
           </Button>
         </div>
       )}
+      <SalesforceUrlHint quotes={data.items} />
       <DataTable
         caption="Engineering queue"
         columns={columns}

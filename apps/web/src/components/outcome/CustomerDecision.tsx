@@ -33,6 +33,7 @@ import {
 import { quoteQueryKey, sfReminderKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
+import { SalesforceLink } from '../SalesforceLink';
 
 // B-13: the Customer Decision header (validity countdown, SF stage side by side), the closure record
 // and the hand-off record. B-26: the hand-off belongs to Stage 6 (Commit & Hand Off), where the CER is
@@ -626,37 +627,6 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
 
 // ── FB-04 (F-076): the "update the Salesforce opportunity" reminder (stopgap until write-back, F-035) ──
 
-/** "Open in Salesforce ↗" (new tab), or the plain opportunity ID while `salesforce_instance_url` is unset. */
-export function SalesforceLink({
-  quote,
-  className,
-}: {
-  quote: Pick<QuoteDetail, 'sfOpportunityId' | 'sfOpportunityUrl'>;
-  className?: string;
-}) {
-  if (!quote.sfOpportunityUrl) {
-    return (
-      <span className={cn('font-mono text-xs', className)} data-testid="sf-opportunity-plain">
-        {quote.sfOpportunityId}
-      </span>
-    );
-  }
-  return (
-    <a
-      href={quote.sfOpportunityUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cn(
-        'text-emphasis text-sm font-medium underline-offset-4 hover:underline',
-        className,
-      )}
-      data-testid="open-in-salesforce"
-    >
-      Open in Salesforce ↗
-    </a>
-  );
-}
-
 /** Shown on the quote after a G5 outcome is saved; dismissible; nothing is written to Salesforce. */
 export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
   const queryClient = useQueryClient();
@@ -687,7 +657,8 @@ export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
           'Update the Salesforce opportunity to match this outcome.'
         )}
       </span>
-      <SalesforceLink quote={quote} className="text-current" />
+      {/* The quote header above already shows an Admin where to set the URL. */}
+      <SalesforceLink quote={quote} className="text-current" hint={false} />
       <Button
         variant="ghost"
         size="sm"

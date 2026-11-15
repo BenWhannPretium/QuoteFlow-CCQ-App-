@@ -31,11 +31,11 @@ import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import {
   ClosureCard,
   CustomerDecisionHeader,
-  SalesforceLink,
   SfUpdateReminder,
   HandoffCard,
 } from '@/components/outcome/CustomerDecision';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
+import { SalesforceLink } from '@/components/SalesforceLink';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
@@ -371,12 +371,19 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
             },
             { label: 'Opportunity', value: quote.opportunityName },
             // B-23: testers tie quotes out against Salesforce (U5) by this id.
+            // FB-18 (W13-31): the id is the link once the Salesforce URL is set (the header says how).
             {
               label: 'SF opportunity ID',
               value: (
-                <span className="font-mono" data-testid="sf-opportunity-id">
-                  {quote.sfOpportunityId}
-                </span>
+                <SalesforceLink
+                  quote={quote}
+                  hint={false}
+                  label={
+                    <span className="font-mono" data-testid="sf-opportunity-id">
+                      {quote.sfOpportunityId}
+                    </span>
+                  }
+                />
               ),
             },
             { label: 'KAM', value: quote.kamName },
