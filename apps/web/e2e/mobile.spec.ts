@@ -30,7 +30,7 @@ test.describe('390 × 844', () => {
 
     // Structural snapshot of the landing (deterministic across machines and fonts).
     await expect(page.getByTestId('landing')).toMatchAriaSnapshot(`
-      - paragraph: Home · Key account manager
+      - paragraph: Command Center · Key account manager
       - heading "My quotes" [level=1]
       - paragraph: Your intakes and quotes, and anything waiting on you.
       - link "New intake"
@@ -76,8 +76,8 @@ test.describe('390 × 844', () => {
   test('admin gets four tabs and More; every tab fits', async ({ page }) => {
     await signInAs(page, 'admin');
     await page.goto('/');
-    // Eight items (B-09 added Approvals, B-10 the engineering queue, B-11 the pricing queue): the
-    // fifth slot becomes "More".
+    // Seven items (B-09 added Approvals, B-10 the engineering queue, B-11 the pricing queue; FB-18
+    // made Analytics a view of the Command Center): the fifth slot becomes "More".
     await expect
       .poll(() => visibleNavKeys(page))
       .toEqual(['home', 'intake', 'queue-engineering', 'queue-pricing']);

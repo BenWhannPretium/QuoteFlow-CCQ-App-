@@ -60,6 +60,7 @@ export default defineConfig({
         'fb15.spec.ts',
         'fb16.spec.ts',
         'fb17.spec.ts',
+        'fb18.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

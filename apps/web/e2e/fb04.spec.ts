@@ -8,6 +8,8 @@ import { freeOpportunities, submitQuote } from './quotes';
 // FB-04: the funding wording (F-022, V-055), the sales-leader-only priority override shown to
 // Engineering (F-065, T-024) and the Salesforce link and reminder (F-076, T-035). The override
 // lifecycle itself is in overrides.spec.ts; the scoring panel is in g1.spec.ts.
+// FB-18 (W13-31): the link is on the Intake card too, and an Admin is told where to set the URL. Those
+// checks live here because this spec is the one that changes the Salesforce URL setting.
 
 const INSTANCE = 'https://pretium.lightning.force.com';
 
@@ -93,6 +95,7 @@ test('Engineering sees why a sales leader changed the tier on the queue row', as
 });
 
 test('Salesforce: the quote links to its opportunity, and recording Awarded shows the reminder with the link', async ({
+  browser,
   page,
   request,
 }) => {
@@ -121,6 +124,16 @@ test('Salesforce: the quote links to its opportunity, and recording Awarded show
   await page.goto(`/quotes/${quoteNumber}`);
   await expect(page.getByTestId('sf-opportunity-plain')).toHaveText(detail.sfOpportunityId);
   await expect(page.getByTestId('open-in-salesforce')).toHaveCount(0);
+  // FB-18 (W13-31): only an Admin, who can set the URL, is told where to set it.
+  await expect(page.getByTestId('sf-url-hint')).toHaveCount(0);
+  const admin = await (await browser.newContext()).newPage();
+  await signInAs(admin, 'admin');
+  await admin.goto(`/quotes/${quoteNumber}`);
+  await expect(admin.getByTestId('sf-opportunity-plain')).toHaveText(detail.sfOpportunityId);
+  const hint = admin.getByTestId('sf-url-hint');
+  await expect(hint).toHaveText('Set the Salesforce URL in Admin → Settings');
+  await expect(hint).toHaveAttribute('href', '/admin/settings');
+  expect(await seriousViolations(admin)).toEqual([]);
 
   await setInstanceUrl(request, INSTANCE);
   try {
@@ -132,6 +145,16 @@ test('Salesforce: the quote links to its opportunity, and recording Awarded show
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     await expect(page.getByTestId('sf-update-reminder')).toHaveCount(0);
+    // FB-18 (W13-31): the ID on the Intake card is the link too, and the Admin's hint has gone.
+    const idLink = page
+      .getByTestId('open-in-salesforce')
+      .filter({ has: page.getByTestId('sf-opportunity-id') });
+    await expect(idLink).toHaveAttribute('href', href);
+    await expect(idLink).toHaveAttribute('target', '_blank');
+    await expect(idLink).toHaveAttribute('rel', 'noopener noreferrer');
+    await admin.reload();
+    await expect(admin.getByTestId('open-in-salesforce').first()).toHaveAttribute('href', href);
+    await expect(admin.getByTestId('sf-url-hint')).toHaveCount(0);
 
     // Record Awarded (T-035).
     await page.getByRole('button', { name: 'Record customer decision' }).click();
