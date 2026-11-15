@@ -34,14 +34,18 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   quote_needed_by: 'The "Quote needed by" date',
   product_needed_by: 'The "Product needed by" date',
   submitted_at: 'The intake, submitted by the KAM',
-  // G2 Engineering
-  process_type: 'Process type',
-  machine_type: 'Machine type',
+  // G2 Engineering. FB-16 (W13-12): the process type is derived from the machine type, so the two rules
+  // (both still required) read as the one pick the engineer makes; lists show the label once.
+  process_type: 'Process & machine type',
+  machine_type: 'Process & machine type',
   plant_code: 'Plant / site',
   cavitation: 'Cavitation',
   cycle_time_s: 'Cycle time',
   capacity_evidence: 'At least one capacity evidence row',
-  capacity_signoff_status: 'Capacity sign-off by the capacity owner',
+  capacity_signoff_status:
+    'Capacity approved (by the production scheduler, or by the engineering lead in the decision)',
+  // FB-16 (W13-14): only while `pack_out_rule.requireOneOf` is on (seeded off).
+  pack_out_units: 'Pack-out: units per bag, per tray or per case (fill in one)',
   capacity_utilization_missing:
     'Utilization after calculated on every capacity row (effectiveness above 0%, cycle time and volume)',
   prelim_capital_usd: 'The budgetary capital estimate (Engineering tab)',
@@ -94,3 +98,20 @@ export function requirementKeys(rule: RequiredRule): string[] {
 
 /** Plain words for a requirement key, or undefined when none is registered. */
 export const requirementLabel = (key: string): string | undefined => REQUIREMENT_LABELS[key];
+
+/**
+ * FB-16 (W13-12): a list of unmet requirements with each plain-words label shown once. Process type and
+ * machine type are two rules but one pick ("Process & machine type"), so a list that holds both shows
+ * the label a single time. Order is kept; the first of each label wins.
+ */
+export function uniqueRequirements<T extends { field: string; message: string }>(
+  items: readonly T[],
+): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const label = REQUIREMENT_LABELS[item.field] ?? item.message;
+    if (seen.has(label)) return false;
+    seen.add(label);
+    return true;
+  });
+}

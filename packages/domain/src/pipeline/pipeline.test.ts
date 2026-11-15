@@ -179,7 +179,7 @@ describe('dropDenialReason', () => {
 
   it('lists where the card can go when the column is not one of them', () => {
     expect(dropDenialReason({ ...base, toColumnKey: 'FINAL_REVIEW', moves: engMoves })).toBe(
-      'No “Feasible solution?” outcome moves a quote from Engineering Review to Final Review. You can move it to: Quoting, Intake, Declined.',
+      'No “Feasible solution?” outcome moves a quote from Engineering & Capacity to Final Review. You can move it to: Quoting, Intake, Declined.',
     );
     expect(
       dropDenialReason({
@@ -195,7 +195,7 @@ describe('dropDenialReason', () => {
       dropDenialReason({ ...base, status: 'closed', toColumnKey: 'QUOTING', moves: [] }),
     ).toMatch(/closed/);
     expect(dropDenialReason({ ...base, gate: null, toColumnKey: 'QUOTING', moves: [] })).toBe(
-      'Nothing moves a quote from Engineering Review on the board.',
+      'Nothing moves a quote from Engineering & Capacity on the board.',
     );
     expect(
       dropDenialReason({ ...base, gate: { ...g2, enabled: false }, toColumnKey: 'X', moves: [] }),

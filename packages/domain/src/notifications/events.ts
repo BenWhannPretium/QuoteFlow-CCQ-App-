@@ -191,8 +191,30 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     type: 'quote.lead_review_update',
     label: 'Your quote is in lead review',
     description:
-      'KAMs, in-app only: engineering or pricing was submitted to the lead, or the lead sent it back.',
+      'KAMs, in-app only: engineering or pricing was submitted to the lead, the lead sent it back, or capacity was blocked and Engineering is reworking it.',
     email: 'none',
+  },
+  // FB-16 (W13-15, W13-17; D-008 open, provisional): the production scheduler and capacity.
+  {
+    type: 'quote.capacity_assigned',
+    label: 'A quote’s capacity is assigned to you',
+    description:
+      'Production schedulers: the engineering lead assigned you the capacity part of a quote in Engineering.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.capacity_ready',
+    label: 'Capacity can start on a quote assigned to you',
+    description:
+      'Production schedulers: the engineer saved the plant and the machine type, so the capacity rows can be worked. You may start earlier.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.capacity_blocked',
+    label: 'Capacity is blocked on a quote',
+    description:
+      'The assigned engineer and the engineering lead: capacity was blocked and the work is back with the engineer, with the blocker’s note.',
+    email: 'immediate',
   },
   {
     type: 'override.requested',

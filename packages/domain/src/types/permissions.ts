@@ -30,6 +30,8 @@ export const PERMISSIONS = [
   // FB-08 (T-007): approve or reject a non-standard payment-terms exception.
   'terms.exception.decide',
   'capitalFlag.edit',
+  // FB-16 (W13-15): the capacity evidence rows, separate from the engineer's solution (`engReview.edit`).
+  'capacity.edit',
   'capacity.signoff',
   'quote.escalate',
   'override.request',

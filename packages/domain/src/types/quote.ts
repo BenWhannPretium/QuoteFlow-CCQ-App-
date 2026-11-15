@@ -38,6 +38,8 @@ export interface QuoteState {
   version: number;
   kamUserId: UserId;
   assignedEngineerId?: UserId | null;
+  /** FB-16 (W13-15): the production scheduler the engineering lead assigned to the capacity part. */
+  assignedSchedulerId?: UserId | null;
   /** B-26: the pricer the pricing lead assigned. */
   assignedPricerId?: UserId | null;
   /** Lead review: when the assignee submitted their part to the lead (null: not waiting on the lead). */

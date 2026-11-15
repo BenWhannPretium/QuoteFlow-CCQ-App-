@@ -14,10 +14,17 @@ import { can, canSeeCommercialFields, type PolicyResource } from '../policy/can'
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
 import type { Role } from '../types/roles';
-import type { FieldValues } from '../workflow/rules';
+import type { RequiredRule } from '../types/workflow-config';
+import { fieldsReferenced, type FieldValues } from '../workflow/rules';
 
 /** Roles an engineering review can be assigned to (the picker offers users holding one of them). */
 export const ASSIGNABLE_ROLES: readonly Role[] = ['Engineer', 'EngLead'];
+
+/**
+ * FB-16 (W13-15, D-008 open, provisional): roles the capacity part of a quote can be assigned to as the
+ * second assignee (the assign dialog's "Production scheduler (optional)").
+ */
+export const SCHEDULER_ROLES: readonly Role[] = ['ProductionScheduler'];
 
 export type EngQuote = Pick<
   QuoteState,
@@ -25,6 +32,7 @@ export type EngQuote = Pick<
   | 'status'
   | 'kamUserId'
   | 'assignedEngineerId'
+  | 'assignedSchedulerId'
   | 'engSubmittedAt'
   | 'region'
   | 'accountId'
@@ -61,13 +69,28 @@ export function canEditEngReview(actor: Actor, quote: EngQuote, config: LockConf
   );
 }
 
+/**
+ * FB-16 (W13-15): edit the capacity evidence rows. The EngLead, the assigned Engineer, or the production
+ * scheduler assigned to the quote (`capacity.edit`), while in ENG_REVIEW and not locked after G2. The rows
+ * follow the lead-review lock too: once the engineer has submitted the stage's work to the lead, only the
+ * lead edits them until it is sent back (the sign-off itself is never locked by a submission).
+ */
+export function canEditCapacity(actor: Actor, quote: EngQuote, config: LockConfig): boolean {
+  return (
+    inEngReview(quote) &&
+    !sectionLock('engineering', config, quote).locked &&
+    can(actor, 'capacity.edit', quote) &&
+    !lockedFor('engineering', actor, quote)
+  );
+}
+
 function stageErrors(quote: EngQuote): DomainError[] {
   if (quote.status === 'closed') return [new DomainError('QUOTE_CLOSED', 'The quote is closed')];
   if (quote.stageKey !== ENG_QUEUE_STAGE_KEY) {
     return [
       new DomainError(
         'WRONG_STAGE',
-        `The quote is in ${quote.stageKey}, not in Engineering Review`,
+        `The quote is in ${quote.stageKey}, not in the Engineering stage`,
       ),
     ];
   }
@@ -116,6 +139,55 @@ export function planAssignment(
   if (errors.length > 0) return { ok: false, errors };
   const from = quote.assignedEngineerId ?? null;
   return { ok: true, changed: from !== assignee!.id, from, to: assignee!.id };
+}
+
+export type SchedulerAssignmentPlan =
+  | { ok: true; changed: boolean; from: string | null; to: string | null }
+  | { ok: false; errors: DomainError[] };
+
+/**
+ * FB-16 (W13-15): assign, change or clear (`assignee: null`) the quote's production scheduler, the second
+ * assignee, who works the capacity part alongside the engineer. The same people who assign the engineer
+ * (`queue.assign`, or a backup assigner), while the quote is in Engineering Review; the assignee must be
+ * an active user holding a scheduler role. The same scheduler again is a no-op (`changed: false`).
+ */
+export function planSchedulerAssignment(
+  actor: Actor,
+  settings: Pick<EngQueueSettings, 'backupAssignerUserIds'>,
+  quote: EngQuote,
+  assignee: Assignee | null | undefined,
+): SchedulerAssignmentPlan {
+  if (!canAssignEngQueue(actor, settings, quote)) {
+    return {
+      ok: false,
+      errors: [
+        new DomainError('NOT_PERMITTED', 'Requires queue.assign (or the backup assigner setting)'),
+      ],
+    };
+  }
+  const errors = stageErrors(quote);
+  const from = quote.assignedSchedulerId ?? null;
+  // The scheduler already on the quote, sent again (the assign dialog resends it when only the engineer
+  // changes): nothing to do and nothing to validate, even if they have since lost the role or been
+  // deactivated. Replacing them is what fixes that.
+  if (errors.length === 0 && assignee && assignee.id === from) {
+    return { ok: true, changed: false, from, to: from };
+  }
+  if (
+    assignee !== null &&
+    (!assignee || !assignee.active || !assignee.roles.some((r) => SCHEDULER_ROLES.includes(r)))
+  ) {
+    errors.push(
+      new DomainError(
+        'INVALID_ASSIGNEE',
+        'Assign an active user with the Production Scheduler role',
+        'schedulerId',
+      ),
+    );
+  }
+  if (errors.length > 0) return { ok: false, errors };
+  const to = assignee ? assignee.id : null;
+  return { ok: true, changed: from !== to, from, to };
 }
 
 /**
@@ -395,18 +467,37 @@ export const CAPACITY_SIGNOFF_STATUSES = ['approved', 'blocked'] as const;
 export type CapacitySignoffStatus = (typeof CAPACITY_SIGNOFF_STATUSES)[number];
 
 export type CapacitySignoffPlan =
-  | { ok: true; status: CapacitySignoffStatus | null; note: string | null }
+  | {
+      ok: true;
+      status: CapacitySignoffStatus | null;
+      note: string | null;
+      /**
+       * FB-16 (W13-17): a new block sends the work straight back to the engineer (it ends any
+       * submitted-to-lead state and records the return with the blocker's note). False when the status
+       * was already `blocked` (a note edit), so nobody is told twice.
+       */
+      returnsToEngineer: boolean;
+    }
   | { ok: false; errors: DomainError[] };
+
+/** FB-16: the reason a capacity block gives for returning the work to the engineer. */
+export const CAPACITY_BLOCKED_REASON = 'Capacity blocked';
+
+/** The lead-review return note a block writes: "Capacity blocked: <the blocker's note>". */
+export const capacityBlockedNote = (note: string) => `${CAPACITY_BLOCKED_REASON}: ${note}`;
 
 /**
  * Record (or clear, `status: null`) the capacity owner's sign-off while the quote is in Engineering
- * Review. Needs `capacity.signoff` (seeded to the EngLead; the capacity owner is D-07). Blocking needs a
- * note saying why; a block stops every G2 Advance until it is changed or escalated.
+ * Review. Needs `capacity.signoff`: the production scheduler assigned to the quote, or the EngLead (the
+ * capacity owner is D-07 / D-008, provisional). Blocking needs a note saying why; a block stops every G2
+ * Advance until capacity is approved again, and (FB-16) returns the work to the engineer at once.
  */
 export function planCapacitySignoff(
   actor: Actor,
   quote: EngQuote,
   input: { status: string | null; note?: string | null | undefined },
+  /** The status on file now (null: not signed), so a repeated block does not send the work back twice. */
+  current: CapacitySignoffStatus | null = null,
 ): CapacitySignoffPlan {
   if (!can(actor, 'capacity.signoff', quote)) {
     return {
@@ -434,5 +525,67 @@ export function planCapacitySignoff(
     errors.push(new DomainError('INVALID_VALUE', 'Keep the note to 2000 characters', 'note'));
   }
   if (errors.length > 0 || status === undefined) return { ok: false, errors };
-  return { ok: true, status, note };
+  return {
+    ok: true,
+    status,
+    note,
+    returnsToEngineer: status === 'blocked' && current !== 'blocked',
+  };
+}
+
+// ── FB-16 (W13-18): capacity decided inside "Decide feasibility" ─────────────────────────────────
+
+/** The decision field the G2 rules read for the sign-off (`eng_review.capacity_signoff_status`). */
+export const CAPACITY_SIGNOFF_FIELD = 'capacity_signoff_status';
+
+/**
+ * May `actor` sign capacity off as part of a gate decision whose rules are `rules`? Yes when the rules
+ * ask for the sign-off, capacity is **not yet signed** (null: a block is never overridden this way), the
+ * quote is in Engineering Review, and the actor holds `capacity.signoff` on it (the EngLead; a scheduler
+ * holds it too but decides no gate). The decision dialog then shows the required checkbox "Capacity
+ * approved (I'm signing it off)", and the sign-off is recorded in the decision's transaction.
+ */
+export function canApproveCapacityInDecision(
+  actor: Actor,
+  quote: EngQuote & Pick<QuoteState, 'fields'>,
+  rules: readonly RequiredRule[],
+): boolean {
+  return (
+    inEngReview(quote) &&
+    rules.some((rule) => fieldsReferenced(rule).includes(CAPACITY_SIGNOFF_FIELD)) &&
+    (quote.fields[CAPACITY_SIGNOFF_FIELD] ?? null) === null &&
+    can(actor, 'capacity.signoff', quote)
+  );
+}
+
+/** The decision fields as they will stand once the decider's capacity approval is recorded. */
+export const withCapacityApproved = (fields: FieldValues): FieldValues => ({
+  ...fields,
+  [CAPACITY_SIGNOFF_FIELD]: 'approved' satisfies CapacitySignoffStatus,
+});
+
+/**
+ * The checks on a decision that carries `capacityApproved: true`: it must be a decision where
+ * `canApproveCapacityInDecision` holds. Empty when the flag is absent or valid.
+ */
+export function capacityApprovalErrors(
+  actor: Actor,
+  quote: EngQuote & Pick<QuoteState, 'fields'>,
+  rules: readonly RequiredRule[],
+  capacityApproved: boolean | undefined,
+): DomainError[] {
+  if (!capacityApproved) return [];
+  if (canApproveCapacityInDecision(actor, quote, rules)) return [];
+  const status = quote.fields[CAPACITY_SIGNOFF_FIELD] ?? null;
+  return [
+    new DomainError(
+      status === 'blocked' ? 'INVALID_STATE' : 'INVALID_VALUE',
+      status === 'blocked'
+        ? 'Capacity is blocked: it is approved again on the Engineering tab, not in this decision'
+        : status === 'approved'
+          ? 'Capacity is already approved'
+          : 'Capacity cannot be signed off with this decision',
+      'capacityApproved',
+    ),
+  ];
 }

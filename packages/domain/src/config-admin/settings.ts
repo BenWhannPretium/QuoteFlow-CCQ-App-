@@ -12,6 +12,11 @@ import {
   parseProcessOwner,
 } from '../commercial';
 import { parseAssignmentRules } from '../engineering/assignment-rules';
+import { parsePackOutRule } from '../engineering/pack-out';
+import {
+  parseMachineTypeProcessMap,
+  parseTwoStepPlantMachineTypes,
+} from '../engineering/process-machine';
 import { engQueueSettingsSchema } from '../engineering/queue';
 import { DomainError } from '../errors';
 import { parseAdditionalApprovals } from '../final-review/additional-approvals';
@@ -351,6 +356,29 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Suggested engineer by process type and resin (the lead still assigns)',
     'json',
     notNull('engineering_assignment_rules', parseAssignmentRules),
+  ),
+  // FB-16 (W13-12, W13-13, W13-14; provisional). The Admin API also checks the codes against the active
+  // machine-type and process-type lists before saving (the parsers cannot know the lists).
+  spec(
+    'machine_type_process_map',
+    'engineering',
+    'Process type behind each machine type (the engineer picks the machine type; the process is derived)',
+    'json',
+    notNull('machine_type_process_map', parseMachineTypeProcessMap),
+  ),
+  spec(
+    'two_step_plant_machine_types',
+    'engineering',
+    'Two-step process: the machine types a plant must run to be offered as the preform plant or the blow plant',
+    'json',
+    notNull('two_step_plant_machine_types', parseTwoStepPlantMachineTypes),
+  ),
+  spec(
+    'pack_out_rule',
+    'engineering',
+    'Pack-out: which counts cannot be filled in together, and whether one of bag / tray / case is required to advance (off until Engineering confirms)',
+    'json',
+    notNull('pack_out_rule', parsePackOutRule),
   ),
   spec(
     'capital_readiness_on_outcome',

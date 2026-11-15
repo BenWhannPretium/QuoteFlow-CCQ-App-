@@ -541,6 +541,8 @@ describe('capacity sign-off (B-26, slide 11)', () => {
       ok: true,
       status: 'approved',
       note: null,
+      // FB-16 (W13-17): only a new block sends the work back to the engineer.
+      returnsToEngineer: false,
     });
     const blocked = planCapacitySignoff(makeActor('EngLead'), quote, { status: 'blocked' });
     expect(!blocked.ok && blocked.errors.map((e) => e.code)).toEqual(['NOTE_REQUIRED']);
