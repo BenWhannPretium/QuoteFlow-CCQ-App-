@@ -27,16 +27,16 @@ describe('capital_needed_above_usd (setting)', () => {
 
   it('refuses anything that is not a dollar amount of 0 or more', () => {
     for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY, '100', true, {}, [], 1e13]) {
-      expect(() => parseCapitalNeededAboveUsd(value), String(value)).toThrow(DomainError);
+      expect(() => parseCapitalNeededAboveUsd(value), JSON.stringify(value)).toThrow(DomainError);
     }
   });
 
   it('the Admin console knows it: a number in the Engineering group, never "not set"', () => {
     const spec = settingSpec('capital_needed_above_usd');
     expect(spec).toMatchObject({ group: 'engineering', editor: 'number' });
-    expect(spec!.parse(50_000)).toBe(50_000);
-    expect(() => spec!.parse(null)).toThrow(DomainError);
-    expect(() => spec!.parse(-5)).toThrow(DomainError);
+    expect(spec.parse(50_000)).toBe(50_000);
+    expect(() => spec.parse(null)).toThrow(DomainError);
+    expect(() => spec.parse(-5)).toThrow(DomainError);
   });
 });
 

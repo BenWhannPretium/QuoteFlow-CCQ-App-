@@ -96,7 +96,7 @@ describe('hold_owner_default (setting)', () => {
     expect(parseHoldOwnerDefault(null)).toBe('stage_assignee');
     expect(parseHoldOwnerDefault('decider')).toBe('decider');
     for (const bad of ['kam', '', 1, true, {}]) {
-      expect(() => parseHoldOwnerDefault(bad), String(bad)).toThrow(DomainError);
+      expect(() => parseHoldOwnerDefault(bad), JSON.stringify(bad)).toThrow(DomainError);
     }
   });
 
@@ -107,7 +107,7 @@ describe('hold_owner_default (setting)', () => {
       editor: 'select',
       options: ['stage_assignee', 'decider'],
     });
-    expect(spec!.parse('decider')).toBe('decider');
-    expect(() => spec!.parse(null)).toThrow(DomainError);
+    expect(spec.parse('decider')).toBe('decider');
+    expect(() => spec.parse(null)).toThrow(DomainError);
   });
 });
