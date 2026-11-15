@@ -608,7 +608,8 @@ describe('FB-17: outcomes can be switched off (W13-22)', () => {
       (o) => o.gateKey === 'G3' && o.key === 'redirect',
     )!;
     const audits = await configChanges();
-    for (const role of ROLES.filter((r) => r !== 'Admin')) {
+    // PostAward is P2 and has no dev persona, as in permissions/matrix.int.test.ts.
+    for (const role of ROLES.filter((r) => r !== 'Admin' && r !== 'PostAward')) {
       const res = await as(role).patch('/api/v1/admin/config/gates/G3/outcomes/redirect', {
         version: row.version,
         changeReason: WHY,
