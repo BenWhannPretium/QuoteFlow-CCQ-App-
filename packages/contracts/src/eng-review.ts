@@ -24,6 +24,11 @@ const PackOutCount = wholeNumber(1, 9_999_999).nullable();
  * PUT /api/v1/quotes/:quoteNumber/eng-review. Only the keys sent change; null clears a field.
  * `prelimCapitalUsd` is the **budgetary capital estimate** (F-064): preliminary, includes contingency, refined
  * after award and before any CER. The key keeps its name; only the label changed.
+ *
+ * FB-16 (W13-12, W13-13): the form sends the plant and one "Process & machine type" pick (`machineType`).
+ * The server derives `processType` from it (`machine_type_process_map`) and refuses a machine type the
+ * plant does not run. `processType` is still accepted on its own for an older client; when the machine
+ * type changes, the derived value wins.
  */
 export const EngReviewBody = z
   .object({
@@ -236,6 +241,13 @@ export const EngineeringDetail = z.object({
   assignedEngineerId: z.string().nullable(),
   assignedEngineerName: z.string().nullable(),
   assignedAt: z.string().nullable(),
+  /**
+   * FB-16 (W13-15, D-008 open, provisional): the production scheduler, the second assignee, who works the
+   * capacity rows and the capacity sign-off. Null when the lead has not assigned one.
+   */
+  assignedSchedulerId: z.string().nullable(),
+  assignedSchedulerName: z.string().nullable(),
+  assignedSchedulerAt: z.string().nullable(),
   acceptedAt: z.string().nullable(),
   acceptedByName: z.string().nullable(),
   review: EngReviewFields,
@@ -259,8 +271,21 @@ export const EngineeringDetail = z.object({
   productFacts: z.array(ProductFact),
   /** B-26: the capacity owner's sign-off for this stay in the queue. */
   capacitySignoff: CapacitySignoff,
-  /** B-26: the caller may record the sign-off (capacity.signoff, in Engineering Review). */
+  /**
+   * B-26: the caller may record the sign-off (capacity.signoff, in Engineering Review). FB-16: the
+   * production scheduler assigned to the quote, or the engineering lead.
+   */
   canSignOffCapacity: z.boolean(),
+  /**
+   * FB-16 (W13-15): the caller may edit the capacity evidence rows (`capacity.edit`: the lead, the
+   * assigned engineer, or the production scheduler assigned to the quote). `canEdit` is the solution.
+   */
+  canEditCapacity: z.boolean(),
+  /**
+   * FB-16 (W13-12): the stored process type does not fit what the machine type derives (an old quote, or
+   * a retired machine type): both are kept and shown read-only until someone picks again.
+   */
+  processPairLegacy: z.boolean(),
   /** Commercial numbers were withheld from this response: inputs for them are write-only. */
   commercialRedacted: z.boolean(),
   canEdit: z.boolean(),
@@ -307,6 +332,43 @@ export const StageTimesResponse = z.object({
   ),
 });
 export type StageTimesResponse = z.infer<typeof StageTimesResponse>;
+
+// ── FB-16 (W13-20): the numeric rules of the Engineering forms, for validation as the user types ──
+
+/**
+ * One rule per numeric Engineering input, taken from the request schemas above so the form and the
+ * server can never disagree (the form imports these; it does not copy the numbers). Each is the field's
+ * own schema: optional and nullable as the request allows.
+ */
+export const ENG_INPUT_RULES = {
+  cavitation: EngReviewBody.shape.cavitation,
+  cycleTimeS: EngReviewBody.shape.cycleTimeS,
+  prelimCapitalUsd: EngReviewBody.shape.prelimCapitalUsd,
+  unitsPerBag: EngReviewBody.shape.unitsPerBag,
+  unitsPerTray: EngReviewBody.shape.unitsPerTray,
+  unitsPerCase: EngReviewBody.shape.unitsPerCase,
+  unitsPerPallet: EngReviewBody.shape.unitsPerPallet,
+  assumedEffectivenessPct: CapacityEvidenceRowBody.shape.assumedEffectivenessPct,
+  rowCycleTimeS: CapacityEvidenceRowBody.shape.cycleTimeS,
+  utilizationBeforePct: CapacityEvidenceRowBody.shape.utilizationBeforePct,
+  allocatedAnnualVolume: CapacityEvidenceRowBody.shape.allocatedAnnualVolume,
+  scheduledRunDaysPerYear: CapacityEvidenceRowBody.shape.scheduledRunDaysPerYear,
+} as const;
+export type EngInputField = keyof typeof ENG_INPUT_RULES;
+
+/**
+ * What is wrong with the text typed into a numeric Engineering input, in the server's own words, or null
+ * when it is fine. Blank is fine here (whether a blank is allowed is the form's or the gate's concern);
+ * anything that is not a number is "Enter a number".
+ */
+export function engInputError(field: EngInputField, text: string): string | null {
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) return 'Enter a number';
+  const parsed = ENG_INPUT_RULES[field].safeParse(value);
+  return parsed.success ? null : (parsed.error.issues[0]?.message ?? 'This value is not valid');
+}
 
 export const ENGINEERING_PROBLEM_CODES = {
   notFound: 'not_found',

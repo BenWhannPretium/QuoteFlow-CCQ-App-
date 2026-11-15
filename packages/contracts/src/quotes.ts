@@ -99,6 +99,13 @@ export const AvailableGateAction = z.object({
   requiresHoldOwner: z.boolean(),
   /** B-26: the outcome's definition (admin-editable help text); null when none is set. */
   helpText: z.string().nullable(),
+  /**
+   * FB-16 (W13-18): this outcome needs capacity approved, nobody has signed it yet, and the caller may
+   * sign it off (`capacity.signoff`). The dialog shows the required checkbox "Capacity approved (I'm
+   * signing it off)" and sends `capacityApproved: true`; `missing` already leaves the sign-off out.
+   * False when capacity is approved or blocked (a block keeps Advance unavailable).
+   */
+  capacityApproval: z.boolean(),
 });
 export type AvailableGateAction = z.infer<typeof AvailableGateAction>;
 
@@ -318,6 +325,12 @@ export const GateDecisionBody = z.object({
    * decision is refused (the screen is stale).
    */
   acknowledgedWarnings: z.array(z.string().max(80)).max(50).optional(),
+  /**
+   * FB-16 (W13-18), G2 only: the decider signs capacity off with this decision ("Capacity approved (I'm
+   * signing it off)"). Accepted only where `AvailableGateAction.capacityApproval` is true: the sign-off
+   * and the decision are recorded in one transaction, both audited, then the gate rules run.
+   */
+  capacityApproved: z.boolean().optional(),
 });
 export type GateDecisionBody = z.infer<typeof GateDecisionBody>;
 
