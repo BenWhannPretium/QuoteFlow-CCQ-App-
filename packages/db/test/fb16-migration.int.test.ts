@@ -85,7 +85,7 @@ describe('migration 0045 (FB-16 engineering and capacity): the data half', () =>
         tx,
         sql`SELECT role || ':' || permission AS g, qualifier, provisional FROM role_permission
             WHERE role = 'ProductionScheduler' OR permission = 'capacity.edit'
-            ORDER BY 1 COLLATE "C"`,
+            ORDER BY (role || ':' || permission) COLLATE "C"`,
       );
       expect(grants.map((r) => [r.g, r.qualifier])).toEqual([
         ['EngLead:capacity.edit', null],
