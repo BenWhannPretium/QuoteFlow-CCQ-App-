@@ -6,14 +6,14 @@
 | Tester role | Finance, the payback model owner (app role `CCQ.Finance`, provisional name). An input, not an approver. |
 | Test URL | https://quoteflow-test.azurewebsites.net |
 | Sign in | **Sign in with Microsoft** with your Pretium account. Your account must be in **`SG-CCQ-Finance`**. The group and the `CCQ.Finance` app role exist (2026-11-10); Ben adds each tester to the group before the session. If you see "No QuoteFlow access yet", tell Ben. If your account is not in the group yet, Ben runs these steps with the dev Finance persona on a laptop. |
-| Before you start | Pricing has uploaded a costing model on `<CCQ-QT-4>` (capital required at G2) and attested costing (pricing.md steps 8a–9). |
+| Before you start | Pricing has uploaded a costing model on `<CCQ-QT-4>` (capital needed: Engineering's capital estimate is above $0) and attested costing (pricing.md steps 8a–9). |
 | How to log a problem | Tell Ben or Bailey with the step number (the **Report an issue** button is not part of the Finance role, see the FB-07 notes). |
 
 **Data (placeholders until Bailey picks real opportunities)**
 
 | Placeholder | What it is |
 |---|---|
-| `<CCQ-QT-4>` | A quote in Quoting where Engineering said **capital required** |
+| `<CCQ-QT-4>` | A quote in Quoting that needs capital: Engineering advanced it with a capital estimate above $0 (FB-17; before that, **Advance – capital required**) |
 | `<CCQ-QT-2>` | A quote in Quoting with no capital (payback not required) |
 
 Use synthetic workbooks only (a copy of your board template with made-up numbers). Never upload a real payback model to the test site.
@@ -25,7 +25,7 @@ After you upload the payback model, QuoteFlow shows a short summary of its headl
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 1 | Open the email "[QuoteFlow] CCQ-… is ready for its payback model". | It names who uploaded the costing model and the version, and links to the quote. No figures. | | |
-| 2 | Follow the link and sign in. | The quote's **Quoting** tab. **Costing, payback and price approval**: **1. Costing** done, **2. Payback** "Next", "Needed: Engineering (G2): Advance – capital required". | | |
+| 2 | Follow the link and sign in. | The quote's **Quoting** tab. **Costing, payback and price approval**: **1. Costing** done, **2. Payback** "Next", "Needed: Capital is flagged likely" (FB-17; a quote decided before it reads "Needed: Engineering’s decision: Advance – capital required"). | | |
 | 3 | In **1. Costing** click the costing model's file name. | It downloads (the download is audited). | | |
 | 4 | In **2. Payback** click **Upload the payback model** and pick the synthetic payback workbook. | "Version 1 uploaded". **Payback model v1 · current**, your name and the time. **3. Price approved** is now "Next". The pricing lead is notified ("<quote>: the payback model is uploaded"). | | |
 | 4a | Upload the synthetic payback workbook; check the summary shows file, version, uploader and date, and the figures with their units. (The step 4 upload counts: do not upload it again.) | The summary is under **2. Payback**. It reads "Read from <file> v<n>, uploaded by <name> on <date>". Each figure shows its label, value and unit. Nothing in it can be edited. An Excel error, a negative or zero payback, or a blank headline figure shows a warning, and nothing is blocked. | | |

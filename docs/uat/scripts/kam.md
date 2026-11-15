@@ -165,7 +165,7 @@ You can read pricing, margin and capital figures on any quote you can open. You 
 |---|---|---|---|---|
 | 68 | Ask an engineer or a pricer tester to add a comment on one of your quotes. Click the bell. | A notice says there is a new comment, with a link. The email, if you get one, never contains the comment text. | | |
 | 69 | Ask them to add two more comments within a few minutes. Check your email. | The comments arrive as **one** email ("3 new comments"), not three. | | |
-| 70 | Watch your bell while the engineering and pricing testers move one of your quotes on (engineering.md Part C, pricing.md Part D). | You are told each time a quote of yours moves on, is sent back, goes on hold or closes. You are told once per event, even if you hold two roles. | | |
+| 70 | Watch your bell while the engineering and pricing testers move one of your quotes on (engineering.md Part C, pricing.md Part D). | You are told each time a quote of yours moves on, is sent back, goes on hold or closes. You are told once per event, even if you hold two roles. FB-17: the on-hold notice names the hold owner, the reason and the review date, and the quote's header and **Timeline** read "On hold: <reason>. Owner: <name>. Review by <date>." | | |
 | 71 | Open your user menu → **Email preferences** (`/me/preferences`). Switch off the email for **Your quote moves or a decision is recorded**. | It saves. The in-app notices stay. | | |
 
 ## Part J: Intake on a phone

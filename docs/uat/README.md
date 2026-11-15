@@ -19,6 +19,12 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 >
 > Labels in the scripts come from the app's code as built; Ben re-checks them against the test site before Nov 9.
 
+> **Updated 2026-11-15 for FB-17 (walkthrough of Nov 13).** Changes testers will notice:
+> - **Four choices.** Every decision dialog (except the customer's decision) offers **Advance**, **Send back to…**, **Hold** and **Stop**. **Send back to…** asks where the quote goes and always needs a reason and a note. "Rework" and "Redirect" are gone as names; at qualification "Redirect (not CCQ work)" is **Stop: not CCQ work (send elsewhere)** (sales-leader steps 9 to 15, engineering steps 36 to 40 and Part I, pricing steps 22 to 26 and Part H, approver steps 12 to 14).
+> - **Capital.** **Advance – capital required** is gone. Engineering enters the capital estimate on every quote ($0 when none); above $0 the quote needs the equipment BOM, is flagged capital likely and needs the payback model, and capital must be pre-approved before the price is approved (engineering steps 36 and 91 to 94, pricing steps 46 to 48, finance step 2, approver step 23).
+> - **Holds.** The hold owner starts on the person working the stage and is told; the header and the timeline say why, who owns it and the review date (engineering steps 37 and 97, pricing step 26).
+> - **Stop** asks for no closure owner, and the **Why?** score explanation stays on a laptop screen (engineering step 98).
+
 > **Updated 2026-11-10 for FB-06 and FB-10.**
 > - **FB-06 (engineering):** `engineering.md` step 36 now expects the equipment BOM before "Capital required", and a new **Part E** (steps 48–54) covers the engineer suggestions, removing a BOM, the lock after G2, the two-step and pack-out limits, and the **From engineering** card. Pricing checks that card in `pricing.md` **Part F** (steps 33–34), approvers in `approver.md` **Part D** (step 23).
 > - **FB-10 (priority calibration):** new script `scripts/priority-calibration.md` (session **U3b**). The Admin preview of the draft scoring model, Leadership's read-only view, and the platform-minimum warning and volume-band routing, which an Admin switches on for the test and **off again** at the end.
