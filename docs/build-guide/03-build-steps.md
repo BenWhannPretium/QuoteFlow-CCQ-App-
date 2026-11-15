@@ -1452,7 +1452,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Left for later / waiting on:** the Entra app role and group (IT, `06` A4c); D-008 (who owns capacity); the process behind the non-forming machine types (W13-W11, Jim Zweifel); whether engineers know pack-out at quote time and the effectiveness cap (W13-W7); whether the scheduler should attach files and send feedback; whether a send-back to the scheduler should come back to the lead without the engineer resubmitting.
 - **Prompt:** `prompts/feedback/FB-16-engineering-capacity.md`
 
-### FB-17: Gate decisions and holds · **Built 2026-11-15 (in PR FB17-PR-LINK-PENDING)** · Ben (most capable model · high)
+### FB-17: Gate decisions and holds · **Built 2026-11-15 (in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100)** · Ben (most capable model · high)
 - **Why:** "Advance – capital required" is to go (W13-22); Rework and Redirect read as the same thing (W13-23); Hold's purpose was unclear and its owner wrong (W13-24, W13-25); Stop asked for a closure owner (W13-27); holds were hard to read on the timeline (W13-26); the "Why?" popover ran off a laptop screen (W13-28).
 - **Done when:**
   - [x] outcomes can be switched off (`active`), with history intact
