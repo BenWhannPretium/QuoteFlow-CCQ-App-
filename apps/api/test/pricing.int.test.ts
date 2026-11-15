@@ -117,7 +117,27 @@ async function signOff(qn: string) {
   expect(res.statusCode, res.body).toBe(200);
 }
 
-async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required' = 'proceed') {
+/**
+ * How Engineering cleared G2. FB-17 (W13-22): "Advance – capital required" is switched off, and capital
+ * needed is read from the preliminary capital.
+ * - `proceed` / `proceed_with_risk`: $0 preliminary capital (no capital needed).
+ * - `capital_needed`: a plain Advance with $250,000 preliminary capital and the equipment BOM on file.
+ * - `capital_required`: a quote decided with the retired outcome before FB-17 (history): the helper
+ *   switches the outcome on for that one decision.
+ */
+type G2Path = 'proceed' | 'proceed_with_risk' | 'capital_needed' | 'capital_required';
+
+/** FB-17: switch the retired G2 outcome on (to record a historical decision) or off again. */
+const setCapitalRequiredActive = (active: boolean) =>
+  db.db.execute(
+    sql`update gate_outcome_definition set active = ${active}
+        where gate_key = 'G2' and key = 'capital_required'`,
+  );
+
+async function inQuoting(g2: G2Path = 'proceed') {
+  const historical = g2 === 'capital_required';
+  const withCapital = historical || g2 === 'capital_needed';
+  const outcomeKey = g2 === 'capital_needed' ? 'proceed' : g2;
   const res = await as('KAM').post('/api/v1/quotes/drafts', {
     data: await prefill(await nextFree()),
   });
@@ -135,7 +155,7 @@ async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required
     plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
-    prelimCapitalUsd: 250_000,
+    prelimCapitalUsd: withCapital ? 250_000 : 0,
   });
   expect(review.statusCode, review.body).toBe(200);
   const cap = await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-evidence`, {
@@ -152,11 +172,17 @@ async function inQuoting(g2: 'proceed' | 'proceed_with_risk' | 'capital_required
   });
   expect(cap.statusCode, cap.body).toBe(200);
   await signOff(qn);
-  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
-  if (g2 === 'capital_required') await prepareBom(app, qn);
-  const body = g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Tight on line 4' };
-  const adv = await decide(qn, 'G2', body, 'EngLead');
-  expect(adv.statusCode, adv.body).toBe(201);
+  // FB-06 (F-058) / FB-17: capital needed (and the historical "Capital required") needs the equipment
+  // BOM on file.
+  if (withCapital) await prepareBom(app, qn);
+  const body = outcomeKey === 'proceed' ? { outcomeKey } : { outcomeKey, note: 'Tight on line 4' };
+  if (historical) await setCapitalRequiredActive(true);
+  try {
+    const adv = await decide(qn, 'G2', body, 'EngLead');
+    expect(adv.statusCode, adv.body).toBe(201);
+  } finally {
+    if (historical) await setCapitalRequiredActive(false);
+  }
   tick();
   return qn;
 }
@@ -241,7 +267,7 @@ afterAll(async () => {
 
 describe('the pricing queue', () => {
   it('lists every open QUOTING quote, ordered tier → score → longest in Quoting', async () => {
-    const qn = await inQuoting('capital_required');
+    const qn = await inQuoting('capital_needed');
     const q = await queue();
     const open = await db.db.execute<{ n: number }>(
       sql`select count(*)::int as n from quote where stage_key = 'QUOTING' and status <> 'closed'`,
@@ -270,10 +296,13 @@ describe('the pricing queue', () => {
     }
 
     const item = q.items.find((i) => i.quoteNumber === qn)!;
+    // FB-17 (W13-22): a plain Advance whose preliminary capital is above $0 is flagged "capital needed"
+    // and starts with capital readiness pending.
     expect(item).toMatchObject({
-      g2Outcome: 'capital_required',
-      g2OutcomeLabel: 'Advance – capital required',
+      g2Outcome: 'proceed',
+      g2OutcomeLabel: 'Advance',
       g2Flag: true,
+      capitalNeeded: true,
       capitalReadiness: 'pending',
       priceApproved: false,
       productSummary: '16 oz Bottle, HDPE',
@@ -289,10 +318,40 @@ describe('the pricing queue', () => {
     const risky = await inQuoting('proceed_with_risk');
     const plain = await inQuoting('proceed');
     await approve(plain, { capitalReadiness: undefined });
-    const flagged = await queue('Pricing', '?g2=capital_required,proceed_with_risk');
+    // FB-17: "Capital needed / with risk" lists capital needed (however G2 was decided) and with risk.
+    const capital = await inQuoting('capital_needed');
+    const old = await inQuoting('capital_required');
+    const flagged = await queue('Pricing', '?g2=capital_needed,proceed_with_risk');
     expect(flagged.items.every((i) => i.g2Flag)).toBe(true);
-    expect(flagged.items.map((i) => i.quoteNumber)).toContain(risky);
+    expect(flagged.items.map((i) => i.quoteNumber)).toEqual(
+      expect.arrayContaining([risky, capital, old]),
+    );
     expect(flagged.items.map((i) => i.quoteNumber)).not.toContain(plain);
+    expect(flagged.g2Outcomes[0]).toEqual({ key: 'capital_needed', label: 'Capital needed' });
+    const onlyCapital = await queue('Pricing', '?g2=capital_needed');
+    expect(onlyCapital.items.every((i) => i.capitalNeeded)).toBe(true);
+    expect(onlyCapital.items.map((i) => i.quoteNumber)).toEqual(
+      expect.arrayContaining([capital, old]),
+    );
+    expect(onlyCapital.items.map((i) => i.quoteNumber)).not.toContain(risky);
+    // A quote decided "Advance – capital required" before FB-17 reads as it did: the switched-off
+    // outcome keeps its label, its flag and its pending capital, and still filters by its own key.
+    const before = await queue('Pricing', '?g2=capital_required,proceed_with_risk');
+    expect(before.items.every((i) => i.g2Flag)).toBe(true);
+    expect(before.items.map((i) => i.quoteNumber)).toEqual(expect.arrayContaining([risky, old]));
+    expect(before.items.map((i) => i.quoteNumber)).not.toContain(plain);
+    expect(before.items.map((i) => i.quoteNumber)).not.toContain(capital);
+    expect(before.items.find((i) => i.quoteNumber === old)).toMatchObject({
+      g2Outcome: 'capital_required',
+      g2OutcomeLabel: 'Advance – capital required',
+      g2Flag: true,
+      capitalNeeded: true,
+      capitalReadiness: 'pending',
+    });
+    expect((await queue()).items.find((i) => i.quoteNumber === plain)).toMatchObject({
+      g2Flag: false,
+      capitalNeeded: false,
+    });
     expect((await queue('Pricing', '?approved=yes')).items.map((i) => i.quoteNumber)).toContain(
       plain,
     );
@@ -457,7 +516,7 @@ describe('the price approval record', () => {
 
 describe('commercial redaction (architecture §3.3)', () => {
   it('a KAM, an Engineer and a SalesLeader read the pricing record too, but cannot edit it', async () => {
-    const qn = await inQuoting('capital_required');
+    const qn = await inQuoting('capital_needed');
     await approve(qn);
     await putCapital(qn, {
       capitalReadiness: 'pending',
@@ -502,17 +561,73 @@ describe('commercial redaction (architecture §3.3)', () => {
 });
 
 describe('capital readiness', () => {
-  it('after G2 "Capital required" it starts pending and cannot be "not required"', async () => {
-    const qn = await inQuoting('capital_required');
-    expect((await detail(qn)).dto.quoting.pricingRecord!.capitalReadiness).toBe('pending');
-    const no = await putCapital(qn, { capitalReadiness: 'not_required' });
-    expect(no.statusCode).toBe(422);
-    expect(errorPaths(no)).toEqual(['/capitalReadiness']);
-    const ok = await putCapital(qn, { capitalReadiness: 'pre_approved', cerReference: 'CER-1' });
-    expect(QuotingDetail.parse(ok.json()).pricingRecord).toMatchObject({
-      capitalReadiness: 'pre_approved',
-      cerReference: 'CER-1',
+  // FB-17 (W13-22): the same rule on both paths: a G2 Advance whose preliminary capital is above $0, and
+  // a quote decided with the retired "Advance – capital required" outcome.
+  for (const path of ['capital_needed', 'capital_required'] as const) {
+    it(`after G2 with capital needed (${path}) it starts pending and cannot be "not required"`, async () => {
+      const qn = await inQuoting(path);
+      const quoting = (await detail(qn)).dto.quoting;
+      expect(quoting.pricingRecord!.capitalReadiness).toBe('pending');
+      expect(quoting.capitalNeeded).toBe(true);
+      const no = await putCapital(qn, { capitalReadiness: 'not_required' });
+      expect(no.statusCode).toBe(422);
+      expect(errorPaths(no)).toEqual(['/capitalReadiness']);
+      const ok = await putCapital(qn, { capitalReadiness: 'pre_approved', cerReference: 'CER-1' });
+      expect(QuotingDetail.parse(ok.json()).pricingRecord).toMatchObject({
+        capitalReadiness: 'pre_approved',
+        cerReference: 'CER-1',
+      });
     });
+  }
+
+  it('FB-17: a G2 Advance with capital needed flags the quote capital likely, on the timeline', async () => {
+    const qn = await inQuoting('capital_needed');
+    const id = await quoteId(qn);
+    const [row] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, id));
+    expect(row!.capitalLikely).toBe(true);
+    const events = await db.db
+      .select()
+      .from(schema.activityEvent)
+      .where(
+        and(eq(schema.activityEvent.quoteId, id), eq(schema.activityEvent.type, 'capital_needed')),
+      );
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({
+      gateKey: 'G2',
+      prelimCapitalUsd: 250_000,
+      capitalLikelySet: true,
+    });
+    const audits = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(
+        and(
+          eq(schema.auditEvent.quoteId, id),
+          eq(schema.auditEvent.entity, 'quote'),
+          eq(schema.auditEvent.action, 'update'),
+        ),
+      );
+    expect(audits.map((a) => a.after)).toContainEqual({
+      capitalLikely: true,
+      source: 'gate:G2',
+      prelimCapitalUsd: 250_000,
+    });
+    // $0 capital: no flag, no event, and the retired outcome's own history is left as it was.
+    for (const path of ['proceed', 'capital_required'] as const) {
+      const other = await quoteId(await inQuoting(path));
+      const [q] = await db.db.select().from(schema.quote).where(eq(schema.quote.id, other));
+      expect(q!.capitalLikely, path).toBe(false);
+      const none = await db.db
+        .select()
+        .from(schema.activityEvent)
+        .where(
+          and(
+            eq(schema.activityEvent.quoteId, other),
+            eq(schema.activityEvent.type, 'capital_needed'),
+          ),
+        );
+      expect(none, path).toHaveLength(0);
+    }
   });
 
   it('can be "not required" when Engineering did not ask for capital', async () => {
@@ -612,7 +727,22 @@ describe('G3 Submit to Final Review', () => {
     expect((await putRecord(qn, { pricingBasisNote: 'late' })).statusCode).toBe(409);
   });
 
-  it('"Capital required" path: pending capital needs a justification, then submits with a warning', async () => {
+  it('FB-17: capital needed at G2 must be confirmed before G3, not pending', async () => {
+    const qn = await inQuoting('capital_needed');
+    await approve(qn);
+    await putCapital(qn, {
+      capitalReadiness: 'pending',
+      capitalPendingJustification: SECRETS.justification,
+    });
+    // The Advance flagged the quote capital likely, so B-26's rule applies: readiness must be confirmed.
+    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
+      '/capital_likely,pricing_record.capital_readiness',
+    ]);
+    await putCapital(qn, { capitalReadiness: 'pre_approved' });
+    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(201);
+  });
+
+  it('"Capital required" (decided before FB-17): pending capital needs a justification, then submits with a warning', async () => {
     const qn = await inQuoting('capital_required');
     await approve(qn);
     const blocked = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
@@ -717,7 +847,17 @@ describe('G3 Submit to Final Review', () => {
       { outcomeKey: 'redirect', note: 'Customer funds the tooling' },
       'PricingLead',
     );
-    expect(GateDecisionResponse.parse(redirect.json()).quote.stageKey).toBe('QUOTING');
+    // FB-17 (W13-24): every send-back carries a reason.
+    expect(redirect.statusCode).toBe(422);
+    expect(errorCodes(redirect)).toEqual(['REASON_REQUIRED']);
+    const redirected = await decide(
+      qn,
+      'G3',
+      { outcomeKey: 'redirect', reasonCode: 'other', note: 'Customer funds the tooling' },
+      'PricingLead',
+    );
+    expect(redirected.statusCode, redirected.body).toBe(201);
+    expect(GateDecisionResponse.parse(redirected.json()).quote.stageKey).toBe('QUOTING');
   });
 
   it('segregation: the price approver and the G3 submitter are on the quote state for G4', async () => {

@@ -160,7 +160,8 @@ async function inEngineering() {
       plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
-      prelimCapitalUsd: 250_000,
+      // FB-17 (W13-22): G2 needs a preliminary capital figure; $0 means no capital is needed.
+      prelimCapitalUsd: 0,
     }),
     200,
   );

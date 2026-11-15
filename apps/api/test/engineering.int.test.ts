@@ -171,6 +171,8 @@ const SOLUTION = {
   cavitation: 8,
   cycleTimeS: 14.5,
   toolingNotes: 'New 8-cavity mold, hot runner not needed',
+  // FB-17 (W13-22): every G2 Advance needs the preliminary capital figure; $0 says no capital is needed.
+  prelimCapitalUsd: 0,
   technicalConceptNotes: 'Shuttle EBM with in-mold labelling',
 };
 const capacityRow = async (over: Record<string, unknown> = {}) => ({
@@ -1043,13 +1045,22 @@ describe('G2 Feasible solution? (generic gate route)', () => {
   it('Proceed needs the solution fields and at least one capacity row', async () => {
     const qn = await ready({ capacity: false, solution: false });
     const d = await detail(qn);
+    // FB-17 (W13-22): "Advance – capital required" is switched off, so it is not offered.
     expect(d.availableActions.map((a) => a.outcomeKey)).toEqual([
       'proceed',
       'proceed_with_risk',
-      'capital_required',
       'hold',
       'rework',
       'redirect',
+      'stop',
+    ]);
+    // FB-17 (W13-23): each one says which of the four choices the dialog shows it under.
+    expect(d.availableActions.map((a) => a.outcomeGroup)).toEqual([
+      'advance',
+      'advance',
+      'hold',
+      'send_back',
+      'send_back',
       'stop',
     ]);
     // B-26: every option carries its definition.
@@ -1065,6 +1076,9 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       'cavitation',
       'cycle_time_s',
       'capacity_evidence',
+      // FB-17 (W13-22): the preliminary capital figure, and the BOM while capital is not ruled out.
+      'prelim_capital_usd',
+      'eng_capital_needed,equipment_bom_on_file',
     ]);
     const rejected = await decide(qn, 'G2', { outcomeKey: 'proceed' });
     expect(rejected.statusCode).toBe(422);
@@ -1073,8 +1087,10 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       '/capacity_signoff_status',
       '/cavitation',
       '/cycle_time_s',
+      '/eng_capital_needed,equipment_bom_on_file',
       '/machine_type',
       '/plant_code',
+      '/prelim_capital_usd',
       '/process_type',
     ]);
     await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, SOLUTION);
@@ -1140,34 +1156,118 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     expect(ok.statusCode, ok.body).toBe(201);
   });
 
-  it('Capital required needs the capital figure, a note (F-027) and the equipment BOM (F-058), and sets capital readiness to pending', async () => {
-    const qn = await ready({ solution: false, capacity: false });
-    expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'capital_required' }))).toEqual([
-      '/capacity_signoff_status',
-      '/equipment_bom_on_file',
-      '/note',
-      '/prelim_capital_usd',
-    ]);
-    await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { prelimCapitalUsd: 650_000 });
-    await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' });
-    // FB-06 (F-058): and the equipment BOM on file.
-    expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'capital_required' }))).toEqual([
-      '/equipment_bom_on_file',
-      '/note',
-    ]);
-    await prepareBom(app, qn);
-    const ok = await decide(qn, 'G2', {
+  // FB-17 (W13-22): "Advance – capital required" is switched off. What it proved (the capital figure,
+  // the equipment BOM, capital readiness on pending) is now proved on Advance: capital is needed when
+  // the preliminary capital is above capital_needed_above_usd (seed 0).
+  it('FB-17: capital needed (the capital figure above $0) needs the equipment BOM (F-058), flags the quote capital likely and sets capital readiness to pending', async () => {
+    const qn = await ready();
+    const put = (prelimCapitalUsd: number | null) =>
+      as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { prelimCapitalUsd });
+    // "Advance – capital required" is not accepted any more, however complete the quote is.
+    const retired = await decide(qn, 'G2', {
       outcomeKey: 'capital_required',
       note: 'A second cavity set is needed',
     });
+    expect(retired.statusCode).toBe(422);
+    expect(errorCodes(retired)).toEqual(['OUTCOME_INACTIVE']);
+    // A blank figure is refused, and never read as "no capital": the BOM is asked for as well.
+    expect((await put(null)).statusCode).toBe(200);
+    expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'proceed' }))).toEqual([
+      '/eng_capital_needed,equipment_bom_on_file',
+      '/prelim_capital_usd',
+    ]);
+    // Capital needed: both Advance outcomes wait for the equipment BOM.
+    expect((await put(650_000)).statusCode).toBe(200);
+    for (const outcomeKey of ['proceed', 'proceed_with_risk']) {
+      const res = await decide(qn, 'G2', { outcomeKey, note: 'Cycle time unproven' });
+      expect(res.statusCode, outcomeKey).toBe(422);
+      expect(errorPaths(res), outcomeKey).toEqual(['/eng_capital_needed,equipment_bom_on_file']);
+    }
+    const d = await detail(qn);
+    expect(
+      d.availableActions.find((a) => a.outcomeKey === 'proceed')!.missing.map((m) => m.field),
+    ).toEqual(['eng_capital_needed,equipment_bom_on_file']);
+    expect(d.commercial.capital.likely).toBe(false);
+    await prepareBom(app, qn);
+    const ok = await decide(qn, 'G2', { outcomeKey: 'proceed' });
     expect(ok.statusCode, ok.body).toBe(201);
     const quote = GateDecisionResponse.parse(ok.json()).quote;
     expect(quote.stageKey).toBe('QUOTING');
+    // The quote is flagged capital likely (by the decider), audited and on the timeline.
+    expect(quote.commercial.capital.likely).toBe(true);
+    expect(quote.quoting.capitalNeeded).toBe(true);
     const [pricing] = await db.db
       .select()
       .from(schema.pricingRecord)
       .where(eq(schema.pricingRecord.quoteId, quote.id));
     expect(pricing!.capitalReadiness).toBe('pending');
+    const events = await db.db
+      .select()
+      .from(schema.activityEvent)
+      .where(
+        and(
+          eq(schema.activityEvent.quoteId, quote.id),
+          eq(schema.activityEvent.type, 'capital_needed'),
+        ),
+      );
+    expect(events.map((e) => e.payload)).toEqual([
+      { gateKey: 'G2', prelimCapitalUsd: 650_000, capitalLikelySet: true },
+    ]);
+    const audits = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(and(eq(schema.auditEvent.quoteId, quote.id), eq(schema.auditEvent.action, 'update')));
+    expect(
+      audits.filter((a) => (a.after as { capitalLikely?: boolean } | null)?.capitalLikely === true),
+    ).toHaveLength(1);
+  });
+
+  it('FB-17: $0 means no capital is needed: no BOM, no flag, no capital readiness started', async () => {
+    const qn = await ready();
+    const ok = await decide(qn, 'G2', { outcomeKey: 'proceed' });
+    expect(ok.statusCode, ok.body).toBe(201);
+    const quote = GateDecisionResponse.parse(ok.json()).quote;
+    expect(quote.stageKey).toBe('QUOTING');
+    expect(quote.commercial.capital.likely).toBe(false);
+    expect(quote.quoting.capitalNeeded).toBe(false);
+    const [pricing] = await db.db
+      .select()
+      .from(schema.pricingRecord)
+      .where(eq(schema.pricingRecord.quoteId, quote.id));
+    expect(pricing?.capitalReadiness ?? null).toBeNull();
+    const events = await db.db
+      .select()
+      .from(schema.activityEvent)
+      .where(
+        and(
+          eq(schema.activityEvent.quoteId, quote.id),
+          eq(schema.activityEvent.type, 'capital_needed'),
+        ),
+      );
+    expect(events).toEqual([]);
+  });
+
+  it('FB-17: capital_needed_above_usd moves the line (an Admin setting)', async () => {
+    const qn = await ready();
+    await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { prelimCapitalUsd: 40_000 });
+    await setSetting('capital_needed_above_usd', 50_000);
+    try {
+      // At or below the threshold no capital is needed, so no BOM is asked for.
+      const d = await detail(qn);
+      expect(d.availableActions.find((a) => a.outcomeKey === 'proceed')!.missing).toEqual([]);
+      expect(d.engineering.equipmentBom.requiredWhenText).toBe(
+        'Required to advance when preliminary capital is above $50,000',
+      );
+      await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, { prelimCapitalUsd: 50_001 });
+      expect(errorPaths(await decide(qn, 'G2', { outcomeKey: 'proceed' }))).toEqual([
+        '/eng_capital_needed,equipment_bom_on_file',
+      ]);
+    } finally {
+      await setSetting('capital_needed_above_usd', 0);
+    }
+    expect((await detail(qn)).engineering.equipmentBom.requiredWhenText).toBe(
+      'Required to advance when preliminary capital is above $0',
+    );
   });
 
   it('Hold needs a reason, a note (F-027), a review date and an owner (B-26)', async () => {
@@ -1260,12 +1360,39 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     expect(d.engineering.capacitySignoff).toMatchObject({ status: null, byName: null });
   });
 
-  it('B-26: Redirect (alternative platform / site) needs a note and keeps the quote in the queue', async () => {
+  it('B-26 / FB-17: "Send back to Engineering (try another platform or site)" needs a reason and a note and keeps the quote in the queue', async () => {
     const qn = await ready();
+    // FB-17 (W13-23): the former Redirect is a send-back now, so it carries a rework reason code too.
     expect(errorCodes(await decide(qn, 'G2', { outcomeKey: 'redirect' }))).toEqual([
       'NOTE_REQUIRED',
+      'REASON_REQUIRED',
     ]);
-    const ok = await decide(qn, 'G2', { outcomeKey: 'redirect', note: 'Try the IBM line' });
+    expect(
+      errorCodes(await decide(qn, 'G2', { outcomeKey: 'redirect', note: 'Try the IBM line' })),
+    ).toEqual(['REASON_REQUIRED']);
+    // Its codes are the rework codes, not G1's "not CCQ work" codes.
+    const action = (await detail(qn)).availableActions.find((a) => a.outcomeKey === 'redirect')!;
+    expect(action).toMatchObject({
+      outcomeLabel: 'Send back to Engineering (try another platform or site)',
+      outcomeGroup: 'send_back',
+      requiresNote: true,
+      requiresReasonCode: true,
+    });
+    expect(action.reasonCodes.map((r) => r.code)).toContain('wrong_specification');
+    expect(
+      errorCodes(
+        await decide(qn, 'G2', {
+          outcomeKey: 'redirect',
+          reasonCode: 'stock_item',
+          note: 'Try the IBM line',
+        }),
+      ),
+    ).toEqual(['INVALID_REASON']);
+    const ok = await decide(qn, 'G2', {
+      outcomeKey: 'redirect',
+      reasonCode: 'wrong_specification',
+      note: 'Try the IBM line',
+    });
     expect(ok.statusCode, ok.body).toBe(201);
     expect(GateDecisionResponse.parse(ok.json()).quote).toMatchObject({
       stageKey: 'ENG_REVIEW',

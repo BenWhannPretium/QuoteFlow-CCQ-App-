@@ -195,6 +195,8 @@ const SOLUTION = {
   machineType: 'EBM',
   cavitation: 8,
   cycleTimeS: 14.5,
+  // FB-17 (W13-22): G2 needs a preliminary capital figure; $0 means no capital is needed.
+  prelimCapitalUsd: 0,
 };
 const row = async (over: Record<string, unknown> = {}) => ({
   site: 'AURORA',

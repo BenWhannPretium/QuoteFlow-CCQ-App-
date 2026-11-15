@@ -150,10 +150,19 @@ const SECRETS = {
 interface Opts {
   /** Who submits the intake: the KAM persona, or the multi-role persona (SalesLeader + Approver). */
   kam?: 'kam' | 'multi-role';
-  /** Engineering's outcome. */
+  /**
+   * Engineering's outcome. FB-17 (W13-22): `capital_required` is switched off, so it stands for a quote
+   * decided "Advance – capital required" before then (history that must behave as it did): the helper
+   * switches the outcome on for that one decision.
+   */
   g2?: 'proceed' | 'proceed_with_risk' | 'capital_required';
   /** Who is recorded as the price approver (default: the Pricing persona). */
   priceApprover?: 'pricing' | 'multi-role';
+  /**
+   * The preliminary capital. Default $0 (no capital needed; $250,000 on the historical
+   * `capital_required` path, as before). Above $0 capital is needed (FB-17): the helper uploads the
+   * equipment BOM, and the Advance flags the quote capital likely.
+   */
   prelimCapitalUsd?: number;
   /** B-26: record the KAM's terms check (G4 Advance needs it). Default true. */
   terms?: boolean;
@@ -161,9 +170,19 @@ interface Opts {
   capital?: boolean;
 }
 
+/** FB-17: switch the retired G2 outcome on (to record a historical decision) or off again. */
+const setCapitalRequiredActive = (active: boolean) =>
+  db.db.execute(
+    sql`update gate_outcome_definition set active = ${active}
+        where gate_key = 'G2' and key = 'capital_required'`,
+  );
+
 /** A quote that Pricing has submitted to Final Review. Returns its number. */
 async function inFinalReview(o: Opts = {}) {
   const kam = o.kam ?? 'kam';
+  const g2 = o.g2 ?? 'proceed';
+  const historical = g2 === 'capital_required';
+  const prelimCapitalUsd = o.prelimCapitalUsd ?? (historical ? 250_000 : 0);
   const res = await persona(kam).post('/api/v1/quotes/drafts', {
     data: await prefill(await nextFree()),
   });
@@ -182,7 +201,7 @@ async function inFinalReview(o: Opts = {}) {
       plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
-      prelimCapitalUsd: o.prelimCapitalUsd ?? 250_000,
+      prelimCapitalUsd,
     }),
     200,
   );
@@ -203,17 +222,22 @@ async function inFinalReview(o: Opts = {}) {
   );
   // B-26: the capacity owner's sign-off before G2.
   ok(await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' }), 200);
-  const g2 = o.g2 ?? 'proceed';
-  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
-  if (g2 === 'capital_required') await prepareBom(app, qn);
-  ok(
-    await decide(
-      qn,
-      g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Tight on line 4' },
-      'EngLead',
-      'G2',
-    ),
-  );
+  // FB-06 (F-058) / FB-17: capital needed (and the historical "Capital required") needs the equipment
+  // BOM on file.
+  if (prelimCapitalUsd > 0) await prepareBom(app, qn);
+  if (historical) await setCapitalRequiredActive(true);
+  try {
+    ok(
+      await decide(
+        qn,
+        g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'Tight on line 4' },
+        'EngLead',
+        'G2',
+      ),
+    );
+  } finally {
+    if (historical) await setCapitalRequiredActive(false);
+  }
   tick();
 
   const approverKey = o.priceApprover ?? 'pricing';
@@ -418,6 +442,38 @@ describe('the approvals queue (GET /approvals?gate=G4)', () => {
 
     const byCapital = await queue('Approver', '&capital=pre_approved');
     expect(byCapital.items.map((i) => i.quoteNumber)).toContain(plain);
+
+    // FB-17 (W13-22): capital needed, whatever the G2 outcome is called. A plain Advance whose capital
+    // figure is above $0 and a quote decided "Advance – capital required" before FB-17 are both listed.
+    const capital = await inFinalReview({ prelimCapitalUsd: 600_000 });
+    const old = await inFinalReview({ g2: 'capital_required' });
+    const needed = await queue('Approver', '&g2=capital_needed');
+    expect(needed.g2Outcomes[0]).toEqual({ key: 'capital_needed', label: 'Capital needed' });
+    const neededNumbers = needed.items.map((i) => i.quoteNumber);
+    expect(neededNumbers).toEqual(expect.arrayContaining([capital, old]));
+    expect(neededNumbers).not.toContain(plain);
+    expect(neededNumbers).not.toContain(risky);
+    expect(needed.items.every((i) => i.capitalNeeded && i.g2Flag)).toBe(true);
+    expect(needed.items.find((i) => i.quoteNumber === capital)).toMatchObject({
+      g2Outcome: 'proceed',
+      g2OutcomeLabel: 'Advance',
+      capitalNeeded: true,
+      g2Flag: true,
+      capitalReadiness: 'pre_approved',
+    });
+    const all = await queue();
+    expect(all.items.find((i) => i.quoteNumber === plain)).toMatchObject({
+      capitalNeeded: false,
+      g2Flag: false,
+    });
+    expect(all.items.find((i) => i.quoteNumber === risky)).toMatchObject({
+      capitalNeeded: false,
+      g2Flag: true,
+    });
+    // The retired outcome still filters the quotes decided with it.
+    const byOld = (await queue('Approver', '&g2=capital_required')).items.map((i) => i.quoteNumber);
+    expect(byOld).toContain(old);
+    expect(byOld).not.toContain(capital);
     expect(byCapital.items.every((i) => i.capitalReadiness === 'pre_approved')).toBe(true);
 
     const tier = (await queue('Approver', `&q=${plain}`)).items[0]!.priority.tier!;
@@ -561,6 +617,30 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
     expect(dto.proposal).toEqual({ issuedAt: null, validityUntil: null, validityDaysDefault: 30 });
   });
 
+  it('FB-17: capital needed from the capital figure is flagged for the approver, with the figure', async () => {
+    const qn = await inFinalReview({ prelimCapitalUsd: 600_000 });
+    const { dto } = await summary(qn);
+    expect(dto.quoting.g2).toMatchObject({ outcomeKey: 'proceed', outcomeLabel: 'Advance' });
+    expect(dto.quoting.capitalNeeded).toBe(true);
+    expect(dto.warnings.filter((w) => w.code === 'G2_CAPITAL_REQUIRED')).toEqual([
+      {
+        code: 'G2_CAPITAL_REQUIRED',
+        severity: 'risk',
+        message: 'Capital is needed: preliminary capital $600,000',
+      },
+    ]);
+    // The Advance needed the BOM, flagged the quote capital likely and so asked for the payback model.
+    expect(dto.attachments.map((a) => a.kind)).toEqual(
+      expect.arrayContaining(['equipment_bom', 'roi_model']),
+    );
+    expect(dto.quoting.steps.roi).toMatchObject({ status: 'done', required: true });
+    // A quote with a $0 capital figure carries no capital warning.
+    const plain = (await summary(await inFinalReview())).dto;
+    expect(plain.quoting.capitalNeeded).toBe(false);
+    expect(plain.warnings.map((w) => w.code)).not.toContain('G2_CAPITAL_REQUIRED');
+    expect(plain.attachments.map((a) => a.kind)).not.toContain('equipment_bom');
+  });
+
   it('shows every commercial part to the other roles too (2026-10-30), without a decision', async () => {
     const qn = await inFinalReview({ g2: 'capital_required' });
     const lead = await summary(qn, 'Leadership');
@@ -621,6 +701,7 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
       await decide(qn, {
         outcomeKey: 'return',
         targetStageKey: 'QUOTING',
+        reasonCode: 'missing_information',
         note: 'Re-check the range',
       }),
     );
@@ -877,13 +958,34 @@ describe('G4 Decline', () => {
 });
 
 describe('G4 Return', () => {
-  it('needs a note and a target stage', async () => {
+  it('needs a note, a reason (FB-17: every send-back carries one) and a target stage', async () => {
     const qn = await inFinalReview();
     const none = await decide(qn, { outcomeKey: 'return' });
     expect(none.statusCode).toBe(422);
-    expect(errorCodes(none)).toEqual(['NOTE_REQUIRED', 'TARGET_REQUIRED']);
+    expect(errorCodes(none)).toEqual(['NOTE_REQUIRED', 'REASON_REQUIRED', 'TARGET_REQUIRED']);
     expect(
-      errorCodes(await decide(qn, { outcomeKey: 'return', note: 'x', targetStageKey: 'INTAKE' })),
+      errorCodes(await decide(qn, { outcomeKey: 'return', note: 'x', targetStageKey: 'QUOTING' })),
+    ).toEqual(['REASON_REQUIRED']);
+    // The reason is a rework code; a decline code is not one.
+    expect(
+      errorCodes(
+        await decide(qn, {
+          outcomeKey: 'return',
+          note: 'x',
+          targetStageKey: 'QUOTING',
+          reasonCode: 'margin_below_floor',
+        }),
+      ),
+    ).toEqual(['INVALID_REASON']);
+    expect(
+      errorCodes(
+        await decide(qn, {
+          outcomeKey: 'return',
+          note: 'x',
+          reasonCode: 'missing_information',
+          targetStageKey: 'INTAKE',
+        }),
+      ),
     ).toEqual(['INVALID_TARGET']);
     expect((await quoteRow(qn)).stageKey).toBe('FINAL_REVIEW');
   });
@@ -893,6 +995,7 @@ describe('G4 Return', () => {
     const res = await decide(qn, {
       outcomeKey: 'return',
       targetStageKey: 'QUOTING',
+      reasonCode: 'missing_information',
       note: 'The range note does not cover the resin move',
     });
     ok(res);
@@ -926,6 +1029,7 @@ describe('G4 Return', () => {
       await decide(qn, {
         outcomeKey: 'return',
         targetStageKey: 'ENG_REVIEW',
+        reasonCode: 'missing_information',
         note: 'Capacity is not proven',
       }),
     );
@@ -947,7 +1051,12 @@ describe('segregation: who may decide G4', () => {
     outcomeKey === 'decline'
       ? { outcomeKey, note: 'No', reasonCode: 'other' }
       : outcomeKey === 'return'
-        ? { outcomeKey, note: 'Again', targetStageKey: 'QUOTING' }
+        ? {
+            outcomeKey,
+            note: 'Again',
+            reasonCode: 'missing_information',
+            targetStageKey: 'QUOTING',
+          }
         : { outcomeKey };
 
   it('only an Approver decides: everyone else gets 403 and nothing changes', async () => {
@@ -1115,7 +1224,14 @@ describe('Final Review and the customer outcome stay separate', () => {
     const returned = await inFinalReview();
     ok(await decide(approved, { outcomeKey: 'approve' }));
     ok(await decide(declined, { outcomeKey: 'decline', note: 'No', reasonCode: 'other' }));
-    ok(await decide(returned, { outcomeKey: 'return', targetStageKey: 'QUOTING', note: 'Again' }));
+    ok(
+      await decide(returned, {
+        outcomeKey: 'return',
+        targetStageKey: 'QUOTING',
+        reasonCode: 'missing_information',
+        note: 'Again',
+      }),
+    );
     const rows = await Promise.all([approved, declined, returned].map(quoteRow));
     expect(rows.map((r) => r.stageKey)).toEqual(['CUSTOMER_DECISION', 'DECLINED', 'QUOTING']);
     expect(rows.map((r) => r.outcome)).toEqual([null, 'declined', null]);

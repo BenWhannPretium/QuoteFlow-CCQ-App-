@@ -197,8 +197,33 @@ describe('scoring and the quote read', () => {
       'redirect',
       'stop',
     ]);
+    // FB-17 (W13-23): each action carries its group for the four choices (Advance, Send back to…, Hold,
+    // Stop). "Not CCQ work" sits under Stop and still closes as redirected, owned by the decider.
+    expect(d.availableActions.map((a) => a.outcomeGroup)).toEqual([
+      'advance',
+      'hold',
+      'send_back',
+      'stop',
+      'stop',
+    ]);
+    expect(d.availableActions.find((a) => a.outcomeKey === 'rework')).toMatchObject({
+      outcomeLabel: 'Send back to the KAM (fix the intake)',
+      requiresNote: true,
+      requiresReasonCode: true,
+      targetStageKeys: ['INTAKE'],
+    });
+    expect(d.availableActions.find((a) => a.outcomeKey === 'redirect')).toMatchObject({
+      outcomeLabel: 'Stop: not CCQ work (send elsewhere)',
+      nextStatus: 'closed',
+      closesAs: 'redirected',
+      closureOwnerDefault: 'decider',
+    });
     const hold = d.availableActions.find((a) => a.outcomeKey === 'hold')!;
     expect(hold).toMatchObject({ requiresReviewDate: true, requiresReasonCode: true, missing: [] });
+    expect(hold.helpText).toBe(
+      'Pause the quote, for example when the customer asks to revisit it in 6 months. ' +
+        'To get something fixed, use Send back to… instead.',
+    );
     expect(d.availableActions.find((a) => a.outcomeKey === 'advance')!.missing).toEqual([]);
     for (const role of ['KAM', 'EngLead', 'Pricing', 'Approver', 'Leadership', 'Admin'] as Role[]) {
       expect((await detail(q.quoteNumber, role)).availableActions).toEqual([]);
@@ -359,6 +384,8 @@ describe('G1 decisions through the generic route', () => {
       reviewDate: '2026-11-09',
     });
     expect(body.quote.commercial.hold.ownerId).toBe(owner);
+    // FB-17 (W13-26): the quote header reads the hold's reason in words.
+    expect(body.quote.commercial.hold.reasonLabel).toBe('Awaiting customer information');
     const holds = await db.db
       .select()
       .from(schema.quoteHold)
@@ -372,6 +399,37 @@ describe('G1 decisions through the generic route', () => {
     expect(resume.statusCode, resume.body).toBe(201);
     // Resuming ends the hold and clears its owner.
     expect(GateDecisionResponse.parse(resume.json()).quote.commercial.hold.ownerId).toBeNull();
+    expect(GateDecisionResponse.parse(resume.json()).quote.commercial.hold.reasonLabel).toBeNull();
+    // FB-17 (W13-26): the timeline's hold entries say who owns it, why, the note and the review date, and
+    // which decision ended it.
+    const [ownerRow] = await db.db
+      .select({ displayName: schema.appUser.displayName })
+      .from(schema.appUser)
+      .where(eq(schema.appUser.id, owner));
+    const events = await db.db
+      .select()
+      .from(schema.activityEvent)
+      .where(eq(schema.activityEvent.quoteId, q.quoteId));
+    const started = events.filter((e) => e.type === 'hold_started');
+    expect(started).toHaveLength(1);
+    expect(started[0]!.actorId).toBe(owner);
+    expect(started[0]!.payload).toMatchObject({
+      gateKey: 'G1',
+      outcomeKey: 'hold',
+      reasonCode: 'awaiting_customer_info',
+      reasonLabel: 'Awaiting customer information',
+      note: 'Customer is confirming the volume',
+      ownerId: owner,
+      ownerName: ownerRow!.displayName,
+      reviewDate: '2026-11-09',
+    });
+    const ended = events.filter((e) => e.type === 'hold_ended');
+    expect(ended).toHaveLength(1);
+    expect(ended[0]!.payload).toMatchObject({
+      gateKey: 'G1',
+      outcomeKey: 'advance',
+      outcomeLabel: 'Advance',
+    });
   });
 
   it('B-26: the hold owner must be an active CCQ user', async () => {

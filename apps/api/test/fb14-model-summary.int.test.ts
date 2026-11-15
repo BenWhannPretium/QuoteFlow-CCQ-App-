@@ -135,10 +135,13 @@ async function inQuoting(): Promise<string> {
     200,
   );
   ok(await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' }), 200);
+  // FB-17 (W13-22): capital is needed (the capital figure is above $0), so the Advance needs the BOM,
+  // flags the quote capital likely and with that asks for the payback model. Before FB-17 this was the
+  // G2 outcome "Advance – capital required".
   await prepareBom(app, qn);
   ok(
     await as('EngLead').post(`/api/v1/quotes/${qn}/gates/G2/decisions`, {
-      outcomeKey: 'capital_required',
+      outcomeKey: 'proceed',
       note: 'New mold set',
     }),
   );
