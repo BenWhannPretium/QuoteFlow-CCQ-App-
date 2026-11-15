@@ -2,6 +2,7 @@ import type {
   ApproverDashboard,
   DashboardResponse,
   DashboardRole,
+  DashHold,
   DashQuote,
   EngineeringDashboard,
   ExpiringProposal,
@@ -20,6 +21,7 @@ import {
   capitalPendingCount,
   decisionsAtGate,
   engineeringMedians,
+  loadWorkflowConfigInput,
   myOpenQuotes,
   openDrafts,
   openInStage,
@@ -37,8 +39,12 @@ import {
   agingBucket,
   agingBucketLabels,
   AGING_BUCKETS,
+  ON_HOLD_STATUS,
   businessDaysBetween,
+  holdReasonLabel,
   holdsPermission,
+  onHoldFirst,
+  parseWorkflowConfig,
   type Actor,
   type EngQueueSettings,
   type Permission,
@@ -104,7 +110,29 @@ const trailing = (
 const calendarDays = (from: Date | null, now: Date): number | null =>
   from ? Math.max(0, Math.floor((now.getTime() - from.getTime()) / DAY_MS)) : null;
 
-function dashQuote(r: DashboardQuoteRow, now: Date): DashQuote {
+/** FB-18 (W13-26): what a row's "On hold" chip says; null for a quote that is not on hold. */
+type HoldOf = (r: DashboardQuoteRow) => DashHold | null;
+
+/**
+ * FB-18 (W13-26): the hold of each listed quote, for the chip on the Command Center lists. The owner and
+ * the review date are on the row; the reason is the open hold's reason code as its label, by the rule
+ * the quote header uses (`holdReasonLabel`). The workflow config is read only when a listed quote is on
+ * hold with a reason. No figure is in it, so it needs no redaction.
+ */
+async function holdReader(tx: Tx, rows: readonly DashboardQuoteRow[]): Promise<HoldOf> {
+  const named = rows.some((r) => r.status === ON_HOLD_STATUS && r.hold_reason_code !== null);
+  const workflow = named ? parseWorkflowConfig(await loadWorkflowConfigInput(tx)) : null;
+  return (r) =>
+    r.status === ON_HOLD_STATUS
+      ? {
+          reasonLabel: workflow ? holdReasonLabel(workflow, r.hold_reason_code) : null,
+          ownerName: r.hold_owner_name,
+          reviewDate: r.hold_review_date,
+        }
+      : null;
+}
+
+function dashQuote(r: DashboardQuoteRow, now: Date, holdOf: HoldOf): DashQuote {
   return {
     quoteNumber: r.quote_number,
     account: r.account,
@@ -114,13 +142,16 @@ function dashQuote(r: DashboardQuoteRow, now: Date): DashQuote {
     status: r.status,
     kamName: r.kam_name,
     daysInStage: calendarDays(r.stage_entered_at, now),
+    hold: holdOf(r),
   };
 }
 
 /** Oldest in the stage first. */
 const oldestFirst = (a: DashQuote, b: DashQuote) => (b.daysInStage ?? -1) - (a.daysInStage ?? -1);
+/** FB-18 (W13-26): quotes on hold first, then the oldest in the stage. */
+const heldThenOldest = onHoldFirst(oldestFirst);
 
-function expiring(rows: DashboardQuoteRow[], now: Date): ExpiringProposal[] {
+function expiring(rows: DashboardQuoteRow[], now: Date, holdOf: HoldOf): ExpiringProposal[] {
   const today = Date.parse(`${dayIn(now, REPORT_TIME_ZONE)}T00:00:00Z`);
   return rows.map((r) => {
     const daysLeft = Math.round((Date.parse(`${r.validity_until}T00:00:00Z`) - today) / DAY_MS);
@@ -131,6 +162,7 @@ function expiring(rows: DashboardQuoteRow[], now: Date): ExpiringProposal[] {
       daysLeft,
       lapsed: daysLeft < 0,
       kamName: r.kam_name,
+      hold: holdOf(r),
     };
   });
 }
@@ -208,6 +240,7 @@ export class DashboardService {
     now: Date,
     definition: string,
     window: string,
+    holdOf: HoldOf,
   ): Promise<StagePipeline> {
     const stages = await openStages(tx);
     return {
@@ -220,9 +253,10 @@ export class DashboardService {
           label: s.label,
           count: inStage.length,
           sfAmount: inStage.reduce((n, r) => n + (r.sf_amount ?? 0), 0),
+          // FB-18 (W13-26): a quote on hold is always among the few a stage lists.
           quotes: inStage
-            .map((r) => dashQuote(r, now))
-            .sort(oldestFirst)
+            .map((r) => dashQuote(r, now, holdOf))
+            .sort(heldThenOldest)
             .slice(0, MINI_BOARD_LIMIT),
         };
       }),
@@ -237,12 +271,14 @@ export class DashboardService {
       proposalsEndingBy(tx, now, WINDOWS.expiringDays, actor.userId),
       outcomeCohort(tx, trailing(now, WINDOWS.captureDays, { kam: [actor.userId] }), 'total', now),
     ]);
+    const holdOf = await holdReader(tx, [...open, ...ending]);
     const pipeline = await this.stagePipeline(
       tx,
       open,
       now,
-      'Your open quotes by workflow stage (a closed quote is not listed). Each stage shows your oldest quotes first.',
+      'Your open quotes by workflow stage (a closed quote is not listed). Each stage shows your quotes on hold first, then your oldest quotes.',
       'Your open quotes right now',
+      holdOf,
     );
     return {
       role: 'KAM',
@@ -282,7 +318,7 @@ export class DashboardService {
           `Validity ends by ${WINDOWS.expiringDays} days from today (lapsed ones included)`,
         ),
         withinDays: WINDOWS.expiringDays,
-        items: expiring(ending, now),
+        items: expiring(ending, now, holdOf),
       },
       capture: {
         info: info(
@@ -301,6 +337,7 @@ export class DashboardService {
       openAll(tx),
       proposalsEndingBy(tx, now, -1),
     ]);
+    const holdOf = await holdReader(tx, [...open, ...lapsed]);
     return {
       role: 'SalesLeader',
       toQualify: {
@@ -309,7 +346,7 @@ export class DashboardService {
           'Right now',
         ),
         count: toQualify.length,
-        items: toQualify.map((r) => dashQuote(r, now)).slice(0, LIST_LIMIT),
+        items: toQualify.map((r) => dashQuote(r, now, holdOf)).slice(0, LIST_LIMIT),
       },
       pendingOverrides: {
         info: info(
@@ -330,8 +367,9 @@ export class DashboardService {
         tx,
         open,
         now,
-        `The team's open quotes by workflow stage, with the ${SF_AMOUNT_LABEL} per stage.`,
+        `The team's open quotes by workflow stage, with the ${SF_AMOUNT_LABEL} per stage. Each stage lists the quotes on hold first, then the oldest.`,
         'Open quotes right now',
+        holdOf,
       ),
       lackingOutcomes: {
         info: info(
@@ -339,7 +377,7 @@ export class DashboardService {
           'Validity ended before today',
         ),
         count: lapsed.length,
-        items: expiring(lapsed, now).slice(0, LIST_LIMIT),
+        items: expiring(lapsed, now, holdOf).slice(0, LIST_LIMIT),
       },
     };
   }
@@ -359,6 +397,7 @@ export class DashboardService {
     ]);
     // FB-16 (W13-16): the stage's configured label ("Engineering & Capacity", provisional).
     const eng = await engStageLabel(tx);
+    const holdOf = await holdReader(tx, rows);
     const load = new Map<string | null, { name: string; open: number }>();
     for (const r of rows) {
       const key = r.assigned_engineer_id;
@@ -413,11 +452,14 @@ export class DashboardService {
         reasons: returned.slice(0, 5).map((x) => ({ label: x.label, count: x.count })),
       },
       mine: {
-        info: info(`Open ${eng} quotes assigned to you, oldest first.`, 'Open quotes right now'),
+        info: info(
+          `Open ${eng} quotes assigned to you: the ones on hold first, then the oldest.`,
+          'Open quotes right now',
+        ),
         items: rows
           .filter((r) => r.assigned_engineer_id === actor.userId)
-          .map((r) => dashQuote(r, now))
-          .sort(oldestFirst),
+          .map((r) => dashQuote(r, now, holdOf))
+          .sort(heldThenOldest),
       },
     };
   }
@@ -485,12 +527,13 @@ export class DashboardService {
       e.count += 1;
       byOutcome.set(d.outcome_key, e);
     }
-    const items = pending.map((r) => dashQuote(r, now)).sort(oldestFirst);
+    const holdOf = await holdReader(tx, pending);
+    const items = pending.map((r) => dashQuote(r, now, holdOf)).sort(heldThenOldest);
     return {
       role: 'Approver',
       pending: {
         info: info(
-          'Quotes submitted to Final Review and waiting for a G4 decision (Approve, Decline or Return), oldest first. Age is calendar days in the stage.',
+          'Quotes submitted to Final Review and waiting for a G4 decision (Approve, Decline or Return): the ones on hold first, then the oldest. Age is calendar days in the stage.',
           'Right now',
         ),
         count: items.length,

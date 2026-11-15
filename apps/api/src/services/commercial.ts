@@ -71,6 +71,7 @@ import {
   capitalTermsSegregationMessage,
   derivedDecisionFields,
   g4CheckWarnings,
+  holdReasonLabel,
   parseCapitalNeededAboveUsd,
   parseCapitalNotice,
   parseG4RequiredChecks,
@@ -520,20 +521,8 @@ async function openHoldReasonLabel(
 ): Promise<string | null> {
   if (q.status !== 'on_hold') return null;
   const open = (await listHolds(db, q.id)).find((h) => h.endedAt === null);
-  if (!open?.reasonCode) return null;
-  const contexts = new Set(
-    workflow.transitions
-      .filter((t) => t.nextStatus === 'on_hold')
-      .map(
-        (t) =>
-          workflow.outcomes.find((o) => o.gateKey === t.gateKey && o.key === t.outcomeKey)
-            ?.reasonContext,
-      ),
-  );
-  return (
-    workflow.reasonCodes.find((r) => r.code === open.reasonCode && contexts.has(r.context))
-      ?.label ?? open.reasonCode
-  );
+  // FB-18: the lookup itself is `holdReasonLabel` (domain), shared with the Command Center lists.
+  return holdReasonLabel(workflow, open?.reasonCode);
 }
 
 /** `QuoteDetail.commercial`. Nothing here is commercial-sensitive (no figures). */
