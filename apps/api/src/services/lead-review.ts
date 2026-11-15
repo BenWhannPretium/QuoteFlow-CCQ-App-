@@ -17,19 +17,25 @@ import {
   assigneeOf,
   canReturnToAssignee,
   canSubmitToLead,
+  isForwardOutcome,
   leadReviewStatus,
   leadReviewStatusInStage,
+  packOutRequirementErrors,
   submitBlockedReason,
   parseWorkflowConfig,
   planLeadReturned,
   planLeadSubmitted,
   planReturnToAssignee,
   planSubmitToLead,
+  returnTargets,
+  returnTargetUser,
   withDerivedFields,
   type Actor,
   type DomainError,
   type LeadReviewKind,
   type QuoteState,
+  type ReturnTarget,
+  type WorkflowConfig,
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
@@ -62,6 +68,10 @@ export interface LeadReviewView {
   canSubmit: boolean;
   canSendBack: boolean;
   submitBlockedReason: string | null;
+  /** FB-16 (W13-19): who the latest send-back went to; null on older rounds and on pricing. */
+  returnedToName: string | null;
+  /** FB-16 (W13-19): who the lead may send the work back to (the assignee first). Engineering only. */
+  returnTargets?: { target: ReturnTarget; name: string | null }[];
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -74,9 +84,15 @@ export async function leadReviewView(
   state: QuoteState,
 ): Promise<LeadReviewView> {
   const review = await getLeadReview(tx, q.id, kind);
+  const targets = kind === 'engineering' ? returnTargets(kind, state) : [];
   const people = await listUsersByIds(
     tx,
-    [review.submittedBy, review.returnedBy].filter((id): id is string => !!id),
+    [
+      review.submittedBy,
+      review.returnedBy,
+      review.returnedTo,
+      ...targets.map((t) => t.userId),
+    ].filter((id): id is string => !!id),
   );
   const name = (id: string | null) => (id && people.find((p) => p.id === id)?.displayName) || null;
   return {
@@ -90,7 +106,27 @@ export async function leadReviewView(
     canSubmit: canSubmitToLead(kind, actor, state, review),
     canSendBack: canReturnToAssignee(kind, actor, state, review),
     submitBlockedReason: submitBlockedReason(kind, actor, state, review),
+    returnedToName: name(review.returnedTo),
+    ...(kind === 'engineering'
+      ? { returnTargets: targets.map((t) => ({ target: t.target, name: name(t.userId) })) }
+      : {}),
   };
+}
+
+/**
+ * FB-16 (W13-14): what the engineer's submission still needs on top of the gate's rules: one pack-out
+ * count, while `pack_out_rule.requireOneOf` is on (seeded off). The same check the G2 decision runs.
+ */
+export function engineeringSubmissionExtras(
+  kind: LeadReviewKind,
+  workflow: WorkflowConfig,
+  fields: QuoteState['fields'],
+  packOutRule: Parameters<typeof packOutRequirementErrors>[0],
+): DomainError[] {
+  const spec = LEAD_REVIEW[kind];
+  if (kind !== 'engineering') return [];
+  if (!isForwardOutcome(workflow, spec.gateKey, spec.advanceOutcomeKey)) return [];
+  return packOutRequirementErrors(packOutRule, fields);
 }
 
 async function load(tx: Tx, deps: LeadReviewDeps, quoteNumber: string) {
@@ -124,6 +160,9 @@ export async function submitToLead(
   const review = await getLeadReview(tx, q.id, kind);
   const plan = planSubmitToLead(kind, actor, state, review, workflow, fields);
   if (!plan.ok) deps.fail(plan.errors);
+  // FB-16 (W13-14): one pack-out count, while the rule is switched on (off in the seed).
+  const extras = engineeringSubmissionExtras(kind, workflow, fields, ctx.packOutRule);
+  if (extras.length > 0) deps.fail(extras);
 
   const after: Partial<LeadReviewRow> = { submittedAt: now, submittedBy: actor.userId };
   await setLeadReview(tx, q.id, kind, after);
@@ -169,7 +208,11 @@ export async function submitToLead(
   );
 }
 
-/** POST …/send-back: the lead returns the part to the assignee with a note. */
+/**
+ * POST …/send-back: the lead returns the part with a note. FB-16 (W13-19): `target` is who it goes to:
+ * the assignee (the default) or, in Engineering, the production scheduler assigned to the quote. Only
+ * that person is notified (plus the KAM's in-app update).
+ */
 export async function returnToAssignee(
   tx: Tx,
   deps: LeadReviewDeps,
@@ -179,21 +222,24 @@ export async function returnToAssignee(
   note: string,
   meta: AuditMeta,
   now: Date,
+  target: ReturnTarget = 'assignee',
 ): Promise<void> {
   const { q, state } = await load(tx, deps, quoteNumber);
   const review = await getLeadReview(tx, q.id, kind);
-  const plan = planReturnToAssignee(kind, actor, state, review, note);
+  const plan = planReturnToAssignee(kind, actor, state, review, note, target);
   if (!plan.ok) deps.fail(plan.errors);
 
   const trimmed = note.trim();
+  // Who it goes to: the chosen person, or the assignee when the quote has nobody in that part.
+  const assignee = returnTargetUser(kind, state, target) ?? assigneeOf(kind, state);
   await setLeadReview(tx, q.id, kind, {
     submittedAt: null,
     submittedBy: null,
     returnedAt: now,
     returnedBy: actor.userId,
     returnNote: trimmed,
+    returnedTo: assignee,
   });
-  const assignee = assigneeOf(kind, state);
   const people = await listUsersByIds(
     tx,
     [actor.userId, assignee].filter((id): id is string => !!id),
@@ -204,7 +250,14 @@ export async function returnToAssignee(
     type: 'lead_review_returned',
     actorId: actor.userId,
     at: now,
-    payload: { kind, note: trimmed, byName: nameOf(actor.userId), toName: nameOf(assignee) },
+    payload: {
+      kind,
+      note: trimmed,
+      byName: nameOf(actor.userId),
+      toName: nameOf(assignee),
+      // FB-16 (W13-19): which part it went back to.
+      to: target === 'scheduler' ? 'scheduler' : 'assignee',
+    },
     createdBy: actor.userId,
   });
   await recordAudit(tx, actor, meta, {
@@ -220,10 +273,12 @@ export async function returnToAssignee(
       [`${kind}SubmittedAt`]: null,
       [`${kind}ReturnedAt`]: now.toISOString(),
       [`${kind}ReturnNote`]: trimmed,
+      [`${kind}ReturnedTo`]: assignee,
     },
     at: now,
   });
   const leadName = nameOf(actor.userId);
+  const toScheduler = target === 'scheduler';
   // The assignee is told in-app with the note, and by email without it (DR-pricing-finance-05: a note
   // can carry a price, and email never carries comment text). FB-05 (F-079): the KAM sees the send-back,
   // in-app only, without the note's detail in any email (there is none for that type).
@@ -237,10 +292,14 @@ export async function returnToAssignee(
             title: `${quoteNumber} was sent back to you`,
             body: `${leadName ?? `The ${LEAD_REVIEW[kind].noun.lead}`} asked for changes: ${trimmed}`,
             // DR-pricing-finance-05: the note is in the in-app body only, never in the email payload.
-            payload: { kind, ...(leadName ? { actor: leadName } : {}) },
+            payload: {
+              kind,
+              ...(leadName ? { actor: leadName } : {}),
+              ...(toScheduler ? { to: 'scheduler' } : {}),
+            },
           }
         : {
-            title: `${quoteNumber}: the ${workName(kind)} was sent back to the ${LEAD_REVIEW[kind].noun.assignee}`,
+            title: `${quoteNumber}: the ${workName(kind)} was sent back to the ${toScheduler ? 'production scheduler' : LEAD_REVIEW[kind].noun.assignee}`,
             body: `${leadName ?? `The ${LEAD_REVIEW[kind].noun.lead}`} asked for changes: ${trimmed}`,
             payload: { kind, ...(leadName ? { actor: leadName } : {}) },
           },

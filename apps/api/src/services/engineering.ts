@@ -1,6 +1,7 @@
 import {
   ENGINEERING_PROBLEM_CODES,
   EngReviewBody as EngReviewBodySchema,
+  type AssignmentBody,
   type AssignmentResponse,
   type BulkReassignBody,
   type BulkReassignResponse,
@@ -22,6 +23,7 @@ import {
   insertActivityEvent,
   insertCapacityEvidence,
   listAssignableEngineers,
+  listAssignableSchedulers,
   listCapacityEvidence,
   listCapacityEvidenceWithNames,
   listAppliedOverridesForQuotes,
@@ -33,6 +35,7 @@ import {
   listValueList,
   loadQuoteState,
   loadWorkflowConfigInput,
+  markCapacityReady,
   resetEngReviewAcceptance,
   updateCapacityEvidence,
   updateQuote,
@@ -43,6 +46,7 @@ import {
 import {
   ASSIGNABLE_ROLES,
   ENG_QUEUE_STAGE_KEY,
+  SCHEDULER_ROLES,
   agingBucket,
   agingBucketLabels,
   asUserId,
@@ -50,6 +54,7 @@ import {
   can,
   canAssignEngQueue,
   annualCapacityUnits,
+  canEditCapacity,
   canEditEngReview,
   lockedFor,
   computeTimeInStage,
@@ -59,11 +64,16 @@ import {
   holdsPermission,
   normalizeSolutionExtras,
   validateSolutionExtras,
+  packOutRuleErrors,
   parseWorkflowConfig,
   planAccept,
   planAssignment,
+  planCapacityAssigned,
   planCapacityEvidence,
+  planCapacityReady,
   planCapacitySignoff,
+  planSchedulerAssignment,
+  planSolutionPick,
   roundPct,
   sortEngQueue,
   storedUtilizationPct,
@@ -72,24 +82,30 @@ import {
   EXCEEDS_CAPACITY_MESSAGE,
   summarizeStageTimes,
   type Actor,
+  type CapacitySignoffStatus,
   type DomainError,
   type EngQueueEntry,
   type EngQueueSettings,
   type IntakeConfig,
   type QuoteState,
+  type ReturnTarget,
   type WorkflowConfig,
   type Role,
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
 import { csvCell } from './auditAdmin';
+import { returnForCapacityBlock, reviewColumns, writeCapacitySignoff } from './capacity-signoff';
 import {
   loadAssignmentRules,
   loadCapacityBasis,
   loadEngQueueSettings,
+  loadMachineTypeProcessMap,
+  loadPackOutRule,
   engineeringView,
   suggestedEngineerFor,
 } from './engineering-view';
+import { deliverPlanned } from './handoff-notifications';
 import { loadIntakeConfig } from './intake';
 import { quoteIntakeValues, shipCityState } from './intake-facts';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
@@ -98,6 +114,7 @@ import { persistNotifications } from './notificationService';
 import { ServiceProblem } from './problem';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
 import type { ScoringService } from './scoring';
+import { engStageLabel } from './stage-label';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
 
 export type EngWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
@@ -224,6 +241,7 @@ export class EngineeringService {
       status: q.status as QuoteState['status'],
       kamUserId: asUserId(q.kamUserId),
       assignedEngineerId: q.assignedEngineerId ? asUserId(q.assignedEngineerId) : null,
+      assignedSchedulerId: q.assignedSchedulerId ? asUserId(q.assignedSchedulerId) : null,
       engSubmittedAt: q.engSubmittedAt,
       ...(q.region ? { region: q.region } : {}),
     };
@@ -236,6 +254,10 @@ export class EngineeringService {
       assignedEngineerId: q.assignedEngineerId,
       assignedEngineerName: row.assignedEngineerName ?? null,
       assignedAt: iso(q.assignedAt),
+      // FB-16 (W13-15): the production scheduler and where capacity stands.
+      assignedSchedulerId: q.assignedSchedulerId,
+      assignedSchedulerName: row.assignedSchedulerName ?? null,
+      capacitySignoffStatus: (row.capacitySignoffStatus as CapacitySignoffStatus | null) ?? null,
       acceptedAt: iso(row.acceptedAt),
       queueStatus: !q.assignedEngineerId ? 'unassigned' : row.acceptedAt ? 'accepted' : 'assigned',
       leadReview: q.engSubmittedAt ? 'submitted' : q.engReturnedAt ? 'returned' : 'none',
@@ -267,6 +289,7 @@ export class EngineeringService {
           row.opportunityName,
           row.kamName,
           row.assignedEngineerName,
+          row.assignedSchedulerName,
         ]
           .filter(Boolean)
           .join(' ')
@@ -298,6 +321,10 @@ export class EngineeringService {
       const canAssign = canAssignEngQueue(actor, qc.settings);
       const engineers = canAssign
         ? await listAssignableEngineers(tx, ASSIGNABLE_ROLES, ENG_QUEUE_STAGE_KEY)
+        : [];
+      // FB-16 (W13-15): the production schedulers the lead may assign as the second assignee.
+      const schedulers = canAssign
+        ? await listAssignableSchedulers(tx, SCHEDULER_ROLES, ENG_QUEUE_STAGE_KEY)
         : [];
       const rules = canAssign ? await loadAssignmentRules(tx) : null;
       const all = rows.map((r) => {
@@ -355,7 +382,13 @@ export class EngineeringService {
           actor.roles.some((r) => pinField.requestRoles.includes(r)),
         readyForReview: all.filter((i) => i.leadReview === 'submitted').length,
         engineers: engineers.map((e) => ({ ...e })),
-        mine: sorted.filter((i) => i.assignedEngineerId === actor.userId).map(strip),
+        schedulers: schedulers.map((s) => ({ ...s })),
+        // FB-16: "mine" is my engineering reviews and my capacity requests (as production scheduler).
+        mine: sorted
+          .filter(
+            (i) => i.assignedEngineerId === actor.userId || i.assignedSchedulerId === actor.userId,
+          )
+          .map(strip),
         items: filtered.map(strip),
       };
     });
@@ -380,16 +413,114 @@ export class EngineeringService {
     );
   }
 
-  /** POST /quotes/:qn/assignment: assign or reassign; recorded, audited and the engineer is told. */
+  /**
+   * POST /quotes/:qn/assignment: assign or reassign; recorded, audited and the engineer is told.
+   * FB-16 (W13-15): `schedulerId` sets (or, with null, clears) the production scheduler, the second
+   * assignee; omitted leaves it as it is. Both are checked before either is written.
+   */
   async assign(
     withTx: EngWithTx,
     actor: Actor,
     quoteNumber: string,
-    engineerId: string,
+    body: AssignmentBody,
     meta: AuditMeta,
   ): Promise<AssignmentResponse> {
     const now = this.now();
-    return withTx((tx) => this.assignInTx(tx, actor, quoteNumber, engineerId, meta, now));
+    return withTx((tx) =>
+      this.assignInTx(tx, actor, quoteNumber, body.engineerId, meta, now, body.schedulerId),
+    );
+  }
+
+  /**
+   * FB-16 (W13-15): set, change or clear the production scheduler. Recorded on the timeline, audited,
+   * and the scheduler is told (`quote.capacity_assigned`, with the plant and machine type when the
+   * engineer has already saved them, so they are not told a second time that capacity can start).
+   */
+  private async assignSchedulerInTx(
+    tx: Tx,
+    actor: Actor,
+    q: Quote,
+    plan: { from: string | null; to: string | null },
+    meta: AuditMeta,
+    now: Date,
+  ): Promise<string | null> {
+    const names = await listUsersByIds(
+      tx,
+      [plan.from, plan.to].filter((x): x is string => !!x),
+    );
+    const nameOf = (id: string | null) => names.find((u) => u.id === id)?.displayName ?? null;
+    await updateQuote(tx, q.id, {
+      assignedSchedulerId: plan.to,
+      assignedSchedulerAt: plan.to ? now : null,
+    });
+    await insertActivityEvent(tx, {
+      quoteId: q.id,
+      type: 'scheduler_assigned',
+      actorId: actor.userId,
+      at: now,
+      payload: {
+        from: plan.from,
+        fromName: nameOf(plan.from),
+        to: plan.to,
+        toName: nameOf(plan.to),
+      },
+      createdBy: actor.userId,
+    });
+    await recordAudit(tx, actor, meta, {
+      action: 'update',
+      entity: 'quote',
+      entityId: q.id,
+      quoteId: q.id,
+      before: {
+        assignedSchedulerId: plan.from,
+        assignedSchedulerAt: iso(q.assignedSchedulerAt),
+      },
+      after: {
+        assignedSchedulerId: plan.to,
+        assignedSchedulerAt: plan.to ? now.toISOString() : null,
+      },
+      at: now,
+    });
+    if (plan.to) {
+      const eng = await getEngReview(tx, q.id);
+      const ready = await this.capacityStart(tx, eng);
+      await deliverPlanned(
+        tx,
+        planCapacityAssigned(asUserId(plan.to)),
+        actor.userId,
+        () => ({
+          title: `${q.quoteNumber}: capacity is assigned to you`,
+          body: ready
+            ? `You are the production scheduler on this quote. Capacity can start: ${ready.plant}, ${ready.machine}.`
+            : 'You are the production scheduler on this quote. The engineer has not saved the plant and machine type yet; you can start any time.',
+          payload: {
+            reassigned: plan.from ? 'yes' : 'no',
+            ...(ready ? { plant: ready.plant, machine: ready.machine } : {}),
+          },
+        }),
+        q.id,
+        { log: this.opts.log, at: now },
+      );
+      // Told with the assignment: no second "capacity can start" in this stay.
+      if (ready && !eng?.capacityReadyAt) await markCapacityReady(tx, q.id, now);
+    }
+    return nameOf(plan.to);
+  }
+
+  /** The plant and machine type labels once both are saved (what "capacity can start" names), else null. */
+  private async capacityStart(
+    tx: Tx,
+    eng: { plantCode: string | null; machineType: string | null } | undefined,
+  ): Promise<{ plant: string; machine: string } | null> {
+    if (!eng?.plantCode || !eng.machineType) return null;
+    const [plants, machines] = await Promise.all([
+      listValueList(tx, 'plant', { activeOnly: false }),
+      listValueList(tx, 'machine_type', { activeOnly: false }),
+    ]);
+    return {
+      plant: plants.find((p) => p.code === eng.plantCode)?.label ?? eng.plantCode,
+      machine: machines.find((m) => m.code === eng.machineType)?.label ?? eng.machineType,
+    };
   }
 
   private async assignInTx(
@@ -399,6 +530,8 @@ export class EngineeringService {
     engineerId: string,
     meta: AuditMeta,
     now: Date,
+    /** FB-16: undefined = leave the production scheduler as it is; null = nobody. */
+    schedulerId?: string | null,
   ): Promise<AssignmentResponse> {
     const { q, state } = await this.loadQuote(tx, quoteNumber);
     const settings = await loadEngQueueSettings(tx);
@@ -409,7 +542,50 @@ export class EngineeringService {
       state,
       user ? { id: user.id, roles: user.roles as Role[], active: user.active } : undefined,
     );
-    if (!plan.ok) fail(plan.errors);
+    // FB-16: the scheduler is checked with the engineer, so a bad pick changes nothing.
+    const schedulerUser = schedulerId ? await getUserWithRoles(tx, schedulerId) : undefined;
+    const schedulerPlan =
+      schedulerId === undefined
+        ? null
+        : planSchedulerAssignment(
+            actor,
+            settings,
+            state,
+            schedulerId === null
+              ? null
+              : schedulerUser
+                ? {
+                    id: schedulerUser.id,
+                    roles: schedulerUser.roles as Role[],
+                    active: schedulerUser.active,
+                  }
+                : undefined,
+          );
+    const errors = [
+      ...(plan.ok ? [] : plan.errors),
+      ...(schedulerPlan && !schedulerPlan.ok ? schedulerPlan.errors : []),
+    ];
+    if (!plan.ok || errors.length > 0) fail(errors);
+
+    let assignedSchedulerId = q.assignedSchedulerId;
+    let assignedSchedulerName: string | null = null;
+    let schedulerChanged = false;
+    if (schedulerPlan?.ok && schedulerPlan.changed) {
+      assignedSchedulerName = await this.assignSchedulerInTx(
+        tx,
+        actor,
+        q,
+        schedulerPlan,
+        meta,
+        now,
+      );
+      assignedSchedulerId = schedulerPlan.to;
+      schedulerChanged = true;
+    } else if (assignedSchedulerId) {
+      const [current] = await listUsersByIds(tx, [assignedSchedulerId]);
+      assignedSchedulerName = current?.displayName ?? null;
+    }
+    const schedulerOut = { assignedSchedulerId, assignedSchedulerName, schedulerChanged };
     if (!plan.changed) {
       return {
         quoteNumber,
@@ -417,6 +593,7 @@ export class EngineeringService {
         assignedEngineerName: user!.displayName,
         assignedAt: iso(q.assignedAt),
         changed: false,
+        ...schedulerOut,
       };
     }
     const names = await listUsersByIds(
@@ -470,6 +647,7 @@ export class EngineeringService {
       assignedEngineerName: nameOf(plan.to),
       assignedAt: now.toISOString(),
       changed: true,
+      ...schedulerOut,
     };
   }
 
@@ -488,12 +666,14 @@ export class EngineeringService {
     const now = this.now();
     return withTx(async (tx) => {
       const rows = await listEngQueueRows(tx, ENG_QUEUE_STAGE_KEY);
+      // FB-16 (W13-16): messages that name the stage read its configured label.
+      const stageName = await engStageLabel(tx);
       const held = rows.filter((r) => r.quote.assignedEngineerId === body.fromUserId);
       const wanted = body.quoteNumbers ? new Set(body.quoteNumbers) : null;
       const skipped: BulkReassignResponse['skipped'] = [];
       for (const n of wanted ?? []) {
         if (!held.some((r) => r.quote.quoteNumber === n)) {
-          skipped.push({ quoteNumber: n, reason: 'Not in Engineering Review with this engineer' });
+          skipped.push({ quoteNumber: n, reason: `Not in ${stageName} with this engineer` });
         }
       }
       const reassigned: string[] = [];
@@ -510,6 +690,8 @@ export class EngineeringService {
   /**
    * B-26: PUT /quotes/:qn/capacity-signoff. The capacity owner approves or blocks capacity for this
    * stay in the queue (G2 Advance needs it approved). Recorded on the timeline and audited.
+   * FB-16: the production scheduler assigned to the quote, or the EngLead. A new block (W13-17) returns
+   * the work to the engineer in the same transaction and tells the engineer, the lead and the KAM.
    */
   async signOffCapacity(
     withTx: EngWithTx,
@@ -523,39 +705,19 @@ export class EngineeringService {
       const { q, state } = await this.loadQuote(tx, quoteNumber);
       // FB-01 (F-001): the capacity sign-off is part of the engineering section, locked after G2.
       await assertSectionUnlocked(tx, 'engineering', state);
-      const plan = planCapacitySignoff(actor, state, { status: body.status, note: body.note });
-      if (!plan.ok) fail(plan.errors);
       const eng = await getEngReview(tx, q.id);
-      const before = {
-        status: eng?.capacitySignoffStatus ?? null,
-        note: eng?.capacitySignoffNote ?? null,
-      };
-      await upsertEngReview(tx, {
-        ...reviewColumns(eng),
-        quoteId: q.id,
-        capacitySignoffStatus: plan.status,
-        capacitySignoffBy: plan.status ? actor.userId : null,
-        capacitySignoffAt: plan.status ? now : null,
-        capacitySignoffNote: plan.note,
-        createdBy: eng?.createdBy ?? actor.userId,
-      });
-      await insertActivityEvent(tx, {
-        quoteId: q.id,
-        type: 'capacity_signoff',
-        actorId: actor.userId,
-        at: now,
-        payload: { status: plan.status, note: plan.note },
-        createdBy: actor.userId,
-      });
-      await recordAudit(tx, actor, meta, {
-        action: 'update',
-        entity: 'eng_review',
-        entityId: eng?.id ?? null,
-        quoteId: q.id,
-        before,
-        after: { status: plan.status, note: plan.note },
-        at: now,
-      });
+      const plan = planCapacitySignoff(
+        actor,
+        state,
+        { status: body.status, note: body.note },
+        (eng?.capacitySignoffStatus as CapacitySignoffStatus | null | undefined) ?? null,
+      );
+      if (!plan.ok) fail(plan.errors);
+      await writeCapacitySignoff(tx, actor, meta, q.id, plan, now);
+      // FB-16 (W13-17): a block goes straight back to the engineer, with the blocker's note.
+      if (plan.returnsToEngineer && plan.note) {
+        await returnForCapacityBlock(tx, actor, meta, q, state, plan.note, now, this.opts.log);
+      }
       return this.detail(tx, actor, quoteNumber);
     });
   }
@@ -619,13 +781,17 @@ export class EngineeringService {
     });
   }
 
-  /** POST /quotes/:qn/eng-review/send-back: the engineering lead returns it with a note. */
+  /**
+   * POST /quotes/:qn/eng-review/send-back: the engineering lead returns it with a note. FB-16 (W13-19):
+   * to the engineer (the default) or to the production scheduler assigned to the quote.
+   */
   async sendBack(
     withTx: EngWithTx,
     actor: Actor,
     quoteNumber: string,
     note: string,
     meta: AuditMeta,
+    target: ReturnTarget = 'assignee',
   ): Promise<EngineeringDetail> {
     const now = this.now();
     return withTx(async (tx) => {
@@ -638,6 +804,7 @@ export class EngineeringService {
         note,
         meta,
         now,
+        target,
       );
       return this.detail(tx, actor, quoteNumber);
     });
@@ -661,7 +828,7 @@ export class EngineeringService {
         throw new EngineeringError(
           409,
           ENGINEERING_PROBLEM_CODES.conflict,
-          `${quoteNumber} is not in Engineering Review`,
+          `${quoteNumber} is not in ${engStageName(config)}`,
         );
       }
       if (can(actor, 'engReview.edit', state) && state.status === 'closed') {
@@ -671,6 +838,44 @@ export class EngineeringService {
         403,
         ENGINEERING_PROBLEM_CODES.notPermitted,
         'Only the EngLead or the assigned engineer can edit this review',
+      );
+    }
+    return loaded;
+  }
+
+  /**
+   * FB-16 (W13-15): may the caller edit the capacity rows? `capacity.edit` (the EngLead, the assigned
+   * Engineer, or the production scheduler assigned to the quote), in Engineering, unlocked, and not while
+   * the engineer's submission waits on the lead.
+   */
+  private async assertCapacityEditable(tx: Tx, actor: Actor, quoteNumber: string) {
+    const loaded = await this.loadQuote(tx, quoteNumber);
+    const { state } = loaded;
+    const config = await lockConfig(tx);
+    await assertSectionUnlocked(tx, 'engineering', state, config);
+    if (!canEditCapacity(actor, state, config)) {
+      const holds = can(actor, 'capacity.edit', state);
+      if (holds && lockedFor('engineering', actor, state)) {
+        throw new EngineeringError(
+          409,
+          ENGINEERING_PROBLEM_CODES.conflict,
+          'Submitted to the engineering lead: only the lead edits until it is sent back',
+        );
+      }
+      if (holds && state.status === 'closed') {
+        throw new EngineeringError(409, ENGINEERING_PROBLEM_CODES.conflict, 'The quote is closed');
+      }
+      if (holds && state.stageKey !== ENG_QUEUE_STAGE_KEY) {
+        throw new EngineeringError(
+          409,
+          ENGINEERING_PROBLEM_CODES.conflict,
+          `${quoteNumber} is not in ${engStageName(config)}`,
+        );
+      }
+      throw new EngineeringError(
+        403,
+        ENGINEERING_PROBLEM_CODES.notPermitted,
+        'Only the EngLead, the assigned engineer or the assigned production scheduler can edit the capacity rows',
       );
     }
     return loaded;
@@ -740,10 +945,39 @@ export class EngineeringService {
       );
       const next = { ...current };
       for (const k of sent) (next as Record<string, unknown>)[k] = body[k] ?? null;
+      // FB-16 (W13-12, W13-13): one "Process & machine type" pick. The process type is derived from the
+      // machine type (`machine_type_process_map`), and a machine type the plant does not run is refused.
+      // An old quote's stored pair is left alone until someone picks again.
+      const [plants, machineTypes, processMap] = await Promise.all([
+        listValueList(tx, 'plant'),
+        listValueList(tx, 'machine_type'),
+        loadMachineTypeProcessMap(tx),
+      ]);
+      const pick = planSolutionPick({
+        stored: {
+          plantCode: current.plantCode,
+          machineType: current.machineType,
+          processType: current.processType,
+        },
+        sent: {
+          ...(body.plantCode !== undefined ? { plantCode: body.plantCode } : {}),
+          ...(body.machineType !== undefined ? { machineType: body.machineType } : {}),
+          ...(body.processType !== undefined ? { processType: body.processType } : {}),
+        },
+        map: processMap,
+        plants: plants.map(listEntry),
+        machineTypes: machineTypes.map(listEntry),
+      });
+      if (!pick.ok) fail(pick.errors);
+      Object.assign(next, pick.pick);
       // FB-06 (F-024): unticking "Two-step process" clears its four details, so a hidden value never
       // reaches Pricing; text is trimmed. Then the length and whole-number checks (F-024, F-025).
       Object.assign(next, normalizeSolutionExtras(next));
-      const extrasErrors = validateSolutionExtras(next);
+      // FB-16 (W13-14): bag and case are never filled in together (`pack_out_rule`, provisional).
+      const extrasErrors = [
+        ...validateSolutionExtras(next),
+        ...packOutRuleErrors(next, await loadPackOutRule(tx)),
+      ];
       if (extrasErrors.length > 0) fail(extrasErrors);
       // What actually moved, including details cleared by the checkbox.
       const changed = (Object.keys(EngReviewBodySchema.shape) as (keyof EngReviewBody)[]).filter(
@@ -781,6 +1015,29 @@ export class EngineeringService {
       if (changed.includes('cavitation')) {
         await this.recalculateUtilization(tx, actor, q, next.cavitation ?? null, meta, now);
       }
+      // FB-16 (W13-15): the first time in a stay that the solution holds the plant and the machine
+      // type, the production scheduler (when one is assigned) is told capacity can start.
+      if (q.assignedSchedulerId && !eng?.capacityReadyAt) {
+        const ready = await this.capacityStart(tx, next);
+        if (ready) {
+          await deliverPlanned(
+            tx,
+            planCapacityReady({
+              kamUserId: asUserId(q.kamUserId),
+              assignedSchedulerId: asUserId(q.assignedSchedulerId),
+            }),
+            actor.userId,
+            () => ({
+              title: `${quoteNumber}: capacity can start`,
+              body: `Capacity can start: ${ready.plant}, ${ready.machine}.`,
+              payload: { plant: ready.plant, machine: ready.machine },
+            }),
+            q.id,
+            { log: this.opts.log, at: now },
+          );
+          await markCapacityReady(tx, q.id, now);
+        }
+      }
       return this.detail(tx, actor, quoteNumber);
     });
   }
@@ -795,7 +1052,7 @@ export class EngineeringService {
   ): Promise<EngineeringDetail> {
     const now = this.now();
     return withTx(async (tx) => {
-      const { q } = await this.assertEditable(tx, actor, quoteNumber);
+      const { q } = await this.assertCapacityEditable(tx, actor, quoteNumber);
       const stored = await listCapacityEvidence(tx, q.id);
       const errors = await this.checkCodes(
         tx,
@@ -1082,35 +1339,13 @@ interface DomainErrorLike {
   message: string;
 }
 
-/** The editable eng_review columns of a row (or all null), in the DTO's camelCase. */
-function reviewColumns(eng: Awaited<ReturnType<typeof getEngReview>>) {
-  return {
-    processType: eng?.processType ?? null,
-    machineType: eng?.machineType ?? null,
-    plantCode: eng?.plantCode ?? null,
-    cavitation: eng?.cavitation ?? null,
-    cycleTimeS: eng?.cycleTimeS ?? null,
-    toolingNotes: eng?.toolingNotes ?? null,
-    downstreamEquipmentNotes: eng?.downstreamEquipmentNotes ?? null,
-    prelimCapitalUsd: eng?.prelimCapitalUsd ?? null,
-    technicalConceptNotes: eng?.technicalConceptNotes ?? null,
-    equipmentBomNotes: eng?.equipmentBomNotes ?? null,
-    supplyChainNotes: eng?.supplyChainNotes ?? null,
-    twoStep: eng?.twoStep ?? false,
-    preformPlantCode: eng?.preformPlantCode ?? null,
-    blowPlantCode: eng?.blowPlantCode ?? null,
-    preformNumber: eng?.preformNumber ?? null,
-    twoStepFreightNote: eng?.twoStepFreightNote ?? null,
-    unitsPerBag: eng?.unitsPerBag ?? null,
-    unitsPerTray: eng?.unitsPerTray ?? null,
-    unitsPerCase: eng?.unitsPerCase ?? null,
-    unitsPerPallet: eng?.unitsPerPallet ?? null,
-    acceptedAt: eng?.acceptedAt ?? null,
-    acceptedBy: eng?.acceptedBy ?? null,
-    returnedReason: eng?.returnedReason ?? null,
-    capacitySignoffStatus: eng?.capacitySignoffStatus ?? null,
-    capacitySignoffBy: eng?.capacitySignoffBy ?? null,
-    capacitySignoffAt: eng?.capacitySignoffAt ?? null,
-    capacitySignoffNote: eng?.capacitySignoffNote ?? null,
-  };
-}
+/** A value-list row as the domain's pick helpers read it (code, label and the plant's `meta`). */
+const listEntry = (v: { code: string; label: string; meta: unknown }) => ({
+  code: v.code,
+  label: v.label,
+  meta: (v.meta ?? null) as Record<string, unknown> | null,
+});
+
+/** FB-16 (W13-16): the engineering stage's configured label, for messages that name the stage. */
+const engStageName = (config: { stages: readonly { key: string; label: string }[] }): string =>
+  config.stages.find((s) => s.key === ENG_QUEUE_STAGE_KEY)?.label ?? 'Engineering';

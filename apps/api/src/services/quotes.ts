@@ -17,20 +17,26 @@ import {
   type StoredPriority,
 } from '@ccq/db/repos';
 import {
+  ENG_QUEUE_STAGE_KEY,
   availableActions,
+  canApproveCapacityInDecision,
   canSeePriorityScore,
   evaluateRules,
   fieldsReferenced,
+  isForwardOutcome,
   isSupersededDecision,
   isValidityLapsed,
+  packOutRequirementErrors,
   qualificationWarnings,
   redactScore,
   salesforceOpportunityUrl,
   submissionRules,
+  withCapacityApproved,
   withDerivedFields,
   type Actor,
   type EngQueueSettings,
   type OverrideSettings,
+  type PackOutRule,
   type QualificationSettings,
   type LeadReviewKind,
   type QuoteState,
@@ -40,9 +46,10 @@ import {
 } from '@ccq/domain';
 
 import { commercialView, loadCommercialSettings, type CommercialSettings } from './commercial';
-import { engineeringView, loadEngQueueSettings } from './engineering-view';
+import { engineeringView, loadEngQueueSettings, loadPackOutRule } from './engineering-view';
 import { loadReleaseSettings, type ReleaseSettings } from './final-review-view';
 import { intakeFactsDto } from './intake-facts';
+import { engineeringSubmissionExtras } from './lead-review';
 import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from './outcome-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
@@ -64,6 +71,8 @@ export interface QuoteViewContext {
   outcome: OutcomeSettings;
   /** B-26: Legal triggers, pricing pass-through, notices, escalation routes, the Process Owner. */
   commercial: CommercialSettings;
+  /** FB-16 (W13-14): `pack_out_rule` (provisional); `requireOneOf` adds a G2 requirement when on. */
+  packOutRule: PackOutRule;
   /** The request's clock (validity countdowns are relative to it). */
   now: Date;
 }
@@ -188,7 +197,11 @@ function withSubmitMissing<T extends { leadReview: LeadReviewView }>(
     return { ...view, leadReview: { ...view.leadReview, requiredFields } };
   }
   const fields = withDerivedFields(state, ctx.commercial.derived).fields;
-  const submitMissing = evaluateRules(rules, fields).map((e) => ({
+  const submitMissing = [
+    ...evaluateRules(rules, fields),
+    // FB-16 (W13-14): one pack-out count, while `pack_out_rule.requireOneOf` is on (off in the seed).
+    ...engineeringSubmissionExtras(kind, workflow, fields, ctx.packOutRule),
+  ].map((e) => ({
     field: e.field ?? '',
     message: e.message,
   }));
@@ -216,10 +229,20 @@ export function gateActionsFor(
     const noteBeforeValidity =
       referenced.includes('decision_note') &&
       evaluateRules(a.requiredFields, { ...derived.fields, validity_lapsed: lapsed }).length > 0;
-    const missing = evaluateRules(
-      a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
-      derived.fields,
-    ).map((e) => ({ field: e.field ?? '', message: e.message }));
+    // FB-16 (W13-18): a lead who holds capacity.signoff approves a not-yet-signed capacity inside the
+    // decision (the required checkbox), so the sign-off is not "missing" for them. A block is.
+    const capacityApproval = canApproveCapacityInDecision(ctx.actor, derived, a.requiredFields);
+    const missing = [
+      ...evaluateRules(
+        a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
+        capacityApproval ? withCapacityApproved(derived.fields) : derived.fields,
+      ),
+      // FB-16 (W13-14): one pack-out count on a forward G2 outcome, while the rule is on (seeded off).
+      ...(derived.stageKey === ENG_QUEUE_STAGE_KEY &&
+      isForwardOutcome(workflow, a.gateKey, a.outcomeKey)
+        ? packOutRequirementErrors(ctx.packOutRule, derived.fields)
+        : []),
+    ].map((e) => ({ field: e.field ?? '', message: e.message }));
     return {
       gateKey: a.gateKey,
       gateLabel: a.gateLabel,
@@ -254,6 +277,7 @@ export function gateActionsFor(
       requiresNoteBeforeValidity: noteBeforeValidity,
       requiresHoldOwner: referenced.includes('hold_owner_id'),
       helpText: a.helpText,
+      capacityApproval,
     };
   });
 }
@@ -315,6 +339,7 @@ export class QuoteReadService {
       release,
       outcome,
       commercial,
+      packOutRule,
     ] = await Promise.all([
       this.scoring.model(db, now),
       this.scoring.qualificationSettings(db),
@@ -324,6 +349,7 @@ export class QuoteReadService {
       loadReleaseSettings(db),
       loadOutcomeSettings(db),
       loadCommercialSettings(db),
+      loadPackOutRule(db),
     ]);
     return {
       actor,
@@ -335,6 +361,7 @@ export class QuoteReadService {
       release,
       outcome,
       commercial,
+      packOutRule,
       now,
     };
   }

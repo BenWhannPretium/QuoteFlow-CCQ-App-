@@ -49,6 +49,7 @@ import { AnalyticsService, outcomeRates, secondsToDays } from './analytics';
 import { REPORT_TIME_ZONE, dayIn } from './auditAdmin';
 import { loadEngQueueSettings } from './engineering-view';
 import { ServiceProblem } from './problem';
+import { engStageLabel } from './stage-label';
 
 export type DashboardWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
@@ -356,6 +357,8 @@ export class DashboardService {
       engineeringMedians(tx, since),
       reworkReasons(tx, trailing(now, WINDOWS.reworkDays), ['G2'], 50),
     ]);
+    // FB-16 (W13-16): the stage's configured label ("Engineering & Capacity", provisional).
+    const eng = await engStageLabel(tx);
     const load = new Map<string | null, { name: string; open: number }>();
     for (const r of rows) {
       const key = r.assigned_engineer_id;
@@ -372,13 +375,13 @@ export class DashboardService {
         rows,
         settings.agingDays,
         now,
-        `Quotes sitting in Engineering Review: the total, how many have no engineer yet, and how long they have waited. ${AGING_NOTE}`,
+        `Quotes sitting in ${eng}: the total, how many have no engineer yet, and how long they have waited. ${AGING_NOTE}`,
         'Open quotes right now',
         true,
       ),
       load: {
         info: info(
-          'Open Engineering Review quotes per assigned engineer (quotes on hold included), and the quotes with no engineer.',
+          `Open ${eng} quotes per assigned engineer (quotes on hold included), and the quotes with no engineer.`,
           'Open quotes right now',
         ),
         items: [...load.entries()]
@@ -387,7 +390,7 @@ export class DashboardService {
       },
       timeToAssign: {
         info: info(
-          'Median days from a quote entering Engineering Review to its engineer assignment, excluding holds.',
+          `Median days from a quote entering ${eng} to its engineer assignment, excluding holds.`,
           `Assignments made in the last ${WINDOWS.medianDays} days`,
         ),
         medianDays: secondsToDays(medians.assign.median_s),
@@ -411,7 +414,7 @@ export class DashboardService {
       },
       mine: {
         info: info(
-          'Open Engineering Review quotes assigned to you, oldest first.',
+          `Open ${eng} quotes assigned to you, oldest first.`,
           'Open quotes right now',
         ),
         items: rows

@@ -112,7 +112,54 @@ const COPY: Record<string, Copy> = {
         p.actor ? `${p.actor} asked for changes.` : 'Your lead asked for changes.',
         // DR-pricing-finance-05 (decided 2026-11-11): the lead's note can carry a price, and email
         // never carries comment text, so it stays in the app, as for the KAM and Engineering returns.
-        'Open the quote to read what to change, then submit it again.',
+        // FB-16 (W13-19): sent back to the production scheduler, whose part is the capacity rows; the
+        // engineer submits the work to the lead again.
+        p.to === 'scheduler'
+          ? 'Open the quote to read what to change in the capacity part. The engineer submits it to the lead again.'
+          : 'Open the quote to read what to change, then submit it again.',
+      ),
+    cta: 'Open the quote',
+  },
+  // FB-16 (W13-15, W13-17): the production scheduler and capacity. `plant` and `machine` are labels.
+  'quote.capacity_assigned': {
+    phrase: 'capacity is assigned to you',
+    context: 'Engineering & Capacity',
+    heading: 'You have a capacity request',
+    action: (p) =>
+      sentence(
+        p.reassigned === 'yes'
+          ? 'The capacity part of this quote was reassigned to you.'
+          : 'You are the production scheduler on this quote.',
+        p.plant && p.machine
+          ? `Capacity can start: ${p.plant}, ${p.machine}.`
+          : 'The engineer has not saved the plant and machine type yet; you can start any time.',
+      ),
+    cta: 'Open the capacity rows',
+  },
+  'quote.capacity_ready': {
+    phrase: 'capacity can start',
+    context: 'Engineering & Capacity',
+    heading: 'Capacity can start on a quote',
+    action: (p) =>
+      sentence(
+        p.plant && p.machine
+          ? `Capacity can start: ${p.plant}, ${p.machine}.`
+          : 'The engineer saved the plant and the machine type.',
+        'Open the quote to enter the capacity rows and sign capacity off.',
+      ),
+    cta: 'Open the capacity rows',
+  },
+  'quote.capacity_blocked': {
+    phrase: 'capacity is blocked',
+    context: 'Engineering & Capacity',
+    heading: 'Capacity was blocked on a quote',
+    action: (p) =>
+      sentence(
+        p.actor ? `${p.actor} blocked capacity.` : 'Capacity was blocked.',
+        // The blocker's note stays in the app (email never carries free text).
+        p.assignee === 'yes'
+          ? 'The work is back with you: open the quote to read the note, rework the solution and submit it again.'
+          : 'The work is back with the engineer. Open the quote to read the note.',
       ),
     cta: 'Open the quote',
   },

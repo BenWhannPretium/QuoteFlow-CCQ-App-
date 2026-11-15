@@ -24,12 +24,17 @@ import {
   can,
   neckSummary,
   canAssignEngQueue,
+  canEditCapacity,
   canEditEngReview,
   canSeeCommercialFields,
   allocationCheck,
+  pairFitsMap,
   parseAssignmentRules,
   parseCapacityBasis,
   parseEngQueueSettings,
+  parseMachineTypeProcessMap,
+  parsePackOutRule,
+  parseTwoStepPlantMachineTypes,
   planAccept,
   planEquipmentBomUpload,
   suggestEngineer,
@@ -43,7 +48,10 @@ import {
   type Actor,
   type EngQueueSettings,
   type LockConfig,
+  type MachineTypeProcessMap,
+  type PackOutRule,
   type QuoteState,
+  type TwoStepPlantMachineTypes,
 } from '@ccq/domain';
 
 import { intakeFactsDto } from './intake-facts';
@@ -81,6 +89,36 @@ export async function loadAssignmentRules(db: DbOrTx): Promise<AssignmentRules> 
     return parseAssignmentRules(await getSetting(db, 'engineering_assignment_rules'));
   } catch {
     return parseAssignmentRules(null);
+  }
+}
+
+/**
+ * FB-16 (W13-12): `app_setting.machine_type_process_map` (provisional), the process type behind each
+ * machine type. Falls back to the seed when unset or malformed, so a bad value never stops a save.
+ */
+export async function loadMachineTypeProcessMap(db: DbOrTx): Promise<MachineTypeProcessMap> {
+  try {
+    return parseMachineTypeProcessMap(await getSetting(db, 'machine_type_process_map'));
+  } catch {
+    return parseMachineTypeProcessMap(null);
+  }
+}
+
+/** FB-16 (W13-13): `app_setting.two_step_plant_machine_types` (provisional), or the seed. */
+export async function loadTwoStepPlantMachineTypes(db: DbOrTx): Promise<TwoStepPlantMachineTypes> {
+  try {
+    return parseTwoStepPlantMachineTypes(await getSetting(db, 'two_step_plant_machine_types'));
+  } catch {
+    return parseTwoStepPlantMachineTypes(null);
+  }
+}
+
+/** FB-16 (W13-14): `app_setting.pack_out_rule` (provisional), or the seed. */
+export async function loadPackOutRule(db: DbOrTx): Promise<PackOutRule> {
+  try {
+    return parsePackOutRule(await getSetting(db, 'pack_out_rule'));
+  } catch {
+    return parsePackOutRule(null);
   }
 }
 
@@ -272,18 +310,22 @@ export async function engineeringView(
   /** FB-01 (F-001): the workflow config the section lock reads. */
   workflow: LockConfig,
 ): Promise<EngineeringDetail> {
-  const [eng, capacity, basis, facts] = await Promise.all([
+  const [eng, capacity, basis, facts, processMap] = await Promise.all([
     getEngReview(db, q.id),
     listCapacityEvidenceWithNames(db, q.id),
     loadCapacityBasis(db),
     productFacts(db, q),
+    loadMachineTypeProcessMap(db),
   ]);
   const labels = await selectedLabels(db, eng);
   const people = await listUsersByIds(
     db,
-    [q.assignedEngineerId, eng?.acceptedBy, eng?.capacitySignoffBy].filter(
-      (id): id is string => !!id,
-    ),
+    [
+      q.assignedEngineerId,
+      q.assignedSchedulerId,
+      eng?.acceptedBy,
+      eng?.capacitySignoffBy,
+    ].filter((id): id is string => !!id),
   );
   const name = (id: string | null | undefined) =>
     (id && people.find((p) => p.id === id)?.displayName) ?? null;
@@ -347,6 +389,10 @@ export async function engineeringView(
     assignedEngineerId: q.assignedEngineerId,
     assignedEngineerName: name(q.assignedEngineerId),
     assignedAt: iso(q.assignedAt),
+    // FB-16 (W13-15): the production scheduler, the second assignee (the capacity part).
+    assignedSchedulerId: q.assignedSchedulerId,
+    assignedSchedulerName: name(q.assignedSchedulerId),
+    assignedSchedulerAt: iso(q.assignedSchedulerAt),
     acceptedAt: iso(eng?.acceptedAt),
     acceptedByName: name(eng?.acceptedBy),
     review: visible.review,
@@ -376,6 +422,13 @@ export async function engineeringView(
       inQueue &&
       can(actor, 'capacity.signoff', state) &&
       !sectionLock('engineering', workflow, state).locked,
+    // FB-16: the capacity rows have their own permission (capacity.edit); the solution keeps engReview.edit.
+    canEditCapacity: canEditCapacity(actor, state, workflow),
+    // FB-16 (W13-12): an old quote whose stored process does not fit what its machine type derives.
+    processPairLegacy: !pairFitsMap(processMap, {
+      processType: eng?.processType ?? null,
+      machineType: eng?.machineType ?? null,
+    }),
     commercialRedacted: !canSeeCommercialFields(actor),
     canEdit: canEditEngReview(actor, state, workflow),
     lock: await sectionLockView(db, workflow, 'engineering', state),

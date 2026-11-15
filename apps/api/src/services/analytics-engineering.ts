@@ -13,6 +13,7 @@ import { inArray } from 'drizzle-orm';
 import { secondsToDays, type AnalyticsWithTx, type ResolvedAnalytics } from './analytics';
 import { queueHealth } from './dashboards';
 import { loadEngQueueSettings } from './engineering-view';
+import { engStageLabel } from './stage-label';
 
 const DAY_MS = 86_400_000;
 const info = (definition: string, window: string): MetricInfo => ({ definition, window });
@@ -39,6 +40,8 @@ export async function engineeringAnalytics(
       reworkReasons(tx, r.filters, ['G2'], 50),
       decisionsAtGate(tx, 'G2', r.filters.from),
     ]);
+    // FB-16 (W13-16): the stage's configured label ("Engineering & Capacity", provisional).
+    const eng = await engStageLabel(tx);
     const ids = rows.map((x) => x.quote_id);
     const signoffs = ids.length
       ? await tx
@@ -97,13 +100,13 @@ export async function engineeringAnalytics(
         rows,
         settings.agingDays,
         now,
-        'Quotes sitting in Engineering Review: the total, how many have no engineer yet, how many are on hold, and how long they have waited (business days since entering the stage, holds included). The bucket edges are configuration, not an SLA.',
+        `Quotes sitting in ${eng}: the total, how many have no engineer yet, how many are on hold, and how long they have waited (business days since entering the stage, holds included). The bucket edges are configuration, not an SLA.`,
         SNAPSHOT,
         true,
       ),
       load: {
         info: info(
-          'Open Engineering Review quotes per assigned engineer, how many of them are on hold, and the calendar days the oldest has been in the stage. Reassign from the engineering queue.',
+          `Open ${eng} quotes per assigned engineer, how many of them are on hold, and the calendar days the oldest has been in the stage. Reassign from the engineering queue.`,
           SNAPSHOT,
         ),
         items: [...load.entries()]
@@ -118,7 +121,7 @@ export async function engineeringAnalytics(
       },
       capacity: {
         info: info(
-          'The capacity owner’s sign-off on the open Engineering Review quotes. G2 cannot advance a quote until capacity is signed off; a blocked sign-off needs a capacity decision or a reroute.',
+          `The capacity owner’s sign-off on the open ${eng} quotes. G2 cannot advance a quote until capacity is signed off; a blocked sign-off needs a capacity decision or a reroute.`,
           SNAPSHOT,
         ),
         ...capacity,
@@ -135,7 +138,7 @@ export async function engineeringAnalytics(
       },
       stageTime: {
         info: info(
-          'Median and 75th percentile days a quote spent in Engineering Review, excluding recorded holds. One value per stay: a rework creates a new stay.',
+          `Median and 75th percentile days a quote spent in ${eng}, excluding recorded holds. One value per stay: a rework creates a new stay.`,
           `Stays that ended ${range(r)}`,
         ),
         n: stay?.n ?? 0,
@@ -144,7 +147,7 @@ export async function engineeringAnalytics(
       },
       timeToAssign: {
         info: info(
-          'Median days from a quote entering Engineering Review to its engineer assignment, excluding holds.',
+          `Median days from a quote entering ${eng} to its engineer assignment, excluding holds.`,
           `Assignments made since ${r.window.from}`,
         ),
         medianDays: secondsToDays(medians.assign.median_s),
