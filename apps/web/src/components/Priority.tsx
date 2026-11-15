@@ -201,7 +201,7 @@ function WhyPopover({
       >
         <p className="mb-2 text-sm font-semibold">Why this priority?</p>
         <div
-          className="min-h-0 overflow-y-auto"
+          className="min-h-0 overflow-y-auto pb-1"
           tabIndex={0}
           role="group"
           aria-label="Score breakdown"
