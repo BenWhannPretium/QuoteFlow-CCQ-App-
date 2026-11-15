@@ -1,8 +1,10 @@
 import { ANALYTICS_DISCLAIMER, DASHBOARD_ROLES, type DashboardRole } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 
-import { canFromMe, useCurrentUser } from '@/auth';
+import { AnalyticsPage } from '@/analytics/AnalyticsPage';
+import { RequirePermission, canFromMe, useCurrentUser } from '@/auth';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { KeyValueGrid } from '@/components/KeyValueGrid';
@@ -10,7 +12,19 @@ import { PageHeader } from '@/components/PageHeader';
 import { SkeletonCard } from '@/components/Skeletons';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { AnalyticsSearch } from '@/lib/analytics-search';
 import { api } from '@/lib/api';
+import {
+  COMMAND_CENTER,
+  COMMAND_CENTER_VIEW_LABEL,
+  analyticsSearchOf,
+  commandCenterTitle,
+  readCommandCenterView,
+  rememberCommandCenterView,
+  resolveCommandCenterView,
+  type CommandCenterSearch,
+  type CommandCenterView,
+} from '@/lib/command-center';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -19,41 +33,166 @@ import { LANDINGS, landingFor, landingRolesFor, type LandingDefinition } from '.
 import { quickstartHref } from './quickstart';
 
 /**
- * F-02 role landing: the dashboard for the user's primary role (multi-role users get tabs). The blocks
- * are computed by `GET /api/v1/dashboards/:role` (B-17); Admin and Post-award keep static cards.
+ * The Command Center (FB-18, W13-29; it was "Home"). Two views:
+ * - **My work**: the F-02 role landing, the dashboard for the user's primary role (multi-role users get
+ *   tabs). The blocks are computed by `GET /api/v1/dashboards/:role` (B-17); Admin and Post-award keep
+ *   static cards.
+ * - **Analytics**: the role's analytics lens, the page that used to live at `/analytics`, with the same
+ *   component and filters. Offered only to users with `analytics.read`; a URL that asks for it without
+ *   the permission gets the 403 page, and the API enforces the permission on every analytics route.
+ *
+ * The view is in the URL (`?view=analytics`, `?view=work`). Without it the Command Center opens on the
+ * view the user last chose (kept per user in `localStorage`), My work the first time.
  */
 const isDashboardRole = (role: string): role is DashboardRole =>
   (DASHBOARD_ROLES as readonly string[]).includes(role);
 
-export function LandingPage({ requestedRole }: { requestedRole: string | undefined }) {
-  const me = useCurrentUser();
-  const landing = landingFor(me.roles, requestedRole);
-  const roles = landingRolesFor(me.roles);
-  useDocumentTitle(landing?.title ?? 'Home');
+interface LandingPageProps {
+  search: CommandCenterSearch;
+  /** The Analytics view's filters changed: put them in the URL. */
+  onAnalyticsSearchChange: (next: AnalyticsSearch) => void;
+}
 
-  if (!landing) {
-    return (
-      <EmptyState
-        title="No dashboard for your role yet"
-        description="Your QuoteFlow role has no home page. Ask an admin to check your roles."
-      />
-    );
-  }
+export function LandingPage(props: LandingPageProps) {
+  const me = useCurrentUser();
+  // Keyed by user, so the remembered view is read afresh for whoever is signed in.
+  return <CommandCenter key={me.user.id} {...props} />;
+}
+
+function CommandCenter({ search, onAnalyticsSearchChange }: LandingPageProps) {
+  const me = useCurrentUser();
+  const landing = landingFor(me.roles, search.as);
+  const canReadAnalytics = canFromMe(me, 'analytics.read');
+  // Read once, then changed only by a choice made here: a choice made in another tab does not move
+  // this one, and the choice is still known when the menu brings the user back to `/`.
+  const [remembered, setRemembered] = useState(() => readCommandCenterView(me.user.id));
+  const view = resolveCommandCenterView(search, remembered, canReadAnalytics);
+  const choose = (next: CommandCenterView) => {
+    rememberCommandCenterView(me.user.id, next);
+    setRemembered(next);
+  };
+
+  if (!landing) return <NoLanding />;
+
+  const eyebrow = `${COMMAND_CENTER} · ${landing.roleLabel}`;
+  // Only for people who may read analytics: everyone else has one view and no switch.
+  const views = canReadAnalytics ? (
+    <ViewSwitch view={view} role={search.as} onChoose={choose} />
+  ) : null;
+
+  return (
+    <div data-testid="landing" data-role={landing.role} data-view={view}>
+      {view === 'analytics' ? (
+        <RequirePermission permission="analytics.read">
+          <AnalyticsPage
+            search={analyticsSearchOf(search)}
+            onSearchChange={onAnalyticsSearchChange}
+            eyebrow={eyebrow}
+            documentTitle={commandCenterTitle('Analytics')}
+            actions={views}
+          />
+        </RequirePermission>
+      ) : (
+        <MyWork landing={landing} eyebrow={eyebrow} views={views} />
+      )}
+    </div>
+  );
+}
+
+function NoLanding() {
+  useDocumentTitle(COMMAND_CENTER);
+  return (
+    <EmptyState
+      title="No Command Center for your role yet"
+      description="Your role has no Command Center view yet. Ask an admin to check your roles."
+    />
+  );
+}
+
+// 44 px tall on a phone (mobile.spec.ts), 36 px from 641 px.
+const VIEW_LINK =
+  'rounded-pill inline-flex min-h-11 items-center px-4 text-sm font-medium sm:min-h-9';
+const VIEW_OPEN = 'bg-primary text-primary-foreground';
+const VIEW_CLOSED = 'text-foreground-2 hover:bg-accent';
+
+// A click the browser handles itself (a new tab or window) leaves this tab's view alone.
+const opensElsewhere = (e: MouseEvent) =>
+  e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
+
+/**
+ * The two views as a segmented control in the page header. They are links (each view is a URL), so they
+ * work with the keyboard like any link; `aria-current` marks the open one. Choosing one is remembered.
+ *
+ * Each link names its view (`view=work`, `view=analytics`). The router marks a link `aria-current` by
+ * itself when the address matches the link's search, and a link without a view would match every
+ * address of `/`; with the view named, the router and `view` always agree.
+ */
+function ViewSwitch({
+  view,
+  role,
+  onChoose,
+}: {
+  view: CommandCenterView;
+  role: string | undefined;
+  onChoose: (view: CommandCenterView) => void;
+}) {
+  return (
+    <nav
+      aria-label="Command Center view"
+      className="bg-card rounded-pill inline-flex gap-0.5 border p-0.5"
+      data-testid="command-center-views"
+    >
+      {(['work', 'analytics'] as const).map((v) => (
+        <Link
+          key={v}
+          to="/"
+          search={{ ...(role ? { as: role } : {}), view: v }}
+          aria-current={v === view ? 'page' : undefined}
+          data-testid={`view-${v}`}
+          onClick={(e: MouseEvent) => {
+            if (!opensElsewhere(e)) onChoose(v);
+          }}
+          className={cn(VIEW_LINK, v === view ? VIEW_OPEN : VIEW_CLOSED)}
+        >
+          {COMMAND_CENTER_VIEW_LABEL[v]}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function MyWork({
+  landing,
+  eyebrow,
+  views,
+}: {
+  landing: LandingDefinition;
+  eyebrow: string;
+  views: ReactNode;
+}) {
+  const me = useCurrentUser();
+  const roles = landingRolesFor(me.roles);
+  useDocumentTitle(commandCenterTitle(landing.title));
 
   const action =
     landing.action && canFromMe(me, landing.action.permission) ? landing.action : undefined;
 
   return (
-    <div data-testid="landing" data-role={landing.role}>
+    <>
       <PageHeader
-        eyebrow={`Home · ${landing.roleLabel}`}
+        eyebrow={eyebrow}
         title={landing.title}
         description={landing.description}
         actions={
-          action && (
-            <Link to={action.to} className={buttonVariants({ variant: 'action' })}>
-              {action.label}
-            </Link>
+          (views || action) && (
+            <>
+              {views}
+              {action && (
+                <Link to={action.to} className={buttonVariants({ variant: 'action' })}>
+                  {action.label}
+                </Link>
+              )}
+            </>
           )
         }
       />
@@ -95,7 +234,7 @@ export function LandingPage({ requestedRole }: { requestedRole: string | undefin
           {ANALYTICS_DISCLAIMER}
         </p>
       )}
-    </div>
+    </>
   );
 }
 

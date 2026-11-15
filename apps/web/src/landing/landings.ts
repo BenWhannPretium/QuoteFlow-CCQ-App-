@@ -1,7 +1,8 @@
 /**
- * Role landing pages (F-02). The header, the call to action and the order of roles live here; the
- * dashboard blocks themselves come from `GET /api/v1/dashboards/:role` (B-17, `Dashboards.tsx`). Roles
- * without a data dashboard (Admin, Post-award) keep the static cards below.
+ * Role landing pages (F-02): the "My work" view of the Command Center (FB-18, W13-29). The header, the
+ * call to action and the order of roles live here; the dashboard blocks themselves come from
+ * `GET /api/v1/dashboards/:role` (B-17, `Dashboards.tsx`). Roles without a data dashboard (Admin,
+ * Post-award) keep the static cards below.
  * Copy here names roles and work, never stage or gate labels: those come from config.
  */
 export type LandingRole =
@@ -64,8 +65,8 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     action: { label: 'Open my work', to: '/queue/engineering', permission: 'engQueue.read' },
   },
   // FB-16 (W13-15; D-008 open, provisional): the Production Scheduler works the capacity part of a quote
-  // alongside the engineer. No data dashboard (FB-18 rebuilds Home): the action opens the queue page,
-  // which lists their capacity requests first.
+  // alongside the engineer. No data dashboard: the action opens the queue page, which lists their
+  // capacity requests first.
   ProductionScheduler: {
     role: 'ProductionScheduler',
     roleLabel: 'Production scheduler',
@@ -144,12 +145,13 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
     description: 'Quotes waiting for your final review decision.',
     action: { label: 'Review approvals', to: '/approvals', permission: 'gate.G4.decide' },
   },
+  // FB-18 (W13-29): no "Open analytics" button. Analytics is the second view of the Command Center, one
+  // click away in the header for everyone who may read it.
   Leadership: {
     role: 'Leadership',
     roleLabel: 'Leadership',
     title: 'Leadership overview',
     description: 'Pipeline value, throughput and where work is waiting.',
-    action: { label: 'Open analytics', to: '/analytics', permission: 'analytics.read' },
   },
   Admin: {
     role: 'Admin',

@@ -16,7 +16,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { FilterXIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import { canFromMe, useCurrentUser } from '@/auth';
 import {
@@ -1144,15 +1144,25 @@ const LENS_LABEL: Record<Lens, string> = {
  * B-26 (A5): one page per lens rather than the same page for every role. The leadership report is
  * what the quoting process reports out; the Engineering lens (engQueue.read) is what helps the
  * engineering lead run the queue. An engineering lead lands on the Engineering lens and can switch.
+ *
+ * FB-18 (W13-29): shown as the Analytics view of the Command Center, which passes its own eyebrow, tab
+ * title and the view switch for the header. The charts, lenses and filters are unchanged.
  */
 export function AnalyticsPage({
   search,
   onSearchChange,
+  eyebrow = 'Insights',
+  documentTitle = 'Analytics',
+  actions,
 }: {
   search: AnalyticsSearch;
   onSearchChange: (next: AnalyticsSearch) => void;
+  eyebrow?: string;
+  documentTitle?: string;
+  /** Shown in the page header beside the title (the Command Center's view switch). */
+  actions?: ReactNode;
 }) {
-  useDocumentTitle('Analytics');
+  useDocumentTitle(documentTitle);
   const me = useCurrentUser();
   const filters = useQuery({
     queryKey: ['analytics', 'filters'],
@@ -1172,13 +1182,14 @@ export function AnalyticsPage({
     <div className="grid gap-8" data-testid="analytics-page" data-lens={lens}>
       <PageHeader
         className="mb-0"
-        eyebrow="Insights"
+        eyebrow={eyebrow}
         title="Analytics"
         description={
           lens === 'engineering'
             ? 'How the engineering queue is running: who has what, how long it has waited, what is blocked on capacity, and how G2 is landing. Every chart says how it is defined and what period it covers.'
             : 'What the quoting process reports out: where quotes are, what happens to the proposals, how long each step takes, why work is lost or sent back, and how well governance is working. Every chart says how it is defined and what period it covers.'
         }
+        actions={actions}
       />
       {lenses.length > 1 && (
         <div role="tablist" aria-label="Analytics view" className="flex gap-1 border-b">

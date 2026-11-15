@@ -718,7 +718,8 @@ function Leadership({ d }: { d: LeadershipDashboard }) {
         info={d.pipeline.info}
         testId="dash-pipeline"
         className="lg:col-span-2"
-        action={<MoreLink to="/analytics">Open full analytics</MoreLink>}
+        // FB-18 (W13-29): Analytics is the other view of the Command Center.
+        action={<MoreLink to="/" search={{ view: 'analytics' }}>Open full analytics</MoreLink>}
       >
         {d.pipeline.total === 0 ? (
           <Empty>No open quotes.</Empty>

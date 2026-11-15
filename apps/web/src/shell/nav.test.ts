@@ -1,5 +1,5 @@
 import type { MeResponse } from '@ccq/contracts';
-import { permissionsForRoles, type Role } from '@ccq/domain';
+import { ROLES, permissionsForRoles, type Role } from '@ccq/domain';
 import { describe, expect, it } from 'vitest';
 
 import { landingFor, landingRolesFor } from '@/landing/landings';
@@ -20,43 +20,61 @@ const keys = (...roles: Role[]) => navItemsFor(meFor(...roles)).map((i) => i.key
 describe('navItemsFor (from the seeded permission matrix)', () => {
   it.each<[Role[], string[]]>([
     [['KAM'], ['home', 'intake', 'proposals', 'pipeline']],
-    [
-      ['SalesLeader'],
-      ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
-    ],
-    [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'approvals', 'analytics']],
+    // FB-18 (W13-29): Analytics is a view of the Command Center, so no role has an Analytics item.
+    [['SalesLeader'], ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals']],
+    [['EngLead'], ['home', 'queue-engineering', 'pipeline', 'approvals']],
     [['Engineer'], ['home', 'queue-engineering', 'pipeline']],
-    // FB-16 (W13-15): the Production Scheduler reads quotes and works the capacity part; no analytics.
+    // FB-16 (W13-15): the Production Scheduler reads quotes and works the capacity part.
     [['ProductionScheduler'], ['home', 'queue-engineering', 'pipeline']],
-    [['Pricing'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
+    [['Pricing'], ['home', 'queue-pricing', 'pipeline']],
     // B-26: the pricing lead works the same queue (and assigns it).
-    [['PricingLead'], ['home', 'queue-pricing', 'pipeline', 'analytics']],
-    // FB-07 (F-083): Finance reads quotes and uploads the ROI model; no queue, no analytics.
+    [['PricingLead'], ['home', 'queue-pricing', 'pipeline']],
+    // FB-07 (F-083): Finance reads quotes and uploads the ROI model; no queue.
     [['Finance'], ['home', 'pipeline']],
-    [['Approver'], ['home', 'pipeline', 'approvals', 'analytics']],
+    [['Approver'], ['home', 'pipeline', 'approvals']],
     [
       ['Leadership'],
-      ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'analytics', 'admin'],
+      ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'admin'],
     ],
     [
       ['Admin'],
-      [
-        'home',
-        'intake',
-        'queue-engineering',
-        'queue-pricing',
-        'pipeline',
-        'approvals',
-        'analytics',
-        'admin',
-      ],
+      ['home', 'intake', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'admin'],
     ],
     [
       ['SalesLeader', 'Approver'],
-      ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
+      ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals'],
     ],
   ])('%j → %j', (roles, expected) => {
     expect(keys(...roles)).toEqual(expected);
+  });
+
+  it('FB-18 (W13-29): Home is the Command Center, for every role', () => {
+    for (const role of ROLES) {
+      const [home] = navItemsFor(meFor(role));
+      expect(home, role).toMatchObject({
+        key: 'home',
+        label: 'Command Center',
+        shortLabel: 'Command',
+        to: '/',
+      });
+    }
+  });
+
+  it('FB-18 (W13-29): no role has an Analytics item, and nothing links to /analytics', () => {
+    for (const role of ROLES) {
+      const items = navItemsFor(meFor(role));
+      expect(
+        items.map((i) => i.label),
+        role,
+      ).not.toContain('Analytics');
+      expect(
+        items.map((i) => i.to),
+        role,
+      ).not.toContain('/analytics');
+    }
+    // The Analytics view is still reached by the same permission, from the Command Center.
+    expect(meFor('SalesLeader').permissions).toContain('analytics.read');
+    expect(meFor('KAM').permissions).not.toContain('analytics.read');
   });
 
   it('labels the engineering queue per role', () => {
@@ -78,7 +96,6 @@ describe('navItemsFor (from the seeded permission matrix)', () => {
       'proposals',
       'pipeline',
       'approvals',
-      'analytics',
     ]);
     const qualify = navItemsFor(meFor('SalesLeader')).find((i) => i.key === 'qualify')!;
     expect(qualify).toMatchObject({

@@ -11,7 +11,6 @@ export type NavKey =
   | 'pipeline'
   | 'qualify'
   | 'approvals'
-  | 'analytics'
   | 'audit'
   | 'admin';
 
@@ -56,7 +55,9 @@ export interface NavOptions {
 
 export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {}): NavItem[] {
   const can = (permission: string) => canFromMe(me, permission);
-  const items: NavItem[] = [item('home', 'Home', 'Home', '/')];
+  // FB-18 (W13-29): Home is the Command Center. Analytics is one of its views (for analytics.read), so
+  // it has no item of its own; `/analytics` redirects there.
+  const items: NavItem[] = [item('home', 'Command Center', 'Command', '/')];
 
   if (can('quote.create')) items.push(item('intake', 'New intake', 'Intake', '/intake/new'));
   // B-13: a KAM's open proposals (the customer decision; outcome.record, own quotes).
@@ -93,7 +94,6 @@ export function navItemsFor(me: MeResponse, { g1Enabled = true }: NavOptions = {
   if (can('finalReview.read') || can('gate.G4.decide') || can('override.approve')) {
     items.push(item('approvals', 'Approvals', 'Approvals', '/approvals'));
   }
-  if (can('analytics.read')) items.push(item('analytics', 'Analytics', 'Analytics', '/analytics'));
   // B-19: Admin is config.read (Leadership reads every configuration screen; only Admin changes).
   if (can('config.read')) items.push(item('admin', 'Admin', 'Admin', '/admin'));
   else if (can('audit.read')) items.push(item('audit', 'Audit log', 'Audit', '/admin/audit'));
