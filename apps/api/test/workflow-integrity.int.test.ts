@@ -911,6 +911,8 @@ describe('lead review and pricing assignment notify (T-014, T-015, T-016)', () =
         plantCode: 'AURORA',
         cavitation: 8,
         cycleTimeS: 14.5,
+        // FB-17 (W13-22): the engineer's submission needs the capital figure; $0 = no capital needed.
+        prelimCapitalUsd: 0,
       }),
       200,
     );
