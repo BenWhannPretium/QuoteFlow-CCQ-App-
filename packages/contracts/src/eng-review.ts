@@ -220,9 +220,8 @@ export const EquipmentBomView = z.object({
   /** The caller may upload or replace it now (the review's editors, while it is open and unlocked). */
   canUpload: z.boolean(),
   /**
-   * FB-17 (W13-22): a G2 Advance needs the BOM when capital is needed (the rule is in the gate's
-   * config). True while the preliminary capital is above `capital_needed_above_usd`, or still blank.
-   * Before FB-17 this said whether "Advance – capital required" asked for the BOM.
+   * FB-17 (W13-22): a G2 Advance needs the BOM when capital is needed. True while a G2 outcome that can
+   * still be chosen carries the rule in its config (before FB-17: "Advance – capital required").
    */
   requiredForCapital: z.boolean(),
   /** FB-17: "Required to advance when preliminary capital is above $0" (the threshold is a setting). */

@@ -95,7 +95,7 @@ export const PricingQueueResponse = z.object({
   pricers: z.array(
     z.object({ id: z.string(), displayName: z.string(), openAssigned: z.number().int() }),
   ),
-  /** G2 outcome keys and labels for the filter; FB-17: `capital_needed` first, switched-off outcomes left out. */
+  /** The filter's choices: `capital_needed` (FB-17) first, then every G2 outcome (a switched-off one still filters the quotes decided with it). */
   g2Outcomes: z.array(z.object({ key: z.string(), label: z.string() })),
   items: z.array(PricingQueueItem),
 });

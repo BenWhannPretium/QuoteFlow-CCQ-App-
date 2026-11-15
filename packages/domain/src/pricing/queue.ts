@@ -3,6 +3,7 @@ import { DomainError } from '../errors';
 import { can, type PolicyResource } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { Role } from '../types/roles';
+import type { WorkflowConfig } from '../types/workflow-config';
 
 /**
  * The pricing queue (B-11, DEC-19/20): every open quote in Quoting, for the Pricing team. Pricing is a
@@ -40,6 +41,22 @@ export function flaggedForCapitalOrRisk(entry: {
     entry.capitalNeeded ||
     (FLAGGED_G2_OUTCOMES as readonly string[]).includes(entry.g2Outcome ?? '')
   );
+}
+
+/**
+ * The "Engineering decision" filter's choices: capital needed first, then every G2 outcome. A switched-off
+ * outcome stays listed, so the quotes decided with it can still be found by it.
+ */
+export function g2FilterOptions(
+  config: Pick<WorkflowConfig, 'outcomes'>,
+  gateKey = 'G2',
+): { key: string; label: string }[] {
+  return [
+    { key: CAPITAL_NEEDED_FILTER, label: CAPITAL_NEEDED_FILTER_LABEL },
+    ...config.outcomes
+      .filter((o) => o.gateKey === gateKey)
+      .map((o) => ({ key: o.key, label: o.label })),
+  ];
 }
 
 /** Whether an entry matches the `?g2=` filter values (outcome keys, or `capital_needed`). */

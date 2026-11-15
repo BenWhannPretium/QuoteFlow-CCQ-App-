@@ -7,6 +7,7 @@ import {
   PRICING_QUEUE_STAGE_KEY,
   filterPricingQueue,
   flaggedForCapitalOrRisk,
+  g2FilterOptions,
   planPricerAssignment,
   sortPricingQueue,
   type PricingQueueEntry,
@@ -531,6 +532,19 @@ describe('pricing queue', () => {
     expect(keys(['capital_required'])).toEqual(['OLD']);
     expect(keys(['proceed'])).toEqual(['FIGURE', 'LIKELY', 'PLAIN', 'BLANK']);
     expect(FLAGGED_G2_OUTCOMES).toEqual(['capital_required', 'proceed_with_risk']);
+  });
+
+  it('FB-17: the filter offers "Capital needed" first and keeps the switched-off outcome', () => {
+    expect(g2FilterOptions(hybridConfig)).toEqual([
+      { key: 'capital_needed', label: 'Capital needed' },
+      { key: 'proceed', label: 'Advance' },
+      { key: 'proceed_with_risk', label: 'Advance with risk' },
+      { key: 'capital_required', label: 'Advance – capital required' },
+      { key: 'hold', label: 'Hold' },
+      { key: 'rework', label: 'Send back to the KAM (fix the intake)' },
+      { key: 'redirect', label: 'Send back to Engineering (try another platform or site)' },
+      { key: 'stop', label: 'Stop' },
+    ]);
   });
 });
 

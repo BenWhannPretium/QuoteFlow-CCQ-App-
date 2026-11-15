@@ -221,7 +221,12 @@ export const CommercialDetail = z.object({
   additionalApprovals: z.array(AdditionalApprovalView),
   /** The price may proceed without formal approval (below the `pricing_pass_through` threshold). */
   passThroughEligible: z.boolean(),
-  hold: z.object({ ownerId: z.string().nullable(), ownerName: z.string().nullable() }),
+  hold: z.object({
+    ownerId: z.string().nullable(),
+    ownerName: z.string().nullable(),
+    /** FB-17 (W13-26): why the quote is on hold now (the reason code's label); null when not on hold. */
+    reasonLabel: z.string().nullable(),
+  }),
   escalation: z.object({
     canEscalate: z.boolean(),
     routes: z.array(z.object({ code: z.string(), label: z.string(), description: z.string() })),
