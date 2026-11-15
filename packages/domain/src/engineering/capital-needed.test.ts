@@ -6,6 +6,7 @@ import {
   capitalNeededRuleText,
   engCapitalNeeded,
   formatCapitalUsd,
+  g2DecisionText,
   parseCapitalNeededAboveUsd,
 } from './capital-needed';
 import { settingSpec } from '../config-admin/settings';
@@ -117,5 +118,23 @@ describe('wording', () => {
     expect(capitalNeededRuleText(50_000)).toBe(
       'Required to advance when preliminary capital is above $50,000',
     );
+  });
+
+  it('the queues read "capital needed" beside the G2 outcome, once', () => {
+    const entry = (
+      g2Outcome: string | null,
+      g2OutcomeLabel: string | null,
+      capitalNeeded: boolean,
+    ) => g2DecisionText({ g2Outcome, g2OutcomeLabel, capitalNeeded });
+    expect(entry('proceed', 'Advance', true)).toBe('Advance · capital needed');
+    expect(entry('proceed_with_risk', 'Advance with risk', true)).toBe(
+      'Advance with risk · capital needed',
+    );
+    expect(entry('proceed', 'Advance', false)).toBe('Advance');
+    // The retired outcome's label already says it.
+    expect(entry('capital_required', 'Advance – capital required', true)).toBe(
+      'Advance – capital required',
+    );
+    expect(entry(null, null, false)).toBeNull();
   });
 });

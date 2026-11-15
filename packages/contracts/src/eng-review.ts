@@ -14,7 +14,9 @@ import { SectionLockView } from './problem';
  */
 export const BUDGETARY_CAPITAL_LABEL =
   'Budgetary capital estimate (USD): preliminary, includes contingency';
-export const BUDGETARY_CAPITAL_HELP = 'A rough estimate for quoting. It is firmed up after award.';
+// FB-17 (W13-22): G2 needs the figure, and a figure above $0 means capital is needed, so $0 is an answer.
+export const BUDGETARY_CAPITAL_HELP =
+  'A rough estimate for quoting. It is firmed up after award. Enter 0 when no capital is needed.';
 
 const text = (max: number) => z.string().trim().max(max).nullable();
 /** A pack-out count: a whole number from 1 to 9,999,999 (the domain's PACK_OUT_MAX). */

@@ -97,3 +97,19 @@ export function formatCapitalUsd(value: number): string {
 export function capitalNeededRuleText(aboveUsd: number = CAPITAL_NEEDED_ABOVE_USD_SEED): string {
   return `Required to advance when preliminary capital is above ${formatCapitalUsd(aboveUsd)}`;
 }
+
+/**
+ * What the Pricing and Final Review queues show as Engineering's decision: the G2 outcome's label, with
+ * "capital needed" beside it when the quote needs capital. A quote decided with the retired "Advance –
+ * capital required" outcome already says so in its label.
+ */
+export function g2DecisionText(entry: {
+  g2Outcome: string | null;
+  g2OutcomeLabel: string | null;
+  capitalNeeded: boolean;
+}): string | null {
+  if (!entry.g2OutcomeLabel) return null;
+  return entry.capitalNeeded && entry.g2Outcome !== HISTORICAL_CAPITAL_OUTCOME
+    ? `${entry.g2OutcomeLabel} · capital needed`
+    : entry.g2OutcomeLabel;
+}
