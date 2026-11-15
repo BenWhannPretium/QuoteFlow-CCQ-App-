@@ -49,7 +49,7 @@
 | App Insights / Log Analytics | `appi-quoteflow-test` / `log-quoteflow-test` | |
 | Deploy identity | `id-quoteflow-deploy` | Used by GitHub Actions; no password |
 | App registrations | `QuoteFlow-API`, `QuoteFlow-SPA` | |
-| Groups | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead` (B-26), `SG-CCQ-Finance` (FB-07, A4b), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin` | `SG-CCQ-PostAward` later (P2) |
+| Groups | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead` (B-26), `SG-CCQ-Finance` (FB-07, A4b), `SG-CCQ-ProductionScheduler` (FB-16, A4c, not created yet), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin` | `SG-CCQ-PostAward` later (P2) |
 
 ### 0.4 Running order for the hour
 
@@ -180,6 +180,25 @@ az ad app update --id $API_APP_ID --app-roles @roles.json
 az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv   # now includes CCQ.Finance
 ```
 Then run the A8 loop with `R=Finance` only. **Check:** Stacy signs out and in; the account menu shows **Finance**, home is **ROI requests**, the menu is **Home** and **Pipeline**.
+
+### A4c. Adding the Production Scheduler role (FB-16, W13-15: `CCQ.ProductionScheduler`, provisional; D-008 open) ⏳ IT action, not done yet
+
+A Production Scheduler (Faron Ipox's job title) works the **capacity part** of a quote alongside the engineer: the engineering lead assigns them to the quote as its second assignee, and on those quotes they enter the capacity evidence and approve or block capacity. The role reads quotes and the engineering queue, and nothing else (`packages/domain/src/policy/matrix.ts`: `quote.read`, `quote.read.commercialFields`, `engQueue.read`, and `capacity.edit` / `capacity.signoff` on the quotes they are assigned to as scheduler). **The code is ready; the Entra steps are not done.** Until IT creates the app role and the group, the role works only where dev sign-in is on (local development and the automated tests, persona `production-scheduler`); nobody can hold it when signed in through Entra. `rolesFromClaim` already accepts any known `CCQ.` role, so nothing in the app changes when the role exists. The role is provisional: if D-008 (who owns capacity) lands differently, the grants change in the matrix and the `role_permission` table, with no rebuild.
+
+Same steps as A4a, with these values:
+- **Display name** `CCQ Production Scheduler`. **Value** `CCQ.ProductionScheduler` (exact spelling and case). **Description** "Production scheduler: capacity evidence and capacity sign-off on the quotes assigned to them".
+- **Group** `SG-CCQ-ProductionScheduler` (security), the production schedulers as **direct** members.
+- **Enterprise applications → QuoteFlow-API → Users and groups**: `SG-CCQ-ProductionScheduler` → role **CCQ Production Scheduler**.
+- Test tenant prefix: `CCQ.Test.ProductionScheduler` and `SG-CCQ-Test-ProductionScheduler` (A8a, A9).
+
+```bash
+uuid() { cat /proc/sys/kernel/random/uuid; }
+az ad app show --id $API_APP_ID --query appRoles > roles-current.json
+jq --arg id "$(uuid)" '. + [{"allowedMemberTypes":["User"],"value":"CCQ.ProductionScheduler","displayName":"CCQ Production Scheduler","description":"Production scheduler: capacity evidence and capacity sign-off on the quotes assigned to them","id":$id,"isEnabled":true}]' roles-current.json > roles.json
+az ad app update --id $API_APP_ID --app-roles @roles.json
+az ad app show --id $API_APP_ID --query "appRoles[].value" -o tsv   # now includes CCQ.ProductionScheduler
+```
+Then run the A8 loop with `R=ProductionScheduler` only; for the test environment, repeat A8a steps 1 and 2 for this one role (`CCQ.Test.ProductionScheduler`, `SG-CCQ-Test-ProductionScheduler`). **Check:** a scheduler signs out and in; the account menu shows **Production scheduler**, home is **Capacity requests**, the menu is **Home**, **Capacity requests** and **Pipeline**. The engineering lead then finds them under "Production scheduler (optional)" in the assign dialog (a user appears there after their first sign-in). **Data scope:** give a scheduler the `owner` scope if they should see only the quotes they are assigned to; with the default scope they read the whole pipeline, as an engineer does.
 
 ### A5. [IT] Lock the API to assigned people only
 

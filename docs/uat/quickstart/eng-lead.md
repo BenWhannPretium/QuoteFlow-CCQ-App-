@@ -1,17 +1,17 @@
 # QuoteFlow quick-start: Engineering lead
 
-**What QuoteFlow is for you.** One queue for all upfront engineering work on new business quotes. You assign it, sign off capacity and decide whether there is a feasible solution (gate G2, **Feasible solution?**).
+**What QuoteFlow is for you.** One queue for all upfront engineering work on new business quotes. You assign it and decide whether there is a feasible solution (gate G2, **Feasible solution?**). The stage is called **Engineering & Capacity**: an engineer works the solution and a production scheduler works the capacity.
 
 **Your home screen: Engineering queue.** It shows **Queue health**, **Open load per engineer**, **Time to assign and to G2** and **Returned to the KAM: top reasons**. You are alerted (bell and email) when a quote arrives. Your menu: **Home**, **Engineering queue**, **Pipeline**, **Approvals**, **Analytics**.
 
 ## What you'll do
 
-1. **Assign work.** **Engineering queue** → row menu **…** → **Assign…** (or tick rows and **Assign selected…**). Use **Reassign work…** to move someone's open work.
+1. **Assign work.** **Engineering queue** → row menu **…** → **Assign…** (or tick rows and **Assign selected…**). In the same dialog, **Production scheduler (optional)** adds the person who works the capacity part of that quote; both are notified. Use **Reassign work…** to move someone's open work.
 2. **Return incomplete intakes.** Row menu → **Return to KAM…**. Say what is missing.
-3. **Sign off capacity.** On the quote's **Engineering** tab click **Approve capacity**, or **Block capacity** with a note. G2 Advance needs capacity approved.
-4. **Decide G2.** **Engineering** tab → **Decide G2…**: **Advance**, **Advance with risk**, **Advance – capital required**, **Hold**, **Rework (back to KAM)**, **Redirect (alternative platform / site)** or **Stop**.
+3. **Capacity.** The production scheduler on the quote approves capacity, or blocks it with a note. A block sends the work straight back to the engineer with that note; you and the KAM are told. On a quote with no scheduler, the **Approve capacity** and **Block capacity** buttons on the **Engineering** tab are yours. G2 Advance needs capacity approved.
+4. **Decide G2.** **Engineering** tab → **Decide G2…**: **Advance**, **Advance with risk**, **Advance – capital required**, **Hold**, **Rework (back to KAM)**, **Redirect (alternative platform / site)** or **Stop**. If nobody has signed capacity off yet, tick **Capacity approved (I'm signing it off)** in the dialog: your approval is recorded with the decision, in one step. If capacity is blocked, the dialog shows why and the quote cannot advance.
 5. **Keep order.** **Pin to top…** puts a quote first, with a reason. It is logged. You cannot change the priority tier: only a sales leader can.
-6. **Review what your engineers submit.** **Ready for my review** lists quotes they submitted to you. Decide G2, or **Send back to engineer…** with a note.
+6. **Review what your engineers submit.** **Ready for my review** lists quotes they submitted to you. Decide G2, or send it back with a note. With a production scheduler on the quote the button reads **Send back to…**: choose the engineer or the scheduler; only that person is notified.
 
 ## What changed from the ERF
 
