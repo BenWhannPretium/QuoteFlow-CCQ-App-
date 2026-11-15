@@ -42,6 +42,8 @@ async function pricedInQuoting(request: APIRequestContext): Promise<string> {
     plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
+    // FB-17 (W13-22): G2 needs a preliminary capital figure; $0 means no capital is needed.
+    prelimCapitalUsd: 0,
   });
   await put('capacity-evidence', 'eng-lead', {
     rows: [
@@ -130,14 +132,16 @@ test('T-005: Pricing → KAM → "No" scope change → back in Quoting with the 
   const lead = await (await browser.newContext()).newPage();
   await signInAs(lead, 'pricing-lead');
   await lead.goto(`/quotes/${qn}?tab=quoting`);
-  // The decision button when the quote can move forward; otherwise "Hold, send back or stop". Both
+  // The decision button when the quote can move forward; otherwise "Send back, hold or stop". Both
   // open a dialog that offers the way back to the KAM.
   await lead.getByTestId('decide-gate').or(lead.getByTestId('decide-other')).click();
   const dialog = lead.getByRole('dialog');
   await expect(
-    dialog.getByRole('heading', { name: /Decide price approval|Hold, send back or stop/ }),
+    dialog.getByRole('heading', { name: /Decide price approval|Send back, hold or stop/ }),
   ).toBeVisible();
-  await dialog.getByRole('radio', { name: 'Rework (back to KAM)' }).check();
+  // FB-17 (W13-23): "Send back to…" is one choice; "Send to" names where the quote goes.
+  await dialog.getByRole('radio', { name: 'Send back to…' }).check();
+  await dialog.getByLabel('Send to (required)').selectOption({ label: 'The KAM' });
   // DR-engineering-10: the note helper says what to write for this outcome.
   await expect(dialog.getByText('Say what needs to change, and where.')).toBeVisible();
   await dialog.getByLabel('Reason (required)').selectOption({ label: 'Missing information' });

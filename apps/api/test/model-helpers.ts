@@ -98,7 +98,8 @@ export async function prepareModels(app: FastifyInstance, quoteNumber: string): 
 
 /**
  * FB-06 (F-058): Engineering's equipment BOM, uploaded on the quote's attachments route with its kind
- * (versioned, like the models). G2 "Capital required" needs one on file.
+ * (versioned, like the models). A G2 Advance needs one on file when capital is needed (FB-17: the
+ * preliminary capital is above $0; before FB-17, the "Capital required" outcome).
  */
 export function uploadBom(
   app: FastifyInstance,
@@ -122,7 +123,7 @@ export function uploadBom(
   });
 }
 
-/** Before a test decides G2 "Capital required": the EngLead uploads the BOM. Fails the test on a refusal. */
+/** Before a test advances G2 with capital needed: the EngLead uploads the BOM. Fails the test on a refusal. */
 export async function prepareBom(app: FastifyInstance, quoteNumber: string): Promise<void> {
   const res = await uploadBom(app, quoteNumber);
   if (res.statusCode !== 201)

@@ -13,8 +13,8 @@ import {
   ScoringPreviewResponse,
 } from '@ccq/contracts';
 import { schema, type DbClient } from '@ccq/db';
-import type { Role } from '@ccq/domain';
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { ROLES, type Role } from '@ccq/domain';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { asRole } from './permissions/asRole';
@@ -476,6 +476,151 @@ describe('workflow labels and rules', () => {
       { version: closing.version, changeReason: WHY, requiresNote: !closing.requiresNote },
     );
     expect(toggle.statusCode, toggle.body).toBe(200);
+  });
+});
+
+describe('FB-17: outcomes can be switched off (W13-22)', () => {
+  const patchOutcome = async (gateKey: string, key: string, body: Record<string, unknown>) => {
+    const row = (await workflow()).outcomes.find((o) => o.gateKey === gateKey && o.key === key)!;
+    return admin().patch(`/api/v1/admin/config/gates/${gateKey}/outcomes/${key}`, {
+      version: row.version,
+      changeReason: WHY,
+      ...body,
+    });
+  };
+
+  it('lists each outcome with its group and whether it is on; "Capital required" is off', async () => {
+    const g2 = (await workflow()).outcomes.filter((o) => o.gateKey === 'G2');
+    expect(g2.map((o) => `${o.key}:${o.outcomeGroup}:${o.active ? 'on' : 'off'}`)).toEqual([
+      'proceed:advance:on',
+      'proceed_with_risk:advance:on',
+      'capital_required:advance:off',
+      'hold:hold:on',
+      'rework:send_back:on',
+      'redirect:send_back:on',
+      'stop:stop:on',
+    ]);
+    // The switched-off outcome stays in the public config with its label, so history still reads.
+    const pub = (await publicConfig()).outcomes.find(
+      (o) => o.gateKey === 'G2' && o.key === 'capital_required',
+    )!;
+    expect(pub).toMatchObject({
+      label: 'Advance – capital required',
+      active: false,
+      outcomeGroup: 'advance',
+    });
+    // G5's outcomes are the customer's answer, not the four choices.
+    const g5 = (await workflow()).outcomes.filter((o) => o.gateKey === 'G5');
+    expect(g5.map((o) => `${o.key}:${o.outcomeGroup}`)).toEqual([
+      'awarded:customer_outcome',
+      'negotiating:customer_outcome',
+      'lost:customer_outcome',
+      'expired:customer_outcome',
+      'on_hold:hold',
+      'requote:customer_outcome',
+    ]);
+  });
+
+  it('switches an outcome off and on again: versioned, audited, in the decision log', async () => {
+    const before = (await workflow()).outcomes.find(
+      (o) => o.gateKey === 'G3' && o.key === 'redirect',
+    )!;
+    expect(before.active).toBe(true);
+    const audits = await configChanges();
+    const off = await patchOutcome('G3', 'redirect', { active: false });
+    expect(off.statusCode, off.body).toBe(200);
+    const after = (await workflow()).outcomes.find(
+      (o) => o.gateKey === 'G3' && o.key === 'redirect',
+    )!;
+    expect(after).toMatchObject({
+      active: false,
+      label: before.label,
+      version: before.version + 1,
+    });
+    expect(await configChanges()).toBe(audits + 1);
+    const [audit] = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(
+        and(
+          eq(schema.auditEvent.action, 'config_change'),
+          eq(schema.auditEvent.entity, 'gate_outcome_definition'),
+          eq(schema.auditEvent.entityId, before.id),
+        ),
+      )
+      .orderBy(desc(schema.auditEvent.at))
+      .limit(1);
+    expect(audit!.changeReason).toBe(WHY);
+    expect(audit!.before).toMatchObject({ active: true });
+    expect(audit!.after).toMatchObject({ active: false });
+    expect(
+      (await publicConfig()).outcomes.find((o) => o.gateKey === 'G3' && o.key === 'redirect'),
+    ).toMatchObject({ active: false, label: before.label });
+    // A stale version is refused, and a change without a reason too.
+    const stale = await admin().patch('/api/v1/admin/config/gates/G3/outcomes/redirect', {
+      version: before.version,
+      changeReason: WHY,
+      active: true,
+    });
+    expect(stale.statusCode).toBe(409);
+    const noReason = await admin().patch('/api/v1/admin/config/gates/G3/outcomes/redirect', {
+      version: after.version,
+      active: true,
+    });
+    expect(noReason.statusCode).toBe(400);
+    const on = await patchOutcome('G3', 'redirect', { active: true });
+    expect(on.statusCode, on.body).toBe(200);
+    expect(
+      (await workflow()).outcomes.find((o) => o.gateKey === 'G3' && o.key === 'redirect')!.active,
+    ).toBe(true);
+  });
+
+  it('refuses to switch off a gate’s last active Advance outcome; the others may go', async () => {
+    // G1 has one Advance.
+    const g1 = await patchOutcome('G1', 'advance', { active: false });
+    expect(g1.statusCode).toBe(422);
+    expect(
+      (await workflow()).outcomes.find((o) => o.gateKey === 'G1' && o.key === 'advance')!.active,
+    ).toBe(true);
+    // G2 has two that are on ("Capital required" is already off): one may go, the last may not.
+    const risk = await patchOutcome('G2', 'proceed_with_risk', { active: false });
+    expect(risk.statusCode, risk.body).toBe(200);
+    try {
+      const last = await patchOutcome('G2', 'proceed', { active: false });
+      expect(last.statusCode).toBe(422);
+      expect(
+        (await workflow()).outcomes.find((o) => o.gateKey === 'G2' && o.key === 'proceed')!.active,
+      ).toBe(true);
+      // Hold, a send-back and Stop can all be switched off: only the way forward is protected.
+      for (const key of ['hold', 'redirect', 'stop']) {
+        const res = await patchOutcome('G2', key, { active: false });
+        expect(res.statusCode, `${key}: ${res.body}`).toBe(200);
+        expect((await patchOutcome('G2', key, { active: true })).statusCode, key).toBe(200);
+      }
+    } finally {
+      const back = await patchOutcome('G2', 'proceed_with_risk', { active: true });
+      expect(back.statusCode, back.body).toBe(200);
+    }
+  });
+
+  it('only an Admin switches an outcome: every other role is refused and nothing changes', async () => {
+    const row = (await workflow()).outcomes.find(
+      (o) => o.gateKey === 'G3' && o.key === 'redirect',
+    )!;
+    const audits = await configChanges();
+    // PostAward is P2 and has no dev persona, as in permissions/matrix.int.test.ts.
+    for (const role of ROLES.filter((r) => r !== 'Admin' && r !== 'PostAward')) {
+      const res = await as(role).patch('/api/v1/admin/config/gates/G3/outcomes/redirect', {
+        version: row.version,
+        changeReason: WHY,
+        active: false,
+      });
+      expect(res.statusCode, role).toBe(403);
+    }
+    expect(await configChanges()).toBe(audits);
+    expect(
+      (await workflow()).outcomes.find((o) => o.gateKey === 'G3' && o.key === 'redirect'),
+    ).toMatchObject({ active: true, version: row.version });
   });
 });
 

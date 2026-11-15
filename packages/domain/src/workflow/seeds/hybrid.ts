@@ -1,4 +1,5 @@
 import type {
+  OutcomeGroup,
   RequiredRule,
   WorkflowConfig,
   WorkflowConfigInput,
@@ -46,7 +47,8 @@ const CAPACITY_SIGNED_OFF: RequiredRule = {
 /**
  * DR-engineering-02: G2 Advance is refused while a capacity row has no utilization after (server-derived
  * `capacity_utilization_missing`): an effectiveness of 0, or a missing cycle time, cavitation or volume,
- * leaves it blank, and a feasibility call must not rest on a blank. "Capital required" still needs no row.
+ * leaves it blank, and a feasibility call must not rest on a blank. "Capital required" (switched off by
+ * FB-17, kept for history) still needs no row.
  */
 const CAPACITY_CALCULATED: RequiredRule = {
   field: 'capacity_utilization_missing',
@@ -67,6 +69,20 @@ const EQUIPMENT_BOM_ON_FILE: RequiredRule = {
 };
 
 /**
+ * FB-17 (W13-22, provisional): "Advance – capital required" is switched off, so capital is no longer a
+ * choice the engineering lead makes at the gate. It follows from the figure: capital is needed when the
+ * preliminary capital is above `app_setting.capital_needed_above_usd` (seed 0). The server derives
+ * `eng_capital_needed` from the two, and a blank figure counts as needed (fail closed), so:
+ * - every G2 Advance needs the preliminary capital figure (enter $0 when no capital is needed);
+ * - the equipment BOM is required exactly when capital is needed.
+ * Migration 0046 adds both rules in existing environments while the rules still equal the seed.
+ */
+const PRELIM_CAPITAL_ENTERED: RequiredRule = present('prelim_capital_usd');
+const BOM_WHEN_CAPITAL_NEEDED: RequiredRule = {
+  anyOf: [{ field: 'eng_capital_needed', op: 'equals', value: false }, EQUIPMENT_BOM_ON_FILE],
+};
+
+/**
  * The engineering solution plus capacity evidence needed to say "feasible" (B-10, CR-19). The solution
  * fields are the Engineering Review form's process, machine, plant/site (DF-10: decided by
  * Engineering + Ops + Supply Chain), cavitation and cycle time. Provisional (9/15 interim one-pager);
@@ -81,6 +97,9 @@ const ENG_FEASIBLE: RequiredRule[] = [
   { field: 'capacity_evidence', op: 'minItems', value: 1 },
   CAPACITY_SIGNED_OFF,
   CAPACITY_CALCULATED,
+  // FB-17 (W13-22): appended, so migration 0046 can extend the stored rule in place.
+  PRELIM_CAPITAL_ENTERED,
+  BOM_WHEN_CAPITAL_NEEDED,
 ];
 
 /**
@@ -220,17 +239,22 @@ const COMMITTED: RequiredRule[] = [
 /** B-26 (deck slide 16): every hold names a reason, an owner and a review date. */
 const HOLD_FIELDS: RequiredRule[] = [present('review_date'), present('hold_owner_id')];
 
-/** Both defaults and `provisional` are explicit: nothing here is approved by the business yet. */
+/**
+ * Both defaults and `provisional` are explicit: nothing here is approved by the business yet.
+ * FB-17 (W13-23): every outcome names the choice the decision dialog shows it under (`outcomeGroup`).
+ */
 function outcome(
   gateKey: string,
   key: string,
   label: string,
+  outcomeGroup: OutcomeGroup,
   extra: Partial<OutcomeInput> = {},
 ): OutcomeInput {
   return {
     gateKey,
     key,
     label,
+    outcomeGroup,
     helpText: OUTCOME_HELP[`${gateKey}/${key}`] ?? null,
     provisional: true,
     ...extra,
@@ -251,7 +275,8 @@ function transition(
  *
  * Assumptions to confirm (see 04-decisions-and-risks.md): G1 and G2 Stops close as DECLINED (closeAs
  * `declined`), and so does a G3 Stop (B-11);
- * "Capital required" at G2 proceeds to QUOTING with a preliminary capital figure; a quote on hold is
+ * a G2 Advance proceeds to QUOTING with a preliminary capital figure ($0 when none is needed; FB-17:
+ * "Capital required" is switched off and capital needed follows from the figure); a quote on hold is
  * resumed by the next gate decision (Hold keeps it in its stage).
  */
 export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): WorkflowConfig {
@@ -374,62 +399,74 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         provisional: true,
       },
     ],
-    // B-26: every gate offers the deck's standard outcomes where they apply (slide 18): Advance, Hold,
-    // Rework, Redirect, Stop. Labels lead with the standard word; the keys are unchanged so earlier
-    // decisions keep their meaning. Each outcome's definition is its admin-editable help text.
+    // B-26: every gate offers the deck's standard outcomes where they apply (slide 18). Labels lead with
+    // the standard word; the keys are unchanged so earlier decisions keep their meaning. Each outcome's
+    // definition is its admin-editable help text.
     // FB-01 (F-027, D-015: notes are for exceptions only): every exception outcome needs a note:
-    // Advance with risk, Capital required, Hold, Rework / Return / Re-quote / Re-cost, Redirect and
-    // Stop / Decline. A plain Advance, Approve or Awarded does not.
+    // Advance with risk, Hold, every send-back and Stop / Decline. A plain Advance, Approve or Awarded
+    // does not.
+    // FB-17 (W13-23, W13-24, W13-27; provisional): the decider sees four plain choices, Advance, Send
+    // back to…, Hold and Stop, from each outcome's `outcomeGroup`. Rework and Redirect were read as the
+    // same thing, so every outcome that sends the work back is in `send_back`, its label says where the
+    // quote goes ("Send back to the KAM (fix the intake)"; the dialog's "Send to" list shows the part
+    // after "Send back to") and it needs a reason code and a note. G1's "not CCQ work" closes the quote,
+    // so it sits under Stop. G5 is the customer's answer (`customer_outcome`) and keeps its flat list.
+    // No key or transition changed: analytics and the SQL views read them.
     outcomes: [
       // G1
-      outcome('G1', 'advance', 'Advance', {
+      outcome('G1', 'advance', 'Advance', 'advance', {
         requiredFields: INTAKE_COMPLETE,
         notify: [{ type: 'quote.ready_for_eng_review', to: { role: 'EngLead' } }],
       }),
       // B-08: Hold needs a reason and a review date; Rework a reason code and a note (the KAM's "what to fix").
       // B-26: and every hold names an owner.
-      outcome('G1', 'hold', 'Hold', {
+      outcome('G1', 'hold', 'Hold', 'hold', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
       }),
-      outcome('G1', 'rework', 'Rework (back to KAM)', {
+      outcome('G1', 'rework', 'Send back to the KAM (fix the intake)', 'send_back', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'rework',
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
-      outcome('G1', 'redirect', 'Redirect (not CCQ work)', {
+      // FB-17 (W13-23): it closes the quote (REDIRECTED, with its own `redirect` reason codes), so the
+      // decider finds it under Stop. Analytics still count it as redirected.
+      outcome('G1', 'redirect', 'Stop: not CCQ work (send elsewhere)', 'stop', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'redirect',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
       }),
-      outcome('G1', 'stop', 'Stop', {
+      outcome('G1', 'stop', 'Stop', 'stop', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'stop',
         notify: [{ type: 'quote.closed', to: { relation: 'kam' } }],
       }),
       // SUBMIT (no-G1 path)
-      outcome('SUBMIT', 'submit', 'Submit', {
+      outcome('SUBMIT', 'submit', 'Submit', 'advance', {
         requiredFields: INTAKE_COMPLETE,
         notify: [{ type: 'quote.ready_for_eng_review', to: { role: 'EngLead' } }],
       }),
       // G2
-      outcome('G2', 'proceed', 'Advance', {
+      outcome('G2', 'proceed', 'Advance', 'advance', {
         requiredFields: ENG_FEASIBLE,
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
-      outcome('G2', 'proceed_with_risk', 'Advance with risk', {
+      outcome('G2', 'proceed_with_risk', 'Advance with risk', 'advance', {
         requiresNote: true,
         requiredFields: ENG_FEASIBLE,
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
       // B-10: "Capital required" needs the preliminary capital figure; Pricing's capital readiness
       // starts as pending (app_setting `capital_readiness_on_outcome`).
-      outcome('G2', 'capital_required', 'Advance – capital required', {
+      // FB-17 (W13-22): switched off. It is no longer offered or accepted; the row stays so the quotes
+      // decided with it keep reading "Advance – capital required" and keep their capital behaviour.
+      outcome('G2', 'capital_required', 'Advance – capital required', 'advance', {
+        active: false,
         requiresNote: true,
         requiredFields: [
           present('prelim_capital_usd'),
@@ -439,25 +476,34 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         ],
         notify: [{ type: 'quote.ready_for_quoting', to: { role: 'Pricing' } }],
       }),
-      outcome('G2', 'hold', 'Hold', {
+      outcome('G2', 'hold', 'Hold', 'hold', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
       }),
       // "Return to KAM" from the engineering queue: the note lists the missing information.
-      outcome('G2', 'rework', 'Rework (back to KAM)', {
+      outcome('G2', 'rework', 'Send back to the KAM (fix the intake)', 'send_back', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'rework',
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
       // B-26 (slide 11): an alternative platform or site. The quote stays In Feasibility; the note says
-      // what changes.
-      outcome('G2', 'redirect', 'Redirect (alternative platform / site)', {
-        requiresNote: true,
-      }),
-      outcome('G2', 'stop', 'Stop', {
+      // what changes. FB-17 (W13-23): a send-back to Engineering itself, with a rework reason code (the
+      // `redirect` context holds G1's not-CCQ codes, which are wrong here).
+      outcome(
+        'G2',
+        'redirect',
+        'Send back to Engineering (try another platform or site)',
+        'send_back',
+        {
+          requiresNote: true,
+          requiresReasonCode: true,
+          reasonContext: 'rework',
+        },
+      ),
+      outcome('G2', 'stop', 'Stop', 'stop', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'stop',
@@ -465,11 +511,11 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       }),
       // G3 (B-11): decider the pricing lead (gate.G3.submit). FB-07 (F-081): the button says what it
       // records, and leads with the standard word (B-26): "Advance – price approved".
-      outcome('G3', 'submit', 'Advance – price approved', {
+      outcome('G3', 'submit', 'Advance – price approved', 'advance', {
         requiredFields: PRICE_APPROVED,
         notify: [{ type: 'quote.ready_for_final_review', to: { role: 'Approver' } }],
       }),
-      outcome('G3', 'hold', 'Hold', {
+      outcome('G3', 'hold', 'Hold', 'hold', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
@@ -477,12 +523,12 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       }),
       // B-26 (slide 12): Rework is "re-cost" (stays in Quoting; the costing attestation is cleared) or
       // "back to Stage 2 feasibility".
-      outcome('G3', 'recost', 'Rework (re-cost)', {
+      outcome('G3', 'recost', 'Send back to Pricing (re-cost)', 'send_back', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'rework',
       }),
-      outcome('G3', 'rework', 'Rework (back to Engineering)', {
+      outcome('G3', 'rework', 'Send back to Engineering', 'send_back', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'rework',
@@ -490,18 +536,21 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       }),
       // FB-01 (F-029, Kyle Arnold): Pricing sends it to the KAM (missing or wrong commercial input).
       // F-030: the KAM's fix comes straight back to Quoting unless they say the scope changed.
-      outcome('G3', 'rework_kam', 'Rework (back to KAM)', {
+      outcome('G3', 'rework_kam', 'Send back to the KAM', 'send_back', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'rework',
         resumeAt: 'origin',
         notify: [{ type: 'quote.reworked', to: { stageOwner: true } }],
       }),
-      // B-26 (slide 12): customer-funded or another capital model. Stays in Quoting.
-      outcome('G3', 'redirect', 'Redirect (alternative capital model)', {
+      // B-26 (slide 12): customer-funded or another capital model. Stays in Quoting. FB-17 (W13-23): a
+      // send-back to Pricing itself, with a rework reason code.
+      outcome('G3', 'redirect', 'Send back to Pricing (another capital model)', 'send_back', {
         requiresNote: true,
+        requiresReasonCode: true,
+        reasonContext: 'rework',
       }),
-      outcome('G3', 'stop', 'Stop', {
+      outcome('G3', 'stop', 'Stop', 'stop', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'stop',
@@ -511,23 +560,26 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       // proposal issue and validity dates (the gate service, from `validity_days_default`); Decline
       // needs a note AND a decline reason (the 10/14 demo rule) and tells the KAM and Pricing.
       // B-26: Advance also needs the terms check and, when triggered, the Legal review.
-      outcome('G4', 'approve', 'Advance (release the offer)', {
+      outcome('G4', 'approve', 'Advance (release the offer)', 'advance', {
         requiredFields: OFFER_READY,
         notify: [{ type: 'quote.approved_for_customer', to: { relation: 'kam' } }],
       }),
       // B-26 (slide 13): G4 gains Hold.
-      outcome('G4', 'hold', 'Hold', {
+      outcome('G4', 'hold', 'Hold', 'hold', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
       }),
-      outcome('G4', 'return', 'Rework (back to the affected gate)', {
+      // FB-17 (W13-23): the decider picks Quoting or Engineering in the same "Send to" list, and every
+      // send-back now carries a reason code.
+      outcome('G4', 'return', 'Send back to Quoting or Engineering', 'send_back', {
         requiresNote: true,
+        requiresReasonCode: true,
         reasonContext: 'rework',
         notify: [{ type: 'quote.returned', to: { stageOwner: true } }],
       }),
-      outcome('G4', 'decline', 'Stop (withdraw)', {
+      outcome('G4', 'decline', 'Stop (withdraw)', 'stop', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'decline',
@@ -540,20 +592,25 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
       // (outcome.record). Every closing outcome needs a reason code (CR-39): for Awarded it is the
       // acceptance evidence (verbal award / PO / LOI / contract), with the acceptance date.
       // B-26: Awarded no longer closes the quote; it moves to Commit & Hand Off (Stage 6).
-      outcome('G5', 'awarded', 'Awarded', {
+      // FB-17 (W13-23): these are the customer's answer, not the four verbs (`customer_outcome`), so the
+      // dialog shows G5 as the flat list it always was. Only "On hold" is a `hold`.
+      outcome('G5', 'awarded', 'Awarded', 'customer_outcome', {
         requiresReasonCode: true,
         reasonContext: 'awarded',
         requiredFields: [present('accepted_at')],
       }),
       // B-26 (slides 14, 17): a counter inside the approved range. The KAM negotiates and re-issues;
       // the quote stays in Customer Decision. A counter outside the range is a Re-quote.
-      outcome('G5', 'negotiating', 'In negotiation (counter within range)', {
+      outcome('G5', 'negotiating', 'In negotiation (counter within range)', 'customer_outcome', {
         requiresNote: true,
       }),
-      outcome('G5', 'lost', 'Lost', { requiresReasonCode: true, reasonContext: 'lost' }),
+      outcome('G5', 'lost', 'Lost', 'customer_outcome', {
+        requiresReasonCode: true,
+        reasonContext: 'lost',
+      }),
       // "Silence is not a loss": its own terminal state, allowed once the validity date has passed, or
       // earlier with a note saying why (e.g. the customer confirmed the project is shelved).
-      outcome('G5', 'expired', 'No response / Expired', {
+      outcome('G5', 'expired', 'No response / Expired', 'customer_outcome', {
         requiresReasonCode: true,
         reasonContext: 'expired',
         requiredFields: [
@@ -566,39 +623,39 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
         ],
       }),
       // A customer hold stops the cycle-time clock (quote_hold, CR-57).
-      outcome('G5', 'on_hold', 'On hold', {
+      outcome('G5', 'on_hold', 'On hold', 'hold', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
       }),
       // Back to the affected stage with a version bump; earlier approvals stay as recorded (CR-38).
-      outcome('G5', 'requote', 'Re-quote', {
+      outcome('G5', 'requote', 'Re-quote', 'customer_outcome', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'requote',
         notify: [{ type: 'quote.requote', to: { stageOwner: true } }],
       }),
       // G6 (B-26, Stage 6): commitment authorized (CER, as a reference) and the hand-off accepted.
-      outcome('G6', 'advance', 'Advance (close Won)', {
+      outcome('G6', 'advance', 'Advance (close Won)', 'advance', {
         requiresReasonCode: true,
         reasonContext: 'awarded',
         requiredFields: COMMITTED,
       }),
-      outcome('G6', 'hold', 'Hold (commitment pending)', {
+      outcome('G6', 'hold', 'Hold (commitment pending)', 'hold', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'hold',
         requiredFields: HOLD_FIELDS,
       }),
       // "Changed since quote?" (scope, volume, resin, site, capacity) → re-quote at the affected gate.
-      outcome('G6', 'requote', 'Rework (re-quote)', {
+      outcome('G6', 'requote', 'Send back to Quoting or Engineering (re-quote)', 'send_back', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'requote',
         notify: [{ type: 'quote.requote', to: { stageOwner: true } }],
       }),
-      outcome('G6', 'stop', 'Stop (commitment not authorized)', {
+      outcome('G6', 'stop', 'Stop (commitment not authorized)', 'stop', {
         requiresNote: true,
         requiresReasonCode: true,
         reasonContext: 'not_authorized',

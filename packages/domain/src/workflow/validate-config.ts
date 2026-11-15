@@ -35,11 +35,56 @@ export function validateWorkflowConfig(config: WorkflowConfig): DomainError[] {
     if (outcome.requiresReasonCode) {
       if (!outcome.reasonContext)
         bad(`Outcome ${id} requires a reason code but has no reasonContext`);
-      else if (!config.reasonCodes.some((r) => r.context === outcome.reasonContext && r.active)) {
+      // FB-17: a switched-off outcome is never offered, so it does not hold a context's codes active.
+      else if (
+        outcome.active &&
+        !config.reasonCodes.some((r) => r.context === outcome.reasonContext && r.active)
+      ) {
         bad(
           `Outcome ${id} requires a reason code but context "${outcome.reasonContext}" has no active codes`,
         );
       }
+    }
+    // FB-17 (W13-23, W13-24): the group says what the decider is choosing, so it must match what the
+    // transition does. A send-back is never offered as a Hold, and a Stop always closes the quote.
+    const routed = config.transitions.find(
+      (t) => t.gateKey === outcome.gateKey && t.outcomeKey === outcome.key,
+    );
+    if (outcome.outcomeGroup && routed) {
+      const holds = routed.nextStatus === 'on_hold';
+      if (holds && outcome.outcomeGroup !== 'hold')
+        bad(`Outcome ${id} puts the quote on hold, so its group must be hold`);
+      else if (!holds && outcome.outcomeGroup === 'hold')
+        bad(`Outcome ${id} is in the hold group but does not put the quote on hold`);
+      else if (outcome.outcomeGroup === 'stop' && routed.nextStatus !== 'closed')
+        bad(`Outcome ${id} is in the stop group but does not close the quote`);
+      else if (outcome.outcomeGroup === 'send_back' && routed.nextStatus !== 'active')
+        bad(`Outcome ${id} is in the send_back group but does not keep the quote active`);
+    }
+  }
+
+  // FB-17 (W13-22): outcomes can be switched off, but a gate must keep a way forward. With groups in the
+  // config that is an active outcome in the `advance` group; before a config has groups it is an active
+  // outcome that moves the quote on to another stage that is not terminal.
+  const grouped = config.outcomes.some((o) => o.outcomeGroup !== undefined);
+  for (const gate of config.gates) {
+    const outcomes = config.outcomes.filter((o) => o.gateKey === gate.key);
+    const forward = grouped
+      ? outcomes.filter((o) => o.outcomeGroup === 'advance')
+      : outcomes.filter((o) => {
+          const t = config.transitions.find(
+            (x) => x.gateKey === gate.key && x.outcomeKey === o.key,
+          );
+          return (
+            !!t &&
+            t.nextStatus !== 'closed' &&
+            t.targetStageKeys.some((key) => key !== gate.stageKey && !stages.get(key)?.terminal)
+          );
+        });
+    if (forward.length > 0 && !forward.some((o) => o.active)) {
+      bad(
+        `Gate ${gate.key} needs at least one active ${grouped ? 'Advance outcome' : 'outcome that moves the quote on'}: switch another one on first`,
+      );
     }
   }
 

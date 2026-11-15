@@ -666,6 +666,8 @@ export class AdminConfigService {
           requiresReasonCode: o.requiresReasonCode,
           reasonContext: o.reasonContext,
           requiredFields: o.requiredFields as unknown[],
+          active: o.active,
+          outcomeGroup: o.outcomeGroup,
           sort: o.sort,
           approval: approval(o),
         })),
@@ -685,12 +687,15 @@ export class AdminConfigService {
       requiresNote?: boolean;
       requiresReasonCode?: boolean;
       requiredFields?: unknown;
+      /** FB-17 (W13-22): outcomes only: whether the outcome is switched on. */
+      active?: boolean;
     },
   ): Snapshot {
     return {
       ref,
       label: r.label,
       helpText: r.helpText,
+      ...(r.active !== undefined ? { active: r.active } : {}),
       ...(r.requiresNote !== undefined ? { requiresNote: r.requiresNote } : {}),
       ...(r.requiresReasonCode !== undefined ? { requiresReasonCode: r.requiresReasonCode } : {}),
       ...(r.requiredFields !== undefined ? { requiredFields: r.requiredFields } : {}),
@@ -794,11 +799,14 @@ export class AdminConfigService {
             ? { requiresReasonCode: body.requiresReasonCode }
             : {}),
           ...(rules !== undefined ? { requiredFields: rules } : {}),
+          // FB-17 (W13-22): switch the outcome on or off. Audited like every other change here.
+          ...(body.active !== undefined ? { active: body.active } : {}),
           ...this.approvalPatch(actor, body.approved, at),
         }),
         `Outcome ${ref}`,
       );
-      // E.g. a closing outcome must keep requiring a reason code (B-13): the domain validator says no.
+      // E.g. a closing outcome must keep requiring a reason code (B-13), and a gate must keep an active
+      // Advance outcome (FB-17): the domain validator says no.
       await AdminConfigService.assertWorkflowValid(tx);
       await this.audit(tx, actor, meta, {
         entity: 'gate_outcome_definition',

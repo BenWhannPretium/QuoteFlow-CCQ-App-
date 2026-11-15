@@ -155,7 +155,10 @@ describe('classifying a decision', () => {
     ] as const) {
       expect(kind(g, o).kind, `${g} ${o}`).toBe('close');
     }
-    expect(kind('G2', 'redirect').kind).toBe('stay');
+    // FB-17 (W13-23): G2 and G3 "redirect" are send-backs to the stage's own team now (they carry a
+    // rework reason), so they read as a return in place, like G3 re-cost. Before, they were a "stay".
+    expect(kind('G2', 'redirect')).toMatchObject({ kind: 'return', returnedFrom: 'in_place' });
+    expect(kind('G3', 'redirect')).toMatchObject({ kind: 'return', returnedFrom: 'in_place' });
     expect(kind('G5', 'negotiating').kind).toBe('stay');
   });
 
@@ -179,8 +182,8 @@ describe('advances: the next owner and the KAM', () => {
     expect(ds.find((d) => d.userId === members.EngLead![0])?.asAssignee).toBe(false);
   });
 
-  it('G2 Advance (all three): the PricingLead, the pricers and the KAM', () => {
-    for (const outcome of ['proceed', 'proceed_with_risk', 'capital_required']) {
+  it('G2 Advance (both; FB-17 switched "Capital required" off): the PricingLead, the pricers and the KAM', () => {
+    for (const outcome of ['proceed', 'proceed_with_risk']) {
       const ds = told('G2', outcome);
       const quoting = idsOf(ds, HANDOFF_TYPES.readyForQuoting);
       expect(quoting, outcome).toEqual(expect.arrayContaining([...members.PricingLead!, PRICER]));
@@ -278,6 +281,40 @@ describe('holds and closures', () => {
     }
   });
 
+  it('FB-17 (W13-25): the hold owner is told unless they are the one who decided; the KAM always is', () => {
+    // The owner is the stage's assignee (the new default): they hear they own the hold.
+    const assignee = planMoveNotifications({
+      config: hybridConfig,
+      effects: effectsFor('G2', 'hold'),
+      quote: { kamUserId: KAM_ID, assignedEngineerId: HOLD_OWNER, assignedPricerId: PRICER },
+    });
+    expect(
+      resolveDeliveries(assignee.entries, membersOf, DECIDER).map((d) => [d.userId, d.reason]),
+    ).toEqual([
+      [HOLD_OWNER, 'hold_owner'],
+      [KAM_ID, 'kam'],
+    ]);
+    // "Me": the decider owns it and is not told about their own decision. The KAM still is.
+    expect(
+      resolveDeliveries(assignee.entries, membersOf, HOLD_OWNER).map((d) => [d.userId, d.reason]),
+    ).toEqual([[KAM_ID, 'kam']]);
+  });
+
+  it('FB-17 (W13-23): a send-back in place tells the assignee it is back with them', () => {
+    const engineering = told('G2', 'redirect');
+    expect(engineering.find((d) => d.userId === ENG)).toMatchObject({
+      type: HANDOFF_TYPES.readyForEng,
+      asAssignee: true,
+    });
+    expect(idsOf(engineering, HANDOFF_TYPES.progress)).toEqual([KAM_ID]);
+    const pricing = told('G3', 'redirect');
+    expect(pricing.find((d) => d.userId === PRICER)).toMatchObject({
+      type: HANDOFF_TYPES.readyForQuoting,
+      asAssignee: true,
+    });
+    expect(idsOf(pricing, HANDOFF_TYPES.progress)).toEqual([KAM_ID]);
+  });
+
   it('a hold owned by the KAM gives the KAM one notice, not two', () => {
     const p = planMoveNotifications({
       config: hybridConfig,
@@ -336,7 +373,8 @@ describe('one notification per person', () => {
 
   it('no one appears twice in any decision of the seeded workflow', () => {
     for (const o of hybridConfig.outcomes) {
-      if (o.gateKey === 'SUBMIT') continue;
+      // FB-17: a switched-off outcome can no longer be decided, so it tells nobody.
+      if (o.gateKey === 'SUBMIT' || !o.active) continue;
       const targets = hybridConfig.transitions.find(
         (t) => t.gateKey === o.gateKey && t.outcomeKey === o.key,
       )!.targetStageKeys;

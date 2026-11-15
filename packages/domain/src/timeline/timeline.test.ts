@@ -10,6 +10,8 @@ describe('timeline categories', () => {
     ['ship_to_overridden', 'override'],
     ['attachment_uploaded', 'file'],
     ['comment_added', 'comment'],
+    // FB-17 (W13-22): shown with the decisions, next to the G2 Advance that caused it.
+    ['capital_needed', 'decision'],
     ['sf_status_changed', 'other'],
     ['priority_tier_changed', 'other'],
   ])('%s → %s', (type, category) => {

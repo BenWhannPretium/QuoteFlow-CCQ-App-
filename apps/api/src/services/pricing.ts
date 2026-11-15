@@ -30,7 +30,9 @@ import {
 } from '@ccq/db/repos';
 import {
   EMPTY_PRICING_RECORD,
-  FLAGGED_G2_OUTCOMES,
+  capitalNeed,
+  flaggedForCapitalOrRisk,
+  g2FilterOptions,
   PRICING_ASSIGNABLE_ROLES,
   PRICING_QUEUE_STAGE_KEY,
   asUserId,
@@ -57,6 +59,7 @@ import {
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { loadCapitalNeededAboveUsd } from './engineering-view';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
 import { assertSectionUnlocked } from './locks';
 import { persistNotifications } from './notificationService';
@@ -195,6 +198,15 @@ export class PricingService {
         );
         const values = recordValues(row.pricing);
         const status = priceApprovalStatus(values);
+        // FB-17 (W13-22): capital needed, whatever the G2 outcome was called.
+        const capitalNeeded = capitalNeed(
+          {
+            prelim_capital_usd: row.prelimCapitalUsd,
+            g2_outcome: row.g2Outcome,
+            capital_likely: q.capitalLikely,
+          },
+          ctx.commercial.derived.capitalNeededAboveUsd,
+        ).needed;
         const state = {
           stageKey: q.stageKey,
           status: q.status as QuoteState['status'],
@@ -211,7 +223,8 @@ export class PricingService {
           productSummary: productSummary(q),
           g2Outcome: row.g2Outcome,
           g2OutcomeLabel: g2Label(row.g2Outcome),
-          g2Flag: (FLAGGED_G2_OUTCOMES as readonly string[]).includes(row.g2Outcome ?? ''),
+          g2Flag: flaggedForCapitalOrRisk({ g2Outcome: row.g2Outcome, capitalNeeded }),
+          capitalNeeded,
           capitalReadiness: values?.capitalReadiness ?? null,
           priceApproved: status.approved,
           priceApprovedAt: iso(status.approvedAt),
@@ -236,6 +249,7 @@ export class PricingService {
           score: summary.priority.score,
           activeMsInStage: item.activeMsInStage,
           g2Outcome: row.g2Outcome,
+          capitalNeeded,
           capitalReadiness: item.capitalReadiness ?? null,
           priceApproved: status.approved,
           productFamily: q.productFamily,
@@ -295,9 +309,7 @@ export class PricingService {
               openAssigned: all.filter((e) => e.assignedPricerId === u.id).length,
             }))
           : [],
-        g2Outcomes: workflow.outcomes
-          .filter((o) => o.gateKey === 'G2')
-          .map((o) => ({ key: o.key, label: o.label })),
+        g2Outcomes: g2FilterOptions(workflow),
         // Belt and braces: everyone on this route reads commercial fields, but redact anyway.
         items: filtered.map((e) => redact(e.item, actor)),
       };
@@ -675,12 +687,14 @@ export class PricingService {
       const loaded = await this.load(tx, quoteNumber);
       // FB-01 (F-001): locked after G3 for every role, until a send-back reopens it.
       await assertSectionUnlocked(tx, 'pricing', loaded.state);
+      // FB-17 (W13-22): "Not required" is refused when Engineering says capital is needed (the
+      // preliminary capital, or a decision recorded as "Advance – capital required").
       const plan = planCapitalReadiness(
         actor,
         loaded.state,
         loaded.current,
         body,
-        (loaded.state.fields.g2_outcome as string | null | undefined) ?? null,
+        capitalNeed(loaded.state.fields, await loadCapitalNeededAboveUsd(tx)).byEngineering,
       );
       if (!plan.ok) fail(plan.errors);
       await this.apply(tx, actor, meta, loaded, plan, now);

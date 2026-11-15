@@ -14,7 +14,9 @@ import { SectionLockView } from './problem';
  */
 export const BUDGETARY_CAPITAL_LABEL =
   'Budgetary capital estimate (USD): preliminary, includes contingency';
-export const BUDGETARY_CAPITAL_HELP = 'A rough estimate for quoting. It is firmed up after award.';
+// FB-17 (W13-22): G2 needs the figure, and a figure above $0 means capital is needed, so $0 is an answer.
+export const BUDGETARY_CAPITAL_HELP =
+  'A rough estimate for quoting. It is firmed up after award. Enter 0 when no capital is needed.';
 
 const text = (max: number) => z.string().trim().max(max).nullable();
 /** A pack-out count: a whole number from 1 to 9,999,999 (the domain's PACK_OUT_MAX). */
@@ -219,8 +221,13 @@ export const EquipmentBomView = z.object({
   versions: z.array(EquipmentBomFile),
   /** The caller may upload or replace it now (the review's editors, while it is open and unlocked). */
   canUpload: z.boolean(),
-  /** G2 "Advance – capital required" needs the BOM (the rule is in the gate's config). */
+  /**
+   * FB-17 (W13-22): a G2 Advance needs the BOM when capital is needed. True while a G2 outcome that can
+   * still be chosen carries the rule in its config (before FB-17: "Advance – capital required").
+   */
   requiredForCapital: z.boolean(),
+  /** FB-17: "Required to advance when preliminary capital is above $0" (the threshold is a setting). */
+  requiredWhenText: z.string(),
 });
 export type EquipmentBomView = z.infer<typeof EquipmentBomView>;
 

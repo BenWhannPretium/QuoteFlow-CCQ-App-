@@ -170,6 +170,12 @@ export const QuotingDetail = z.object({
       note: z.string().nullable(),
     })
     .nullable(),
+  /**
+   * FB-17 (W13-22): Engineering says capital is needed: the preliminary capital is above
+   * `capital_needed_above_usd`, or the quote was decided "Advance – capital required" before that
+   * outcome was switched off. Capital readiness then cannot be "Not required". Not a figure.
+   */
+  capitalNeeded: z.boolean(),
   /** The current version's record; absent for roles without commercial access. */
   pricingRecord: PricingRecordView.nullable().optional(),
   /** Prior versions' records (history, newest first); absent for roles without commercial access. */

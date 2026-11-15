@@ -27,6 +27,7 @@ import {
   additionalApprovalErrors,
   DomainError as DomainErrorClass,
   ENG_QUEUE_STAGE_KEY,
+  HISTORICAL_CAPITAL_OUTCOME,
   asUserId,
   awardDetailErrors,
   isValidityLapsed,
@@ -37,6 +38,7 @@ import {
   can,
   canApproveCapacityInDecision,
   capacityApprovalErrors,
+  capitalNeed,
   evaluateTransition,
   exceptionNoteErrors,
   isForwardOutcome,
@@ -50,6 +52,7 @@ import {
   withDerivedFields,
   type Actor,
   type DomainError,
+  type PlannedActivityEvent,
   type ProposalReleasePlan,
   type PlannedNotification,
   type PricingRecordValues,
@@ -60,7 +63,7 @@ import {
 } from '@ccq/domain';
 
 import { writeCapacitySignoff } from './capacity-signoff';
-import { finalReviewChecks } from './commercial';
+import { finalReviewChecks, sendCapitalNotice } from './commercial';
 import { onEngQueueArrival } from './engineering-arrival';
 import { deliverDecisionNotifications } from './handoff-notifications';
 import type { AuditMeta } from './intake';
@@ -68,6 +71,7 @@ import { onCustomerOutcome } from './outcome';
 import { onPricingArrival, recordColumns, recordValues } from './pricing-view';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
 import type { ScoringService } from './scoring';
+import { recordAudit } from '../plugins/audit';
 
 export type GateWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
@@ -256,8 +260,10 @@ export class GateService {
         }
       }
       // B-26: a named hold owner must be an active user.
+      let holdOwnerName: string | null = null;
       if (body.holdOwnerId !== undefined) {
         const [owner] = await listUsersByIds(tx, [body.holdOwnerId]);
+        holdOwnerName = owner?.displayName ?? null;
         if (!owner?.active) {
           extraErrors.push(
             new DomainErrorClass(
@@ -449,7 +455,11 @@ export class GateService {
                 review: {
                   warnings: [
                     ...(reviewChecks?.warnings ?? []),
-                    ...finalReviewWarnings(state, before.warnings),
+                    ...finalReviewWarnings(
+                      state,
+                      before.warnings,
+                      ctx.commercial.derived.capitalNeededAboveUsd,
+                    ),
                   ],
                   // FB-01 (F-069): the terms and Legal review as the approver saw them.
                   termsAndLegal: reviewChecks?.termsAndLegal ?? null,
@@ -495,7 +505,33 @@ export class GateService {
           },
         },
       };
-      const effects: TransitionEffects = { ...planned, gateDecisionRecord: decisionRecord };
+      // FB-17 (W13-26): the timeline's hold entry names the owner and the reason in words, as they
+      // were when the hold was placed (the domain plans the ids and codes; names are looked up here).
+      const decidedOutcome = workflow.outcomes.find(
+        (o) => o.gateKey === gateKey && o.key === body.outcomeKey,
+      );
+      const holdReasonLabel =
+        workflow.reasonCodes.find(
+          (r) =>
+            r.code === planned.gateDecisionRecord.reasonCode &&
+            r.context === decidedOutcome?.reasonContext,
+        )?.label ?? null;
+      const withDetail = (e: PlannedActivityEvent, detail: Record<string, unknown>) => ({
+        ...e,
+        payload: { ...e.payload, ...detail },
+      });
+      const activityEvents = planned.activityEvents.map((e) =>
+        e.type === 'hold_started'
+          ? withDetail(e, { ownerName: holdOwnerName, reasonLabel: holdReasonLabel })
+          : e.type === 'hold_ended'
+            ? withDetail(e, { outcomeLabel: decidedOutcome?.label ?? null })
+            : e,
+      );
+      const effects: TransitionEffects = {
+        ...planned,
+        activityEvents,
+        gateDecisionRecord: decisionRecord,
+      };
 
       // FB-16 (W13-18): the lead's capacity approval, recorded first (its own timeline entry and audit
       // row), then the decision. One transaction: neither exists without the other.
@@ -598,11 +634,56 @@ export class GateService {
         },
         undefined,
       );
-      // B-10: e.g. G2 "Capital required" starts Pricing's capital readiness on pending (config).
-      const readiness = ((await getSetting<Record<string, string>>(
-        tx,
-        'capital_readiness_on_outcome',
-      )) ?? {})[`${gateKey}:${body.outcomeKey}`];
+      // FB-17 (W13-22): capital is no longer a choice at G2. When a decision moves the quote on out of
+      // Engineering and the preliminary capital says capital is needed (`eng_capital_needed`, from
+      // app_setting `capital_needed_above_usd`), the quote is flagged "capital likely" (so G3 asks for
+      // capital readiness and the payback step applies), Capital Management gets its early notice, and
+      // Pricing's capital readiness starts on pending. Audited, and on the timeline. The switched-off
+      // "Advance – capital required" is left to the setting below, as before.
+      const capitalNeededNow =
+        gate.stageKey === ENG_QUEUE_STAGE_KEY &&
+        body.outcomeKey !== HISTORICAL_CAPITAL_OUTCOME &&
+        isForwardOutcome(workflow, gateKey, body.outcomeKey) &&
+        state.fields.eng_capital_needed === true;
+      if (capitalNeededNow) {
+        const { prelimCapitalUsd } = capitalNeed(
+          state.fields,
+          ctx.commercial.derived.capitalNeededAboveUsd,
+        );
+        const alreadyFlagged = row.quote.capitalLikely;
+        if (!alreadyFlagged) {
+          await updateQuote(tx, row.quote.id, {
+            capitalLikely: true,
+            capitalLikelySetBy: actor.userId,
+            capitalLikelySetAt: now,
+          });
+          await recordAudit(tx, actor, meta, {
+            action: 'update',
+            entity: 'quote',
+            entityId: row.quote.id,
+            quoteId: row.quote.id,
+            before: { capitalLikely: false },
+            after: { capitalLikely: true, source: `gate:${gateKey}`, prelimCapitalUsd },
+            at: now,
+          });
+          await sendCapitalNotice(tx, ctx.commercial, row.quote, actor.userId, now);
+        }
+        await insertActivityEvent(tx, {
+          quoteId: row.quote.id,
+          type: 'capital_needed',
+          actorId: actor.userId,
+          at: now,
+          payload: { gateKey, prelimCapitalUsd, capitalLikelySet: !alreadyFlagged },
+          createdBy: actor.userId,
+        });
+      }
+      // B-10: e.g. G2 "Capital required" starts Pricing's capital readiness on pending (config). FB-17:
+      // that outcome is switched off; the lookup stays so it behaves as before wherever it is still on.
+      const readinessByOutcome =
+        (await getSetting<Record<string, string>>(tx, 'capital_readiness_on_outcome')) ?? {};
+      const readiness =
+        readinessByOutcome[`${gateKey}:${body.outcomeKey}`] ??
+        (capitalNeededNow ? 'pending' : null);
       if (readiness) {
         const pricing = await getPricingRecord(tx, row.quote.id);
         const current = recordValues(pricing);
@@ -684,6 +765,7 @@ export class GateService {
 function finalReviewWarnings(
   state: QuoteState,
   qualification: readonly { code: string; message: string }[],
+  capitalNeededAboveUsd: number | undefined,
 ) {
   const pricing = pricingEvidence(state);
   const capacity = state.fields.capacity_evidence;
@@ -692,6 +774,8 @@ function finalReviewWarnings(
     quoting: quotingWarnings(pricing),
     g2Outcome: (state.fields.g2_outcome as string | null | undefined) ?? null,
     g2Note: null,
+    // FB-17 (W13-22): capital needed, from the figure, the flag or an old "capital required".
+    capital: capitalNeed(state.fields, capitalNeededAboveUsd),
     priceApproved: !!pricing?.priceApprovedBy && !!pricing.priceApprovedAt,
     capacityEvidenceRows: Array.isArray(capacity) ? capacity.length : 0,
     requirement: null,

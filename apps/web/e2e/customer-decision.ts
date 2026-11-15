@@ -40,7 +40,8 @@ export async function quoteInCustomerDecision(
     plantCode: 'AURORA',
     cavitation: 8,
     cycleTimeS: 14.5,
-    prelimCapitalUsd: 180000,
+    // FB-17 (W13-22): G2 needs a preliminary capital figure; $0 means no capital is needed.
+    prelimCapitalUsd: 0,
   });
   await put('capacity-evidence', 'eng-lead', {
     rows: [

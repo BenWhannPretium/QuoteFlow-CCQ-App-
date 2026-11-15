@@ -18,7 +18,12 @@ export function decisionLabel(gateKey: string, gateLabel?: string | null): strin
   return DECISION_LABELS[gateKey] ?? `Decide: ${gateLabel ?? gateKey}`;
 }
 
-/** The outcomes that move a quote forward out of a work stage (the rest hold it, send it back or stop it). */
+/**
+ * The gates decided on a work tab (Engineering, Quoting). FB-17 (W13-23): an outcome moves the quote
+ * forward when its group is `advance` (config, on every available action). The keys listed here are read
+ * only for an action that carries no group; `capital_required` stays listed for that case although the
+ * outcome is switched off (W13-22) and no longer offered.
+ */
 const FORWARD_OUTCOMES: Record<string, readonly string[]> = {
   G2: ['proceed', 'proceed_with_risk', 'capital_required'],
   G3: ['submit'],
@@ -27,6 +32,7 @@ const FORWARD_OUTCOMES: Record<string, readonly string[]> = {
 interface ActionLike {
   gateKey: string;
   outcomeKey: string;
+  outcomeGroup?: string | null;
   missing: readonly { field: string; message: string }[];
 }
 
@@ -43,11 +49,13 @@ export function forwardReadiness(
   const forGate = actions.filter((a) => a.gateKey === gateKey);
   const forwardKeys = FORWARD_OUTCOMES[gateKey];
   if (!forwardKeys) return { ready: true, missing: [], others: [] };
-  const forward = forGate.filter((a) => forwardKeys.includes(a.outcomeKey));
+  const isForward = (a: ActionLike) =>
+    a.outcomeGroup ? a.outcomeGroup === 'advance' : forwardKeys.includes(a.outcomeKey);
+  const forward = forGate.filter(isForward);
   return {
     ready: forward.some((a) => a.missing.length === 0),
     // What the plain "advance" outcome (the first one) still needs.
     missing: forward[0]?.missing ?? [],
-    others: forGate.filter((a) => !forwardKeys.includes(a.outcomeKey)).map((a) => a.outcomeKey),
+    others: forGate.filter((a) => !isForward(a)).map((a) => a.outcomeKey),
   };
 }

@@ -131,7 +131,7 @@ export const pricingRoutes: FastifyPluginAsyncZod<{ service: PricingService }> =
       schema: {
         tags: ['pricing'],
         summary:
-          'Set capital readiness (not_required | pending | pre_approved | not_approved), CER reference and notes. Cannot be not_required after a G2 "Capital required"',
+          'Set capital readiness (not_required | pending | pre_approved | not_approved), CER reference and notes. Cannot be not_required while Engineering says capital is needed (the preliminary capital, or an old G2 "Capital required")',
         security,
         params: QuoteNumberParams,
         body: CapitalReadinessBody,

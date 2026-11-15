@@ -5,13 +5,19 @@
  * replacing it is a config edit, not a code change.
  */
 
+/**
+ * FB-17 (W13-24, provisional): what Hold is for, on every hold outcome. Zachary Cairns and Bailey Schmitt
+ * (walkthrough 2026-11-13): a hold is a pause, not a way to get something fixed.
+ */
+export const HOLD_HELP =
+  'Pause the quote, for example when the customer asks to revisit it in 6 months. To get something fixed, use Send back to… instead.';
+
 /** `gate/outcome` → definition. */
 export const OUTCOME_HELP: Record<string, string> = {
   // G1 Qualify & prioritize (Sales leadership, with Marketing and upfront Engineering)
   'G1/advance':
     'Pursue it. The quote goes to the prioritized engineering queue with its priority tier, and the engineering lead is told.',
-  'G1/hold':
-    'Pause it in Intake (for example, waiting on the customer). The clock stops. Needs a reason, an owner and a review date.',
+  'G1/hold': HOLD_HELP,
   'G1/rework':
     'Send it back to the KAM to fix the intake. Say exactly what is missing; the KAM resubmits it.',
   'G1/redirect':
@@ -20,12 +26,12 @@ export const OUTCOME_HELP: Record<string, string> = {
   'SUBMIT/submit': 'Send the intake to the engineering queue.',
   // G2 Feasible solution? (upfront Engineering lead; the capacity owner signs off)
   'G2/proceed':
-    'The solution is feasible: the quote goes to Quoting. Needs the solution fields, capacity evidence and the capacity sign-off.',
+    'The solution is feasible: the quote goes to Quoting. Needs the solution fields, capacity evidence, the capacity sign-off and the preliminary capital figure (enter $0 when no capital is needed). When capital is needed, upload the equipment BOM first; Pricing then confirms capital readiness.',
   'G2/proceed_with_risk':
     'Feasible, with a stated risk or condition (say what it is). The quote goes to Quoting and the risk travels with it.',
   'G2/capital_required':
     'Feasible, but capital is needed. Record the budgetary capital estimate (preliminary, includes contingency) and upload the equipment BOM; Pricing then confirms capital readiness before any price is released.',
-  'G2/hold': 'Pause it at this stage. The clock stops. Needs a reason, an owner and a review date.',
+  'G2/hold': HOLD_HELP,
   'G2/rework':
     'Not enough technical information. It goes back to the KAM to get it from the customer; say exactly what is needed.',
   'G2/redirect':
@@ -35,8 +41,7 @@ export const OUTCOME_HELP: Record<string, string> = {
   // G3 Price approved (the pricing lead). FB-07 (D-001, D-031): costing, then ROI, then price confirmation.
   'G3/submit':
     'The pricing lead confirms the price. The costing model is on file and costing is attested; when capital is required ($0 CER included) the payback model is on file too. Optionally upload an updated price table; otherwise the price in the models stands. Capital readiness is recorded separately. The quote goes to Final Review.',
-  'G3/hold':
-    'Pause it in Quoting (for example, capital pre-approval pending). The clock stops. Needs a reason, an owner and a review date.',
+  'G3/hold': HOLD_HELP,
   'G3/recost':
     'Rework the cost: the quote stays in Quoting and the cost sheet is redone (the costing attestation is cleared).',
   'G3/rework':
@@ -49,7 +54,7 @@ export const OUTCOME_HELP: Record<string, string> = {
   // G4 Release proposition (Commercial approver)
   'G4/approve':
     'Release the offer. The KAM issues the proposal and the validity clock starts. Approving is internal: it does not award the quote.',
-  'G4/hold': 'Pause the release. The clock stops. Needs a reason, an owner and a review date.',
+  'G4/hold': HOLD_HELP,
   'G4/return':
     'Send it back to the earliest affected gate (Quoting for price, Engineering for scope). The quote version goes up.',
   'G4/decline':
@@ -62,15 +67,13 @@ export const OUTCOME_HELP: Record<string, string> = {
   'G5/lost': 'The customer chose someone else or cancelled. It closes as Lost, with the reason.',
   'G5/expired':
     'The validity date passed with no answer. Silence is not a loss: it closes as Expired, separately from Lost.',
-  'G5/on_hold':
-    'The customer put it on hold. The Pretium clock stops. Needs a reason, an owner and a review date.',
+  'G5/on_hold': HOLD_HELP,
   'G5/requote':
     'Something changed (scope, volume, resin, terms). It goes back to the affected gate as a new version; nothing is edited silently.',
   // G6 Commit & hand off (B-26)
   'G6/advance':
     'The CER is approved (or not required) and the receiving team accepted the hand-off. The quote closes Won with its linked IDs.',
-  'G6/hold':
-    'Commitment pending (for example, the CER is still with the approvers). Needs a reason, an owner and a review date.',
+  'G6/hold': HOLD_HELP,
   'G6/requote':
     'Something changed since the quote (scope, volume, resin, site, capacity). It goes back to the affected gate as a new version.',
   'G6/stop':

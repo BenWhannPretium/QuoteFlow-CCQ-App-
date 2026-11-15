@@ -161,6 +161,21 @@ describe('content', () => {
     const hold = renderEmail(model('quote.on_hold', { payload: FIXTURES['quote.on_hold']! }));
     expect(hold.text).toContain('You are the hold owner.');
     expect(hold.text).toContain('Review date: 2026-12-01.');
+    // FB-17 (W13-25): the owner is not told their own name; everyone else (the KAM) is told who it is.
+    expect(hold.text).not.toContain('Owner:');
+    const kam = renderEmail(
+      model('quote.on_hold', {
+        payload: {
+          owner: 'other',
+          ownerName: 'Erin Example',
+          reason: 'Awaiting internal input',
+          reviewDate: '2026-12-01',
+        },
+      }),
+    );
+    expect(kam.text).toContain(
+      'It was put on hold. Owner: Erin Example. Reason: Awaiting internal input. Review date: 2026-12-01.',
+    );
   });
 
   it('says why a quote came back and what the action is', () => {

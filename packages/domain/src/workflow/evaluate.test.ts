@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { engCapitalNeeded } from '../engineering/capital-needed';
 import { KAM_ID, NOW, OTHER_ID, makeActor, makeQuote, validCase } from '../test-utils';
 import { evaluateTransition } from './evaluate';
 import type { TransitionRequest } from './evaluate';
@@ -38,6 +39,14 @@ describe.each(PRESETS)('%s: every gate × outcome × role', (_name, config) => {
 
         for (const role of ROLES) {
           const allowed = gate.enabled && ALLOWED[gate.key]!.includes(role);
+          // FB-17 (W13-22): a switched-off outcome is refused for every role, the decider included.
+          if (!outcome.active) {
+            it(`${role} is refused: the outcome is switched off`, () => {
+              const result = evaluateTransition(config, quote, makeActor(role), request, NOW);
+              expect(!result.ok && result.errors.map((e) => e.code)).toEqual(['OUTCOME_INACTIVE']);
+            });
+            continue;
+          }
           it(`${role} ${allowed ? 'is allowed' : 'is denied'}`, () => {
             const result = evaluateTransition(config, quote, makeActor(role), request, NOW);
             if (allowed) {
@@ -91,7 +100,6 @@ describe('hybrid: routing', () => {
     ['G1', 'stop', 'SalesLeader', 'DECLINED'],
     ['G2', 'proceed', 'EngLead', 'QUOTING'],
     ['G2', 'proceed_with_risk', 'EngLead', 'QUOTING'],
-    ['G2', 'capital_required', 'EngLead', 'QUOTING'],
     ['G3', 'submit', 'PricingLead', 'FINAL_REVIEW'],
     ['G4', 'approve', 'Approver', 'CUSTOMER_DECISION'],
     ['G4', 'decline', 'Approver', 'DECLINED'],
@@ -333,74 +341,104 @@ describe('validation: all errors, in order', () => {
       ['MISSING_FIELD', 'capacity_signoff_status'],
       // DR-engineering-02: no capacity row may lack its utilization after.
       ['MISSING_FIELD', 'capacity_utilization_missing'],
+      // FB-17 (W13-22): the preliminary capital figure, and the BOM while capital is not ruled out.
+      ['MISSING_FIELD', 'prelim_capital_usd'],
+      ['MISSING_FIELD', 'eng_capital_needed,equipment_bom_on_file'],
     ]);
   });
 
-  it('G2 "Capital required" needs the capital figure (B-10), the capacity sign-off (B-26) and the equipment BOM (FB-06)', () => {
-    const run = (fields: Record<string, unknown>) =>
+  // FB-17 (W13-22): "Advance – capital required" is switched off. What it proved (the capital figure,
+  // the capacity sign-off and the equipment BOM) is now proved on the Advance outcomes: capital is
+  // needed when the preliminary capital is above the threshold, and then the BOM is required.
+  describe('G2 Advance: the capital figure, and the equipment BOM when capital is needed', () => {
+    const feasible = {
+      process_type: 'ISBM',
+      machine_type: 'ISBM_1STEP',
+      plant_code: 'AURORA',
+      cavitation: 4,
+      cycle_time_s: 12,
+      capacity_evidence: [{}],
+      capacity_signoff_status: 'approved',
+      capacity_utilization_missing: false,
+    };
+    /** The fields as the server hands them over: `eng_capital_needed` derived from the figure. */
+    const withFact = (fields: Record<string, unknown>) => ({
+      ...fields,
+      eng_capital_needed: engCapitalNeeded(fields.prelim_capital_usd, 0),
+    });
+    const run = (fields: Record<string, unknown>, outcomeKey = 'proceed') =>
       evaluateTransition(
         hybridConfig,
-        makeQuote('ENG_REVIEW', { fields }),
+        makeQuote('ENG_REVIEW', { fields: withFact({ ...feasible, ...fields }) }),
         makeActor('EngLead'),
-        { gateKey: 'G2', outcomeKey: 'capital_required', ...note },
+        { gateKey: 'G2', outcomeKey, note: 'Second cavity set needed' },
         NOW,
       );
-    let note: { note?: string } = {};
-    const missing = run({});
-    // FB-01 (F-027): "Capital required" is an exception decision, so it needs a note too.
-    expect(!missing.ok && missing.errors.map((e) => [e.code, e.field])).toEqual([
-      ['MISSING_FIELD', 'prelim_capital_usd'],
-      ['MISSING_FIELD', 'capacity_signoff_status'],
-      ['MISSING_FIELD', 'equipment_bom_on_file'],
-      ['MISSING_FIELD', 'capacity_utilization_missing'],
-      ['NOTE_REQUIRED', 'note'],
-    ]);
-    note = { note: 'Second cavity set needed' };
-    const bom = { equipment_bom_on_file: true, capacity_utilization_missing: false };
-    const blocked = run({
-      prelim_capital_usd: 250_000,
-      capacity_signoff_status: 'blocked',
-      ...bom,
-    });
-    expect(!blocked.ok && blocked.errors.map((e) => e.field)).toEqual(['capacity_signoff_status']);
-    // FB-06 (F-058): no BOM on file (or a field the loader did not supply: fail closed) stops it.
-    const noBom = run({
-      prelim_capital_usd: 250_000,
-      capacity_signoff_status: 'approved',
-      capacity_utilization_missing: false,
-    });
-    expect(!noBom.ok && noBom.errors.map((e) => e.field)).toEqual(['equipment_bom_on_file']);
-    const notOnFile = run({
-      prelim_capital_usd: 250_000,
-      capacity_signoff_status: 'approved',
-      equipment_bom_on_file: false,
-      capacity_utilization_missing: false,
-    });
-    expect(!notOnFile.ok && notOnFile.errors.map((e) => e.field)).toEqual([
-      'equipment_bom_on_file',
-    ]);
-    const ok = run({ prelim_capital_usd: 250_000, capacity_signoff_status: 'approved', ...bom });
-    expect(ok.ok && ok.effects.nextStageKey).toBe('QUOTING');
-    // The other feasible outcomes do not need the BOM.
-    const proceed = evaluateTransition(
-      hybridConfig,
-      makeQuote('ENG_REVIEW', {
-        fields: {
-          process_type: 'ISBM',
-          machine_type: 'ISBM_1STEP',
-          plant_code: 'AURORA',
-          cavitation: 4,
-          cycle_time_s: 12,
-          capacity_evidence: [{}],
-          capacity_signoff_status: 'approved',
-          capacity_utilization_missing: false,
-        },
-      }),
-      makeActor('EngLead'),
-      { gateKey: 'G2', outcomeKey: 'proceed' },
-      NOW,
+    const fieldsOf = (r: ReturnType<typeof run>) => !r.ok && r.errors.map((e) => e.field);
+    const BOM_RULE = 'eng_capital_needed,equipment_bom_on_file';
+
+    it.each(['proceed', 'proceed_with_risk'])(
+      '%s: a blank figure is refused, and never read as "no capital"',
+      (outcomeKey) => {
+        // Blank counts as capital needed (fail closed), so the BOM is asked for as well.
+        expect(fieldsOf(run({}, outcomeKey))).toEqual(['prelim_capital_usd', BOM_RULE]);
+        expect(fieldsOf(run({ prelim_capital_usd: null }, outcomeKey))).toEqual([
+          'prelim_capital_usd',
+          BOM_RULE,
+        ]);
+      },
     );
-    expect(proceed.ok).toBe(true);
+
+    it.each(['proceed', 'proceed_with_risk'])(
+      '%s: $0 means no capital is needed, so no BOM is asked for',
+      (outcomeKey) => {
+        const ok = run({ prelim_capital_usd: 0 }, outcomeKey);
+        expect(ok.ok && ok.effects.nextStageKey).toBe('QUOTING');
+      },
+    );
+
+    it.each(['proceed', 'proceed_with_risk'])(
+      '%s: capital needed needs the equipment BOM (FB-06, F-058)',
+      (outcomeKey) => {
+        // No BOM on file (or a field the loader did not supply: fail closed) stops it.
+        expect(fieldsOf(run({ prelim_capital_usd: 250_000 }, outcomeKey))).toEqual([BOM_RULE]);
+        expect(
+          fieldsOf(run({ prelim_capital_usd: 250_000, equipment_bom_on_file: false }, outcomeKey)),
+        ).toEqual([BOM_RULE]);
+        const ok = run({ prelim_capital_usd: 250_000, equipment_bom_on_file: true }, outcomeKey);
+        expect(ok.ok && ok.effects.nextStageKey).toBe('QUOTING');
+      },
+    );
+
+    it('a derived fact the server did not supply fails closed: the BOM is required', () => {
+      const result = evaluateTransition(
+        hybridConfig,
+        makeQuote('ENG_REVIEW', { fields: { ...feasible, prelim_capital_usd: 0 } }),
+        makeActor('EngLead'),
+        { gateKey: 'G2', outcomeKey: 'proceed' },
+        NOW,
+      );
+      expect(!result.ok && result.errors.map((e) => e.field)).toEqual([BOM_RULE]);
+    });
+
+    it('still needs the capacity sign-off (B-26): a block stops it, with or without capital', () => {
+      const blocked = run({
+        prelim_capital_usd: 250_000,
+        equipment_bom_on_file: true,
+        capacity_signoff_status: 'blocked',
+      });
+      expect(fieldsOf(blocked)).toEqual(['capacity_signoff_status']);
+    });
+
+    it('"Advance – capital required" itself is refused, however complete the quote is', () => {
+      const result = run(
+        { prelim_capital_usd: 250_000, equipment_bom_on_file: true },
+        'capital_required',
+      );
+      expect(!result.ok && result.errors.map((e) => [e.code, e.field])).toEqual([
+        ['OUTCOME_INACTIVE', 'outcomeKey'],
+      ]);
+    });
   });
 
   it('DR-engineering-02: G2 Advance is refused while utilization after cannot be calculated', () => {
@@ -413,6 +451,9 @@ describe('validation: all errors, in order', () => {
       capacity_evidence: [{ assumed_effectiveness_pct: 0, utilization_after_pct: null }],
       capacity_signoff_status: 'approved',
       capacity_utilization_missing: true,
+      // FB-17: no capital needed, so the utilization is the only thing in the way.
+      prelim_capital_usd: 0,
+      eng_capital_needed: false,
     };
     for (const outcomeKey of ['proceed', 'proceed_with_risk']) {
       const res = evaluateTransition(
@@ -837,10 +878,33 @@ describe('hold accounting', () => {
     ]);
   });
 
+  it('FB-17 (W13-26): the hold event says who owns it, why, the note and the review date', () => {
+    const result = hold('G2', 'hold', 'EngLead', 'active', {
+      reasonCode: 'awaiting_internal_input',
+      note: 'Waiting on the resin trial',
+      payload: { review_date: '2026-12-01', hold_owner_id: 'user-engineer' },
+    });
+    expect(
+      result.ok && result.effects.activityEvents.find((e) => e.type === 'hold_started')?.payload,
+    ).toEqual({
+      stageKey: 'ENG_REVIEW',
+      reasonCode: 'awaiting_internal_input',
+      gateKey: 'G2',
+      outcomeKey: 'hold',
+      note: 'Waiting on the resin trial',
+      ownerId: 'user-engineer',
+      reviewDate: '2026-12-01',
+    });
+  });
+
   it('a decision from on_hold that resumes work closes the interval', () => {
     const result = hold('G2', 'proceed', 'EngLead', 'on_hold');
     expect(result.ok && result.effects.hold).toEqual({ action: 'end', at: NOW });
     expect(result.ok && result.effects.activityEvents.map((e) => e.type)).toContain('hold_ended');
+    // FB-17 (W13-26): the end names the decision that ended it (holds end by a decision, never a date).
+    expect(
+      result.ok && result.effects.activityEvents.find((e) => e.type === 'hold_ended')?.payload,
+    ).toEqual({ stageKey: 'ENG_REVIEW', gateKey: 'G2', outcomeKey: 'proceed' });
   });
 
   it('closing from on_hold also closes the interval', () => {

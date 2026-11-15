@@ -145,7 +145,8 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     route: '/api/v1/admin/config/gates/:gateKey/outcomes/:key',
     url: '/api/v1/admin/config/gates/G1/outcomes/no_such_outcome',
     permission: 'config.manage',
-    sampleBody: { version: 1, changeReason: 'matrix test', label: 'x' },
+    // FB-17 (W13-22): the same route switches an outcome on or off, so the matrix posts the toggle.
+    sampleBody: { version: 1, changeReason: 'matrix test', label: 'x', active: false },
   },
   { method: 'GET', route: '/api/v1/admin/config/settings', permission: 'config.read' },
   {

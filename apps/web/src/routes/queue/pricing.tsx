@@ -1,4 +1,5 @@
 import type { PricingQueueItem, PricingQueueResponse } from '@ccq/contracts';
+import { g2DecisionText } from '@ccq/domain';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -149,7 +150,7 @@ function Counts({ data }: { data: PricingQueueResponse }) {
   const chips = [
     { key: 'awaiting', label: 'Awaiting price approval', n: data.counts.awaitingApproval },
     { key: 'capital', label: 'Capital pending', n: data.counts.capitalPending },
-    { key: 'flagged', label: 'Capital required / with risk', n: data.counts.flagged },
+    { key: 'flagged', label: 'Capital needed / with risk', n: data.counts.flagged },
   ];
   return (
     <ul className="flex flex-wrap gap-2" data-testid="pricing-counts">
@@ -460,7 +461,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
               data-testid="g2-outcome"
             >
               {q.g2Flag && <TriangleAlertIcon className="size-3" aria-hidden="true" />}
-              {q.g2OutcomeLabel}
+              {g2DecisionText(q)}
             </span>
           );
         },

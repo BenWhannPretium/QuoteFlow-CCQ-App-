@@ -39,6 +39,13 @@ export const PublicGateOutcome = z.object({
   requiresNote: z.boolean(),
   requiresReasonCode: z.boolean(),
   reasonContext: z.string().nullable(),
+  /**
+   * FB-17 (W13-22): false = switched off. It is still listed, so a decision recorded with it keeps its
+   * label on the timeline and in every list; it is no longer offered as a choice.
+   */
+  active: z.boolean(),
+  /** FB-17 (W13-23): the choice the decision dialog shows it under; null = none set. */
+  outcomeGroup: z.string().nullable(),
   sort: z.number().int(),
   provisional: z.boolean(),
 });
@@ -121,4 +128,8 @@ export const PUBLIC_SETTING_KEYS = [
   'machine_type_process_map',
   'two_step_plant_machine_types',
   'pack_out_rule',
+  // FB-17 (W13-22, W13-25; provisional): when capital is needed (the Engineering tab says when the
+  // equipment BOM is required) and who the hold-owner picker starts on.
+  'capital_needed_above_usd',
+  'hold_owner_default',
 ] as const;

@@ -180,6 +180,10 @@ export const AdminOutcome = z.object({
   requiresReasonCode: z.boolean(),
   reasonContext: z.string().nullable(),
   requiredFields: z.array(z.unknown()),
+  /** FB-17 (W13-22): a switched-off outcome is not offered or accepted; old decisions keep its label. */
+  active: z.boolean(),
+  /** FB-17 (W13-23): the choice the decision dialog shows it under; null = none set. Read-only here. */
+  outcomeGroup: z.string().nullable(),
   sort: z.number().int(),
   approval: Approval,
 });
@@ -218,6 +222,11 @@ export const UpdateOutcomeBody = z.object({
   requiresNote: z.boolean().optional(),
   requiresReasonCode: z.boolean().optional(),
   requiredFields: z.array(z.unknown()).optional(),
+  /**
+   * FB-17 (W13-22): switch the outcome on or off. Refused (422) when it would leave the gate with no
+   * active Advance outcome.
+   */
+  active: z.boolean().optional(),
 });
 export type UpdateOutcomeBody = z.infer<typeof UpdateOutcomeBody>;
 

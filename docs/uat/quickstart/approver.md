@@ -8,7 +8,7 @@
 
 1. **Open the queue.** **Approvals** → **Final Review**. Each card shows price approval, capital readiness, the G2 outcome, the KAM and the pricing approver.
 2. **Review.** Click **Review & decide**: the request, the priority, the engineering solution and capacity evidence, the price approval, capital readiness, files and decisions so far.
-3. **Decide.** Use the bar at the bottom: **Advance (release the offer)**, **Hold**, **Rework (back to the affected gate)** or **Stop (withdraw)**. Stop needs a reason and a note. Rework needs a reason, a note and where it goes back to. Hold needs a note and a review date.
+3. **Decide.** Use the bar at the bottom: **Advance (release the offer)**, **Hold**, **Send back to Quoting or Engineering** or **Stop (withdraw)**. Stop needs a reason and a note. A send-back needs a reason, a note and where it goes (**Send to**). Hold needs a note and a review date.
 4. **Check the validity.** Advance sets the proposal issue date (now by default) and the valid-until date.
 
 ## What changed from the ERF

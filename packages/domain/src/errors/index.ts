@@ -56,6 +56,8 @@ export const DOMAIN_ERROR_CODES = [
   'OUT_OF_ORDER',
   // DR-cross-cutting-04: a hold on a quote that is already on hold.
   'ALREADY_ON_HOLD',
+  // FB-17 (W13-22): the outcome was switched off (`gate_outcome_definition.active` = false).
+  'OUTCOME_INACTIVE',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

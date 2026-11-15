@@ -379,16 +379,18 @@ export interface CapitalReadinessInput {
 
 /**
  * Capital readiness (CR-26): `not_required | pending | pre_approved | not_approved`, an optional CER
- * reference and notes. When Engineering's latest G2 outcome was "Capital required" it cannot be
- * `not_required`. The "pending capital" justification only means something while pending, so it is
- * cleared otherwise.
+ * reference and notes. When Engineering says capital is needed it cannot be `not_required`. FB-17
+ * (W13-22): that is `capitalNeed(...).byEngineering`, the preliminary capital above the threshold or a
+ * quote decided "Advance – capital required" before that outcome was switched off. The "capital likely"
+ * flag alone does not count here: the G3 rule lets Pricing answer it with "Not required" after all.
+ * The "pending capital" justification only means something while pending, so it is cleared otherwise.
  */
 export function planCapitalReadiness(
   actor: Actor,
   quote: PricingQuote,
   current: PricingRecordValues,
   input: CapitalReadinessInput,
-  g2Outcome: string | null,
+  engineeringNeedsCapital: boolean,
 ): PricingRecordPlan {
   const errors = guard(actor, quote);
   if (errors.length > 0) return { ok: false, errors };
@@ -402,11 +404,11 @@ export function planCapitalReadiness(
         'capitalReadiness',
       ),
     );
-  } else if (value === 'not_required' && g2Outcome === 'capital_required') {
+  } else if (value === 'not_required' && engineeringNeedsCapital) {
     errors.push(
       new DomainError(
         'INVALID_VALUE',
-        'Engineering said capital is required, so capital readiness cannot be "Not required"',
+        'Engineering said capital is needed, so capital readiness cannot be "Not required"',
         'capitalReadiness',
       ),
     );

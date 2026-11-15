@@ -30,9 +30,9 @@ describe('G3 "Rework (back to KAM)" (F-029)', () => {
     (t) => t.gateKey === 'G3' && t.outcomeKey === 'rework_kam',
   )!;
 
-  it('is offered at G3 next to "Rework (back to Engineering)"', () => {
+  it('is offered at G3 next to "Send back to Engineering" (FB-17 relabelled both)', () => {
     expect(outcome).toMatchObject({
-      label: 'Rework (back to KAM)',
+      label: 'Send back to the KAM',
       requiresNote: true,
       requiresReasonCode: true,
       reasonContext: 'rework',
@@ -41,7 +41,7 @@ describe('G3 "Rework (back to KAM)" (F-029)', () => {
     });
     expect(outcome.helpText).toMatch(/straight back to Quoting/);
     expect(hybridConfig.outcomes.find((o) => o.gateKey === 'G3' && o.key === 'rework')?.label).toBe(
-      'Rework (back to Engineering)',
+      'Send back to Engineering',
     );
     expect(transition).toMatchObject({
       targetStageKeys: ['INTAKE'],

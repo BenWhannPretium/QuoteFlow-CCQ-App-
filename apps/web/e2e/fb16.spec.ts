@@ -39,6 +39,8 @@ async function inEngineering(request: Parameters<typeof submitQuote>[0]) {
     machineType: 'EBM',
     cavitation: 8,
     cycleTimeS: 14.5,
+    // FB-17 (W13-22): the engineer's part includes the capital figure; $0 means no capital is needed.
+    prelimCapitalUsd: 0,
   });
   return { quoteNumber, call, engineer, scheduler };
 }

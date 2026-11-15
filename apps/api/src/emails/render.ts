@@ -218,6 +218,8 @@ const COPY: Record<string, Copy> = {
     action: (p) =>
       sentence(
         p.owner === 'you' ? 'You are the hold owner.' : 'It was put on hold.',
+        // FB-17 (W13-25): the KAM is told who owns the hold.
+        p.owner !== 'you' && p.ownerName ? `Owner: ${p.ownerName}.` : undefined,
         p.reason ? `Reason: ${p.reason}.` : undefined,
         p.reviewDate ? `Review date: ${p.reviewDate}.` : undefined,
       ),

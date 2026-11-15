@@ -277,6 +277,7 @@ export function gateActionsFor(
       requiresNoteBeforeValidity: noteBeforeValidity,
       requiresHoldOwner: referenced.includes('hold_owner_id'),
       helpText: a.helpText,
+      outcomeGroup: a.outcomeGroup,
       capacityApproval,
     };
   });

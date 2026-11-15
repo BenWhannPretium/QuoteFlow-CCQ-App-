@@ -46,13 +46,13 @@ Each item has a **W13** ID. The build steps cite these IDs. Proposed tracker row
 
 | ID | Feedback | Raised by | Triage | Step |
 |---|---|---|---|---|
-| W13-22 | Remove "Advance – capital required" from G2 (agreed Nov 12) (2:00) | Bailey Schmitt; Ben Whann | Build | FB-17 |
-| W13-23 | Merge Rework and Redirect into one "Send back to…" with a target and a required reason (2:01–2:03) | Bailey Schmitt; Zachary Cairns | Build as provisional | FB-17 |
-| W13-24 | Keep Hold, but make clear it is for a pause (e.g. "customer says revisit in 6 months"), not for a fix (1:58–1:59) | Zachary Cairns; Bailey Schmitt | Build as provisional (help text) | FB-17 |
-| W13-25 | The hold owner showed the KAM, who has nothing to do with capacity. It should be the person responsible for clearing the hold, and they should be notified (1:53, 1:55). *Code check:* the dialog defaults to the decider ("Me") and offers "The KAM"; the decider is never notified | Zachary Cairns; Bailey Schmitt | Build as provisional: offer the stage's assignee (engineer, production scheduler, pricer) and default to them when there is one | FB-17 |
-| W13-26 | A KAM can't see that a quote is on hold. Show an orange "On hold" next to it in the KAM's open quotes and on the timeline (1:51) | Zachary Cairns; Bailey Schmitt | Build | FB-17 (timeline), FB-18 (Command Center) |
-| W13-27 | Stop: remove the "Closure owner" picker. Whoever stops the quote owns the closure (2:13) | Ben Whann; Zachary Cairns | Build | FB-17 |
-| W13-28 | The score explanation popover ("Y") is cut off by the taskbar on a laptop (1:00) | Zachary Cairns | Build | FB-17 |
+| W13-22 | Remove "Advance – capital required" from G2 (agreed Nov 12) (2:00) | Bailey Schmitt; Ben Whann | Build | FB-17. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100 |
+| W13-23 | Merge Rework and Redirect into one "Send back to…" with a target and a required reason (2:01–2:03) | Bailey Schmitt; Zachary Cairns | Build as provisional | FB-17. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100 |
+| W13-24 | Keep Hold, but make clear it is for a pause (e.g. "customer says revisit in 6 months"), not for a fix (1:58–1:59) | Zachary Cairns; Bailey Schmitt | Build as provisional (help text) | FB-17. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100 |
+| W13-25 | The hold owner showed the KAM, who has nothing to do with capacity. It should be the person responsible for clearing the hold, and they should be notified (1:53, 1:55). *Code check:* the dialog defaults to the decider ("Me") and offers "The KAM"; the decider is never notified | Zachary Cairns; Bailey Schmitt | Build as provisional: offer the stage's assignee (engineer, production scheduler, pricer) and default to them when there is one | FB-17. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100 |
+| W13-26 | A KAM can't see that a quote is on hold. Show an orange "On hold" next to it in the KAM's open quotes and on the timeline (1:51) | Zachary Cairns; Bailey Schmitt | Build | FB-17 (timeline), FB-18 (Command Center). The timeline half built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100 |
+| W13-27 | Stop: remove the "Closure owner" picker. Whoever stops the quote owns the closure (2:13) | Ben Whann; Zachary Cairns | Build | FB-17. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100 |
+| W13-28 | The score explanation popover ("Y") is cut off by the taskbar on a laptop (1:00) | Zachary Cairns | Build | FB-17. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/100 |
 
 ## Command Center and screen polish
 

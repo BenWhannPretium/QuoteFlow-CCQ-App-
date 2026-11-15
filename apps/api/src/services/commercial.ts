@@ -27,6 +27,7 @@ import {
   insertG4Signoff,
   insertTermsException,
   listG4Signoffs,
+  listHolds,
   listUsersByIds,
   listValueList,
   loadQuoteState,
@@ -70,6 +71,7 @@ import {
   capitalTermsSegregationMessage,
   derivedDecisionFields,
   g4CheckWarnings,
+  parseCapitalNeededAboveUsd,
   parseCapitalNotice,
   parseG4RequiredChecks,
   parseEscalationRoutes,
@@ -197,6 +199,15 @@ function roiRequiredWhen(input: unknown): RoiRequiredWhen {
   }
 }
 
+/** FB-17 (W13-22): `capital_needed_above_usd`; a malformed value falls back to the seed (0). */
+function capitalNeededAboveUsd(input: unknown): number {
+  try {
+    return parseCapitalNeededAboveUsd(input);
+  } catch {
+    return parseCapitalNeededAboveUsd(null);
+  }
+}
+
 export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSettings> {
   const [
     legal,
@@ -210,6 +221,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
     standardTerms,
     capitalRequired,
     extraApprovals,
+    capitalAbove,
   ] = await Promise.all([
     getSetting(db, 'legal_review_triggers'),
     getSetting(db, 'pricing_pass_through'),
@@ -222,6 +234,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
     getSetting(db, 'standard_payment_terms'),
     getSetting(db, 'capital_terms_required'),
     getSetting(db, 'g4_additional_approvals'),
+    getSetting(db, 'capital_needed_above_usd'),
   ]);
   let additionalApprovals: AdditionalApprovals | null = null;
   let additionalApprovalsError: string | null = null;
@@ -236,6 +249,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
       passThrough: parsePassThrough(passThrough ?? PASS_THROUGH_SEED),
       g4RequiredChecks: g4RequiredChecks(g4Checks),
       roiRequiredWhen: roiRequiredWhen(roiWhen),
+      capitalNeededAboveUsd: capitalNeededAboveUsd(capitalAbove),
     },
     capitalNotice: parseCapitalNotice(capital ?? CAPITAL_NOTICE_SEED),
     marketDev: parseMarketDevNotice(marketDev ?? MARKET_DEV_NOTICE_SEED),
@@ -495,6 +509,33 @@ export async function finalReviewChecks(
   };
 }
 
+/**
+ * FB-17 (W13-26): why the quote is on hold now, in words, so the header reads like the timeline. The
+ * open hold's reason code, looked up in the reason contexts the workflow's hold outcomes use.
+ */
+async function openHoldReasonLabel(
+  db: DbOrTx,
+  q: Quote,
+  workflow: WorkflowConfig,
+): Promise<string | null> {
+  if (q.status !== 'on_hold') return null;
+  const open = (await listHolds(db, q.id)).find((h) => h.endedAt === null);
+  if (!open?.reasonCode) return null;
+  const contexts = new Set(
+    workflow.transitions
+      .filter((t) => t.nextStatus === 'on_hold')
+      .map(
+        (t) =>
+          workflow.outcomes.find((o) => o.gateKey === t.gateKey && o.key === t.outcomeKey)
+            ?.reasonContext,
+      ),
+  );
+  return (
+    workflow.reasonCodes.find((r) => r.code === open.reasonCode && contexts.has(r.context))
+      ?.label ?? open.reasonCode
+  );
+}
+
 /** `QuoteDetail.commercial`. Nothing here is commercial-sensitive (no figures). */
 export async function commercialView(
   db: DbOrTx,
@@ -571,7 +612,11 @@ export async function commercialView(
     },
     additionalApprovals,
     passThroughEligible: derived.pass_through_eligible,
-    hold: { ownerId: q.holdOwnerId, ownerName: name(q.holdOwnerId) },
+    hold: {
+      ownerId: q.holdOwnerId,
+      ownerName: name(q.holdOwnerId),
+      reasonLabel: await openHoldReasonLabel(db, q, workflow),
+    },
     escalation: {
       canEscalate: open && can(actor, 'quote.escalate', state),
       routes: settings.routes.map((r) => ({
@@ -587,8 +632,12 @@ export async function commercialView(
   };
 }
 
-/** Capital Management's early notice, once per quote, when the flag is (first) set. */
-async function sendCapitalNotice(
+/**
+ * Capital Management's early notice, once per quote, when the flag is (first) set: by Sales or upfront
+ * Engineering on the quote (`setCapitalFlag`), or by a G2 Advance whose preliminary capital says capital
+ * is needed (FB-17, the gate service).
+ */
+export async function sendCapitalNotice(
   tx: DbOrTx,
   settings: CommercialSettings,
   q: Quote,

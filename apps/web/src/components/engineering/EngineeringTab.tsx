@@ -129,7 +129,7 @@ export function EngineeringTab({
                     ? () =>
                         onDecide(undefined, {
                           outcomes: forward.others,
-                          title: 'Hold, send back or stop',
+                          title: 'Send back, hold or stop',
                         })
                     : undefined,
               }
@@ -600,7 +600,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
               )}
             </Field>
             <Field
-              label={BUDGETARY_CAPITAL_LABEL}
+              label={req(BUDGETARY_CAPITAL_LABEL, 'prelim_capital_usd')}
               hint={
                 capitalHidden
                   ? `${BUDGETARY_CAPITAL_HELP} Your role cannot see the saved figure. Leave this blank to keep it.`

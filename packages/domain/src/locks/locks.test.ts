@@ -31,8 +31,12 @@ function decided(gateKey: string, outcomeKey: string, targetStageKey?: string): 
   const actor = makeActor(['SalesLeader', 'EngLead', 'PricingLead', 'Approver'], {
     userId: asUserId('user-decider'),
   });
+  // FB-17 (W13-22): a switched-off outcome can no longer be decided, but the decisions already recorded
+  // with it are history that must lock as before. They are replayed as they were decided: switched on.
+  const config = structuredClone(hybridConfig);
+  config.outcomes.find((o) => o.gateKey === gateKey && o.key === outcomeKey)!.active = true;
   const result = evaluateTransition(
-    hybridConfig,
+    config,
     makeQuote(gate.stageKey, { fields: c.fields }),
     actor,
     { ...c.request, ...(targetStageKey ? { targetStageKey } : {}) },

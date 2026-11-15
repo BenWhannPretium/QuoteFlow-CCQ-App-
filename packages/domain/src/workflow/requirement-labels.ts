@@ -48,8 +48,12 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   pack_out_units: 'Pack-out: units per bag, per tray or per case (fill in one)',
   capacity_utilization_missing:
     'Utilization after calculated on every capacity row (effectiveness above 0%, cycle time and volume)',
-  prelim_capital_usd: 'The budgetary capital estimate (Engineering tab)',
+  // FB-17 (W13-22): every G2 Advance needs the figure; $0 says no capital is needed.
+  prelim_capital_usd:
+    'The budgetary capital estimate on the Engineering tab (enter $0 when no capital is needed)',
   equipment_bom_on_file: 'The equipment BOM uploaded on the Engineering tab',
+  'eng_capital_needed,equipment_bom_on_file':
+    'The equipment BOM uploaded on the Engineering tab (capital is needed: the budgetary capital estimate is above the threshold)',
   // G3 Quoting
   'pricing_record.price_approved_by': 'Price approver',
   'pricing_record.price_approved_at': 'Price approval date',

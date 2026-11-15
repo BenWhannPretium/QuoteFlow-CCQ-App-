@@ -20,7 +20,9 @@ import {
   type PricingQueueRow,
 } from '@ccq/db/repos';
 import {
-  FINAL_REVIEW_FLAGGED_G2,
+  capitalNeed,
+  flaggedForCapitalOrRisk,
+  g2FilterOptions,
   FINAL_REVIEW_STAGE_KEY,
   RELEASE_GATE_KEY,
   approverRequirement,
@@ -165,6 +167,15 @@ export class FinalReviewService {
         const availability = finalReviewAvailability(workflow, state, actor, {
           approverTiers: ctx.release.approverTiers,
         });
+        // FB-17 (W13-22): capital needed, whatever the G2 outcome was called.
+        const capitalNeeded = capitalNeed(
+          {
+            prelim_capital_usd: row.prelimCapitalUsd,
+            g2_outcome: row.g2Outcome,
+            capital_likely: q.capitalLikely,
+          },
+          ctx.commercial.derived.capitalNeededAboveUsd,
+        ).needed;
         const item: FinalReviewItem = {
           ...summary,
           enteredStageAt: iso(entered),
@@ -172,7 +183,8 @@ export class FinalReviewService {
           productSummary: productSummary(q),
           g2Outcome: row.g2Outcome,
           g2OutcomeLabel: g2Label(row.g2Outcome),
-          g2Flag: (FINAL_REVIEW_FLAGGED_G2 as readonly string[]).includes(row.g2Outcome ?? ''),
+          g2Flag: flaggedForCapitalOrRisk({ g2Outcome: row.g2Outcome, capitalNeeded }),
+          capitalNeeded,
           capitalReadiness: record?.capitalReadiness ?? null,
           priceApproved: status.approved,
           priceApprovedAt: iso(status.approvedAt),
@@ -187,6 +199,7 @@ export class FinalReviewService {
           score: summary.priority.score,
           waitingMs: item.waitingMs,
           g2Outcome: row.g2Outcome,
+          capitalNeeded,
           capitalReadiness: item.capitalReadiness ?? null,
           kamUserId: q.kamUserId,
           searchText: [
@@ -226,9 +239,7 @@ export class FinalReviewService {
           decidable: all.filter((e) => e.item.canDecide).length,
         },
         canDecide: can(actor, gate.deciderPermission),
-        g2Outcomes: workflow.outcomes
-          .filter((o) => o.gateKey === 'G2')
-          .map((o) => ({ key: o.key, label: o.label })),
+        g2Outcomes: g2FilterOptions(workflow),
         // Belt and braces: every role on this route reads commercial fields, but redact anyway.
         items: filtered.map((e) => redact(e.item, actor)),
       };
@@ -294,6 +305,8 @@ export class FinalReviewService {
         quoting: commercial ? quotingWarnings(record) : [],
         g2Outcome: g2?.outcomeKey ?? null,
         g2Note: g2?.note ?? null,
+        // FB-17 (W13-22): capital needed, from the figure, the flag or an old "capital required".
+        capital: capitalNeed(quoteState.fields, ctx.commercial.derived.capitalNeededAboveUsd),
         priceApproved: priceApprovalStatus(record).approved,
         capacityEvidenceRows: engineering.capacityEvidence.length,
         requirement,

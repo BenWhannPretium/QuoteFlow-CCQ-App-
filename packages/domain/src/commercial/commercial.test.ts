@@ -117,11 +117,34 @@ describe('derived decision fields', () => {
       terms_exception_open: false,
       roi_required: false,
       roi_required_reasons: [],
+      // FB-17 (W13-22): no preliminary capital figure yet, so capital is not ruled out (fail closed).
+      eng_capital_needed: true,
     });
     // FB-08 (T-007): a pending or rejected exception is open.
     expect(
       derivedDecisionFields({ terms_exception_status: 'rejected' }, settings).terms_exception_open,
     ).toBe(true);
+  });
+
+  it('FB-17: derives eng_capital_needed from the preliminary capital and capital_needed_above_usd', () => {
+    const needed = (prelim: unknown, above?: number) =>
+      derivedDecisionFields(
+        { prelim_capital_usd: prelim },
+        { ...settings, ...(above !== undefined ? { capitalNeededAboveUsd: above } : {}) },
+      ).eng_capital_needed;
+    // Seed threshold 0: any amount above $0 needs capital; $0 says none is needed.
+    expect(needed(0)).toBe(false);
+    expect(needed(0.01)).toBe(true);
+    expect(needed(250_000)).toBe(true);
+    // A blank (or unreadable) figure never means "no capital".
+    expect(needed(null)).toBe(true);
+    expect(needed(undefined)).toBe(true);
+    expect(needed('')).toBe(true);
+    expect(needed('not a number')).toBe(true);
+    // An Admin's threshold: at or below it no capital is needed.
+    expect(needed(50_000, 50_000)).toBe(false);
+    expect(needed(50_000.01, 50_000)).toBe(true);
+    expect(needed(null, 50_000)).toBe(true);
   });
 
   it('FB-07: derives roi_required from roi_required_when (capital required, $0 CER included)', () => {

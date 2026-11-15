@@ -94,13 +94,13 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
       data: { status: 'approved' },
     }),
   );
-  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
+  // FB-06 (F-058) / FB-17 (W13-22): capital is needed (the preliminary capital is above $0), so the
+  // Advance needs the equipment BOM on file. "Advance – capital required" is switched off.
   await uploadBom(request, quoteNumber);
   await ok(
     request.post(`/api/v1/quotes/${quoteNumber}/gates/G2/decisions`, {
       headers: as('eng-lead'),
-      // FB-01 (F-027): an exception decision needs a note.
-      data: { outcomeKey: 'capital_required', note: 'Second cavity set needed' },
+      data: { outcomeKey: 'proceed' },
     }),
     201,
   );
@@ -128,7 +128,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
     return page;
   };
 
-  // ── Pricing: the queue flags "Capital required" with capital pending ──
+  // ── Pricing: the queue flags capital needed, with capital pending ──
   const pricing = await open('pricing');
   await pricing.goto('/');
   await pricing
@@ -139,7 +139,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await pricing.getByLabel('Search the pricing queue').fill(quoteNumber);
   const row = pricing.getByRole('row').filter({ hasText: quoteNumber });
   await expect(row).toHaveCount(1);
-  await expect(row.getByTestId('g2-outcome')).toHaveText('Advance – capital required');
+  await expect(row.getByTestId('g2-outcome')).toHaveText('Advance · capital needed');
   await expect(row.getByTestId('capital-readiness')).toHaveText('Capital pending (budgetary)');
   await expect(row.getByTestId('approval-status')).toHaveText('Awaiting approval');
   await expect(row.getByTestId('assigned-pricer')).toBeVisible(); // assigned by the pricing lead
@@ -150,7 +150,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   const tab = pricing.getByTestId('quoting-tab');
   await expect(tab.getByTestId('price-approval-status')).toContainText('not recorded');
   // Pricing reads the engineering summary, commercial numbers included.
-  await expect(tab.getByTestId('quoting-g2')).toContainText('Advance – capital required');
+  await expect(tab.getByTestId('quoting-g2')).toContainText('Advance');
   await expect(tab).toContainText('$420,000');
   // B-15: the pricing history panel sits above the approval form (the history was imported above).
   const panel = tab.getByTestId('pricing-context');
@@ -237,8 +237,23 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   await expect(capital).toContainText('You do not need a CER reference to quote');
   await capital.getByRole('button', { name: 'Save capital readiness' }).click();
   await expect(pricing.getByText('Capital readiness saved')).toBeVisible();
-  await expect(tab.getByTestId('quoting-warnings')).toContainText('Capital is still pending');
+  await expect(tab.getByTestId('quoting-warnings')).toContainText(
+    'Capital is still pending: CER goes to the board Nov 10',
+  );
   expect(await seriousViolations(pricing)).toEqual([]);
+
+  // ── FB-17 (W13-22): the G2 Advance flagged the quote capital likely (its capital figure is above
+  // $0), so capital has to be confirmed before the price goes to the lead (B-26). "Not required" is
+  // not offered, and the pricer cannot submit while capital is pending. ──
+  await expect(capital).toContainText('Engineering said capital is needed');
+  await expect(capital.getByLabel('Status').locator('option[value="not_required"]')).toBeDisabled();
+  await expect(tab.getByRole('button', { name: 'Submit to pricing lead' })).toHaveCount(0);
+  await capital.getByLabel('Status').selectOption('pre_approved');
+  const confirmed = pricing.waitForResponse(
+    (r) => r.url().endsWith('/capital-readiness') && r.request().method() === 'PUT',
+  );
+  await capital.getByRole('button', { name: 'Save capital readiness' }).click();
+  expect((await confirmed).status()).toBe(200);
 
   // ── Lead review (2026-10-30): the pricer submits to the pricing lead; only the lead decides G3 ──
   await expect(tab.getByTestId('decide-gate')).toHaveCount(0);
@@ -248,7 +263,7 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   );
   await expect(tab.getByTestId('capital-form')).toHaveCount(0); // locked for the pricer
 
-  // FB-07 step 2: capital is required, so Finance uploads the ROI model (its own spec drives the UI).
+  // FB-07 step 2: capital is needed, so Finance uploads the ROI model (its own spec drives the UI).
   await request.get('/api/v1/me', { headers: as('finance') });
   await uploadModel(request, quoteNumber, 'roi_model', 'finance');
 
@@ -282,7 +297,8 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
     'ERF26-211',
     'Legacy CER reference',
     'CER-4410',
-    'board Nov 10',
+    // FB-17: capital was confirmed before G3 (the pending justification above went with it).
+    'Capital pre-approved (budgetary)',
   ]) {
     await expect(kam.getByTestId('quote-detail')).toContainText(figure);
   }
@@ -344,6 +360,8 @@ test('the pricing lead assigns a pricer from the Quoting tab and from the queue'
         plantCode: 'AURORA',
         cavitation: 8,
         cycleTimeS: 14.5,
+        // FB-17 (W13-22): G2 needs a preliminary capital figure; $0 means no capital is needed.
+        prelimCapitalUsd: 0,
       },
     }),
   );

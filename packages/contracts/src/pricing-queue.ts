@@ -16,10 +16,14 @@ const csv = z
       .filter(Boolean),
   );
 
-/** GET /api/v1/queue/pricing. List filters are comma-separated (`g2=capital_required,proceed_with_risk`). */
+/** GET /api/v1/queue/pricing. List filters are comma-separated (`g2=capital_needed,proceed_with_risk`). */
 export const PricingQueueQuery = z.object({
   tier: csv.optional(),
-  /** Latest G2 outcome keys. */
+  /**
+   * Latest G2 outcome keys. FB-17 (W13-22): `capital_needed` lists every quote that needs capital (the
+   * preliminary capital above the threshold, flagged capital likely, or decided with the switched-off
+   * `capital_required`, which still filters by its own key too).
+   */
   g2: csv.optional(),
   /** Capital readiness values; `none` = not recorded yet. */
   capital: csv.optional(),
@@ -46,8 +50,10 @@ export const PricingQueueItem = QuoteSummary.extend({
   productSummary: z.string().nullable(),
   g2Outcome: z.string().nullable(),
   g2OutcomeLabel: z.string().nullable(),
-  /** Flag Pricing: "Capital required" or "Proceed with risk". */
+  /** Flag Pricing: capital needed (FB-17), or "Advance with risk". */
   g2Flag: z.boolean(),
+  /** FB-17 (W13-22): the quote needs capital, whatever its G2 outcome. */
+  capitalNeeded: z.boolean(),
   /** Commercial (stripped for roles without quote.read.commercialFields; the queue's roles all hold it). */
   capitalReadiness: CapitalReadiness.nullable().optional(),
   priceApproved: z.boolean(),
@@ -89,7 +95,7 @@ export const PricingQueueResponse = z.object({
   pricers: z.array(
     z.object({ id: z.string(), displayName: z.string(), openAssigned: z.number().int() }),
   ),
-  /** G2 outcome keys and labels for the filter. */
+  /** The filter's choices: `capital_needed` (FB-17) first, then every G2 outcome (a switched-off one still filters the quotes decided with it). */
   g2Outcomes: z.array(z.object({ key: z.string(), label: z.string() })),
   items: z.array(PricingQueueItem),
 });

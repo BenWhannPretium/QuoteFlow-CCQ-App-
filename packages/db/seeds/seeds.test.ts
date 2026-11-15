@@ -27,6 +27,17 @@ describe('config seeds derive from the domain', () => {
     expect(rows.reasonCodes).toHaveLength(SEED_REASON_CODES.length);
   });
 
+  it('FB-17: outcome rows carry whether they are offered and the choice the dialog shows them under', () => {
+    const rows = workflowRows();
+    expect(rows.outcomes.filter((o) => !o.active).map((o) => `${o.gateKey}/${o.key}`)).toEqual([
+      'G2/capital_required',
+    ]);
+    expect(rows.outcomes.map((o) => o.outcomeGroup)).toEqual(
+      hybridConfig.outcomes.map((o) => o.outcomeGroup),
+    );
+    expect(rows.outcomes.every((o) => typeof o.outcomeGroup === 'string')).toBe(true);
+  });
+
   it('lost reason codes are the B-03 list, Other needs a note', () => {
     const lost = SEED_REASON_CODES.filter((r) => r.context === 'lost');
     expect(lost.map((r) => r.label)).toEqual([

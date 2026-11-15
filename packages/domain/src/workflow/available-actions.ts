@@ -4,7 +4,7 @@ import { approverTierErrors } from '../final-review/tiers';
 import { can } from '../policy/can';
 import type { Actor } from '../types/actor';
 import type { QuoteState } from '../types/quote';
-import type { RequiredRule, WorkflowConfig } from '../types/workflow-config';
+import type { OutcomeGroup, RequiredRule, WorkflowConfig } from '../types/workflow-config';
 
 export interface AvailableAction {
   gateKey: string;
@@ -24,6 +24,8 @@ export interface AvailableAction {
   releasesProposal: boolean;
   /** B-26: the outcome's definition (help text), so nobody guesses what Hold or Stop does. */
   helpText: string | null;
+  /** FB-17 (W13-23): the choice the dialog shows it under; null in a config without groups. */
+  outcomeGroup: OutcomeGroup | null;
 }
 
 /**
@@ -45,6 +47,8 @@ export function availableActions(
     if (!can(actor, gate.deciderPermission, quote)) continue;
 
     for (const outcome of config.outcomes.filter((o) => o.gateKey === gate.key)) {
+      // FB-17 (W13-22): a switched-off outcome is never offered (it still labels old decisions).
+      if (!outcome.active) continue;
       const transition = findTransition(config, gate.key, outcome.key);
       if (!transition) continue;
       if (violatedSegregationRules(config, quote, actor, gate.key, outcome.key).length > 0)
@@ -75,6 +79,7 @@ export function availableActions(
         nextStatus: transition.nextStatus,
         releasesProposal: releasesProposal(config, gate.key, outcome.key),
         helpText: outcome.helpText,
+        outcomeGroup: outcome.outcomeGroup ?? null,
       });
     }
   }

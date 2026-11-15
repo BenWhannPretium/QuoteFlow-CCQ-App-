@@ -1,4 +1,10 @@
-import type { Permission, Role, ScoringModelInput, WorkflowConfigInput } from '@ccq/domain';
+import type {
+  OutcomeGroup,
+  Permission,
+  Role,
+  ScoringModelInput,
+  WorkflowConfigInput,
+} from '@ccq/domain';
 import { and, asc, desc, eq, lte } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
@@ -60,6 +66,9 @@ export async function loadWorkflowConfigInput(db: DbOrTx): Promise<WorkflowConfi
       notify: o.notify as Input['outcomes'][number]['notify'],
       helpText: o.helpText,
       resumeAt: o.resumeAt as 'origin' | 'intake',
+      // FB-17 (W13-22, W13-23): switched-off outcomes stay in the config (they label old decisions).
+      active: o.active,
+      ...(o.outcomeGroup ? { outcomeGroup: o.outcomeGroup as OutcomeGroup } : {}),
       provisional: o.provisional,
     })),
     transitions: transitions.map((t) => ({

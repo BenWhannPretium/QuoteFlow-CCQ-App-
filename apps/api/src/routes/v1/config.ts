@@ -83,6 +83,9 @@ export async function loadPublicConfig(db: DbOrTx, now: Date): Promise<PublicCon
       requiresNote: o.requiresNote ?? false,
       requiresReasonCode: o.requiresReasonCode ?? false,
       reasonContext: o.reasonContext ?? null,
+      // FB-17: switched-off outcomes stay listed (they label old decisions); the group is config.
+      active: o.active ?? true,
+      outcomeGroup: o.outcomeGroup ?? null,
       sort: i,
       provisional: o.provisional ?? false,
     })),

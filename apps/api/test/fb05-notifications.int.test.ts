@@ -220,7 +220,8 @@ async function engineeringFields(qn: string, by: Role, analyst: string) {
       plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
-      prelimCapitalUsd: 250_000,
+      // FB-17 (W13-22): G2 needs a preliminary capital figure; $0 means no capital is needed.
+      prelimCapitalUsd: 0,
     }),
     200,
   );
@@ -593,7 +594,12 @@ describe('F-079: every rework and return', () => {
       await decide(
         qn,
         'G4',
-        { outcomeKey: 'return', targetStageKey: 'QUOTING', note: 'Margin looks thin' },
+        {
+          outcomeKey: 'return',
+          targetStageKey: 'QUOTING',
+          reasonCode: 'missing_information',
+          note: 'Margin looks thin',
+        },
         'Approver',
       ),
     );
@@ -637,6 +643,47 @@ describe('F-079: holds and closures', () => {
     )!;
     expect(mine.body).toContain('Review date: 2026-12-01');
     expect(mine.title).toContain('you own the hold');
+    // FB-17 (W13-25): the KAM's message names the owner, the reason and the review date.
+    const [ownerRow] = await db.db
+      .select({ displayName: schema.appUser.displayName })
+      .from(schema.appUser)
+      .where(eq(schema.appUser.id, owner));
+    const forKam = (await notes(qn, 'quote.on_hold')).find(
+      (n) => n.userId === kam && n.channel === 'in_app',
+    )!;
+    expect(forKam.title).toBe(`${qn} was put on hold`);
+    expect(forKam.body).toContain(`Owner: ${ownerRow!.displayName}.`);
+    expect(forKam.body).toContain('Reason: Awaiting customer information.');
+    expect(forKam.body).toContain('Review date: 2026-12-01.');
+    expect(forKam.body).toContain('Customer asked us to wait');
+    expect(mine.body).not.toContain('Owner:');
+  });
+
+  it('FB-17: a decider who owns the hold is not told; the KAM still learns who owns it', async () => {
+    const qn = await submitted();
+    const decider = await userId('SalesLeader');
+    ok(
+      await decide(
+        qn,
+        'G1',
+        {
+          outcomeKey: 'hold',
+          reasonCode: 'awaiting_customer_info',
+          note: 'Customer asked us to wait',
+          holdUntil: '2026-12-01',
+          holdOwnerId: decider,
+        },
+        'SalesLeader',
+      ),
+    );
+    const kam = await userId('KAM');
+    expect(await inAppTo(qn, 'quote.on_hold')).toEqual([kam]);
+    const [row] = await db.db
+      .select({ displayName: schema.appUser.displayName })
+      .from(schema.appUser)
+      .where(eq(schema.appUser.id, decider));
+    const forKam = (await notes(qn, 'quote.on_hold')).find((n) => n.channel === 'in_app')!;
+    expect(forKam.body).toContain(`Owner: ${row!.displayName}.`);
   });
 
   it('a hold the KAM owns gives the KAM one notice', async () => {

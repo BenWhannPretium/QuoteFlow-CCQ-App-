@@ -125,7 +125,10 @@ const attachments = async (qn: string, role: Role = 'EngLead') => {
   return AttachmentListResponse.parse(res.json()).items;
 };
 
-/** Everything G2 "proceed" needs except the BOM, so a test can then decide the outcome it wants. */
+/**
+ * Everything G2 "proceed" needs except the BOM, so a test can then decide the outcome it wants. FB-17
+ * (W13-22): the capital figure is above $0, so capital is needed and every Advance waits for the BOM.
+ */
 async function readyForG2(qn: string) {
   ok(
     await putReview(qn, {
@@ -283,19 +286,35 @@ describe('F-058: the equipment BOM upload', () => {
     expect(res.statusCode, res.body).toBe(422);
   });
 
-  it('G2 "Capital required" needs it on file; removing the current version brings the previous one back', async () => {
+  it('G2 Advance with capital needed needs it on file (FB-17; "Capital required" before); removing the current version brings the previous one back', async () => {
     const qn = await inEngReview();
     ok(await assign(qn, await userId('Engineer')), 200);
     await readyForG2(qn);
-    const body = { outcomeKey: 'capital_required', note: 'A second cavity set is needed' };
+    const body = { outcomeKey: 'proceed' };
     const blocked = await decide(qn, 'G2', body, 'EngLead');
     expect(blocked.statusCode).toBe(422);
     expect(JSON.stringify(blocked.json())).toContain('equipment_bom_on_file');
+    // "Advance – capital required" itself is switched off: refused, with or without the BOM.
+    const retired = await decide(
+      qn,
+      'G2',
+      { outcomeKey: 'capital_required', note: 'A second cavity set is needed' },
+      'EngLead',
+    );
+    expect(retired.statusCode).toBe(422);
+    expect(JSON.stringify(retired.json())).toContain('OUTCOME_INACTIVE');
 
-    // The other outcomes do not need it.
-    expect(
-      (await detail(qn)).availableActions.find((a) => a.outcomeKey === 'proceed')?.missing,
-    ).toEqual([]);
+    // The BOM is the only thing missing for an Advance; the outcomes that do not advance do not need it.
+    const actions = (await detail(qn)).availableActions;
+    for (const key of ['proceed', 'proceed_with_risk']) {
+      expect(
+        actions.find((a) => a.outcomeKey === key)?.missing.map((m) => m.field),
+        key,
+      ).toEqual(['eng_capital_needed,equipment_bom_on_file']);
+    }
+    for (const key of ['hold', 'rework', 'redirect', 'stop']) {
+      expect(actions.find((a) => a.outcomeKey === key)?.missing, key).toEqual([]);
+    }
 
     ok(await uploadBom(app, qn, 'EngLead', 'BOM 1.xlsx'), 201);
     tick();

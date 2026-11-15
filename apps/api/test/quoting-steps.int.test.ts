@@ -93,8 +93,20 @@ async function prefill(sfOpportunityId: string, over: IntakeDraftData = {}) {
   };
 }
 
-/** A quote Engineering cleared into Quoting with the given G2 outcome. */
-async function inQuoting(g2: 'proceed' | 'capital_required' = 'proceed') {
+/** FB-17: switch the retired G2 outcome on (to record a historical decision) or off again. */
+const setCapitalRequiredActive = (active: boolean) =>
+  db.db.execute(
+    sql`update gate_outcome_definition set active = ${active}
+        where gate_key = 'G2' and key = 'capital_required'`,
+  );
+
+/**
+ * A quote Engineering cleared into Quoting. FB-17 (W13-22): `proceed` is an Advance with $0 preliminary
+ * capital; `capital_needed` an Advance with $250,000 and the equipment BOM on file; `capital_required` a
+ * quote decided with the retired "Advance – capital required" outcome before FB-17 (history).
+ */
+async function inQuoting(g2: 'proceed' | 'capital_needed' | 'capital_required' = 'proceed') {
+  const historical = g2 === 'capital_required';
   const id = free.shift();
   if (!id) throw new Error('test ran out of free opportunities');
   const res = await as('KAM').post('/api/v1/quotes/drafts', { data: await prefill(id) });
@@ -112,7 +124,7 @@ async function inQuoting(g2: 'proceed' | 'capital_required' = 'proceed') {
       plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
-      prelimCapitalUsd: 250_000,
+      prelimCapitalUsd: g2 === 'proceed' ? 0 : 250_000,
     }),
     200,
   );
@@ -132,16 +144,22 @@ async function inQuoting(g2: 'proceed' | 'capital_required' = 'proceed') {
     200,
   );
   ok(await as('EngLead').put(`/api/v1/quotes/${qn}/capacity-signoff`, { status: 'approved' }), 200);
-  // FB-06 (F-058): "Capital required" needs the equipment BOM on file.
-  if (g2 === 'capital_required') await prepareBom(app, qn);
-  ok(
-    await decide(
-      qn,
-      'G2',
-      g2 === 'proceed' ? { outcomeKey: g2 } : { outcomeKey: g2, note: 'New mold set' },
-      'EngLead',
-    ),
-  );
+  // FB-06 (F-058) / FB-17: capital needed (and the historical "Capital required") needs the equipment
+  // BOM on file.
+  if (g2 !== 'proceed') await prepareBom(app, qn);
+  if (historical) await setCapitalRequiredActive(true);
+  try {
+    ok(
+      await decide(
+        qn,
+        'G2',
+        historical ? { outcomeKey: g2, note: 'New mold set' } : { outcomeKey: 'proceed' },
+        'EngLead',
+      ),
+    );
+  } finally {
+    if (historical) await setCapitalRequiredActive(false);
+  }
   tick();
   return qn;
 }
@@ -225,7 +243,7 @@ describe('F-083: the Finance role', () => {
   });
 
   it('reads the quote, its Quoting tab and its files; changes nothing else', async () => {
-    const qn = await inQuoting('capital_required');
+    const qn = await inQuoting('capital_needed');
     ok(await uploadModel(app, qn, 'cost_model', 'Pricing'));
     const d = await detail(qn, 'Finance');
     // The upload completes the costing step (Bailey Schmitt, 2026-11-12), so the payback step is next.
@@ -259,12 +277,26 @@ describe('F-083: the Finance role', () => {
   });
 });
 
-describe('D-001: costing, then ROI, then price approved (capital required)', () => {
+describe('D-001: costing, then ROI, then price approved (capital needed)', () => {
+  it('a quote decided "Advance – capital required" before FB-17 still needs the payback model', async () => {
+    const s = await steps(await inQuoting('capital_required'));
+    expect(s.roi.required).toBe(true);
+    // The switched-off outcome keeps its label in the reason.
+    expect(s.roi.reasons).toEqual(['Engineering’s decision: Advance – capital required']);
+    expect([s.current, s.costing.status, s.roi.status, s.price.status]).toEqual([
+      'costing',
+      'waiting',
+      'blocked',
+      'blocked',
+    ]);
+  });
+
   it('runs the sequence, versions every model, tells the next person and locks after G3', async () => {
-    const qn = await inQuoting('capital_required');
+    const qn = await inQuoting('capital_needed');
     let s = await steps(qn);
     expect(s.current).toBe('costing');
-    expect(s.roi.reasons).toEqual(['Engineering’s decision: Advance – capital required']);
+    // FB-17 (W13-22): the G2 Advance with preliminary capital above $0 flagged the quote capital likely.
+    expect(s.roi.reasons).toEqual(['Capital is flagged likely']);
     expect([s.costing.status, s.roi.status, s.price.status]).toEqual([
       'waiting',
       'blocked',
@@ -422,7 +454,12 @@ describe('D-001: costing, then ROI, then price approved (capital required)', () 
       await decide(
         qn,
         'G4',
-        { outcomeKey: 'return', note: 'Re-check the price', targetStageKey: 'QUOTING' },
+        {
+          outcomeKey: 'return',
+          reasonCode: 'missing_information',
+          note: 'Re-check the price',
+          targetStageKey: 'QUOTING',
+        },
         'Approver',
       ),
     );

@@ -6,7 +6,7 @@
 
 ## What you'll do
 
-1. **Qualify new intakes.** Click **To qualify**. The list is highest priority first. Click **Decide** and choose **Advance**, **Hold**, **Rework (back to KAM)**, **Redirect (not CCQ work)** or **Stop**. Click **Record decision**. The ⓘ next to each choice explains it.
+1. **Qualify new intakes.** Click **To qualify**. The list is highest priority first. Click **Decide** and choose **Advance**, **Send back to…** (the KAM fixes the intake; give a reason and a note), **Hold** (a pause, not a fix) or **Stop**. For a stock item or a price inquiry use **Stop: not CCQ work (send elsewhere)**. Click **Record decision**. The ⓘ next to a choice explains it.
 2. **Override a priority tier.** You are the only role that can. On the quote click **Override priority tier**, pick the tier and give a reason of 15 or more characters. It applies at once and Engineering sees your reason on its queue. To undo it, open the quote's **Timeline** and click **Revert**.
 3. **Watch your team's pipeline.** Use **Pipeline** (List, Prioritization, Board) and **Analytics**. Each chart has an ⓘ with its definition.
 4. **Chase missing outcomes.** **Proposals with no outcome past validity** on your home screen. You can record an outcome for your team.

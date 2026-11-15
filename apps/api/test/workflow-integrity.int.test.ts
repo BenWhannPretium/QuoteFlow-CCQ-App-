@@ -181,7 +181,8 @@ async function engineeringDone(qn: string) {
       plantCode: 'AURORA',
       cavitation: 8,
       cycleTimeS: 14.5,
-      prelimCapitalUsd: 250_000,
+      // FB-17 (W13-22): G2 needs a preliminary capital figure; $0 means no capital is needed.
+      prelimCapitalUsd: 0,
     }),
     200,
   );
@@ -424,6 +425,7 @@ describe('F-001: a section is read-only once its gate is decided (T-001)', () =>
         {
           outcomeKey: 'return',
           targetStageKey: 'QUOTING',
+          reasonCode: 'missing_information',
           note: 'Price the October resin index',
         },
         'Approver',
@@ -511,14 +513,16 @@ describe('F-029 / F-030: Pricing → KAM → straight back to Quoting (T-005)', 
       by,
     );
 
-  it('the G3 decider (pricing lead) sees "Rework (back to KAM)"; a pricer cannot use it', async () => {
+  it('the G3 decider (pricing lead) sees "Send back to the KAM"; a pricer cannot use it', async () => {
     const qn = await pricedAndSubmitted();
     const lead = QuoteDetail.parse((await as('PricingLead').get(`/api/v1/quotes/${qn}`)).json());
     const action = lead.availableActions.find(
       (a) => a.gateKey === 'G3' && a.outcomeKey === 'rework_kam',
     );
+    // FB-17 (W13-23): relabelled by where the quote goes, and grouped under "Send back to…".
     expect(action).toMatchObject({
-      outcomeLabel: 'Rework (back to KAM)',
+      outcomeLabel: 'Send back to the KAM',
+      outcomeGroup: 'send_back',
       requiresNote: true,
       requiresReasonCode: true,
       targetStageKeys: ['INTAKE'],
@@ -907,6 +911,8 @@ describe('lead review and pricing assignment notify (T-014, T-015, T-016)', () =
         plantCode: 'AURORA',
         cavitation: 8,
         cycleTimeS: 14.5,
+        // FB-17 (W13-22): the engineer's submission needs the capital figure; $0 = no capital needed.
+        prelimCapitalUsd: 0,
       }),
       200,
     );

@@ -23,7 +23,7 @@ const csv = z
 export const FinalReviewQueueQuery = z.object({
   gate: z.literal('G4').default('G4'),
   tier: csv.optional(),
-  /** Latest G2 outcome keys. */
+  /** Latest G2 outcome keys; FB-17: `capital_needed` lists every quote that needs capital. */
   g2: csv.optional(),
   /** Capital readiness values; `none` = not recorded. */
   capital: csv.optional(),
@@ -42,8 +42,10 @@ export const FinalReviewItem = QuoteSummary.extend({
   productSummary: z.string().nullable(),
   g2Outcome: z.string().nullable(),
   g2OutcomeLabel: z.string().nullable(),
-  /** "Capital required" or "Proceed with risk": flag it for the approver. */
+  /** Capital needed (FB-17) or "Advance with risk": flag it for the approver. */
   g2Flag: z.boolean(),
+  /** FB-17 (W13-22): the quote needs capital, whatever its G2 outcome. */
+  capitalNeeded: z.boolean(),
   /** Commercial (the queue's roles all read it). */
   capitalReadiness: CapitalReadiness.nullable().optional(),
   priceApproved: z.boolean(),

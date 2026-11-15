@@ -4,6 +4,7 @@ import {
   PASS_THROUGH_SEED,
   asUserId,
   evaluateTransition,
+  fieldsReferenced,
   migrateLegacyNeckFinish,
   score,
   withDerivedFields,
@@ -424,6 +425,7 @@ export interface QuoteGenResult {
  */
 export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResult> {
   const { db, rng, anchor, config, personas } = ctx;
+  const historicalG2 = g2RulesBeforeFb17(config);
   const persona = (key: PersonaKey) => personas.get(key)!;
   const actorOf = (p: Persona): Actor => ({
     userId: asUserId(p.id),
@@ -857,7 +859,14 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             ...(step.target ? { targetStageKey: step.target } : {}),
             ...(payload ? { payload } : {}),
           };
-          const result = evaluateTransition(config, state!, actorOf(decider), request, at);
+          // FB-17: the G2 decisions of this history are replayed under the G2 rules of their day.
+          const result = evaluateTransition(
+            step.gate === 'G2' ? historicalG2 : config,
+            state!,
+            actorOf(decider),
+            request,
+            at,
+          );
           if (!result.ok) {
             throw new Error(
               `synthetic ${quoteRow.quoteNumber} ${step.gate}/${step.outcome}: ${result.errors.map((e) => e.message).join('; ')}`,
@@ -880,6 +889,36 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
     byStage[stage] = (byStage[stage] ?? 0) + 1;
   }
   return { quotes: plan.length, byStage };
+}
+
+/**
+ * FB-17 (W13-22): the synthetic history was decided before G2 asked for the preliminary capital figure
+ * and before "Advance – capital required" was switched off. Its G2 decisions are therefore replayed under
+ * the rules of their day: every G2 outcome on, and the two FB-17 rules (the capital figure, the BOM when
+ * capital is needed) left out of the Advance outcomes. The data set stays exactly as it was (same draws,
+ * same decisions, same files), and it is what an environment that went live before FB-17 holds: quotes
+ * decided "Advance – capital required", and Advances with no capital figure. Quotes still waiting in
+ * Engineering meet the new rules when their G2 is decided in the app.
+ */
+const FB17_G2_FIELDS = new Set(['prelim_capital_usd', 'eng_capital_needed']);
+function g2RulesBeforeFb17(config: WorkflowConfig): WorkflowConfig {
+  return {
+    ...config,
+    outcomes: config.outcomes.map((o) =>
+      o.gateKey !== 'G2'
+        ? o
+        : {
+            ...o,
+            active: true,
+            requiredFields:
+              o.key === 'capital_required'
+                ? o.requiredFields
+                : o.requiredFields.filter(
+                    (rule) => !fieldsReferenced(rule).some((f) => FB17_G2_FIELDS.has(f)),
+                  ),
+          },
+    ),
+  };
 }
 
 /** B-26: the derived decision fields as the seeded settings define them. */
