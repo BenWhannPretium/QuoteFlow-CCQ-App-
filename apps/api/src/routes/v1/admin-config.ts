@@ -291,7 +291,7 @@ export const adminConfigRoutes: FastifyPluginAsyncZod<{ service: AdminConfigServ
       schema: {
         tags,
         summary:
-          "Edit an outcome's label, help text, requiresNote / requiresReasonCode or required-field rules",
+          "Edit an outcome's label, help text, requiresNote / requiresReasonCode or required-field rules, or switch it on or off",
         security,
         params: z.object({ gateKey: z.string().max(64), key: z.string().max(64) }),
         body: UpdateOutcomeBody,

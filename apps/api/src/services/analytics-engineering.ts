@@ -128,7 +128,7 @@ export async function engineeringAnalytics(
       },
       g2Outcomes: {
         info: info(
-          'G2 feasibility decisions by outcome (advance, advance with risk, capital required, hold, rework, redirect, stop).',
+          'G2 feasibility decisions by outcome (advance, advance with risk, hold, send back, stop). Quotes decided before "Advance – capital required" was switched off still show under it.',
           `G2 decisions ${range(r)}`,
         ),
         total: inWindow.length,

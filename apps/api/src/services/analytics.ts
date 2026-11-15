@@ -365,7 +365,7 @@ export class AnalyticsService {
     const total = rows.reduce((n, x) => n + x.count, 0);
     return {
       info: info(
-        'G1 qualification yield (S-04): how G1 decisions split by outcome (advance, hold, rework, redirect, stop). Every decision counts, so a request reworked then advanced appears twice.',
+        'G1 qualification yield (S-04): how G1 decisions split by outcome (advance, hold, send back, stop). Every decision counts, so a request reworked then advanced appears twice.',
         `G1 decisions ${range(r.window)}`,
       ),
       window: r.window,

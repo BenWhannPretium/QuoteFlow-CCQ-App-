@@ -61,6 +61,8 @@ export interface HandoffContext {
   outcomeLabel: string;
   /** Approve: when the proposal is valid until. */
   validityUntil: string | null;
+  /** FB-17 (W13-25): a hold's owner, so the KAM's message can name them. */
+  holdOwnerName?: string | null;
 }
 
 const stageLabel = (c: Pick<WorkflowConfig, 'stages'>, key: string) =>
@@ -194,8 +196,10 @@ export function composeHandoff(
       const owner = d.reason === 'hold_owner';
       return {
         title: owner ? `${n} is on hold: you own the hold` : `${n} was put on hold`,
+        // FB-17 (W13-25): everyone but the owner is told who owns the hold (the KAM, above all).
         body: sentence(
           owner ? 'You are the hold owner.' : `Put on hold at ${from}.`,
+          !owner && ctx.holdOwnerName && `Owner: ${ctx.holdOwnerName}.`,
           ctx.reasonLabel && `Reason: ${ctx.reasonLabel}.`,
           e.holdUntil && `Review date: ${e.holdUntil}.`,
           ctx.note && `Note: ${endSentence(shorten(ctx.note))}`,
@@ -204,6 +208,7 @@ export function composeHandoff(
           ...payload,
           owner: owner ? 'you' : 'other',
           stage: from,
+          ...(!owner && ctx.holdOwnerName ? { ownerName: ctx.holdOwnerName } : {}),
           ...(e.holdUntil ? { reviewDate: e.holdUntil } : {}),
         },
       };
@@ -292,6 +297,7 @@ export async function deliverDecisionNotifications(
     priceApproverId: approver ? asUserId(approver) : null,
   });
   const record = effects.gateDecisionRecord;
+  const holdOwnerId = record.payload?.hold_owner_id;
   const outcome = workflow.outcomes.find(
     (o) => o.gateKey === record.gateKey && o.key === record.outcomeKey,
   );
@@ -308,6 +314,10 @@ export async function deliverDecisionNotifications(
     reasonLabel,
     outcomeLabel: outcome?.label ?? record.outcomeKey,
     validityUntil: input.proposal?.validityUntil ?? null,
+    holdOwnerName:
+      plan.event.kind === 'hold' && typeof holdOwnerId === 'string'
+        ? ((await findUserById(tx, holdOwnerId))?.displayName ?? null)
+        : null,
   };
   return deliver(tx, plan.entries, input.actorId, ctx, log);
 }

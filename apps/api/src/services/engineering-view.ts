@@ -27,10 +27,12 @@ import {
   canEditCapacity,
   canEditEngReview,
   canSeeCommercialFields,
+  capitalNeededRuleText,
   allocationCheck,
   pairFitsMap,
   parseAssignmentRules,
   parseCapacityBasis,
+  parseCapitalNeededAboveUsd,
   parseEngQueueSettings,
   parseMachineTypeProcessMap,
   parsePackOutRule,
@@ -122,6 +124,15 @@ export async function loadPackOutRule(db: DbOrTx): Promise<PackOutRule> {
   }
 }
 
+/** FB-17 (W13-22): `app_setting.capital_needed_above_usd` (provisional), or the seed (0). */
+export async function loadCapitalNeededAboveUsd(db: DbOrTx): Promise<number> {
+  try {
+    return parseCapitalNeededAboveUsd(await getSetting(db, 'capital_needed_above_usd'));
+  } catch {
+    return parseCapitalNeededAboveUsd(null);
+  }
+}
+
 /**
  * FB-06 (F-062): the engineer the routing rules suggest for a quote, from the review's process type (when
  * Engineering has chosen one) and the quote's resin. Only people who can be assigned are candidates. A
@@ -181,18 +192,21 @@ async function equipmentBomView(
     note: r.note,
     available: r.storage !== null && r.storageItemId !== null,
   }));
-  // Required for "capital required" while the G2 outcome's config still carries the rule.
+  // FB-17 (W13-22): required when capital is needed, while a G2 outcome that can still be chosen carries
+  // the rule (before FB-17 that was "Advance – capital required"; now it is every Advance). A config
+  // that cannot be read here counts as required, as before.
   const outcomes = (workflow as Partial<WorkflowConfig>).outcomes;
-  const capital = outcomes?.find((o) => o.gateKey === 'G2' && o.key === 'capital_required');
+  const g2 = outcomes?.filter((o) => o.gateKey === 'G2' && o.active);
   return {
     current: files.find((f) => f.current) ?? null,
     versions: files,
     canUpload:
       !sectionLock('engineering', workflow, state).locked &&
       planEquipmentBomUpload(actor, state).ok,
-    requiredForCapital: capital
-      ? capital.requiredFields.some((r) => mentionsField(r, 'equipment_bom_on_file'))
+    requiredForCapital: g2
+      ? g2.some((o) => o.requiredFields.some((r) => mentionsField(r, 'equipment_bom_on_file')))
       : true,
+    requiredWhenText: capitalNeededRuleText(await loadCapitalNeededAboveUsd(db)),
   };
 }
 

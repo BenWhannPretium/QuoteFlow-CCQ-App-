@@ -16,6 +16,7 @@ import {
   can,
   canEditQuoting,
   canSeeCommercialFields,
+  capitalNeed,
   carryForwardPricingRecord,
   parsePricingRefFormats,
   priceApprovalStatus,
@@ -30,6 +31,7 @@ import {
   type WorkflowConfig,
 } from '@ccq/domain';
 
+import { loadCapitalNeededAboveUsd } from './engineering-view';
 import { leadReviewView } from './lead-review';
 import { sectionLockView } from './locks';
 import { quotingStepsView } from './quoting-steps';
@@ -151,6 +153,10 @@ export async function quotingView(
   const name = (id: string | null) => (id && people.find((p) => p.id === id)?.displayName) || null;
 
   const g2 = [...decisions].reverse().find((d) => d.decision.gateKey === 'G2');
+  // FB-17 (W13-22): Engineering says capital is needed (the preliminary capital above the threshold, or
+  // a decision recorded as "Advance – capital required"); capital readiness cannot be "Not required".
+  const capitalAboveUsd = await loadCapitalNeededAboveUsd(db);
+  const capitalNeeded = capitalNeed(state.fields, capitalAboveUsd).byEngineering;
   const status = priceApprovalStatus(recordValues(current));
   const canEdit = canEditQuoting(actor, state, workflow);
   const inQuoting = q.stageKey === PRICING_QUEUE_STAGE_KEY && q.status !== 'closed';
@@ -183,6 +189,7 @@ export async function quotingView(
           note: g2.decision.note,
         }
       : null,
+    capitalNeeded,
     ...commercial,
     commercialRedacted: !canSeeCommercialFields(actor),
     canEdit,
