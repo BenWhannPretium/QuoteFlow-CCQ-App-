@@ -3,6 +3,7 @@ import { ArrowDownIcon, ArrowUpIcon, ListOrderedIcon, PencilIcon, PlusIcon } fro
 import { useId, useState } from 'react';
 
 import { EmptyState } from '@/components/EmptyState';
+import { SavedNote } from '@/components/forms';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect } from '@/components/ui/input';
 
@@ -67,6 +68,8 @@ export function ListEditor(props: ListEditorProps) {
   const setOrder = (next: ListItem[] | null) => setOrdering(next ? { group, items: next } : null);
   const [savingOrder, setSavingOrder] = useState(false);
   const rows = order ?? items;
+  // FB-18 (W13-30): "Progress saved" appears beside the control that opened the change dialog.
+  const scope = (what: string) => `admin-list:${group}:${what}`;
 
   const move = (i: number, by: number) => {
     const next = [...rows];
@@ -96,6 +99,8 @@ export function ListEditor(props: ListEditorProps) {
           </NativeSelect>
         </div>
         <span className="flex-1" />
+        <SavedNote scope={scope('order')} />
+        <SavedNote scope={scope('add')} />
         {canEdit && !order && (
           <>
             <Button
@@ -151,6 +156,7 @@ export function ListEditor(props: ListEditorProps) {
               )}
               <StatusPill active={item.active} />
               <ApprovalBadge approval={item.approval} />
+              <SavedNote scope={scope(item.id)} />
               {order ? (
                 <span className="flex gap-1">
                   <Button
@@ -208,6 +214,7 @@ export function ListEditor(props: ListEditorProps) {
         }
         approval={editing?.approval}
         canSubmit={draft.label.trim().length > 0}
+        savedScope={editing ? scope(editing.id) : undefined}
         onSubmit={(s) =>
           props.onUpdate(
             editing!,
@@ -264,6 +271,7 @@ export function ListEditor(props: ListEditorProps) {
         description="New entries start provisional until the owner approves them."
         submitLabel="Add"
         canSubmit={newEntry.code.trim().length > 0 && newEntry.label.trim().length > 0}
+        savedScope={scope('add')}
         onSubmit={(s) =>
           props.onCreate(
             {
@@ -320,6 +328,7 @@ export function ListEditor(props: ListEditorProps) {
         title={`Save the order of ${pretty(group)}`}
         description={(order ?? []).map((r) => r.label).join(' · ')}
         submitLabel="Save order"
+        savedScope={scope('order')}
         onSubmit={async (s) => {
           await props.onReorder(order!, s);
           setOrder(null);

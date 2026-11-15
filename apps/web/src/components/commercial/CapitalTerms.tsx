@@ -9,7 +9,16 @@ import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
-import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import {
+  Field,
+  FormErrors,
+  SaveStatus,
+  errorFor,
+  problemErrors,
+  saveStatusOf,
+  useSaved,
+  type ServerError,
+} from '../forms';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { FundingHelp } from './FundingHelp';
 
@@ -169,6 +178,8 @@ function CapitalTermsForm({
   const dirty = (Object.keys(form) as (keyof Form)[]).some(changed);
   const text = (v: string) => (v.trim() === '' ? null : v.trim());
   const finalize = mode === 'finalize';
+  // FB-18 (W13-30): kept outside the form, which is re-keyed by its own save.
+  const status = useSaved(`capital-terms:${quoteNumber}`);
 
   const save = useMutation({
     mutationFn: (finalized?: boolean) => {
@@ -199,6 +210,7 @@ function CapitalTermsForm({
     onSuccess: async (next, finalized) => {
       setErrors([]);
       await onSaved(next);
+      status.markSaved();
       // DR-approver-leadership-admin-09: say what a change cleared, not just that it saved.
       const fundingChanged =
         view.toolingFundingModel !== next.commercial.terms.capital.toolingFundingModel;
@@ -365,7 +377,7 @@ function CapitalTermsForm({
           : 'Not confirmed by the approver yet.'}
       </p>
       <FormErrors errors={errors.filter((e) => !INLINE.has(e.path))} />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="submit"
           variant={finalize ? 'outline' : 'primary'}
@@ -383,6 +395,7 @@ function CapitalTermsForm({
             {view.finalizedAt && !dirty ? 'Confirmed' : 'Confirm capital terms'}
           </Button>
         )}
+        <SaveStatus {...saveStatusOf(save, status.saved && !dirty)} />
       </div>
     </form>
   );

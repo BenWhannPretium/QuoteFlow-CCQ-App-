@@ -49,8 +49,11 @@ import {
   Field,
   FormErrors,
   HiddenValue,
+  SaveStatus,
   errorFor,
   problemErrors,
+  saveStatusOf,
+  useSaved,
   type ServerError,
 } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
@@ -372,6 +375,8 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
   const [errors, setErrors] = useState<ServerError[]>([]);
   // FB-16 (W13-13): why the machine type was cleared when the plant changed ("X does not run Y").
   const [cleared, setCleared] = useState<string | null>(null);
+  // FB-18 (W13-30): "Progress saved" beside the button until the form changes.
+  const status = useSaved(`solution:${quote.quoteNumber}`);
   const set = (k: SolutionKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   // FB-16 (W13-12, W13-13): plant first, then one pick over the machine types that plant runs.
@@ -440,6 +445,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
       setCleared(null);
       setForm(solutionForm(detail.review));
       await refresh(detail);
+      status.markSaved();
       // FB-16 (W13-16): this names the card that was saved, not the stage.
       toast.success({ title: 'Solution saved' });
     },
@@ -654,10 +660,11 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
             )}
           </Field>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
-          <div>
+          <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" disabled={!changed || invalid || save.isPending}>
               {save.isPending ? 'Saving…' : 'Save solution'}
             </Button>
+            <SaveStatus {...saveStatusOf(save, status.saved && !changed)} />
           </div>
         </form>
       </CardContent>
@@ -949,6 +956,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
   const [rows, setRows] = useState<RowForm[]>(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
   const [dirty, setDirty] = useState(false);
+  // FB-18 (W13-30): kept outside the card, which is re-keyed when a save adds or removes a row.
+  const status = useSaved(`capacity:${quote.quoteNumber}`);
   const update = (key: string, patch: Partial<RowForm>) => {
     setDirty(true);
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -1037,6 +1046,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
       setErrors([]);
       setDirty(false);
       await refresh(detail);
+      status.markSaved();
       toast.success({ title: 'Capacity evidence saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -1379,7 +1389,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
               </p>
             )}
             <FormErrors errors={errors} inline={(p) => CAPACITY_INLINE.test(p)} />
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" onClick={add}>
                 <PlusIcon aria-hidden="true" />
                 Add capacity row
@@ -1387,6 +1397,7 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
               <Button type="submit" disabled={!dirty || invalid || save.isPending}>
                 {save.isPending ? 'Saving…' : 'Save capacity evidence'}
               </Button>
+              <SaveStatus {...saveStatusOf(save, status.saved && !dirty)} />
             </div>
           </form>
         )}

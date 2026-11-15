@@ -20,7 +20,16 @@ import { absoluteTime, calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
-import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import {
+  Field,
+  FormErrors,
+  SaveStatus,
+  errorFor,
+  problemErrors,
+  saveStatusOf,
+  useSaved,
+  type ServerError,
+} from '../forms';
 import { quoteQueryKey, sfReminderKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
@@ -292,6 +301,8 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
   const stored = formFrom(cd);
   const [form, setForm] = useState<HandoffForm>(stored);
   const [errors, setErrors] = useState<ServerError[]>([]);
+  // FB-18 (W13-30): kept outside the editor, which is re-keyed by its own save.
+  const status = useSaved(`handoff:${quote.quoteNumber}`);
   const set =
     <K extends keyof HandoffForm>(key: K) =>
     (value: HandoffForm[K]) =>
@@ -333,6 +344,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
         queryClient.invalidateQueries({ queryKey: quoteQueryKey(quote.quoteNumber) }),
         queryClient.invalidateQueries({ queryKey: timelineQueryKey(quote.quoteNumber) }),
       ]);
+      status.markSaved();
       toast.success({
         title: res.customerDecision.handoff?.completed ? 'Hand-off accepted' : 'Hand-off saved',
       });
@@ -599,10 +611,11 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
               </p>
             )}
             <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
-            <div>
+            <div className="flex flex-wrap items-center gap-3">
               <Button type="submit" disabled={save.isPending || !dirty}>
                 {save.isPending ? 'Saving…' : 'Save hand-off'}
               </Button>
+              <SaveStatus {...saveStatusOf(save, status.saved && !dirty)} />
             </div>
           </form>
         )}

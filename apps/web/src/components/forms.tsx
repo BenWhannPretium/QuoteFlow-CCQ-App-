@@ -1,7 +1,20 @@
-import { EyeOffIcon } from 'lucide-react';
-import { cloneElement, isValidElement, useId, type ReactNode } from 'react';
+import { CheckIcon, EyeOffIcon } from 'lucide-react';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 
 import { isApiError } from '@/lib/api';
+import {
+  saveFailureReason,
+  saveStatusView,
+  savedStore,
+  type SaveStatusState,
+} from '@/lib/save-status';
 import { cn } from '@/lib/utils';
 
 // Small form helpers shared by the Engineering (B-10) and Quoting (B-11) tabs.
@@ -140,4 +153,82 @@ export function RequiredKey({ className }: { className?: string }) {
       Required to submit
     </p>
   );
+}
+
+/**
+ * FB-18 (W13-30; Ben Whann and Bailey Schmitt, 2026-11-13): the line beside every explicit Save button.
+ * "Saving…", then "Progress saved" until the form changes (role `status`), or "Not saved: <reason>"
+ * (role `alert`) when the save failed. The toast still appears; this is where the eye already is.
+ *
+ * Every Save button already reads "Saving…" while it works, so that state is said to screen readers
+ * only (the button's label changing is not announced) and is not shown twice.
+ *
+ * Put it next to the button, in a row that wraps:
+ *
+ *     const status = useSaved(`solution:${quoteNumber}`);
+ *     // in the mutation's onSuccess: status.markSaved();
+ *     <SaveStatus {...saveStatusOf(save, status.saved && !changed)} />
+ */
+export function SaveStatus({
+  saving,
+  saved,
+  error,
+  className,
+}: SaveStatusState & { className?: string }) {
+  const view = saveStatusView({ saving, saved, error });
+  if (!view) return null;
+  return (
+    <span
+      role={view.role}
+      data-testid="save-progress"
+      data-state={view.kind}
+      className={cn(
+        'inline-flex items-center gap-1 text-sm',
+        view.kind === 'failed' ? 'text-destructive' : 'text-muted-foreground',
+        view.kind === 'saving' && 'sr-only',
+        className,
+      )}
+    >
+      {view.kind === 'saved' && <CheckIcon className="text-success size-4" aria-hidden="true" />}
+      {view.text}
+    </span>
+  );
+}
+
+/**
+ * Whether the form named `scope` was just saved. The flag lives outside the form (`savedStore`), so it
+ * survives a card that is re-keyed by its own save. Name the form and its record: `terms:CCQ-2026-00042`.
+ * It says nothing about later edits: show "saved" only while the form is unchanged (`saved && !changed`).
+ */
+export function useSaved(scope: string): { saved: boolean; markSaved: () => void } {
+  const saved = useSyncExternalStore(
+    savedStore.subscribe,
+    () => savedStore.isSaved(scope),
+    () => false,
+  );
+  useEffect(() => savedStore.mount(scope), [scope]);
+  return { saved, markSaved: () => savedStore.mark(scope) };
+}
+
+/** Two flat form states hold the same values: nothing to save. */
+export const sameValues = <T extends object>(a: T, b: T): boolean =>
+  (Object.keys(a) as (keyof T)[]).every((k) => a[k] === b[k]);
+
+/** The `SaveStatus` props for a form saved by a mutation: saving, saved, or why the save failed. */
+export function saveStatusOf(
+  save: { isPending: boolean; isError: boolean; error: unknown },
+  saved: boolean,
+): SaveStatusState {
+  const reason = () => saveFailureReason(problemErrors(save.error).map((e) => e.message));
+  return { saving: save.isPending, saved, error: save.isError ? reason() : null };
+}
+
+/**
+ * "Progress saved" for a save that happens somewhere else, in a dialog that closes: shown where the user
+ * started (beside the row's Edit button) until the next save of that scope begins. The dialog marks the
+ * scope with `savedStore.mark(scope)`.
+ */
+export function SavedNote({ scope, className }: { scope: string; className?: string }) {
+  const { saved } = useSaved(scope);
+  return <SaveStatus saved={saved} {...(className ? { className } : {})} />;
 }

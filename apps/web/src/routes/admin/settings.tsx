@@ -21,6 +21,7 @@ import {
   useCanEditConfig,
 } from '@/admin/shared';
 import { ErrorState } from '@/components/ErrorState';
+import { SavedNote } from '@/components/forms';
 import { PageHeader } from '@/components/PageHeader';
 import { SkeletonRows } from '@/components/Skeletons';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,9 @@ const GROUP_LABEL: Record<string, string> = {
   integrations: 'Integrations and data',
   other: 'Other',
 };
+
+/** FB-18 (W13-30): the "Progress saved" scope of one setting's row. */
+const settingScope = (key: string) => `admin-setting:${key}`;
 
 /**
  * B-19 screen 4: every open business value held in `app_setting` (validity days, warning thresholds,
@@ -104,6 +108,8 @@ function SettingsPage() {
                         </span>
                         <ApprovalBadge approval={s.approval} />
                         <span className="flex-1" />
+                        {/* FB-18 (W13-30): beside the button that opened the change dialog. */}
+                        <SavedNote scope={settingScope(s.key)} />
                         {canEdit && (
                           <Button
                             variant="outline"
@@ -143,6 +149,7 @@ function SettingsPage() {
         description={editing?.description}
         approval={editing?.approval}
         canSubmit={problem === null}
+        savedScope={editing ? settingScope(editing.key) : undefined}
         onSubmit={(s) => {
           const e = editing!;
           const value = draftValue(e, draft);

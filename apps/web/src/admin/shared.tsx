@@ -5,7 +5,7 @@ import { ArrowLeftIcon, BadgeCheckIcon, HourglassIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
 
 import { useCan } from '@/auth';
-import { FormErrors, problemErrors, type ServerError } from '@/components/forms';
+import { FormErrors, SaveStatus, problemErrors, type ServerError } from '@/components/forms';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
 import { NativeSelect, Textarea } from '@/components/ui/input';
 import { publicConfigQueryKey } from '@/config/public-config';
 import { isApiError } from '@/lib/api';
+import { saveFailureReason, savedStore } from '@/lib/save-status';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -117,6 +118,10 @@ const MIN_REASON = 5;
  * (the decision log's "why"), and optionally the approval. It handles the server's answers:
  * 409 stale (someone else saved first: reload), 409 needs-confirmation (confirm and resubmit) and
  * 422 validation errors.
+ *
+ * FB-18 (W13-30): beside the button it says "Not saved: <reason>" when a save fails. The dialog closes
+ * on a save, so "Progress saved" is shown where the user started: pass `savedScope` and put a
+ * `<SavedNote scope={…} />` beside the control that opened the dialog.
  */
 export function ChangeDialog({
   open,
@@ -130,6 +135,7 @@ export function ChangeDialog({
   canSubmit = true,
   destructive = false,
   wide = false,
+  savedScope,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -144,6 +150,8 @@ export function ChangeDialog({
   canSubmit?: boolean;
   destructive?: boolean;
   wide?: boolean;
+  /** FB-18 (W13-30): the `SavedNote` scope to mark once the change is saved. */
+  savedScope?: string | undefined;
 }) {
   const ids = { reason: useId(), approval: useId() };
   const invalidate = useInvalidateConfig();
@@ -174,6 +182,8 @@ export function ChangeDialog({
     }
     setBusy(true);
     setErrors([]);
+    // The record is changing again: the earlier "Progress saved" beside its Edit button goes.
+    if (savedScope) savedStore.clear(savedScope);
     try {
       await onSubmit({
         changeReason: reason.trim(),
@@ -181,6 +191,7 @@ export function ChangeDialog({
         confirm: confirmMessage !== null,
       });
       await invalidate();
+      if (savedScope) savedStore.mark(savedScope);
       toast.success({ title: 'Saved', description: 'The change is in the decision log.' });
       onOpenChange(false);
     } catch (err) {
@@ -264,7 +275,11 @@ export function ChangeDialog({
             </p>
           )}
           <FormErrors errors={errors} />
-          <DialogFooter>
+          <DialogFooter className="sm:items-center">
+            <SaveStatus
+              saving={busy}
+              error={errors.length > 0 ? saveFailureReason(errors.map((e) => e.message)) : null}
+            />
             <Button
               type="button"
               variant="outline"
