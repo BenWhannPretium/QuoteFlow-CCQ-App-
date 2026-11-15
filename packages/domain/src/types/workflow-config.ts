@@ -68,6 +68,15 @@ export type ResumeAt = (typeof RESUME_AT)[number];
 /** B-13: whom a closing transition names as the closure owner by default (`transition_rule.closure_owner`). */
 export const CLOSURE_OWNER_DEFAULTS = ['kam', 'decider'] as const;
 
+/**
+ * FB-17 (W13-23, provisional): the plain choice an outcome sits under in the decision dialog
+ * (`gate_outcome_definition.outcome_group`). `advance`, `send_back`, `hold` and `stop` are the four
+ * verbs; `customer_outcome` is the customer's answer at G5 (Awarded, Lost, …), which keeps its flat list.
+ * Config, never worked out from an outcome's key.
+ */
+export const OUTCOME_GROUPS = ['advance', 'send_back', 'hold', 'stop', 'customer_outcome'] as const;
+export type OutcomeGroup = (typeof OUTCOME_GROUPS)[number];
+
 // ── Workflow config ─────────────────────────────────────────────────────────────────────────────
 
 const key = z.string().min(1);
@@ -129,6 +138,16 @@ export const outcomeDefinitionSchema = z
      * the quote to INTAKE.
      */
     resumeAt: z.enum(RESUME_AT).default('intake'),
+    /**
+     * FB-17 (W13-22): a switched-off outcome is not offered and is refused if posted, but stays in the
+     * config so every decision already recorded with it keeps its label (timeline, analytics, exports).
+     */
+    active: z.boolean().default(true),
+    /**
+     * FB-17 (W13-23): the choice the dialog shows the outcome under. Omitted in a config that has no
+     * groups yet (the dialog then lists the outcomes flat, as before).
+     */
+    outcomeGroup: z.enum(OUTCOME_GROUPS).optional(),
     provisional: z.boolean().default(true),
   })
   .strict();

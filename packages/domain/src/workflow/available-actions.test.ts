@@ -15,11 +15,65 @@ describe('availableActions', () => {
     ).toEqual(['G1/advance', 'G1/hold', 'G1/rework', 'G1/redirect', 'G1/stop']);
   });
 
-  it('G2 offers seven outcomes to the EngLead (B-26 adds Redirect), none to a KAM', () => {
-    expect(
-      availableActions(hybridConfig, makeQuote('ENG_REVIEW'), makeActor('EngLead')),
-    ).toHaveLength(7);
+  it('G2 offers six outcomes to the EngLead (FB-17: "Capital required" is switched off), none to a KAM', () => {
+    const actions = availableActions(hybridConfig, makeQuote('ENG_REVIEW'), makeActor('EngLead'));
+    expect(labels(actions)).toEqual([
+      'G2/proceed',
+      'G2/proceed_with_risk',
+      'G2/hold',
+      'G2/rework',
+      'G2/redirect',
+      'G2/stop',
+    ]);
     expect(availableActions(hybridConfig, makeQuote('ENG_REVIEW'), makeActor('KAM'))).toEqual([]);
+  });
+
+  it('FB-17: a switched-off outcome is not offered; switched back on, it is', () => {
+    const offered = (config: typeof hybridConfig) =>
+      labels(availableActions(config, makeQuote('ENG_REVIEW'), makeActor('EngLead')));
+    expect(offered(hybridConfig)).not.toContain('G2/capital_required');
+    const on = structuredClone(hybridConfig);
+    on.outcomes.find((o) => o.gateKey === 'G2' && o.key === 'capital_required')!.active = true;
+    expect(offered(on)).toContain('G2/capital_required');
+    const off = structuredClone(hybridConfig);
+    off.outcomes.find((o) => o.gateKey === 'G2' && o.key === 'hold')!.active = false;
+    expect(offered(off)).not.toContain('G2/hold');
+  });
+
+  it('FB-17: every action carries the choice the dialog shows it under', () => {
+    const groups = (stage: string, role: Parameters<typeof makeActor>[0]) =>
+      availableActions(hybridConfig, makeQuote(stage), makeActor(role)).map(
+        (a) => `${a.outcomeKey}:${a.outcomeGroup}`,
+      );
+    expect(groups('INTAKE', 'SalesLeader')).toEqual([
+      'advance:advance',
+      'hold:hold',
+      'rework:send_back',
+      'redirect:stop',
+      'stop:stop',
+    ]);
+    expect(groups('QUOTING', 'PricingLead')).toEqual([
+      'submit:advance',
+      'hold:hold',
+      'recost:send_back',
+      'rework:send_back',
+      'rework_kam:send_back',
+      'redirect:send_back',
+      'stop:stop',
+    ]);
+    // G5 is the customer's answer: no four verbs there, only its own hold.
+    expect(groups('CUSTOMER_DECISION', 'SalesLeader')).toEqual([
+      'awarded:customer_outcome',
+      'negotiating:customer_outcome',
+      'lost:customer_outcome',
+      'expired:customer_outcome',
+      'on_hold:hold',
+      'requote:customer_outcome',
+    ]);
+    // A config without groups (the PRD-5 preset) reports none.
+    const ungrouped = availableActions(prd5Config, makeQuote('ENG_REVIEW'), makeActor('EngLead'));
+    expect(ungrouped.length).toBeGreaterThan(0);
+    expect(ungrouped.every((a) => a.outcomeGroup === null)).toBe(true);
   });
 
   it('G4 offers approve/hold/return/decline to an Approver, with return needing a target choice', () => {

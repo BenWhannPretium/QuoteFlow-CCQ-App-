@@ -16,8 +16,40 @@ export const PRICING_QUEUE_STAGE_KEY = 'QUOTING';
 /** B-26: the G3 outcome that keeps the quote in Quoting and redoes the cost (clears the attestation). */
 export const RECOST_OUTCOME = 'recost';
 
-/** The G2 outcomes the queue flags for Pricing. */
+/**
+ * The G2 outcomes the queue flags for Pricing. FB-17 (W13-22): `capital_required` is switched off and
+ * stays here for the quotes decided with it; a quote that needs capital is flagged by `capitalNeeded`
+ * (`flaggedForCapitalOrRisk`), whatever its G2 outcome.
+ */
 export const FLAGGED_G2_OUTCOMES = ['capital_required', 'proceed_with_risk'] as const;
+
+/**
+ * FB-17 (W13-22): the value of the "Engineering decision" filter (`?g2=`) that lists the quotes that
+ * need capital: the preliminary capital is above the threshold, the quote is flagged capital likely, or
+ * it was decided "Advance – capital required" before that outcome was switched off.
+ */
+export const CAPITAL_NEEDED_FILTER = 'capital_needed';
+export const CAPITAL_NEEDED_FILTER_LABEL = 'Capital needed';
+
+/** "Capital needed / with risk": the queue's flag and its count (Pricing and Final Review). */
+export function flaggedForCapitalOrRisk(entry: {
+  g2Outcome: string | null;
+  capitalNeeded: boolean;
+}): boolean {
+  return (
+    entry.capitalNeeded ||
+    (FLAGGED_G2_OUTCOMES as readonly string[]).includes(entry.g2Outcome ?? '')
+  );
+}
+
+/** Whether an entry matches the `?g2=` filter values (outcome keys, or `capital_needed`). */
+export function matchesG2Filter(
+  entry: { g2Outcome: string | null; capitalNeeded: boolean },
+  values: readonly string[],
+): boolean {
+  if (values.includes(CAPITAL_NEEDED_FILTER) && entry.capitalNeeded) return true;
+  return !!entry.g2Outcome && values.includes(entry.g2Outcome);
+}
 
 /** What the queue orders and filters on (the API builds one per quote). */
 export interface PricingQueueEntry {
@@ -29,6 +61,8 @@ export interface PricingQueueEntry {
   activeMsInStage: number;
   /** The latest G2 outcome key (proceed, proceed_with_risk, capital_required…); null if none. */
   g2Outcome: string | null;
+  /** FB-17 (W13-22): the quote needs capital (`capitalNeed`). */
+  capitalNeeded: boolean;
   /** not_required | pending | pre_approved | not_approved; null when not recorded yet. */
   capitalReadiness: string | null;
   /** The price approval is recorded for the current version. */
@@ -74,6 +108,7 @@ export const NO_CAPITAL_READINESS = 'none';
 
 export interface PricingQueueFilter {
   tiers?: readonly string[];
+  /** Latest G2 outcome keys; `capital_needed` (FB-17) matches every quote that needs capital. */
   g2Outcomes?: readonly string[];
   capitalReadiness?: readonly string[];
   /** true: approval recorded; false: not yet. */
@@ -93,8 +128,7 @@ export function filterPricingQueue<T extends PricingQueueEntry>(
   const q = filter.q?.trim().toLowerCase();
   return entries.filter((e) => {
     if (filter.tiers?.length && !(e.tier && filter.tiers.includes(e.tier))) return false;
-    if (filter.g2Outcomes?.length && !(e.g2Outcome && filter.g2Outcomes.includes(e.g2Outcome)))
-      return false;
+    if (filter.g2Outcomes?.length && !matchesG2Filter(e, filter.g2Outcomes)) return false;
     if (
       filter.capitalReadiness?.length &&
       !filter.capitalReadiness.includes(e.capitalReadiness ?? NO_CAPITAL_READINESS)

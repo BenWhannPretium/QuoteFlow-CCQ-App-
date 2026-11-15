@@ -6,3 +6,4 @@ export * from './seeds';
 export * from './time-in-stage';
 export * from './validate-config';
 export * from './rework';
+export * from './hold-owner';

@@ -876,6 +876,9 @@ describe('W13-18: the lead approves capacity inside "Decide feasibility"', () =>
         cycle_time_s: 14.5,
         capacity_evidence: [{}],
         capacity_utilization_missing: false,
+        // FB-17 (W13-22): G2 Advance also needs the capital figure; $0 = no capital, so no BOM.
+        prelim_capital_usd: 0,
+        eng_capital_needed: false,
         [CAPACITY_SIGNOFF_FIELD]: signoff,
       },
     });

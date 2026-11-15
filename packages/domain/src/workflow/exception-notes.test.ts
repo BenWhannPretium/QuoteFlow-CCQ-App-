@@ -9,6 +9,8 @@ import type { Role } from '../types/roles';
  * FB-01 (F-027, Graham Parle and Bailey Schmitt; D-015 "notes are for exceptions only"): Advance with
  * risk, Capital required, Hold, Rework, Redirect and Stop all require a note, at every gate where they
  * exist. A plain Advance, Approve or Awarded does not. `evaluate.ts` enforces `requiresNote`.
+ * FB-17: Rework and Redirect are now the send-backs (same keys), and "Capital required" is switched off:
+ * it still asks for a note in the config, but posting it is refused before any note is looked at.
  */
 const EXCEPTIONS: Record<string, string[]> = {
   G1: ['hold', 'rework', 'redirect', 'stop'],
@@ -61,6 +63,14 @@ for (const [gateKey, keys] of Object.entries(EXCEPTIONS)) {
         const c = validCase(hybridConfig, gateKey, key);
         const actor = makeActor(DECIDER[gateKey]!, { userId: 'user-decider' as never });
         const quote = makeQuote(gate.stageKey, { fields: c.fields });
+        if (!outcome(gateKey, key).active) {
+          // FB-17 (W13-22): switched off, so it is refused with or without its note.
+          for (const request of [c.request, { ...c.request, note: '  ' }]) {
+            const refused = evaluateTransition(hybridConfig, quote, actor, request, NOW);
+            expect(!refused.ok && refused.errors.map((e) => e.code)).toEqual(['OUTCOME_INACTIVE']);
+          }
+          return;
+        }
         const { note: _note, ...withoutNote } = c.request;
         const missing = evaluateTransition(hybridConfig, quote, actor, withoutNote, NOW);
         expect(!missing.ok && missing.errors.map((e) => e.code)).toContain('NOTE_REQUIRED');

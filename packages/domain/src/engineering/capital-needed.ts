@@ -1,0 +1,99 @@
+import { DomainError } from '../errors';
+
+/**
+ * FB-17 (W13-22; Bailey Schmitt and Ben Whann, agreed 2026-11-12): "Advance – capital required" is gone
+ * from G2. Whether a quote needs capital is no longer a choice at the gate: it follows from Engineering's
+ * preliminary capital figure. Capital is needed when that figure is above
+ * `app_setting.capital_needed_above_usd` (seed 0, provisional), so any amount above $0 needs capital and
+ * an engineer enters $0 to say none is needed.
+ *
+ * Two readings, on purpose:
+ *
+ * - `engCapitalNeeded` is the fact the G2 rules read (`eng_capital_needed`). A blank figure counts as
+ *   needed (fail closed): a blank must never let the equipment BOM be skipped.
+ * - `capitalNeed` is what everything after G2 reads (the pricing and Final Review queues, the warnings,
+ *   capital readiness). There a blank figure is unknown, not capital: a quote that advanced before G2
+ *   asked for the figure is not flagged by it.
+ */
+export const CAPITAL_NEEDED_ABOVE_USD_SEED = 0;
+
+/** The upper bound the Admin console accepts (the largest preliminary capital the form takes). */
+const CAPITAL_NEEDED_ABOVE_USD_MAX = 999_999_999_999;
+
+/** Null / undefined → the seed. Throws INVALID_CONFIG on anything that is not a dollar amount ≥ 0. */
+export function parseCapitalNeededAboveUsd(input: unknown): number {
+  if (input === undefined || input === null) return CAPITAL_NEEDED_ABOVE_USD_SEED;
+  if (
+    typeof input !== 'number' ||
+    !Number.isFinite(input) ||
+    input < 0 ||
+    input > CAPITAL_NEEDED_ABOVE_USD_MAX
+  ) {
+    throw new DomainError(
+      'INVALID_CONFIG',
+      'capital_needed_above_usd must be a dollar amount of 0 or more',
+    );
+  }
+  return input;
+}
+
+/** The G2 outcome that said "capital required" before FB-17. Switched off; old decisions keep it. */
+export const HISTORICAL_CAPITAL_OUTCOME = 'capital_required';
+
+const amount = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * `eng_capital_needed`, derived by the server for the G2 rules: the preliminary capital is above the
+ * threshold. A blank or unreadable figure counts as needed.
+ */
+export function engCapitalNeeded(prelimCapitalUsd: unknown, aboveUsd: number): boolean {
+  const figure = amount(prelimCapitalUsd);
+  return figure === null ? true : figure > aboveUsd;
+}
+
+export type CapitalNeedReason = 'prelim_capital' | 'historical_outcome' | 'capital_likely';
+
+export interface CapitalNeed {
+  /** Any reason applies: the quote is treated as needing capital. */
+  needed: boolean;
+  /**
+   * Engineering's own evidence says so: the preliminary capital is above the threshold, or the quote was
+   * decided "Advance – capital required" before that outcome was switched off. The "capital likely" flag
+   * alone (Sales can set it at intake) is not Engineering's evidence.
+   */
+  byEngineering: boolean;
+  reasons: CapitalNeedReason[];
+  /** The preliminary capital figure, when there is one. */
+  prelimCapitalUsd: number | null;
+}
+
+/**
+ * Whether a quote needs capital, and why, from its decision fields (`QuoteState.fields`): the
+ * preliminary capital figure, Engineering's latest G2 outcome and the "capital likely" flag.
+ */
+export function capitalNeed(
+  fields: Readonly<Record<string, unknown>>,
+  aboveUsd: number = CAPITAL_NEEDED_ABOVE_USD_SEED,
+): CapitalNeed {
+  const figure = amount(fields.prelim_capital_usd);
+  const reasons: CapitalNeedReason[] = [];
+  if (figure !== null && figure > aboveUsd) reasons.push('prelim_capital');
+  if (fields.g2_outcome === HISTORICAL_CAPITAL_OUTCOME) reasons.push('historical_outcome');
+  const byEngineering = reasons.length > 0;
+  if (fields.capital_likely === true) reasons.push('capital_likely');
+  return { needed: reasons.length > 0, byEngineering, reasons, prelimCapitalUsd: figure };
+}
+
+/** "$250,000" for the timeline and messages (whole dollars; the figure is a budgetary estimate). */
+export function formatCapitalUsd(value: number): string {
+  return `$${Math.round(value).toLocaleString('en-US')}`;
+}
+
+/** "Required to advance when preliminary capital is above $0": the BOM card and the field hint. */
+export function capitalNeededRuleText(aboveUsd: number = CAPITAL_NEEDED_ABOVE_USD_SEED): string {
+  return `Required to advance when preliminary capital is above ${formatCapitalUsd(aboveUsd)}`;
+}

@@ -25,6 +25,8 @@ import {
   type ApproverTierRules,
 } from './tiers';
 import { reviewWarnings } from './warnings';
+import { capitalNeed } from '../engineering/capital-needed';
+import { CAPITAL_NEEDED_FILTER, flaggedForCapitalOrRisk } from '../pricing/queue';
 import { asUserId } from '../types/ids';
 import { availableActions } from '../workflow/available-actions';
 import { evaluateTransition, type TransitionRequest } from '../workflow/evaluate';
@@ -640,6 +642,7 @@ describe('the Final Review queue order and filters', () => {
     score: 50,
     waitingMs: 0,
     g2Outcome: 'proceed',
+    capitalNeeded: false,
     capitalReadiness: 'not_required',
     kamUserId: 'k1',
     searchText: n.toLowerCase(),
@@ -687,6 +690,25 @@ describe('the Final Review queue order and filters', () => {
     expect(names({ q: ' ACME ' })).toEqual(['A']);
     expect(FINAL_REVIEW_FLAGGED_G2).toEqual(['capital_required', 'proceed_with_risk']);
   });
+
+  it('FB-17: the "capital needed" filter lists a quote whatever its G2 outcome', () => {
+    const rows = [
+      entry('OLD', { g2Outcome: 'capital_required', capitalNeeded: true }),
+      entry('FIGURE', { g2Outcome: 'proceed', capitalNeeded: true }),
+      entry('RISK', { g2Outcome: 'proceed_with_risk' }),
+      entry('PLAIN'),
+    ];
+    const names = (g2Outcomes: string[]) =>
+      filterFinalReviewQueue(rows, { g2Outcomes }).map((e) => e.quoteNumber);
+    expect(names([CAPITAL_NEEDED_FILTER])).toEqual(['OLD', 'FIGURE']);
+    expect(names([CAPITAL_NEEDED_FILTER, 'proceed_with_risk'])).toEqual(['OLD', 'FIGURE', 'RISK']);
+    expect(names(['capital_required'])).toEqual(['OLD']);
+    expect(rows.filter(flaggedForCapitalOrRisk).map((e) => e.quoteNumber)).toEqual([
+      'OLD',
+      'FIGURE',
+      'RISK',
+    ]);
+  });
 });
 
 describe('review warnings', () => {
@@ -722,6 +744,40 @@ describe('review warnings', () => {
         message: 'Engineering proceeded with risk: Line 4 is tight',
       },
     ]);
+  });
+
+  it('FB-17: capital needed is flagged from the figure or the flag; an old decision keeps its wording', () => {
+    const capital = (fields: Record<string, unknown>) =>
+      reviewWarnings({
+        ...base,
+        g2Outcome: (fields.g2_outcome as string | undefined) ?? 'proceed',
+        capital: capitalNeed(fields),
+      });
+    expect(capital({ prelim_capital_usd: 250_000 })).toEqual([
+      {
+        code: 'G2_CAPITAL_REQUIRED',
+        severity: 'risk',
+        message: 'Capital is needed: preliminary capital $250,000',
+      },
+    ]);
+    expect(capital({ prelim_capital_usd: 0, capital_likely: true })).toEqual([
+      {
+        code: 'G2_CAPITAL_REQUIRED',
+        severity: 'risk',
+        message: 'Capital is needed: the quote is flagged capital likely',
+      },
+    ]);
+    // Decided "Advance – capital required" before FB-17: one warning, worded as it always was.
+    expect(capital({ g2_outcome: 'capital_required', prelim_capital_usd: 250_000 })).toEqual([
+      {
+        code: 'G2_CAPITAL_REQUIRED',
+        severity: 'risk',
+        message: 'Engineering flagged capital as required',
+      },
+    ]);
+    // $0, or no figure on an old quote, is not capital.
+    expect(capital({ prelim_capital_usd: 0 })).toEqual([]);
+    expect(capital({})).toEqual([]);
   });
 
   it('passes the quoting and qualification warnings through, and says when a tier bars the viewer', () => {

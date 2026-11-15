@@ -3,7 +3,13 @@
  * and Leadership (read). It only orders and filters what the approver sees; it decides nothing.
  */
 
-/** The G2 outcomes the queue flags as risk for the approver. */
+import { matchesG2Filter } from '../pricing/queue';
+
+/**
+ * The G2 outcomes the queue flags as risk for the approver. FB-17 (W13-22): `capital_required` is
+ * switched off and stays here for the quotes decided with it; a quote that needs capital is flagged by
+ * `capitalNeeded` (`flaggedForCapitalOrRisk` in the pricing queue module), whatever its G2 outcome.
+ */
 export const FINAL_REVIEW_FLAGGED_G2 = ['capital_required', 'proceed_with_risk'] as const;
 
 /** What the queue orders and filters on (the API builds one per quote). */
@@ -15,6 +21,8 @@ export interface FinalReviewEntry {
   /** Time waiting in Final Review so far (ms). */
   waitingMs: number;
   g2Outcome: string | null;
+  /** FB-17 (W13-22): the quote needs capital (`capitalNeed`). */
+  capitalNeeded: boolean;
   /** not_required | pending | pre_approved | not_approved; null when not recorded. */
   capitalReadiness: string | null;
   kamUserId: string;
@@ -52,6 +60,7 @@ export const FINAL_REVIEW_NO_CAPITAL = 'none';
 
 export interface FinalReviewFilter {
   tiers?: readonly string[];
+  /** Latest G2 outcome keys; `capital_needed` (FB-17) matches every quote that needs capital. */
   g2Outcomes?: readonly string[];
   capitalReadiness?: readonly string[];
   kamUserId?: string;
@@ -65,8 +74,7 @@ export function filterFinalReviewQueue<T extends FinalReviewEntry>(
   const q = filter.q?.trim().toLowerCase();
   return entries.filter((e) => {
     if (filter.tiers?.length && !(e.tier && filter.tiers.includes(e.tier))) return false;
-    if (filter.g2Outcomes?.length && !(e.g2Outcome && filter.g2Outcomes.includes(e.g2Outcome)))
-      return false;
+    if (filter.g2Outcomes?.length && !matchesG2Filter(e, filter.g2Outcomes)) return false;
     if (
       filter.capitalReadiness?.length &&
       !filter.capitalReadiness.includes(e.capitalReadiness ?? FINAL_REVIEW_NO_CAPITAL)

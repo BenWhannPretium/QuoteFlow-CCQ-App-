@@ -1,3 +1,4 @@
+import { formatCapitalUsd, type CapitalNeed } from '../engineering/capital-needed';
 import type { QuotingWarning } from '../pricing/record';
 
 /**
@@ -18,6 +19,11 @@ export interface ReviewWarningInput {
   quoting: readonly QuotingWarning[];
   g2Outcome: string | null;
   g2Note: string | null;
+  /**
+   * FB-17 (W13-22): whether the quote needs capital (`capitalNeed`). Omitted: only a historical
+   * "Advance – capital required" decision counts, as before.
+   */
+  capital?: Pick<CapitalNeed, 'needed' | 'reasons' | 'prelimCapitalUsd'>;
   priceApproved: boolean;
   capacityEvidenceRows: number;
   /** The approver tier this quote falls in (when `g4_tier_rules` is on) and whether the viewer meets it. */
@@ -33,11 +39,26 @@ export function reviewWarnings(input: ReviewWarningInput): ReviewWarning[] {
       message: 'No price approval is recorded for this version',
     });
   }
-  if (input.g2Outcome === 'capital_required') {
+  // FB-17 (W13-22): "capital needed", whichever way it was said. The code is unchanged (decisions
+  // already recorded carry it); a quote decided "Advance – capital required" keeps its old wording.
+  const capital = input.capital;
+  const historical = capital
+    ? capital.reasons.includes('historical_outcome')
+    : input.g2Outcome === 'capital_required';
+  if (historical) {
     out.push({
       code: 'G2_CAPITAL_REQUIRED',
       severity: 'risk',
       message: 'Engineering flagged capital as required',
+    });
+  } else if (capital?.needed) {
+    out.push({
+      code: 'G2_CAPITAL_REQUIRED',
+      severity: 'risk',
+      message:
+        capital.reasons.includes('prelim_capital') && capital.prelimCapitalUsd !== null
+          ? `Capital is needed: preliminary capital ${formatCapitalUsd(capital.prelimCapitalUsd)}`
+          : 'Capital is needed: the quote is flagged capital likely',
     });
   }
   if (input.g2Outcome === 'proceed_with_risk') {

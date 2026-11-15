@@ -1,6 +1,7 @@
 import { g4CheckFields, type G4Check } from './g4-checks';
 import { passThroughEligible, type PassThroughSetting } from './pass-through';
 import { legalReviewReasons, termsExceptionOpen, type LegalReviewTriggers } from './terms';
+import { CAPITAL_NEEDED_ABOVE_USD_SEED, engCapitalNeeded } from '../engineering/capital-needed';
 import { roiRequirement, type RoiReason, type RoiRequiredWhen } from '../quoting-steps';
 import type { QuoteState } from '../types/quote';
 
@@ -12,6 +13,11 @@ export interface DerivedFieldSettings {
   g4RequiredChecks: readonly G4Check[];
   /** FB-07 (D-001): `app_setting.roi_required_when`, when Quoting's ROI step applies. */
   roiRequiredWhen: RoiRequiredWhen;
+  /**
+   * FB-17 (W13-22): `app_setting.capital_needed_above_usd`. Capital is needed when the preliminary
+   * capital is above it. Omitted = the seed (0).
+   */
+  capitalNeededAboveUsd?: number;
 }
 
 /**
@@ -20,6 +26,8 @@ export interface DerivedFieldSettings {
  * pass-through threshold at G3. FB-01 (F-069): and which G4 checks block (`g4_required_checks`). FB-07: and whether the quote needs an ROI (`roi_required_when`). Added to the quote's fields before any rule is evaluated, so the
  * decision dialog's "missing" list and the decision itself agree. The customer's status
  * (`customer_status`: existing | not_yet_established) comes with the quote's state.
+ * FB-17 (W13-22): and whether Engineering's preliminary capital means capital is needed
+ * (`eng_capital_needed`, from `capital_needed_above_usd`; a blank figure counts as needed).
  */
 export function derivedDecisionFields(
   fields: QuoteState['fields'],
@@ -35,6 +43,7 @@ export function derivedDecisionFields(
   terms_exception_open: boolean;
   roi_required: boolean;
   roi_required_reasons: RoiReason[];
+  eng_capital_needed: boolean;
 } {
   const reasons = legalReviewReasons(settings.legalReviewTriggers, {
     customerStatus: (fields.customer_status as string | null | undefined) ?? null,
@@ -58,6 +67,11 @@ export function derivedDecisionFields(
       const roi = roiRequirement(fields, settings.roiRequiredWhen);
       return { roi_required: roi.required, roi_required_reasons: roi.reasons };
     })(),
+    // FB-17 (W13-22): the G2 rules ask for the equipment BOM exactly when this is true.
+    eng_capital_needed: engCapitalNeeded(
+      fields.prelim_capital_usd,
+      settings.capitalNeededAboveUsd ?? CAPITAL_NEEDED_ABOVE_USD_SEED,
+    ),
   };
 }
 

@@ -12,6 +12,7 @@ import {
   parseProcessOwner,
 } from '../commercial';
 import { parseAssignmentRules } from '../engineering/assignment-rules';
+import { parseCapitalNeededAboveUsd } from '../engineering/capital-needed';
 import { parsePackOutRule } from '../engineering/pack-out';
 import {
   parseMachineTypeProcessMap,
@@ -39,6 +40,7 @@ import { CAPITAL_READINESS_VALUES, parsePricingRefFormats } from '../pricing/rec
 import { parseRoiRequiredWhen } from '../quoting-steps';
 import { volumeRoutingSchema } from '../scoring/volume-routing';
 import { requiredRuleSchema } from '../types/workflow-config';
+import { HOLD_OWNER_DEFAULTS, parseHoldOwnerDefault } from '../workflow/hold-owner';
 
 /**
  * The admin console's app settings (B-19, CR-51). Each `app_setting` key the console knows has a
@@ -160,6 +162,15 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'numberMap',
     z_('sla_hours_by_stage', z.record(z.string().min(1), z.number().positive()).nullable()),
     { nullable: true },
+  ),
+  // FB-17 (W13-25, provisional): who the hold-owner picker starts on.
+  spec(
+    'hold_owner_default',
+    'workflow',
+    'Hold owner the decision dialog starts on: the person working the stage (when there is exactly one) or the decider',
+    'select',
+    notNull('hold_owner_default', parseHoldOwnerDefault),
+    { options: HOLD_OWNER_DEFAULTS },
   ),
   // Proposal validity (D-12)
   spec(
@@ -386,6 +397,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Capital readiness written by a gate decision (GATE:outcome → readiness)',
     'json',
     z_('capital_readiness_on_outcome', z.record(gateOutcomePair, z.enum(CAPITAL_READINESS_VALUES))),
+  ),
+  // FB-17 (W13-22, provisional): capital is needed when the preliminary capital is above this.
+  spec(
+    'capital_needed_above_usd',
+    'engineering',
+    'Capital is needed when the preliminary capital is above this amount (USD); 0 = any amount above $0',
+    'number',
+    notNull('capital_needed_above_usd', parseCapitalNeededAboveUsd),
   ),
   // Pricing (B-26, D-24)
   spec(

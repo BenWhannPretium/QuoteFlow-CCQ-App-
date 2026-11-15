@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CAPITAL_NEEDED_FILTER,
+  FLAGGED_G2_OUTCOMES,
   NO_CAPITAL_READINESS,
   PRICING_QUEUE_STAGE_KEY,
   filterPricingQueue,
+  flaggedForCapitalOrRisk,
   planPricerAssignment,
   sortPricingQueue,
   type PricingQueueEntry,
@@ -22,6 +25,7 @@ import {
   quotingWarnings,
   type PricingRecordValues,
 } from './record';
+import { capitalNeed } from '../engineering/capital-needed';
 import { redact } from '../policy/redact';
 import { KAM_ID, NOW, OTHER_ID, makeActor, makeQuote, validCase } from '../test-utils';
 import { asUserId } from '../types/ids';
@@ -73,7 +77,7 @@ describe('who edits the Quoting tab', () => {
       quoting,
       EMPTY_PRICING_RECORD,
       { capitalReadiness: 'pending' },
-      null,
+      false,
     );
     expect(!cap.ok && cap.errors[0]!.code).toBe('NOT_PERMITTED');
   });
@@ -241,7 +245,7 @@ describe('capital readiness', () => {
         capitalNotes: 'Apex in review',
         capitalPendingJustification: 'CER goes to the board on Nov 10',
       },
-      'capital_required',
+      true,
     );
     expect(pending.ok && pending.next).toMatchObject({
       capitalReadiness: 'pending',
@@ -253,7 +257,7 @@ describe('capital readiness', () => {
       quoting,
       (pending as { next: PricingRecordValues }).next,
       { capitalReadiness: 'pre_approved' },
-      'capital_required',
+      true,
     );
     expect(approved.ok && approved.next).toMatchObject({
       capitalReadiness: 'pre_approved',
@@ -264,13 +268,36 @@ describe('capital readiness', () => {
     expect(CAPITAL_READINESS_LABELS.pre_approved).toBe('Capital pre-approved (budgetary)');
   });
 
-  it('cannot be "not required" after a G2 "Capital required", nor an unknown value', () => {
-    const run = (value: string, g2: string | null) =>
-      planCapitalReadiness(pricing, quoting, EMPTY_PRICING_RECORD, { capitalReadiness: value }, g2);
-    expect(run('not_required', 'capital_required').ok).toBe(false);
-    expect(run('not_required', 'proceed').ok).toBe(true);
-    expect(run('not_required', null).ok).toBe(true);
-    const bad = run('maybe', null);
+  it('cannot be "not required" when Engineering says capital is needed, nor an unknown value', () => {
+    // FB-17 (W13-22): "capital needed" is the preliminary capital above the threshold, or a quote
+    // decided "Advance – capital required" before that outcome was switched off.
+    const run = (value: string, fields: Record<string, unknown>) =>
+      planCapitalReadiness(
+        pricing,
+        quoting,
+        EMPTY_PRICING_RECORD,
+        { capitalReadiness: value },
+        capitalNeed(fields).byEngineering,
+      );
+    const refused = run('not_required', { g2_outcome: 'capital_required' });
+    expect(!refused.ok && refused.errors.map((e) => [e.code, e.field, e.message])).toEqual([
+      [
+        'INVALID_VALUE',
+        'capitalReadiness',
+        'Engineering said capital is needed, so capital readiness cannot be "Not required"',
+      ],
+    ]);
+    expect(run('not_required', { g2_outcome: 'proceed', prelim_capital_usd: 250_000 }).ok).toBe(
+      false,
+    );
+    expect(run('pending', { g2_outcome: 'proceed', prelim_capital_usd: 250_000 }).ok).toBe(true);
+    expect(run('not_required', { g2_outcome: 'proceed', prelim_capital_usd: 0 }).ok).toBe(true);
+    expect(run('not_required', { g2_outcome: 'proceed' }).ok).toBe(true);
+    expect(run('not_required', {}).ok).toBe(true);
+    // "Capital likely" alone (Sales can set it at intake) is not Engineering's evidence: the G3 rule
+    // lets Pricing answer it with "Not required" after all.
+    expect(run('not_required', { capital_likely: true, prelim_capital_usd: 0 }).ok).toBe(true);
+    const bad = run('maybe', {});
     expect(!bad.ok && bad.errors[0]!.field).toBe('capitalReadiness');
   });
 });
@@ -391,6 +418,7 @@ describe('pricing queue', () => {
     score: 50,
     activeMsInStage: 1000,
     g2Outcome: 'proceed',
+    capitalNeeded: false,
     capitalReadiness: null,
     priceApproved: false,
     productFamily: 'BOTTLE',
@@ -448,6 +476,61 @@ describe('pricing queue', () => {
     expect(keys({ kamUserId: OTHER_ID })).toEqual(['C']);
     expect(keys({ q: ' ACME ' })).toEqual(['A']);
     expect(keys({ tiers: ['NONE'], g2Outcomes: [] })).toEqual([]);
+  });
+
+  it('FB-17: "capital needed" flags and filters a quote whatever its G2 outcome', () => {
+    const need = (fields: Record<string, unknown>) => capitalNeed(fields).needed;
+    const all = [
+      // Decided before FB-17 with the retired outcome: still capital, still flagged.
+      entry({
+        quoteNumber: 'OLD',
+        g2Outcome: 'capital_required',
+        capitalNeeded: need({ g2_outcome: 'capital_required' }),
+      }),
+      // A plain Advance whose preliminary capital is above $0.
+      entry({
+        quoteNumber: 'FIGURE',
+        g2Outcome: 'proceed',
+        capitalNeeded: need({ g2_outcome: 'proceed', prelim_capital_usd: 250_000 }),
+      }),
+      // Flagged "capital likely" (the G2 advance sets it; Sales can too).
+      entry({
+        quoteNumber: 'LIKELY',
+        g2Outcome: 'proceed',
+        capitalNeeded: need({ g2_outcome: 'proceed', prelim_capital_usd: 0, capital_likely: true }),
+      }),
+      entry({
+        quoteNumber: 'RISK',
+        g2Outcome: 'proceed_with_risk',
+        capitalNeeded: need({ g2_outcome: 'proceed_with_risk', prelim_capital_usd: 0 }),
+      }),
+      entry({
+        quoteNumber: 'PLAIN',
+        g2Outcome: 'proceed',
+        capitalNeeded: need({ g2_outcome: 'proceed', prelim_capital_usd: 0 }),
+      }),
+      // No figure on an old quote is unknown, not capital.
+      entry({ quoteNumber: 'BLANK', g2Outcome: 'proceed', capitalNeeded: need({}) }),
+    ];
+    const keys = (g2Outcomes: string[]) =>
+      filterPricingQueue(all, { g2Outcomes }).map((e) => e.quoteNumber);
+    expect(all.filter(flaggedForCapitalOrRisk).map((e) => e.quoteNumber)).toEqual([
+      'OLD',
+      'FIGURE',
+      'LIKELY',
+      'RISK',
+    ]);
+    expect(keys([CAPITAL_NEEDED_FILTER])).toEqual(['OLD', 'FIGURE', 'LIKELY']);
+    expect(keys([CAPITAL_NEEDED_FILTER, 'proceed_with_risk'])).toEqual([
+      'OLD',
+      'FIGURE',
+      'LIKELY',
+      'RISK',
+    ]);
+    // The outcome keys still filter as before, the retired one included.
+    expect(keys(['capital_required'])).toEqual(['OLD']);
+    expect(keys(['proceed'])).toEqual(['FIGURE', 'LIKELY', 'PLAIN', 'BLANK']);
+    expect(FLAGGED_G2_OUTCOMES).toEqual(['capital_required', 'proceed_with_risk']);
   });
 });
 
@@ -619,8 +702,18 @@ describe('G3 (hybrid seed)', () => {
     expect(
       rc.ok && [rc.effects.nextStageKey, rc.effects.nextVersion, rc.effects.nextStatus],
     ).toEqual(['QUOTING', 1, 'active']);
+    // FB-17 (W13-23): it is a send-back to Pricing now, so it needs a rework reason code as well.
     expect(run('redirect').ok).toBe(false);
-    expect(run('redirect', { note: 'Customer-funded tooling' }).ok).toBe(true);
+    const noReason = run('redirect', { note: 'Customer-funded tooling' });
+    expect(!noReason.ok && noReason.errors.map((e) => e.code)).toEqual(['REASON_REQUIRED']);
+    const redirect = validCase(hybridConfig, 'G3', 'redirect');
+    expect(redirect.request.note).toBe('because');
+    expect(redirect.outcome.reasonContext).toBe('rework');
+    expect(typeof redirect.request.reasonCode).toBe('string');
+    const rd = evaluateTransition(hybridConfig, makeQuote('QUOTING'), lead, redirect.request, NOW);
+    expect(
+      rd.ok && [rd.effects.nextStageKey, rd.effects.nextVersion, rd.effects.nextStatus],
+    ).toEqual(['QUOTING', 1, 'active']);
 
     const stop = validCase(hybridConfig, 'G3', 'stop');
     expect(stop.request.note).toBeDefined();
@@ -700,6 +793,7 @@ describe('B-26: Quoting assignment (the pricing lead triages)', () => {
       score: null,
       activeMsInStage: 0,
       g2Outcome: null,
+      capitalNeeded: false,
       capitalReadiness: null,
       priceApproved: false,
       productFamily: null,

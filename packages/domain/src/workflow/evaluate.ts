@@ -285,6 +285,21 @@ export function evaluateTransition(
     };
   }
 
+  // FB-17 (W13-22): a switched-off outcome is refused whoever posts it. It stays in the config only so
+  // the decisions already recorded with it keep their label.
+  if (!outcome.active) {
+    return {
+      ok: false,
+      errors: [
+        new DomainError(
+          'OUTCOME_INACTIVE',
+          `"${outcome.label}" is switched off and can no longer be chosen`,
+          'outcomeKey',
+        ),
+      ],
+    };
+  }
+
   const errors: DomainError[] = [];
 
   // 1. Stage (and quote state)
@@ -447,9 +462,27 @@ export function evaluateTransition(
   ];
   if (entersStage)
     activityEvents.push(event('stage_changed', { from: quote.stageKey, to: nextStageKey }));
-  if (hold.action === 'start')
-    activityEvents.push(event('hold_started', { stageKey: nextStageKey, reasonCode }));
-  if (hold.action === 'end') activityEvents.push(event('hold_ended', { stageKey: quote.stageKey }));
+  // FB-17 (W13-26): a hold says who owns it, why and until when, and its end says which decision ended
+  // it, so the timeline reads on its own. Names and labels are added by the service that persists it.
+  if (hold.action === 'start') {
+    const ownerId = request.payload?.hold_owner_id;
+    const reviewDate = request.payload?.review_date;
+    activityEvents.push(
+      event('hold_started', {
+        stageKey: nextStageKey,
+        reasonCode,
+        gateKey: gate.key,
+        outcomeKey: outcome.key,
+        note,
+        ownerId: typeof ownerId === 'string' ? ownerId : null,
+        reviewDate: typeof reviewDate === 'string' ? reviewDate : null,
+      }),
+    );
+  }
+  if (hold.action === 'end')
+    activityEvents.push(
+      event('hold_ended', { stageKey: quote.stageKey, gateKey: gate.key, outcomeKey: outcome.key }),
+    );
   if (transition.versionBump)
     activityEvents.push(event('version_bumped', { from: quote.version, to: nextVersion }));
   if (closure) {

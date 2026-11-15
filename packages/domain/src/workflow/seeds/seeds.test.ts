@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildHybridConfig, hybridConfig, prd5Config, SEED_REASON_CODES } from '.';
+import { buildHybridConfig, HOLD_HELP, hybridConfig, prd5Config, SEED_REASON_CODES } from '.';
 import type { WorkflowConfig } from '../../types/workflow-config';
 
 const everyItem = (config: WorkflowConfig) => [
@@ -93,11 +93,30 @@ describe('hybrid seed matches architecture §4.1', () => {
     expect(outcomes('G6')).toEqual(['advance', 'hold', 'requote', 'stop']);
   });
 
-  it('B-26: every gate leads its labels with the standard outcome words', () => {
+  it('B-26: every gate leads its labels with the standard outcome words (FB-17: Send back replaces Rework and Redirect)', () => {
     const standard =
-      /^(Advance|Hold|Rework|Redirect|Stop|Submit|Awarded|In negotiation|Lost|No response|On hold|Re-quote)/;
+      /^(Advance|Hold|Send back to |Stop|Submit|Awarded|In negotiation|Lost|No response|On hold|Re-quote)/;
     for (const o of hybridConfig.outcomes)
       expect(o.label, `${o.gateKey}/${o.key}`).toMatch(standard);
+    // W13-23: nobody is asked to tell "Rework" from "Redirect" any more.
+    for (const o of hybridConfig.outcomes.filter((x) => x.active))
+      expect(o.label, `${o.gateKey}/${o.key}`).not.toMatch(/Rework|Redirect/);
+  });
+
+  it('FB-17: every hold outcome says what a hold is for', () => {
+    const holds = hybridConfig.outcomes.filter((o) => o.outcomeGroup === 'hold');
+    expect(holds.map((o) => `${o.gateKey}/${o.key}`)).toEqual([
+      'G1/hold',
+      'G2/hold',
+      'G3/hold',
+      'G4/hold',
+      'G5/on_hold',
+      'G6/hold',
+    ]);
+    for (const o of holds) expect(o.helpText, `${o.gateKey}/${o.key}`).toBe(HOLD_HELP);
+    expect(HOLD_HELP).toBe(
+      'Pause the quote, for example when the customer asks to revisit it in 6 months. To get something fixed, use Send back to… instead.',
+    );
   });
 
   it('B-26: every hold needs a reason, a review date and an owner', () => {
