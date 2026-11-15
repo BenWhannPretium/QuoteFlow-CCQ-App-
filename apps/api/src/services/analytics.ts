@@ -48,6 +48,7 @@ import { COMMIT_STAGE_KEY } from '@ccq/domain';
 
 import { REPORT_TIME_ZONE, dayIn, startOfDay } from './auditAdmin';
 import { ServiceProblem } from './problem';
+import { engStageLabel } from './stage-label';
 
 export type AnalyticsWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
@@ -328,12 +329,17 @@ export class AnalyticsService {
 
   async firstPass(withTx: AnalyticsWithTx, params: AnalyticsParams): Promise<FirstPassResponse> {
     const r = this.resolve(params);
-    const [fp, reasons] = await withTx((tx) =>
-      Promise.all([intakeFirstPass(tx, r.filters), reworkReasons(tx, r.filters, ['G1', 'G2'], 5)]),
+    // FB-16 (W13-16): `eng` is the engineering stage's configured label.
+    const [fp, reasons, eng] = await withTx((tx) =>
+      Promise.all([
+        intakeFirstPass(tx, r.filters),
+        reworkReasons(tx, r.filters, ['G1', 'G2'], 5),
+        engStageLabel(tx),
+      ]),
     );
     return {
       info: info(
-        'First-pass intake completeness (S-03): the share of resolved intakes that never needed a Rework at G1 or G2. Resolved = it reached Engineering Review or was sent back for rework; requests still waiting for G1 are not counted yet.',
+        `First-pass intake completeness (S-03): the share of resolved intakes that never needed a Rework at G1 or G2. Resolved = it reached ${eng} or was sent back for rework; requests still waiting for G1 are not counted yet.`,
         `Quotes created ${range(r.window)} whose intake is resolved`,
       ),
       window: r.window,
@@ -416,11 +422,12 @@ export class AnalyticsService {
 
   async priority(withTx: AnalyticsWithTx, params: AnalyticsParams): Promise<PriorityResponse> {
     const r = this.resolve(params);
-    const [counts, assign, model] = await withTx((tx) =>
+    const [counts, assign, model, eng] = await withTx((tx) =>
       Promise.all([
         tierCounts(tx, r.filters),
         tierVsAssign(tx, r.filters),
         getScoringModel(tx, this.now()),
+        engStageLabel(tx),
       ]),
     );
     const tiers = tiersOf(model?.tierThresholds);
@@ -449,7 +456,7 @@ export class AnalyticsService {
         `Quotes created ${range(r.window)}`,
       ),
       assignInfo: info(
-        'Median and 75th percentile days from a quote entering Engineering Review to its current engineer assignment, excluding holds, by priority tier. If the manual queue honours priority, higher tiers are assigned no later than lower ones. Needs at least 3 assignments in two tiers to judge.',
+        `Median and 75th percentile days from a quote entering ${eng} to its current engineer assignment, excluding holds, by priority tier. If the manual queue honours priority, higher tiers are assigned no later than lower ones. Needs at least 3 assignments in two tiers to judge.`,
         `Assignments made ${range(r.window)}`,
       ),
       window: r.window,

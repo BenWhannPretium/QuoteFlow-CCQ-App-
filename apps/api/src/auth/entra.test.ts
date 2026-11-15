@@ -123,6 +123,15 @@ describe('rolesFromClaim', () => {
     expect(rolesFromClaim('CCQ.KAM')).toEqual([]);
   });
 
+  it('accepts the FB-16 Production Scheduler role (CCQ.ProductionScheduler)', () => {
+    expect(rolesFromClaim(['CCQ.ProductionScheduler'])).toEqual(['ProductionScheduler']);
+    expect(rolesFromClaim(['CCQ.Test.ProductionScheduler'])).toEqual([]);
+    // The test tenant's prefix (06-azure-entra-setup.md A4c).
+    expect(rolesFromClaim(['CCQ.Test.ProductionScheduler'], 'CCQ.Test.')).toEqual([
+      'ProductionScheduler',
+    ]);
+  });
+
   it('accepts the FB-07 Finance role (CCQ.Finance)', () => {
     expect(rolesFromClaim(['CCQ.Finance'])).toEqual(['Finance']);
   });

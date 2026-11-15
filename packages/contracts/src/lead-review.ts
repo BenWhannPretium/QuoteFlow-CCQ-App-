@@ -13,6 +13,18 @@ export const LeadReviewView = z.object({
   returnedByName: z.string().nullable(),
   /** What the lead asked the assignee to change (the latest send-back). */
   returnNote: z.string().nullable(),
+  /**
+   * FB-16 (W13-19): who the latest send-back went to (the engineer, or the production scheduler); null
+   * on rounds from before FB-16. A capacity block returns the work to the engineer the same way.
+   */
+  returnedToName: z.string().nullable().optional(),
+  /**
+   * FB-16 (W13-19): who the lead may send the work back to, the assignee first (the default). More than
+   * one entry only in Engineering, when a production scheduler is assigned. Absent on pricing.
+   */
+  returnTargets: z
+    .array(z.object({ target: z.enum(['assignee', 'scheduler']), name: z.string().nullable() }))
+    .optional(),
   /** The caller is the assignee and may submit now. */
   canSubmit: z.boolean(),
   /** The caller is a lead and may send it back now. */
@@ -37,6 +49,18 @@ export const SendBackBody = z
   .object({ note: z.string().trim().min(1, 'Say what to change').max(2000) })
   .strict();
 export type SendBackBody = z.infer<typeof SendBackBody>;
+
+/**
+ * FB-16 (W13-19): POST /quotes/:quoteNumber/eng-review/send-back. `to` chooses the engineer (`assignee`,
+ * the default) or the production scheduler assigned to the quote; only the chosen person is notified.
+ */
+export const EngSendBackBody = z
+  .object({
+    note: z.string().trim().min(1, 'Say what to change').max(2000),
+    to: z.enum(['assignee', 'scheduler']).optional(),
+  })
+  .strict();
+export type EngSendBackBody = z.infer<typeof EngSendBackBody>;
 
 /** Queue filter: `ready` lists only what waits on the lead's review. */
 export const LeadReviewFilter = z.enum(['ready']);

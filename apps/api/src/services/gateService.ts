@@ -35,13 +35,18 @@ import {
   RECOST_OUTCOME,
   RELEASE_GATE_KEY,
   can,
+  canApproveCapacityInDecision,
+  capacityApprovalErrors,
   evaluateTransition,
   exceptionNoteErrors,
+  isForwardOutcome,
+  packOutRequirementErrors,
   parseWorkflowConfig,
   planProposalRelease,
   quotingWarnings,
   releasesProposal,
   reviewWarnings,
+  withCapacityApproved,
   withDerivedFields,
   type Actor,
   type DomainError,
@@ -54,6 +59,7 @@ import {
   type WorkflowConfig,
 } from '@ccq/domain';
 
+import { writeCapacitySignoff } from './capacity-signoff';
 import { finalReviewChecks } from './commercial';
 import { onEngQueueArrival } from './engineering-arrival';
 import { deliverDecisionNotifications } from './handoff-notifications';
@@ -338,8 +344,33 @@ export class GateService {
           validity_days: proposal.validityDays,
         };
       }
+      // FB-16 (W13-18): the engineering lead signs capacity off with the G2 decision ("Capacity approved
+      // (I'm signing it off)"). Only while capacity is not yet signed (a block is never overridden here)
+      // and the decider holds capacity.signoff. The rules then run against the approved sign-off, and
+      // the sign-off is written just before the decision, in this transaction.
+      const decisionRules = [
+        ...gate.requiredFields,
+        ...(workflow.outcomes.find((o) => o.gateKey === gateKey && o.key === body.outcomeKey)
+          ?.requiredFields ?? []),
+      ];
+      extraErrors.push(
+        ...capacityApprovalErrors(actor, state, decisionRules, body.capacityApproved),
+      );
+      const approvesCapacity =
+        body.capacityApproved === true && canApproveCapacityInDecision(actor, state, decisionRules);
+      const decisionState = approvesCapacity
+        ? { ...state, fields: withCapacityApproved(state.fields) }
+        : state;
+      // FB-16 (W13-14): one pack-out count on a forward outcome out of Engineering, while
+      // `pack_out_rule.requireOneOf` is on (seeded off until Engineering confirms, W13-W7).
+      if (
+        gate.stageKey === ENG_QUEUE_STAGE_KEY &&
+        isForwardOutcome(workflow, gateKey, body.outcomeKey)
+      ) {
+        extraErrors.push(...packOutRequirementErrors(ctx.packOutRule, state.fields));
+      }
 
-      const result = evaluateTransition(workflow, state, actor, request, now, {
+      const result = evaluateTransition(workflow, decisionState, actor, request, now, {
         approverTiers: ctx.release.approverTiers,
       });
       const errors = [
@@ -437,7 +468,13 @@ export class GateService {
             : {}),
           // B-10: G2 keeps the engineering solution and capacity rows exactly as the decider saw them.
           ...(gate.stageKey === ENG_QUEUE_STAGE_KEY
-            ? { engineering: engineeringEvidence(state) }
+            ? {
+                engineering: {
+                  ...engineeringEvidence(decisionState),
+                  // FB-16 (W13-18): capacity was signed off by the decider with this decision.
+                  capacityApprovedInDecision: approvesCapacity,
+                },
+              }
             : {}),
           // B-11: G3 keeps what Pricing was warned about (pending capital, costing not attested…).
           ...(gate.stageKey === PRICING_QUEUE_STAGE_KEY
@@ -460,6 +497,19 @@ export class GateService {
       };
       const effects: TransitionEffects = { ...planned, gateDecisionRecord: decisionRecord };
 
+      // FB-16 (W13-18): the lead's capacity approval, recorded first (its own timeline entry and audit
+      // row), then the decision. One transaction: neither exists without the other.
+      if (approvesCapacity) {
+        await writeCapacitySignoff(
+          tx,
+          actor,
+          meta,
+          row.quote.id,
+          { status: 'approved', note: null },
+          now,
+          { inDecision: true },
+        );
+      }
       await persistTransition(tx, effects, {
         actorRoles: actor.roles,
         ip: meta.ip ?? null,
@@ -702,6 +752,9 @@ function engineeringEvidence(state: QuoteState) {
       acceptedAt: f.accepted_at ?? null,
     },
     capacityEvidence: f.capacity_evidence ?? [],
+    // FB-16: the sign-off as the decision saw it, and both assignees.
+    capacitySignoffStatus: f.capacity_signoff_status ?? null,
     assignedEngineerId: state.assignedEngineerId ?? null,
+    assignedSchedulerId: state.assignedSchedulerId ?? null,
   };
 }

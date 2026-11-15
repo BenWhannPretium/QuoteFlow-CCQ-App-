@@ -1,4 +1,5 @@
 import type { EngineeringAnalyticsResponse } from '@ccq/contracts';
+import { ENG_QUEUE_STAGE_KEY } from '@ccq/domain';
 import { Link } from '@tanstack/react-router';
 
 import {
@@ -11,6 +12,7 @@ import {
   fmtCount,
   fmtDays,
 } from '@/components/charts';
+import { usePublicConfig } from '@/config/public-config';
 import type { AnalyticsSearch } from '@/lib/analytics-search';
 import { api } from '@/lib/api';
 
@@ -33,6 +35,9 @@ const queueLink = (
  */
 export function EngineeringLens({ search }: { search: AnalyticsSearch }) {
   const q = useChart('engineering', search, api.analyticsEngineering);
+  // FB-16 (W13-16): the stage is named by its configured label ("Engineering & Capacity", provisional).
+  const { data: config } = usePublicConfig();
+  const stage = config?.stages.find((s) => s.key === ENG_QUEUE_STAGE_KEY)?.label ?? 'Engineering';
   return (
     <Boundary query={q}>
       {(e: EngineeringAnalyticsResponse) => (
@@ -40,12 +45,12 @@ export function EngineeringLens({ search }: { search: AnalyticsSearch }) {
           <Section
             id="eng-queue"
             title="The queue right now"
-            description="Open Engineering Review quotes, who has them and how long they have waited. A snapshot: the date range does not apply."
+            description={`Open ${stage} quotes, who has them and how long they have waited. A snapshot: the date range does not apply.`}
           >
             <div className="grid gap-3 sm:grid-cols-4">
               <Stat
                 testId="stat-eng-open"
-                label="In Engineering Review"
+                label={`In ${stage}`}
                 value={fmtCount(e.queue.total)}
                 info={e.queue.info}
               />
@@ -68,12 +73,12 @@ export function EngineeringLens({ search }: { search: AnalyticsSearch }) {
                 testId="chart-eng-load"
                 title="Open load per engineer"
                 info={e.load.info}
-                summary="Open Engineering Review quotes per engineer, and those with no engineer."
+                summary={`Open ${stage} quotes per engineer, and those with no engineer.`}
                 empty={e.load.items.length === 0}
                 emptyHint="The queue is empty."
                 note={queueLink}
                 table={{
-                  caption: 'Open Engineering Review quotes per engineer',
+                  caption: `Open ${stage} quotes per engineer`,
                   columns: [
                     { key: 'name', label: 'Engineer' },
                     { key: 'open', label: 'Open', numeric: true },
@@ -108,11 +113,11 @@ export function EngineeringLens({ search }: { search: AnalyticsSearch }) {
                 testId="chart-eng-aging"
                 title="How long quotes have waited"
                 info={e.queue.info}
-                summary="Open Engineering Review quotes by business days in the stage."
+                summary={`Open ${stage} quotes by business days in the stage.`}
                 empty={e.queue.total === 0}
                 emptyHint="The queue is empty."
                 table={{
-                  caption: 'Open Engineering Review quotes by age',
+                  caption: `Open ${stage} quotes by age`,
                   columns: [
                     { key: 'label', label: 'Age' },
                     { key: 'count', label: 'Quotes', numeric: true },
@@ -158,13 +163,13 @@ export function EngineeringLens({ search }: { search: AnalyticsSearch }) {
 
           <Section
             id="eng-g2"
-            title="G2 and time in Engineering Review"
+            title={`G2 and time in ${stage}`}
             description={`How feasibility decisions are landing and how long the work takes. Window: ${dayRange(e.window.from, e.window.to)}. Time on a recorded hold is taken out.`}
           >
             <div className="grid gap-3 sm:grid-cols-3">
               <Stat
                 testId="stat-eng-stage-median"
-                label="Median days in Engineering Review"
+                label={`Median days in ${stage}`}
                 value={fmtDays(e.stageTime.medianDays)}
                 hint={`p75 ${fmtDays(e.stageTime.p75Days)} · ${fmtCount(e.stageTime.n)} stays`}
                 info={e.stageTime.info}

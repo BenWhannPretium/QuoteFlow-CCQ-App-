@@ -12,6 +12,8 @@ import type { Role } from '../types/roles';
 export interface PolicyResource {
   kamUserId?: UserId;
   assignedEngineerId?: UserId | null;
+  /** FB-16: the production scheduler assigned to the quote's capacity part. */
+  assignedSchedulerId?: UserId | null;
   region?: string;
   accountId?: string;
   stageKey?: string;
@@ -21,7 +23,7 @@ export interface PolicyResource {
 
 export type ResourceFromQuote = Pick<
   QuoteState,
-  'kamUserId' | 'assignedEngineerId' | 'region' | 'accountId' | 'stageKey'
+  'kamUserId' | 'assignedEngineerId' | 'assignedSchedulerId' | 'region' | 'accountId' | 'stageKey'
 >;
 
 function grantApplies(grant: Grant, actor: Actor, resource: PolicyResource | undefined): boolean {
@@ -33,6 +35,8 @@ function grantApplies(grant: Grant, actor: Actor, resource: PolicyResource | und
       return resource.kamUserId === actor.userId;
     case 'assigned':
       return resource.assignedEngineerId === actor.userId;
+    case 'assignedScheduler':
+      return resource.assignedSchedulerId != null && resource.assignedSchedulerId === actor.userId;
     case 'fields':
       return resource.overrideField !== undefined && grant.fields.includes(resource.overrideField);
     case 'stages':
@@ -52,22 +56,29 @@ const SEES_ALL_QUOTES: readonly Role[] = [
   'SalesLeader',
 ];
 
-/** Data scope: all | owner (KAM of the quote, or assigned engineer for an Engineer) | region | account_list. */
+/**
+ * Data scope: all | owner (KAM of the quote, the assigned engineer for an Engineer, or the assigned
+ * scheduler for a ProductionScheduler) | region | account_list.
+ */
 export function inScope(actor: Actor, resource: PolicyResource): boolean {
   const scope = actor.scope;
   switch (scope.type) {
     case 'all':
       return true;
     case 'owner':
-      // Owner means "mine": the KAM of the quote, or for an Engineer the assigned engineer (matches RLS).
-      // Only KAM and Engineer follow it: the roles RLS shows every quote are not narrowed, so the
+      // Owner means "mine": the KAM of the quote, for an Engineer the assigned engineer, or (FB-16) for a
+      // ProductionScheduler the assigned scheduler (matches RLS `app_quote_visible`, migration 0045).
+      // Only those three follow it: the roles RLS shows every quote are not narrowed, so the
       // `default_scope_type = owner` setting cannot lock the leads and approvers out of every gate.
       return (
         actor.roles.some((role) => SEES_ALL_QUOTES.includes(role)) ||
         (resource.kamUserId !== undefined && resource.kamUserId === actor.userId) ||
         (actor.roles.includes('Engineer') &&
           resource.assignedEngineerId != null &&
-          resource.assignedEngineerId === actor.userId)
+          resource.assignedEngineerId === actor.userId) ||
+        (actor.roles.includes('ProductionScheduler') &&
+          resource.assignedSchedulerId != null &&
+          resource.assignedSchedulerId === actor.userId)
       );
     case 'region':
       return resource.region !== undefined && scope.values.includes(resource.region);

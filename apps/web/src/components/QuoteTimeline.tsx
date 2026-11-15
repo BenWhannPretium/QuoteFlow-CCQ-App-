@@ -182,6 +182,49 @@ export function describeEvent(
           : `Assigned to ${str(p.toName) ?? 'an engineer'}`,
         kind: 'system',
       };
+    // FB-16 (W13-15): the second assignee, who works the capacity part.
+    case 'scheduler_assigned':
+      return {
+        title: !str(p.to)
+          ? `Production scheduler removed${str(p.fromName) ? ` (${str(p.fromName)})` : ''}`
+          : str(p.from)
+            ? `Production scheduler changed from ${str(p.fromName) ?? 'someone'} to ${str(p.toName) ?? 'someone'}`
+            : `Production scheduler assigned: ${str(p.toName) ?? 'someone'}`,
+        kind: 'system',
+      };
+    // FB-16 (W13-17, W13-18): the capacity sign-off. A block names its reason in the title (it also
+    // sends the work back to the engineer); an approval made with the G2 decision says so.
+    case 'capacity_signoff': {
+      const by = str(p.byName) ? ` by ${str(p.byName)}` : '';
+      if (p.status === 'blocked') {
+        return {
+          title: `Capacity blocked${str(p.note) ? `: ${str(p.note)}` : ''}`,
+          detail: (
+            <p className="text-muted-foreground text-xs">
+              Blocked{by}. The work went back to the engineer.
+            </p>
+          ),
+          kind: 'system',
+        };
+      }
+      if (p.status === 'approved') {
+        return {
+          title: `Capacity approved${by}`,
+          detail: (
+            <>
+              {p.inDecision === true && (
+                <p className="text-muted-foreground text-xs">
+                  Signed off together with the feasibility decision.
+                </p>
+              )}
+              {note(str(p.note))}
+            </>
+          ),
+          kind: 'system',
+        };
+      }
+      return { title: `Capacity sign-off undone${by}`, kind: 'system' };
+    }
     case 'eng_review_accepted':
       return { title: 'Engineering review accepted', kind: 'system' };
     // Lead review (2026-10-30): the assignee submits to the lead; the lead may send it back.
@@ -192,7 +235,8 @@ export function describeEvent(
       };
     case 'lead_review_returned':
       return {
-        title: `Sent back to ${str(p.toName) ?? `the ${p.kind === 'pricing' ? 'pricer' : 'engineer'}`}`,
+        // FB-16 (W13-19): a send-back to the production scheduler says so.
+        title: `Sent back to ${str(p.toName) ?? `the ${p.kind === 'pricing' ? 'pricer' : 'engineer'}`}${p.to === 'scheduler' ? ' (production scheduler)' : ''}`,
         detail: note(str(p.note)),
         kind: 'system',
       };

@@ -25,12 +25,11 @@ export const OUTCOME_HELP: Record<string, string> = {
     'Feasible, with a stated risk or condition (say what it is). The quote goes to Quoting and the risk travels with it.',
   'G2/capital_required':
     'Feasible, but capital is needed. Record the budgetary capital estimate (preliminary, includes contingency) and upload the equipment BOM; Pricing then confirms capital readiness before any price is released.',
-  'G2/hold':
-    'Pause it in Engineering Review. The clock stops. Needs a reason, an owner and a review date.',
+  'G2/hold': 'Pause it at this stage. The clock stops. Needs a reason, an owner and a review date.',
   'G2/rework':
     'Not enough technical information. It goes back to the KAM to get it from the customer; say exactly what is needed.',
   'G2/redirect':
-    'Work an alternative platform or site instead. The quote stays in Engineering Review; the note says what changes.',
+    'Work an alternative platform or site instead. The quote stays at this stage; the note says what changes.',
   'G2/stop':
     'Not feasible, or not worth pursuing. It closes as Declined, with the reason recorded.',
   // G3 Price approved (the pricing lead). FB-07 (D-001, D-031): costing, then ROI, then price confirmation.

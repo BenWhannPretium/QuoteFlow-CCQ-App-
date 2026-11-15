@@ -1,5 +1,5 @@
 import type { AdminGate, AdminOutcome, AdminStage, Approval } from '@ccq/contracts';
-import type { RequiredRule } from '@ccq/domain';
+import { ENG_QUEUE_STAGE_KEY, type RequiredRule } from '@ccq/domain';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { PencilIcon } from 'lucide-react';
@@ -90,6 +90,9 @@ function WorkflowPage() {
   const canEdit = useCanEditConfig();
   const ids = { label: useId(), help: useId(), note: useId(), reason: useId(), g1: useId() };
   const wf = useQuery({ queryKey: adminKey('workflow'), queryFn: api.admin.workflow });
+  // FB-16 (W13-16): the stage a submit reaches when G1 is off, by its configured label.
+  const engStage =
+    wf.data?.stages.find((s) => s.key === ENG_QUEUE_STAGE_KEY)?.label ?? 'Engineering';
   const [editing, setEditing] = useState<Editing | null>(null);
   const [draft, setDraft] = useState<Draft>({
     label: '',
@@ -141,7 +144,7 @@ function WorkflowPage() {
                 <p className="text-muted-foreground text-sm">
                   {data.g1Enabled.value
                     ? 'On: submitted intakes wait for a sales leader at G1 (D-06).'
-                    : 'Off: a KAM’s submit goes straight to Engineering Review.'}
+                    : `Off: a KAM’s submit goes straight to ${engStage}.`}
                 </p>
               </div>
               <Chip on={data.g1Enabled.value}>{data.g1Enabled.value ? 'On' : 'Off'}</Chip>
@@ -366,7 +369,7 @@ function WorkflowPage() {
         description={
           g1Next
             ? 'Submitted intakes will wait for a sales leader at G1.'
-            : 'Submitted intakes will go straight to Engineering Review.'
+            : `Submitted intakes will go straight to ${engStage}.`
         }
         submitLabel={g1Next ? 'Turn on' : 'Turn off'}
         onSubmit={(s) =>

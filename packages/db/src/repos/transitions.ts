@@ -177,6 +177,8 @@ export async function loadQuoteStates(
       version: row.version,
       kamUserId: asUserId(row.kamUserId),
       assignedEngineerId: row.assignedEngineerId ? asUserId(row.assignedEngineerId) : null,
+      // FB-16: the production scheduler (the `assignedScheduler` grants and the owner scope read it).
+      assignedSchedulerId: row.assignedSchedulerId ? asUserId(row.assignedSchedulerId) : null,
       assignedPricerId: row.assignedPricerId ? asUserId(row.assignedPricerId) : null,
       engSubmittedAt: row.engSubmittedAt,
       pricingSubmittedAt: row.pricingSubmittedAt,

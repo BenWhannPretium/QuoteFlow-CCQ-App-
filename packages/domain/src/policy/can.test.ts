@@ -28,6 +28,8 @@ const EXPECTED: Record<string, Role[]> = {
     'Pricing',
     'PricingLead',
     'Finance',
+    // FB-16 (W13-15)
+    'ProductionScheduler',
     'Approver',
     'Leadership',
     'Admin',
@@ -41,13 +43,14 @@ const EXPECTED: Record<string, Role[]> = {
     'Pricing',
     'PricingLead',
     'Finance',
+    'ProductionScheduler',
     'Approver',
     'Leadership',
     'Admin',
     'PostAward',
   ],
   'gate.G1.decide': ['SalesLeader'],
-  'engQueue.read': ['EngLead', 'Engineer', 'Leadership', 'Admin'],
+  'engQueue.read': ['EngLead', 'Engineer', 'ProductionScheduler', 'Leadership', 'Admin'],
   'queue.assign': ['EngLead', 'Admin'],
   'engReview.edit': ['EngLead'],
   'gate.G2.decide': ['EngLead'],
@@ -72,6 +75,9 @@ const EXPECTED: Record<string, Role[]> = {
   'terms.finalize': [],
   'terms.exception.decide': ['PricingLead'],
   'capitalFlag.edit': ['SalesLeader', 'EngLead', 'Pricing', 'PricingLead'],
+  // FB-16: the Engineer (assigned) and the ProductionScheduler (assigned as scheduler) hold qualified
+  // grants, which are not in this role-level view.
+  'capacity.edit': ['EngLead'],
   'capacity.signoff': ['EngLead'],
   'quote.escalate': ['SalesLeader', 'EngLead', 'Pricing', 'PricingLead', 'Approver', 'Admin'],
   'override.request': ['KAM', 'SalesLeader', 'EngLead', 'Pricing', 'PricingLead'],
@@ -184,6 +190,34 @@ describe('qualified grants', () => {
     expect(can(makeActor('EngLead', { userId: KAM_ID }), 'engReview.edit', quote)).toBe(true);
   });
 
+  it('FB-16: capacity.edit and capacity.signoff follow the scheduler assigned to the quote', () => {
+    const quote = makeQuote('ENG_REVIEW', {
+      assignedEngineerId: KAM_ID,
+      assignedSchedulerId: OTHER_ID,
+    });
+    const scheduler = makeActor('ProductionScheduler');
+    expect(can(scheduler, 'capacity.edit', quote)).toBe(true);
+    expect(can(scheduler, 'capacity.signoff', quote)).toBe(true);
+    // Another scheduler, or the same person on a quote with no scheduler: no.
+    const other = makeActor('ProductionScheduler', { userId: KAM_ID });
+    expect(can(other, 'capacity.edit', quote)).toBe(false);
+    expect(can(other, 'capacity.signoff', quote)).toBe(false);
+    expect(can(scheduler, 'capacity.edit', makeQuote('ENG_REVIEW'))).toBe(false);
+    expect(can(scheduler, 'capacity.signoff')).toBe(false); // a qualified grant needs a resource
+    // The scheduler never edits the engineer's part, and decides no gate.
+    expect(can(scheduler, 'engReview.edit', quote)).toBe(false);
+    expect(can(scheduler, 'terms.engineering.edit', quote)).toBe(false);
+    expect(can(scheduler, 'gate.G2.decide', quote)).toBe(false);
+    expect(can(scheduler, 'queue.assign', quote)).toBe(false);
+    // The engineer keeps the capacity rows on their own quotes; the sign-off is not theirs.
+    const engineer = makeActor('Engineer', { userId: KAM_ID });
+    expect(can(engineer, 'capacity.edit', quote)).toBe(true);
+    expect(can(makeActor('Engineer'), 'capacity.edit', quote)).toBe(false);
+    expect(can(engineer, 'capacity.signoff', quote)).toBe(false);
+    expect(can(makeActor('EngLead'), 'capacity.edit', quote)).toBe(true);
+    expect(can(makeActor('EngLead'), 'capacity.signoff', quote)).toBe(true);
+  });
+
   it('override.approve: EngLead only for priority and queue overrides', () => {
     const lead = makeActor('EngLead');
     expect(can(lead, 'override.approve', { overrideField: 'priority_tier' })).toBe(true);
@@ -250,6 +284,35 @@ describe('data scope', () => {
     expect(inScope(kam, resource)).toBe(false);
   });
 
+  it('FB-16 owner scope: a ProductionScheduler sees quotes they are assigned to as scheduler', () => {
+    const resource = {
+      kamUserId: KAM_ID,
+      assignedEngineerId: KAM_ID,
+      assignedSchedulerId: OTHER_ID,
+    };
+    const scheduler = makeActor('ProductionScheduler', {
+      userId: OTHER_ID,
+      scope: { type: 'owner' },
+    });
+    expect(inScope(scheduler, resource)).toBe(true);
+    expect(can(scheduler, 'quote.read', resource)).toBe(true);
+    expect(can(scheduler, 'capacity.edit', resource)).toBe(true);
+    // Not another scheduler's quote, not an unassigned one, and not through the engineer's column.
+    expect(inScope(scheduler, { ...resource, assignedSchedulerId: KAM_ID })).toBe(false);
+    expect(inScope(scheduler, { ...resource, assignedSchedulerId: null })).toBe(false);
+    expect(
+      inScope(scheduler, { kamUserId: KAM_ID, assignedEngineerId: OTHER_ID }),
+      'the engineer column is not the scheduler column',
+    ).toBe(false);
+    // An Engineer is not in scope through the scheduler column either.
+    const engineer = makeActor('Engineer', { userId: OTHER_ID, scope: { type: 'owner' } });
+    expect(inScope(engineer, resource)).toBe(false);
+    // With scope `all` the scheduler reads every quote but still edits only their own.
+    const all = makeActor('ProductionScheduler', { userId: OTHER_ID });
+    expect(can(all, 'quote.read', { ...resource, assignedSchedulerId: KAM_ID })).toBe(true);
+    expect(can(all, 'capacity.edit', { ...resource, assignedSchedulerId: KAM_ID })).toBe(false);
+  });
+
   it('owner scope narrows KAM and Engineer only: the roles RLS shows every quote still decide', () => {
     for (const role of ['EngLead', 'PricingLead', 'Approver', 'SalesLeader', 'Admin'] as const) {
       const actor = makeActor(role, { userId: OTHER_ID, scope: { type: 'owner' } });
@@ -308,6 +371,10 @@ describe('holdsPermission (route-level check)', () => {
     expect(can(kam, 'outcome.record')).toBe(false);
     expect(holdsPermission(kam, 'outcome.record')).toBe(true);
     expect(holdsPermission(makeActor('Engineer'), 'engReview.edit')).toBe(true);
+    // FB-16: the scheduler passes the capacity route gates; the service checks the assignment.
+    expect(holdsPermission(makeActor('ProductionScheduler'), 'capacity.edit')).toBe(true);
+    expect(holdsPermission(makeActor('ProductionScheduler'), 'capacity.signoff')).toBe(true);
+    expect(holdsPermission(makeActor('ProductionScheduler'), 'engReview.edit')).toBe(false);
   });
 
   it('denies roles with no grant at all', () => {

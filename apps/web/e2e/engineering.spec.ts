@@ -96,10 +96,13 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(eng.getByTestId('commercial-hidden')).toHaveCount(0);
 
   const solution = eng.getByTestId('solution-form');
-  await solution.getByLabel('Process type').selectOption({ label: 'EBM' });
+  // FB-16 (W13-12): there is no separate "Process type" pick any more.
+  await expect(solution.getByLabel('Process type')).toHaveCount(0);
   // FB-13 (F-057): Jim Zweifel's 14 machine types and 22 locations; the placeholders are gone.
-  // Bailey Schmitt (2026-11-12): listed alphabetically.
-  const machineOptions = solution.getByLabel('Machine type').locator('option');
+  // Bailey Schmitt (2026-11-12): listed alphabetically. Before a plant is chosen, all are offered.
+  const machine = solution.getByLabel('Process & machine type');
+  await expect(solution).toContainText('Pick the plant first to see only what it runs');
+  const machineOptions = machine.locator('option');
   await expect(machineOptions).toHaveText([
     'Choose…',
     '12B',
@@ -122,22 +125,36 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(plantOptions.filter({ hasText: 'Etten.Leur' })).toHaveCount(1);
   await expect(plantOptions.filter({ hasText: 'Lerma, Ediplast' })).toHaveCount(1);
   await expect(plantOptions.filter({ hasText: 'Placeholder' })).toHaveCount(0);
-  await expect(
-    solution.getByLabel('Machine type').locator('option', { hasText: 'shuttle' }),
-  ).toHaveCount(0);
-  await solution.getByLabel('Machine type').selectOption({ label: 'EBM' });
+  await expect(machine.locator('option', { hasText: 'shuttle' })).toHaveCount(0);
+  // FB-16 (W13-13): the plant comes first and narrows the pick to what it runs. Bethlehem runs EBM, IBM
+  // and ISBM; Aurora runs EBM only.
+  await solution.getByLabel('Plant / site').selectOption({ label: 'Bethlehem' });
+  await expect(machineOptions).toHaveText(['Choose…', 'EBM', 'IBM', 'ISBM']);
+  await machine.selectOption({ label: 'ISBM' });
+  await expect(solution.getByTestId('derived-process')).toContainText('ISBM');
+  // Changing the plant to one that does not run the pick clears it and says why.
   await solution.getByLabel('Plant / site').selectOption({ label: 'Aurora' });
+  await expect(machine).toHaveValue('');
+  await expect(solution.getByRole('alert')).toContainText('Aurora does not run ISBM; pick again');
+  await expect(machineOptions).toHaveText(['Choose…', 'EBM']);
+  await machine.selectOption({ label: 'EBM' });
+  await expect(solution.getByRole('alert')).toHaveCount(0);
+  // FB-16 (W13-12): the process follows the pick; it is shown, not chosen.
+  await expect(solution.getByTestId('derived-process')).toContainText('EBM');
   // F-057: a whole number from 1 to 99.
   await expect(solution.getByLabel('Cavitation')).toHaveAttribute('max', '99');
   // F-064: budgetary, not a CER figure.
   await expect(solution.getByText('A rough estimate for quoting.')).toBeVisible();
   // F-057: the EBM wheel is no longer offered.
-  await expect(
-    solution.getByLabel('Machine type').locator('option', { hasText: 'EBM wheel' }),
-  ).toHaveCount(0);
+  await expect(machine.locator('option', { hasText: 'EBM wheel' })).toHaveCount(0);
   // F-023: the intake's resin is in front of Engineering.
   await expect(eng.getByTestId('product-facts')).toContainText('Resin');
+  // FB-16 (W13-20): a number out of range is flagged as it is typed, and Save waits.
+  await solution.getByLabel('Cavitation').fill('120');
+  await expect(solution.getByRole('alert')).toContainText('Enter a whole number from 1 to 99');
+  await expect(solution.getByRole('button', { name: 'Save solution' })).toBeDisabled();
   await solution.getByLabel('Cavitation').fill('8');
+  await expect(solution.getByRole('alert')).toHaveCount(0);
   await solution.getByLabel('Cycle time (s)').fill('14.5');
   await solution.getByLabel('Budgetary capital estimate (USD)').fill('350000');
   // FB-06 (F-058): the two free-text equipment fields are gone; the BOM is an upload (below).
@@ -145,7 +162,9 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(solution.getByLabel('Equipment BOM')).toHaveCount(0);
   await solution.getByLabel('Supply Chain').fill('Resin from the Midwest hub; freight OK');
   await solution.getByRole('button', { name: 'Save solution' }).click();
-  await expect(eng.getByText('Engineering review saved')).toBeVisible();
+  await expect(eng.getByText('Solution saved')).toBeVisible();
+  // FB-16 (W13-15): each card says whose part it is (no scheduler is assigned on this quote).
+  await expect(eng.getByTestId('part-engineer').first()).toHaveText('Your part');
   // 2026-10-30: the engineer reads back the capital they wrote.
   await expect(solution.getByLabel('Budgetary capital estimate (USD)')).toHaveValue('350000');
 
@@ -177,7 +196,17 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await inputs.getByLabel('Blow plant').selectOption({ index: 2 });
   await inputs.getByLabel('Preform number').fill('PF-2210');
   await inputs.getByLabel('Freight between the plants').fill('Preforms ship by truck, weekly.');
+  // FB-16 (W13-14): bag, tray and case read as one choice; bag and case are not filled in together.
+  await expect(inputs.getByTestId('pack-out-units')).toContainText(
+    'Units per pack (fill in one: bag, tray or case)',
+  );
+  await inputs.getByTestId('pack-out-unitsPerBag').fill('50');
   await inputs.getByTestId('pack-out-unitsPerCase').fill('600');
+  await expect(inputs.getByTestId('pack-out-units').getByRole('alert')).toContainText(
+    'Fill in units per bag or units per case, not both',
+  );
+  await expect(inputs.getByRole('button', { name: 'Save process and pack-out' })).toBeDisabled();
+  await inputs.getByTestId('pack-out-unitsPerBag').fill('');
   await inputs.getByTestId('pack-out-unitsPerPallet').fill('14400');
   await inputs.getByRole('button', { name: 'Save process and pack-out' }).click();
   await expect(eng.getByText('Saved', { exact: true })).toBeVisible();
@@ -193,14 +222,29 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(capRow.getByRole('alert')).toContainText('state the assumed effectiveness %');
   await expect(capRow).toContainText('Past quotes assumed 85%');
   // DR-engineering-02: 0% is refused (no capacity, so no utilization after), on the field.
+  // FB-16 (W13-20): as it is typed, with the server's own rule; Save waits until it is valid.
   await capRow.getByLabel('Assumed effectiveness %').fill('0');
-  await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
   await expect(capRow.getByRole('alert')).toContainText('above 0%');
+  await expect(capacity.getByRole('button', { name: 'Save capacity evidence' })).toBeDisabled();
+  // W13-20: 750% cannot be saved, and the preview names the real problem.
+  await capRow.getByLabel('Assumed effectiveness %').fill('750');
+  await expect(capRow.getByTestId('utilization-after')).toHaveText(
+    'Enter an assumed effectiveness above 0%, up to 100%',
+  );
+  await expect(capacity.getByRole('button', { name: 'Save capacity evidence' })).toBeDisabled();
   await capRow.getByLabel('Assumed effectiveness %').fill('70');
   await capacity.getByRole('button', { name: 'Save capacity evidence' }).click();
   await expect(eng.getByText('Capacity evidence saved')).toBeVisible();
   // F-059: utilization after is calculated (read-only), and "buffer" is gone.
   await expect(capRow.getByTestId('utilization-after')).toContainText('%');
+  // FB-16 (W13-21): at or below the target it is green; the footer explains the three colours.
+  await expect(capRow.getByTestId('utilization-after')).toHaveAttribute(
+    'data-level',
+    /ok|warn|over/,
+  );
+  await expect(eng.getByTestId('capacity-basis')).toContainText(
+    'amber above it and red above 100%',
+  );
   await expect(capRow.getByLabel('Buffer %')).toHaveCount(0);
   await expect(eng.getByTestId('capacity-basis')).toContainText(
     'Trailing 12 months actual, trending OEE (provisional, D-021)',
@@ -223,7 +267,8 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   await expect(g2).toHaveCount(0);
   await expect(lead.getByText(`${quoteNumber} is now in Quoting`)).toBeVisible();
   await expect(lead.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'QUOTING');
-  await expect(lead.getByTestId('stage-times')).toContainText('Engineering Review');
+  // FB-16 (W13-16): the stage is "Engineering & Capacity".
+  await expect(lead.getByTestId('stage-times')).toContainText('Engineering & Capacity');
 
   // ── FB-06 (T-008): Pricing reads the BOM file, the two-step process and the pack-out ──
   const pricing = await as('pricing');

@@ -19,6 +19,7 @@ import {
 // B-10 engineering queue and review: reads and writes only. Who may do what is the domain's.
 
 const engineer = alias(appUser, 'engineer');
+const scheduler = alias(appUser, 'scheduler');
 
 /**
  * Open quotes in the engineering stage (on hold included), with what the queue shows next to them:
@@ -37,7 +38,10 @@ export function listEngQueueRows(db: DbOrTx, stageKey: string) {
       kamName: appUser.displayName,
       processType: engReview.processType,
       acceptedAt: engReview.acceptedAt,
+      // FB-16: the capacity sign-off of this stay and the production scheduler's name.
+      capacitySignoffStatus: engReview.capacitySignoffStatus,
       assignedEngineerName: engineer.displayName,
+      assignedSchedulerName: scheduler.displayName,
       enteredQueueAt: sql<Date | null>`(
         select max(sh.entered_at) from ${stageHistory} sh
         where sh.quote_id = ${quote.id} and sh.stage_key = ${stageKey} and sh.exited_at is null
@@ -52,6 +56,7 @@ export function listEngQueueRows(db: DbOrTx, stageKey: string) {
     .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
     .leftJoin(engReview, eq(engReview.quoteId, quote.id))
     .leftJoin(engineer, eq(engineer.id, quote.assignedEngineerId))
+    .leftJoin(scheduler, eq(scheduler.id, quote.assignedSchedulerId))
     .where(and(eq(quote.stageKey, stageKey), ne(quote.status, 'closed')))
     .limit(500);
 }
@@ -94,6 +99,53 @@ export async function listAssignableEngineers(
     byId.set(u.id, entry);
   }
   return [...byId.values()];
+}
+
+/**
+ * FB-16 (W13-15): active users holding any of `roles` (the production schedulers), with how many open
+ * quotes in `stageKey` they are assigned to as scheduler (their open capacity requests). The count runs
+ * under RLS, like `listAssignableEngineers`.
+ */
+export async function listAssignableSchedulers(
+  db: DbOrTx,
+  roles: readonly string[],
+  stageKey: string,
+) {
+  const users = await db
+    .select({ id: appUser.id, displayName: appUser.displayName, role: userRole.role })
+    .from(appUser)
+    .innerJoin(userRole, eq(userRole.userId, appUser.id))
+    .where(and(eq(appUser.active, true), inArray(userRole.role, [...roles])))
+    .orderBy(asc(appUser.displayName));
+  const counts = await db
+    .select({ id: quote.assignedSchedulerId, open: count() })
+    .from(quote)
+    .where(and(eq(quote.stageKey, stageKey), ne(quote.status, 'closed')))
+    .groupBy(quote.assignedSchedulerId);
+  const open = new Map(counts.map((c) => [c.id, c.open]));
+  const byId = new Map<
+    string,
+    { id: string; displayName: string; roles: string[]; openCount: number }
+  >();
+  for (const u of users) {
+    const entry = byId.get(u.id) ?? {
+      id: u.id,
+      displayName: u.displayName,
+      roles: [],
+      openCount: open.get(u.id) ?? 0,
+    };
+    entry.roles.push(u.role);
+    byId.set(u.id, entry);
+  }
+  return [...byId.values()];
+}
+
+/** FB-16 (W13-15): the scheduler was told capacity can start (once per stay). No-op without a review row. */
+export async function markCapacityReady(db: DbOrTx, quoteId: string, at: Date) {
+  await db
+    .update(engReview)
+    .set({ capacityReadyAt: at, updatedAt: new Date() })
+    .where(eq(engReview.quoteId, quoteId));
 }
 
 /** A user with their roles (the assignee check). Identity tables have no RLS. */
@@ -176,6 +228,8 @@ export async function resetEngReviewAcceptance(
             capacitySignoffBy: null,
             capacitySignoffAt: null,
             capacitySignoffNote: null,
+            // FB-16: a new stay tells the production scheduler again when capacity can start.
+            capacityReadyAt: null,
           }),
       updatedAt: new Date(),
     })

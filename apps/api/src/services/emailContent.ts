@@ -30,7 +30,14 @@ export interface EmailContentDeps {
 }
 
 /** Notification types whose deep link opens the Engineering tab of the quote. */
-const ENGINEERING_TYPES = new Set(['quote.ready_for_eng_review', 'quote.assigned']);
+const ENGINEERING_TYPES = new Set([
+  'quote.ready_for_eng_review',
+  'quote.assigned',
+  // FB-16 (W13-15, W13-17): the production scheduler's notices and a capacity block.
+  'quote.capacity_assigned',
+  'quote.capacity_ready',
+  'quote.capacity_blocked',
+]);
 
 const stringsOnly = (value: unknown): Record<string, string> =>
   Object.fromEntries(

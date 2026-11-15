@@ -157,6 +157,7 @@ export class PipelineService {
       const resource = {
         kamUserId: k.kamUserId as Actor['userId'],
         assignedEngineerId: k.assignedEngineerId as Actor['userId'] | null,
+        assignedSchedulerId: k.assignedSchedulerId as Actor['userId'] | null,
         stageKey: k.stageKey,
         ...(k.region ? { region: k.region } : {}),
         ...(k.accountId ? { accountId: k.accountId } : {}),

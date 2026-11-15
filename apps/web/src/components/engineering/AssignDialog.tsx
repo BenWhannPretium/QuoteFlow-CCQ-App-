@@ -46,10 +46,45 @@ export function suggestionFor(
   };
 }
 
+/** FB-16: the scheduler picker's "leave it as it is" choice (a bulk assign over quotes that differ). */
+const KEEP_SCHEDULER = '__keep__';
+
+/**
+ * FB-16 (W13-15): what the "Production scheduler (optional)" picker starts on. A bulk assign, and a
+ * quote whose scheduler is no longer offered (deactivated, or the role was removed), start on "leave
+ * as it is", so assigning the engineer never changes the scheduler by accident. Otherwise the quote's
+ * scheduler, or nobody. Like the engineer suggestion, nothing is chosen for the lead.
+ */
+export function initialSchedulerChoice(input: {
+  bulk: boolean;
+  currentSchedulerId: string | null | undefined;
+  schedulers: readonly { id: string }[];
+}): string {
+  if (input.bulk) return KEEP_SCHEDULER;
+  if (!input.currentSchedulerId) return '';
+  return input.schedulers.some((s) => s.id === input.currentSchedulerId)
+    ? input.currentSchedulerId
+    : KEEP_SCHEDULER;
+}
+
+/**
+ * FB-16 (W13-15): when exactly one user holds the role and the quote has no scheduler yet, that
+ * person is suggested ("Use it"); never selected for the lead.
+ */
+export function suggestedScheduler<T extends { id: string }>(input: {
+  bulk: boolean;
+  currentSchedulerId: string | null | undefined;
+  schedulers: readonly T[];
+}): T | null {
+  if (input.bulk || input.currentSchedulerId || input.schedulers.length !== 1) return null;
+  return input.schedulers[0]!;
+}
+
 /**
  * Assign (or reassign) one or more quotes to an engineer. The picker shows each engineer's open
  * count. A bulk assign sends one request per quote (each is recorded and audited on its own) and
- * reports any that failed.
+ * reports any that failed. FB-16 (W13-15): the same dialog sets the production scheduler, the second
+ * assignee who works the capacity part (optional).
  */
 export function AssignDialog({
   open,
@@ -57,6 +92,8 @@ export function AssignDialog({
   quoteNumbers,
   engineers,
   currentEngineerId,
+  schedulers = [],
+  currentSchedulerId,
   suggestions = [],
   onDone,
 }: {
@@ -65,6 +102,9 @@ export function AssignDialog({
   quoteNumbers: string[];
   engineers: AssignableEngineer[];
   currentEngineerId?: string | null;
+  /** FB-16 (W13-15): the active users holding the Production Scheduler role. */
+  schedulers?: readonly AssignableEngineer[];
+  currentSchedulerId?: string | null;
   /** FB-06 (F-062): the routing suggestion per quote; the lead still chooses. */
   suggestions?: readonly QuoteSuggestion[];
   onDone?: () => void;
@@ -72,9 +112,20 @@ export function AssignDialog({
   const suggestion = suggestionFor(suggestions);
   const queryClient = useQueryClient();
   const id = useId();
+  const schedulerFieldId = useId();
   const [engineerId, setEngineerId] = useState(currentEngineerId ?? '');
   const [error, setError] = useState<string | null>(null);
   const bulk = quoteNumbers.length > 1;
+  const [schedulerId, setSchedulerId] = useState(() =>
+    initialSchedulerChoice({ bulk, currentSchedulerId, schedulers }),
+  );
+  const onlyScheduler = suggestedScheduler({ bulk, currentSchedulerId, schedulers });
+  // "Leave as it is" is offered for a bulk assign, and while the quote's scheduler is not in the list.
+  const keepOffered =
+    bulk || (!!currentSchedulerId && !schedulers.some((s) => s.id === currentSchedulerId));
+  // What the request carries: undefined = leave the scheduler as it is, null = nobody.
+  const schedulerToSend =
+    schedulerId === KEEP_SCHEDULER ? undefined : schedulerId === '' ? null : schedulerId;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -82,7 +133,8 @@ export function AssignDialog({
       let changed = 0;
       for (const qn of quoteNumbers) {
         try {
-          if ((await api.assignEngineer(qn, engineerId)).changed) changed += 1;
+          const res = await api.assignEngineer(qn, engineerId, schedulerToSend);
+          if (res.changed || res.schedulerChanged) changed += 1;
         } catch (err) {
           failed.push(
             `${qn}: ${isApiError(err) ? (err.problem.detail ?? err.problem.title) : 'failed'}`,
@@ -119,7 +171,10 @@ export function AssignDialog({
     <Dialog open={open} onOpenChange={(next) => !mutation.isPending && onOpenChange(next)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{currentEngineerId ? 'Reassign' : 'Assign'} engineer</DialogTitle>
+          <DialogTitle>
+            {currentEngineerId ? 'Reassign' : 'Assign'} engineer
+            {schedulers.length > 0 ? ' and production scheduler' : ''}
+          </DialogTitle>
           <DialogDescription>
             {bulk ? `${quoteNumbers.length} quotes: ${quoteNumbers.join(', ')}` : quoteNumbers[0]}
           </DialogDescription>
@@ -172,6 +227,47 @@ export function AssignDialog({
                   </>
                 )}
             </p>
+          )}
+          {/* FB-16 (W13-15): the second assignee. Shown when someone holds the role (or one is set). */}
+          {(schedulers.length > 0 || currentSchedulerId) && (
+            <div className="grid gap-1.5" data-testid="assign-scheduler">
+              <label htmlFor={schedulerFieldId} className="text-sm font-medium">
+                Production scheduler (optional)
+              </label>
+              <NativeSelect
+                id={schedulerFieldId}
+                value={schedulerId}
+                onChange={(e) => setSchedulerId(e.target.value)}
+              >
+                {keepOffered && <option value={KEEP_SCHEDULER}>Leave as it is</option>}
+                <option value="">None</option>
+                {schedulers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.displayName} ({s.openCount} open)
+                  </option>
+                ))}
+              </NativeSelect>
+              {onlyScheduler && schedulerId !== onlyScheduler.id && (
+                <p
+                  className="text-muted-foreground text-sm"
+                  data-testid="assign-scheduler-suggestion"
+                >
+                  Suggested: {onlyScheduler.displayName} (the only production scheduler)
+                  {' · '}
+                  <button
+                    type="button"
+                    className="text-foreground underline"
+                    onClick={() => setSchedulerId(onlyScheduler.id)}
+                  >
+                    Use it
+                  </button>
+                </p>
+              )}
+              <p className="text-muted-foreground text-xs">
+                Works the capacity rows and the capacity sign-off alongside the engineer. They are
+                told when you assign them.
+              </p>
+            </div>
           )}
           {error && (
             <p role="alert" className="text-destructive text-sm">

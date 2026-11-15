@@ -509,6 +509,7 @@ Engineering Review fields (stage 2).
 | `capacity_signoff_by` | uuid | yes |  | app_user.id | B-26: who signed off capacity. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_at` | timestamp with time zone | yes |  |  | B-26: when capacity was signed off. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_note` | text | yes |  |  | B-26: the capacity owner's note (required to block). | Engineering (EngLead / Engineer) |
+| `capacity_ready_at` | timestamp with time zone | yes |  |  | FB-16 (W13-15): when the production scheduler was told capacity can start in this stay (the plant and the machine type are saved). Cleared on a new stay, so they are told once per stay. | Engineering (EngLead / Engineer) |
 | `two_step` | boolean | no | false |  | FB-06 (F-024): the part is made in two steps (a preform, then blown). Pricing reads it (T-008). | Engineering (EngLead / Engineer) |
 | `preform_plant_code` | text | yes |  |  | FB-06 (F-024): value_list plant code where the preform is made. Only when two_step. | Engineering (EngLead / Engineer) |
 | `blow_plant_code` | text | yes |  |  | FB-06 (F-024): value_list plant code where the preform is blown. Only when two_step. | Engineering (EngLead / Engineer) |
@@ -823,6 +824,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `queue_position_overridden` | boolean | no | false |  | True when an applied override (EngLead pin) set the queue position. | Engineering (EngLead / Engineer) |
 | `assigned_engineer_id` | uuid | yes |  | app_user.id | Engineer assigned in Engineering Review. | Engineering (EngLead / Engineer) |
 | `assigned_at` | timestamp with time zone | yes |  |  | When the current engineer was assigned (B-10 "time since assignment"); reset on reassign. | Engineering (EngLead / Engineer) |
+| `assigned_scheduler_id` | uuid | yes |  | app_user.id | FB-16: the production scheduler the engineering lead assigned to the capacity part of the quote (optional). | Engineering (EngLead / Engineer) |
+| `assigned_scheduler_at` | timestamp with time zone | yes |  |  | FB-16: when the current production scheduler was assigned; reset on reassign. | Engineering (EngLead / Engineer) |
 | `assigned_pricer_id` | uuid | yes |  | app_user.id | B-26: the pricer the pricing lead assigned the Quoting work to. | Pricing |
 | `pricer_assigned_at` | timestamp with time zone | yes |  |  | B-26: when the current pricer was assigned; reset on reassign. | Pricing |
 | `eng_submitted_at` | timestamp with time zone | yes |  |  | Lead review: when the engineer submitted their part to the lead (null: not waiting on the lead). | Engineering (EngLead / Engineer) |
@@ -830,6 +833,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `eng_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the engineer. | Engineering (EngLead / Engineer) |
 | `eng_returned_by` | uuid | yes |  | app_user.id | Lead review: the lead who sent it back. | Engineering (EngLead / Engineer) |
 | `eng_return_note` | text | yes |  |  | Lead review: what the lead asked the engineer to change. | Engineering (EngLead / Engineer) |
+| `eng_returned_to` | uuid | yes |  | app_user.id | FB-16: who the latest send-back went to: the engineer, or the production scheduler (W13-19). A capacity block returns the work to the engineer the same way. Null before FB-16. | Engineering (EngLead / Engineer) |
 | `pricing_submitted_at` | timestamp with time zone | yes |  |  | Lead review: when the pricer submitted their part to the lead (null: not waiting on the lead). | Pricing |
 | `pricing_submitted_by` | uuid | yes |  | app_user.id | Lead review: who submitted it. | Pricing |
 | `pricing_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the pricer. | Pricing |
@@ -883,7 +887,7 @@ The CCQ quote: the workflow record CCQ owns.
 
 **Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_terms_exception_status_check`, `quote_terms_months_check`, `quote_terms_finalized_consistency_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
-**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
+**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_assigned_scheduler_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 
 ### quote_draft
 

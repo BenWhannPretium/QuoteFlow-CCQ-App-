@@ -4,6 +4,10 @@ export const ROLES = [
   'SalesLeader',
   'EngLead',
   'Engineer',
+  // FB-16 (W13-15, D-008 open, provisional): the Production Scheduler (Faron Ipox's job title) works the
+  // capacity part of a quote in Engineering alongside the engineer: the capacity rows and the capacity
+  // sign-off, on the quotes the engineering lead assigns them. Entra app role CCQ.ProductionScheduler.
+  'ProductionScheduler',
   'Pricing',
   // B-26: the pricing lead (Hema's role) triages the pricing queue, like EngLead does engineering.
   'PricingLead',

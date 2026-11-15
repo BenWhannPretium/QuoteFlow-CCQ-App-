@@ -48,6 +48,8 @@ const ROLES: Role[] = [
   'SalesLeader',
   'EngLead',
   'Engineer',
+  // FB-16 (W13-15): holds capacity.edit and capacity.signoff (qualified), so it is locked like the rest.
+  'ProductionScheduler',
   'Pricing',
   'PricingLead',
   'Finance',
@@ -60,6 +62,7 @@ const PERSONA: Record<Role, string> = {
   SalesLeader: 'sales-leader',
   EngLead: 'eng-lead',
   Engineer: 'engineer',
+  ProductionScheduler: 'production-scheduler',
   Pricing: 'pricing',
   PricingLead: 'pricing-lead',
   Finance: 'finance',
@@ -292,7 +295,8 @@ const ENGINEERING_ROUTES: LockedRoute[] = [
   {
     label: 'PUT capacity-evidence',
     url: (qn) => `/api/v1/quotes/${qn}/capacity-evidence`,
-    permission: 'engReview.edit',
+    // FB-16 (W13-15): the capacity rows have their own permission.
+    permission: 'capacity.edit',
     body: () => ({ rows: [] }),
   },
   {

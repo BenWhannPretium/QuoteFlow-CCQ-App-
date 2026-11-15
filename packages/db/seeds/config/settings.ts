@@ -11,6 +11,9 @@ import {
   ATTACHMENT_SETTINGS_SEED,
   CAPACITY_BASIS_SEED,
   ASSIGNMENT_RULES_SEED,
+  MACHINE_TYPE_PROCESS_MAP_SEED,
+  PACK_OUT_RULE_SEED,
+  TWO_STEP_PLANT_MACHINE_TYPES_SEED,
   ENG_QUEUE_SETTINGS_SEED,
   HANDOFF_RECEIVING_ROLES_SEED,
   VALIDITY_WARNING_DAYS_SEED,
@@ -424,6 +427,26 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: ASSIGNMENT_RULES_SEED,
     description:
       'FB-06 (F-062, D-008 open): routing suggestions for the engineering assignment. A rule lists process types and / or resins (value-list codes; an empty list means any) and the engineer by surname or full name; the first matching rule wins and the assign dialog shows "Suggested: <name>". It never assigns: the lead still does. Seeded from the Nov 4 email from Paul Slomkowski (ISBM, RHB, IMM, IMM Preform → Neiberger; EBM, IBM → Pasillas); the resin rules are a fallback while the process type is not yet chosen. Provisional until D-008 is decided.',
+  },
+  // ── FB-16 (W13-12 to W13-14): the merged process & machine pick and the pack-out rule. Provisional.
+  // Existing environments get the same three rows from migration 0045.
+  {
+    key: 'machine_type_process_map',
+    value: MACHINE_TYPE_PROCESS_MAP_SEED,
+    description:
+      'FB-16 (W13-12): the process type behind each machine type. The engineer picks one "Process & machine type" (a machine type the chosen plant runs) and the server stores the process type from this map, so the G2 rule, the routing suggestion and the volume guardrails keep reading process_type. Every key must be an active machine type and every value an active process type. The non-forming machine types (DECO, PAD PRINTING, PRINTING, LAMINATION, DIE CUTTING, STAMPING, 12B) are OTHER until Engineering (Jim Zweifel) names their process (W13-W11). Provisional.',
+  },
+  {
+    key: 'two_step_plant_machine_types',
+    value: TWO_STEP_PLANT_MACHINE_TYPES_SEED,
+    description:
+      'FB-16 (W13-13): for a two-step process, the machine types a plant must run to be offered as the Preform plant (preform) or the Blow plant (blow). Machine-type codes. Seed: preform INJ-PREFORM; blow RHB or ISBM. Provisional.',
+  },
+  {
+    key: 'pack_out_rule',
+    value: PACK_OUT_RULE_SEED,
+    description:
+      'FB-16 (W13-14): pack-out. notTogether lists groups of counts of which only one may be filled (seed: units per bag and units per case). requireOneOf: when true, G2 cannot advance until one of units per bag, tray or case is filled; seeded false until Engineering confirms they know pack-out at quote time (W13-W7). Provisional.',
   },
   {
     key: 'capital_readiness_on_outcome',

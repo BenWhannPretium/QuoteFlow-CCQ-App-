@@ -21,21 +21,23 @@ import { freshSfDatabase } from '../sf-helpers';
  * - Every request must reach the route under test (a sample URL that matched a sibling route, such
  *   as `/quotes/mine/...` vs `/quotes/:quoteNumber/...`, would test the wrong gate).
  *
- * Not covered here, by design: qualified grants (KAM "own", Engineer "assigned", EngLead override
- * "fields", PostAward "stages") and data scope. They pass the route gate and are enforced per
+ * Not covered here, by design: qualified grants (KAM "own", Engineer "assigned", ProductionScheduler
+ * "assigned as scheduler", EngLead override "fields", PostAward "stages") and data scope. They pass the route gate and are enforced per
  * resource by `assertCan` in the services and by Postgres RLS; the per-feature integration tests
  * (outcome, engineering, overrides, pipeline, ...) prove them with owner/non-owner quotes. Neither is
  * PostAward: it is P2 and has no dev persona yet (its single grant is `quote.read` on AWARDED quotes).
  */
 
 /**
- * The ten MVP roles (B-26 added PricingLead, FB-07 Finance; PostAward is P2 and has no persona yet).
+ * The eleven MVP roles (B-26 added PricingLead, FB-07 Finance, FB-16 ProductionScheduler; PostAward is P2
+ * and has no persona yet).
  */
 const ROLES: Role[] = [
   'KAM',
   'SalesLeader',
   'EngLead',
   'Engineer',
+  'ProductionScheduler',
   'Pricing',
   'PricingLead',
   'Finance',

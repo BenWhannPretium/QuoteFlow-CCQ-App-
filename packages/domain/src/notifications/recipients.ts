@@ -106,6 +106,10 @@ export const HANDOFF_TYPES = {
   roiUploaded: 'quote.roi_uploaded',
   termsExceptionRequested: 'quote.terms_exception_requested',
   termsExceptionDecided: 'quote.terms_exception_decided',
+  // FB-16 (W13-15, W13-17)
+  capacityAssigned: 'quote.capacity_assigned',
+  capacityReady: 'quote.capacity_ready',
+  capacityBlocked: 'quote.capacity_blocked',
 } as const;
 
 /** Declared types the seeded workflow uses that are not catalogue types of their own: the arrival alert says it. */
@@ -133,6 +137,8 @@ export function stageLeadRoles(stageKey: string): Role[] {
 export interface HandoffQuote {
   kamUserId: UserId;
   assignedEngineerId?: UserId | null | undefined;
+  /** FB-16: the production scheduler assigned to the capacity part. */
+  assignedSchedulerId?: UserId | null | undefined;
   assignedPricerId?: UserId | null | undefined;
 }
 
@@ -387,7 +393,11 @@ export function planLeadSubmitted(kind: LeadReviewKind, quote: HandoffQuote): Pl
   ];
 }
 
-/** The lead sends the part back: the assignee is told; the KAM sees progress, in-app only. */
+/**
+ * The lead sends the part back: the person it goes to is told; the KAM sees progress, in-app only.
+ * FB-16 (W13-19): `assigneeId` is whoever the lead chose (the engineer, or the production scheduler);
+ * nobody else is told.
+ */
 export function planLeadReturned(assigneeId: UserId | null, quote: HandoffQuote): PlannedHandoff[] {
   return [
     ...(assigneeId
@@ -399,6 +409,63 @@ export function planLeadReturned(assigneeId: UserId | null, quote: HandoffQuote)
           },
         ]
       : []),
+    { type: HANDOFF_TYPES.leadReviewUpdate, recipient: user(quote.kamUserId), reason: 'kam' },
+  ];
+}
+
+// ── The production scheduler and capacity (FB-16, W13-15, W13-17) ──────────────────────────────
+
+/** The engineering lead assigned the capacity part: the scheduler is told. */
+export function planCapacityAssigned(schedulerId: UserId): PlannedHandoff[] {
+  return [
+    {
+      type: HANDOFF_TYPES.capacityAssigned,
+      recipient: user(schedulerId),
+      reason: 'next_owner',
+      asAssignee: true,
+    },
+  ];
+}
+
+/**
+ * The engineer saved the solution with the plant and the machine type: the scheduler is told capacity can
+ * start (once per stay; the caller decides when). Nobody when no scheduler is assigned.
+ */
+export function planCapacityReady(quote: HandoffQuote): PlannedHandoff[] {
+  return quote.assignedSchedulerId
+    ? [
+        {
+          type: HANDOFF_TYPES.capacityReady,
+          recipient: user(quote.assignedSchedulerId),
+          reason: 'next_owner',
+          asAssignee: true,
+        },
+      ]
+    : [];
+}
+
+/**
+ * Capacity was blocked and the work went straight back to the engineer (W13-17): the engineer is told
+ * (in-app and email), the engineering lead too (the caller's `resolveDeliveries` drops whoever blocked,
+ * so a lead who blocked is not told), and the KAM in-app only ("Engineering is reworking it").
+ */
+export function planCapacityBlocked(quote: HandoffQuote): PlannedHandoff[] {
+  return [
+    ...(quote.assignedEngineerId
+      ? [
+          {
+            type: HANDOFF_TYPES.capacityBlocked,
+            recipient: user(quote.assignedEngineerId),
+            reason: 'next_owner' as const,
+            asAssignee: true,
+          },
+        ]
+      : []),
+    ...rolesWithPermission(LEAD_REVIEW.engineering.leadPermission).map((r): PlannedHandoff => ({
+      type: HANDOFF_TYPES.capacityBlocked,
+      recipient: role(r),
+      reason: 'next_owner',
+    })),
     { type: HANDOFF_TYPES.leadReviewUpdate, recipient: user(quote.kamUserId), reason: 'kam' },
   ];
 }

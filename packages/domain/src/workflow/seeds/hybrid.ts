@@ -32,8 +32,10 @@ const INTAKE_COMPLETE: RequiredRule[] = [
 ];
 
 /**
- * B-26 (deck slide 11): the capacity owner signs off at G2 and can block. Owner TBD (D-07); the
- * permission `capacity.signoff` is seeded to the EngLead, provisional.
+ * B-26 (deck slide 11): the capacity owner signs off at G2 and can block. Owner TBD (D-07 / D-008); the
+ * permission `capacity.signoff` is held by the EngLead and (FB-16) the assigned production scheduler,
+ * provisional. FB-16 (W13-18): a lead deciding G2 while capacity is not yet signed approves it in the
+ * same decision (`canApproveCapacityInDecision`); the rule itself is unchanged.
  */
 const CAPACITY_SIGNED_OFF: RequiredRule = {
   field: 'capacity_signoff_status',
@@ -262,8 +264,11 @@ export function buildHybridConfig({ g1Enabled = true }: HybridOptions = {}): Wor
     stages: [
       { key: 'INTAKE', label: 'Intake', ownerRole: 'KAM', terminal: false, provisional: true },
       {
+        // FB-16 (W13-16, provisional): the stage holds the engineer's review and the production
+        // scheduler's capacity work, so the timeline names both. Migration 0045 relabels the row in
+        // existing environments while it is still "Engineering Review" and unapproved.
         key: 'ENG_REVIEW',
-        label: 'Engineering Review',
+        label: 'Engineering & Capacity',
         ownerRole: 'EngLead',
         terminal: false,
         provisional: true,

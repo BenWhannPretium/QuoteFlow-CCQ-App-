@@ -23,6 +23,16 @@ describe('notificationTarget', () => {
     expect(notificationTarget('quote.reworked')).toBe('rework');
   });
 
+  it('FB-16: the capacity notices open the Engineering tab', () => {
+    for (const type of [
+      'quote.capacity_assigned',
+      'quote.capacity_ready',
+      'quote.capacity_blocked',
+    ]) {
+      expect(notificationTarget(type), type).toBe('engineering');
+    }
+  });
+
   it('opens the quote for everything else', () => {
     for (const type of [
       'quote.progress',

@@ -67,6 +67,11 @@ export interface LeadReviewState {
   returnedAt: Date | null;
   returnedBy: string | null;
   returnNote: string | null;
+  /**
+   * FB-16 (W13-19): who the latest send-back went to (the engineer, or the production scheduler).
+   * Absent or null on rounds from before FB-16 and on pricing: the assignee.
+   */
+  returnedTo?: string | null;
 }
 
 export const EMPTY_LEAD_REVIEW: LeadReviewState = {
@@ -75,6 +80,7 @@ export const EMPTY_LEAD_REVIEW: LeadReviewState = {
   returnedAt: null,
   returnedBy: null,
   returnNote: null,
+  returnedTo: null,
 };
 
 export type LeadReviewQuote = Pick<
@@ -83,6 +89,7 @@ export type LeadReviewQuote = Pick<
   | 'status'
   | 'kamUserId'
   | 'assignedEngineerId'
+  | 'assignedSchedulerId'
   | 'assignedPricerId'
   | 'engSubmittedAt'
   | 'pricingSubmittedAt'
@@ -92,6 +99,35 @@ export type LeadReviewQuote = Pick<
 
 export const assigneeOf = (kind: LeadReviewKind, quote: LeadReviewQuote): string | null =>
   (kind === 'engineering' ? quote.assignedEngineerId : quote.assignedPricerId) ?? null;
+
+/**
+ * FB-16 (W13-19): who a lead may send the work back to. The assignee (the engineer or the pricer) is
+ * always first and is the default; in Engineering the production scheduler is offered too when one is
+ * assigned, so a scheduler's own input error goes to the scheduler.
+ */
+export const RETURN_TARGETS = ['assignee', 'scheduler'] as const;
+export type ReturnTarget = (typeof RETURN_TARGETS)[number];
+
+export interface ReturnTargetOption {
+  target: ReturnTarget;
+  userId: string;
+}
+
+export function returnTargets(kind: LeadReviewKind, quote: LeadReviewQuote): ReturnTargetOption[] {
+  const assignee = assigneeOf(kind, quote);
+  const scheduler = kind === 'engineering' ? (quote.assignedSchedulerId ?? null) : null;
+  return [
+    ...(assignee ? [{ target: 'assignee' as const, userId: assignee }] : []),
+    ...(scheduler ? [{ target: 'scheduler' as const, userId: scheduler }] : []),
+  ];
+}
+
+/** The person a send-back to `target` reaches, or null when the quote has nobody in that part. */
+export const returnTargetUser = (
+  kind: LeadReviewKind,
+  quote: LeadReviewQuote,
+  target: ReturnTarget,
+): string | null => returnTargets(kind, quote).find((t) => t.target === target)?.userId ?? null;
 
 const inStage = (kind: LeadReviewKind, quote: LeadReviewQuote) =>
   quote.stageKey === LEAD_REVIEW[kind].stageKey && quote.status !== 'closed';
@@ -245,13 +281,18 @@ export function planSubmitToLead(
   return missing.length > 0 ? { ok: false, errors: missing } : { ok: true };
 }
 
-/** Send back to the assignee, with a note saying what to change. A lead only, while submitted. */
+/**
+ * Send back with a note saying what to change. A lead only, while submitted. FB-16 (W13-19): `target`
+ * says who it goes to: the assignee (default) or, in Engineering, the production scheduler when one is
+ * assigned. Either way the submission ends and the work can be edited and resubmitted.
+ */
 export function planReturnToAssignee(
   kind: LeadReviewKind,
   actor: Actor,
   quote: LeadReviewQuote,
   review: LeadReviewState,
   note: string | null | undefined,
+  target: ReturnTarget = 'assignee',
 ): LeadReviewPlan {
   const { noun } = LEAD_REVIEW[kind];
   const stage = stageErrors(kind, quote);
@@ -272,6 +313,20 @@ export function planReturnToAssignee(
     return {
       ok: false,
       errors: [new DomainError('NOTE_REQUIRED', 'Say what to change', 'note')],
+    };
+  }
+  if (target === 'scheduler' && returnTargetUser(kind, quote, 'scheduler') === null) {
+    return {
+      ok: false,
+      errors: [
+        new DomainError(
+          'INVALID_VALUE',
+          kind === 'engineering'
+            ? 'No production scheduler is assigned to this quote: send it back to the engineer'
+            : 'Pricing work goes back to the pricer',
+          'to',
+        ),
+      ],
     };
   }
   return { ok: true };

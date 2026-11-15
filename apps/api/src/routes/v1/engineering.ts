@@ -11,8 +11,8 @@ import {
   EngQueueQuery,
   EngQueueResponse,
   EngReviewBody,
+  EngSendBackBody,
   QuoteNumberParams,
-  SendBackBody,
   StageTimesResponse,
 } from '@ccq/contracts';
 import type { FastifyRequest } from 'fastify';
@@ -33,6 +33,9 @@ const security = [{ bearerAuth: [] }];
  * - assignment's floor is `quote.read` because a configured backup assigner (R-04) may hold no
  *   queue.assign; the domain then requires queue.assign or the backup setting (403 otherwise);
  * - accept / edit need `engReview.edit`; the domain limits an Engineer to quotes assigned to them.
+ * - FB-16 (W13-15): the capacity rows need `capacity.edit` and the sign-off `capacity.signoff`; the domain
+ *   limits a production scheduler to the quotes they are assigned to as scheduler. The assignment route
+ *   also sets the production scheduler (`schedulerId`), under the same floor and domain check.
  */
 export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringService }> = async (
   app,
@@ -67,7 +70,7 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
       schema: {
         tags: ['engineering'],
         summary:
-          'Assign or reassign the engineer (EngLead, Admin or a configured backup assigner). Recorded on the timeline, audited, and the engineer is notified. Re-assigning the same engineer changes nothing',
+          'Assign or reassign the engineer (EngLead, Admin or a configured backup assigner). Recorded on the timeline, audited, and the engineer is notified. Re-assigning the same engineer changes nothing. FB-16: `schedulerId` sets (null clears) the production scheduler, the second assignee, who is notified',
         security,
         params: QuoteNumberParams,
         body: AssignmentBody,
@@ -80,7 +83,7 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
           withTx(req),
           requireActor(req),
           req.params.quoteNumber,
-          req.body.engineerId,
+          req.body,
           auditMeta(req),
         ),
       ),
@@ -112,7 +115,7 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
       schema: {
         tags: ['engineering'],
         summary:
-          "B-26: the capacity owner's G2 sign-off (approved / blocked; a block needs a note). G2 Advance needs it approved. Recorded and audited",
+          "B-26: the capacity owner's G2 sign-off (approved / blocked; a block needs a note). G2 Advance needs it approved. Recorded and audited. FB-16: the production scheduler assigned to the quote, or the engineering lead; a block returns the work to the engineer at once and notifies the engineer, the lead and the KAM",
         security,
         params: QuoteNumberParams,
         body: CapacitySignoffBody,
@@ -179,11 +182,12 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
   app.put(
     '/quotes/:quoteNumber/capacity-evidence',
     {
-      config: { permission: 'engReview.edit' },
+      // FB-16 (W13-15): its own permission, so the production scheduler edits the rows without the solution.
+      config: { permission: 'capacity.edit' },
       schema: {
         tags: ['engineering'],
         summary:
-          'Replace the capacity evidence rows (CR-19). Assumed effectiveness % is always stated, never defaulted. Commercial numbers omitted by an Engineer keep their stored values',
+          'Replace the capacity evidence rows (CR-19): the EngLead, the assigned engineer or the assigned production scheduler. Assumed effectiveness % is always stated, never defaulted. Commercial numbers omitted by an Engineer keep their stored values',
         security,
         params: QuoteNumberParams,
         body: CapacityEvidenceBody,
@@ -286,10 +290,10 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
       schema: {
         tags: ['engineering'],
         summary:
-          'Lead review: the engineering lead sends a submitted part back to the engineer with a note (required); the engineer is told and can edit again',
+          'Lead review: the engineering lead sends the submitted work back with a note (required), to the engineer (default) or, FB-16, to the production scheduler assigned to the quote (`to`). Only that person is told; the work can be edited again',
         security,
         params: QuoteNumberParams,
-        body: SendBackBody,
+        body: EngSendBackBody,
         response: { 200: EngineeringDetail },
       },
     },
@@ -301,6 +305,7 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
           req.params.quoteNumber,
           req.body.note,
           auditMeta(req),
+          req.body.to,
         ),
       ),
   );

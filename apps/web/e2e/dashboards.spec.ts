@@ -225,7 +225,7 @@ test.describe('analytics', () => {
     await card.getByRole('button', { name: /Table view of Open quotes by stage/ }).click();
     const table = card.getByRole('table', { name: /Open quotes and SF opportunity amount/ });
     await expect(table).toBeVisible();
-    await expect(table.getByRole('row', { name: /Engineering Review/ })).toBeVisible();
+    await expect(table.getByRole('row', { name: /Engineering & Capacity/ })).toBeVisible();
     await card.getByRole('button', { name: /Chart view of Open quotes by stage/ }).click();
     await expect(chart).toBeVisible();
   });
@@ -238,7 +238,7 @@ test.describe('analytics', () => {
     const card = page.getByTestId('chart-pipeline-count');
     await card.getByRole('button', { name: /Table view of Open quotes by stage/ }).click();
     await card
-      .getByRole('row', { name: /Engineering Review/ })
+      .getByRole('row', { name: /Engineering & Capacity/ })
       .getByRole('link', { name: 'View quotes' })
       .click();
     await expect(page).toHaveURL(/\/quotes\?.*stage=ENG_REVIEW/);

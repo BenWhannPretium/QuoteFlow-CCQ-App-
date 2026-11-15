@@ -178,6 +178,8 @@ export function listPipelineKeys(db: DbOrTx, opts: PipelineQueryOptions) {
       status: quote.status,
       kamUserId: quote.kamUserId,
       assignedEngineerId: quote.assignedEngineerId,
+      // FB-16: the production scheduler's owner scope reads it (`can(actor, 'quote.read', …)`).
+      assignedSchedulerId: quote.assignedSchedulerId,
       region: quote.region,
       accountId: customer.sfAccountId,
       estAnnualRevenue: quote.estAnnualRevenue,

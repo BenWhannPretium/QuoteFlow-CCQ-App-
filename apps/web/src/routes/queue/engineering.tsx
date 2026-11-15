@@ -69,12 +69,22 @@ const statusLabel = (q: EngQueueItem) =>
  * The engineering queue (F-04, DEC-26): a manual, prioritized queue the upfront engineering lead
  * works by hand. EngLead (and Admin / a backup assigner) assign, accept, return and pin; an Engineer
  * sees "My assignments" and the queue read-only; Leadership reads. The API decides who may do what.
+ *
+ * FB-16 (W13-15): a Production Scheduler sees "Capacity requests" (the quotes they are assigned to as
+ * scheduler, with where capacity stands) above the queue, read-only like the engineer's view.
  */
 function EngineeringQueuePage() {
   const canRead = useCan('engQueue.read');
   const ownsQueue = useCan('queue.assign');
-  const isEngineer = useCan('engReview.edit') && !ownsQueue;
-  const title = isEngineer ? 'My assignments' : 'Engineering queue';
+  const editsReview = useCan('engReview.edit');
+  const signsCapacity = useCan('capacity.signoff');
+  const isEngineer = editsReview && !ownsQueue;
+  const isScheduler = signsCapacity && !editsReview && !ownsQueue;
+  const title = isScheduler
+    ? 'Capacity requests'
+    : isEngineer
+      ? 'My assignments'
+      : 'Engineering queue';
   useDocumentTitle(title);
 
   const [search, setSearch] = useState('');
@@ -108,9 +118,12 @@ function EngineeringQueuePage() {
         title={title}
         eyebrow="Engineering"
         description={
-          isEngineer
-            ? 'Your engineering reviews first, then the whole queue (read-only).'
-            : 'Every quote in Engineering Review, highest priority first. You choose who gets each quote; the priority score only sets the order.'
+          isScheduler
+            ? 'The quotes whose capacity you own first, then the whole queue (read-only).'
+            : isEngineer
+              ? 'Your engineering reviews first, then the whole queue (read-only).'
+              : // FB-16 (W13-16): the stage is named by its configured label.
+                `Every quote in ${queue.data?.stage.label ?? 'Engineering'}, highest priority first. You choose who gets each quote; the priority score only sets the order.`
         }
       />
       {queue.isPending && <SkeletonRows rows={6} />}
@@ -121,11 +134,11 @@ function EngineeringQueuePage() {
             <ReviewTabs value={tab} onChange={setTab} readyCount={data.readyForReview} />
           )}
           <AgingChips data={data} selected={buckets} onChange={setBuckets} />
-          {isEngineer && <MyAssignments data={data} />}
+          {(isEngineer || isScheduler) && <MyAssignments data={data} scheduler={isScheduler} />}
           <section className="grid gap-3" aria-labelledby="queue-heading">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 id="queue-heading" className="text-base font-semibold">
-                {isEngineer ? 'Engineering queue' : 'Queue'}{' '}
+                {isEngineer || isScheduler ? 'Engineering queue' : 'Queue'}{' '}
                 <span className="text-muted-foreground font-normal">
                   (
                   {data.items.length === data.total
@@ -291,17 +304,38 @@ function Toolbar({
   );
 }
 
-function MyAssignments({ data }: { data: EngQueueResponse }) {
+/** FB-16 (W13-15): where capacity stands on a quote, for the scheduler's list. */
+const CAPACITY_STATUS: Record<'approved' | 'blocked' | 'pending', string> = {
+  approved: 'Capacity approved',
+  blocked: 'Capacity blocked',
+  pending: 'Capacity not signed off yet',
+};
+
+function MyAssignments({
+  data,
+  scheduler = false,
+}: {
+  data: EngQueueResponse;
+  /** FB-16: the viewer is a Production Scheduler: the list is their capacity requests. */
+  scheduler?: boolean;
+}) {
+  const open = data.mine.filter((q) => q.capacitySignoffStatus !== 'approved').length;
   return (
     <section className="grid gap-3" aria-labelledby="mine-heading" data-testid="my-assignments">
       <h2 id="mine-heading" className="text-base font-semibold">
-        Assigned to me ({data.mine.length})
+        {scheduler
+          ? `Capacity requests assigned to me (${data.mine.length}; ${open} not yet approved)`
+          : `Assigned to me (${data.mine.length})`}
       </h2>
       {data.mine.length === 0 ? (
         <EmptyState
           icon={InboxIcon}
-          title="Nothing assigned to you"
-          description="The engineering lead assigns reviews from the queue. You’ll get a notification."
+          title={scheduler ? 'No capacity requests' : 'Nothing assigned to you'}
+          description={
+            scheduler
+              ? 'The engineering lead assigns you to the capacity part of a quote. You’ll get a notification.'
+              : 'The engineering lead assigns reviews from the queue. You’ll get a notification.'
+          }
         />
       ) : (
         <ol className="grid gap-2">
@@ -322,7 +356,9 @@ function MyAssignments({ data }: { data: EngQueueResponse }) {
               </Link>
               <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} showWhy={false} />
               <span className="min-w-0 break-words">{q.customerName ?? 'Unknown customer'}</span>
-              <span className="text-muted-foreground">{statusLabel(q)}</span>
+              <span className="text-muted-foreground">
+                {scheduler ? CAPACITY_STATUS[q.capacitySignoffStatus ?? 'pending'] : statusLabel(q)}
+              </span>
               <AgingCell item={q} />
             </li>
           ))}
@@ -560,10 +596,19 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
         id: 'engineer',
         header: 'Engineer',
         accessorFn: (q) => q.assignedEngineerName ?? '',
-        cell: ({ row }) =>
-          row.original.assignedEngineerName ?? (
-            <span className="text-muted-foreground">Unassigned</span>
-          ),
+        // FB-16 (W13-15): the production scheduler, when one is assigned, under the engineer.
+        cell: ({ row }) => (
+          <span className="grid">
+            {row.original.assignedEngineerName ?? (
+              <span className="text-muted-foreground">Unassigned</span>
+            )}
+            {row.original.assignedSchedulerName && (
+              <span className="text-muted-foreground text-xs">
+                Scheduler: {row.original.assignedSchedulerName}
+              </span>
+            )}
+          </span>
+        ),
       },
       {
         id: 'drawing',
@@ -642,7 +687,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
                     })
                   }
                 >
-                  Open Engineering Review
+                  Open the Engineering tab
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -715,6 +760,13 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
           quoteNumbers={dialog.quoteNumbers}
           engineers={data.engineers}
           currentEngineerId={dialog.current ?? null}
+          schedulers={data.schedulers}
+          currentSchedulerId={
+            dialog.quoteNumbers.length === 1
+              ? (data.items.find((i) => i.quoteNumber === dialog.quoteNumbers[0])
+                  ?.assignedSchedulerId ?? null)
+              : null
+          }
           suggestions={dialog.quoteNumbers.map((quoteNumber) => ({
             quoteNumber,
             suggested:

@@ -64,6 +64,7 @@ import {
   listStageRows,
   listUsersByIds,
   listUsersForAdmin,
+  listValueList,
   loadScoringFactsMany,
   loadWorkflowConfigInput,
   nextScoringModelVersion,
@@ -87,6 +88,7 @@ import {
   fieldsReferenced,
   INPUT_RESOLVERS,
   INTAKE_FIELDS,
+  machineTypeProcessMapErrors,
   parseScoringModel,
   parseSettingValue,
   parseVolumeRouting,
@@ -95,9 +97,12 @@ import {
   requiredRuleSchema,
   SETTING_GROUPS,
   settingSpec,
+  twoStepPlantMachineTypeErrors,
   type Actor,
+  type MachineTypeProcessMap,
   type RequiredRule,
   type ScoringModel,
+  type TwoStepPlantMachineTypes,
 } from '@ccq/domain';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -882,6 +887,27 @@ export class AdminConfigService {
       }
       if (key === 'g1_enabled' && value !== undefined && value !== before!.value) {
         await this.syncG1Gates(tx, value === true, body.confirm === true);
+      }
+      // FB-16 (W13-12, W13-13): the merged pick's settings name codes on two lists. The parser checks the
+      // shape; here every machine type must be an active machine type and every process an active
+      // process type, so a typo cannot leave a machine type without a process.
+      if (
+        value !== undefined &&
+        (key === 'machine_type_process_map' || key === 'two_step_plant_machine_types')
+      ) {
+        const active = async (list: 'machine_type' | 'process_type') =>
+          (await listValueList(tx, list)).map((v) => v.code);
+        const machineTypes = await active('machine_type');
+        const errors =
+          key === 'machine_type_process_map'
+            ? machineTypeProcessMapErrors(value as MachineTypeProcessMap, {
+                machineTypes,
+                processTypes: await active('process_type'),
+              })
+            : twoStepPlantMachineTypeErrors(value as TwoStepPlantMachineTypes, machineTypes);
+        if (errors.length > 0) {
+          throw new ServiceProblem(422, CODES.invalid, errors.map((e) => e.message).join('; '));
+        }
       }
       const row = AdminConfigService.unwrap(
         await updateVersioned(tx, schema.appSetting, before!.id, body.version, {

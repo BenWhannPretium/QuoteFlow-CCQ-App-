@@ -53,6 +53,11 @@ export const EngQueueItem = QuoteSummary.extend({
   assignedEngineerId: z.string().nullable(),
   assignedEngineerName: z.string().nullable(),
   assignedAt: z.string().nullable(),
+  /** FB-16 (W13-15): the production scheduler assigned to the capacity part, if any. */
+  assignedSchedulerId: z.string().nullable(),
+  assignedSchedulerName: z.string().nullable(),
+  /** FB-16: the capacity sign-off for this stay (null: not signed yet). */
+  capacitySignoffStatus: z.enum(['approved', 'blocked']).nullable(),
   acceptedAt: z.string().nullable(),
   /** unassigned → assigned (awaiting acceptance) → accepted (review in progress). */
   queueStatus: z.enum(['unassigned', 'assigned', 'accepted']),
@@ -117,9 +122,14 @@ export const EngQueueResponse = z.object({
   canPin: z.boolean(),
   /** The engineer picker (empty unless canAssign). */
   engineers: z.array(AssignableEngineer),
+  /**
+   * FB-16 (W13-15): the production-scheduler picker (active users holding the role; empty unless
+   * canAssign). `openCount` is their open capacity requests in Engineering.
+   */
+  schedulers: z.array(AssignableEngineer),
   /** Lead review: quotes waiting on the lead's review (before filters), for the tab's count. */
   readyForReview: z.number().int(),
-  /** Quotes assigned to the caller (unfiltered), default order. */
+  /** Quotes assigned to the caller as engineer or (FB-16) as production scheduler (unfiltered), default order. */
   mine: z.array(EngQueueItem),
   /** The queue, filtered, in the default order (pinned → tier → score → oldest). */
   items: z.array(EngQueueItem),
@@ -128,7 +138,14 @@ export type EngQueueResponse = z.infer<typeof EngQueueResponse>;
 
 // ── Assignment and acceptance ────────────────────────────────────────────────────────────────────
 
-export const AssignmentBody = z.object({ engineerId: z.uuid() });
+/**
+ * POST /quotes/:quoteNumber/assignment. FB-16 (W13-15): `schedulerId` sets the second assignee, the
+ * production scheduler who works the capacity part: omitted = leave as it is, null = nobody.
+ */
+export const AssignmentBody = z.object({
+  engineerId: z.uuid(),
+  schedulerId: z.uuid().nullable().optional(),
+});
 export type AssignmentBody = z.infer<typeof AssignmentBody>;
 
 export const AssignmentResponse = z.object({
@@ -138,6 +155,10 @@ export const AssignmentResponse = z.object({
   assignedAt: z.string().nullable(),
   /** False when the engineer was already assigned (nothing recorded). */
   changed: z.boolean(),
+  /** FB-16: the production scheduler after the call (null: none), and whether this call changed it. */
+  assignedSchedulerId: z.string().nullable(),
+  assignedSchedulerName: z.string().nullable(),
+  schedulerChanged: z.boolean(),
 });
 export type AssignmentResponse = z.infer<typeof AssignmentResponse>;
 

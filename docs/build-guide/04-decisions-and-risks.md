@@ -250,6 +250,22 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | `app_setting.g4_additional_approvals` | One rule, **off**: customer-funded or $0 CER → Sales leader, then Leadership (`finalReview.signoff`: SalesLeader, Leadership) | **A-035**, D-002 | Oleg Yarovinski; Sarah |
 | `app_setting.g4_tier_rules` | Unchanged: null (no tiers) | **D-002** thresholds | Oleg Yarovinski |
 
+**Provisional values FB-16 seeded (built 2026-11-14; all `provisional: true`, changed by config or the permission matrix, not code; migration 0045):**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.machine_type_process_map` (W13-12) | The process type each machine type stands for: EBM→EBM, IBM→IBM, ISBM→ISBM, RHB→RHB, INJ-CAP→IMM, INJ-PREFORM→IMM_PREFORM, INJ-OTHER→IMM; DECO, PAD PRINTING, PRINTING, LAMINATION, DIE CUTTING, STAMPING and 12B→OTHER. The server derives `process_type` from it; a machine type missing from the map cannot be saved. Jim's approved `machine_type` rows are not edited | The process behind the non-forming machine types (W13-W11) | Jim Zweifel |
+| `app_setting.two_step_plant_machine_types` (W13-13) | `{ preform: ['INJ-PREFORM'], blow: ['RHB','ISBM'] }`: the Preform plant picker offers plants running the first, the Blow plant picker plants running the second | "Two-step" vs "two-stage" and the plant rule confirmed (W13-W7) | Jim Zweifel |
+| `app_setting.pack_out_rule` (W13-14) | `{ requireOneOf: false, notTogether: [['unitsPerBag','unitsPerCase']] }`: bag and case cannot both be filled; nothing is required. Setting `requireOneOf: true` makes one of bag / tray / case needed for a forward G2 outcome and for the engineer's submit to the lead (built and tested, off) | Engineering confirms they know pack-out at quote time, and the field names (W13-W7, A-014) | Jim Zweifel |
+| Role **ProductionScheduler** and its grants (W13-15) | `quote.read`, `quote.read.commercialFields`, `engQueue.read`; `capacity.edit` and `capacity.signoff` only on quotes they are assigned to as scheduler. Cannot edit the solution, the pack-out or the two-step fields; cannot upload attachments or send feedback. `capacity.edit` is new (also EngLead, and the assigned Engineer); the EngLead keeps `capacity.signoff` | D-008 (who owns capacity); the Entra app role and group (IT, `06` A4c) | Ben Whann; Bailey Schmitt; Jim Zweifel |
+| Second assignee `quote.assigned_scheduler_id` (W13-15) | Optional; set by whoever assigns the engineer. With exactly one user holding the role, the assign dialog suggests them ("Use it"); nothing is chosen for the lead | D-008 | Ben Whann; Bailey Schmitt |
+| Notification events `quote.capacity_assigned`, `quote.capacity_ready`, `quote.capacity_blocked` (W13-15, W13-17) | In-app and email, immediate. Assigned: to the scheduler. Ready ("Capacity can start: <plant>, <machine type>"): to the scheduler, once per stay. Blocked: to the engineer and the engineering leads; the KAM gets the existing in-app `quote.lead_review_update` | D-008 | Bailey Schmitt |
+| A capacity block returns the work to the engineer (W13-17) | Reason "Capacity blocked", the blocker's note as the return note; the quote stays in the stage and active; no gate decision | — | Bailey Schmitt; Jim Zweifel |
+| Lead send-back target (W13-19) | The engineer (default) or the production scheduler assigned to the quote. After a send-back to the scheduler the engineer submits again | D-008 (should it come back to the lead without the engineer?) | Bailey Schmitt |
+| The lead's capacity approval inside G2 (W13-18) | Offered only while capacity is not yet signed and the decider holds `capacity.signoff`; never over a block | D-008 | Bailey Schmitt; Jim Zweifel |
+| `stage_definition` ENG_REVIEW label (W13-16) | "Engineering & Capacity" (was "Engineering Review"); the key is unchanged. The G2 Hold and Redirect help texts say "at this stage" | — | Bailey Schmitt |
+| Assumed effectiveness cap (W13-20) | Unchanged: above 0 %, up to 100 % (the form now enforces what the server already did) | 100 or 200 (W13-W7) | Jim Zweifel |
+
 **Provisional values FB-15 seeded (built 2026-11-13; all `provisional: true`, changed by config, not code; migration 0044):**
 
 | Value | Seed | Waits on | Who signs off |

@@ -5,12 +5,14 @@ import type { Role } from '../types/roles';
  * Narrows a grant to a subset of resources.
  * - own: the resource's kamUserId must be the actor
  * - assigned: the resource's assignedEngineerId must be the actor
+ * - assignedScheduler: the resource's assignedSchedulerId must be the actor (FB-16)
  * - fields: the resource's overrideField must be one of the listed fields
  * - stages: the resource's stageKey must be one of the listed stages
  */
 export type Qualifier =
   | { kind: 'own' }
   | { kind: 'assigned' }
+  | { kind: 'assignedScheduler' }
   | { kind: 'fields'; fields: readonly string[] }
   | { kind: 'stages'; stageKeys: readonly string[] };
 
@@ -18,6 +20,7 @@ export type Grant = true | Qualifier;
 
 const own: Qualifier = { kind: 'own' };
 const assigned: Qualifier = { kind: 'assigned' };
+const assignedScheduler: Qualifier = { kind: 'assignedScheduler' };
 
 /**
  * Architecture §3.4 as data. Seeded into `role_permission` (B-03), but route checks read this file, so
@@ -29,6 +32,9 @@ const assigned: Qualifier = { kind: 'assigned' };
  * - `engReview.edit (assigned)`: the EngLead owns the queue and is unrestricted; the Engineer is limited to assigned quotes.
  * - `override.approve ✔ (priority, queue)` for EngLead: limited to the priority_tier and queue_position fields.
  * - PostAward (P2) reads Awarded quotes only.
+ * - FB-16 (W13-15, D-008 open, provisional): the ProductionScheduler reads quotes and the engineering
+ *   queue, and edits the capacity rows and signs capacity off on the quotes they are assigned to as
+ *   scheduler (`assignedScheduler`). They cannot edit the engineer's solution, pack-out or two-step fields.
  */
 export const PERMISSION_MATRIX: Readonly<
   Record<Permission, Readonly<Partial<Record<Role, Grant>>>>
@@ -46,6 +52,8 @@ export const PERMISSION_MATRIX: Readonly<
     Admin: true,
     // FB-07 (F-083): Finance reads quotes (to take the costing model's assumptions) and nothing else.
     Finance: true,
+    // FB-16 (W13-15): the production scheduler reads quotes (RLS narrows an owner scope to their own).
+    ProductionScheduler: true,
     PostAward: { kind: 'stages', stageKeys: ['AWARDED'] },
   },
   // 2026-10-30 (Ben): every role that reads a quote sees its pricing, margin and capital figures.
@@ -62,12 +70,21 @@ export const PERMISSION_MATRIX: Readonly<
     Leadership: true,
     Admin: true,
     Finance: true,
+    // FB-16: rule 2. The scheduler enters capacity figures, so reads every figure on the quote.
+    ProductionScheduler: true,
     PostAward: true,
   },
   'gate.G1.decide': { SalesLeader: true },
   // B-10: the engineering queue page. EngLead owns it, an Engineer sees it read-only next to their
-  // assignments, Leadership reads it, Admin holds queue.assign.
-  'engQueue.read': { EngLead: true, Engineer: true, Leadership: true, Admin: true },
+  // assignments, Leadership reads it, Admin holds queue.assign. FB-16: the production scheduler sees it
+  // read-only next to their capacity requests, as an Engineer does.
+  'engQueue.read': {
+    EngLead: true,
+    Engineer: true,
+    ProductionScheduler: true,
+    Leadership: true,
+    Admin: true,
+  },
   'queue.assign': { EngLead: true, Admin: true },
   'engReview.edit': { EngLead: true, Engineer: assigned },
   'gate.G2.decide': { EngLead: true },
@@ -125,8 +142,14 @@ export const PERMISSION_MATRIX: Readonly<
     Pricing: true,
     PricingLead: true,
   },
-  // B-26: the capacity owner's G2 sign-off (owner TBD, D-07; seeded to the EngLead, provisional).
-  'capacity.signoff': { EngLead: true },
+  // FB-16 (W13-15, D-008 open, provisional): the capacity evidence rows. The EngLead, the assigned
+  // Engineer (as before, when the rows sat behind `engReview.edit`) and the production scheduler
+  // assigned to the quote. The capacity routes no longer depend on `engReview.edit`.
+  'capacity.edit': { EngLead: true, Engineer: assigned, ProductionScheduler: assignedScheduler },
+  // B-26: the capacity owner's G2 sign-off (owner TBD, D-07 / D-008; provisional). FB-16: the production
+  // scheduler assigned to the quote signs it off or blocks it; the EngLead still may (and approves it
+  // inside "Decide feasibility" when nobody has signed yet).
+  'capacity.signoff': { EngLead: true, ProductionScheduler: assignedScheduler },
   // B-26: raise an escalation on a quote (routed by app_setting `escalation_routes`).
   'quote.escalate': {
     KAM: own,

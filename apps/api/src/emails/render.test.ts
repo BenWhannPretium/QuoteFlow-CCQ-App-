@@ -65,6 +65,10 @@ const FIXTURES: Record<string, Record<string, string>> = {
     decision: 'approved',
     terms: 'Net 60',
   },
+  // FB-16 (W13-15, W13-17)
+  'quote.capacity_assigned': { reassigned: 'no', plant: 'Aurora', machine: 'EBM' },
+  'quote.capacity_ready': { plant: 'Aurora', machine: 'EBM' },
+  'quote.capacity_blocked': { actor: 'Faron Example', assignee: 'yes' },
 };
 
 describe('subjects', () => {

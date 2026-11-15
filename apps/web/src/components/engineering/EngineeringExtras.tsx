@@ -1,12 +1,26 @@
-import type { EngineeringDetail, EquipmentBomView, QuoteDetail } from '@ccq/contracts';
+import {
+  engInputError,
+  type EngineeringDetail,
+  type EquipmentBomView,
+  type QuoteDetail,
+} from '@ccq/contracts';
 import {
   ATTACHMENT_EXTENSIONS,
   ATTACHMENT_MAX_BYTES,
   PACK_OUT_FIELDS,
   PACK_OUT_LABELS,
+  PACK_OUT_RULE_SEED,
+  PACK_OUT_UNIT_FIELDS,
   PREFORM_NUMBER_MAX_LENGTH,
   TWO_STEP_FREIGHT_NOTE_MAX_LENGTH,
+  TWO_STEP_PLANT_MACHINE_TYPES_SEED,
+  packOutRuleErrors,
+  parsePackOutRule,
+  parseTwoStepPlantMachineTypes,
+  plantsRunning,
   type PackOutField,
+  type PackOutRule,
+  type TwoStepPlantMachineTypes,
 } from '@ccq/domain';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { UploadIcon } from 'lucide-react';
@@ -289,22 +303,39 @@ const extrasForm = (r: EngineeringDetail['review']): ExtrasForm => ({
   unitsPerPallet: r.unitsPerPallet?.toString() ?? '',
 });
 
+/**
+ * FB-16 (W13-13): `runs` narrows the picker to the plants that run one of those machine types (the
+ * preform plant: INJ - PREFORM; the blow plant: RHB or ISBM; `two_step_plant_machine_types`). A saved
+ * plant outside the narrowed list stays visible, so an old quote does not lose it.
+ */
 function PlantSelect({
   id,
   value,
+  runs = [],
   onChange,
 }: {
   id: string;
   value: string;
+  runs?: readonly string[];
   onChange: (v: string) => void;
 }) {
   const { data: config } = usePublicConfig();
-  const options = config?.valueLists.plant ?? [];
-  const retired = value !== '' && !options.some((v) => v.code === value);
+  const active = config?.valueLists.plant ?? [];
+  const options = plantsRunning(active, runs);
+  const retired = value !== '' && !active.some((v) => v.code === value);
+  const outside =
+    value !== '' && !retired && !options.some((v) => v.code === value)
+      ? active.find((v) => v.code === value)
+      : undefined;
   return (
     <NativeSelect id={id} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">Choose…</option>
-      {retired && <option value={value}>{`${value} (no longer offered)`}</option>}
+      {retired && (
+        <option value={value}>
+          {`${config?.retiredValues?.plant?.[value] ?? value} (no longer offered)`}
+        </option>
+      )}
+      {outside && <option value={value}>{`${outside.label} (does not run this step)`}</option>}
       {options.map((v) => (
         <option key={v.code} value={v.code}>
           {v.label}
@@ -313,6 +344,19 @@ function PlantSelect({
     </NativeSelect>
   );
 }
+
+/** A malformed setting falls back to the seed here; the server reports it when something is saved. */
+function settingOr<T>(parse: (input: unknown) => T, input: unknown, fallback: T): T {
+  try {
+    return parse(input);
+  } catch {
+    return fallback;
+  }
+}
+
+/** FB-16 (W13-14): the labels of machine types, for the plant pickers' hints ("Plants that run …"). */
+const namesOf = (codes: readonly string[], list: readonly { code: string; label: string }[]) =>
+  codes.map((c) => list.find((v) => v.code === c)?.label ?? c).join(' or ');
 
 /**
  * F-024 (two-step, D-007 open: a simple checkbox, provisional) and F-025 (pack-out, A-014 not yet
@@ -326,9 +370,37 @@ export function PricingInputsCard({
   refresh: (detail?: EngineeringDetail) => Promise<unknown>;
 }) {
   const eng = quote.engineering;
+  const { data: config } = usePublicConfig();
   const initial = extrasForm(eng.review);
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
+  // FB-16 (W13-13, W13-14): both rules are settings (provisional), read from the public config.
+  const twoStepPlants: TwoStepPlantMachineTypes = settingOr(
+    parseTwoStepPlantMachineTypes,
+    config?.settings.two_step_plant_machine_types,
+    TWO_STEP_PLANT_MACHINE_TYPES_SEED,
+  );
+  const packOutRule: PackOutRule = settingOr(
+    parsePackOutRule,
+    config?.settings.pack_out_rule,
+    PACK_OUT_RULE_SEED,
+  );
+  const machineTypes = config?.valueLists.machine_type ?? [];
+  // FB-16 (W13-20): checked as typed with the server's rules; bag and case are not filled in together.
+  const typed = (f: PackOutField) => engInputError(f, form[f]) ?? undefined;
+  const filled = (f: PackOutField) => (form[f].trim() === '' ? null : Number(form[f]));
+  const together = packOutRuleErrors(
+    {
+      unitsPerBag: filled('unitsPerBag'),
+      unitsPerTray: filled('unitsPerTray'),
+      unitsPerCase: filled('unitsPerCase'),
+      unitsPerPallet: filled('unitsPerPallet'),
+    },
+    packOutRule,
+  );
+  const packOutError = (f: PackOutField) =>
+    typed(f) ?? together.find((e) => e.field === f)?.message ?? errorFor(errors, f);
+  const invalid = PACK_OUT_FIELDS.some((f) => typed(f)) || together.length > 0;
   // Bailey (2026-11-12): say "Saved" beside the button, where the eye already is (the toast is easy to miss).
   const [justSaved, setJustSaved] = useState(false);
   const set = <K extends keyof ExtrasForm>(k: K, v: ExtrasForm[K]) => {
@@ -360,11 +432,30 @@ export function PricingInputsCard({
     onError: (err) => setErrors(problemErrors(err)),
   });
 
+  const packOutInput = (f: PackOutField) => (
+    <Field key={f} label={PACK_OUT_LABELS[f]} hint="A whole number" error={packOutError(f)}>
+      {(id) => (
+        <Input
+          id={id}
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          data-testid={`pack-out-${f}`}
+          value={form[f]}
+          onChange={(e) => set(f, e.target.value)}
+        />
+      )}
+    </Field>
+  );
+
   const title = (
     <CardHeader>
       <CardTitle>
         <h2 className="text-base font-semibold">Two-step process and pack-out</h2>
       </CardTitle>
+      {/* FB-16 (W13-15): part of the engineer's work; the production scheduler does not edit it. */}
+      <p className="text-muted-foreground text-xs">Engineer’s part</p>
     </CardHeader>
   );
   if (!eng.canEdit) {
@@ -388,11 +479,13 @@ export function PricingInputsCard({
           data-testid="pricing-inputs-form"
           onSubmit={(e) => {
             e.preventDefault();
-            save.mutate();
+            if (!invalid) save.mutate();
           }}
         >
           <p className="text-muted-foreground text-sm">
-            Pricing reads these when it costs the quote. Both are optional.
+            {packOutRule.requireOneOf
+              ? 'Pricing reads these when it costs the quote. The two-step process is optional; the quote needs one units-per-pack count before it can advance.'
+              : 'Pricing reads these when it costs the quote. Both are optional.'}
           </p>
           <label className="flex items-center gap-2 text-sm font-medium">
             <input
@@ -406,20 +499,38 @@ export function PricingInputsCard({
           </label>
           {form.twoStep && (
             <div className="grid gap-4 sm:grid-cols-2" data-testid="two-step-details">
-              <Field label="Preform plant" error={errorFor(errors, 'preformPlantCode')}>
+              <Field
+                label="Preform plant"
+                hint={
+                  twoStepPlants.preform.length > 0
+                    ? `Plants that run ${namesOf(twoStepPlants.preform, machineTypes)}`
+                    : undefined
+                }
+                error={errorFor(errors, 'preformPlantCode')}
+              >
                 {(id) => (
                   <PlantSelect
                     id={id}
                     value={form.preformPlantCode}
+                    runs={twoStepPlants.preform}
                     onChange={(v) => set('preformPlantCode', v)}
                   />
                 )}
               </Field>
-              <Field label="Blow plant" error={errorFor(errors, 'blowPlantCode')}>
+              <Field
+                label="Blow plant"
+                hint={
+                  twoStepPlants.blow.length > 0
+                    ? `Plants that run ${namesOf(twoStepPlants.blow, machineTypes)}`
+                    : undefined
+                }
+                error={errorFor(errors, 'blowPlantCode')}
+              >
                 {(id) => (
                   <PlantSelect
                     id={id}
                     value={form.blowPlantCode}
+                    runs={twoStepPlants.blow}
                     onChange={(v) => set('blowPlantCode', v)}
                   />
                 )}
@@ -454,32 +565,27 @@ export function PricingInputsCard({
               </Field>
             </div>
           )}
+          {/* FB-16 (W13-14): bag, tray and case are one choice; the pallet count is separate. */}
           <div className="grid gap-4 sm:grid-cols-4" data-testid="pack-out">
-            {PACK_OUT_FIELDS.map((f: PackOutField) => (
-              <Field
-                key={f}
-                label={PACK_OUT_LABELS[f]}
-                hint="A whole number"
-                error={errorFor(errors, f)}
-              >
-                {(id) => (
-                  <Input
-                    id={id}
-                    type="number"
-                    min={1}
-                    step={1}
-                    inputMode="numeric"
-                    data-testid={`pack-out-${f}`}
-                    value={form[f]}
-                    onChange={(e) => set(f, e.target.value)}
-                  />
-                )}
-              </Field>
-            ))}
+            <fieldset
+              className="grid gap-3 rounded-md border p-3 sm:col-span-3"
+              data-testid="pack-out-units"
+            >
+              <legend className="px-1 text-sm font-medium">
+                Units per pack (fill in one: bag, tray or case)
+                {packOutRule.requireOneOf ? ' (required)' : ''}
+              </legend>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {PACK_OUT_UNIT_FIELDS.map(packOutInput)}
+              </div>
+            </fieldset>
+            <div className="grid content-start gap-3 p-3 sm:pt-7">
+              {packOutInput('unitsPerPallet')}
+            </div>
           </div>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={!changed || save.isPending}>
+            <Button type="submit" disabled={!changed || invalid || save.isPending}>
               {save.isPending ? 'Saving…' : 'Save process and pack-out'}
             </Button>
             {justSaved && !changed && (

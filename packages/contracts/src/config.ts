@@ -116,4 +116,9 @@ export const PUBLIC_SETTING_KEYS = [
   'salesforce_new_opportunity_url',
   // B-09 overrides (the per-field config reaches the quote page as QuoteDetail.overridableFields)
   'override_justification_min_length',
+  // FB-16 (W13-12 to W13-14, provisional): the merged process & machine pick, the two-step plant
+  // pickers and the pack-out rule, so the Engineering tab filters and checks as the server does.
+  'machine_type_process_map',
+  'two_step_plant_machine_types',
+  'pack_out_rule',
 ] as const;
