@@ -118,7 +118,11 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
   await page.getByRole('button', { name: /^Next/ }).click();
   await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '4');
   await expect(page.getByTestId('blocking-list')).toHaveCount(0);
-  for (const name of ['Item 1 (16 oz bottle)', 'Item 2 (24 oz bottle)', 'Item 3 (24 oz bottle 25% PCR)']) {
+  for (const name of [
+    'Item 1 (16 oz bottle)',
+    'Item 2 (24 oz bottle)',
+    'Item 3 (24 oz bottle 25% PCR)',
+  ]) {
     await expect(page.getByRole('heading', { name })).toBeVisible();
   }
   await page.getByRole('button', { name: 'Submit to CCQ' }).click();
@@ -135,9 +139,11 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
     }),
   );
   const me = async (persona: string) =>
-    ((await (await request.get('/api/v1/me', { headers: as(persona) })).json()) as {
-      user: { id: string };
-    }).user.id;
+    (
+      (await (await request.get('/api/v1/me', { headers: as(persona) })).json()) as {
+        user: { id: string };
+      }
+    ).user.id;
   const engineer = await me('engineer');
   await ok(
     await request.post(`/api/v1/quotes/${qn}/assignment`, {
@@ -145,13 +151,21 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
       data: { engineerId: engineer },
     }),
   );
-  await ok(await request.post(`/api/v1/quotes/${qn}/eng-review/accept`, { headers: as('engineer') }));
+  await ok(
+    await request.post(`/api/v1/quotes/${qn}/eng-review/accept`, { headers: as('engineer') }),
+  );
   const detail = (await (
     await request.get(`/api/v1/quotes/${qn}`, { headers: as('eng-lead') })
   ).json()) as { engineering: { items: { id: string }[] } };
   const itemIds = detail.engineering.items.map((i) => i.id);
   expect(itemIds).toHaveLength(3);
-  const solution = { plantCode: 'AURORA', machineType: 'EBM', cavitation: 8, cycleTimeS: 14.5, prelimCapitalUsd: 0 };
+  const solution = {
+    plantCode: 'AURORA',
+    machineType: 'EBM',
+    cavitation: 8,
+    cycleTimeS: 14.5,
+    prelimCapitalUsd: 0,
+  };
   const row = {
     site: 'AURORA',
     lineAsset: 'Line 4',
@@ -224,7 +238,9 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
   await eng.setViewportSize({ width: 1366, height: 768 });
   expect(await seriousViolations(eng)).toEqual([]);
 
-  await ok(await request.post(`/api/v1/quotes/${qn}/eng-review/submit`, { headers: as('engineer') }));
+  await ok(
+    await request.post(`/api/v1/quotes/${qn}/eng-review/submit`, { headers: as('engineer') }),
+  );
   await ok(
     await request.post(`/api/v1/quotes/${qn}/gates/G2/decisions`, {
       headers: as('eng-lead'),
@@ -254,7 +270,10 @@ test('a single-item intake still reads as before: no switcher, no item names', a
   await page.goto('/intake/new');
   await page.getByRole('button', { name: 'All', exact: true }).click();
   await page.getByLabel('Find the Salesforce opportunity').fill(detail.opportunity.name);
-  await page.locator(`[data-opportunity-id="${id}"]`).getByRole('button', { name: /^Use / }).click();
+  await page
+    .locator(`[data-opportunity-id="${id}"]`)
+    .getByRole('button', { name: /^Use / })
+    .click();
   await page.getByRole('button', { name: /^Next/ }).click();
   await expect(page.getByTestId('items-list').getByTestId('item-row')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Remove item 1' })).toBeDisabled();
