@@ -30,7 +30,7 @@ async function main() {
   ];
   for (const [name, bytes] of files) {
     writeFileSync(join(out, name), bytes);
-    console.log(`wrote ${join(out, name)}`);
+    process.stdout.write(`wrote ${join(out, name)}\n`);
   }
 }
 

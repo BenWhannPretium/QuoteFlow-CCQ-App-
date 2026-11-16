@@ -5,13 +5,13 @@ import type {
   OfferLetterToken,
 } from './config';
 import { isPositiveDecimal, toCharge, toPer1000 } from './money';
-import type { ModelSummaryFieldState, ModelSummaryStatus } from '../model-summary/extract';
+import { CUSTOMER_DECISION_STAGE_KEY } from '../final-review/release';
 import {
   OFFER_PRICE_UNITS,
   type OfferFieldKey,
   type OfferPriceUnit,
 } from '../model-summary/config';
-import { CUSTOMER_DECISION_STAGE_KEY } from '../final-review/release';
+import type { ModelSummaryFieldState, ModelSummaryStatus } from '../model-summary/extract';
 
 /**
  * FB-20 (F-070): can an offer letter be made for this quote, and if not, why. Pure: the API gathers

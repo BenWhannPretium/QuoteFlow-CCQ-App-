@@ -202,6 +202,21 @@ Data: `<SF-OPP-5 chosen by Bailey>`, an open opportunity you own whose Salesforc
 | 87 | Open the quote. | Two items. The **Timeline** records the removed item. | | |
 | 88 | Does the split between **Request** and the item fields fit how you quote? Is anything asked per item that is the same for the whole quote, or the other way round? Is 20 items per quote enough? Should a second quote on an opportunity be allowed (warn) or refused (one)? | Write the answers in Notes. | | |
 
+## Part L: FB-20 checks (the customer offer letter)
+
+Data: `<CCQ-OL-1 staged by Ben>`, a quote of yours with two or more items that Final Review has approved (it is in **Customer Decision**), priced from a costing workbook whose price cells are mapped (Ben stages a synthetic map and workbook on test until Pricing's new costing template arrives); and `<CCQ-RW-1 staged by Ben>` (still in Quoting).
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 89 | Open the quote that is still in Quoting and scroll to **Offer letter**. | "Not available yet. The offer letter is made once Final Review approves the quote." No form. | | |
+| 90 | Go to **My proposals**. On the approved quote's card click **Offer letter**. | The quote opens at the **Offer letter** card. An orange banner says the wording is a draft ("DRAFT: wording not yet approved by Legal"). | | |
+| 91 | Look at the table of what will print. | One row per item with its plant, volume, **Piece price per 1,000 pcs** and, where the workbook has them, **Molds** and **Change parts**. The line under it names the costing file and version ("Read from … v…"). None of the prices can be edited. | | |
+| 92 | Leave **Attention** empty and fill a **Part #** for only one item. | Warnings appear: the draft wording, no Attention, no Part # for the other items. **Generate Word document** stays off until you tick each one. | | |
+| 93 | Type an **Attention** name and the Part #s, tick the remaining warning, click **Generate Word document**. | A Word file named "CCQ-… Offer Letter 1.docx" downloads. The card lists **Letter 1** with today's date and your name. The **Timeline** says "Offer letter 1 generated". | | |
+| 94 | Open the file in Word. | The new Pretium logo top left, DRAFT top right, the customer and Attention, the quote number, date and valid-until date, one pricing row per item, the specifications and the pricing assumptions with your payment terms. Your name signs it. The text can be edited. | | |
+| 95 | Generate a second letter, then (with a sales leader) re-quote the quote from **My proposals**. | **Letter 2** is listed above letter 1. After the re-quote both are marked **Superseded** and still download. | | |
+| 96 | Is the wording right for your customers? Is anything missing (a contact, a lead time, the customer's part number at intake)? Would you send Word or need a PDF? | Note your answers for Bailey. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

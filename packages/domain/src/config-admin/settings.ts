@@ -37,12 +37,12 @@ import {
   parseModelSummaryTemplates,
   parseModelSummaryVisible,
 } from '../model-summary';
+import { COMMENT_EMAIL_COLLAPSE_MINUTES_MAX } from '../notifications/events';
 import {
   parseOfferLetterBlockIfCostingChanged,
   parseOfferLetterTemplate,
   parseOfferLetterWordingApproved,
 } from '../offer-letter';
-import { COMMENT_EMAIL_COLLAPSE_MINUTES_MAX } from '../notifications/events';
 import { parseReceivingRoles } from '../outcome/handoff';
 import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome/sf-stage';
 import { parseValidityWarningDays } from '../outcome/validity';
