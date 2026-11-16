@@ -8,7 +8,7 @@ import {
   reworkReasons,
 } from '@ccq/db/repos';
 import { ENG_QUEUE_STAGE_KEY } from '@ccq/domain';
-import { inArray } from 'drizzle-orm';
+import { and, inArray, isNotNull } from 'drizzle-orm';
 
 import { secondsToDays, type AnalyticsWithTx, type ResolvedAnalytics } from './analytics';
 import { queueHealth } from './dashboards';
@@ -50,7 +50,13 @@ export async function engineeringAnalytics(
             status: schema.engReview.capacitySignoffStatus,
           })
           .from(schema.engReview)
-          .where(inArray(schema.engReview.quoteId, ids))
+          // FB-19: one review row per item; the sign-off is on the primary item's row only.
+          .where(
+            and(
+              inArray(schema.engReview.quoteId, ids),
+              isNotNull(schema.engReview.capacitySignoffStatus),
+            ),
+          )
       : [];
     const status = new Map(signoffs.map((s) => [s.quoteId, s.status]));
     const capacity = { pending: 0, approved: 0, blocked: 0 };

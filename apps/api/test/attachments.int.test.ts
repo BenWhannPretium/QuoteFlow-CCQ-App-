@@ -581,7 +581,8 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
       const draft = IntakeDraft.parse(
         (await asRole(app, 'KAM').get(`/api/v1/quotes/drafts/${draftId}`)).json(),
       );
-      expect(draft.data.drawingStatus).toBe('HAVE_DRAWING');
+      // FB-19: the drawing is item 1's (no item named), so item 1's drawing status follows.
+      expect(draft.data.items![0]!.drawingStatus).toBe('HAVE_DRAWING');
       const photo = await upload(
         `/api/v1/quotes/drafts/${draftId}/attachments`,
         { name: 'sample.png', content: PNG },

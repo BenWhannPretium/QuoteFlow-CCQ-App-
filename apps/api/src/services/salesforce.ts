@@ -116,6 +116,7 @@ const summary = (
   dataQuality: opportunityQualityFlags(o, { suspectAmountBelow: threshold }),
   source,
   activeQuote: null,
+  activeQuotes: [],
 });
 
 export interface SearchParams {
@@ -127,7 +128,8 @@ export interface SearchParams {
 
 /**
  * B-07: mark opportunities that already have an active CCQ quote the caller can see, so the intake
- * picker offers "Open existing" instead (one active quote per opportunity).
+ * picker offers "Open existing". FB-19 (W13-33): there may be several (oldest first); the picker lists
+ * them and, with `opportunity_active_quotes` = warn, still lets the KAM start a separate quote.
  */
 async function withActiveQuotes(
   withTx: WithTx,
@@ -140,17 +142,19 @@ async function withActiveQuotes(
       res.items.map((i) => i.id),
     ),
   );
-  const byOpp = new Map(active.map((q) => [q.sfOpportunityId, q]));
+  const byOpp = new Map<string, typeof active>();
+  for (const q of active)
+    byOpp.set(q.sfOpportunityId, [...(byOpp.get(q.sfOpportunityId) ?? []), q]);
+  const ref = (q: (typeof active)[number]) => ({
+    quoteNumber: q.quoteNumber,
+    stageKey: q.stageKey,
+    status: q.status,
+  });
   return {
     ...res,
     items: res.items.map((i) => {
-      const q = byOpp.get(i.id);
-      return q
-        ? {
-            ...i,
-            activeQuote: { quoteNumber: q.quoteNumber, stageKey: q.stageKey, status: q.status },
-          }
-        : i;
+      const qs = byOpp.get(i.id) ?? [];
+      return qs.length > 0 ? { ...i, activeQuote: ref(qs[0]!), activeQuotes: qs.map(ref) } : i;
     }),
   };
 }

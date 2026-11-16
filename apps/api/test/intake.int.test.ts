@@ -157,7 +157,10 @@ describe('create → autosave → submit (happy path)', () => {
       data: { commentsForEngineering: 'Customer is trialling a competitor' },
     });
     const after = IntakeDraft.parse(partial.json());
-    expect(after.data.resin).toBe('HDPE');
+    // FB-19: the product fields are stored per item (the fields patched at the top level went to item 1).
+    expect(after.data.items).toHaveLength(1);
+    expect(after.data.items![0]!.resin).toBe('HDPE');
+    expect(after.data).not.toHaveProperty('resin');
     expect(after.data.commentsForEngineering).toBe('Customer is trialling a competitor');
   });
 
@@ -233,8 +236,10 @@ describe('create → autosave → submit (happy path)', () => {
       .where(
         and(eq(schema.auditEvent.quoteId, body.quoteId), eq(schema.auditEvent.action, 'create')),
       );
-    expect(audit).toHaveLength(1);
-    expect(audit[0]!.after).toMatchObject({ quoteNumber, sfOpportunityId: oppId });
+    // FB-19: the quote, and its one item (each item's creation is audited too).
+    expect(audit.map((a) => a.entity).sort()).toEqual(['quote', 'quote_item']);
+    const created = audit.find((a) => a.entity === 'quote')!;
+    expect(created.after).toMatchObject({ quoteNumber, sfOpportunityId: oppId, items: 1 });
 
     const [draft] = await db.db
       .select()
