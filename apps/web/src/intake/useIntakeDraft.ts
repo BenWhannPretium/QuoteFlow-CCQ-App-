@@ -2,6 +2,7 @@ import type { IntakeDraft, IntakeDraftData } from '@ccq/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { onlyKnownServerChanges } from '@/intake/draft-merge';
+import { oneAtATime } from '@/intake/draft-save';
 import { api, isApiError } from '@/lib/api';
 
 /** Autosave cadence while the KAM types (plus a save on every step change and on leaving). */
@@ -50,7 +51,8 @@ export function useIntakeDraft(initial: IntakeDraft) {
   const latest = useRef({ data: initial.data, step: initial.step });
   const revision = useRef(0);
   const savedRevision = useRef(0);
-  const inFlight = useRef<Promise<void> | null>(null);
+  // One save at a time (see oneAtATime): autosave, step changes and Submit's flush all go through it.
+  const [oneSaveAtATime] = useState(oneAtATime);
   // DR-kam-sales-leader-05: the version this copy is based on; a save from an older copy is refused.
   const version = useRef(initial.updatedAt);
   // FB-15 (W13-01): the data as the server last returned it, to tell its own changes from another tab's.
@@ -60,71 +62,72 @@ export function useIntakeDraft(initial: IntakeDraft) {
   const lastError = useRef<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const save = useCallback(async (): Promise<void> => {
-    if (inFlight.current) await inFlight.current;
-    if (revision.current === savedRevision.current || conflicted.current) return;
-    const target = revision.current;
-    setSaveState('saving');
-    const send = () =>
-      api.patchDraft(initial.id, {
-        data: latest.current.data,
-        step: latest.current.step,
-        expectedUpdatedAt: version.current,
-      });
-    // FB-15 (W13-01): a refused save (409) whose newer server copy holds only changes this copy already
-    // has is not a conflict. Uploading a drawing on the review step sets the drawing status on the
-    // server and the wizard mirrors it; without this, Submit said "changed in another tab".
-    const takeNewerVersion = async (): Promise<boolean> => {
-      try {
-        const fresh = await api.getDraft(initial.id);
-        if (!onlyKnownServerChanges(fresh.data, base.current, latest.current.data)) return false;
-        version.current = fresh.updatedAt;
-        base.current = fresh.data;
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    const run = send()
-      .catch(async (err: unknown) => {
-        if (isApiError(err, 409) && (await takeNewerVersion())) return send();
-        throw err;
-      })
-      .then((saved) => {
-        version.current = saved.updatedAt;
-        base.current = saved.data;
-        savedRevision.current = target;
-        setActiveQuote(saved.activeQuote);
-        setOpenQuotes({
-          quotes: saved.openQuotes,
-          warning: saved.openQuoteWarning,
-          mode: saved.openQuotesMode,
-        });
-        setSfCloseDate(saved.sfCloseDate);
-        setSavedAt(new Date());
-        lastError.current = null;
-        setSaveError(null);
-        setSaveState(revision.current === target ? 'saved' : 'dirty');
-      })
-      .catch((err: unknown) => {
-        // Saved in another tab since: stop autosaving here and say so (no silent overwrite).
-        if (isApiError(err, 409)) {
-          conflicted.current = true;
-          setSaveState('conflict');
-        } else {
-          lastError.current = isApiError(err)
-            ? err.message
-            : 'the connection failed. Check your network and try again.';
-          setSaveError(lastError.current);
-          setSaveState('error');
-        }
-      })
-      .finally(() => {
-        inFlight.current = null;
-      });
-    inFlight.current = run;
-    await run;
-  }, [initial.id]);
+  // Starts a save of the latest copy when one is due (null: nothing to send), once no save is in flight.
+  const save = useCallback(
+    (): Promise<void> =>
+      oneSaveAtATime(() => {
+        if (revision.current === savedRevision.current || conflicted.current) return null;
+        const target = revision.current;
+        setSaveState('saving');
+        const send = () =>
+          api.patchDraft(initial.id, {
+            data: latest.current.data,
+            step: latest.current.step,
+            expectedUpdatedAt: version.current,
+          });
+        // FB-15 (W13-01): a refused save (409) whose newer server copy holds only changes this copy already
+        // has is not a conflict. Uploading a drawing on the review step sets the drawing status on the
+        // server and the wizard mirrors it; without this, Submit said "changed in another tab".
+        const takeNewerVersion = async (): Promise<boolean> => {
+          try {
+            const fresh = await api.getDraft(initial.id);
+            if (!onlyKnownServerChanges(fresh.data, base.current, latest.current.data))
+              return false;
+            version.current = fresh.updatedAt;
+            base.current = fresh.data;
+            return true;
+          } catch {
+            return false;
+          }
+        };
+        const run = send()
+          .catch(async (err: unknown) => {
+            if (isApiError(err, 409) && (await takeNewerVersion())) return send();
+            throw err;
+          })
+          .then((saved) => {
+            version.current = saved.updatedAt;
+            base.current = saved.data;
+            savedRevision.current = target;
+            setActiveQuote(saved.activeQuote);
+            setOpenQuotes({
+              quotes: saved.openQuotes,
+              warning: saved.openQuoteWarning,
+              mode: saved.openQuotesMode,
+            });
+            setSfCloseDate(saved.sfCloseDate);
+            setSavedAt(new Date());
+            lastError.current = null;
+            setSaveError(null);
+            setSaveState(revision.current === target ? 'saved' : 'dirty');
+          })
+          .catch((err: unknown) => {
+            // Saved in another tab since: stop autosaving here and say so (no silent overwrite).
+            if (isApiError(err, 409)) {
+              conflicted.current = true;
+              setSaveState('conflict');
+            } else {
+              lastError.current = isApiError(err)
+                ? err.message
+                : 'the connection failed. Check your network and try again.';
+              setSaveError(lastError.current);
+              setSaveState('error');
+            }
+          });
+        return run;
+      }),
+    [oneSaveAtATime, initial.id],
+  );
 
   const update = useCallback((patch: Partial<IntakeDraftData>) => {
     revision.current += 1;

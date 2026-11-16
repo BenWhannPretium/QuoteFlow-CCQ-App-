@@ -2,7 +2,13 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 
 import { seriousViolations } from './axe';
 import { signInAs } from './personas';
-import { DEV_USER_HEADER, freeOpportunities, isoDaysFromNow } from './quotes';
+import {
+  DEV_USER_HEADER,
+  freeOpportunities,
+  isoDaysFromNow,
+  pickFirstFree,
+  pickOpportunity,
+} from './quotes';
 
 // FB-19 (W13-32 to W13-34): multi-item quotes. A KAM builds a three-item quote from the opportunity's
 // Salesforce products and a duplicate, and submits it; Engineering works each item; G2 is refused while
@@ -11,8 +17,9 @@ import { DEV_USER_HEADER, freeOpportunities, isoDaysFromNow } from './quotes';
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
 
-/** A free opportunity whose Salesforce record has at least two product specifications. */
-async function opportunityWithTwoProducts(request: APIRequestContext) {
+/** Free opportunities whose Salesforce record has at least two product specifications (a few). */
+async function opportunitiesWithTwoProducts(request: APIRequestContext) {
+  const found: { id: string; name: string }[] = [];
   for (const id of await freeOpportunities(request, 40)) {
     const res = await request.get(`/api/v1/salesforce/opportunities/${id}`, { headers: as('kam') });
     const body = (await res.json()) as {
@@ -20,10 +27,12 @@ async function opportunityWithTwoProducts(request: APIRequestContext) {
       productSpecs: unknown[];
     };
     if (body.productSpecs.length >= 2 && body.opportunity.accountId) {
-      return { id, name: body.opportunity.name };
+      found.push({ id, name: body.opportunity.name });
+      if (found.length === 5) break;
     }
   }
-  throw new Error('no free opportunity with two Salesforce products');
+  expect(found.length, 'a free opportunity with two Salesforce products').toBeGreaterThan(0);
+  return found;
 }
 
 async function selectIfEmpty(page: Page, id: string, label: string) {
@@ -62,14 +71,14 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
   request,
 }) => {
   test.setTimeout(180_000);
-  const opp = await opportunityWithTwoProducts(request);
+  const candidates = await opportunitiesWithTwoProducts(request);
   await signInAs(page, 'kam');
   await page.goto('/intake/new');
-  await page.getByRole('button', { name: 'All', exact: true }).click();
-  await page.getByLabel('Find the Salesforce opportunity').fill(opp.name);
-  const card = page.locator(`[data-opportunity-id="${opp.id}"]`);
-  await card.getByRole('button', { name: /^Use / }).click();
-  await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '2');
+  // The first one still free (a parallel spec may have quoted one since the list was read).
+  expect(
+    await pickFirstFree(page, candidates),
+    'a free opportunity with two products',
+  ).not.toBeNull();
   for (const part of ['city', 'state']) {
     const input = page.locator(`#intake-ship-to-${part}`);
     if ((await input.isVisible()) && !(await input.inputValue())) {
@@ -278,18 +287,9 @@ test('a single-item intake still reads as before: no switcher, no item names', a
   page,
   request,
 }) => {
-  const [id] = await freeOpportunities(request, 1);
-  const detail = (await (
-    await request.get(`/api/v1/salesforce/opportunities/${id}`, { headers: as('kam') })
-  ).json()) as { opportunity: { name: string } };
   await signInAs(page, 'kam');
   await page.goto('/intake/new');
-  await page.getByRole('button', { name: 'All', exact: true }).click();
-  await page.getByLabel('Find the Salesforce opportunity').fill(detail.opportunity.name);
-  await page
-    .locator(`[data-opportunity-id="${id}"]`)
-    .getByRole('button', { name: /^Use / })
-    .click();
+  await pickOpportunity(page, request, 'Oval');
   await page.getByRole('button', { name: /^Next/ }).click();
   await expect(page.getByTestId('items-list').getByTestId('item-row')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Remove item 1' })).toBeDisabled();

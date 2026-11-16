@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 // Quotes created through the API as the KAM persona, for specs that start from a submitted quote
 // (the intake UI has its own spec). The e2e database is config-seeded only.
@@ -10,10 +10,29 @@ export const asKam = { [DEV_USER_HEADER]: 'kam' };
 export const isoDaysFromNow = (days: number) =>
   new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
+/**
+ * The opportunities the KAM persona has an open intake draft on. The wizard creates the draft the
+ * moment a spec clicks "Use this opportunity", so these are taken even though they have no quote yet:
+ * a second spec quoting one would make the first one's submit meet "already open" (FB-19).
+ */
+async function draftedOpportunities(request: APIRequestContext): Promise<Set<string>> {
+  const res = await request.get('/api/v1/quotes/drafts', { headers: asKam });
+  expect(res.ok(), await res.text()).toBe(true);
+  const { items } = (await res.json()) as { items: { sfOpportunityId: string | null }[] };
+  return new Set(items.flatMap((d) => (d.sfOpportunityId ? [d.sfOpportunityId] : [])));
+}
+
+const shuffled = <T>(xs: T[]) =>
+  xs
+    .map((x) => ({ x, k: Math.random() }))
+    .sort((a, b) => a.k - b.k)
+    .map(({ x }) => x);
+
 export async function freeOpportunities(
   request: APIRequestContext,
   count: number,
 ): Promise<string[]> {
+  const drafted = await draftedOpportunities(request);
   const found = new Set<string>();
   // A search returns at most 50 rows, ranked the same way every time, so a few broad words alone stop
   // reaching free opportunities once the specs have quoted the top 50. The synthetic names carry the
@@ -28,11 +47,75 @@ export async function freeOpportunities(
     const body = (await res.json()) as {
       items: { id: string; accountId: string | null; activeQuote: unknown }[];
     };
-    for (const o of body.items) if (!o.activeQuote && o.accountId) found.add(o.id);
+    for (const o of body.items) {
+      if (!o.activeQuote && o.accountId && !drafted.has(o.id)) found.add(o.id);
+    }
     if (found.size >= count + 5) break;
   }
-  // Shuffle a little so parallel / repeated runs don't race for the same opportunity.
-  return [...found].sort(() => Math.random() - 0.5).slice(0, count + 5);
+  // Shuffle so parallel / repeated runs don't race for the same opportunity.
+  return shuffled([...found]).slice(0, count + 5);
+}
+
+/**
+ * Picks a free opportunity in the intake picker and starts its intake (step 2). It prefers one that
+ * `word` finds, as a KAM would search; when every one of those already has a quote, it takes any free
+ * opportunity. The specs share 87 open synthetic opportunities and create about 65 quotes a run, so one
+ * word's handful (17 jars) can be used up by the API-built quotes before the spec that searches for it
+ * runs. An opportunity another spec has an intake draft on counts as taken, and the word's matches
+ * are shuffled so specs searching the same word don't reach for the same one. Each candidate is found
+ * by its exact name and picked by its id; one that a parallel spec quoted a moment ago (no "Use"
+ * button any more) is skipped.
+ */
+export async function pickOpportunity(
+  page: Page,
+  request: APIRequestContext,
+  word: string,
+): Promise<void> {
+  const drafted = await draftedOpportunities(request);
+  const res = await request.get(
+    `/api/v1/salesforce/opportunities?q=${encodeURIComponent(word)}&mine=false&openOnly=true&limit=50`,
+    { headers: asKam },
+  );
+  expect(res.ok(), await res.text()).toBe(true);
+  const { items } = (await res.json()) as {
+    items: { id: string; name: string; accountId: string | null; activeQuote: unknown }[];
+  };
+  const byWord = shuffled(items.filter((o) => !o.activeQuote && o.accountId && !drafted.has(o.id)));
+
+  if (await pickFirstFree(page, byWord)) return;
+  // Only when the word has nothing free left: any free opportunity (a few more requests).
+  const anyFree = [];
+  for (const id of await freeOpportunities(request, 5)) {
+    const detail = await request.get(`/api/v1/salesforce/opportunities/${id}`, { headers: asKam });
+    expect(detail.ok(), await detail.text()).toBe(true);
+    const { opportunity } = (await detail.json()) as { opportunity: { name: string } };
+    anyFree.push({ id, name: opportunity.name });
+  }
+  if (await pickFirstFree(page, anyFree)) return;
+  throw new Error(`no free Salesforce opportunity for the intake picker (searched "${word}")`);
+}
+
+/**
+ * In the intake picker (on /intake/new), picks the first of `candidates` that is still free and starts
+ * its intake (step 2): each is found by its exact name and picked by its id, and one a parallel spec
+ * quoted a moment ago (no "Use" button any more) is skipped. Returns the picked id, or null.
+ */
+export async function pickFirstFree(
+  page: Page,
+  candidates: readonly { id: string; name: string }[],
+): Promise<string | null> {
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  for (const { id, name } of candidates) {
+    await page.getByLabel('Find the Salesforce opportunity').fill(name);
+    const card = page.locator(`[data-testid="opportunity-card"][data-opportunity-id="${id}"]`);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    const use = card.getByRole('button', { name: /^Use / });
+    if (!(await use.isVisible())) continue;
+    await use.click();
+    await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '2');
+    return id;
+  }
+  return null;
 }
 
 /** Creates and submits an intake as the KAM; returns the quote number (waiting for G1). */
