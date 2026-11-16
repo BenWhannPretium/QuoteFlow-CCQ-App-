@@ -50,6 +50,7 @@ import { engineeringView, loadEngQueueSettings, loadPackOutRule } from './engine
 import { loadReleaseSettings, type ReleaseSettings } from './final-review-view';
 import { intakeFactsDto } from './intake-facts';
 import { engineeringSubmissionExtras } from './lead-review';
+import { quoteItemSummaries } from './quote-items-view';
 import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from './outcome-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
@@ -149,11 +150,22 @@ export function warningsFor(row: QuoteSummaryRow, ctx: QuoteViewContext): Qualif
   });
 }
 
+/** FB-19: "16 oz bottle + 2 more" from the count and item 1's label; a one-item quote: its label. */
+export function itemsSummaryText(itemCount: number, firstLabel: string | null): string | null {
+  const label = firstLabel?.trim() || null;
+  if (itemCount <= 1) return label;
+  return `${label ?? 'Item 1'} + ${itemCount - 1} more`;
+}
+
 export function summaryDto(row: QuoteSummaryRow, ctx: QuoteViewContext): QuoteSummary {
   const q = row.quote;
+  const itemCount = Math.max(1, row.itemCount ?? 1);
   return {
     id: q.id,
     quoteNumber: q.quoteNumber,
+    // FB-19 (W13-32): "16 oz bottle + 2 more".
+    itemCount,
+    itemsSummary: itemsSummaryText(itemCount, row.firstItemLabel ?? null),
     stageKey: q.stageKey,
     status: q.status,
     version: q.version,
@@ -395,6 +407,8 @@ export class QuoteReadService {
     const shipTo = q.shipTo as QuoteDetail['shipTo'];
     return {
       ...summary,
+      // FB-19 (W13-32): every item, in item order.
+      items: await quoteItemSummaries(db, ctx.actor, q),
       description: q.description,
       standardDescription: structured.standard ?? null,
       components: q.components,

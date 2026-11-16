@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
-import { primaryEngReviewOn } from './items';
+import { itemSummaryColumns, primaryEngReviewOn } from './items';
 import {
   appUser,
   customer,
@@ -35,6 +35,8 @@ export function listPricingQueueRows(db: DbOrTx, stageKey: string) {
         accountId: customer.sfAccountId,
         kamName: appUser.displayName,
         processType: engReview.processType,
+        // FB-19: the item count and item 1's label.
+        ...itemSummaryColumns(),
         /** Commercial: the approver-tier hook (B-12) reads it; never put it in a DTO unredacted. */
         // FB-19: the quote's preliminary capital is the sum of its items' (null when none has a figure).
         prelimCapitalUsd: sql<number | null>`(

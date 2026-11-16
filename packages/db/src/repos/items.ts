@@ -8,6 +8,7 @@ import {
   attachment,
   capacityEvidence,
   engReview,
+  quote,
   quoteItem,
   quoteItemDrawing,
 } from '../schema/index';
@@ -268,3 +269,17 @@ export async function ensurePrimaryItem(db: DbOrTx, quoteId: string): Promise<st
   if (!row) throw new Error(`quote ${quoteId} has no item 1 and none could be made`);
   return row.id;
 }
+
+/**
+ * FB-19: the item count and item 1's label of the quote in the FROM clause, for list rows
+ * (`QuoteSummary.itemCount` / `itemsSummary`: "16 oz bottle + 2 more").
+ */
+export const itemSummaryColumns = () => ({
+  itemCount:
+    sql<number>`(select count(*)::int from ${quoteItem} qi where qi.quote_id = ${quote.id})`.mapWith(
+      Number,
+    ),
+  firstItemLabel: sql<
+    string | null
+  >`(select qi.label from ${quoteItem} qi where qi.quote_id = ${quote.id} and qi.item_no = 1)`,
+});

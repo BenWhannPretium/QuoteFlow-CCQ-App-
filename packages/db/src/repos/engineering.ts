@@ -3,7 +3,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
-import { primaryEngReviewOn, primaryItemId } from './items';
+import { itemSummaryColumns, primaryEngReviewOn, primaryItemId } from './items';
 import { clearLeadReview } from './lead-review';
 import {
   appUser,
@@ -44,6 +44,8 @@ export function listEngQueueRows(db: DbOrTx, stageKey: string) {
         capacitySignoffStatus: engReview.capacitySignoffStatus,
         assignedEngineerName: engineer.displayName,
         assignedSchedulerName: scheduler.displayName,
+        // FB-19: the item count and item 1's label ("16 oz bottle + 2 more").
+        ...itemSummaryColumns(),
         enteredQueueAt: sql<Date | null>`(
         select max(sh.entered_at) from ${stageHistory} sh
         where sh.quote_id = ${quote.id} and sh.stage_key = ${stageKey} and sh.exited_at is null

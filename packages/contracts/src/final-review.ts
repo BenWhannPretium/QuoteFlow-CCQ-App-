@@ -4,7 +4,13 @@ import { AdditionalApprovalView, CapitalTermsView, TermsExceptionView } from './
 import { EngineeringDetail } from './eng-review';
 import { IntakeAddress } from './intake';
 import { CapitalReadiness, QuotingDetail } from './pricing';
-import { AvailableGateAction, GateDecisionSummary, QuoteIntakeFacts, QuoteSummary } from './quotes';
+import {
+  AvailableGateAction,
+  GateDecisionSummary,
+  QuoteIntakeFacts,
+  QuoteItemSummary,
+  QuoteSummary,
+} from './quotes';
 
 // ── B-12 Final Review (G4, internal approval; X-88) ──────────────────────────────────────────────
 // G4 approve / decline never set Awarded or Lost: only the customer outcome (G5, B-13) does.
@@ -126,6 +132,8 @@ export const ReviewSummary = z.object({
     /** FB-02: the product and timing facts from intake (neck, resin grade, PCR, color, …). */
     facts: QuoteIntakeFacts,
   }),
+  /** FB-19 (W13-32): every item with its key facts, plant and machine, volume and need-by. */
+  items: z.array(QuoteItemSummary).default([]),
   /** Solution + capacity evidence; the numbers are commercial and stripped per role. */
   engineering: EngineeringDetail,
   /** Price approval status for everyone; basis, range note and capital readiness for commercial roles. */

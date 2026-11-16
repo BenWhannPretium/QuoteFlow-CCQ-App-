@@ -51,6 +51,7 @@ import { intakeFactsDto } from './intake-facts';
 import { quotingView, recordValues } from './pricing-view';
 import { ServiceProblem } from './problem';
 import { decisionDto, gateActionsFor, summaryDto, type QuoteReadService } from './quotes';
+import { quoteItemSummaries } from './quote-items-view';
 
 export type FinalReviewWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
@@ -309,13 +310,19 @@ export class FinalReviewService {
         // FB-17 (W13-22): capital needed, from the figure, the flag or an old "capital required".
         capital: capitalNeed(quoteState.fields, ctx.commercial.derived.capitalNeededAboveUsd),
         priceApproved: priceApprovalStatus(record).approved,
-        capacityEvidenceRows: engineering.capacityEvidence.length,
+        // FB-19: the capacity rows of every item.
+        capacityEvidenceRows:
+          engineering.items.length > 0
+            ? engineering.items.reduce((n, i) => n + i.capacityEvidence.length, 0)
+            : engineering.capacityEvidence.length,
         requirement,
       });
 
       const structured = (q.structuredDescription ?? {}) as { standard?: string | null };
       const result: ReviewSummary = {
         quote: summary,
+        // FB-19 (W13-32): every item, with its key facts, plant and machine, volume and need-by.
+        items: await quoteItemSummaries(tx, actor, q),
         intake: {
           description: q.description,
           standardDescription: structured.standard ?? null,

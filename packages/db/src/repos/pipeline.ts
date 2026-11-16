@@ -3,7 +3,7 @@ import type { SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
-import { primaryEngReviewOn } from './items';
+import { itemSummaryColumns, primaryEngReviewOn } from './items';
 import {
   appUser,
   customer,
@@ -234,6 +234,8 @@ export function listPipelineRows(db: DbOrTx, ids: readonly string[]) {
       )`.mapWith((v: string | number | null) => (v === null ? null : Number(v))),
         capitalReadiness: pricingRecord.capitalReadiness,
         stageEnteredAt: stageEnteredAtSql,
+        // FB-19: the item count and item 1's label.
+        ...itemSummaryColumns(),
       })
       .from(quote)
       .leftJoin(

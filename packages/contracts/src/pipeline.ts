@@ -271,7 +271,25 @@ export const QUOTE_LIST_DEFAULT_COLUMNS: QuoteListColumnKey[] = [
 export const QuoteExportQuery = QuoteListQuery.omit({ page: true, pageSize: true }).extend({
   /** The visible list columns, comma-separated, in order. Default: QUOTE_LIST_DEFAULT_COLUMNS. */
   columns: multi.optional(),
+  /**
+   * FB-19 (W13-32): `true` writes one row per item (the quote's columns repeated) with the item's own
+   * columns (`QUOTE_ITEM_EXPORT_COLUMNS`) after them. Default: one row per quote.
+   */
+  perItem: flag.optional(),
 });
+
+/** FB-19: the item columns of a per-item export, in order (header text). */
+export const QUOTE_ITEM_EXPORT_COLUMNS = [
+  'Item',
+  'Item label',
+  'Item product family',
+  'Item container size',
+  'Item resin',
+  'Item annual volume',
+  'Item product needed by',
+  'Item plant',
+  'Item machine type',
+] as const;
 export type QuoteExportQuery = z.input<typeof QuoteExportQuery>;
 export type QuoteExportParams = z.output<typeof QuoteExportQuery>;
 
