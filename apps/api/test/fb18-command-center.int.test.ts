@@ -318,7 +318,7 @@ describe('W13-31: the Salesforce link on every quote summary', () => {
     const get = async (role: Role, url: string) => {
       const res = await as(role).get(url);
       expect(res.statusCode, `${role} ${url}: ${res.body.slice(0, 200)}`).toBe(200);
-      return res.json() as unknown;
+      return res.json<unknown>();
     };
     const g1 = GateQueueResponse.parse(await get('SalesLeader', '/api/v1/gates/G1/queue'));
     const eng = EngQueueResponse.parse(await get('EngLead', '/api/v1/queue/engineering'));
