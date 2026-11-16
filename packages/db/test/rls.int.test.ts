@@ -61,6 +61,10 @@ describe('RLS on quote: owner-scoped KAM', () => {
         'override',
         'pricing_record',
         'eng_review',
+        // FB-19: the items and their drawing links are quote children too.
+        'quote_item',
+        'quote_item_drawing',
+        'capacity_evidence',
       ]) {
         const rows = await raw(
           tx,
@@ -70,7 +74,25 @@ describe('RLS on quote: owner-scoped KAM', () => {
       }
       const own = await raw(tx, sql`select 1 from stage_history where quote_id = ${ownQuoteId}`);
       expect(own.length).toBeGreaterThan(0);
+      // FB-19: the KAM sees their own quote's items (every quote has item 1).
+      const items = await raw(
+        tx,
+        sql`select item_no from quote_item where quote_id = ${ownQuoteId}`,
+      );
+      expect(items.length).toBeGreaterThan(0);
     });
+  });
+
+  it('cannot add an item to another KAM’s quote (FB-19, WITH CHECK)', async () => {
+    const code = await pgError(
+      asPersona(db, 'kam-owner', (tx) =>
+        raw(
+          tx,
+          sql`insert into quote_item (id, quote_id, item_no) values (${uuidv7()}, ${otherQuoteId}, 99)`,
+        ),
+      ),
+    );
+    expect(code).toBe('42501');
   });
 
   it('cannot update or delete another KAM’s quote (zero rows affected)', async () => {
