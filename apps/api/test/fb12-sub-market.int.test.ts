@@ -447,9 +447,11 @@ describe('DR-cross-cutting-02: intake value lists are checked on the server', ()
 
   it('submit refuses a draft that holds an unknown code (written before the check)', async () => {
     const draft = await createDraft({});
+    // FB-19: a draft keeps its product fields in its items (migration 0047 moved older drafts' there).
+    const [item] = draft.data.items!;
     await db.db
       .update(schema.quoteDraft)
-      .set({ data: { ...draft.data, resin: 'UNOBTAINIUM' } })
+      .set({ data: { ...draft.data, items: [{ ...item!, resin: 'UNOBTAINIUM' }] } })
       .where(eq(schema.quoteDraft.id, draft.id));
     const res = await kam().post(`/api/v1/quotes/drafts/${draft.id}/submit`);
     expect(res.statusCode, res.body).toBe(422);

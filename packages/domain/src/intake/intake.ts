@@ -697,6 +697,10 @@ export function evaluateIntake(
     warnings.push(...flat.warnings.filter((i) => !isItemField(i.field)));
     return { blocking, warnings, ready: false };
   }
+  // A one-item intake is checked exactly as a flat one (same issues, same order), as before FB-19.
+  if (items.length === 1 && config.itemsMax >= 1) {
+    return evaluateIntakeFlat({ ...request, ...items[0]! }, config, now, keep);
+  }
   if (items.length > config.itemsMax) {
     blocking.push({
       code: 'INVALID_VALUE',

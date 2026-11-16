@@ -266,6 +266,8 @@ export class IntakeService {
     row: QuoteDraftRow | null,
     written: IntakeDraftData,
     itemNumbers?: number[],
+    /** How many items the draft holds: a one-item draft's errors name no item (as before FB-19). */
+    itemCount = 1,
   ): Promise<void> {
     const issues = intakeListValueIssues(
       intakeValues(written),
@@ -275,7 +277,9 @@ export class IntakeService {
     if (issues.length === 0) return;
     // FB-19: `itemNumbers` maps a position in `written.items` to the item's number in the draft.
     const itemNo = (i: { item?: number }) =>
-      i.item === undefined ? undefined : (itemNumbers?.[i.item - 1] ?? i.item);
+      i.item === undefined || itemCount <= 1
+        ? undefined
+        : (itemNumbers?.[i.item - 1] ?? i.item);
     throw new IntakeError(422, INTAKE_PROBLEM_CODES.invalidListValue, issues[0]!.message, {
       errors: issues.map((i) => ({
         path: camelField(i.field),
@@ -350,7 +354,7 @@ export class IntakeService {
       // FB-19: stored with the product fields in `items` (an older client's top-level ones are item 1).
       const data = normalizeDraftData(body.data, uuidv7);
       await this.assertItems(tx, data);
-      await this.assertListValues(tx, null, data);
+      await this.assertListValues(tx, null, data, undefined, draftItems(data).length);
       const row = await insertQuoteDraft(tx, {
         ownerUserId: actor.userId,
         sfOpportunityId: data.sfOpportunityId ?? null,
@@ -536,7 +540,7 @@ export class IntakeService {
       await this.assertItems(tx, data);
       // DR-cross-cutting-02: only what this save changes is a new write (FB-19: per item and field).
       const { changed, itemNumbers } = changedDraftData(before, data, body.data ?? {});
-      await this.assertListValues(tx, row, changed, itemNumbers);
+      await this.assertListValues(tx, row, changed, itemNumbers, draftItems(data).length);
       // FB-12 (F-073): a market change must not leave the old market's sub-market behind.
       if (
         data.subMarket &&
@@ -1197,6 +1201,8 @@ function incompleteError(evaluation: IntakeEvaluation): IntakeError {
     errors: evaluation.blocking.map((b) => ({
       path: b.field === 'sub_market' ? 'subMarket' : b.field,
       message: b.message,
+      // FB-19: on a multi-item intake, an item's issue names the item (its Fix opens it).
+      ...(b.item !== undefined ? { item: b.item } : {}),
     })),
     blocking: evaluation.blocking,
     ...(minSpec?.missing ? { missing: minSpec.missing } : {}),
