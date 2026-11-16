@@ -14,6 +14,8 @@
 
 **Changed 2026-11-15 (FB-18, walkthrough of Nov 13).** Home is now the **Command Center** (the menu says **Command Center**, the phone tab **Command**). A quote on hold shows an orange **On hold** chip on the Command Center. The Salesforce opportunity ID on the **Intake** card is a link once an Admin has set the Salesforce URL. Steps 1, 2, 17, 30, 38, 42, 66 and 72 are changed, and step 70a is new.
 
+**Changed 2026-11-16 (FB-19, walkthrough of Nov 13: W13-32 to W13-34).** A quote can now hold several **items** (products or variants quoted together). Step 3 is now **Request & items**: the request fields once, then an **Items** list, then the open item's own product fields. An opportunity that already has an active quote no longer blocks a new one: with the provisional setting **warn**, you confirm **Start a separate quote**. Steps 9 and 32 are changed, and **Part K** (steps 76 to 88) is new.
+
 **Data (placeholders until Bailey picks real opportunities)**
 
 | Placeholder | What it is |
@@ -49,7 +51,7 @@ Stage, gate, outcome and reason-code labels are configuration and still provisio
 | 6 | Type part of the name of `<SF-OPP-1 chosen by Bailey>`. | Its card shows the name, account, **Amount**, **Close**, **SF stage** and **Owner**. They match Salesforce. | | |
 | 7 | Click **Use this opportunity**. | Step 2, **Customer & destination**. The customer is the Salesforce Account on the opportunity, shown read-only. There is no new-customer form and nothing to type about the customer. One checkbox: **Not yet a Pretium customer (no ERP account)**, unticked for an existing customer. | | |
 | 8 | Look at **Ship / fill destination**. Read the line under the stepper. | It shows the default address with the label from Salesforce. **City** and **State** are required. A **Change destination** button is there. FB-15: the line reads "\* Required to submit", and required fields have a red **\*** before their label. If Salesforce has no city or state for this address, a **City** or **State / region** box shows under it: fill it; no reason is asked for filling a blank. | | |
-| 9 | Click **Next**. On step 3 read **Request**, **Product** and **Packaging**. Fill **Request class**, **Product family**, **Container size**, **Market**, **Components** and **Packaging type**. | **Request class** lists **CCQ (new business + capital/engineering)** and three classes that stay in the pricing application (**Stock / stock-plus**, **Price inquiry / RFP check**, **Other capital**): only CCQ can be submitted (step 29). Each field has a one-line "why we ask" help. Nothing asks you to pick a plant, an engineer or a priority. | | |
+| 9 | Click **Next**. On step 3 (**Request & items**) read **Request**, **Items**, **Product** and **Packaging**. Fill **Request class**, **Product family**, **Container size**, **Market**, **Components** and **Packaging type**. | FB-19: **Items** shows one item ("1 item"); this quote stays a one-item quote, and the item fields below it are the product's. **Request class** lists **CCQ (new business + capital/engineering)** and three classes that stay in the pricing application (**Stock / stock-plus**, **Price inquiry / RFP check**, **Other capital**): only CCQ can be submitted (step 29). Each field has a one-line "why we ask" help. Nothing asks you to pick a plant, an engineer or a priority. | | |
 | 9a | Open the **Market** list. | Eight markets: Food, Beverage, Nutrition & Wellness, OTC Health, Clinical, Personal Care, Home Care, Auto & Commercial Chemical. The five old ones (Nutrition/Supplements, Household Chemical, Pharma/Health, Industrial/Chemical, Pet) are not offered. | | |
 | 9b | Look at **Sub-market** before you pick a market. Then pick **Food**. Then pick **Beverage**, then **Food** again. | Before a market: the list is disabled and reads "Choose a market first". With **Food**: **Choose…** and the seven Food sub-markets (for example Snacks & Confections, Oils, Spices, Seasonings & Extracts). With **Beverage**: only Non-Alcoholic and Spirits & Mixers. The help reads "Pick the closest sub-market. It sets the strategic-fit score. Beverage › Spirits & Mixers covers alcoholic drinks (Midas calls it Alcoholic)." **Market** and **Sub-market** have a red **\*** (FB-15). | | |
 | 9c | Pick **Food** and the sub-market **Snacks & Confections**. Then change **Market** to **Beverage**. | The sub-market is cleared (**Choose…** again): a sub-market that does not belong to the new market is never kept. Pick **Food** and **Snacks & Confections** again for the rest of this intake. An amber note says "Sub-market cleared: it belongs to another market." FB-15 (Bailey Schmitt, D-006, provisional): **Sub-market** is required: an empty one is listed under **Needed before you can submit**. | | |
@@ -98,7 +100,7 @@ Stage, gate, outcome and reason-code labels are configuration and still provisio
 | 29 | Go back to step 3. Set **Request class** to **Stock / stock-plus**. Go to step 4. | A message says stock requests stay in the pricing application. **Submit to CCQ** is disabled. Set the class back. | | |
 | 30 | Click **Command Center**, then **New intake** again. | **Continue a draft** lists the draft with its step and save time. | | |
 | 31 | Click **Continue**, then **Discard**. Confirm **Discard draft**. | "Draft discarded". Salesforce is not changed. | | |
-| 32 | **New intake** → search `<SF-OPP-1 chosen by Bailey>` again. | The card shows **Has quote CCQ-…** and **Open existing**. There is no **Use this opportunity** button (one quote per opportunity). | | |
+| 32 | **New intake** → search `<SF-OPP-1 chosen by Bailey>` again. | The card shows **Has quote CCQ-…** and **Open existing**. There is no **Use this opportunity** button. FB-19: with the provisional setting **warn** it also offers **Start a separate quote** (Part K, step 84); with **one**, it does not. | | |
 | 33 | Search for a name that does not exist in Salesforce. | **Create the opportunity in Salesforce first**. | | |
 
 ## Part E: Priority and rework after a return at G1
@@ -179,6 +181,26 @@ You can read pricing, margin and capital figures on any quote you can open. You 
 | 73 | Tap **Intake** → find `<SF-OPP-4 chosen by Bailey>` → **Use this opportunity**. | The stepper reads "Step 2 of 4 · Customer & destination". No sideways scrolling. | | |
 | 74 | Fill steps 2 and 3 (including the needed-by dates and the dimensions). On step 4 tap **Add photo** and take a photo of a sample. | The camera opens. The photo uploads as a sample photo. | | |
 | 75 | Tap **Submit to CCQ**. | The quote is created. Note how long the whole intake took. | | |
+
+## Part K: FB-19 checks (several items in one quote, and a second quote on an opportunity)
+
+Data: `<SF-OPP-5 chosen by Bailey>`, an open opportunity you own whose Salesforce record lists **two or more products**, and a drawing PDF for one of them. The quote is sent back to you in step 86, so a sales leader tester (or Ben) is needed for that step.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 76 | **New intake** → `<SF-OPP-5 chosen by Bailey>` → **Use this opportunity**. Fill step 2 and click **Next**. | Step 3 reads **Request & items**. At the top: **Request** and **Commercial inputs for Pricing** (once for the whole quote). Below: **Items** ("1 item"), then the item's own sections: **Item**, **Product**, **Packaging**, **Volume and need-by**, **Description**. Item 1 holds the first Salesforce product's details. | | |
+| 77 | Under **Items** click **Add from Salesforce products (n)**. | A second item is added from the next Salesforce product, and opens. The count reads "2 items". Each row shows the product family, size, volume and need-by date it has, and "Complete" or "n to do". | | |
+| 78 | Give each item a name in **Item name (optional, e.g. 16 oz bottle)**, for example "16 oz bottle" and "24 oz bottle". Fill each item's product fields, its **Estimated annual volume (units)** and **Product needed by**. | Clicking a row opens that item: its fields are its own. The request fields (market, payment terms, quote needed by …) are not repeated per item. | | |
+| 79 | On item 2 click **Duplicate**. Rename the copy "24 oz bottle 25% PCR" and change only **PCR %**. | Item 3 is a copy of item 2 with every product field filled. Changing it does not change item 2. | | |
+| 80 | Move item 3 up with the arrow, then back down. Click **Remove** on item 3, then **Cancel**. | The order changes and the names follow ("Item 2", "Item 3"). Removing asks "Remove Item 3 (24 oz bottle 25% PCR)?" first; **Cancel** keeps it. | | |
+| 81 | Clear **Gram weight (g)** on item 2. Go to step 4. | **Needed before you can submit** names the item: "Item 2 (24 oz bottle): …". Its **Fix** link opens item 2 at that field. Fill it again. | | |
+| 82 | On step 4 use **Drawings for** to pick item 1 and drag the drawing onto **Drawing and other files**. Then pick item 2. | The drawing belongs to item 1. Item 2 (no drawing) still needs its minimum spec, which you filled. The file list says which item each drawing is for. | | |
+| 83 | Click **Submit to CCQ**. Open the quote. | One quote number for all three items. The **Intake** card lists the three items with their volumes. Lists and the board show "16 oz bottle + 2 more". The priority **Why?** says "3 items, … units a year in total". | | |
+| 84 | **New intake** → search `<SF-OPP-5 chosen by Bailey>` again. | The card shows **Has quote CCQ-…**, **Open existing** and **Start a separate quote** (the provisional setting is **warn**; with **one**, only **Open existing**). | | |
+| 85 | Click **Start a separate quote**, fill the steps and go to step 4. | A warning names the open quote and its KAM ("… is already open for this opportunity (KAM: …). Add these items to it instead if it is still with you, or continue to start a separate quote."). Submit is refused until you tick **Start a separate quote for these items**. Then discard this draft (we don't need a second quote). | | |
+| 86 | A sales leader (or Ben) sends the quote from step 83 back to you. Open it with **Fix and resubmit**. Remove item 3. | Removing asks first and says that any engineering work done on it is discarded when you resubmit (the audit keeps it). Confirm, then resubmit. | | |
+| 87 | Open the quote. | Two items. The **Timeline** records the removed item. | | |
+| 88 | Does the split between **Request** and the item fields fit how you quote? Is anything asked per item that is the same for the whole quote, or the other way round? Is 20 items per quote enough? Should a second quote on an opportunity be allowed (warn) or refused (one)? | Write the answers in Notes. | | |
 
 ## Sign-off
 
