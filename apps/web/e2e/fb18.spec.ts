@@ -229,8 +229,13 @@ test('a KAM sees which quote is on hold on the Command Center: why, who owns it 
         // The keyboard: focus alone opens it.
         await chip.focus();
       } else {
-        // A phone has no hover: a tap opens it.
-        await chip.click();
+        // A phone has no hover: a tap opens it. Scroll first: a tooltip closes when the page scrolls,
+        // and the click's own scroll-into-view can land just after the tap.
+        await chip.scrollIntoViewIfNeeded();
+        await expect(async () => {
+          await chip.click();
+          await expect(detail).toBeVisible({ timeout: 1_000 });
+        }).toPass({ timeout: 10_000 });
       }
       await expect(detail).toBeVisible();
       await expect(detail).toContainText(sentence);
