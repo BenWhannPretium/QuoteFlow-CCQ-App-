@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:perf": "vitest run --config vitest.perf.config.ts"
+    "test:perf": "vitest run --config vitest.perf.config.ts",
+    "offer-letter:sample": "tsx src/cli/offer-letter-sample.ts"
   },
   "dependencies": {
     "@azure/identity": "4.13.3",
@@ -24,6 +25,7 @@
     "@fastify/static": "10.1.6",
     "@fastify/swagger": "9.9.2",
     "@fastify/swagger-ui": "6.1.2",
+    "docx": "9.15.1",
     "exceljs": "4.4.0",
     "fastify": "5.12.7",
     "fastify-plugin": "6.0.1",

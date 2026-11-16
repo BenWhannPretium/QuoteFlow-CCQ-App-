@@ -177,6 +177,7 @@ export function summaryFieldRows(fields: readonly ExtractedField[]) {
     valueDate: f.date,
     headline: f.headline,
     proposed: f.proposed,
+    itemNo: f.itemNo,
   }));
 }
 
@@ -189,7 +190,7 @@ const KIND_ORDER: Record<ModelSummaryKind, number> = {
   price_table: 2,
 };
 
-function fieldsOf(rows: readonly ModelSummaryFieldRow[]): ExtractedField[] {
+export function fieldsOf(rows: readonly ModelSummaryFieldRow[]): ExtractedField[] {
   return rows.map((f) => ({
     key: f.fieldKey,
     label: f.label,
@@ -204,6 +205,7 @@ function fieldsOf(rows: readonly ModelSummaryFieldRow[]): ExtractedField[] {
     date: f.valueDate,
     headline: f.headline,
     proposed: f.proposed,
+    itemNo: f.itemNo ?? null,
   }));
 }
 
@@ -309,6 +311,7 @@ function summaryView(
       date: f.date ? f.date.toISOString().slice(0, 10) : null,
       headline: f.headline,
       proposed: f.proposed,
+      itemNo: f.itemNo,
     })),
     warnings: modelSummaryWarnings(s.kind, fields, template),
   };

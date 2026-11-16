@@ -1890,7 +1890,14 @@ export const modelSummaryField = documented(
       sort: c(integer('sort').notNull(), 'Order in the map.'),
       fieldKey: c(text('field_key').notNull(), "The map's field key (payback_years, irr, ...)."),
       label: c(text('label').notNull(), 'Label shown, as the map said at the time.'),
-      unit: c(text('unit').notNull(), 'usd | units | years | percent (a fraction) | count | text.'),
+      unit: c(
+        text('unit').notNull(),
+        'usd | units | years | percent (a fraction) | count | text | usd_per_unit | usd_per_1000 (FB-20: a price per piece or per 1,000 pieces).',
+      ),
+      itemNo: c(
+        smallint('item_no'),
+        "FB-20: the quote item the figure belongs to (1 = the first item); null = the whole quote. From the map's itemNo.",
+      ),
       valueType: c(text('value_type').notNull(), 'number | text | date.'),
       sheet: c(text('sheet').notNull(), 'Sheet the value was read from.'),
       cellRef: c(text('cell_ref').notNull(), 'A1 address read (or the defined name not found).'),
@@ -1900,8 +1907,8 @@ export const modelSummaryField = documented(
         'ok | blank | error (an Excel error: value_text holds the code) | not_calculated | not_found | wrong_type (value_text holds the text) | out_of_range (value_text holds the number).',
       ),
       valueNumber: c(
-        numeric('value_number', { precision: 18, scale: 4, mode: 'number' }),
-        'The number as cached in the workbook (numeric(18,4): Fabric-safe).',
+        numeric('value_number', { precision: 24, scale: 10, mode: 'number' }),
+        'The number as cached in the workbook (numeric(24,10): Fabric-safe; FB-20 widened it from 18,4 so a per-piece price keeps its decimals).',
         'Uploader (workbook)',
       ),
       valueText: c(text('value_text'), 'Text, an error code, or what a number field held instead.'),
@@ -1917,6 +1924,7 @@ export const modelSummaryField = documented(
       check('model_summary_field_state_check', inList(t.state, MODEL_SUMMARY_FIELD_STATES)),
       check('model_summary_field_type_check', inList(t.valueType, MODEL_SUMMARY_FIELD_TYPES)),
       check('model_summary_field_unit_check', inList(t.unit, MODEL_SUMMARY_UNITS)),
+      check('model_summary_field_item_no_check', sql`${t.itemNo} is null or ${t.itemNo} >= 1`),
     ],
   ),
   {
@@ -1924,6 +1932,148 @@ export const modelSummaryField = documented(
     owner: 'Uploader (read from the workbook)',
     description:
       'FB-14: the figures of a model summary, one row per mapped field, as the workbook holds them (errors, blanks and negatives kept). Insert-only.',
+  },
+);
+
+/**
+ * FB-20 (F-070): a customer offer letter generated from an approved quote (Customer Decision). One row
+ * per generation; the Word file is an `offer_letter` attachment. Insert-only: a letter is what was
+ * sent. The prices are snapshotted in `offer_letter_item`, so a later costing upload never changes it.
+ */
+export const offerLetter = documented(
+  pgTable(
+    'offer_letter',
+    {
+      ...baseColumns(),
+      quoteId: c(quoteRef(), 'Quote.'),
+      quoteVersion: c(
+        integer('quote_version').notNull(),
+        'quote.version when generated: a re-quote (higher version) makes the letter Superseded.',
+        SYSTEM,
+      ),
+      letterNo: c(smallint('letter_no').notNull(), '1…n within the quote.', SYSTEM),
+      attachmentId: c(
+        uuid('attachment_id')
+          .notNull()
+          .unique()
+          .references(() => attachment.id, { onDelete: 'restrict' }),
+        'The stored Word document (attachment kind offer_letter).',
+        SYSTEM,
+      ),
+      templateVersion: c(
+        text('template_version').notNull(),
+        'offer_letter_template.templateVersion used.',
+        SYSTEM,
+      ),
+      wordingApproved: c(
+        boolean('wording_approved').notNull(),
+        'offer_letter_wording_approved when generated (false: the letter carries the DRAFT line).',
+        SYSTEM,
+      ),
+      letterDate: c(
+        date('letter_date', { mode: 'string' }).notNull(),
+        'The date on the letter: the proposal-issued date (US Central).',
+        SYSTEM,
+      ),
+      attention: c(text('attention'), 'Attention line, typed by the generator (≤ 120).', KAM),
+      validUntil: c(
+        date('valid_until', { mode: 'string' }).notNull(),
+        'quote.validity_until when generated.',
+        SYSTEM,
+      ),
+      costModelAttachmentId: c(
+        uuid('cost_model_attachment_id')
+          .notNull()
+          .references(() => attachment.id, { onDelete: 'restrict' }),
+        'The costing workbook version the prices were read from.',
+        SYSTEM,
+      ),
+      costModelVersion: c(
+        integer('cost_model_version').notNull(),
+        'That workbook version.',
+        SYSTEM,
+      ),
+      generatedBy: c(userRef('generated_by').notNull(), 'Who generated it.', SYSTEM),
+      generatedAt: c(timestamptz('generated_at').notNull(), 'When (UTC).', SYSTEM),
+    },
+    (t) => [
+      uniqueIndex('offer_letter_quote_letter_no_uidx').on(t.quoteId, t.letterNo),
+      check('offer_letter_letter_no_check', sql`${t.letterNo} >= 1`),
+      check(
+        'offer_letter_attention_check',
+        sql`${t.attention} is null or char_length(${t.attention}) <= 120`,
+      ),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: 'KAM / SalesLeader / Pricing (generated)',
+    description:
+      'FB-20 (F-070): one row per customer offer letter generated after Final Review, with the Word file, the template version, whether the wording was Legal-approved and which costing workbook the prices came from. Insert-only.',
+  },
+);
+
+/** FB-20: one item line of an offer letter, with its snapshotted prices. Insert-only. */
+export const offerLetterItem = documented(
+  pgTable(
+    'offer_letter_item',
+    {
+      ...baseColumns(),
+      offerLetterId: c(
+        uuid('offer_letter_id')
+          .notNull()
+          .references(() => offerLetter.id, { onDelete: 'restrict' }),
+        'The letter.',
+      ),
+      quoteId: c(quoteRef(), 'Quote (for row-level security).'),
+      quoteItemId: c(
+        uuid('quote_item_id').references(() => quoteItem.id, { onDelete: 'restrict' }),
+        'The quote item; null for a quote with no item rows (listed from its own columns).',
+      ),
+      itemNo: c(smallint('item_no').notNull(), 'Item number as printed.', SYSTEM),
+      partDescription: c(
+        text('part_description').notNull(),
+        'Part description as printed.',
+        SYSTEM,
+      ),
+      partNumber: c(text('part_number'), 'Part # typed by the generator (≤ 60).', KAM),
+      placeOfManufacture: c(
+        text('place_of_manufacture').notNull(),
+        'The plant label as printed.',
+        SYSTEM,
+      ),
+      annualVolume: c(integer('annual_volume'), 'Estimated annual volume as printed.', SYSTEM),
+      piecePricePer1000: c(
+        numeric('piece_price_per_1000', { precision: 18, scale: 4, mode: 'string' }),
+        'Piece price per 1,000 pcs (USD), snapshotted from the costing summary.' + COMMERCIAL,
+        'Costing workbook',
+      ),
+      moldCharge: c(
+        numeric('mold_charge', { precision: 18, scale: 4, mode: 'string' }),
+        'Molds (USD), snapshotted; null when not on the letter.' + COMMERCIAL,
+        'Costing workbook',
+      ),
+      changePartsCharge: c(
+        numeric('change_parts_charge', { precision: 18, scale: 4, mode: 'string' }),
+        'Change parts (USD), snapshotted; null when not on the letter.' + COMMERCIAL,
+        'Costing workbook',
+      ),
+    },
+    (t) => [
+      uniqueIndex('offer_letter_item_letter_item_no_uidx').on(t.offerLetterId, t.itemNo),
+      index('offer_letter_item_quote_idx').on(t.quoteId),
+      check('offer_letter_item_item_no_check', sql`${t.itemNo} >= 1`),
+      check(
+        'offer_letter_item_part_number_check',
+        sql`${t.partNumber} is null or char_length(${t.partNumber}) <= 60`,
+      ),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: 'KAM / SalesLeader / Pricing (generated)',
+    description:
+      'FB-20: the item lines of an offer letter, with the prices snapshotted from the costing summary (piece price per 1,000, molds, change parts). Insert-only.',
   },
 );
 

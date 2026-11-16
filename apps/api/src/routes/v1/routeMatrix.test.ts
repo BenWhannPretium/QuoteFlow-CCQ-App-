@@ -120,9 +120,10 @@ describe('permission matrix (static)', () => {
 describe('PostAward (P2: no dev persona, so not in the integration matrix)', () => {
   // The role is live (matrix, RLS, token mapping), so pin what it reaches: a new grant fails here until
   // it is reviewed. RLS limits its quotes to AWARDED (packages/db/test/rls.int.test.ts).
-  const READS = ['quote.read', 'quote.read.commercialFields'];
+  // FB-20 (reviewed 2026-11-16): offer.read, the offer letters of an awarded quote (read-only).
+  const READS = ['offer.read', 'quote.read', 'quote.read.commercialFields'];
 
-  it('holds the two read permissions and nothing else', () => {
+  it('holds the read permissions and nothing else', () => {
     expect([...permissionsForRoles(['PostAward'])].sort()).toEqual(READS);
   });
 

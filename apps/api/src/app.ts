@@ -74,6 +74,7 @@ import { FinalReviewService } from './services/final-review';
 import { GateService, type NotificationHook } from './services/gateService';
 import { IntakeService } from './services/intake';
 import { NotificationService } from './services/notificationService';
+import { OfferLetterService } from './services/offer-letter';
 import { OutcomeService } from './services/outcome';
 import { OverrideService } from './services/overrideService';
 import { PipelineService } from './services/pipeline';
@@ -507,6 +508,12 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     log: app.log.child({ component: 'outcome' }),
     ...now,
   });
+  // FB-20 (F-070): the customer offer letter (Word), stored through the same file store.
+  const offerLetterService = new OfferLetterService({
+    store: fileStore,
+    log: app.log.child({ component: 'offer-letter' }),
+    ...now,
+  });
   // B-26: capital flag, commercial terms + Legal review, escalations.
   const commercialService = new CommercialService({
     quotes: quoteReads,
@@ -607,6 +614,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     pricingHistoryService,
     finalReviewService,
     outcomeService,
+    offerLetterService,
     commercialService,
     pipelineService,
     attachmentService,

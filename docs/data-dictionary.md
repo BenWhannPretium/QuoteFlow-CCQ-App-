@@ -11,7 +11,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
-- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_item`](#quote_item), [`quote_item_drawing`](#quote_item_drawing), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
+- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`offer_letter`](#offer_letter), [`offer_letter_item`](#offer_letter_item), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_item`](#quote_item), [`quote_item_drawing`](#quote_item_drawing), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`feedback`](#feedback), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
@@ -656,21 +656,80 @@ FB-14: the figures of a model summary, one row per mapped field, as the workbook
 | `sort` | integer | no |  |  | Order in the map. | Uploader (read from the workbook) |
 | `field_key` | text | no |  |  | The map's field key (payback_years, irr, ...). | Uploader (read from the workbook) |
 | `label` | text | no |  |  | Label shown, as the map said at the time. | Uploader (read from the workbook) |
-| `unit` | text | no |  |  | usd \| units \| years \| percent (a fraction) \| count \| text. | Uploader (read from the workbook) |
+| `unit` | text | no |  |  | usd \| units \| years \| percent (a fraction) \| count \| text \| usd_per_unit \| usd_per_1000 (FB-20: a price per piece or per 1,000 pieces). | Uploader (read from the workbook) |
+| `item_no` | smallint | yes |  |  | FB-20: the quote item the figure belongs to (1 = the first item); null = the whole quote. From the map's itemNo. | Uploader (read from the workbook) |
 | `value_type` | text | no |  |  | number \| text \| date. | Uploader (read from the workbook) |
 | `sheet` | text | no |  |  | Sheet the value was read from. | Uploader (read from the workbook) |
 | `cell_ref` | text | no |  |  | A1 address read (or the defined name not found). | Uploader (read from the workbook) |
 | `defined_name` | text | yes |  |  | The defined name used, when there was one. | Uploader (read from the workbook) |
 | `state` | text | no |  |  | ok \| blank \| error (an Excel error: value_text holds the code) \| not_calculated \| not_found \| wrong_type (value_text holds the text) \| out_of_range (value_text holds the number). | Uploader (read from the workbook) |
-| `value_number` | numeric(18, 4) | yes |  |  | The number as cached in the workbook (numeric(18,4): Fabric-safe). | Uploader (workbook) |
+| `value_number` | numeric(24, 10) | yes |  |  | The number as cached in the workbook (numeric(24,10): Fabric-safe; FB-20 widened it from 18,4 so a per-piece price keeps its decimals). | Uploader (workbook) |
 | `value_text` | text | yes |  |  | Text, an error code, or what a number field held instead. | Uploader (read from the workbook) |
 | `value_date` | timestamp with time zone | yes |  |  | A date value (UTC midnight). | Uploader (read from the workbook) |
 | `headline` | boolean | no | false |  | A headline figure. | Uploader (read from the workbook) |
 | `proposed` | boolean | no | true |  | The cell mapping was a proposal awaiting the template owner when read. | Uploader (read from the workbook) |
 
-**Checks:** `model_summary_field_state_check`, `model_summary_field_type_check`, `model_summary_field_unit_check`
+**Checks:** `model_summary_field_state_check`, `model_summary_field_type_check`, `model_summary_field_unit_check`, `model_summary_field_item_no_check`
 
 **Indexes:** `model_summary_field_summary_idx`
+
+### offer_letter
+
+FB-20 (F-070): one row per customer offer letter generated after Final Review, with the Word file, the template version, whether the wording was Legal-approved and which costing workbook the prices came from. Insert-only.
+
+**Owner:** KAM / SalesLeader / Pricing (generated)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `quote_id` | uuid | no |  | quote.id | Quote. | KAM / SalesLeader / Pricing (generated) |
+| `quote_version` | integer | no |  |  | quote.version when generated: a re-quote (higher version) makes the letter Superseded. | CCQ (system) |
+| `letter_no` | smallint | no |  |  | 1…n within the quote. | CCQ (system) |
+| `attachment_id` | uuid | no |  | attachment.id | The stored Word document (attachment kind offer_letter). | CCQ (system) |
+| `template_version` | text | no |  |  | offer_letter_template.templateVersion used. | CCQ (system) |
+| `wording_approved` | boolean | no |  |  | offer_letter_wording_approved when generated (false: the letter carries the DRAFT line). | CCQ (system) |
+| `letter_date` | date | no |  |  | The date on the letter: the proposal-issued date (US Central). | CCQ (system) |
+| `attention` | text | yes |  |  | Attention line, typed by the generator (≤ 120). | KAM |
+| `valid_until` | date | no |  |  | quote.validity_until when generated. | CCQ (system) |
+| `cost_model_attachment_id` | uuid | no |  | attachment.id | The costing workbook version the prices were read from. | CCQ (system) |
+| `cost_model_version` | integer | no |  |  | That workbook version. | CCQ (system) |
+| `generated_by` | uuid | no |  | app_user.id | Who generated it. | CCQ (system) |
+| `generated_at` | timestamp with time zone | no |  |  | When (UTC). | CCQ (system) |
+
+**Checks:** `offer_letter_letter_no_check`, `offer_letter_attention_check`
+
+**Indexes:** `offer_letter_quote_letter_no_uidx`
+
+### offer_letter_item
+
+FB-20: the item lines of an offer letter, with the prices snapshotted from the costing summary (piece price per 1,000, molds, change parts). Insert-only.
+
+**Owner:** KAM / SalesLeader / Pricing (generated)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `offer_letter_id` | uuid | no |  | offer_letter.id | The letter. | KAM / SalesLeader / Pricing (generated) |
+| `quote_id` | uuid | no |  | quote.id | Quote (for row-level security). | KAM / SalesLeader / Pricing (generated) |
+| `quote_item_id` | uuid | yes |  | quote_item.id | The quote item; null for a quote with no item rows (listed from its own columns). | KAM / SalesLeader / Pricing (generated) |
+| `item_no` | smallint | no |  |  | Item number as printed. | CCQ (system) |
+| `part_description` | text | no |  |  | Part description as printed. | CCQ (system) |
+| `part_number` | text | yes |  |  | Part # typed by the generator (≤ 60). | KAM |
+| `place_of_manufacture` | text | no |  |  | The plant label as printed. | CCQ (system) |
+| `annual_volume` | integer | yes |  |  | Estimated annual volume as printed. | CCQ (system) |
+| `piece_price_per_1000` | numeric(18, 4) | yes |  |  | Piece price per 1,000 pcs (USD), snapshotted from the costing summary. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Costing workbook |
+| `mold_charge` | numeric(18, 4) | yes |  |  | Molds (USD), snapshotted; null when not on the letter. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Costing workbook |
+| `change_parts_charge` | numeric(18, 4) | yes |  |  | Change parts (USD), snapshotted; null when not on the letter. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Costing workbook |
+
+**Checks:** `offer_letter_item_item_no_check`, `offer_letter_item_part_number_check`
+
+**Indexes:** `offer_letter_item_letter_item_no_uidx`, `offer_letter_item_quote_idx`
 
 ### override
 

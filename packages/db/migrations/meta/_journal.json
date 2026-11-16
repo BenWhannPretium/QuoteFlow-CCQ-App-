@@ -337,6 +337,13 @@
       "when": 1794843426252,
       "tag": "0047_fb19_multi_item_quotes",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794865966183,
+      "tag": "0048_fb20_offer_letter",
+      "breakpoints": true
     }
   ]
 }
