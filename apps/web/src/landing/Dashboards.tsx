@@ -735,7 +735,11 @@ function Leadership({ d }: { d: LeadershipDashboard }) {
         testId="dash-pipeline"
         className="lg:col-span-2"
         // FB-18 (W13-29): Analytics is the other view of the Command Center.
-        action={<MoreLink to="/" search={{ view: 'analytics' }}>Open full analytics</MoreLink>}
+        action={
+          <MoreLink to="/" search={{ view: 'analytics' }}>
+            Open full analytics
+          </MoreLink>
+        }
       >
         {d.pipeline.total === 0 ? (
           <Empty>No open quotes.</Empty>
