@@ -1570,7 +1570,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 
 **Source:** Bailey Schmitt's Teams chat with Ben, 2026-11-16: generate the customer quote document ("offer letter") inside QuoteFlow, from the old Standard Quote Template brought up to current Pretium brand standards. This is tracker row **F-070** (P1, "Template (Pricing, Legal)") pulled forward; its priority stays P1 unless Ben and Bailey say otherwise. Ben's decisions: the price comes from the costing workbook summary (FB-14), the letter is generated only after Final Review, one letter per quote with a row per item, and the wording is provisional until Legal approves it.
 
-### FB-20: Offer letter · **Built 2026-11-16 (in PR)** · Ben (most capable model · high)
+### FB-20: Offer letter · **Built 2026-11-16 (in PR [#105](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/105))** · Ben (most capable model · high)
 - **Why:** after Final Review approves a quote, the KAM still builds the customer document by hand outside QuoteFlow. The letter should come from the approved quote's own facts and the costing workbook's price figures, not be retyped.
 - **Done when:**
   - [x] plan committed first (`feedback/fb20-plan.md`); the old template's structure noted in `feedback/inputs/`
