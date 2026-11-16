@@ -370,7 +370,7 @@ describe('buildOfferLetterModel', () => {
     const m = buildOfferLetterModel(facts(), inputs, settings());
     const texts = m.assumptions.items.map((a) => a.text);
     expect(texts).toContain('This offer is valid until December 10, 2026.');
-    expect(texts).toContain('Pricing is FOB plant.');
+    expect(texts).toContain('Price basis: FOB plant.');
     expect(texts).toContain('Freight: customer pickup.');
     expect(texts).toContain('Payment terms: Net 30 from date of invoice.');
     expect(texts).toContain('Tooling funding: Company-funded.');

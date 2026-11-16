@@ -98,7 +98,9 @@ describe('migration 0045 (FB-16 engineering and capacity): the data half', () =>
       ]);
       expect(grants.every((r) => r.provisional)).toBe(true);
       // The migration writes exactly what the policy matrix (the control) holds for them.
+      // Permissions added by later migrations (FB-20's offer.*, 0048) are not 0045's to write.
       const matrix = Object.entries(PERMISSION_MATRIX)
+        .filter(([permission]) => !permission.startsWith('offer.'))
         .flatMap(([permission, byRole]) =>
           Object.keys(byRole)
             .filter((role) => role === 'ProductionScheduler' || permission === 'capacity.edit')

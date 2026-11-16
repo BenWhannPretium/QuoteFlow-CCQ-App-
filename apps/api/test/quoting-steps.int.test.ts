@@ -232,10 +232,12 @@ afterAll(async () => {
 });
 
 describe('F-083: the Finance role', () => {
-  it('signs in with quote.read, quote.read.commercialFields and roi.upload, and nothing else', async () => {
+  it('signs in with quote.read, quote.read.commercialFields, roi.upload and offer.read, and nothing else', async () => {
     const me = MeResponse.parse((await as('Finance').get('/api/v1/me')).json());
     expect(me.roles).toEqual(['Finance']);
+    // FB-20: offer.read, the quote's offer letters (read-only, like every quote reader).
     expect([...me.permissions].sort()).toEqual([
+      'offer.read',
       'quote.read',
       'quote.read.commercialFields',
       'roi.upload',

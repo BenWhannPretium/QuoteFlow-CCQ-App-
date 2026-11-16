@@ -230,7 +230,7 @@ export const OFFER_LETTER_TEMPLATE_SEED: OfferLetterTemplate = {
       points: [],
     },
     { text: 'This offer is valid until {{validUntil}}.', points: [] },
-    { text: 'Pricing is {{priceBasis}}.', points: [] },
+    { text: 'Price basis: {{priceBasis}}.', points: [] },
     { text: 'Freight: {{freight}}.', points: [] },
     { text: 'Payment terms: {{paymentTerms}} from date of invoice.', points: [] },
     { text: 'Lead time to be confirmed at time of Purchase Order.', points: [] },

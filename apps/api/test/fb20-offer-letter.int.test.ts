@@ -343,7 +343,7 @@ describe('FB-20: a three-item letter from the synthetic costing workbook', () =>
     );
     const texts = v.preview!.assumptions.map((a) => a.text);
     expect(texts).toContain('Payment terms: Net 30 from date of invoice.');
-    expect(texts).toContain('Pricing is FOB Pretium plant.');
+    expect(texts).toContain('Price basis: FOB Pretium plant.');
     // Freight is kept only for a delivered price (FB-11), so its sentence is left out, never blank.
     expect(texts.some((t) => t.startsWith('Freight'))).toBe(false);
     // Engineering and Finance read the letter; only the generators may make one.

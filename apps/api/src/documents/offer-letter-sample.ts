@@ -42,7 +42,7 @@ const SYNTHETIC: OfferFacts = {
   toolingFundingModel: 'CUSTOMER_FUNDED',
   termLabels: {
     paymentTerms: 'Net 30',
-    priceBasis: 'FOB Pretium plant',
+    priceBasis: 'Delivered',
     freight: 'Van',
     toolingFunding: 'Customer-funded',
     moldOwnership: 'Customer-owned',
