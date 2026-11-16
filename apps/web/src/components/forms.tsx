@@ -103,11 +103,13 @@ export function FormErrors({
   });
   if (shown.length === 0) return null;
   return (
-    <ul role="alert" className="text-destructive grid gap-1 text-sm">
-      {shown.map((e) => (
-        <li key={e.path + e.message}>{e.message}</li>
-      ))}
-    </ul>
+    <div role="alert">
+      <ul className="text-destructive grid gap-1 text-sm">
+        {shown.map((e) => (
+          <li key={e.path + e.message}>{e.message}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

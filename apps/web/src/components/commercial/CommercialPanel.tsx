@@ -860,11 +860,13 @@ function EscalateSection({ quote }: { quote: QuoteDetail }) {
               />
             </div>
             {submitted && problems.length > 0 && (
-              <ul role="alert" className="text-destructive grid gap-1 text-sm">
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
+              <div role="alert">
+                <ul className="text-destructive grid gap-1 text-sm">
+                  {problems.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              </div>
             )}
             <FormErrors errors={errors} />
           </form>
