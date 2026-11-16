@@ -103,8 +103,12 @@ export const SfOpportunitySummary = z.object({
   dataQuality: z.array(SfDataQualityFlag),
   /** Where this row came from: the local snapshot or a live SF search. */
   source: z.enum(['snapshot', 'live']),
-  /** The opportunity's active CCQ quote, if the caller can see one (B-07: offer "Open existing"). */
+  /**
+   * The opportunity's (oldest) active CCQ quote, if the caller can see one (B-07: offer "Open existing").
+   * FB-19 (W13-33): an opportunity may have several; `activeQuotes` lists every one the caller can see.
+   */
   activeQuote: ActiveQuoteRef.nullable(),
+  activeQuotes: z.array(ActiveQuoteRef).default([]),
 });
 export type SfOpportunitySummary = z.infer<typeof SfOpportunitySummary>;
 

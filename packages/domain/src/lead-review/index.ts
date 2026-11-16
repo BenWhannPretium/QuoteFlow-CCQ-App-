@@ -6,7 +6,8 @@ import type { Actor } from '../types/actor';
 import type { Permission } from '../types/permissions';
 import type { QuoteState } from '../types/quote';
 import type { RequiredRule, WorkflowConfig } from '../types/workflow-config';
-import { evaluateRules, fieldsReferenced } from '../workflow/rules';
+import { evaluateQuoteRules } from '../workflow/item-rules';
+import { fieldsReferenced } from '../workflow/rules';
 
 /**
  * Lead review (Ben, 2026-10-30). The engineer or pricer assigned to a quote does their part, then
@@ -277,7 +278,8 @@ export function planSubmitToLead(
       ],
     };
   }
-  const missing = evaluateRules(submissionRules(kind, config), fields);
+  // FB-19: the submit-to-lead check is per item, like the gate it mirrors.
+  const missing = evaluateQuoteRules(submissionRules(kind, config), fields);
   return missing.length > 0 ? { ok: false, errors: missing } : { ok: true };
 }
 

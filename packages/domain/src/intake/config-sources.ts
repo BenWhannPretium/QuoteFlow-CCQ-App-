@@ -23,6 +23,8 @@ export const INTAKE_SETTING_KEYS = [
   'intake_other_description_max_length',
   'standard_payment_terms',
   'intake_guardrails',
+  // FB-19 (W13-32, provisional): the most items one quote may hold.
+  'quote_items_max',
 ] as const;
 
 export interface IntakeListEntry {
@@ -57,6 +59,7 @@ export function intakeConfigFromSources({ settings: s, lists }: IntakeConfigSour
     ...optional('variantsNoteMaxLength', num('intake_variants_note_max_length')),
     ...optional('freeTextMaxLength', num('intake_free_text_max_length')),
     ...optional('otherDescriptionMaxLength', num('intake_other_description_max_length')),
+    ...optional('itemsMax', num('quote_items_max')),
     ...optional(
       'minSpecFields',
       Array.isArray(s.intake_min_spec_fields) ? s.intake_min_spec_fields : undefined,
