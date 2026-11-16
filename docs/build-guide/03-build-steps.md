@@ -1531,7 +1531,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Waiting on:** an Admin (Ben) to set the Pretium Lightning URL in each environment (Admin → App settings → "Salesforce Lightning URL"); AR / Finance and Brennan Paul for the source of the ERP customer number (W13-W1); Bailey Schmitt for the wording at the Nov 17 round-table and to paste the proposed tracker rows (in the PR).
 - **Prompt:** `prompts/feedback/FB-18-command-center-polish.md`
 
-### FB-19: Multi-item quotes · **Built 2026-11-16 (in PR PR_LINK)** · Ben (most capable model · high)
+### FB-19: Multi-item quotes · **Built 2026-11-16 (in PR [#102](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/102))** · Ben (most capable model · high)
 - **Why:** a bid for several custom items should be one quote, quoted together (W13-32; F-084, promoted from P1 by Bailey Schmitt on 2026-11-13). Single-item quotes and separate quotes on one opportunity stay possible (W13-33), and each variant is its own item (W13-34).
 - **Done when:**
   - [x] plan committed first (`feedback/fb19-plan.md`)

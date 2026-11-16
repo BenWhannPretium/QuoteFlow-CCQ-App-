@@ -66,9 +66,9 @@ Each item has a **W13** ID. The build steps cite these IDs. Proposed tracker row
 
 | ID | Feedback | Raised by | Triage | Step |
 |---|---|---|---|---|
-| W13-32 | One quote number holds several items (e.g. three custom bottles); fields shared by the request are entered once, each item's own fields per item; all items are quoted together. Bailey: **MVP**. Ben: by Monday Nov 16 (0:41–0:44) | Bailey Schmitt; Zachary Cairns | Build as provisional (field split and gate model assumed) | FB-19. Built in PR PR_LINK |
-| W13-33 | Still allow a quote with one item, and a KAM may split hot items into a separate quote (Midas 2.0 lesson) (1:41–1:43) | Zachary Cairns; Bailey Schmitt | Build: single-item quotes keep working. Linking related quotes is not needed now (Bailey) | FB-19. Built in PR PR_LINK |
-| W13-34 | Each variant (another plant, another PCR %) is its own item; costing uses each plant's own costs (0:45–0:51) | Zachary Cairns | Build (items carry their own plant); Finance examples asked (W13-W6) | FB-19. Built in PR PR_LINK |
+| W13-32 | One quote number holds several items (e.g. three custom bottles); fields shared by the request are entered once, each item's own fields per item; all items are quoted together. Bailey: **MVP**. Ben: by Monday Nov 16 (0:41–0:44) | Bailey Schmitt; Zachary Cairns | Build as provisional (field split and gate model assumed) | FB-19. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/102 |
+| W13-33 | Still allow a quote with one item, and a KAM may split hot items into a separate quote (Midas 2.0 lesson) (1:41–1:43) | Zachary Cairns; Bailey Schmitt | Build: single-item quotes keep working. Linking related quotes is not needed now (Bailey) | FB-19. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/102 |
+| W13-34 | Each variant (another plant, another PCR %) is its own item; costing uses each plant's own costs (0:45–0:51) | Zachary Cairns | Build (items carry their own plant); Finance examples asked (W13-W6) | FB-19. Built in PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/102 |
 
 ## Wait: sent to Bailey for follow-up (not built)
 
