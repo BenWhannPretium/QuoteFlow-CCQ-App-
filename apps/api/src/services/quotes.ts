@@ -21,7 +21,7 @@ import {
   availableActions,
   canApproveCapacityInDecision,
   canSeePriorityScore,
-  evaluateRules,
+  evaluateQuoteRules,
   fieldsReferenced,
   isForwardOutcome,
   isSupersededDecision,
@@ -203,7 +203,8 @@ function withSubmitMissing<T extends { leadReview: LeadReviewView }>(
   }
   const fields = withDerivedFields(state, ctx.commercial.derived).fields;
   const submitMissing = [
-    ...evaluateRules(rules, fields),
+    // FB-19: a rule that reads an item's engineering facts is checked for every item.
+    ...evaluateQuoteRules(rules, fields),
     // FB-16 (W13-14): one pack-out count, while `pack_out_rule.requireOneOf` is on (off in the seed).
     ...engineeringSubmissionExtras(kind, workflow, fields, ctx.packOutRule),
   ].map((e) => ({
@@ -233,12 +234,14 @@ export function gateActionsFor(
     // B-13: a rule a note would satisfy that still fails with the validity as it stands (Expired).
     const noteBeforeValidity =
       referenced.includes('decision_note') &&
-      evaluateRules(a.requiredFields, { ...derived.fields, validity_lapsed: lapsed }).length > 0;
+      evaluateQuoteRules(a.requiredFields, { ...derived.fields, validity_lapsed: lapsed }).length >
+        0;
     // FB-16 (W13-18): a lead who holds capacity.signoff approves a not-yet-signed capacity inside the
     // decision (the required checkbox), so the sign-off is not "missing" for them. A block is.
     const capacityApproval = canApproveCapacityInDecision(ctx.actor, derived, a.requiredFields);
     const missing = [
-      ...evaluateRules(
+      // FB-19: per item where a rule reads an item's engineering facts.
+      ...evaluateQuoteRules(
         a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
         capacityApproval ? withCapacityApproved(derived.fields) : derived.fields,
       ),

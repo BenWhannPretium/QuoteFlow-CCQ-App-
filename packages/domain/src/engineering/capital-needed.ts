@@ -74,14 +74,33 @@ export interface CapitalNeed {
 /**
  * Whether a quote needs capital, and why, from its decision fields (`QuoteState.fields`): the
  * preliminary capital figure, Engineering's latest G2 outcome and the "capital likely" flag.
+ *
+ * FB-19: with items (`fields.items`), capital is needed when ANY item's figure is above the threshold,
+ * and the figure is the items' total. A list row with no items passes the total as `prelim_capital_usd`
+ * and the largest item figure as `prelim_capital_max_usd`.
  */
 export function capitalNeed(
   fields: Readonly<Record<string, unknown>>,
   aboveUsd: number = CAPITAL_NEEDED_ABOVE_USD_SEED,
 ): CapitalNeed {
-  const figure = amount(fields.prelim_capital_usd);
+  const items = Array.isArray(fields.items)
+    ? (fields.items as Readonly<Record<string, unknown>>[])
+    : null;
+  const figures = items
+    ? items.map((i) => amount(i.prelim_capital_usd)).filter((v): v is number => v !== null)
+    : null;
+  const figure = figures
+    ? figures.length > 0
+      ? figures.reduce((a, b) => a + b, 0)
+      : null
+    : amount(fields.prelim_capital_usd);
+  const largest = figures
+    ? figures.length > 0
+      ? Math.max(...figures)
+      : null
+    : (amount(fields.prelim_capital_max_usd) ?? figure);
   const reasons: CapitalNeedReason[] = [];
-  if (figure !== null && figure > aboveUsd) reasons.push('prelim_capital');
+  if (largest !== null && largest > aboveUsd) reasons.push('prelim_capital');
   if (fields.g2_outcome === HISTORICAL_CAPITAL_OUTCOME) reasons.push('historical_outcome');
   const byEngineering = reasons.length > 0;
   if (fields.capital_likely === true) reasons.push('capital_likely');

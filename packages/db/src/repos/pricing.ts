@@ -40,6 +40,10 @@ export function listPricingQueueRows(db: DbOrTx, stageKey: string) {
         prelimCapitalUsd: sql<number | null>`(
         select sum(er.prelim_capital_usd) from ${engReview} er where er.quote_id = ${quote.id}
       )`.mapWith((v: string | number | null) => (v === null ? null : Number(v))),
+        /** FB-19: the largest item figure (capital is needed when any item's is above the threshold). */
+        prelimCapitalMaxUsd: sql<number | null>`(
+        select max(er.prelim_capital_usd) from ${engReview} er where er.quote_id = ${quote.id}
+      )`.mapWith((v: string | number | null) => (v === null ? null : Number(v))),
         assignedEngineerName: engineer.displayName,
         pricing: pricingRecord,
         enteredStageAt: sql<Date | null>`(

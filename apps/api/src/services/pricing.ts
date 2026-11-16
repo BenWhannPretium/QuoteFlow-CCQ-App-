@@ -202,6 +202,7 @@ export class PricingService {
         const capitalNeeded = capitalNeed(
           {
             prelim_capital_usd: row.prelimCapitalUsd,
+            prelim_capital_max_usd: row.prelimCapitalMaxUsd,
             g2_outcome: row.g2Outcome,
             capital_likely: q.capitalLikely,
           },

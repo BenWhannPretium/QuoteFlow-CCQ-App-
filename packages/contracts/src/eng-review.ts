@@ -59,6 +59,11 @@ export const EngReviewBody = z
     unitsPerTray: PackOutCount,
     unitsPerCase: PackOutCount,
     unitsPerPallet: PackOutCount,
+    /**
+     * FB-19 (W13-34): the item this solution is for (a `quote_item` id). Omitted: item 1, as a one-item
+     * quote has always written.
+     */
+    itemId: z.uuid(),
   })
   .partial()
   .strict();
@@ -118,7 +123,11 @@ export type CapacityEvidenceRowBody = z.infer<typeof CapacityEvidenceRowBody>;
 
 /** PUT /api/v1/quotes/:quoteNumber/capacity-evidence: the full set (rows not sent are removed). */
 export const CapacityEvidenceBody = z
-  .object({ rows: z.array(CapacityEvidenceRowBody).max(50) })
+  .object({
+    rows: z.array(CapacityEvidenceRowBody).max(50),
+    /** FB-19 (W13-34): the item whose rows these are (a `quote_item` id). Omitted: item 1. */
+    itemId: z.uuid().optional(),
+  })
   .strict();
 export type CapacityEvidenceBody = z.infer<typeof CapacityEvidenceBody>;
 
@@ -241,6 +250,36 @@ export const SuggestedEngineer = z.object({
 });
 export type SuggestedEngineer = z.infer<typeof SuggestedEngineer>;
 
+/**
+ * FB-19 (W13-32 to W13-34): one item's Engineering: its own solution, capacity rows and product facts.
+ * The lead review, the assignment and the capacity sign-off are the quote's (on `EngineeringDetail`).
+ */
+export const EngItemView = z.object({
+  /** The `quote_item` id (sent as `itemId` when saving this item's solution or capacity rows). */
+  id: z.string(),
+  itemNo: z.number().int(),
+  label: z.string().nullable(),
+  /** "Item 2 (24 oz bottle)". */
+  name: z.string(),
+  containerSize: z.string().nullable(),
+  review: EngReviewFields,
+  capacityEvidence: z.array(CapacityEvidenceRow),
+  /** The item's estimated annual volume: the default allocation for its capacity rows. */
+  annualVolume: z.number().nullable(),
+  /** T-030: this item's rows do not add up to its volume (a warning, never a block). */
+  allocationWarning: z.string().nullable(),
+  selectedLabels: z.object({
+    processType: z.string().nullable(),
+    machineType: z.string().nullable(),
+    plantCode: z.string().nullable(),
+  }),
+  productFacts: z.array(ProductFact),
+  processPairLegacy: z.boolean(),
+  /** What this item still needs before the engineer can submit it to the lead (the G2 rules per item). */
+  toDo: z.array(z.string()),
+});
+export type EngItemView = z.infer<typeof EngItemView>;
+
 /** The Engineering tab of a quote. Included in `QuoteDetail.engineering`. */
 export const EngineeringDetail = z.object({
   /** The quote is in Engineering Review now. */
@@ -306,6 +345,12 @@ export const EngineeringDetail = z.object({
   equipmentBom: EquipmentBomView,
   /** FB-06 (F-062): "Suggested: <name>" in the assign dialog, from `engineering_assignment_rules`. */
   suggestedEngineer: SuggestedEngineer.nullable(),
+  /**
+   * FB-19: every item's Engineering, in item order. The top-level `review`, `capacityEvidence`,
+   * `quoteAnnualVolume`, `allocationWarning`, `selectedLabels`, `productFacts` and `processPairLegacy` are
+   * item 1's (what a one-item quote has always shown).
+   */
+  items: z.array(EngItemView).default([]),
 });
 export type EngineeringDetail = z.infer<typeof EngineeringDetail>;
 
