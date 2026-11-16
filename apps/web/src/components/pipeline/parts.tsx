@@ -7,7 +7,7 @@ import { isCommercialKey } from '@ccq/domain';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Columns3Icon, DownloadIcon } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -91,10 +91,16 @@ export function ExportButton({
   search: PipelineSearch;
   columns: readonly string[];
 }) {
+  // FB-19 (W13-32): one row per quote by default; ticked, one row per item with the item's columns.
+  const [perItem, setPerItem] = useState(false);
+  const perItemId = useId();
   const exportCsv = useMutation({
     mutationFn: () =>
       api.quotesExport(
-        pipelineApiQuery({ ...search, page: undefined }, { columns: columns.join(',') }),
+        pipelineApiQuery(
+          { ...search, page: undefined },
+          { columns: columns.join(','), ...(perItem ? { perItem: 'true' } : {}) },
+        ),
       ),
     onSuccess: (blob) => {
       downloadBlob(blob, `ccq-quotes-${new Date().toISOString().slice(0, 10)}.csv`);
@@ -110,16 +116,29 @@ export function ExportButton({
       }),
   });
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => exportCsv.mutate()}
-      disabled={exportCsv.isPending}
-      data-testid="export-csv"
-    >
-      <DownloadIcon aria-hidden="true" />
-      {exportCsv.isPending ? 'Exporting…' : 'Export CSV'}
-    </Button>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => exportCsv.mutate()}
+        disabled={exportCsv.isPending}
+        data-testid="export-csv"
+      >
+        <DownloadIcon aria-hidden="true" />
+        {exportCsv.isPending ? 'Exporting…' : 'Export CSV'}
+      </Button>
+      <label htmlFor={perItemId} className="flex min-h-11 items-center gap-1.5 text-xs sm:min-h-0">
+        <input
+          id={perItemId}
+          type="checkbox"
+          className="size-4 accent-[var(--primary)]"
+          checked={perItem}
+          onChange={(e) => setPerItem(e.target.checked)}
+          data-testid="export-per-item"
+        />
+        One row per item
+      </label>
+    </div>
   );
 }
 

@@ -256,6 +256,22 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
   await expect(reviewItems.getByTestId('quote-item')).toHaveCount(3);
   await expect(reviewItems).toContainText('Item 3 (24 oz bottle 25% PCR)');
   await expect(reviewItems).toContainText('Aurora');
+
+  // The quotes list: "One row per item" exports the three items, the quote's columns on each.
+  await page.goto(`/quotes?q=${qn}`);
+  await page.getByTestId('export-per-item').check();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('export-csv').click(),
+  ]);
+  const chunks: Buffer[] = [];
+  for await (const chunk of await download.createReadStream()) {
+    chunks.push(Buffer.from(chunk as Buffer));
+  }
+  const lines = Buffer.concat(chunks).toString('utf8').trim().split(/\r?\n/);
+  expect(lines[0]).toContain('Item label');
+  expect(lines.filter((l) => l.includes(qn))).toHaveLength(3);
+  expect(lines.some((l) => l.includes('24 oz bottle 25% PCR'))).toBe(true);
 });
 
 test('a single-item intake still reads as before: no switcher, no item names', async ({
