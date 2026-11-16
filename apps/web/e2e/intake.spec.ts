@@ -2,24 +2,13 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
 import { signInAs } from './personas';
+import { pickOpportunity } from './quotes';
 
 // B-07 / FB-02: a KAM goes from a Salesforce opportunity (SF_MODE=fake) to a submitted CCQ quote.
 // Each test picks an opportunity that has no active quote yet (one active quote per opportunity).
 
 const noHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-
-async function pickOpportunity(page: Page, search: string) {
-  await page.getByRole('button', { name: 'All', exact: true }).click();
-  await page.getByLabel('Find the Salesforce opportunity').fill(search);
-  const free = page
-    .getByTestId('opportunity-card')
-    .filter({ has: page.getByRole('button', { name: /^Use / }) })
-    .first();
-  await expect(free).toBeVisible({ timeout: 15_000 });
-  await free.getByRole('button', { name: /^Use / }).click();
-  await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '2');
-}
 
 const isoDaysFromNow = (days: number) =>
   new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
@@ -162,6 +151,7 @@ test.describe('KAM intake', () => {
   test('desktop: opportunity → product facts with the full spec and no drawing → submitted, resuming a draft', async ({
     page,
     browser,
+    request,
   }) => {
     const started = Date.now();
     await signInAs(page, 'kam');
@@ -169,7 +159,7 @@ test.describe('KAM intake', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'New intake' })).toBeVisible();
 
     // No Sales-unknowable inputs anywhere in intake.
-    await pickOpportunity(page, 'Jar');
+    await pickOpportunity(page, request, 'Jar');
     await fillCustomerAndProduct(page);
     for (const forbidden of [
       /plant/i,
@@ -244,10 +234,11 @@ test.describe('KAM intake', () => {
 
   test('no drawing and a missing gram weight: blocked, with the field named (T-022)', async ({
     page,
+    request,
   }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
-    await pickOpportunity(page, 'Bottle');
+    await pickOpportunity(page, request, 'Bottle');
     await fillCustomerAndProduct(page, { gramWeight: null });
     // F-015: modify an existing mold reveals what Engineering needs.
     await page.getByTestId('modify-existing-mold').check();
@@ -281,10 +272,11 @@ test.describe('KAM intake', () => {
 
   test('the commercial inputs are optional: a blank one is a warning and Submit stays enabled (FB-11)', async ({
     page,
+    request,
   }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
-    await pickOpportunity(page, 'Canister');
+    await pickOpportunity(page, request, 'Canister');
     await fillCustomerAndProduct(page, { commercial: false });
     await page.getByRole('button', { name: /^Next/ }).click();
     await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '4');
@@ -302,10 +294,11 @@ test.describe('KAM intake', () => {
 
   test('"Other" PCR, resin or additive asks for the customer-specified value, which blocks submit until given (FB-09)', async ({
     page,
+    request,
   }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
-    await pickOpportunity(page, 'Bottle');
+    await pickOpportunity(page, request, 'Bottle');
     await fillCustomerAndProduct(page, { commercial: false });
 
     // PCR = Other reveals a required detail; picking a listed level hides and clears it.
@@ -370,10 +363,11 @@ test.describe('KAM intake', () => {
 
   test('a request class other than CCQ points to the pricing application (F-067)', async ({
     page,
+    request,
   }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
-    await pickOpportunity(page, 'Closure');
+    await pickOpportunity(page, request, 'Closure');
     await page.getByRole('button', { name: /^Next/ }).click();
     await page.locator('#intake-request-class').selectOption({ label: 'Stock / stock-plus' });
     await expect(page.getByTestId('request-class-redirect')).toContainText(
@@ -385,10 +379,10 @@ test.describe('KAM intake', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Discard draft' }).click();
   });
 
-  test('a changed ship-to needs a reason and keeps the original', async ({ page }) => {
+  test('a changed ship-to needs a reason and keeps the original', async ({ page, request }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
-    await pickOpportunity(page, 'Bottle');
+    await pickOpportunity(page, request, 'Bottle');
     const change = page.getByRole('button', { name: 'Change destination' });
     test.skip(!(await change.isVisible()), 'this opportunity has no default ship-to');
     await change.click();
@@ -410,13 +404,13 @@ test.describe('KAM intake', () => {
 test.describe('KAM intake at 390 × 844', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test('completes intake on a phone with no horizontal scroll', async ({ page }) => {
+  test('completes intake on a phone with no horizontal scroll', async ({ page, request }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
     await expect(page.getByText('Step 1 of 4')).toBeVisible();
     expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
 
-    await pickOpportunity(page, 'Preform');
+    await pickOpportunity(page, request, 'Preform');
     expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
     await fillCustomerAndProduct(page);
     expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);

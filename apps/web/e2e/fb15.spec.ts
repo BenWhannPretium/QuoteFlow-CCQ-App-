@@ -2,23 +2,17 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
 import { signInAs } from './personas';
-import { DEV_USER_HEADER, freeOpportunities, isoDaysFromNow, submitQuote } from './quotes';
+import {
+  DEV_USER_HEADER,
+  freeOpportunities,
+  isoDaysFromNow,
+  pickOpportunity,
+  submitQuote,
+} from './quotes';
 
 // FB-15 (Nov 13 walkthrough): the intake submits, required fields stand out, "Other" asks, a failed
 // autosave stops the submit, a refused submit names its fields, and a send-back lands on the field.
 // Synthetic data only (SF_MODE=fake).
-
-async function pickOpportunity(page: Page, search: string) {
-  await page.getByRole('button', { name: 'All', exact: true }).click();
-  await page.getByLabel('Find the Salesforce opportunity').fill(search);
-  const free = page
-    .getByTestId('opportunity-card')
-    .filter({ has: page.getByRole('button', { name: /^Use / }) })
-    .first();
-  await expect(free).toBeVisible({ timeout: 15_000 });
-  await free.getByRole('button', { name: /^Use / }).click();
-  await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '2');
-}
 
 async function selectIfEmpty(page: Page, id: string, label: string) {
   const select = page.locator(`select#${id}`);
@@ -82,10 +76,11 @@ async function fillRequired(page: Page) {
 test.describe('FB-15 intake fixes', () => {
   test('KAM fills everything; a failed autosave stops the submit; then it submits and lands on the quote', async ({
     page,
+    request,
   }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
-    await pickOpportunity(page, 'Handleware');
+    await pickOpportunity(page, request, 'Handleware');
     await fillRequired(page);
     await page.getByRole('button', { name: /^Next/ }).click();
     await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '4');
@@ -128,10 +123,11 @@ test.describe('FB-15 intake fixes', () => {
 
   test('a refused submit lists each field by its label with a Fix link that lands on it', async ({
     page,
+    request,
   }) => {
     await signInAs(page, 'kam');
     await page.goto('/intake/new');
-    await pickOpportunity(page, 'Jug');
+    await pickOpportunity(page, request, 'Jug');
     await fillRequired(page);
     await page.getByRole('button', { name: /^Next/ }).click();
     await page.locator('#intake-drawing-status').selectOption({ label: 'Coming' });
