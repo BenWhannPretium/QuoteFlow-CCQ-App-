@@ -27,9 +27,11 @@ describe('draft items', () => {
   it('normalising moves the product fields into items and keeps the request fields', () => {
     const data = IntakeDraftData.parse({ market: 'FOOD', resin: 'HDPE', containerSize: '16 oz' });
     const out = normalizeDraftData(data, newKey);
+    const key = out.items![0]!.key;
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
     expect(out).toEqual({
       market: 'FOOD',
-      items: [{ key: expect.any(String), resin: 'HDPE', containerSize: '16 oz' }],
+      items: [{ key, resin: 'HDPE', containerSize: '16 oz' }],
     });
     expect(out).not.toHaveProperty('resin');
   });

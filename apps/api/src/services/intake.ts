@@ -277,9 +277,7 @@ export class IntakeService {
     if (issues.length === 0) return;
     // FB-19: `itemNumbers` maps a position in `written.items` to the item's number in the draft.
     const itemNo = (i: { item?: number }) =>
-      i.item === undefined || itemCount <= 1
-        ? undefined
-        : (itemNumbers?.[i.item - 1] ?? i.item);
+      i.item === undefined || itemCount <= 1 ? undefined : (itemNumbers?.[i.item - 1] ?? i.item);
     throw new IntakeError(422, INTAKE_PROBLEM_CODES.invalidListValue, issues[0]!.message, {
       errors: issues.map((i) => ({
         path: camelField(i.field),
