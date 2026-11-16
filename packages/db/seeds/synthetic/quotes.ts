@@ -11,6 +11,7 @@ import {
   ROI_REQUIRED_WHEN_SEED,
   roiRequirement,
   CAPACITY_BASIS_SEED,
+  DRAWING_ATTACHMENT_KINDS,
   computeUtilization,
   storedUtilizationPct,
 } from '@ccq/domain';
@@ -1080,6 +1081,10 @@ async function addExtras(
           : rng.pick(['pdf', 'xlsx']);
     await insertAttachment(db, {
       quoteId,
+      // FB-19: a drawing belongs to an item, as the app records it (item 1 here). No draw is used.
+      quoteItemId: (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(kind)
+        ? await ensurePrimaryItem(db, quoteId)
+        : null,
       kind,
       fileName: `${kind}-${k + 1}.${ext}`,
       size: rng.int(40, 9_000) * 1_024,

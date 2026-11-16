@@ -148,11 +148,12 @@ WHERE qi."quote_id" = er."quote_id" AND qi."item_no" = 1 AND er."quote_item_id" 
 UPDATE "capacity_evidence" ce SET "quote_item_id" = qi."id"
 FROM "quote_item" qi
 WHERE qi."quote_id" = ce."quote_id" AND qi."item_no" = 1 AND ce."quote_item_id" IS NULL;--> statement-breakpoint
--- The drawings already on a quote are item 1's (the drawing-or-minimum-spec rule is checked per item).
+-- The drawings already on a quote (a bottle or competitor drawing, DRAWING_ATTACHMENT_KINDS) are item 1's: the
+-- drawing-or-minimum-spec rule is checked per item.
 UPDATE "attachment" a SET "quote_item_id" = qi."id"
 FROM "quote_item" qi
 WHERE qi."quote_id" = a."quote_id" AND qi."item_no" = 1 AND a."quote_item_id" IS NULL
-  AND a."kind" IN ('bottle_drawing', 'spec', 'competitor_drawing');--> statement-breakpoint
+  AND a."kind" IN ('bottle_drawing', 'competitor_drawing');--> statement-breakpoint
 -- Intake drafts: the product fields move into data.items[0] (the request fields stay at the top level).
 -- The item gets a key (the wizard's handle; the quote item id once the quote exists). A draft that
 -- already has items is left alone; the app still reads a draft without items as one item.

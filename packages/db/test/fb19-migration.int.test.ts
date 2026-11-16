@@ -114,8 +114,8 @@ describe('migration 0047: items for existing quotes and drafts', () => {
       }
       const [drawings] = await rows<{ n: number; other: number }>(
         tx,
-        sql`select count(*) filter (where kind in ('bottle_drawing', 'spec', 'competitor_drawing') and quote_id is not null and quote_item_id is null)::int as n,
-                   count(*) filter (where kind not in ('bottle_drawing', 'spec', 'competitor_drawing') and quote_item_id is not null)::int as other
+        sql`select count(*) filter (where kind in ('bottle_drawing', 'competitor_drawing') and quote_id is not null and quote_item_id is null)::int as n,
+                   count(*) filter (where kind not in ('bottle_drawing', 'competitor_drawing') and quote_item_id is not null)::int as other
             from attachment`,
       );
       expect(drawings).toEqual({ n: 0, other: 0 });
@@ -169,17 +169,55 @@ describe('migration 0047: items for existing quotes and drafts', () => {
 
   it('on the seeded database (items already there) the data half adds nothing', async () => {
     await rolledBack(async (tx) => {
-      // Only drafts with items (a draft written raw by another test has none and would be backfilled).
-      const snapshot = () =>
+      // What already has its item must not change. Rows another test file wrote raw and kept (a draft
+      // with no items, a drawing with no item) are not "already there": they are what the data half is
+      // for, and are checked separately below.
+      const drafts = () =>
+        rows<{ id: string; data: string; has: boolean }>(
+          tx,
+          sql`select id, data::text as data, data ? 'items' as has from quote_draft order by id`,
+        );
+      const files = () =>
+        rows<{ id: string; item: string | null; drawing: boolean }>(
+          tx,
+          sql`select id, quote_item_id::text as item,
+                     (quote_id is not null and kind in ('bottle_drawing', 'competitor_drawing')) as drawing
+              from attachment order by id`,
+        );
+      const linked = () =>
         rows(
           tx,
           sql`select (select count(*)::int from quote_item) as items,
                      (select string_agg(id::text || quote_item_id::text, ',' order by id) from eng_review) as reviews,
-                     (select string_agg(data::text, ',' order by id) from quote_draft where data ? 'items') as drafts`,
+                     (select string_agg(id::text || quote_item_id::text, ',' order by id) from capacity_evidence) as capacity`,
         );
-      const before = await snapshot();
+      const [draftsBefore, filesBefore, linkedBefore] = [
+        await drafts(),
+        await files(),
+        await linked(),
+      ];
       await run(tx, DATA);
-      expect(await snapshot()).toEqual(before);
+      expect(await linked()).toEqual(linkedBefore);
+      const draftsAfter = new Map((await drafts()).map((d) => [d.id, d]));
+      for (const d of draftsBefore) {
+        const after = draftsAfter.get(d.id)!;
+        if (d.has) expect(after.data, d.id).toBe(d.data);
+        // A draft that had no items gets exactly one, as on an environment before 0047.
+        else expect((JSON.parse(after.data) as { items: unknown[] }).items, d.id).toHaveLength(1);
+      }
+      const filesAfter = new Map((await files()).map((f) => [f.id, f]));
+      const item1 = await rows<{ attachment: string; item: string }>(
+        tx,
+        sql`select a.id as attachment, qi.id::text as item
+            from attachment a join quote_item qi on qi.quote_id = a.quote_id and qi.item_no = 1`,
+      );
+      const item1Of = new Map(item1.map((r) => [r.attachment, r.item]));
+      for (const f of filesBefore) {
+        const after = filesAfter.get(f.id)!;
+        if (f.item !== null || !f.drawing) expect(after.item, f.id).toBe(f.item);
+        // A quote's drawing with no item is item 1's.
+        else expect(after.item, f.id).toBe(item1Of.get(f.id));
+      }
     });
   });
 
