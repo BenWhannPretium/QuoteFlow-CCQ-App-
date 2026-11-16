@@ -1566,6 +1566,22 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Run:** locally (Windows, 5 workers, each on a fresh config-only database), `workflow-integrity.spec.ts` T-005 repeated 8 times: 8 passed (2 of 6 failed before the autosave fix); the full suite twice: every intake, FB-15 and FB-19 picker spec passed in both; besides them run 1 had `g1.spec.ts` time out (it does on `main`'s helpers too under this load) and one `final-review-unblock.spec.ts` phone failure, run 2 only the two pricing-history `.xlsx` specs, which fail on this machine on `main` as well and pass in CI. Web unit tests 246 passed (3 new), lint and typecheck clean. Also: the FB-19 change-log rows are `Merged`.
 - **Prompt:** `prompts/feedback/FB-19-multi-item-quotes.md`
 
+## Offer letter (FB-20, added 2026-11-16)
+
+**Source:** Bailey Schmitt's Teams chat with Ben, 2026-11-16: generate the customer quote document ("offer letter") inside QuoteFlow, from the old Standard Quote Template brought up to current Pretium brand standards. This is tracker row **F-070** (P1, "Template (Pricing, Legal)") pulled forward; its priority stays P1 unless Ben and Bailey say otherwise. Ben's decisions: the price comes from the costing workbook summary (FB-14), the letter is generated only after Final Review, one letter per quote with a row per item, and the wording is provisional until Legal approves it.
+
+### FB-20: Offer letter · **Not started** · Ben (most capable model · high)
+- **Why:** after Final Review approves a quote, the KAM still builds the customer document by hand outside QuoteFlow. The letter should come from the approved quote's own facts and the costing workbook's price figures, not be retyped.
+- **Done when:**
+  - [ ] plan committed first (`feedback/fb20-plan.md`); the old template's structure noted in `feedback/inputs/`
+  - [ ] `offer_letter` and `offer_letter_item` (RLS, Fabric-safe), the `offer_letter` attachment kind, migration 0048
+  - [ ] per-item and offer fields in the model summary, proved on a synthetic three-item costing workbook; the real-layout map stays inactive
+  - [ ] readiness rules, the letter model, the Word renderer in the Pretium brand, the unapproved-wording flag, `offer.generate` / `offer.read`
+  - [ ] the Offer letter card, generate screen and earlier letters
+  - [ ] tests (domain, renderer, API integration, permission matrix, Playwright), `pnpm verify`, close-out
+- **Waiting on:** the template's owner and Legal (approved wording, entity name and address); Gemma Cebolla (the price's unit, what belongs on the Molds and Change Parts lines, and the new costing template with one column per item); Bailey Schmitt (who may generate, Word only or PDF too, where the Attention contact comes from).
+- **Prompt:** `prompts/feedback/FB-20-offer-letter.md`
+
 ## Post-MVP backlog (P1 / P2, not before Nov 13)
 
 | Item | Priority | Blocked by |
@@ -1590,7 +1606,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 | Structured multi-scenario quotes, e.g. PCR levels or plants (F-056) | P1 | Tracker D-017; FB-02 ships the variants note |
 | Utilization basis on capacity evidence (F-060) | P1 | Tracker D-021 |
 | Stocking program and returnable dunnage at intake (F-063) | P1 | Pricing to confirm |
-| Customer quote document from a template (F-070) | P1 | Template (Pricing, Legal) |
+| Customer quote document from a template (F-070) | P1 | Template (Pricing, Legal); first version is FB-20 (above) |
 | Operations alignment check on large projects (F-071) | P1 | Tracker D-022 |
 | Expected turnaround by priority and a missed-timeline KPI (F-072) | P1 | Tracker D-020 |
 | QuoteFlow link in the Pretium portal (F-077) | P1 | Portal owner |
