@@ -4,6 +4,7 @@ import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
+import { primaryItemIds, scoringReviewsByQuote } from './scoring';
 import type { ValueListKey } from '../schema/enums';
 import {
   appSetting,
@@ -14,6 +15,7 @@ import {
   gateOutcomeDefinition,
   integrationRun,
   quote,
+  quoteItem,
   reasonCode,
   scoringModel,
   stageDefinition,
@@ -102,41 +104,51 @@ export async function nextSort(
   return (row?.max ?? 0) + 10;
 }
 
-/** Where each value list is stored on an open quote (quote columns, or the engineering review). */
+/** FB-19: a product value is held by any of the quote's items (item 1 is mirrored on the quote). */
+const onAnyItem = (condition: SQL): SQL =>
+  sql`exists (select 1 from ${quoteItem} where ${quoteItem.quoteId} = ${quote.id} and ${condition})`;
+/** FB-19: an engineering value is held by any of the quote's review rows (one per item). */
+const onAnyReview = (condition: SQL): SQL =>
+  sql`exists (select 1 from ${engReview} where ${engReview.quoteId} = ${quote.id} and ${condition})`;
+
+/**
+ * Where each value list is stored on an open quote (quote columns, FB-19 any item, or any item's
+ * engineering review).
+ */
 function usageCondition(listKey: ValueListKey, code: string): SQL {
   switch (listKey) {
     case 'product_family':
-      return eq(quote.productFamily, code);
+      return onAnyItem(sql`${quoteItem.productFamily} = ${code}`);
     case 'market':
       return eq(quote.market, code);
     // FB-12 (F-073)
     case 'sub_market':
       return eq(quote.subMarket, code);
     case 'resin':
-      return eq(quote.resin, code);
+      return onAnyItem(sql`${quoteItem.resin} = ${code}`);
     case 'component':
-      return sql`${code} = any(${quote.components})`;
+      return onAnyItem(sql`${code} = any(${quoteItem.components})`);
     case 'drawing_status':
-      return eq(quote.drawingStatus, code);
+      return onAnyItem(sql`${quoteItem.drawingStatus} = ${code}`);
     case 'neck_finish':
       return eq(quote.neckFinish, code);
     // FB-02 (F-010, F-055, F-023, F-013)
     case 'neck_diameter':
-      return eq(quote.neckDiameter, code);
+      return onAnyItem(sql`${quoteItem.neckDiameter} = ${code}`);
     case 'neck_finish_type':
-      return eq(quote.neckFinishType, code);
+      return onAnyItem(sql`${quoteItem.neckFinishType} = ${code}`);
     case 'neck_special_feature':
-      return eq(quote.neckSpecialFeature, code);
+      return onAnyItem(sql`${quoteItem.neckSpecialFeature} = ${code}`);
     case 'pcr_level':
-      return eq(quote.pcrLevel, code);
+      return onAnyItem(sql`${quoteItem.pcrLevel} = ${code}`);
     case 'color_type':
-      return eq(quote.colorType, code);
+      return onAnyItem(sql`${quoteItem.colorType} = ${code}`);
     case 'additive':
-      return eq(quote.additive, code);
+      return onAnyItem(sql`${quoteItem.additive} = ${code}`);
     case 'labels_purchased_by':
-      return eq(quote.labelsPurchasedBy, code);
+      return onAnyItem(sql`${quoteItem.labelsPurchasedBy} = ${code}`);
     case 'decoration_type':
-      return eq(quote.decorationType, code);
+      return onAnyItem(sql`${quoteItem.decorationType} = ${code}`);
     // FB-11 (F-080)
     // FB-11 asks it at intake; FB-08 (F-021) records the agreed terms from the same list.
     case 'requested_payment_terms':
@@ -147,15 +159,15 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(quote.freightType, code);
 
     case 'packaging_type':
-      return eq(quote.packagingType, code);
+      return onAnyItem(sql`${quoteItem.packagingType} = ${code}`);
     case 'request_class':
       return eq(quote.requestClass, code);
     case 'process_type':
-      return eq(engReview.processType, code);
+      return onAnyReview(sql`${engReview.processType} = ${code}`);
     case 'machine_type':
-      return eq(engReview.machineType, code);
+      return onAnyReview(sql`${engReview.machineType} = ${code}`);
     case 'plant':
-      return eq(engReview.plantCode, code);
+      return onAnyReview(sql`${engReview.plantCode} = ${code}`);
     case 'tooling_funding_model':
       return eq(quote.toolingFundingModel, code);
     // FB-08 (D-029, F-068)
@@ -175,7 +187,6 @@ export async function openQuotesUsingValue(
   const rows = await db
     .select({ quoteNumber: quote.quoteNumber })
     .from(quote)
-    .leftJoin(engReview, eq(engReview.quoteId, quote.id))
     .where(and(ne(quote.status, 'closed'), usageCondition(listKey, code)))
     .orderBy(asc(quote.quoteNumber));
   return { count: rows.length, quoteNumbers: rows.slice(0, 10).map((r) => r.quoteNumber) };
@@ -308,7 +319,8 @@ export async function loadScoringFactsMany(
           .where(inArray(customer.id, customerIds))
       : Promise.resolve([]),
   ]);
-  const reviewBy = new Map(reviews.map((r) => [r.quoteId, r]));
+  // FB-19: one review row per item; scoring reads the primary row with the items' capital summed.
+  const reviewBy = scoringReviewsByQuote(reviews, await primaryItemIds(db, ids));
   const customerBy = new Map(customers.map((c) => [c.id, c]));
   for (const q of quotes) {
     const cust = q.customerId ? customerBy.get(q.customerId) : undefined;

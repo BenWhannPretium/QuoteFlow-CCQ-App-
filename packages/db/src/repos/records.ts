@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzl
 
 import type { DbOrTx } from '../client';
 import { excludedSet, first } from './_util';
+import { ensurePrimaryItem } from './items';
 import {
   attachment,
   capacityEvidence,
@@ -13,6 +14,7 @@ import {
   pricingRecord,
   quote,
   quoteHold,
+  quoteItem,
   stageHistory,
 } from '../schema/index';
 
@@ -40,8 +42,27 @@ export const listGateDecisions = (db: DbOrTx, quoteId: string) =>
     .where(eq(gateDecision.quoteId, quoteId))
     .orderBy(asc(gateDecision.decidedAt));
 
+/**
+ * The quote's PRIMARY review row (item 1's). FB-19: a quote has one review row per item; the quote-level
+ * engineering fields (acceptance, the capacity sign-off, capacity ready) are kept on this row, so every
+ * reader of those is unchanged. A per-item reader uses `getEngReviewForItem` / `listEngReviews`.
+ */
 export const getEngReview = async (db: DbOrTx, quoteId: string) =>
-  first(await db.select().from(engReview).where(eq(engReview.quoteId, quoteId)));
+  first(
+    await db
+      .select({ row: engReview })
+      .from(engReview)
+      .innerJoin(quoteItem, eq(quoteItem.id, engReview.quoteItemId))
+      .where(and(eq(engReview.quoteId, quoteId), eq(quoteItem.itemNo, 1))),
+  )?.row;
+
+/** FB-19: one item's review row. */
+export const getEngReviewForItem = async (db: DbOrTx, quoteItemId: string) =>
+  first(await db.select().from(engReview).where(eq(engReview.quoteItemId, quoteItemId)));
+
+/** FB-19: every review row of a quote (one per item that has one). */
+export const listEngReviews = (db: DbOrTx, quoteId: string) =>
+  db.select().from(engReview).where(eq(engReview.quoteId, quoteId));
 
 const ENG_REVIEW_FIELDS = [
   'acceptedAt',
@@ -75,30 +96,51 @@ const ENG_REVIEW_FIELDS = [
   'unitsPerPallet',
 ] as const;
 
-export async function upsertEngReview(db: DbOrTx, values: typeof engReview.$inferInsert) {
+/**
+ * Insert or update an item's review row. FB-19: `quoteItemId` names the item; omitted, the row is the
+ * primary item's (item 1, made from the quote's columns when the quote has no item yet), which is where
+ * the quote-level fields live and what a one-item quote has always written.
+ */
+export async function upsertEngReview(
+  db: DbOrTx,
+  values: Omit<typeof engReview.$inferInsert, 'quoteItemId'> & { quoteItemId?: string },
+) {
+  const quoteItemId = values.quoteItemId ?? (await ensurePrimaryItem(db, values.quoteId));
   const [row] = await db
     .insert(engReview)
-    .values(values)
+    .values({ ...values, quoteItemId })
     .onConflictDoUpdate({
-      target: engReview.quoteId,
+      // FB-19: one review row per item.
+      target: engReview.quoteItemId,
       set: { ...excludedSet(engReview, ENG_REVIEW_FIELDS), updatedAt: new Date() },
     })
     .returning();
   return row!;
 }
 
-export const listCapacityEvidence = (db: DbOrTx, quoteId: string) =>
+/** The quote's capacity rows (every item's), or FB-19 one item's when `quoteItemId` is given. */
+export const listCapacityEvidence = (db: DbOrTx, quoteId: string, quoteItemId?: string) =>
   db
     .select()
     .from(capacityEvidence)
-    .where(eq(capacityEvidence.quoteId, quoteId))
+    .where(
+      and(
+        eq(capacityEvidence.quoteId, quoteId),
+        quoteItemId ? eq(capacityEvidence.quoteItemId, quoteItemId) : undefined,
+      ),
+    )
     .orderBy(asc(capacityEvidence.analysisDate));
 
+/** FB-19: `quoteItemId` names the item; omitted, the row is the primary item's (as `upsertEngReview`). */
 export async function insertCapacityEvidence(
   db: DbOrTx,
-  values: typeof capacityEvidence.$inferInsert,
+  values: Omit<typeof capacityEvidence.$inferInsert, 'quoteItemId'> & { quoteItemId?: string },
 ) {
-  const [row] = await db.insert(capacityEvidence).values(values).returning();
+  const quoteItemId = values.quoteItemId ?? (await ensurePrimaryItem(db, values.quoteId));
+  const [row] = await db
+    .insert(capacityEvidence)
+    .values({ ...values, quoteItemId })
+    .returning();
   return row!;
 }
 

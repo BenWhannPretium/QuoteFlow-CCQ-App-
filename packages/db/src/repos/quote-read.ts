@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
+import { primaryEngReviewOn } from './items';
 import {
   appUser,
   customer,
@@ -30,16 +31,19 @@ const summaryColumns = {
 };
 
 function summaryQuery(db: DbOrTx) {
-  return db
-    .select(summaryColumns)
-    .from(quote)
-    .leftJoin(
-      sfOpportunitySnapshot,
-      eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
-    )
-    .leftJoin(customer, eq(customer.id, quote.customerId))
-    .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
-    .leftJoin(engReview, eq(engReview.quoteId, quote.id));
+  return (
+    db
+      .select(summaryColumns)
+      .from(quote)
+      .leftJoin(
+        sfOpportunitySnapshot,
+        eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
+      )
+      .leftJoin(customer, eq(customer.id, quote.customerId))
+      .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
+      // FB-19: the primary item's review row (one row per quote).
+      .leftJoin(engReview, primaryEngReviewOn(quote.id))
+  );
 }
 
 /**

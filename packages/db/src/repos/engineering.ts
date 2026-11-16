@@ -3,6 +3,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
+import { primaryEngReviewOn, primaryItemId } from './items';
 import { clearLeadReview } from './lead-review';
 import {
   appUser,
@@ -28,37 +29,40 @@ const scheduler = alias(appUser, 'scheduler');
  * Engineer sees only their assignments.
  */
 export function listEngQueueRows(db: DbOrTx, stageKey: string) {
-  return db
-    .select({
-      quote,
-      opportunityName: sfOpportunitySnapshot.name,
-      sfCloseDate: sfOpportunitySnapshot.closeDate,
-      customerName: customer.name,
-      customerStatus: customer.status,
-      kamName: appUser.displayName,
-      processType: engReview.processType,
-      acceptedAt: engReview.acceptedAt,
-      // FB-16: the capacity sign-off of this stay and the production scheduler's name.
-      capacitySignoffStatus: engReview.capacitySignoffStatus,
-      assignedEngineerName: engineer.displayName,
-      assignedSchedulerName: scheduler.displayName,
-      enteredQueueAt: sql<Date | null>`(
+  return (
+    db
+      .select({
+        quote,
+        opportunityName: sfOpportunitySnapshot.name,
+        sfCloseDate: sfOpportunitySnapshot.closeDate,
+        customerName: customer.name,
+        customerStatus: customer.status,
+        kamName: appUser.displayName,
+        processType: engReview.processType,
+        acceptedAt: engReview.acceptedAt,
+        // FB-16: the capacity sign-off of this stay and the production scheduler's name.
+        capacitySignoffStatus: engReview.capacitySignoffStatus,
+        assignedEngineerName: engineer.displayName,
+        assignedSchedulerName: scheduler.displayName,
+        enteredQueueAt: sql<Date | null>`(
         select max(sh.entered_at) from ${stageHistory} sh
         where sh.quote_id = ${quote.id} and sh.stage_key = ${stageKey} and sh.exited_at is null
       )`.mapWith((v: string | Date | null) => (v ? new Date(v) : null)),
-    })
-    .from(quote)
-    .leftJoin(
-      sfOpportunitySnapshot,
-      eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
-    )
-    .leftJoin(customer, eq(customer.id, quote.customerId))
-    .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
-    .leftJoin(engReview, eq(engReview.quoteId, quote.id))
-    .leftJoin(engineer, eq(engineer.id, quote.assignedEngineerId))
-    .leftJoin(scheduler, eq(scheduler.id, quote.assignedSchedulerId))
-    .where(and(eq(quote.stageKey, stageKey), ne(quote.status, 'closed')))
-    .limit(500);
+      })
+      .from(quote)
+      .leftJoin(
+        sfOpportunitySnapshot,
+        eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
+      )
+      .leftJoin(customer, eq(customer.id, quote.customerId))
+      .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
+      // FB-19: the primary item's review row carries the quote-level acceptance and capacity sign-off.
+      .leftJoin(engReview, primaryEngReviewOn(quote.id))
+      .leftJoin(engineer, eq(engineer.id, quote.assignedEngineerId))
+      .leftJoin(scheduler, eq(scheduler.id, quote.assignedSchedulerId))
+      .where(and(eq(quote.stageKey, stageKey), ne(quote.status, 'closed')))
+      .limit(500)
+  );
 }
 
 export type EngQueueRow = Awaited<ReturnType<typeof listEngQueueRows>>[number];
@@ -140,12 +144,20 @@ export async function listAssignableSchedulers(
   return [...byId.values()];
 }
 
-/** FB-16 (W13-15): the scheduler was told capacity can start (once per stay). No-op without a review row. */
+/**
+ * FB-16 (W13-15): the scheduler was told capacity can start (once per stay). No-op without a review row.
+ * FB-19: a quote-level fact, kept on the primary item's row.
+ */
 export async function markCapacityReady(db: DbOrTx, quoteId: string, at: Date) {
   await db
     .update(engReview)
     .set({ capacityReadyAt: at, updatedAt: new Date() })
-    .where(eq(engReview.quoteId, quoteId));
+    .where(
+      and(
+        eq(engReview.quoteId, quoteId),
+        sql`${engReview.quoteItemId} = ${primaryItemId(engReview.quoteId)}`,
+      ),
+    );
 }
 
 /** A user with their roles (the assignee check). Identity tables have no RLS. */

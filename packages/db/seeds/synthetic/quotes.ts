@@ -31,6 +31,7 @@ import {
   insertHandoffRecord,
   insertOverride,
   insertQuote,
+  ensurePrimaryItem,
   loadQuoteState,
   loadScoringFacts,
   nextQuoteNumber,
@@ -552,6 +553,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       createdBy: kam.id,
     });
     const quoteId = quoteRow.id;
+    // FB-19: every quote has its item 1 (from the quote's own columns). No draw is used, so the rest of
+    // the data set is unchanged.
+    await ensurePrimaryItem(db, quoteId);
     await db.insert(stageHistory).values({
       quoteId,
       stageKey: 'INTAKE',

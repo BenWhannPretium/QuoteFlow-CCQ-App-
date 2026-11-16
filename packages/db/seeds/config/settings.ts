@@ -1,4 +1,7 @@
 import {
+  OPPORTUNITY_ACTIVE_QUOTE_MESSAGE_SEED,
+  OPPORTUNITY_ACTIVE_QUOTES_SEED,
+  QUOTE_ITEMS_MAX_SEED,
   CAPITAL_NEEDED_ABOVE_USD_SEED,
   CAPITAL_NOTICE_SEED,
   ESCALATION_ROUTES_SEED,
@@ -577,6 +580,26 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: ATTACHMENT_SETTINGS_SEED,
     description:
       'B-16 (D-SP): folders relative to the document library root ({quoteFolder} with {quote_number}, {draftFolder} with {draft_id}, {removedFolder} for soft deletes) and how many hours an uploader may remove their own file (Admin always may). Folder convention agreed at M7 with Bailey (ERF restructure for Ranger); /CCQ/{quote_number}/ until then.',
+  },
+  // ── FB-19 multi-item quotes (W13-32, W13-33, D-005 open). Provisional; the same values and words as
+  // migration 0047.
+  {
+    key: 'quote_items_max',
+    value: QUOTE_ITEMS_MAX_SEED,
+    description:
+      'FB-19 (W13-32, D-005 open): the most items one quote may hold. Checked on every draft save and at submit. Provisional.',
+  },
+  {
+    key: 'opportunity_active_quotes',
+    value: OPPORTUNITY_ACTIVE_QUOTES_SEED,
+    description:
+      'FB-19 (W13-33, D-005 open): may an opportunity have more than one active quote? one = no (409, as before FB-19); warn = yes, after the KAM confirms the warning that names the open quote (a KAM may put hot items in a separate quote). Provisional.',
+  },
+  {
+    key: 'opportunity_active_quote_message',
+    value: OPPORTUNITY_ACTIVE_QUOTE_MESSAGE_SEED,
+    description:
+      'FB-19 (W13-33): the warning a KAM sees when starting an intake on an opportunity that already has an active quote ({quoteNumber} and {kamName} are filled in; several open quotes are listed). Provisional wording.',
   },
 ];
 

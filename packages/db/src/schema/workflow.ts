@@ -10,6 +10,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  smallint,
   text,
   uniqueIndex,
   uuid,
@@ -227,25 +228,33 @@ export const quote = documented(
       description: c(text('description'), 'Free-text description of the request.', KAM),
       structuredDescription: c(
         jsonb('structured_description'),
-        'Structured description, e.g. {size, shape, finish, decoration}.',
+        'Structured description, e.g. {size, shape, finish, decoration}. FB-19: size and standard mirror item 1 (quote_item.container_size, standard_description).',
         KAM,
       ),
-      productFamily: c(text('product_family'), 'value_list product_family code.', KAM),
+      productFamily: c(
+        text('product_family'),
+        'value_list product_family code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
+        KAM,
+      ),
       market: c(text('market'), 'value_list market code.', KAM),
       subMarket: c(
         text('sub_market'),
         "value_list sub_market code (FB-12); belongs to the quote's market. Optional. Sets the strategic-fit score.",
         KAM,
       ),
-      resin: c(text('resin'), 'value_list resin code.', KAM),
+      resin: c(
+        text('resin'),
+        'value_list resin code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
+        KAM,
+      ),
       components: c(
         text('components').array().notNull().default([]),
-        'value_list component codes.',
+        'value_list component codes. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       estAnnualVolume: c(
         bigint('est_annual_volume', { mode: 'number' }),
-        'Estimated annual volume (units).',
+        "Estimated annual volume (units). FB-19: the sum of the items' volumes (quote_item.est_annual_volume), written by the server at submit.",
         KAM,
       ),
       estAnnualRevenue: c(money('est_annual_revenue'), 'Estimated annual revenue (USD).', KAM),
@@ -256,7 +265,7 @@ export const quote = documented(
       ),
       estAnnualVolumeConfirmed: c(
         boolean('est_annual_volume_confirmed').notNull().default(false),
-        'The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real.',
+        "The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real. FB-19: true only when every item's volume is confirmed.",
         KAM,
       ),
       expectedCloseDate: c(
@@ -271,10 +280,14 @@ export const quote = documented(
       ),
       productNeededBy: c(
         date('product_needed_by', { mode: 'string' }),
-        "FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by.",
+        "FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.",
         KAM,
       ),
-      drawingStatus: c(text('drawing_status'), 'value_list drawing_status code.', KAM),
+      drawingStatus: c(
+        text('drawing_status'),
+        'value_list drawing_status code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
+        KAM,
+      ),
       neckFinish: c(
         text('neck_finish'),
         'Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0028 split it into neck_diameter / neck_finish_type.',
@@ -283,148 +296,148 @@ export const quote = documented(
       // FB-02 (F-010): the neck as three pick-lists (Jim Zweifel's lists, provisional).
       neckDiameter: c(
         text('neck_diameter'),
-        'FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM).',
+        'FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       neckDiameterCustom: c(
         text('neck_diameter_custom'),
-        'FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise.',
+        'FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       neckFinishType: c(
         text('neck_finish_type'),
-        'FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM).',
+        'FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       neckFinishTypeCustom: c(
         text('neck_finish_type_custom'),
-        'FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise.',
+        'FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       neckSpecialFeature: c(
         text('neck_special_feature'),
-        'FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM).',
+        'FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       neckSpecialFeatureCustom: c(
         text('neck_special_feature_custom'),
-        'FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise.',
+        'FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       // FB-02 (F-011, F-055, F-023, F-075): resin grade, PCR, color, additives, variants.
       resinCustomerSpecified: c(
         boolean('resin_customer_specified').notNull().default(false),
-        'FB-02 (F-011): the customer specifies the resin; resin_grade names it.',
+        'FB-02 (F-011): the customer specifies the resin; resin_grade names it. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       resinGrade: c(
         text('resin_grade'),
-        'FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". FB-09: also required when resin is Other.',
+        'FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". FB-09: also required when resin is Other. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       pcrLevel: c(
         text('pcr_level'),
-        'FB-02 (F-055): value_list pcr_level code (0% / Virgin, 25, 30, 50, 100 %, Other).',
+        'FB-02 (F-055): value_list pcr_level code (0% / Virgin, 25, 30, 50, 100 %, Other). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       colorType: c(
         text('color_type'),
-        'FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM).',
+        'FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       colorDescription: c(
         text('color_description'),
-        'FB-02 (F-023): the custom color (≤ 120); null for Natural.',
+        'FB-02 (F-023): the custom color (≤ 120); null for Natural. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       pcrLevelOther: c(
         text('pcr_level_other'),
-        'FB-09 (Danielle Leu): the customer-specified PCR level (≤ 120) when pcr_level is Other; null otherwise.',
+        'FB-09 (Danielle Leu): the customer-specified PCR level (≤ 120) when pcr_level is Other; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       additive: c(
         text('additive'),
-        'FB-09: value_list additive code (None / UV / Barrier / Antistat / Impact Modifier / Other). Not backfilled: older quotes keep their additives text only.',
+        'FB-09: value_list additive code (None / UV / Barrier / Antistat / Impact Modifier / Other). Not backfilled: older quotes keep their additives text only. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       additives: c(
         text('additives'),
-        'FB-02 (F-023): additives note (≤ 200). FB-09: required, as the customer-specified additive, when additive is Other.',
+        'FB-02 (F-023): additives note (≤ 200). FB-09: required, as the customer-specified additive, when additive is Other. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       // FB-02 (F-013): component follow-ups (written only while the component is picked).
       linerSpec: c(
         text('liner_spec'),
-        'FB-02 (F-013): liner spec (≤ 120) when a Liner is picked.',
+        'FB-02 (F-013): liner spec (≤ 120) when a Liner is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       labelsPurchasedBy: c(
         text('labels_purchased_by'),
-        'FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked.',
+        'FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       decorationType: c(
         text('decoration_type'),
-        'FB-02 (F-013): value_list decoration_type code when Decoration is picked.',
+        'FB-02 (F-013): value_list decoration_type code when Decoration is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       decorationPrintColors: c(
         integer('decoration_print_colors'),
-        'FB-02 (F-013): number of print colors (1–12) when Decoration is picked.',
+        'FB-02 (F-013): number of print colors (1–12) when Decoration is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       // FB-15 (W13-03): what an "Other" product family, component or decoration is. Product facts:
       // FB-19 moves them to quote_item with the other per-item fields.
       productFamilyOther: c(
         text('product_family_other'),
-        'FB-15 (W13-03): what the product family is when product_family is Other (≤ intake_other_description_max_length, seed 200); null otherwise.',
+        'FB-15 (W13-03): what the product family is when product_family is Other (≤ intake_other_description_max_length, seed 200); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       componentOther: c(
         text('component_other'),
-        'FB-15 (W13-03): what the "Other" component is when components include Other (≤ intake_other_description_max_length); null otherwise.',
+        'FB-15 (W13-03): what the "Other" component is when components include Other (≤ intake_other_description_max_length); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       decorationTypeOther: c(
         text('decoration_type_other'),
-        'FB-15 (W13-03): what the decoration is when decoration_type is Other and Decoration is picked (≤ intake_other_description_max_length); null otherwise.',
+        'FB-15 (W13-03): what the decoration is when decoration_type is Other and Decoration is picked (≤ intake_other_description_max_length); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       // FB-02 (F-016, D-018): dimensions for the drawing-or-minimum-spec rule.
       heightMm: c(
         numeric('height_mm', { precision: 10, scale: 2, mode: 'number' }),
-        'FB-02 (F-016): product height (mm).',
+        'FB-02 (F-016): product height (mm). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       widthOrDiameterMm: c(
         numeric('width_or_diameter_mm', { precision: 10, scale: 2, mode: 'number' }),
-        'FB-02 (F-016): product width or diameter (mm).',
+        'FB-02 (F-016): product width or diameter (mm). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       depthMm: c(
         numeric('depth_mm', { precision: 10, scale: 2, mode: 'number' }),
-        'FB-02 (F-016): product depth (mm).',
+        'FB-02 (F-016): product depth (mm). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       gramWeightG: c(
         numeric('gram_weight_g', { precision: 10, scale: 2, mode: 'number' }),
-        'FB-02 (F-016): gram weight (g).',
+        'FB-02 (F-016): gram weight (g). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       // FB-02 (F-015): modify an existing mold.
       modifyExistingMold: c(
         boolean('modify_existing_mold').notNull().default(false),
-        'FB-02 (F-015): the request modifies an existing mold (Engineering queue chip).',
+        'FB-02 (F-015): the request modifies an existing mold (Engineering queue chip). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       existingMoldRef: c(
         text('existing_mold_ref'),
-        'FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold.',
+        'FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       moldChangeDescription: c(
         text('mold_change_description'),
-        'FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400".',
+        'FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400". FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
         KAM,
       ),
       // FB-02 (F-014)
@@ -485,8 +498,16 @@ export const quote = documented(
         'FB-10 (F-066): the platform-minimum warning shown to the KAM at the last submit ("Below the platform minimum for …"), kept for G1. Null when none. A warning only: it never blocked the submit.',
         KAM,
       ),
-      packagingType: c(text('packaging_type'), 'value_list packaging_type code.', KAM),
-      packagingNotes: c(text('packaging_notes'), 'Packaging requirements.', KAM),
+      packagingType: c(
+        text('packaging_type'),
+        'value_list packaging_type code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
+        KAM,
+      ),
+      packagingNotes: c(
+        text('packaging_notes'),
+        'Packaging requirements. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
+        KAM,
+      ),
       requestClass: c(text('request_class'), 'value_list request_class code.', KAM),
       commentsForEngineering: c(
         text('comments_for_engineering'),
@@ -904,11 +925,8 @@ export const quote = documented(
       index('quote_stage_priority_idx').on(t.stageKey, t.priorityScore.desc()),
       index('quote_kam_user_id_idx').on(t.kamUserId),
       index('quote_sf_opportunity_id_idx').on(t.sfOpportunityId),
-      // One active CCQ quote per SF opportunity (B-07). Closed quotes don't count, so a re-quote
-      // after Lost/Expired is a new quote on the same opportunity.
-      uniqueIndex('quote_one_active_per_opportunity_uidx')
-        .on(t.sfOpportunityId)
-        .where(sql`${t.status} <> 'closed'`),
+      // B-07's unique "one active quote per opportunity" index was dropped by FB-19 (W13-33): the rule is
+      // the setting opportunity_active_quotes, checked at submit under a transaction advisory lock.
       index('quote_assigned_engineer_id_idx').on(t.assignedEngineerId),
       index('quote_assigned_scheduler_id_idx').on(t.assignedSchedulerId),
       index('quote_region_idx').on(t.region),
@@ -919,6 +937,203 @@ export const quote = documented(
     ],
   ),
   { area: 'workflow', owner: SYSTEM, description: 'The CCQ quote: the workflow record CCQ owns.' },
+);
+
+/**
+ * FB-19 (W13-32, F-084, D-005 provisional): the items of a quote. One quote number, one KAM, one
+ * opportunity and one workflow; each item carries its own product facts (decision 3) and, in
+ * Engineering, its own `eng_review` and `capacity_evidence` rows. Item 1 is the primary item: the
+ * product columns on `quote` mirror it (and `quote.est_annual_volume` is the sum of every item's), so
+ * readers of the quote keep working. Items change only when the KAM submits or resubmits the intake.
+ */
+export const quoteItem = documented(
+  pgTable(
+    'quote_item',
+    {
+      ...baseColumns(),
+      quoteId: c(quoteRef(), 'Quote the item belongs to.', SYSTEM),
+      itemNo: c(
+        smallint('item_no').notNull(),
+        'FB-19: 1…n within the quote, no gaps (renumbered after a removal or a reorder). Item 1 is the primary item the quote columns mirror.',
+        KAM,
+      ),
+      label: c(
+        text('label'),
+        'FB-19: the KAM\'s short name for the item, e.g. "16 oz bottle" (≤ 60).',
+        KAM,
+      ),
+      productFamily: c(text('product_family'), 'value_list product_family code.', KAM),
+      productFamilyOther: c(
+        text('product_family_other'),
+        'FB-15 (W13-03): what the product family is when product_family is Other; null otherwise.',
+        KAM,
+      ),
+      components: c(
+        text('components').array().notNull().default([]),
+        'value_list component codes.',
+        KAM,
+      ),
+      componentOther: c(
+        text('component_other'),
+        'FB-15 (W13-03): what the "Other" component is; null otherwise.',
+        KAM,
+      ),
+      linerSpec: c(text('liner_spec'), 'FB-02 (F-013): liner spec when a Liner is picked.', KAM),
+      labelsPurchasedBy: c(
+        text('labels_purchased_by'),
+        'FB-02 (F-013): value_list labels_purchased_by code when a Label is picked.',
+        KAM,
+      ),
+      decorationType: c(
+        text('decoration_type'),
+        'FB-02 (F-013): value_list decoration_type code when Decoration is picked.',
+        KAM,
+      ),
+      decorationTypeOther: c(
+        text('decoration_type_other'),
+        'FB-15 (W13-03): what the decoration is when decoration_type is Other; null otherwise.',
+        KAM,
+      ),
+      decorationPrintColors: c(
+        integer('decoration_print_colors'),
+        'FB-02 (F-013): number of print colors (1–12) when Decoration is picked.',
+        KAM,
+      ),
+      resin: c(text('resin'), 'value_list resin code.', KAM),
+      resinCustomerSpecified: c(
+        boolean('resin_customer_specified').notNull().default(false),
+        'FB-02 (F-011): the customer specifies the resin; resin_grade names it.',
+        KAM,
+      ),
+      resinGrade: c(text('resin_grade'), 'FB-02 (F-011): supplier / grade of the resin.', KAM),
+      pcrLevel: c(text('pcr_level'), 'FB-02 (F-055): value_list pcr_level code.', KAM),
+      pcrLevelOther: c(
+        text('pcr_level_other'),
+        'FB-09: the customer-specified PCR level when pcr_level is Other.',
+        KAM,
+      ),
+      colorType: c(text('color_type'), 'FB-02 (F-023): value_list color_type code.', KAM),
+      colorDescription: c(
+        text('color_description'),
+        'FB-02 (F-023): the custom color; null for Natural.',
+        KAM,
+      ),
+      additive: c(text('additive'), 'FB-09: value_list additive code.', KAM),
+      additives: c(text('additives'), 'FB-02 (F-023): additives note.', KAM),
+      neckDiameter: c(text('neck_diameter'), 'FB-02: value_list neck_diameter code.', KAM),
+      neckDiameterCustom: c(
+        text('neck_diameter_custom'),
+        'FB-02: description when neck_diameter is Custom.',
+        KAM,
+      ),
+      neckFinishType: c(text('neck_finish_type'), 'FB-02: value_list neck_finish_type code.', KAM),
+      neckFinishTypeCustom: c(
+        text('neck_finish_type_custom'),
+        'FB-02: description when neck_finish_type is Custom.',
+        KAM,
+      ),
+      neckSpecialFeature: c(
+        text('neck_special_feature'),
+        'FB-02: optional value_list neck_special_feature code.',
+        KAM,
+      ),
+      neckSpecialFeatureCustom: c(
+        text('neck_special_feature_custom'),
+        'FB-02: description when neck_special_feature is Custom.',
+        KAM,
+      ),
+      containerSize: c(
+        text('container_size'),
+        'FB-19: container size as Sales describes it (e.g. "16 oz"). On quote it is structured_description.size.',
+        KAM,
+      ),
+      heightMm: c(
+        numeric('height_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product height (mm).',
+        KAM,
+      ),
+      widthOrDiameterMm: c(
+        numeric('width_or_diameter_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product width or diameter (mm).',
+        KAM,
+      ),
+      depthMm: c(
+        numeric('depth_mm', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): product depth (mm).',
+        KAM,
+      ),
+      gramWeightG: c(
+        numeric('gram_weight_g', { precision: 10, scale: 2, mode: 'number' }),
+        'FB-02 (F-016): gram weight (g).',
+        KAM,
+      ),
+      modifyExistingMold: c(
+        boolean('modify_existing_mold').notNull().default(false),
+        'FB-02 (F-015): the item modifies an existing mold.',
+        KAM,
+      ),
+      existingMoldRef: c(
+        text('existing_mold_ref'),
+        'FB-02 (F-015): the existing mold / part number when modify_existing_mold.',
+        KAM,
+      ),
+      moldChangeDescription: c(
+        text('mold_change_description'),
+        'FB-02 (F-015): what changes on the existing mold.',
+        KAM,
+      ),
+      packagingType: c(text('packaging_type'), 'value_list packaging_type code.', KAM),
+      packagingNotes: c(text('packaging_notes'), 'Packaging requirements.', KAM),
+      drawingStatus: c(text('drawing_status'), 'value_list drawing_status code.', KAM),
+      estAnnualVolume: c(
+        bigint('est_annual_volume', { mode: 'number' }),
+        "Estimated annual volume of this item (units). quote.est_annual_volume is the sum of the quote's items.",
+        KAM,
+      ),
+      estAnnualVolumeConfirmed: c(
+        boolean('est_annual_volume_confirmed').notNull().default(false),
+        'The KAM confirmed a round, placeholder-looking volume is real.',
+        KAM,
+      ),
+      productNeededBy: c(
+        date('product_needed_by', { mode: 'string' }),
+        "FB-19 (Zachary Cairns): this item's launch need; on or after quote.quote_needed_by.",
+        KAM,
+      ),
+      standardDescription: c(
+        text('standard_description'),
+        'Standard description of the item (suggested from intake_description_template, editable). On quote it is structured_description.standard.',
+        KAM,
+      ),
+      sfProductSpecId: c(
+        text('sf_product_spec_id'),
+        'FB-19: the Salesforce Opportunity_Product_Specifications__c row the item was added from; null when typed.',
+        SF,
+      ),
+    },
+    (t) => [
+      uniqueIndex('quote_item_quote_item_no_uidx').on(t.quoteId, t.itemNo),
+      check('quote_item_item_no_check', sql`${t.itemNo} >= 1`),
+      check(
+        'quote_item_label_length_check',
+        sql`${t.label} is null or char_length(${t.label}) <= 60`,
+      ),
+      check(
+        'quote_item_dimensions_positive_check',
+        sql`(${t.heightMm} is null or ${t.heightMm} > 0) and (${t.widthOrDiameterMm} is null or ${t.widthOrDiameterMm} > 0) and (${t.depthMm} is null or ${t.depthMm} > 0) and (${t.gramWeightG} is null or ${t.gramWeightG} > 0)`,
+      ),
+      check(
+        'quote_item_decoration_print_colors_check',
+        sql`${t.decorationPrintColors} is null or ${t.decorationPrintColors} between 1 and 12`,
+      ),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: KAM,
+    description:
+      'FB-19: the items of a quote (one quote number, several items quoted together). Item 1 is mirrored onto quote.',
+  },
 );
 
 export const quoteDraft = documented(
@@ -1107,12 +1322,24 @@ export const engReview = documented(
       quoteId: c(
         uuid('quote_id')
           .notNull()
-          .unique()
           .references(() => quote.id, { onDelete: 'restrict' }),
-        'Quote (one review per quote).',
+        'Quote. FB-19: one review row per quote item (quote_item_id), so a quote has one row per item.',
       ),
-      acceptedAt: c(timestamptz('accepted_at'), 'When Engineering accepted the request.'),
-      acceptedBy: c(userRef('accepted_by'), 'Who accepted it (EngLead or the assigned engineer).'),
+      quoteItemId: c(
+        uuid('quote_item_id')
+          .notNull()
+          .unique()
+          .references(() => quoteItem.id, { onDelete: 'restrict' }),
+        "FB-19: the item this engineering solution is for (one row per item). The quote-level columns (accepted_*, capacity_signoff_*, capacity_ready_at) are kept on the primary item's row (item_no 1) only.",
+      ),
+      acceptedAt: c(
+        timestamptz('accepted_at'),
+        "When Engineering accepted the request. FB-19: quote level, on item 1's row.",
+      ),
+      acceptedBy: c(
+        userRef('accepted_by'),
+        "Who accepted it (EngLead or the assigned engineer). FB-19: quote level, on item 1's row.",
+      ),
       returnedReason: c(text('returned_reason'), 'Why Engineering returned the request.'),
       processType: c(text('process_type'), 'value_list process_type code.'),
       machineType: c(text('machine_type'), 'value_list machine_type code.'),
@@ -1150,7 +1377,7 @@ export const engReview = documented(
       ),
       capacitySignoffStatus: c(
         text('capacity_signoff_status'),
-        'B-26: approved | blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved).',
+        "B-26: approved | blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved). FB-19: one sign-off per quote covering every item, on item 1's row (capacity_signoff_by / _at / _note too).",
       ),
       capacitySignoffBy: c(userRef('capacity_signoff_by'), 'B-26: who signed off capacity.'),
       capacitySignoffAt: c(
@@ -1163,7 +1390,7 @@ export const engReview = documented(
       ),
       capacityReadyAt: c(
         timestamptz('capacity_ready_at'),
-        'FB-16 (W13-15): when the production scheduler was told capacity can start in this stay (the plant and the machine type are saved). Cleared on a new stay, so they are told once per stay.',
+        "FB-16 (W13-15): when the production scheduler was told capacity can start in this stay (the plant and the machine type are saved). Cleared on a new stay, so they are told once per stay. FB-19: quote level, on item 1's row.",
       ),
       // FB-06 (F-024, D-007 open, provisional): the two-step (preform) process. The four details are
       // cleared when the box is unticked.
@@ -1206,6 +1433,7 @@ export const engReview = documented(
       ),
     },
     (t) => [
+      index('eng_review_quote_idx').on(t.quoteId),
       check(
         'eng_review_pack_out_check',
         sql`(${t.unitsPerBag} is null or ${t.unitsPerBag} between 1 and 9999999) and (${t.unitsPerTray} is null or ${t.unitsPerTray} between 1 and 9999999) and (${t.unitsPerCase} is null or ${t.unitsPerCase} between 1 and 9999999) and (${t.unitsPerPallet} is null or ${t.unitsPerPallet} between 1 and 9999999)`,
@@ -1228,6 +1456,12 @@ export const capacityEvidence = documented(
     {
       ...baseColumns(),
       quoteId: c(quoteRef(), 'Quote.'),
+      quoteItemId: c(
+        uuid('quote_item_id')
+          .notNull()
+          .references(() => quoteItem.id, { onDelete: 'restrict' }),
+        "FB-19: the item this capacity row is for (W13-34: a variant at another plant is another item). allocated_annual_volume is compared with that item's volume.",
+      ),
       site: c(text('site').notNull(), 'Plant / site code.'),
       lineAsset: c(text('line_asset'), 'Line or machine asset.'),
       assumedEffectivenessPct: c(
@@ -1272,6 +1506,7 @@ export const capacityEvidence = documented(
     },
     (t) => [
       index('capacity_evidence_quote_idx').on(t.quoteId),
+      index('capacity_evidence_quote_item_idx').on(t.quoteItemId),
       check(
         'capacity_evidence_pct_check',
         sql`${t.assumedEffectivenessPct} between 0 and 100 and (${t.utilizationPct} is null or ${t.utilizationPct} between 0 and 100) and (${t.bufferPct} is null or ${t.bufferPct} between 0 and 100)`,
@@ -1429,6 +1664,11 @@ export const attachment = documented(
         'Intake draft the file was uploaded to (B-16); kept after submit for provenance. Null once a deleted draft took its (removed) files with it.',
         KAM,
       ),
+      quoteItemId: c(
+        uuid('quote_item_id'),
+        "FB-19: the item a drawing (bottle_drawing, spec, competitor_drawing) belongs to; null for every other kind. On a draft it holds the draft item's key, replaced by the quote_item id at submit, so there is no foreign key. A drawing with no item (uploaded before FB-19) counts for item 1.",
+        KAM,
+      ),
       kind: c(
         text('kind').notNull(),
         'bottle_drawing | spec | sample_photo | capacity_analysis | other | bid_file | project_brief | competitor_drawing | cost_model | roi_model | price_table (capacity_analysis: FB-03; bid_file, project_brief, competitor_drawing: FB-02; cost_model, roi_model, price_table: FB-07, versioned, uploaded on the Quoting tab).',
@@ -1534,6 +1774,46 @@ export const attachment = documented(
     owner: 'Uploader',
     description:
       'Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.quoteFolder, /CCQ/{quote_number}/), or Blob/local by FILESTORE_MODE. Removal is soft.',
+  },
+);
+
+/**
+ * FB-19 (F-084 "duplicate and change only the container fields"): a drawing an item uses that another
+ * item holds. Duplicate copies the item's drawing links; the file stays one attachment (its own item is
+ * `attachment.quote_item_id`). The drawing-or-minimum-spec rule counts an item's own drawings and its
+ * links to drawings that are not removed.
+ */
+export const quoteItemDrawing = documented(
+  pgTable(
+    'quote_item_drawing',
+    {
+      ...baseColumns(),
+      quoteId: c(quoteRef(), 'Quote.', SYSTEM),
+      quoteItemId: c(
+        uuid('quote_item_id')
+          .notNull()
+          .references(() => quoteItem.id, { onDelete: 'restrict' }),
+        'The item that uses the drawing.',
+        KAM,
+      ),
+      attachmentId: c(
+        uuid('attachment_id')
+          .notNull()
+          .references(() => attachment.id, { onDelete: 'restrict' }),
+        'The drawing (an attachment of kind bottle_drawing, spec or competitor_drawing).',
+        KAM,
+      ),
+    },
+    (t) => [
+      uniqueIndex('quote_item_drawing_item_attachment_uidx').on(t.quoteItemId, t.attachmentId),
+      index('quote_item_drawing_quote_idx').on(t.quoteId),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: KAM,
+    description:
+      "FB-19: an item's links to drawings another item holds (Duplicate copies them). One row per item and drawing.",
   },
 );
 

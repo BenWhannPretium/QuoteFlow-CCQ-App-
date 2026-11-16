@@ -1,8 +1,8 @@
-import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
-import { quote, quoteDraft } from '../schema/index';
+import { appUser, quote, quoteDraft } from '../schema/index';
 
 // Intake drafts (B-07). RLS limits every query here to the caller's own drafts (Admin: all).
 
@@ -67,16 +67,44 @@ const activeQuoteColumns = {
 };
 
 /**
- * Active (not closed) quotes on these SF opportunities that the caller can see (RLS applies). There is
- * at most one per opportunity (`quote_one_active_per_opportunity_uidx`).
+ * Active (not closed) quotes on these SF opportunities that the caller can see (RLS applies). FB-19
+ * (W13-33): an opportunity may have several (`app_setting.opportunity_active_quotes`), oldest first.
  */
 export async function listActiveQuotesForOpportunities(db: DbOrTx, sfOpportunityIds: string[]) {
   if (sfOpportunityIds.length === 0) return [];
   return db
     .select(activeQuoteColumns)
     .from(quote)
-    .where(and(inArray(quote.sfOpportunityId, sfOpportunityIds), ne(quote.status, 'closed')));
+    .where(and(inArray(quote.sfOpportunityId, sfOpportunityIds), ne(quote.status, 'closed')))
+    .orderBy(asc(quote.createdAt), asc(quote.quoteNumber));
 }
 
+/** The oldest active quote on the opportunity the caller can see (RLS applies). */
 export const getActiveQuoteForOpportunity = async (db: DbOrTx, sfOpportunityId: string) =>
   first(await listActiveQuotesForOpportunities(db, [sfOpportunityId]));
+
+/**
+ * FB-19 (W13-33): every active quote on the opportunity with its KAM's name: ONLY those two facts. Called
+ * in system context (another KAM's quote counts too), so it must never return anything else.
+ */
+export async function listOpenQuotesOnOpportunity(db: DbOrTx, sfOpportunityId: string) {
+  return db
+    .select({ quoteNumber: quote.quoteNumber, kamName: appUser.displayName })
+    .from(quote)
+    .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
+    .where(and(eq(quote.sfOpportunityId, sfOpportunityId), ne(quote.status, 'closed')))
+    .orderBy(asc(quote.createdAt), asc(quote.quoteNumber));
+}
+
+/** FB-19 (W13-33): the namespace of the per-opportunity submit lock (`pg_advisory_xact_lock(ns, key)`). */
+export const OPPORTUNITY_SUBMIT_LOCK_NS = 1_901;
+
+/**
+ * FB-19 (W13-33): serialises submits on one opportunity until the caller's transaction ends, so the
+ * "already has an active quote" check and the insert cannot race (replaces B-07's unique index).
+ */
+export async function lockOpportunityForSubmit(db: DbOrTx, sfOpportunityId: string) {
+  await db.execute(
+    sql`select pg_advisory_xact_lock(${OPPORTUNITY_SUBMIT_LOCK_NS}::int, hashtext(${sfOpportunityId}))`,
+  );
+}
