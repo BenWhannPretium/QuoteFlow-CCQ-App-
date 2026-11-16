@@ -407,6 +407,9 @@ describe('FB-20: per-item offer fields', () => {
     expect(() => costing([{ ...piece(1, 'B5'), unit: 'usd' }])).toThrow(
       /usd_per_unit or usd_per_1000/,
     );
+    const mold = { ...piece(1, 'B6'), key: 'offer_mold_charge', label: 'Molds item 1' };
+    expect(() => costing([{ ...mold, unit: 'usd_per_1000' }])).toThrow(/must be a number in usd/);
+    expect(costing([{ ...mold, unit: 'usd' }])[0]!.fields[0]!.unit).toBe('usd');
     expect(() =>
       parseModelSummaryTemplates([{ ...PAYBACK_TEMPLATE_SEED, fields: [piece(1, 'B5')] }]),
     ).toThrow(/costing map/);

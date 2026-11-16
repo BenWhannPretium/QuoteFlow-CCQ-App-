@@ -24,7 +24,7 @@ describe('timeline categories', () => {
     expect(timelineFilterTypes('comments')).toEqual({ types: [], comments: true });
     expect(timelineFilterTypes('overrides').types).toContain('override_reverted');
     expect(timelineFilterTypes('files')).toEqual({
-      types: ['attachment_uploaded', 'attachment_removed'],
+      types: ['attachment_uploaded', 'attachment_removed', 'offer_letter_generated'],
       comments: false,
     });
     expect(timelineFilterTypes('decisions').comments).toBe(false);

@@ -172,7 +172,6 @@ type RowRead =
   | { kind: 'invalid'; why: string };
 
 const STATE_WORDS: Partial<Record<ModelSummaryFieldState, string>> = {
-  blank: 'blank',
   error: 'an Excel error',
   not_calculated: 'not calculated',
   wrong_type: 'text, not a number',
@@ -202,7 +201,9 @@ function readRow(
   itemCount: number,
 ): RowRead {
   const f = findField(fields, ROW_FIELD[row], itemNo, itemCount);
-  if (!f || f.state === 'not_found') return { kind: 'absent' };
+  // A cell the map names but the workbook leaves blank is "not in the workbook" (no charge, or a
+  // missing price), never an error.
+  if (!f || f.state === 'not_found' || f.state === 'blank') return { kind: 'absent' };
   if (f.state !== 'ok' || f.number === null) {
     return { kind: 'invalid', why: STATE_WORDS[f.state] ?? f.state };
   }

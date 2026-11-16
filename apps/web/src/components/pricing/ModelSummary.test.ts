@@ -17,6 +17,7 @@ const f = (over: Partial<ModelSummaryFieldView>): ModelSummaryFieldView => ({
   date: null,
   headline: false,
   proposed: true,
+  itemNo: null,
   ...over,
 });
 
@@ -43,6 +44,19 @@ describe('formatSummaryValue (FB-14)', () => {
     expect(formatSummaryValue(f({ state: 'not_found' }))).toBe('Not found in the workbook');
     expect(formatSummaryValue(f({ state: 'wrong_type', text: '1,000' }))).toBe(
       '“1,000” (text, not a number)',
+    );
+  });
+});
+
+describe('formatSummaryValue (FB-20 price units)', () => {
+  it('formats a per-piece price to up to five decimals and a per-1,000 price to cents', () => {
+    expect(formatSummaryValue(f({ unit: 'usd_per_unit', number: 0.08253 }))).toBe(
+      '$0.08253 per piece',
+    );
+    expect(formatSummaryValue(f({ unit: 'usd_per_unit', number: 0.1 }))).toBe('$0.10 per piece');
+    expect(formatSummaryValue(f({ unit: 'usd_per_1000', number: 82.5 }))).toBe('$82.50 per 1,000');
+    expect(formatSummaryValue(f({ unit: 'usd_per_1000', number: 1234.567 }))).toBe(
+      '$1,234.57 per 1,000',
     );
   });
 });

@@ -58,6 +58,21 @@ export function formatSummaryValue(f: ModelSummaryFieldView): string {
       return `${(v * 100).toFixed(1)}%`;
     case 'years':
       return `${v.toFixed(1)} years`;
+    // FB-20: the offer letter's price fields, per piece or per 1,000 pieces.
+    case 'usd_per_unit':
+      return `${new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 5,
+      }).format(v)} per piece`;
+    case 'usd_per_1000':
+      return `${new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(v)} per 1,000`;
     case 'units':
     case 'count':
       return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(v);
@@ -119,9 +134,9 @@ export function ModelSummaryPanel({
         <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 text-xs">
           {s.fields.map((f) => (
             <div
-              key={f.key}
+              key={`${f.key}#${f.itemNo ?? ''}`}
               className="contents"
-              data-testid={`summary-field-${f.key}`}
+              data-testid={`summary-field-${f.key}${f.itemNo ? `-${f.itemNo}` : ''}`}
               data-state={f.state}
             >
               <dt
@@ -129,6 +144,7 @@ export function ModelSummaryPanel({
                 title={`${f.sheet}!${f.ref}`}
               >
                 {f.label}
+                {f.itemNo !== null && f.itemNo !== undefined ? ` (item ${f.itemNo})` : ''}
               </dt>
               <dd
                 className={

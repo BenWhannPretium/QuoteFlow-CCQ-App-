@@ -84,7 +84,20 @@ describe('0042 FB-14 data migration', () => {
         { key: 'model_summary_limits', value: MODEL_SUMMARY_LIMITS_SEED, provisional: true },
         {
           key: 'model_summary_templates',
-          value: JSON.parse(JSON.stringify(MODEL_SUMMARY_TEMPLATES_SEED)) as unknown,
+          // As FB-14 seeded it: FB-20 (0048) later adds the offer piece price to the costing map.
+          value: JSON.parse(
+            JSON.stringify(
+              MODEL_SUMMARY_TEMPLATES_SEED.map((t) =>
+                t.templateId === 'erf_costing_pre_makeover'
+                  ? {
+                      ...t,
+                      note: t.note!.replace(/ FB-20: .*$/, ''),
+                      fields: t.fields.filter((f) => f.key !== 'offer_piece_price'),
+                    }
+                  : t,
+              ),
+            ),
+          ) as unknown,
           provisional: true,
         },
         { key: 'model_summary_visible', value: true, provisional: true },

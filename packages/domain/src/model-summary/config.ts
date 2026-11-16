@@ -178,10 +178,12 @@ export const modelSummaryTemplateSchema = z
           path: ['fields', i, 'key'],
         });
       }
-      if (f.type !== 'number' || !(OFFER_PRICE_UNITS as readonly string[]).includes(f.unit)) {
+      // The piece price says what it is per; a mold or change-parts charge is a lump sum in USD.
+      const units: readonly string[] = f.key === 'offer_piece_price' ? OFFER_PRICE_UNITS : ['usd'];
+      if (f.type !== 'number' || !units.includes(f.unit)) {
         ctx.addIssue({
           code: 'custom',
-          message: `${f.key} must be a number in usd_per_unit or usd_per_1000`,
+          message: `${f.key} must be a number in ${units.join(' or ')}`,
           path: ['fields', i, 'unit'],
         });
       }

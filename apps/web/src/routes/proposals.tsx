@@ -1,7 +1,7 @@
 import type { OpenProposal } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { FileClockIcon } from 'lucide-react';
+import { FileClockIcon, FileTextIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { ForbiddenPage, useCan } from '@/auth';
@@ -129,9 +129,21 @@ function ProposalCard({ proposal: p, onRecord }: { proposal: OpenProposal; onRec
               </span>
             </p>
           </div>
-          <Button onClick={onRecord} className="justify-self-start sm:justify-self-end">
-            Record outcome
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 justify-self-start sm:justify-self-end">
+            {/* FB-20 (F-070): the customer offer letter, on the quote's Customer decision card. */}
+            <Button asChild variant="outline">
+              <Link
+                to="/quotes/$quoteNumber"
+                params={{ quoteNumber: p.quoteNumber }}
+                hash="offer-letter"
+                data-testid="proposal-offer-letter"
+              >
+                <FileTextIcon aria-hidden="true" />
+                Offer letter
+              </Link>
+            </Button>
+            <Button onClick={onRecord}>Record outcome</Button>
+          </div>
         </CardContent>
       </Card>
     </li>

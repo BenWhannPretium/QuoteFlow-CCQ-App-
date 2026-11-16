@@ -48,6 +48,9 @@ import {
   BoardResponse,
   QuoteListResponse,
   HandoffResponse,
+  GenerateOfferLetterResponse,
+  OfferLetterResponse,
+  type GenerateOfferLetterBody,
   MyProposalsResponse,
   OutcomesReport,
   type HandoffBody,
@@ -440,6 +443,15 @@ export const api = {
   updateHandoff: (quoteNumber: string, body: HandoffBody) =>
     getJson(`${quotePath(quoteNumber)}/handoff`, HandoffResponse, { method: 'PUT', body }),
   outcomesReport: () => getJson('/api/v1/admin/reports/outcomes', OutcomesReport),
+
+  // FB-20 (F-070): the customer offer letter (Word), made after Final Review approves the quote.
+  offerLetter: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/offer-letter`, OfferLetterResponse),
+  generateOfferLetter: (quoteNumber: string, body: GenerateOfferLetterBody) =>
+    getJson(`${quotePath(quoteNumber)}/offer-letter`, GenerateOfferLetterResponse, {
+      method: 'POST',
+      body,
+    }),
 
   // B-26 commercial: the capital-likely flag, the terms check and Legal review, escalations
   setCapitalFlag: (quoteNumber: string, body: CapitalFlagBody) =>

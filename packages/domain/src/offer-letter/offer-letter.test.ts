@@ -47,7 +47,7 @@ function price(
   return {
     key,
     itemNo,
-    unit: key === 'offer_piece_price' ? 'usd_per_unit' : 'usd_per_1000',
+    unit: key === 'offer_piece_price' ? 'usd_per_unit' : 'usd',
     state: n === null ? 'blank' : 'ok',
     number: n,
     ...extra,
@@ -249,6 +249,8 @@ describe('evaluateOfferReadiness', () => {
     ).toMatchObject({ code: 'invalid_price' });
     expect(with_(price(1, 'offer_piece_price', 0))[0]!.message).toContain('not above zero');
     expect(with_(price(1, 'offer_piece_price', -1))[0]!.code).toBe('invalid_price');
+    // Blank is "not in the workbook": a missing piece price, not an unusable one.
+    expect(with_(price(1, 'offer_piece_price', null))[0]!.code).toBe('missing_piece_price');
     expect(with_(price(1, 'offer_piece_price', 1, { unit: 'usd' }))[0]!.message).toContain(
       'unknown unit',
     );
@@ -264,10 +266,7 @@ describe('evaluateOfferReadiness', () => {
     const f = facts({ toolingFundingModel: 'CUSTOMER_FUNDED' });
     f.costing = {
       ...f.costing!,
-      fields: [
-        ...f.costing!.fields,
-        price(1, 'offer_mold_charge', 45000, { unit: 'usd_per_1000' }),
-      ],
+      fields: [...f.costing!.fields, price(1, 'offer_mold_charge', 45000)],
     };
     expect(codes(f)).toEqual([]);
     // A $0 mold charge is "no charge": still missing when molds are required.
@@ -371,7 +370,8 @@ describe('buildOfferLetterModel', () => {
     const m = buildOfferLetterModel(facts(), inputs, settings());
     const texts = m.assumptions.items.map((a) => a.text);
     expect(texts).toContain('This offer is valid until December 10, 2026.');
-    expect(texts).toContain('Pricing is FOB plant, customer pickup.');
+    expect(texts).toContain('Pricing is FOB plant.');
+    expect(texts).toContain('Freight: customer pickup.');
     expect(texts).toContain('Payment terms: Net 30 from date of invoice.');
     expect(texts).toContain('Tooling funding: Company-funded.');
     expect(texts.some((t) => t.startsWith('Mold ownership'))).toBe(false);

@@ -209,6 +209,27 @@ export function describeEvent(
     }
     case 'attachment_removed':
       return { title: `File removed: ${str(p.fileName) ?? 'file'}`, kind: 'file' };
+    // FB-20 (F-070): the customer offer letter. The file itself is on the Customer decision card.
+    case 'offer_letter_generated': {
+      const items = typeof p.itemCount === 'number' ? p.itemCount : null;
+      return {
+        title:
+          typeof p.letterNo === 'number'
+            ? `Offer letter ${p.letterNo} generated`
+            : 'Offer letter generated',
+        detail: (
+          <p>
+            {[
+              items !== null && `${items} item${items === 1 ? '' : 's'}`,
+              p.wordingApproved === false && 'draft wording (not yet approved by Legal)',
+            ]
+              .filter(Boolean)
+              .join(', ') || 'Word document'}
+          </p>
+        ),
+        kind: 'file',
+      };
+    }
     // B-10 engineering queue and review. Payloads carry field names only (never commercial values).
     case 'engineer_assigned':
       return {

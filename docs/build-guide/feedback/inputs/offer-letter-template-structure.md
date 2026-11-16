@@ -43,7 +43,7 @@
 | Single part block | One row per item (FB-19) | One letter per quote, a row per item (Ben, 2026-11-16) |
 | Embedded Excel price table | A native Word table: Item, Place of manufacture, Estimated annual volume, Piece price per 1,000 pcs, Molds, Change parts | Editable in Word, no embedded object; a column no item has is omitted |
 | 3. "valid for 30 days from date of offer" | "This offer is valid until {{validUntil}}." | The validity date is the quote's own (`validity_until`, set at G4) |
-| 4. "FOB plant of manufacture." | "Pricing is {{priceBasis}}, {{freight}}." | FB-11 records the price basis and freight per quote |
+| 4. "FOB plant of manufacture." | "Pricing is {{priceBasis}}." · "Freight: {{freight}}." | FB-11 records the price basis (FOB Pretium plant / Delivered) and the freight type per quote |
 | 5. "Payment terms NET 30 days from date of invoice." | "Payment terms: {{paymentTerms}} from date of invoice." | FB-08 / FB-11 record the payment terms per quote |
 | 9. Tooling Payment Terms | Kept as written | Not a field on the quote; for Legal to confirm |
 | (new) | "Tooling funding: {{toolingFunding}}." · "Mold ownership: {{moldOwnership}}." | FB-08 records both; dropped when the quote has no value |

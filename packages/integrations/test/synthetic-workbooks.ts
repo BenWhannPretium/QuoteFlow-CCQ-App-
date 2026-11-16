@@ -172,6 +172,95 @@ export async function buildCostingWorkbook(): Promise<Buffer> {
   return toBuffer(wb);
 }
 
+/** FB-20: one item (one variant column) of the synthetic offer costing workbook. */
+export interface OfferCostingItem {
+  /** The piece price per piece (row 5). */
+  piece: Cached;
+  /** Molds, a lump sum (row 6). Default blank. */
+  mold?: Cached;
+  /** Change parts, a lump sum (row 7). Default blank. */
+  changeParts?: Cached;
+}
+
+/** FB-20: the columns the synthetic offer costing workbook uses, item 1 first. */
+export const OFFER_COSTING_COLUMNS = ['B', 'C', 'D', 'E', 'F'] as const;
+
+/**
+ * FB-20 (F-070): a synthetic costing workbook with **one column per item** (the layout Pricing is asked
+ * for): row 5 the piece price per piece, row 6 molds, row 7 change parts. Made-up numbers only. Read
+ * with `offerCostingMap()` (a map active in tests only; the real costing map is not built yet).
+ */
+export async function buildOfferCostingWorkbook(items: OfferCostingItem[]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const s = wb.addWorksheet('Summary');
+  s.getCell('A1').value = 'Synthetic costing (offer layout)';
+  s.getCell('A5').value = 'Piece price ($/pc)';
+  s.getCell('A6').value = 'Molds ($)';
+  s.getCell('A7').value = 'Change parts ($)';
+  items.forEach((it, i) => {
+    const col = OFFER_COSTING_COLUMNS[i]!;
+    s.getCell(`${col}4`).value = `Variant ${i + 1}`;
+    put(s, `${col}5`, it.piece);
+    put(s, `${col}6`, it.mold ?? 'blank');
+    put(s, `${col}7`, it.changeParts ?? 'blank');
+  });
+  return toBuffer(wb);
+}
+
+/** FB-20: the model-summary map for `buildOfferCostingWorkbook` (active; for tests only). */
+export function offerCostingMap(itemCount: number) {
+  const fields = [];
+  for (let i = 0; i < itemCount; i++) {
+    const col = OFFER_COSTING_COLUMNS[i]!;
+    const itemNo = i + 1;
+    fields.push(
+      {
+        key: 'offer_piece_price',
+        label: `Piece price, item ${itemNo}`,
+        unit: 'usd_per_unit',
+        type: 'number',
+        sheet: 'Summary',
+        ref: `${col}5`,
+        itemNo,
+        headline: true,
+        proposed: true,
+      },
+      {
+        key: 'offer_mold_charge',
+        label: `Molds, item ${itemNo}`,
+        unit: 'usd',
+        type: 'number',
+        sheet: 'Summary',
+        ref: `${col}6`,
+        itemNo,
+        headline: false,
+        proposed: true,
+      },
+      {
+        key: 'offer_change_parts_charge',
+        label: `Change parts, item ${itemNo}`,
+        unit: 'usd',
+        type: 'number',
+        sheet: 'Summary',
+        ref: `${col}7`,
+        itemNo,
+        headline: false,
+        proposed: true,
+      },
+    );
+  }
+  return {
+    templateId: 'synthetic_offer_costing',
+    label: 'Synthetic costing, one column per item (tests only)',
+    kind: 'cost_model',
+    active: true,
+    provisional: true,
+    recognise: { sheet: 'Summary', labels: [{ ref: 'A1', contains: 'synthetic costing' }] },
+    fields,
+    warnings: { nonPositive: [], hurdle: null },
+  };
+}
+
 /** A valid .xlsx that matches no template. */
 export async function buildJunkWorkbook(): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
@@ -199,6 +288,14 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       buildPaybackWorkbook({ irr: { error: '#NUM!' }, payback: -1.5 }),
     ],
     ['costing-pre-makeover.synthetic.xlsx', buildCostingWorkbook()],
+    [
+      'costing-offer-3-items.synthetic.xlsx',
+      buildOfferCostingWorkbook([
+        { piece: 0.0825, mold: 45_000 },
+        { piece: 0.091, mold: 52_500, changeParts: 6_800 },
+        { piece: 0.105 },
+      ]),
+    ],
     ['junk.synthetic.xlsx', buildJunkWorkbook()],
   ];
   for (const [name, buf] of files) writeFileSync(join(dir, name), await buf);
