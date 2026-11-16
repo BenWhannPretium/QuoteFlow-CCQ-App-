@@ -82,6 +82,8 @@ export const FABRIC_JSON_COMPANIONS: Readonly<Record<string, readonly string[]>>
     'structured_description',
   ],
   quote_draft: ['data'],
+  // FB-19: the item's components (an array, like quote.components).
+  quote_item: ['components'],
   role_permission: ['qualifier'],
   scoring_model: ['attributes', 'tier_thresholds'],
   segregation_rule: ['gate_keys', 'outcome_keys'],

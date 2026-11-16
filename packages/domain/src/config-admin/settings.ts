@@ -25,6 +25,12 @@ import { parseValidityDays } from '../final-review/release';
 import { parseApproverTierRules } from '../final-review/tiers';
 import { intakeGuardrailsSchema } from '../intake/guardrails';
 import { intakeConfigSchema } from '../intake/intake';
+import {
+  OPPORTUNITY_ACTIVE_QUOTES_MODES,
+  parseOpportunityActiveQuoteMessage,
+  parseOpportunityActiveQuotes,
+  parseQuoteItemsMax,
+} from '../intake/items';
 import { MIN_SPEC_KEYS } from '../intake/product-facts';
 import {
   parseModelSummaryLimits,
@@ -276,6 +282,29 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Longest "Quote variants requested" note (characters)',
     'integer',
     z_('intake_variants_note_max_length', intakeConfigSchema.shape.variantsNoteMaxLength),
+  ),
+  // FB-19 (W13-32, W13-33; provisional): multi-item quotes and more than one quote per opportunity.
+  spec(
+    'quote_items_max',
+    'intake',
+    'Most items one quote may hold',
+    'integer',
+    notNull('quote_items_max', parseQuoteItemsMax),
+  ),
+  spec(
+    'opportunity_active_quotes',
+    'intake',
+    'More than one active quote per opportunity: one = refused; warn = allowed after the KAM confirms the warning',
+    'select',
+    notNull('opportunity_active_quotes', parseOpportunityActiveQuotes),
+    { options: OPPORTUNITY_ACTIVE_QUOTES_MODES },
+  ),
+  spec(
+    'opportunity_active_quote_message',
+    'intake',
+    'Warning when the opportunity already has an active quote ({quoteNumber}, {kamName})',
+    'text',
+    notNull('opportunity_active_quote_message', parseOpportunityActiveQuoteMessage),
   ),
   // FB-09 (F-019, D-016 default, provisional): cap for new edits of the packaging note.
   spec(

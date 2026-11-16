@@ -330,6 +330,13 @@
       "when": 1794760200000,
       "tag": "0046_fb17_gate_decisions_holds",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794843426252,
+      "tag": "0047_fb19_multi_item_quotes",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import type { IntakeAddress, IntakeDraftData } from '@ccq/contracts';
+import type { IntakeAddress, IntakeDraftData, IntakeItemData } from '@ccq/contracts';
 import {
   activeFollowUps,
   COMPONENT_FOLLOW_UP_FIELDS,
@@ -11,8 +11,17 @@ import {
   type ComponentFollowUpField,
   type IntakeEvaluation,
 } from '@ccq/domain';
-import { CheckCircle2Icon, PencilIcon, Undo2Icon } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckCircle2Icon,
+  CopyIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  Undo2Icon,
+} from 'lucide-react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { FundingHelp } from '@/components/commercial/FundingHelp';
@@ -23,6 +32,7 @@ import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import {
+  draftItemName,
   FIELD_META,
   formatAddress,
   formatDate,
@@ -30,7 +40,7 @@ import {
   isCustom,
   issueLabel,
   issueStep,
-  issueText,
+  issueTextIn,
   listEntry,
   marketLabel,
   neckLabel,
@@ -1189,32 +1199,183 @@ function DecimalInput({
 const SUB_MARKET_CLEARED =
   'Sub-market cleared: it belongs to another market. Pick one of this market’s.';
 
-export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: StepProps) {
+/**
+ * FB-19 (W13-32 to W13-34): what step 3 needs to show the items and act on them. The wizard owns the
+ * items (they are part of the draft) and which one is open.
+ */
+export interface ItemsProps {
+  items: readonly IntakeItemData[];
+  /** The open item (0-based). */
+  selected: number;
+  onSelect: (index: number) => void;
+  /** Blocking issues per item, by index (the list's "n to do"). */
+  issueCounts: readonly number[];
+  /** `quote_items_max`. */
+  itemsMax: number;
+  onAdd: () => void;
+  /** Adds one item per Salesforce product specification not used yet. */
+  onAddFromSalesforce: () => void;
+  /** How many Salesforce product specifications are not an item yet. */
+  unusedSfSpecs: number;
+  onDuplicate: (index: number) => void;
+  onRemove: (index: number) => void;
+  onMove: (index: number, to: number) => void;
+}
+
+/** FB-19 (W13-32): the Items list: one row per item with its key facts, and the item actions. */
+function ItemsPanel({ cfg, ...p }: ItemsProps & { cfg: WizardConfig }) {
+  const full = p.items.length >= p.itemsMax;
+  return (
+    <Section
+      title="Items"
+      action={
+        <span className="text-muted-foreground text-xs" data-testid="item-count">
+          {p.items.length} {p.items.length === 1 ? 'item' : 'items'}
+        </span>
+      }
+    >
+      <p className="text-muted-foreground text-xs">
+        Everything quoted together goes in one quote: add an item for each product (or each variant,
+        such as another PCR % or another plant). Each item has its own product fields below.
+      </p>
+      <ol className="grid gap-2" data-testid="items-list" aria-label="Items">
+        {p.items.map((item, i) => {
+          const open = i === p.selected;
+          const todo = p.issueCounts[i] ?? 0;
+          const facts = [
+            valueLabel(cfg, 'product_family', item.productFamily) || null,
+            item.containerSize ?? null,
+            item.estAnnualVolume != null ? `${item.estAnnualVolume.toLocaleString()} / yr` : null,
+            item.productNeededBy ? `needed by ${formatDate(item.productNeededBy)}` : null,
+          ].filter(Boolean);
+          return (
+            <li
+              key={item.key}
+              data-testid="item-row"
+              data-open={open || undefined}
+              className={`grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${open ? 'border-primary bg-accent/40' : ''}`}
+            >
+              <button
+                type="button"
+                className="grid min-w-0 gap-0.5 text-left"
+                aria-current={open ? 'true' : undefined}
+                onClick={() => p.onSelect(i)}
+              >
+                <span className="text-sm font-semibold break-words">
+                  Item {i + 1}
+                  {item.label ? `: ${item.label}` : ''}
+                </span>
+                <span className="text-muted-foreground text-xs break-words">
+                  {facts.length > 0 ? facts.join(' · ') : 'Nothing entered yet'}
+                </span>
+                <span
+                  className={`text-xs font-medium ${todo === 0 ? 'text-primary' : 'text-destructive'}`}
+                  data-testid="item-status"
+                >
+                  {todo === 0 ? (
+                    <span className="inline-flex items-center gap-1">
+                      <CheckCircle2Icon aria-hidden className="size-3.5" /> Complete
+                    </span>
+                  ) : (
+                    `${todo} to do`
+                  )}
+                </span>
+              </button>
+              <div className="flex flex-wrap items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Move item ${i + 1} up`}
+                  disabled={i === 0}
+                  onClick={() => p.onMove(i, i - 1)}
+                >
+                  <ArrowUpIcon aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Move item ${i + 1} down`}
+                  disabled={i === p.items.length - 1}
+                  onClick={() => p.onMove(i, i + 1)}
+                >
+                  <ArrowDownIcon aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={full}
+                  onClick={() => p.onDuplicate(i)}
+                  aria-label={`Duplicate item ${i + 1}`}
+                >
+                  <CopyIcon aria-hidden /> <span className="hidden sm:inline">Duplicate</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={p.items.length <= 1}
+                  onClick={() => p.onRemove(i)}
+                  aria-label={`Remove item ${i + 1}`}
+                >
+                  <Trash2Icon aria-hidden />
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={full} onClick={p.onAdd}>
+          <PlusIcon aria-hidden /> Add item
+        </Button>
+        {p.unusedSfSpecs > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={full}
+            onClick={p.onAddFromSalesforce}
+            data-testid="add-from-salesforce"
+          >
+            <PlusIcon aria-hidden /> Add from Salesforce products ({p.unusedSfSpecs})
+          </Button>
+        )}
+        {full && (
+          <span className="text-muted-foreground text-xs" role="status">
+            A quote can hold up to {p.itemsMax} items. Put the rest in a separate quote.
+          </span>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * FB-19 (W13-32): one item's product fields (decision 3). `data` is the item's view (the request with
+ * the item's fields on top) and `update` routes each key to the item or the request. Keyed by the item,
+ * so its local state (the suggestion tracker, the color note) starts over when another item opens.
+ */
+function ItemFields({
+  data,
+  update,
+  cfg,
+  evaluation,
+  itemNo,
+  itemCount,
+}: StepProps & { itemNo: number; itemCount: number }) {
+  // FB-19: the item's own name (the view is the request with the item's fields on top).
+  const label = (data as { label?: string | null }).label ?? null;
   const invalidIssue = (field: string) =>
     evaluation.blocking.find((b) => b.code === 'INVALID_VALUE' && b.field === field);
   const invalid = (field: string) => Boolean(invalidIssue(field));
   const tomorrow = isoDayAfter(todayInCentral(new Date()));
   const sf = data.sfPrefill ?? {};
-  // FB-15: a value cleared because it no longer fits (a sub-market of another market, a stock color the
-  // resin doesn't offer) says so, instead of silently showing "Choose…".
-  const subMarketParent = data.subMarket ? cfg.intake.subMarketMarkets[data.subMarket] : undefined;
-  const subMarketMismatch = Boolean(
-    data.subMarket && subMarketParent !== undefined && subMarketParent !== data.market,
-  );
-  // FB-15 (W13-01 e): a stored sub-market of another market (or with no market, e.g. a rework of an older
-  // quote) is cleared when the step opens, with a note. A change made here clears it in the market's onChange.
-  const [marketNote, setMarketNote] = useState<string | null>(() =>
-    subMarketMismatch ? SUB_MARKET_CLEARED : null,
-  );
   const [colorNote, setColorNote] = useState<string | null>(null);
-  useEffect(() => {
-    if (subMarketMismatch) update({ subMarket: null });
-  }, [subMarketMismatch, update]);
-  const variantsMax = cfg.intake.variantsNoteMaxLength;
   const placeholder = evaluation.warnings.find((w) => w.code === 'VOLUME_PLACEHOLDER');
   const belowMinimum = evaluation.warnings.find((w) => w.code === 'BELOW_PLATFORM_MINIMUM');
-  // F-067: a class other than CCQ shows where it goes instead, and Submit stays disabled.
-  const notAllowed = evaluation.blocking.find((b) => b.code === 'REQUEST_CLASS_NOT_ALLOWED');
   const suggestion = suggestedDescription(data, cfg);
 
   // Keep the standard description in step with the suggestion until the KAM edits it.
@@ -1249,44 +1410,31 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
     update({ components, ...cleared });
   };
 
-  const revenueChanged =
-    data.estAnnualRevenueSf != null && data.estAnnualRevenue !== data.estAnnualRevenueSf;
-
   return (
-    <div className="grid gap-4">
-      <RequiredKey />
-      {/* FB-15 (W13-04): why nothing was pre-filled from Salesforce. */}
-      {data.sfProductSpecsStatus === 'none' && (
-        <Notice tone="info" testId="sf-no-product-details">
-          Salesforce has no product details for this opportunity. Fill these in from the
-          customer&apos;s request.
-        </Notice>
-      )}
-      {data.sfProductSpecsStatus === 'unavailable' && (
-        <Notice tone="warning" testId="sf-product-details-unavailable">
-          Salesforce could not be reached when the opportunity was picked, so no product details
-          were pre-filled. Fill these in from the customer&apos;s request.
-        </Notice>
-      )}
-      <Section title="Request">
-        <Field {...meta(cfg, 'request_class')}>
-          <Select
-            id={fid('request_class')}
-            listKey="request_class"
-            value={data.requestClass}
-            onChange={(v) => update({ requestClass: v })}
-            cfg={cfg}
-            invalid={Boolean(notAllowed)}
+    <div className="grid gap-4" data-testid="item-fields" data-item={itemNo}>
+      <h3 className="font-display text-lg" id="item-fields-heading">
+        Item {itemNo}
+        {itemCount > 1 ? ` of ${itemCount}` : ''}
+        {label ? `: ${label}` : ''}
+      </h3>
+      <Section title="Item">
+        <Field
+          id={fid('label')}
+          label="Item name (optional, e.g. 16 oz bottle)"
+          help="A short name everyone sees in the item lists. Up to 60 characters."
+          required={false}
+        >
+          <Input
+            id={fid('label')}
+            aria-describedby={`${fid('label')}-help`}
+            maxLength={60}
+            placeholder="e.g. 16 oz bottle"
+            value={label ?? ''}
+            onChange={(e) =>
+              update({ label: nullIfBlank(e.target.value) } as Partial<IntakeDraftData>)
+            }
           />
-          {notAllowed && (
-            <div role="alert">
-              <Notice tone="blocking" testId="request-class-redirect">
-                {notAllowed.message}
-              </Notice>
-            </div>
-          )}
         </Field>
-        <BidReferenceField data={data} update={update} cfg={cfg} evaluation={evaluation} />
         <MoldFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
@@ -1323,42 +1471,6 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
                 onReset={() => update({ containerSize: sf.containerSize ?? null })}
               />
             )}
-          </Field>
-          <Field {...meta(cfg, 'market')}>
-            <Select
-              id={fid('market')}
-              listKey="market"
-              value={data.market}
-              // FB-12: a sub-market that does not belong to the new market is cleared (the server does too).
-              onChange={(v) => {
-                const keep = data.subMarket && cfg.intake.subMarketMarkets[data.subMarket] === v;
-                setMarketNote(data.subMarket && !keep ? SUB_MARKET_CLEARED : null);
-                update({ market: v, subMarket: keep ? data.subMarket : null });
-              }}
-              cfg={cfg}
-            />
-          </Field>
-          {/* FB-12 (F-073): only the chosen market's sub-markets. It sets the strategic-fit score.
-              FB-15 (W13-02): required (provisional config). */}
-          <Field
-            {...meta(cfg, 'sub_market')}
-            note={
-              marketNote ? <span data-testid="sub-market-cleared">{marketNote}</span> : undefined
-            }
-          >
-            <Select
-              id={fid('sub_market')}
-              listKey="sub_market"
-              value={data.subMarket}
-              onChange={(v) => {
-                setMarketNote(null);
-                update({ subMarket: v });
-              }}
-              cfg={cfg}
-              disabled={!data.market}
-              placeholder={data.market ? 'Choose…' : 'Choose a market first'}
-              filter={(e) => e.meta.market === data.market}
-            />
           </Field>
         </div>
         <fieldset className="grid gap-1.5" data-field={fid('components')}>
@@ -1483,14 +1595,9 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             </Field>
           );
         })()}
-        <DunnageField data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
-      <Section title="Commercial inputs for Pricing">
-        <CommercialInputsFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
-      </Section>
-
-      <Section title="Volume, value and timing">
+      <Section title="Volume and need-by">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             {...meta(cfg, 'est_annual_volume')}
@@ -1537,6 +1644,167 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
               />
             )}
           </Field>
+          <Field
+            {...meta(cfg, 'product_needed_by')}
+            label="Product needed by (best estimate of launch need)"
+          >
+            <Input
+              id={fid('product_needed_by')}
+              aria-describedby={`${fid('product_needed_by')}-help`}
+              aria-invalid={invalid('product_needed_by') || undefined}
+              type="date"
+              min={data.quoteNeededBy ?? tomorrow}
+              value={data.productNeededBy ?? ''}
+              onChange={(e) => update({ productNeededBy: nullIfBlank(e.target.value) })}
+            />
+            <FieldError issue={invalidIssue('product_needed_by')} />
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Description">
+        <Field {...meta(cfg, 'standard_description')}>
+          <Input
+            id={fid('standard_description')}
+            aria-describedby={`${fid('standard_description')}-help`}
+            value={data.standardDescription ?? ''}
+            onChange={(e) => update({ standardDescription: nullIfBlank(e.target.value) })}
+          />
+          {suggestion && suggestion !== data.standardDescription && (
+            <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+              Suggested: {suggestion}
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto min-h-0 px-0"
+                onClick={() => update({ standardDescription: suggestion })}
+              >
+                Use suggestion
+              </Button>
+            </p>
+          )}
+        </Field>
+      </Section>
+    </div>
+  );
+}
+
+export function ProductStep({
+  data,
+  update,
+  cfg,
+  evaluation,
+  sfCloseDate,
+  items,
+}: StepProps & { items: ItemsProps }) {
+  const invalidIssue = (field: string) =>
+    evaluation.blocking.find((b) => b.code === 'INVALID_VALUE' && b.field === field);
+  const invalid = (field: string) => Boolean(invalidIssue(field));
+  const tomorrow = isoDayAfter(todayInCentral(new Date()));
+  // FB-15: a value cleared because it no longer fits (a sub-market of another market) says so, instead of
+  // silently showing "Choose…".
+  const subMarketParent = data.subMarket ? cfg.intake.subMarketMarkets[data.subMarket] : undefined;
+  const subMarketMismatch = Boolean(
+    data.subMarket && subMarketParent !== undefined && subMarketParent !== data.market,
+  );
+  // FB-15 (W13-01 e): a stored sub-market of another market (or with no market, e.g. a rework of an older
+  // quote) is cleared when the step opens, with a note. A change made here clears it in the market's onChange.
+  const [marketNote, setMarketNote] = useState<string | null>(() =>
+    subMarketMismatch ? SUB_MARKET_CLEARED : null,
+  );
+  useEffect(() => {
+    if (subMarketMismatch) update({ subMarket: null });
+  }, [subMarketMismatch, update]);
+  const variantsMax = cfg.intake.variantsNoteMaxLength;
+  // F-067: a class other than CCQ shows where it goes instead, and Submit stays disabled.
+  const notAllowed = evaluation.blocking.find((b) => b.code === 'REQUEST_CLASS_NOT_ALLOWED');
+  const revenueChanged =
+    data.estAnnualRevenueSf != null && data.estAnnualRevenue !== data.estAnnualRevenueSf;
+  const open = items.items[items.selected];
+
+  return (
+    <div className="grid gap-4">
+      <RequiredKey />
+      {/* FB-15 (W13-04): why nothing was pre-filled from Salesforce. */}
+      {data.sfProductSpecsStatus === 'none' && (
+        <Notice tone="info" testId="sf-no-product-details">
+          Salesforce has no product details for this opportunity. Fill these in from the
+          customer&apos;s request.
+        </Notice>
+      )}
+      {data.sfProductSpecsStatus === 'unavailable' && (
+        <Notice tone="warning" testId="sf-product-details-unavailable">
+          Salesforce could not be reached when the opportunity was picked, so no product details
+          were pre-filled. Fill these in from the customer&apos;s request.
+        </Notice>
+      )}
+      {/* FB-19 (decision 2): the request is entered once for every item. */}
+      <Section title="Request">
+        <Field {...meta(cfg, 'request_class')}>
+          <Select
+            id={fid('request_class')}
+            listKey="request_class"
+            value={data.requestClass}
+            onChange={(v) => update({ requestClass: v })}
+            cfg={cfg}
+            invalid={Boolean(notAllowed)}
+          />
+          {notAllowed && (
+            <div role="alert">
+              <Notice tone="blocking" testId="request-class-redirect">
+                {notAllowed.message}
+              </Notice>
+            </div>
+          )}
+        </Field>
+        <BidReferenceField data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field {...meta(cfg, 'market')}>
+            <Select
+              id={fid('market')}
+              listKey="market"
+              value={data.market}
+              // FB-12: a sub-market that does not belong to the new market is cleared (the server does too).
+              onChange={(v) => {
+                const keep = data.subMarket && cfg.intake.subMarketMarkets[data.subMarket] === v;
+                setMarketNote(data.subMarket && !keep ? SUB_MARKET_CLEARED : null);
+                update({ market: v, subMarket: keep ? data.subMarket : null });
+              }}
+              cfg={cfg}
+            />
+          </Field>
+          {/* FB-12 (F-073): only the chosen market's sub-markets. It sets the strategic-fit score.
+              FB-15 (W13-02): required (provisional config). */}
+          <Field
+            {...meta(cfg, 'sub_market')}
+            note={
+              marketNote ? <span data-testid="sub-market-cleared">{marketNote}</span> : undefined
+            }
+          >
+            <Select
+              id={fid('sub_market')}
+              listKey="sub_market"
+              value={data.subMarket}
+              onChange={(v) => {
+                setMarketNote(null);
+                update({ subMarket: v });
+              }}
+              cfg={cfg}
+              disabled={!data.market}
+              placeholder={data.market ? 'Choose…' : 'Choose a market first'}
+              filter={(e) => e.meta.market === data.market}
+            />
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Commercial inputs for Pricing">
+        <CommercialInputsFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <DunnageField data={data} update={update} cfg={cfg} evaluation={evaluation} />
+      </Section>
+
+      <Section title="Value and timing">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field {...meta(cfg, 'est_annual_revenue')} label="Estimated annual revenue (USD)">
             <NumberInput
               id={fid('est_annual_revenue')}
@@ -1577,21 +1845,6 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             />
             <FieldError issue={invalidIssue('quote_needed_by')} />
           </Field>
-          <Field
-            {...meta(cfg, 'product_needed_by')}
-            label="Product needed by (best estimate of launch need)"
-          >
-            <Input
-              id={fid('product_needed_by')}
-              aria-describedby={`${fid('product_needed_by')}-help`}
-              aria-invalid={invalid('product_needed_by') || undefined}
-              type="date"
-              min={data.quoteNeededBy ?? tomorrow}
-              value={data.productNeededBy ?? ''}
-              onChange={(e) => update({ productNeededBy: nullIfBlank(e.target.value) })}
-            />
-            <FieldError issue={invalidIssue('product_needed_by')} />
-          </Field>
         </div>
       </Section>
 
@@ -1613,30 +1866,6 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
             {(data.quoteVariantsNote ?? '').length} / {variantsMax}
           </p>
         </Field>
-      </Section>
-
-      <Section title="Description">
-        <Field {...meta(cfg, 'standard_description')}>
-          <Input
-            id={fid('standard_description')}
-            aria-describedby={`${fid('standard_description')}-help`}
-            value={data.standardDescription ?? ''}
-            onChange={(e) => update({ standardDescription: nullIfBlank(e.target.value) })}
-          />
-          {suggestion && suggestion !== data.standardDescription && (
-            <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-              Suggested: {suggestion}
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto min-h-0 px-0"
-                onClick={() => update({ standardDescription: suggestion })}
-              >
-                Use suggestion
-              </Button>
-            </p>
-          )}
-        </Field>
         <Field {...meta(cfg, 'description')} label="Anything else (free text)">
           <Textarea
             id={fid('description')}
@@ -1646,6 +1875,19 @@ export function ProductStep({ data, update, cfg, evaluation, sfCloseDate }: Step
           />
         </Field>
       </Section>
+
+      <ItemsPanel {...items} cfg={cfg} />
+      {open && (
+        <ItemFields
+          key={open.key}
+          data={data}
+          update={update}
+          cfg={cfg}
+          evaluation={evaluation}
+          itemNo={items.selected + 1}
+          itemCount={items.items.length}
+        />
+      )}
     </div>
   );
 }
@@ -1723,37 +1965,33 @@ function DrawingOrSpec({
   );
 }
 
-export function ReviewStep({
-  data,
-  update,
-  cfg,
-  evaluation,
-  sfCloseDate,
-  hasDrawing = false,
-  goTo,
-  draftId,
-}: StepProps & { goTo: (step: number, field?: string) => void; draftId: string }) {
-  const drawingMissing = evaluation.warnings.find((w) => w.code === 'DRAWING_MISSING');
-  const rfpIssue = evaluation.blocking.find(
-    (b) => b.field === 'rfp_link' && b.code === 'INVALID_VALUE',
-  );
-  const other = evaluation.warnings.filter((w) => w.code !== 'ENRICH');
-  const enrich = evaluation.warnings.filter((w) => w.code === 'ENRICH');
+/** FB-19 (W13-32): what step 4 needs for the items: whose drawings are shown, and each item's view. */
+export interface ReviewItemsProps {
+  items: readonly IntakeItemData[];
+  /** The item whose drawings, drawing status and minimum spec are shown (0-based). */
+  selected: number;
+  onSelect: (index: number) => void;
+  hasDrawingFor: (item: IntakeItemData, index: number) => boolean;
+  /** The selected item's view (the request with its fields on top) and its update. */
+  itemData: IntakeDraftData;
+  updateItem: (patch: Partial<IntakeDraftData>) => void;
+  /** The request's issues and the selected item's. */
+  itemEvaluation: IntakeEvaluation;
+  /** Item names by key ("Item 2 (24 oz bottle)"), for the files list. */
+  itemNames: Readonly<Record<string, string>>;
+}
+
+type ReviewRow = [string, string | null | undefined];
+
+/** One item's rows on the review step (decision 3: the product fields). */
+function itemReviewRows(data: IntakeDraftData, cfg: WizardConfig, drawing: string): ReviewRow[] {
   const label = (list: string, code: string | null | undefined) =>
     valueLabel(cfg, list, code) || '—';
-
   const active = activeFollowUps(data.components, cfg.intake.componentFollowUps);
-  const followUpRows: [string, string | null | undefined][] = [
-    ...(active.includes('liner_spec')
-      ? [['Liner spec', data.linerSpec] as [string, string | null | undefined]]
-      : []),
+  const followUpRows: ReviewRow[] = [
+    ...(active.includes('liner_spec') ? [['Liner spec', data.linerSpec] as ReviewRow] : []),
     ...(active.includes('labels_purchased_by')
-      ? [
-          ['Labels purchased by', label('labels_purchased_by', data.labelsPurchasedBy)] as [
-            string,
-            string,
-          ],
-        ]
+      ? [['Labels purchased by', label('labels_purchased_by', data.labelsPurchasedBy)] as ReviewRow]
       : []),
     ...(active.includes('decoration_type')
       ? [
@@ -1762,14 +2000,133 @@ export function ReviewStep({
             isCustom(cfg, 'decoration_type', data.decorationType)
               ? (data.decorationTypeOther ?? 'Other')
               : label('decoration_type', data.decorationType),
-          ] as [string, string],
+          ] as ReviewRow,
         ]
       : []),
     ...(active.includes('decoration_print_colors')
-      ? [['Print colors', data.decorationPrintColors?.toString()] as [string, string | undefined]]
+      ? [['Print colors', data.decorationPrintColors?.toString()] as ReviewRow]
       : []),
   ];
-  const rows: { step: number; title: string; items: [string, string | null | undefined][] }[] = [
+  return [
+    // FB-15 (W13-03): an "Other" shows what the KAM described.
+    [
+      'Product family',
+      isCustom(cfg, 'product_family', data.productFamily)
+        ? `Other: ${data.productFamilyOther ?? '—'}`
+        : label('product_family', data.productFamily),
+    ],
+    ['Container size', data.containerSize],
+    [
+      'Components',
+      (data.components ?? [])
+        .map((c) =>
+          isCustom(cfg, 'component', c)
+            ? `Other: ${data.componentOther ?? '—'}`
+            : label('component', c),
+        )
+        .join(', '),
+    ],
+    ...followUpRows,
+    // DR-kam-sales-leader-19: a resin typed under "Other" shows as typed.
+    [
+      'Resin',
+      isCustom(cfg, 'resin', data.resin)
+        ? (data.resinGrade ?? label('resin', data.resin))
+        : label('resin', data.resin),
+    ],
+    ['Customer-specified resin', data.resinCustomerSpecified ? (data.resinGrade ?? 'Yes') : 'No'],
+    [
+      'PCR %',
+      isCustom(cfg, 'pcr_level', data.pcrLevel)
+        ? (data.pcrLevelOther ?? 'Other')
+        : label('pcr_level', data.pcrLevel),
+    ],
+    ['Neck', neckLabel(cfg, data) || null],
+    [
+      'Color',
+      isCustom(cfg, 'color_type', data.colorType)
+        ? (data.colorDescription ?? 'Custom')
+        : label('color_type', data.colorType),
+    ],
+    [
+      'Additives',
+      [
+        ...new Set(
+          [
+            isCustom(cfg, 'additive', data.additive) ? null : label('additive', data.additive),
+            data.additives,
+          ].filter((v) => v && v !== '—'),
+        ),
+      ].join(' · ') || null,
+    ],
+    [
+      'Dimensions',
+      [
+        data.heightMm != null ? `H ${data.heightMm} mm` : null,
+        data.widthOrDiameterMm != null ? `W/Ø ${data.widthOrDiameterMm} mm` : null,
+        data.depthMm != null ? `D ${data.depthMm} mm` : null,
+        data.gramWeightG != null ? `${data.gramWeightG} g` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || null,
+    ],
+    [
+      'Modify an existing mold',
+      data.modifyExistingMold
+        ? [data.existingMoldRef, data.moldChangeDescription].filter(Boolean).join(': ') || 'Yes'
+        : 'No',
+    ],
+    ['Packaging', label('packaging_type', data.packagingType)],
+    ['Packaging requirements', data.packagingNotes],
+    [
+      'Annual volume',
+      data.estAnnualVolume != null ? `${data.estAnnualVolume.toLocaleString()} units` : null,
+    ],
+    ['Product needed by', data.productNeededBy ? formatDate(data.productNeededBy) : null],
+    ['Drawing or minimum spec', drawing],
+    ['Standard description', data.standardDescription],
+  ];
+}
+
+export function ReviewStep({
+  data,
+  update,
+  cfg,
+  evaluation,
+  sfCloseDate,
+  goTo,
+  draftId,
+  items,
+}: StepProps & {
+  goTo: (step: number, field?: string, item?: number) => void;
+  draftId: string;
+  items: ReviewItemsProps;
+}) {
+  const many = items.items.length > 1;
+  const selectedItem = items.items[items.selected];
+  const selectedNo = items.selected + 1;
+  const hasDrawing = selectedItem ? items.hasDrawingFor(selectedItem, items.selected) : false;
+  const drawingMissing = items.itemEvaluation.warnings.find((w) => w.code === 'DRAWING_MISSING');
+  const rfpIssue = evaluation.blocking.find(
+    (b) => b.field === 'rfp_link' && b.code === 'INVALID_VALUE',
+  );
+  const other = evaluation.warnings.filter((w) => w.code !== 'ENRICH');
+  const enrich = evaluation.warnings.filter((w) => w.code === 'ENRICH');
+  const text = issueTextIn(data);
+  const label = (list: string, code: string | null | undefined) =>
+    valueLabel(cfg, list, code) || '—';
+  const pickerId = useId();
+
+  const drawingText = (item: IntakeItemData, index: number) =>
+    items.hasDrawingFor(item, index)
+      ? 'Drawing attached'
+      : evaluation.blocking.some(
+            (b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED' && (b.item ?? 1) === index + 1,
+          )
+        ? 'Missing: attach a drawing or complete the minimum spec'
+        : 'Minimum spec complete (no drawing)';
+
+  const rows: { step: number; title: string; item?: number; items: ReviewRow[] }[] = [
     {
       step: 1,
       title: 'Opportunity',
@@ -1787,88 +2144,16 @@ export function ReviewStep({
         ],
         ['Ship / fill destination', formatAddress(data.shipTo)],
         ...(data.shipToOverrideReason
-          ? ([['Destination changed because', data.shipToOverrideReason]] as [string, string][])
+          ? ([['Destination changed because', data.shipToOverrideReason]] as ReviewRow[])
           : []),
       ],
     },
     {
       step: 3,
-      title: 'Product & volume',
+      title: 'Request',
       items: [
         ['Request class', label('request_class', data.requestClass)],
-        // FB-15 (W13-03): an "Other" shows what the KAM described.
-        [
-          'Product family',
-          isCustom(cfg, 'product_family', data.productFamily)
-            ? `Other: ${data.productFamilyOther ?? '—'}`
-            : label('product_family', data.productFamily),
-        ],
-        [
-          'Components',
-          (data.components ?? [])
-            .map((c) =>
-              isCustom(cfg, 'component', c)
-                ? `Other: ${data.componentOther ?? '—'}`
-                : label('component', c),
-            )
-            .join(', '),
-        ],
-        ...followUpRows,
         ['Market', marketLabel(cfg, data) ?? '—'],
-        // DR-kam-sales-leader-19: a resin typed under "Other" shows as typed.
-        [
-          'Resin',
-          isCustom(cfg, 'resin', data.resin)
-            ? (data.resinGrade ?? label('resin', data.resin))
-            : label('resin', data.resin),
-        ],
-        [
-          'Customer-specified resin',
-          data.resinCustomerSpecified ? (data.resinGrade ?? 'Yes') : 'No',
-        ],
-        [
-          'PCR %',
-          isCustom(cfg, 'pcr_level', data.pcrLevel)
-            ? (data.pcrLevelOther ?? 'Other')
-            : label('pcr_level', data.pcrLevel),
-        ],
-        ['Neck', neckLabel(cfg, data) || null],
-        [
-          'Color',
-          isCustom(cfg, 'color_type', data.colorType)
-            ? (data.colorDescription ?? 'Custom')
-            : label('color_type', data.colorType),
-        ],
-        [
-          'Additives',
-          [
-            ...new Set(
-              [
-                isCustom(cfg, 'additive', data.additive) ? null : label('additive', data.additive),
-                data.additives,
-              ].filter((v) => v && v !== '—'),
-            ),
-          ].join(' · ') || null,
-        ],
-        [
-          'Dimensions',
-          [
-            data.heightMm != null ? `H ${data.heightMm} mm` : null,
-            data.widthOrDiameterMm != null ? `W/Ø ${data.widthOrDiameterMm} mm` : null,
-            data.depthMm != null ? `D ${data.depthMm} mm` : null,
-            data.gramWeightG != null ? `${data.gramWeightG} g` : null,
-          ]
-            .filter(Boolean)
-            .join(' · ') || null,
-        ],
-        [
-          'Modify an existing mold',
-          data.modifyExistingMold
-            ? [data.existingMoldRef, data.moldChangeDescription].filter(Boolean).join(': ') || 'Yes'
-            : 'No',
-        ],
-        ['Packaging', label('packaging_type', data.packagingType)],
-        ['Packaging requirements', data.packagingNotes],
         ['Dunnage', data.returnableDunnage ? 'Returnable (multi-trip)' : 'Single-trip'],
         [
           'Payment terms requested',
@@ -1909,45 +2194,66 @@ export function ReviewStep({
             : null,
         ],
         ['Customer bid / RFP reference', data.bidReference],
-        [
-          'Annual volume',
-          data.estAnnualVolume != null ? `${data.estAnnualVolume.toLocaleString()} units` : null,
-        ],
         ['Annual revenue', data.estAnnualRevenue != null ? formatUsd(data.estAnnualRevenue) : null],
         ['Salesforce close date', sfCloseDate ? formatDate(sfCloseDate) : null],
         ['Quote needed by', data.quoteNeededBy ? formatDate(data.quoteNeededBy) : null],
-        ['Product needed by', data.productNeededBy ? formatDate(data.productNeededBy) : null],
         ['Quote variants requested', data.quoteVariantsNote],
         ['Customer RFP / portal link', data.rfpLink],
-        [
-          'Drawing or minimum spec',
-          hasDrawing
-            ? 'Drawing attached'
-            : evaluation.blocking.some((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED')
-              ? 'Missing: attach a drawing or complete the minimum spec'
-              : 'Minimum spec complete (no drawing)',
-        ],
-        ['Standard description', data.standardDescription],
         ['Description', data.description],
       ],
     },
+    // FB-19 (W13-32): one block per item.
+    ...items.items.map((item, i) => ({
+      step: 3,
+      item: i + 1,
+      title: many ? draftItemName(item, i) : 'Product & volume',
+      items: itemReviewRows({ ...data, ...item }, cfg, drawingText(item, i)),
+    })),
   ];
 
   return (
     <div className="grid gap-4">
       <RequiredKey />
       <Section title="Drawing and files">
-        <DrawingOrSpec evaluation={evaluation} cfg={cfg} hasDrawing={hasDrawing} goTo={goTo} />
+        {/* FB-19 (W13-32): drawings belong to an item; the minimum spec is checked per item. */}
+        {many && (
+          <div className="grid gap-1.5" data-testid="drawing-item-picker">
+            <label htmlFor={pickerId} className="text-sm font-medium">
+              Drawings for
+            </label>
+            <NativeSelect
+              id={pickerId}
+              value={String(items.selected)}
+              onChange={(e) => items.onSelect(Number(e.target.value))}
+            >
+              {items.items.map((item, i) => (
+                <option key={item.key} value={i}>
+                  {draftItemName(item, i)}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        )}
+        <DrawingOrSpec
+          evaluation={items.itemEvaluation}
+          cfg={cfg}
+          hasDrawing={hasDrawing}
+          goTo={(step, field) => goTo(step, field, many ? selectedNo : undefined)}
+        />
         <Field
           {...meta(cfg, 'drawing_status')}
-          label="Drawing status"
+          label={
+            many
+              ? `Drawing status (${draftItemName(selectedItem!, items.selected)})`
+              : 'Drawing status'
+          }
           note={drawingMissing ? drawingMissing.message : undefined}
         >
           <Select
             id={fid('drawing_status')}
             listKey="drawing_status"
-            value={data.drawingStatus}
-            onChange={(v) => update({ drawingStatus: v })}
+            value={items.itemData.drawingStatus}
+            onChange={(v) => items.updateItem({ drawingStatus: v })}
             cfg={cfg}
           />
         </Field>
@@ -1956,7 +2262,9 @@ export function ReviewStep({
           target={{ draftId }}
           heading="Drawing and other files"
           headingLevel={3}
-          onDrawingStatus={(code) => update({ drawingStatus: code })}
+          onDrawingStatus={(code) => items.updateItem({ drawingStatus: code })}
+          itemKey={selectedItem?.key ?? null}
+          {...(many ? { itemNames: items.itemNames } : {})}
         />
         {/* F-014: the customer's RFP or bid portal (https only). */}
         <Field {...meta(cfg, 'rfp_link')} label="Customer RFP / portal link (optional)">
@@ -1993,13 +2301,16 @@ export function ReviewStep({
             <p className="font-semibold">Needed before you can submit</p>
             <ul className="mt-1 grid gap-1">
               {evaluation.blocking.map((b) => (
-                <li key={`${b.code}:${b.field}`} className="flex flex-wrap items-center gap-x-2">
-                  <span>{issueText(b)}</span>
+                <li
+                  key={`${b.code}:${b.field}:${b.item ?? ''}`}
+                  className="flex flex-wrap items-center gap-x-2"
+                >
+                  <span>{text(b)}</span>
                   <Button
                     variant="link"
                     size="sm"
                     className="h-auto min-h-0 px-0"
-                    onClick={() => goTo(issueStep(b), b.field)}
+                    onClick={() => goTo(issueStep(b), b.field, b.item)}
                   >
                     Fix
                   </Button>
@@ -2014,16 +2325,24 @@ export function ReviewStep({
             <p className="font-semibold">Engineering may ask about this</p>
             <ul className="mt-1 grid gap-1">
               {other.map((w) => (
-                <li key={`${w.code}:${w.field}`}>{w.message}</li>
+                <li key={`${w.code}:${w.field}:${w.item ?? ''}`}>{w.message}</li>
               ))}
               {enrich.map((w) => (
-                <li key={`${w.code}:${w.field}`} className="flex flex-wrap items-center gap-x-2">
-                  <span>{issueLabel(w)} is blank.</span>
+                <li
+                  key={`${w.code}:${w.field}:${w.item ?? ''}`}
+                  className="flex flex-wrap items-center gap-x-2"
+                >
+                  <span>
+                    {w.item !== undefined
+                      ? `${draftItemName(items.items[w.item - 1] ?? { key: '' }, w.item - 1)}: `
+                      : ''}
+                    {issueLabel(w)} is blank.
+                  </span>
                   <Button
                     variant="link"
                     size="sm"
                     className="text-warning-foreground h-auto min-h-0 px-0"
-                    onClick={() => goTo(issueStep(w), w.field)}
+                    onClick={() => goTo(issueStep(w), w.field, w.item)}
                   >
                     Add it
                   </Button>
@@ -2036,13 +2355,13 @@ export function ReviewStep({
 
         {rows.map((r) => (
           <Section
-            key={r.step}
+            key={`${r.step}:${r.item ?? ''}`}
             title={r.title}
             action={
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => goTo(r.step)}
+                onClick={() => goTo(r.step, undefined, r.item)}
                 aria-label={`Edit ${r.title}`}
               >
                 <PencilIcon aria-hidden /> Edit

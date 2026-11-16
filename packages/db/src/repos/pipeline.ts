@@ -3,6 +3,7 @@ import type { SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
+import { itemSummaryColumns, primaryEngReviewOn } from './items';
 import {
   appUser,
   customer,
@@ -171,33 +172,36 @@ function orderFor(opts: PipelineQueryOptions): SQL[] {
  * domain-computed filters. RLS applies.
  */
 export function listPipelineKeys(db: DbOrTx, opts: PipelineQueryOptions) {
-  return db
-    .select({
-      id: quote.id,
-      stageKey: quote.stageKey,
-      status: quote.status,
-      kamUserId: quote.kamUserId,
-      assignedEngineerId: quote.assignedEngineerId,
-      // FB-16: the production scheduler's owner scope reads it (`can(actor, 'quote.read', …)`).
-      assignedSchedulerId: quote.assignedSchedulerId,
-      region: quote.region,
-      accountId: customer.sfAccountId,
-      estAnnualRevenue: quote.estAnnualRevenue,
-      estAnnualVolume: quote.estAnnualVolume,
-      processType: engReview.processType,
-      sfStage: sfOpportunitySnapshot.sfStage,
-      /** The board's column totals add these up without loading the wide rows. */
-      amount: sfOpportunitySnapshot.amount,
-    })
-    .from(quote)
-    .leftJoin(
-      sfOpportunitySnapshot,
-      eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
-    )
-    .leftJoin(customer, eq(customer.id, quote.customerId))
-    .leftJoin(engReview, eq(engReview.quoteId, quote.id))
-    .where(whereFor(opts))
-    .orderBy(...orderFor(opts));
+  return (
+    db
+      .select({
+        id: quote.id,
+        stageKey: quote.stageKey,
+        status: quote.status,
+        kamUserId: quote.kamUserId,
+        assignedEngineerId: quote.assignedEngineerId,
+        // FB-16: the production scheduler's owner scope reads it (`can(actor, 'quote.read', …)`).
+        assignedSchedulerId: quote.assignedSchedulerId,
+        region: quote.region,
+        accountId: customer.sfAccountId,
+        estAnnualRevenue: quote.estAnnualRevenue,
+        estAnnualVolume: quote.estAnnualVolume,
+        processType: engReview.processType,
+        sfStage: sfOpportunitySnapshot.sfStage,
+        /** The board's column totals add these up without loading the wide rows. */
+        amount: sfOpportunitySnapshot.amount,
+      })
+      .from(quote)
+      .leftJoin(
+        sfOpportunitySnapshot,
+        eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
+      )
+      .leftJoin(customer, eq(customer.id, quote.customerId))
+      // FB-19: the primary item's review row (one row per quote).
+      .leftJoin(engReview, primaryEngReviewOn(quote.id))
+      .where(whereFor(opts))
+      .orderBy(...orderFor(opts))
+  );
 }
 export type PipelineKey = Awaited<ReturnType<typeof listPipelineKeys>>[number];
 
@@ -210,37 +214,45 @@ const engineer = alias(appUser, 'engineer');
  */
 export function listPipelineRows(db: DbOrTx, ids: readonly string[]) {
   if (ids.length === 0) return Promise.resolve([]);
-  return db
-    .select({
-      quote,
-      opportunityName: sfOpportunitySnapshot.name,
-      accountName: sfOpportunitySnapshot.accountName,
-      amount: sfOpportunitySnapshot.amount,
-      sfStage: sfOpportunitySnapshot.sfStage,
-      sfCloseDate: sfOpportunitySnapshot.closeDate,
-      customerName: customer.name,
-      customerStatus: customer.status,
-      kamName: appUser.displayName,
-      engineerName: engineer.displayName,
-      processType: engReview.processType,
-      prelimCapitalUsd: engReview.prelimCapitalUsd,
-      capitalReadiness: pricingRecord.capitalReadiness,
-      stageEnteredAt: stageEnteredAtSql,
-    })
-    .from(quote)
-    .leftJoin(
-      sfOpportunitySnapshot,
-      eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
-    )
-    .leftJoin(customer, eq(customer.id, quote.customerId))
-    .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
-    .leftJoin(engineer, eq(engineer.id, quote.assignedEngineerId))
-    .leftJoin(engReview, eq(engReview.quoteId, quote.id))
-    .leftJoin(
-      pricingRecord,
-      and(eq(pricingRecord.quoteId, quote.id), eq(pricingRecord.quoteVersion, quote.version)),
-    )
-    .where(inArray(quote.id, [...ids]));
+  return (
+    db
+      .select({
+        quote,
+        opportunityName: sfOpportunitySnapshot.name,
+        accountName: sfOpportunitySnapshot.accountName,
+        amount: sfOpportunitySnapshot.amount,
+        sfStage: sfOpportunitySnapshot.sfStage,
+        sfCloseDate: sfOpportunitySnapshot.closeDate,
+        customerName: customer.name,
+        customerStatus: customer.status,
+        kamName: appUser.displayName,
+        engineerName: engineer.displayName,
+        processType: engReview.processType,
+        // FB-19: the quote's preliminary capital is the sum of its items' (null when none has a figure).
+        prelimCapitalUsd: sql<number | null>`(
+        select sum(er.prelim_capital_usd) from ${engReview} er where er.quote_id = ${quote.id}
+      )`.mapWith((v: string | number | null) => (v === null ? null : Number(v))),
+        capitalReadiness: pricingRecord.capitalReadiness,
+        stageEnteredAt: stageEnteredAtSql,
+        // FB-19: the item count and item 1's label.
+        ...itemSummaryColumns(),
+      })
+      .from(quote)
+      .leftJoin(
+        sfOpportunitySnapshot,
+        eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
+      )
+      .leftJoin(customer, eq(customer.id, quote.customerId))
+      .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
+      .leftJoin(engineer, eq(engineer.id, quote.assignedEngineerId))
+      // FB-19: the primary item's review row (one row per quote).
+      .leftJoin(engReview, primaryEngReviewOn(quote.id))
+      .leftJoin(
+        pricingRecord,
+        and(eq(pricingRecord.quoteId, quote.id), eq(pricingRecord.quoteVersion, quote.version)),
+      )
+      .where(inArray(quote.id, [...ids]))
+  );
 }
 export type PipelineRow = Awaited<ReturnType<typeof listPipelineRows>>[number];
 

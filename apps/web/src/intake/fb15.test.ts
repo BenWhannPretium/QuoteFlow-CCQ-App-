@@ -240,11 +240,14 @@ describe('W13-04: Salesforce product specifications', () => {
     const out = prefillFromOpportunity(detail([spec('a', 'HDPE'), spec('b', 'PET')], 'found'), cfg);
     expect(out.sfProductSpecs?.map((s) => s.id)).toEqual(['a', 'b']);
     expect(out.sfProductSpecsStatus).toBe('found');
-    expect(out).toMatchObject({
+    // FB-19: the first specification pre-fills item 1 (the others can be added from the Items list).
+    expect(out.items).toHaveLength(1);
+    expect(out.items![0]).toMatchObject({
       resin: 'HDPE',
       neckDiameter: '28',
       neckFinishType: '410',
       containerSize: '16 oz',
+      sfProductSpecId: 'a',
     });
   });
 
@@ -253,8 +256,8 @@ describe('W13-04: Salesforce product specifications', () => {
       detail([spec('a', 'High-density polyethylene')], 'found'),
       cfg,
     );
-    expect(out.resin).toBeNull();
-    expect(out.sfPrefill?.resin).toBeNull();
+    expect(out.items![0]!.resin).toBeNull();
+    expect(out.items![0]!.sfPrefill?.resin).toBeNull();
     expect(out.sfProductSpecs?.[0]?.resin).toBe('High-density polyethylene');
   });
 

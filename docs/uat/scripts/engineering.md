@@ -26,6 +26,8 @@
 
 Labels for stages, outcomes and reasons are provisional configuration. Note a wrong meaning, not a different wording.
 
+**Changed 2026-11-16 (FB-19, walkthrough of Nov 13: W13-32 to W13-34).** A quote can hold several items. Engineering works **each item**: the **Engineering** tab has an item switcher above the solution, and each item has its own solution, BOM, two-step, pack-out and capacity rows. One engineer per quote; acceptance, submit to lead, the capacity sign-off and G2 stay once per quote, and G2 waits until every item is done. A one-item quote reads exactly as before. **Part J** (steps 100 to 107) is new.
+
 **Changed 2026-11-15 (FB-17, walkthrough of Nov 13).** The decision dialog now offers four choices: **Advance**, **Send back to…**, **Hold** and **Stop**. "Rework" and "Redirect" are gone as names: **Send back to…** asks where the quote goes. **Advance – capital required** is gone: enter the capital estimate ($0 when none) and the app works out whether capital is needed. Steps 10, 15a, 30, 33 and 35 to 40 are changed, step 85 names the new button, and **Part I** (steps 91 to 99) is new.
 
 **Changed 2026-11-15 (FB-18, walkthrough of Nov 13).** Home is now the **Command Center**; for the engineering lead it has two views at the top, **My work** and **Analytics**, and **Analytics** is no longer in the menu. Every Save button now says **Progress saved** beside it (the toast in the corner stays). Steps 1, 11, 15, 15b, 17, 43, 77 and 81 are changed.
@@ -186,6 +188,21 @@ Added 2026-11-14 for FB-16 (W13-12 to W13-21). Steps 15, 15b, 17, 30–33 and 59
 | 97 | Lead, Engineer, KAM | Lead: on `<CCQ-GD-4>` choose **Hold**, keep the owner on **The assigned engineer (<name>)**, set a reason, a review date and a note, and record. Engineer and KAM: check the bell. Then the lead records any other decision on the quote (for example **Send back to…** → **Engineering (try another platform or site)**). | Engineer: "… is on hold: you own the hold", with the review date. KAM: "… was put on hold", naming the owner, the reason and the review date. The lead gets no notice of their own hold. The **Timeline** reads "On hold: <reason>. Owner: <engineer>. Review by <date>." and, after the next decision, "Hold ended: <lead> recorded “…”". | | |
 | 98 | Everyone | Open a quote on a laptop and click **Why?** next to the priority score (also in the **To qualify** list for a sales leader). | The whole explanation is on the screen: it opens above the button when there is more room there and scrolls inside when it is long. Nothing is hidden behind the taskbar. | | |
 | 99 | Everyone | Are the four choices clear? Do the send-back reasons (Missing information, Scope unclear, Wrong specification, Other) fit "try another platform or site"? Should a quote with capital above $0 still be able to reach Final Review with capital **pending**? (Today it cannot: Pricing must mark capital pre-approved first.) | Write the answers in Notes. | | |
+
+## Part J: FB-19 checks (several items in one quote)
+
+Data: `<CCQ-MI-1>`, a quote with three items in Engineering & Capacity, assigned to your engineer, staged by Ben (or the KAM's quote from kam.md step 83).
+
+| # | Who | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|---|
+| 100 | Lead | Open **My assignments** / the engineering queue. Find `<CCQ-MI-1>`. | The row shows the item count ("16 oz bottle + 2 more"). | | |
+| 101 | Engineer | Open `<CCQ-MI-1>` → **Engineering** → **Accept (start review)**. | Accepted once for the quote. An item switcher ("Item 1: …", "Item 2: …", "Item 3: …") sits above the solution, each with "n to do" or a check mark. The intake facts at the top are the open item's. | | |
+| 102 | Engineer | On item 1: pick the plant and machine type, fill the solution with a capital estimate, save, and add a capacity row. Switch to item 2. | Item 2 opens empty: its own solution and capacity rows. Switching back to item 1 shows what you saved. The capacity row's default allocation is item 1's volume. | | |
+| 103 | Engineer | Fill item 2 the same way. Leave item 3 empty. Click **Submit to engineering lead**. | Refused, or not offered: what is still needed names item 3 ("Item 3 (…): …"). | | |
+| 104 | Lead | Open `<CCQ-MI-1>` → **Engineering**. Read **Still needed before this quote can move forward**. | It names item 3 and what it lacks. **Advance** is not offered while any item is incomplete. | | |
+| 105 | Engineer | Fill item 3. **Download CSV** of the capacity rows. **Submit to engineering lead**. | Submitted. The CSV has an `item` column naming each row's item. | | |
+| 106 | Lead | **Ready for my review** → `<CCQ-MI-1>`. **Decide feasibility** → **Advance**. | Advanced once for the quote. If any item's capital estimate is above $0, capital is needed for the quote and the figure shown is the total. | | |
+| 107 | Everyone | Is one engineer per quote right, or should items go to different engineers? Is a capacity sign-off once per quote enough? | Write the answers in Notes. | | |
 
 ## Sign-off
 

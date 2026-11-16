@@ -12,6 +12,7 @@ import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
+import { QuoteItemsList } from '@/components/QuoteItems';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
@@ -84,6 +85,15 @@ export function QuotingTab({
       <SectionLockLine lock={quoting.lock} />
       {/* FB-11 (D-032): what the KAM told Pricing at intake (payment terms, funding, dunnage, freight, bid reference). */}
       <IntakeCommercialCard quote={quote} />
+      {/* FB-19 (W13-32, decision 5): one costing model, payback model and price table cover every item. */}
+      {quote.items.length > 1 && (
+        <QuoteItemsList
+          items={quote.items}
+          title="Items in this quote"
+          note="Price every item in the one costing model, payback model and price table below: each workbook covers all of them."
+          testId="quoting-items"
+        />
+      )}
       {/* FB-06 (F-058, F-024, F-025, T-008): the equipment BOM, two-step process and pack-out from Engineering. */}
       <EngineeringInputsCard quote={quote} />
       {/* FB-07 (D-001): costing → ROI → price approved, for every reader (Finance uploads here). */}

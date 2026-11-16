@@ -7,6 +7,7 @@ import {
   loadScoringFacts,
   scoringModelInputFromRow,
   setQuotePriority,
+  listQuoteItems,
 } from '@ccq/db/repos';
 import {
   parseQualificationSettings,
@@ -15,6 +16,7 @@ import {
   type QualificationSettings,
   type ScoreResult,
   type ScoringModel,
+  withItemsNote,
 } from '@ccq/domain';
 
 /** What triggered a recalculation; recorded on the tier-change activity event. */
@@ -69,14 +71,21 @@ export class ScoringService {
     at: Date,
     trigger: ScoringTrigger,
   ): Promise<(ScoreResult & { tierChanged: boolean }) | null> {
-    const [model, before, facts] = await Promise.all([
+    const [model, before, facts, items] = await Promise.all([
       this.model(db, at),
       getQuoteById(db, quoteId),
       loadScoringFacts(db, quoteId),
+      listQuoteItems(db, quoteId),
     ]);
     if (!model || !before || !facts) return null;
 
-    const result = score(model, facts, at);
+    // FB-19 (W13-32): the quote's volume is the sum of its items'; the breakdown says so.
+    const result = withItemsNote(
+      score(model, facts, at),
+      model,
+      items.length,
+      before.estAnnualVolume,
+    );
     await setQuotePriority(db, quoteId, result, at, {
       tierOverridden: before.priorityTierOverridden,
     });

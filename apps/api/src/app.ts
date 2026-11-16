@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-import type { Database } from '@ccq/db';
+import { withSystemContext, type Database } from '@ccq/db';
 import { ATTACHMENT_MAX_BYTES } from '@ccq/domain';
 import {
   FabricRestMirrorReader,
@@ -457,6 +457,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ensureOpportunity: async (withTx, id) => (await sfService.detail(withTx, id)) !== null,
     attachments: attachmentService,
     log: app.log.child({ component: 'intake' }),
+    // FB-19 (W13-33): the active quotes on an opportunity are found whoever owns them (number and KAM only).
+    ...(deps.db.db ? { systemTx: (fn) => withSystemContext(deps.db.db!, fn) } : {}),
   });
 
   // B-09 governed overrides, the quote timeline + comments, and the admin audit viewer / usage report.

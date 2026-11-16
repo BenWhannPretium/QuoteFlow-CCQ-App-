@@ -61,6 +61,10 @@ describe('RLS on quote: owner-scoped KAM', () => {
         'override',
         'pricing_record',
         'eng_review',
+        // FB-19: the items and their drawing links are quote children too.
+        'quote_item',
+        'quote_item_drawing',
+        'capacity_evidence',
       ]) {
         const rows = await raw(
           tx,
@@ -70,7 +74,25 @@ describe('RLS on quote: owner-scoped KAM', () => {
       }
       const own = await raw(tx, sql`select 1 from stage_history where quote_id = ${ownQuoteId}`);
       expect(own.length).toBeGreaterThan(0);
+      // FB-19: the KAM sees their own quote's items (every quote has item 1).
+      const items = await raw(
+        tx,
+        sql`select item_no from quote_item where quote_id = ${ownQuoteId}`,
+      );
+      expect(items.length).toBeGreaterThan(0);
     });
+  });
+
+  it('cannot add an item to another KAM’s quote (FB-19, WITH CHECK)', async () => {
+    const code = await pgError(
+      asPersona(db, 'kam-owner', (tx) =>
+        raw(
+          tx,
+          sql`insert into quote_item (id, quote_id, item_no) values (${uuidv7()}, ${otherQuoteId}, 99)`,
+        ),
+      ),
+    );
+    expect(code).toBe('42501');
   });
 
   it('cannot update or delete another KAM’s quote (zero rows affected)', async () => {
@@ -349,21 +371,23 @@ describe('RLS on draft attachments: the draft owner plus Admin (B-16)', () => {
   });
 });
 
-describe('one active quote per SF opportunity (B-07)', () => {
-  it('a second active quote on the same opportunity violates the unique partial index', async () => {
-    const [active] = await raw<{ sf_opportunity_id: string; kam_user_id: string }>(
+describe('one active quote per SF opportunity (B-07, a setting since FB-19)', () => {
+  // FB-19 (W13-33): the rule moved from the unique partial index to the setting
+  // `opportunity_active_quotes`, checked at submit in system context under a transaction advisory lock
+  // keyed on the opportunity. The API integration tests cover both values, another KAM's quote and two
+  // concurrent submits (apps/api/test/fb19-multi-item.int.test.ts). This is not a weakened test: the
+  // database no longer holds the rule, so the database test checks that the index is gone.
+  it('the unique partial index is gone (the rule is the opportunity_active_quotes setting)', async () => {
+    const rows = await raw<{ n: number }>(
       db as never,
-      sql`select sf_opportunity_id, kam_user_id from quote where status <> 'closed' limit 1`,
+      sql`select count(*)::int as n from pg_indexes where indexname = 'quote_one_active_per_opportunity_uidx'`,
     );
-    const insert = (status: string) =>
-      raw(
-        db as never,
-        sql`insert into quote (id, quote_number, sf_opportunity_id, kam_user_id, stage_key, status, closed_at)
-            values (${uuidv7()}, 'CCQ-2098-00001', ${active!.sf_opportunity_id}, ${active!.kam_user_id}, 'INTAKE', ${status},
-                    ${status === 'closed' ? sql`now()` : sql`null`})`,
-      );
-    expect(await pgError(insert('active'))).toBe('23505');
-    expect(await pgError(insert('on_hold'))).toBe('23505');
+    expect(rows[0]!.n).toBe(0);
+    const setting = await raw<{ value: unknown }>(
+      db as never,
+      sql`select value from app_setting where key = 'opportunity_active_quotes'`,
+    );
+    expect(setting[0]?.value).toBe('warn');
   });
 
   it('closed quotes do not count, so an opportunity can carry its history', async () => {

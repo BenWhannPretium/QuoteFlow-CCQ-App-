@@ -1,6 +1,7 @@
 import type {
   CapacityBasisDto,
   EngineeringDetail,
+  EngItemView,
   EquipmentBomView,
   ProductFact,
   SuggestedEngineer,
@@ -9,6 +10,8 @@ import type { DbOrTx } from '@ccq/db';
 import {
   getEngReview,
   getSetting,
+  listEngReviews,
+  listQuoteItems,
   listAssignableEngineers,
   listAttachments,
   listCapacityEvidenceWithNames,
@@ -29,6 +32,14 @@ import {
   canSeeCommercialFields,
   capitalNeededRuleText,
   allocationCheck,
+  engCapitalNeeded,
+  evaluateRules,
+  itemFactKeys,
+  itemName,
+  itemView,
+  quoteItemFacts,
+  ruleIsPerItem,
+  submissionRules,
   pairFitsMap,
   parseAssignmentRules,
   parseCapacityBasis,
@@ -56,7 +67,7 @@ import {
   type TwoStepPlantMachineTypes,
 } from '@ccq/domain';
 
-import { intakeFactsDto } from './intake-facts';
+import { intakeFactsDto, quoteWithItem } from './intake-facts';
 import { leadReviewView } from './lead-review';
 import { sectionLockView } from './locks';
 import { marketPathLabel } from './marketLabel';
@@ -309,38 +320,19 @@ async function selectedLabels(
   return { processType, machineType, plantCode };
 }
 
-/**
- * The quote's Engineering tab: assignment, acceptance, review fields and capacity evidence, with the
- * commercial numbers (prelim capital, capacity figures) stripped by the domain's `redact` for roles
- * without `quote.read.commercialFields` (architecture §3.3). Every quote reader gets it read-only;
- * `canEdit` / `canAccept` / `canAssign` say what the caller may change.
- */
-export async function engineeringView(
-  db: DbOrTx,
-  actor: Actor,
-  settings: EngQueueSettings,
-  q: Quote,
-  state: QuoteState,
-  /** FB-01 (F-001): the workflow config the section lock reads. */
-  workflow: LockConfig,
-): Promise<EngineeringDetail> {
-  const [eng, capacity, basis, facts, processMap] = await Promise.all([
-    getEngReview(db, q.id),
-    listCapacityEvidenceWithNames(db, q.id),
-    loadCapacityBasis(db),
-    productFacts(db, q),
-    loadMachineTypeProcessMap(db),
-  ]);
-  const labels = await selectedLabels(db, eng);
-  const people = await listUsersByIds(
-    db,
-    [q.assignedEngineerId, q.assignedSchedulerId, eng?.acceptedBy, eng?.capacitySignoffBy].filter(
-      (id): id is string => !!id,
-    ),
-  );
-  const name = (id: string | null | undefined) =>
-    (id && people.find((p) => p.id === id)?.displayName) ?? null;
+type ReviewRow = NonNullable<Awaited<ReturnType<typeof getEngReview>>>;
+type CapacityRowWithName = Awaited<ReturnType<typeof listCapacityEvidenceWithNames>>[number];
 
+/** The review fields and capacity rows as the tab shows them, commercial numbers redacted by role. */
+function visibleReview(
+  actor: Actor,
+  eng: ReviewRow | undefined,
+  capacity: readonly CapacityRowWithName[],
+  basis: CapacityBasis,
+): {
+  review: EngineeringDetail['review'];
+  capacityEvidence: EngineeringDetail['capacityEvidence'];
+} {
   const visible = redact(
     {
       review: {
@@ -384,6 +376,125 @@ export async function engineeringView(
     },
     actor,
   );
+  return {
+    review: visible.review,
+    capacityEvidence: visible.capacityEvidence.map((row) => ({
+      ...row,
+      utilizationLevel:
+        typeof row.utilizationAfterPct === 'number'
+          ? utilizationLevel(row.utilizationAfterPct, basis)
+          : null,
+    })),
+  };
+}
+
+/**
+ * FB-19: what each item still needs before the engineer can submit to the lead: the submission rules
+ * that read an item's facts, checked against that item (with its own "capital needed").
+ */
+function itemToDo(
+  state: QuoteState,
+  workflow: LockConfig,
+  aboveUsd: number,
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  const items = quoteItemFacts(state.fields);
+  const config = workflow as Partial<WorkflowConfig>;
+  if (!items || !config.gates || !config.outcomes) return out;
+  const rules = submissionRules('engineering', config as WorkflowConfig);
+  const perItem = rules.filter((r) => ruleIsPerItem(r, itemFactKeys(items)));
+  for (const item of items) {
+    const view = {
+      ...itemView(state.fields, item),
+      eng_capital_needed: engCapitalNeeded(item.prelim_capital_usd, aboveUsd),
+    };
+    out.set(
+      String(item.quote_item_id),
+      evaluateRules(perItem, view).map((e) => e.message),
+    );
+  }
+  return out;
+}
+
+/**
+ * The quote's Engineering tab: assignment, acceptance, review fields and capacity evidence, with the
+ * commercial numbers (prelim capital, capacity figures) stripped by the domain's `redact` for roles
+ * without `quote.read.commercialFields` (architecture §3.3). Every quote reader gets it read-only;
+ * `canEdit` / `canAccept` / `canAssign` say what the caller may change.
+ *
+ * FB-19 (W13-32 to W13-34): each item has its own solution and capacity rows (`items`); the assignment,
+ * the acceptance, the lead review and the capacity sign-off are the quote's (on item 1's review row).
+ * The top-level review fields are item 1's.
+ */
+export async function engineeringView(
+  db: DbOrTx,
+  actor: Actor,
+  settings: EngQueueSettings,
+  q: Quote,
+  state: QuoteState,
+  /** FB-01 (F-001): the workflow config the section lock reads. */
+  workflow: LockConfig,
+): Promise<EngineeringDetail> {
+  const [eng, items, reviews, capacity, basis, processMap, aboveUsd] = await Promise.all([
+    getEngReview(db, q.id),
+    listQuoteItems(db, q.id),
+    listEngReviews(db, q.id),
+    listCapacityEvidenceWithNames(db, q.id),
+    loadCapacityBasis(db),
+    loadMachineTypeProcessMap(db),
+    loadCapitalNeededAboveUsd(db),
+  ]);
+  const people = await listUsersByIds(
+    db,
+    [q.assignedEngineerId, q.assignedSchedulerId, eng?.acceptedBy, eng?.capacitySignoffBy].filter(
+      (id): id is string => !!id,
+    ),
+  );
+  const name = (id: string | null | undefined) =>
+    (id && people.find((p) => p.id === id)?.displayName) ?? null;
+  const toDo = itemToDo(state, workflow, aboveUsd);
+
+  const itemViews = await Promise.all(
+    items.map(async (item) => {
+      const review = reviews.find((r) => r.quoteItemId === item.id);
+      const rows = capacity.filter(({ row }) => row.quoteItemId === item.id);
+      const visible = visibleReview(actor, review, rows, basis);
+      const single = items.length === 1;
+      const volume = (single ? q.estAnnualVolume : item.estAnnualVolume) ?? null;
+      return {
+        id: item.id,
+        itemNo: item.itemNo,
+        label: item.label,
+        name: itemName(item.itemNo, item.label),
+        containerSize: item.containerSize,
+        review: visible.review,
+        capacityEvidence: visible.capacityEvidence,
+        annualVolume: volume,
+        allocationWarning:
+          allocationCheck(
+            rows.map(({ row }) => ({ allocatedAnnualVolume: row.allocatedAnnualVolume })),
+            volume,
+          )?.message ?? null,
+        selectedLabels: await selectedLabels(db, review),
+        // A one-item quote is its item (the quote mirrors it), so its facts are read as they always were.
+        productFacts: await productFacts(db, single ? q : quoteWithItem(q, item)),
+        processPairLegacy: !pairFitsMap(processMap, {
+          processType: review?.processType ?? null,
+          machineType: review?.machineType ?? null,
+        }),
+        toDo: toDo.get(item.id) ?? [],
+      } satisfies EngItemView;
+    }),
+  );
+  // Item 1 (or, for a quote with no item yet, the quote's own columns) fills the top-level fields.
+  const first = itemViews[0];
+  const legacy = first
+    ? null
+    : {
+        visible: visibleReview(actor, eng, capacity, basis),
+        labels: await selectedLabels(db, eng),
+        facts: await productFacts(db, q),
+      };
 
   const inQueue = q.stageKey === ENG_QUEUE_STAGE_KEY && q.status !== 'closed';
   const canAssign = inQueue && canAssignEngQueue(actor, settings, state);
@@ -406,23 +517,18 @@ export async function engineeringView(
     assignedSchedulerAt: iso(q.assignedSchedulerAt),
     acceptedAt: iso(eng?.acceptedAt),
     acceptedByName: name(eng?.acceptedBy),
-    review: visible.review,
-    capacityEvidence: visible.capacityEvidence.map((row) => ({
-      ...row,
-      utilizationLevel:
-        typeof row.utilizationAfterPct === 'number'
-          ? utilizationLevel(row.utilizationAfterPct, basis)
-          : null,
-    })),
-    quoteAnnualVolume: q.estAnnualVolume ?? null,
+    review: first ? first.review : legacy!.visible.review,
+    capacityEvidence: first ? first.capacityEvidence : legacy!.visible.capacityEvidence,
+    quoteAnnualVolume: first ? first.annualVolume : (q.estAnnualVolume ?? null),
     capacityBasis: basis satisfies CapacityBasisDto,
-    allocationWarning:
-      allocationCheck(
-        capacity.map(({ row }) => ({ allocatedAnnualVolume: row.allocatedAnnualVolume })),
-        q.estAnnualVolume,
-      )?.message ?? null,
-    productFacts: facts,
-    selectedLabels: labels,
+    allocationWarning: first
+      ? first.allocationWarning
+      : (allocationCheck(
+          capacity.map(({ row }) => ({ allocatedAnnualVolume: row.allocatedAnnualVolume })),
+          q.estAnnualVolume,
+        )?.message ?? null),
+    productFacts: first ? first.productFacts : legacy!.facts,
+    selectedLabels: first ? first.selectedLabels : legacy!.labels,
     capacitySignoff: {
       status: (eng?.capacitySignoffStatus as 'approved' | 'blocked' | null | undefined) ?? null,
       byName: name(eng?.capacitySignoffBy),
@@ -436,10 +542,12 @@ export async function engineeringView(
     // FB-16: the capacity rows have their own permission (capacity.edit); the solution keeps engReview.edit.
     canEditCapacity: canEditCapacity(actor, state, workflow),
     // FB-16 (W13-12): an old quote whose stored process does not fit what its machine type derives.
-    processPairLegacy: !pairFitsMap(processMap, {
-      processType: eng?.processType ?? null,
-      machineType: eng?.machineType ?? null,
-    }),
+    processPairLegacy: first
+      ? first.processPairLegacy
+      : !pairFitsMap(processMap, {
+          processType: eng?.processType ?? null,
+          machineType: eng?.machineType ?? null,
+        }),
     commercialRedacted: !canSeeCommercialFields(actor),
     canEdit: canEditEngReview(actor, state, workflow),
     lock: await sectionLockView(db, workflow, 'engineering', state),
@@ -448,5 +556,6 @@ export async function engineeringView(
     leadReview: await leadReviewView(db, actor, 'engineering', q, state),
     equipmentBom: await equipmentBomView(db, actor, q, state, workflow),
     suggestedEngineer,
+    items: itemViews,
   };
 }

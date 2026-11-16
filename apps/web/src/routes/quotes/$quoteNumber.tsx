@@ -35,6 +35,7 @@ import {
   HandoffCard,
 } from '@/components/outcome/CustomerDecision';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
+import { QuoteItemsList } from '@/components/QuoteItems';
 import { SalesforceLink } from '@/components/SalesforceLink';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -125,7 +126,12 @@ function QuotePage() {
         className="mb-0"
         title={q.quoteNumber}
         eyebrow="Quote"
-        description={[q.customerName, q.opportunityName].filter(Boolean).join(' · ') || undefined}
+        description={
+          // FB-19 (W13-32): "16 oz bottle + 2 more" for a multi-item quote.
+          [q.customerName, q.opportunityName, q.itemCount > 1 ? q.itemsSummary : null]
+            .filter(Boolean)
+            .join(' · ') || undefined
+        }
         actions={
           <>
             <SalesforceLink quote={q} />
@@ -450,6 +456,12 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
             // The proposal dates and validity countdown are in the Customer decision header (B-13).
           ]}
         />
+        {/* FB-19 (W13-32): every item, quoted together. */}
+        {quote.items.length > 1 && (
+          <div className="mt-4">
+            <QuoteItemsList items={quote.items} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

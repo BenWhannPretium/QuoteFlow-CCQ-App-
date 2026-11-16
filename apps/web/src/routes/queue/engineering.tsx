@@ -23,6 +23,7 @@ import { AssignDialog, engQueueQueryKey } from '@/components/engineering/AssignD
 import { BulkReassignDialog } from '@/components/engineering/BulkReassignDialog';
 import { businessDays } from '@/components/engineering/format';
 import { MoldModificationChip } from '@/components/intake/IntakeFacts';
+import { ItemsBadge } from '@/components/QuoteItems';
 import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
 import { SalesforceLink, SalesforceUrlHint } from '@/components/SalesforceLink';
 import { Button } from '@/components/ui/button';
@@ -355,6 +356,8 @@ function MyAssignments({
               >
                 {q.quoteNumber}
               </Link>
+              {/* FB-19 (W13-32): the item count beside the quote. */}
+              <ItemsBadge itemCount={q.itemCount} itemsSummary={q.itemsSummary} />
               <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} showWhy={false} />
               <span className="min-w-0 break-words">{q.customerName ?? 'Unknown customer'}</span>
               <span className="text-muted-foreground">
@@ -497,6 +500,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
                 >
                   {q.quoteNumber}
                 </Link>
+                <ItemsBadge itemCount={q.itemCount} itemsSummary={q.itemsSummary} />
               </span>
               <span className="text-muted-foreground text-xs" data-testid="queue-status">
                 {q.status === 'on_hold'

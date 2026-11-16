@@ -1,6 +1,13 @@
 import { DomainError } from '../errors';
+import {
+  evaluateQuoteRules,
+  itemFactKeys,
+  itemView,
+  quoteItemFacts,
+  ruleIsPerItem,
+} from './item-rules';
 import { planReworkReturn, type ReworkReturn } from './rework';
-import { evaluateRules, fieldsReferenced, getPath } from './rules';
+import { fieldsReferenced, getPath } from './rules';
 import type { FieldValues } from './rules';
 import { approverTierErrors, type ApproverTierRules } from '../final-review/tiers';
 import { todayInCentral } from '../intake/intake';
@@ -173,7 +180,8 @@ function validateConstraints(
   rules: readonly RequiredRule[],
   values: FieldValues,
 ): DomainError[] {
-  const errors: DomainError[] = evaluateRules(rules, values);
+  // FB-19: a rule that reads an item's facts is checked for every item.
+  const errors: DomainError[] = evaluateQuoteRules(rules, values);
 
   if (outcome.requiresNote && !request.note?.trim()) {
     errors.push(
@@ -414,6 +422,23 @@ export function evaluateTransition(
   for (const name of rules.flatMap(fieldsReferenced)) {
     const value = getPath(values, name);
     if (value !== undefined) evidenceFields[name] = value;
+  }
+  // FB-19: what each item showed for the rules checked per item.
+  const items = quoteItemFacts(values);
+  if (items) {
+    const keys = itemFactKeys(items);
+    const perItem = rules.filter((r) => ruleIsPerItem(r, keys)).flatMap(fieldsReferenced);
+    if (perItem.length > 0) {
+      evidenceFields.items = items.map((item) => {
+        const view = itemView(values, item);
+        const out: Record<string, unknown> = { item_no: item.item_no, label: item.label };
+        for (const name of perItem) {
+          const value = getPath(view, name);
+          if (value !== undefined) out[name] = value;
+        }
+        return out;
+      });
+    }
   }
 
   const note = request.note?.trim() || null;

@@ -10,3 +10,4 @@ export * from './seeds';
 export * from './visibility';
 export * from './volume-routing';
 export * from './where-to-play';
+export * from './items-note';

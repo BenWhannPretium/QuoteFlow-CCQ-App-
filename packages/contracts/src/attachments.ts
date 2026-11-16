@@ -49,6 +49,11 @@ export const Attachment = z.object({
   note: z.string().nullable(),
   uploadedById: z.uuid(),
   uploadedByName: z.string().nullable(),
+  /**
+   * FB-19: the item a drawing belongs to (on a draft, the draft item's key; on a quote, the quote item
+   * id); null for every other kind and for a drawing uploaded before FB-19 (it counts for item 1).
+   */
+  quoteItemId: z.string().nullable().default(null),
   /** ISO 8601 UTC. */
   uploadedAt: z.string(),
   /** False for metadata-only rows (the synthetic seed): there are no bytes to download. */
@@ -94,6 +99,14 @@ export const AttachmentUploadFields = z.object({
   note: z.string().trim().max(500).optional(),
   /** The file's size in bytes, sent before the file: SharePoint's upload session needs the total. */
   size: z.coerce.number().int().positive(),
+  /**
+   * FB-19: for a drawing (bottle_drawing, spec, competitor_drawing), the item it is for: a draft item's
+   * key, or a quote item's id. Omitted: item 1.
+   */
+  itemKey: z
+    .string()
+    .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Not an item key')
+    .optional(),
 });
 export type AttachmentUploadFields = z.infer<typeof AttachmentUploadFields>;
 

@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlertIcon, ClockIcon, HandshakeIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { QuoteItemsList } from '@/components/QuoteItems';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
@@ -389,6 +390,10 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
+        {/* FB-19 (W13-32): every item is handed off together. */}
+        {quote.items.length > 1 && (
+          <QuoteItemsList items={quote.items} title="Items" testId="handoff-items" />
+        )}
         <MasterDataNotice quote={quote} />
         <p className="text-muted-foreground text-sm">
           The customer said yes. Two things are left before the quote closes as won: record the

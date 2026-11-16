@@ -26,6 +26,7 @@ import { ChevronRightIcon, GripVerticalIcon, MoveRightIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { GateDecisionDialog } from '@/components/GateDecisionDialog';
+import { ItemsBadge } from '@/components/QuoteItems';
 import { ScorePill } from '@/components/ScorePill';
 import { TierChip } from '@/components/TierChip';
 import { Button } from '@/components/ui/button';
@@ -550,6 +551,8 @@ function CardBody({
         {card.quoteNumber}
       </Link>
       <p className="min-w-0 break-words">{card.accountName ?? 'Unknown account'}</p>
+      {/* FB-19 (W13-32): "16 oz bottle + 2 more". */}
+      <ItemsBadge itemCount={card.itemCount} itemsSummary={card.itemsSummary} />
       {card.productSummary && (
         <p className="text-muted-foreground line-clamp-2 text-xs">{card.productSummary}</p>
       )}

@@ -135,6 +135,13 @@ export type AvailableGateAction = z.infer<typeof AvailableGateAction>;
 export const QuoteSummary = z.object({
   id: z.string(),
   quoteNumber: z.string(),
+  /** FB-19 (W13-32): how many items the quote holds (1 for a single-item quote). */
+  itemCount: z.number().int().min(1).default(1),
+  /**
+   * FB-19: item 1's label with the count of the others ("16 oz bottle + 2 more"); for a one-item quote its
+   * label, or null when it has none.
+   */
+  itemsSummary: z.string().nullable().default(null),
   stageKey: z.string(),
   status: z.string(),
   version: z.number().int(),
@@ -272,7 +279,38 @@ export const QuoteIntakeFacts = z.object({
 });
 export type QuoteIntakeFacts = z.infer<typeof QuoteIntakeFacts>;
 
+/**
+ * FB-19 (W13-32): one item of a quote as Quoting, Final Review, the hand-off and the quote page list it:
+ * its key product facts, volume and need-by, and the plant and machine Engineering chose for it.
+ */
+export const QuoteItemSummary = z.object({
+  /** The `quote_item` id; null only for a quote that has no item row yet (listed from its own columns). */
+  id: z.string().nullable(),
+  itemNo: z.number().int(),
+  label: z.string().nullable(),
+  /** "Item 2 (24 oz bottle)". */
+  name: z.string(),
+  productFamily: z.string().nullable(),
+  productFamilyLabel: z.string().nullable(),
+  resin: z.string().nullable(),
+  resinLabel: z.string().nullable(),
+  containerSize: z.string().nullable(),
+  standardDescription: z.string().nullable(),
+  estAnnualVolume: z.number().nullable(),
+  productNeededBy: z.string().nullable(),
+  plantCode: z.string().nullable(),
+  plantLabel: z.string().nullable(),
+  machineType: z.string().nullable(),
+  machineTypeLabel: z.string().nullable(),
+  cavitation: z.number().nullable(),
+  /** The item's budgetary capital estimate; absent for roles without commercial access (none today). */
+  prelimCapitalUsd: z.number().nullable().optional(),
+});
+export type QuoteItemSummary = z.infer<typeof QuoteItemSummary>;
+
 export const QuoteDetail = QuoteSummary.extend({
+  /** FB-19 (W13-32): every item, in item order (one for a single-item quote). */
+  items: z.array(QuoteItemSummary).default([]),
   description: z.string().nullable(),
   standardDescription: z.string().nullable(),
   components: z.array(z.string()),

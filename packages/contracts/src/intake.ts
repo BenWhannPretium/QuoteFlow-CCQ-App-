@@ -43,54 +43,25 @@ export const IntakeCustomer = z.object({
 });
 export type IntakeCustomer = z.infer<typeof IntakeCustomer>;
 
-export const IntakeDraftData = z.object({
-  // Step 1: opportunity
-  sfOpportunityId: z
-    .string()
-    .regex(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/, 'Not a Salesforce id')
-    .nullable()
-    .optional(),
-  /** Display copy of the picked opportunity (name, account, amount…) so a resumed draft renders offline. */
-  sfOpportunityName: text(300),
-  /**
-   * FB-02 (F-008): the product facts the opportunity's Salesforce product specification supplied when
-   * it was picked. The wizard pre-fills these with a "from Salesforce" tag (no double entry) and the KAM may change them;
-   * a null entry means SF had nothing usable and the KAM enters it.
-   */
-  sfPrefill: z
-    .object({
-      resin: text(60),
-      neckDiameter: text(60),
-      neckFinishType: text(60),
-      neckFinishTypeCustom: text(120),
-      estAnnualVolume: z.number().nullable().optional(),
-      containerSize: text(60),
-    })
-    .nullable()
-    .optional(),
-  /**
-   * FB-15 (W13-04): EVERY product specification Salesforce returned when the opportunity was picked (the
-   * pre-fill still uses the first). Request-level, kept so FB-19 can turn each into a quote item.
-   */
-  sfProductSpecs: z.array(SfProductSpec).max(50).optional(),
-  /**
-   * FB-15 (W13-04): what the pick learned about product details: `found`, `none` (Salesforce has no
-   * product specification for the opportunity) or `unavailable` (the live read failed). The product
-   * step says so, so the KAM knows why nothing was pre-filled.
-   */
-  sfProductSpecsStatus: z.enum(SF_PRODUCT_SPECS_STATUSES).nullable().optional(),
+/**
+ * FB-02 (F-008): the product facts the opportunity's Salesforce product specification supplied when it
+ * was picked. The wizard pre-fills these with a "from Salesforce" tag (no double entry) and the KAM may
+ * change them; a null entry means SF had nothing usable and the KAM enters it. FB-19: per item (each
+ * item added from a Salesforce product carries its own).
+ */
+export const IntakeSfPrefill = z.object({
+  resin: text(60),
+  neckDiameter: text(60),
+  neckFinishType: text(60),
+  neckFinishTypeCustom: text(120),
+  estAnnualVolume: z.number().nullable().optional(),
+  containerSize: text(60),
+});
+export type IntakeSfPrefill = z.infer<typeof IntakeSfPrefill>;
 
-  // Step 2: customer and ship / fill destination
-  customer: IntakeCustomer.nullable().optional(),
-  /** FB-02 (F-017, D-012): the ship / fill destination; city and state are required (config). */
-  shipTo: IntakeAddress.nullable().optional(),
-  /** The customer default the ship-to was pre-filled from. Kept when the KAM changes the ship-to. */
-  shipToDefault: IntakeAddress.nullable().optional(),
-  /** Required when shipTo differs from shipToDefault (a governed override once B-09 lands). */
-  shipToOverrideReason: text(1000),
-
-  // Step 3: product and volume (value-list codes)
-  requestClass: text(60),
+/** FB-19 (W13-32, decision 3): the product fields, entered per item. Value-list codes unless noted. */
+const productShape = {
+  sfPrefill: IntakeSfPrefill.nullable().optional(),
   productFamily: text(60),
   /** FB-15 (W13-03): what an "Other" product family is (≤ intake_other_description_max_length). */
   productFamilyOther: text(500),
@@ -110,12 +81,6 @@ export const IntakeDraftData = z.object({
   decorationTypeOther: text(500),
   /** Whole number 1–12 (checked by the domain). */
   decorationPrintColors: z.number().nullable().optional(),
-  market: text(60),
-  /**
-   * FB-12 (F-073): a `sub_market` code that belongs to `market` (the server checks it and clears it when the
-   * market changes to one it does not belong to). Optional. It sets the strategic-fit score.
-   */
-  subMarket: text(60),
   resin: text(60),
   /** FB-02 (F-011): the customer specifies the resin; `resinGrade` (supplier / grade) is then required. */
   resinCustomerSpecified: z.boolean().optional(),
@@ -143,14 +108,115 @@ export const IntakeDraftData = z.object({
   colorDescription: text(120),
   /** FB-02 (F-023): optional short note on additives. FB-09: required, as the customer-specified additive, while the additive is Other. */
   additives: text(200),
+  packagingType: text(60),
+  packagingNotes: text(2000),
+  /** Units per year. FB-19: per item; the quote's volume is the sum of its items'. */
+  estAnnualVolume: z.number().nullable().optional(),
+  /** The KAM confirmed a round/placeholder-looking volume is real. */
+  estAnnualVolumeConfirmed: z.boolean().optional(),
+  /**
+   * FB-02 (F-009): best estimate of the customer's launch need (YYYY-MM-DD), on or after quoteNeededBy.
+   * FB-19 (Zachary Cairns): per item, since items can be needed at different dates.
+   */
+  productNeededBy: isoDate,
+  /** Container size as Sales describes it (e.g. "16 oz"). Feeds the standard description. */
+  containerSize: text(60),
+  /** Standard description (suggested from the template, editable). */
+  standardDescription: text(500),
+  /**
+   * FB-02 (F-016, D-018): product dimensions, mm and grams (2 decimals). Without a bottle or competitor
+   * drawing attached, the fields in `intake_min_spec_fields` must all be filled to submit.
+   */
+  heightMm: z.number().nullable().optional(),
+  widthOrDiameterMm: z.number().nullable().optional(),
+  depthMm: z.number().nullable().optional(),
+  gramWeightG: z.number().nullable().optional(),
+  /**
+   * FB-02 (F-015): modify an existing mold (in scope when capital or engineering review is needed).
+   * When ticked, the existing mold / part number and what changes are required.
+   */
+  modifyExistingMold: z.boolean().optional(),
+  existingMoldRef: text(60),
+  moldChangeDescription: text(500),
+  drawingStatus: text(60),
+};
+
+/** The camelCase product fields of an item (the draft keys of `productShape`). */
+export const INTAKE_ITEM_FIELDS = Object.keys(productShape) as (keyof typeof productShape)[];
+
+const ITEM_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * FB-19 (W13-32 to W13-34): one item of an intake. `key` identifies it while the KAM edits (a uuid the
+ * wizard makes); once the quote exists it is the `quote_item` id. A drawing uploaded for the item carries
+ * the key (`attachment.quote_item_id`). `linkedDrawingIds`: drawings another item holds that this one
+ * uses too (Duplicate copies them as links; at submit each becomes this item's own link to the same file).
+ */
+export const IntakeItemData = z.object({
+  key: z.string().regex(ITEM_KEY, 'Not an item key'),
+  /** The KAM's short name for the item, e.g. "16 oz bottle" (≤ 60). */
+  label: text(60),
+  /** The Salesforce product specification the item was added from. */
+  sfProductSpecId: text(40),
+  linkedDrawingIds: z.array(z.string().regex(ITEM_KEY)).max(50).optional(),
+  /** The key of the item this one was duplicated from (F-084), for the audit; omitted otherwise. */
+  duplicatedFrom: z.string().regex(ITEM_KEY).optional(),
+  ...productShape,
+});
+export type IntakeItemData = z.infer<typeof IntakeItemData>;
+
+/** Hard cap on items in a draft (the business limit is the setting `quote_items_max`, checked by the domain). */
+export const INTAKE_ITEMS_HARD_MAX = 200;
+
+export const IntakeDraftData = z.object({
+  // Step 1: opportunity
+  sfOpportunityId: z
+    .string()
+    .regex(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/, 'Not a Salesforce id')
+    .nullable()
+    .optional(),
+  /** Display copy of the picked opportunity (name, account, amount…) so a resumed draft renders offline. */
+  sfOpportunityName: text(300),
+  /**
+   * FB-15 (W13-04): EVERY product specification Salesforce returned when the opportunity was picked.
+   * Request-level. FB-19: "Add from Salesforce products" turns each into an item.
+   */
+  sfProductSpecs: z.array(SfProductSpec).max(50).optional(),
+  /**
+   * FB-15 (W13-04): what the pick learned about product details: `found`, `none` (Salesforce has no
+   * product specification for the opportunity) or `unavailable` (the live read failed). The product
+   * step says so, so the KAM knows why nothing was pre-filled.
+   */
+  sfProductSpecsStatus: z.enum(SF_PRODUCT_SPECS_STATUSES).nullable().optional(),
+  /**
+   * FB-19 (W13-33): the KAM confirmed the warning that the opportunity already has an active quote and
+   * starts a separate one. Needed to submit while `opportunity_active_quotes` is `warn`.
+   */
+  separateQuoteConfirmed: z.boolean().optional(),
+
+  // Step 2: customer and ship / fill destination
+  customer: IntakeCustomer.nullable().optional(),
+  /** FB-02 (F-017, D-012): the ship / fill destination; city and state are required (config). */
+  shipTo: IntakeAddress.nullable().optional(),
+  /** The customer default the ship-to was pre-filled from. Kept when the KAM changes the ship-to. */
+  shipToDefault: IntakeAddress.nullable().optional(),
+  /** Required when shipTo differs from shipToDefault (a governed override once B-09 lands). */
+  shipToOverrideReason: text(1000),
+
+  // Step 3: the request (entered once per quote)
+  requestClass: text(60),
+  market: text(60),
+  /**
+   * FB-12 (F-073): a `sub_market` code that belongs to `market` (the server checks it and clears it when the
+   * market changes to one it does not belong to). It sets the strategic-fit score.
+   */
+  subMarket: text(60),
   /**
    * FB-02 (F-075, interim answer to D-017 option B): the variants the customer wants priced, e.g.
    * "0/25/50% PCR; near-site vs ideal-site". The limit is the provisional setting
-   * `intake_variants_note_max_length` (300), checked by the domain.
+   * `intake_variants_note_max_length` (300), checked by the domain. FB-19: a variant can also be an item.
    */
   quoteVariantsNote: text(2000),
-  packagingType: text(60),
-  packagingNotes: text(2000),
   /**
    * FB-11 (D-032): commercial inputs Pricing needs before costing. All optional at submit (D-006 open):
    * a blank is a warning. `requestedPaymentTerms` is a `requested_payment_terms` code ("Other" needs
@@ -177,11 +243,7 @@ export const IntakeDraftData = z.object({
   freightSpecialArrangements: text(200),
   /** F-085: an optional bid / program reference (≤ 60). A plain reference: it links nothing. */
   bidReference: text(60),
-  /** Units per year. */
-  estAnnualVolume: z.number().nullable().optional(),
-  /** The KAM confirmed a round/placeholder-looking volume is real. */
-  estAnnualVolumeConfirmed: z.boolean().optional(),
-  /** USD per year; pre-filled from the SF amount, editable. */
+  /** USD per year; pre-filled from the SF amount, editable. FB-19: once per quote, never summed from items. */
   estAnnualRevenue: z.number().nullable().optional(),
   /** The SF amount it was pre-filled from (kept when edited). */
   estAnnualRevenueSf: z.number().nullable().optional(),
@@ -191,33 +253,18 @@ export const IntakeDraftData = z.object({
    * shown read-only from the latest sync (`IntakeDraft.sfCloseDate`) and not stored on the quote.
    */
   quoteNeededBy: isoDate,
-  /** FB-02 (F-009): best estimate of the customer's launch need (YYYY-MM-DD), on or after quoteNeededBy. */
-  productNeededBy: isoDate,
-  /** Container size as Sales describes it (e.g. "16 oz"). Feeds the standard description. */
-  containerSize: text(60),
-  /** Standard description (suggested from the template, editable). */
-  standardDescription: text(500),
   /** Free text. */
   description: text(4000),
 
+  // Step 3: the items (FB-19). A draft saved before FB-19 has none: its flat product fields are item 1.
+  items: z.array(IntakeItemData).max(INTAKE_ITEMS_HARD_MAX).optional(),
   /**
-   * FB-02 (F-016, D-018): product dimensions, mm and grams (2 decimals). Without a bottle or competitor
-   * drawing attached, the fields in `intake_min_spec_fields` must all be filled to submit.
+   * Before FB-19 the product fields sat at the top level. They are still accepted (an older client, a
+   * fixture) and read as item 1 when `items` is absent; the server moves them into `items` on save.
    */
-  heightMm: z.number().nullable().optional(),
-  widthOrDiameterMm: z.number().nullable().optional(),
-  depthMm: z.number().nullable().optional(),
-  gramWeightG: z.number().nullable().optional(),
-  /**
-   * FB-02 (F-015): modify an existing mold (in scope when capital or engineering review is needed).
-   * When ticked, the existing mold / part number and what changes are required.
-   */
-  modifyExistingMold: z.boolean().optional(),
-  existingMoldRef: text(60),
-  moldChangeDescription: text(500),
+  ...productShape,
 
   // Step 4: drawing and notes
-  drawingStatus: text(60),
   /** FB-02 (F-014): optional customer RFP / portal link (https only, ≤ 500; checked by the domain). */
   rfpLink: text(500),
   commentsForEngineering: text(4000),
@@ -231,6 +278,8 @@ export const IntakeIssue = z.object({
   message: z.string(),
   /** FB-02 (F-016): for DRAWING_OR_MIN_SPEC_REQUIRED, the minimum-spec fields still missing. */
   missing: z.array(z.string()).optional(),
+  /** FB-19: the item (1…n) a product-field issue belongs to (its Fix opens that item); absent otherwise. */
+  item: z.number().int().positive().optional(),
 });
 export type IntakeIssue = z.infer<typeof IntakeIssue>;
 
@@ -243,13 +292,26 @@ export const IntakeEvaluation = z.object({
 });
 export type IntakeEvaluation = z.infer<typeof IntakeEvaluation>;
 
-/** The active CCQ quote on an SF opportunity (one per opportunity), when the caller can see it. */
+/** An active CCQ quote on an SF opportunity, when the caller can see it. */
 export const ActiveQuoteRef = z.object({
   quoteNumber: z.string(),
   stageKey: z.string(),
   status: z.string(),
 });
 export type ActiveQuoteRef = z.infer<typeof ActiveQuoteRef>;
+
+/**
+ * FB-19 (W13-33): an active quote on the draft's opportunity, whoever owns it (read in system context):
+ * only its number and its KAM's name, never any other field.
+ */
+export const OpenQuoteOnOpportunity = z.object({
+  quoteNumber: z.string(),
+  kamName: z.string().nullable(),
+});
+export type OpenQuoteOnOpportunity = z.infer<typeof OpenQuoteOnOpportunity>;
+
+/** FB-19 (W13-33): `app_setting.opportunity_active_quotes`. */
+export const OPPORTUNITY_ACTIVE_QUOTES_MODES = ['one', 'warn'] as const;
 
 export const INTAKE_STEPS = [1, 2, 3, 4] as const;
 
@@ -264,8 +326,16 @@ export const IntakeDraft = z.object({
    * ("updates with Salesforce"). Never stored on the draft or the quote.
    */
   sfCloseDate: z.string().nullable(),
-  /** Set when the draft's opportunity already has an active quote: offer "Open existing". */
+  /** Set when the draft's opportunity already has an active quote the caller can see: offer "Open existing". */
   activeQuote: ActiveQuoteRef.nullable(),
+  /**
+   * FB-19 (W13-33): every active quote on the draft's opportunity, whoever owns it (number and KAM only),
+   * the configured warning naming them, and whether a separate quote is allowed (`warn`, after the KAM
+   * confirms: `separateQuoteConfirmed`) or refused (`one`). Empty / null for a rework.
+   */
+  openQuotes: z.array(OpenQuoteOnOpportunity).default([]),
+  openQuoteWarning: z.string().nullable().default(null),
+  openQuotesMode: z.enum(OPPORTUNITY_ACTIVE_QUOTES_MODES).default('warn'),
   /** Set when the draft reworks a quote returned at a gate (B-08): submit updates that quote. */
   rework: z
     .object({
@@ -410,6 +480,8 @@ export const INTAKE_PROBLEM_CODES = {
   notReturned: 'quote_not_returned',
   /** FB-02 (F-067): the request class can't be submitted to CCQ (422; `blocking` lists it). */
   requestClassNotAllowed: 'REQUEST_CLASS_NOT_ALLOWED',
+  /** FB-19: more items than `quote_items_max`, or two items with one key (422). */
+  invalidItems: 'invalid_items',
   /** FB-02 (F-016): no drawing and an incomplete minimum spec (422; `missing` names the fields). */
   drawingOrMinSpecRequired: 'DRAWING_OR_MIN_SPEC_REQUIRED',
   /** DR-kam-sales-leader-05: the draft was saved elsewhere (another tab) since this copy was loaded (409). */
@@ -436,11 +508,98 @@ export const intakeAddress = (a: IntakeDraftData['shipTo']) =>
     : null;
 
 /**
- * The draft's fields in the domain's snake_case shape (`evaluateIntake` input). `hasDrawingAttachment`
- * (FB-02, F-016) says whether a bottle or competitor drawing is attached to the draft (or, for a
- * rework, to the quote); the caller knows its files.
+ * FB-19: the key a draft saved before FB-19 gives its one item when it is read without being saved
+ * (the server gives every item a real key when it saves the draft).
  */
-export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boolean) {
+export const LEGACY_ITEM_KEY = '00000000-0000-4000-8000-000000000001';
+
+/** FB-19: the product fields a draft saved before FB-19 holds at its top level, as one item. */
+export function itemFromFlat(data: IntakeDraftData, key: string = LEGACY_ITEM_KEY): IntakeItemData {
+  const item: Record<string, unknown> = { key };
+  for (const f of INTAKE_ITEM_FIELDS) {
+    if (data[f] !== undefined) item[f] = data[f];
+  }
+  return item as IntakeItemData;
+}
+
+/**
+ * FB-19: the draft's items, in item order: `items` when the draft has them (even none), otherwise one
+ * item from the top-level product fields (a draft saved before FB-19, an older client).
+ */
+export function draftItems(data: IntakeDraftData): IntakeItemData[] {
+  return data.items ?? [itemFromFlat(data)];
+}
+
+/**
+ * FB-19: the draft as it is stored: every product field inside `items` (a draft without `items` gets one
+ * item from its top-level product fields, keyed by `newKey`), and no product field at the top level.
+ */
+export function normalizeDraftData(data: IntakeDraftData, newKey: () => string): IntakeDraftData {
+  const items = data.items ?? [itemFromFlat(data, newKey())];
+  const out: Record<string, unknown> = { ...data, items };
+  for (const f of INTAKE_ITEM_FIELDS) delete out[f];
+  return out;
+}
+
+/** One item's product fields in the domain's snake_case shape (an entry of `intakeValues(...).items`). */
+export function intakeItemValues(item: IntakeItemData, hasDrawingAttachment?: boolean) {
+  return {
+    label: blank(item.label),
+    sf_product_spec_id: item.sfProductSpecId ?? null,
+    product_family: item.productFamily ?? null,
+    product_family_other: blank(item.productFamilyOther),
+    components: item.components ?? [],
+    component_other: blank(item.componentOther),
+    resin: item.resin ?? null,
+    resin_customer_specified: item.resinCustomerSpecified ?? false,
+    resin_grade: blank(item.resinGrade),
+    pcr_level: item.pcrLevel ?? null,
+    pcr_level_other: blank(item.pcrLevelOther),
+    additive: item.additive ?? null,
+    neck_diameter: item.neckDiameter ?? null,
+    neck_diameter_custom: blank(item.neckDiameterCustom),
+    neck_finish_type: item.neckFinishType ?? null,
+    neck_finish_type_custom: blank(item.neckFinishTypeCustom),
+    neck_special_feature: item.neckSpecialFeature ?? null,
+    neck_special_feature_custom: blank(item.neckSpecialFeatureCustom),
+    color_type: item.colorType ?? null,
+    color_description: blank(item.colorDescription),
+    additives: blank(item.additives),
+    liner_spec: blank(item.linerSpec),
+    labels_purchased_by: item.labelsPurchasedBy ?? null,
+    decoration_type: item.decorationType ?? null,
+    decoration_type_other: blank(item.decorationTypeOther),
+    decoration_print_colors: item.decorationPrintColors ?? null,
+    height_mm: item.heightMm ?? null,
+    width_or_diameter_mm: item.widthOrDiameterMm ?? null,
+    depth_mm: item.depthMm ?? null,
+    gram_weight_g: item.gramWeightG ?? null,
+    modify_existing_mold: item.modifyExistingMold ?? false,
+    existing_mold_ref: blank(item.existingMoldRef),
+    mold_change_description: blank(item.moldChangeDescription),
+    ...(hasDrawingAttachment === undefined ? {} : { has_drawing_attachment: hasDrawingAttachment }),
+    packaging_type: item.packagingType ?? null,
+    packaging_notes: item.packagingNotes ?? null,
+    est_annual_volume: item.estAnnualVolume ?? null,
+    est_annual_volume_confirmed: item.estAnnualVolumeConfirmed ?? false,
+    product_needed_by: item.productNeededBy ?? null,
+    container_size: item.containerSize ?? null,
+    standard_description: item.standardDescription ?? null,
+    drawing_status: item.drawingStatus ?? null,
+  };
+}
+export type IntakeItemValues = ReturnType<typeof intakeItemValues>;
+
+/**
+ * The draft's fields in the domain's snake_case shape (`evaluateIntake` input): the request fields, and
+ * FB-19 `items` (one entry per item, `draftItems`). `hasDrawingAttachment` (FB-02, F-016) says whether a
+ * bottle or competitor drawing is attached; FB-19: per item (the caller knows its files and which item
+ * each belongs to), or one answer for every item.
+ */
+export function intakeValues(
+  data: IntakeDraftData,
+  hasDrawingAttachment?: boolean | ((item: IntakeItemData, index: number) => boolean),
+) {
   const c = data.customer;
   return {
     sf_opportunity_id: data.sfOpportunityId ?? null,
@@ -451,42 +610,10 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     ship_to_default: intakeAddress(data.shipToDefault),
     ship_to_override_reason: data.shipToOverrideReason ?? null,
     request_class: data.requestClass ?? null,
-    product_family: data.productFamily ?? null,
-    product_family_other: blank(data.productFamilyOther),
-    components: data.components ?? [],
-    component_other: blank(data.componentOther),
     market: data.market ?? null,
     sub_market: data.subMarket ?? null,
-    resin: data.resin ?? null,
-    resin_customer_specified: data.resinCustomerSpecified ?? false,
-    resin_grade: blank(data.resinGrade),
-    pcr_level: data.pcrLevel ?? null,
-    pcr_level_other: blank(data.pcrLevelOther),
-    additive: data.additive ?? null,
-    neck_diameter: data.neckDiameter ?? null,
-    neck_diameter_custom: blank(data.neckDiameterCustom),
-    neck_finish_type: data.neckFinishType ?? null,
-    neck_finish_type_custom: blank(data.neckFinishTypeCustom),
-    neck_special_feature: data.neckSpecialFeature ?? null,
-    neck_special_feature_custom: blank(data.neckSpecialFeatureCustom),
-    color_type: data.colorType ?? null,
-    color_description: blank(data.colorDescription),
-    additives: blank(data.additives),
     quote_variants_note: blank(data.quoteVariantsNote),
-    liner_spec: blank(data.linerSpec),
-    labels_purchased_by: data.labelsPurchasedBy ?? null,
-    decoration_type: data.decorationType ?? null,
-    decoration_type_other: blank(data.decorationTypeOther),
-    decoration_print_colors: data.decorationPrintColors ?? null,
-    height_mm: data.heightMm ?? null,
-    width_or_diameter_mm: data.widthOrDiameterMm ?? null,
-    depth_mm: data.depthMm ?? null,
-    gram_weight_g: data.gramWeightG ?? null,
-    modify_existing_mold: data.modifyExistingMold ?? false,
-    existing_mold_ref: blank(data.existingMoldRef),
-    mold_change_description: blank(data.moldChangeDescription),
     rfp_link: blank(data.rfpLink),
-    ...(hasDrawingAttachment === undefined ? {} : { has_drawing_attachment: hasDrawingAttachment }),
     requested_payment_terms: data.requestedPaymentTerms ?? null,
     requested_payment_terms_other: blank(data.requestedPaymentTermsOther),
     tooling_funding_model: data.toolingFundingModel ?? null,
@@ -496,17 +623,18 @@ export function intakeValues(data: IntakeDraftData, hasDrawingAttachment?: boole
     freight_type: data.freightType ?? null,
     freight_special_arrangements: blank(data.freightSpecialArrangements),
     bid_reference: blank(data.bidReference),
-    packaging_type: data.packagingType ?? null,
-    packaging_notes: data.packagingNotes ?? null,
-    est_annual_volume: data.estAnnualVolume ?? null,
-    est_annual_volume_confirmed: data.estAnnualVolumeConfirmed ?? false,
     est_annual_revenue: data.estAnnualRevenue ?? null,
     quote_needed_by: data.quoteNeededBy ?? null,
-    product_needed_by: data.productNeededBy ?? null,
-    container_size: data.containerSize ?? null,
-    standard_description: data.standardDescription ?? null,
     description: data.description ?? null,
-    drawing_status: data.drawingStatus ?? null,
     comments_for_engineering: data.commentsForEngineering ?? null,
+    items: draftItems(data).map((item, index) =>
+      intakeItemValues(
+        item,
+        typeof hasDrawingAttachment === 'function'
+          ? hasDrawingAttachment(item, index)
+          : hasDrawingAttachment,
+      ),
+    ),
   };
 }
+export type IntakeValues = ReturnType<typeof intakeValues>;

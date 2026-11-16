@@ -9,10 +9,13 @@ import {
   type AttachmentKindValue,
   type AttachmentListResponse,
   type AttachmentUploadResponse,
+  draftItems,
+  normalizeDraftData,
   type IntakeDraftData,
   type ModelSummaryListResponse,
 } from '@ccq/contracts';
 import type { DbOrTx, Tx } from '@ccq/db';
+import { uuidv7 } from '@ccq/db';
 import {
   claimDraftAttachments,
   getAttachment,
@@ -28,6 +31,7 @@ import {
   insertModelSummary,
   listAttachments,
   listDraftAttachments,
+  listQuoteItems,
   listUsersByIds,
   listValueList,
   loadQuoteState,
@@ -35,6 +39,7 @@ import {
   updateAttachment,
   updateQuote,
   updateQuoteDraft,
+  updateQuoteItem,
   upsertPricingRecord,
 } from '@ccq/db/repos';
 import {
@@ -46,6 +51,7 @@ import {
   checkFileContent,
   checkUploadRequest,
   derivedDecisionFields,
+  DRAWING_ATTACHMENT_KINDS,
   drawingStatusAfterUpload,
   isEngineeringKind,
   isQuotingModelKind,
@@ -108,6 +114,11 @@ export interface AttachmentServiceOptions {
 
 const P = ATTACHMENT_PROBLEM_CODES;
 const notFound = (what = 'No such file') => new ServiceProblem(404, P.notFound, what);
+/** FB-19: a drawing sent for an item the draft or quote does not have. */
+const unknownItem = () =>
+  new ServiceProblem(422, P.rejected, 'That item is not on this quote', {
+    errors: [{ path: '/itemKey', message: 'Pick one of the items', code: 'INVALID_VALUE' }],
+  });
 
 /** FB-07: the costing / ROI step facts a model upload is checked against. */
 async function modelContext(db: DbOrTx, state: QuoteState): Promise<ModelUploadContext> {
@@ -340,6 +351,7 @@ export class AttachmentService {
         note: r.note,
         uploadedById: r.uploadedBy,
         uploadedByName: users.get(r.uploadedBy) ?? null,
+        quoteItemId: r.quoteItemId ?? null,
         uploadedAt: r.createdAt.toISOString(),
         available: r.storage !== null && r.storageItemId !== null,
         storage: r.storage,
@@ -568,6 +580,10 @@ export class AttachmentService {
         let modelCtx: ModelUploadContext | null = null;
         let drawingStatus: AttachmentUploadResponse['drawingStatus'] = null;
         const hasDrawing = await AttachmentService.hasDrawingCodes(tx);
+        // FB-19: a drawing belongs to one item (the draft item's key, or the quote item's id).
+        const drawingKind = (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(kind);
+        let quoteItemId: string | null = null;
+        let mirrorQuote = false;
         if ('quoteNumber' in target) {
           const { quote, state } = await this.readableQuote(tx, actor, target.quoteNumber);
           quoteId = quote.id;
@@ -575,20 +591,48 @@ export class AttachmentService {
           // Checked again here: the quote may have moved on while the bytes streamed.
           if (isQuotingModelKind(kind)) modelCtx = await authorizeModel(tx, actor, kind, state);
           else if (isEngineeringKind(kind)) await authorizeEngineeringFile(tx, actor, state);
-          const to = drawingStatusAfterUpload(kind, quote.drawingStatus, hasDrawing);
-          if (to) drawingStatus = { from: quote.drawingStatus, to };
+          if (drawingKind) {
+            const items = await listQuoteItems(tx, quote.id);
+            const item = fields.data.itemKey
+              ? items.find((i) => i.id === fields.data.itemKey)
+              : items[0];
+            if (fields.data.itemKey && !item) throw unknownItem();
+            quoteItemId = item?.id ?? null;
+            // Item 1's status is the quote's (the mirror); another item has its own.
+            const from = item && item.itemNo !== 1 ? item.drawingStatus : quote.drawingStatus;
+            const to = drawingStatusAfterUpload(kind, from, hasDrawing);
+            if (to) {
+              drawingStatus = { from, to };
+              if (item) await updateQuoteItem(tx, item.id, { drawingStatus: to });
+              // The quote mirrors item 1 (FB-19 decision 6); its own update is below.
+              mirrorQuote = !item || item.itemNo === 1;
+            }
+          }
         } else {
           const draft = await this.ownOpenDraft(tx, actor, target.draftId, true);
           const data = draft.data as IntakeDraftData;
-          const to = drawingStatusAfterUpload(kind, data.drawingStatus ?? null, hasDrawing);
-          if (to) {
-            drawingStatus = { from: data.drawingStatus ?? null, to };
-            await updateQuoteDraft(tx, draft.id, { data: { ...data, drawingStatus: to } });
+          if (drawingKind) {
+            const items = draftItems(data);
+            const index = fields.data.itemKey
+              ? items.findIndex((i) => i.key === fields.data.itemKey)
+              : 0;
+            if (fields.data.itemKey && index < 0) throw unknownItem();
+            const item = items[index];
+            quoteItemId = item?.key ?? null;
+            const to = drawingStatusAfterUpload(kind, item?.drawingStatus ?? null, hasDrawing);
+            if (to && item) {
+              drawingStatus = { from: item.drawingStatus ?? null, to };
+              const next = items.map((it, i) => (i === index ? { ...it, drawingStatus: to } : it));
+              await updateQuoteDraft(tx, draft.id, {
+                data: normalizeDraftData({ ...data, items: next }, uuidv7),
+              });
+            }
           }
         }
         const values = {
           quoteId,
           draftId: 'draftId' in target ? target.draftId : null,
+          quoteItemId,
           kind,
           fileName,
           storedName: stored.name,
@@ -686,15 +730,22 @@ export class AttachmentService {
         }
         if (quoteId) {
           if (drawingStatus) {
-            await updateQuote(tx, quoteId, { drawingStatus: drawingStatus.to, updatedAt: now });
+            if (mirrorQuote) {
+              await updateQuote(tx, quoteId, { drawingStatus: drawingStatus.to, updatedAt: now });
+            }
+            // FB-19: the drawing status is the item's; item 1's is the quote's (the mirror), as before.
             await recordAudit(tx, actor, meta, {
               at: now,
               action: 'update',
-              entity: 'quote',
-              entityId: quoteId,
+              entity: mirrorQuote || !quoteItemId ? 'quote' : 'quote_item',
+              entityId: mirrorQuote || !quoteItemId ? quoteId : quoteItemId,
               quoteId,
               before: { drawingStatus: drawingStatus.from },
-              after: { drawingStatus: drawingStatus.to, reason: 'bottle_drawing uploaded' },
+              after: {
+                drawingStatus: drawingStatus.to,
+                reason: 'bottle_drawing uploaded',
+                ...(quoteItemId ? { quoteItemId } : {}),
+              },
             });
           }
           await insertActivityEvent(tx, {

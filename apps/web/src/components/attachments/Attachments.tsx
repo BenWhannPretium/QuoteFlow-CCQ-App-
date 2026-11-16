@@ -8,6 +8,7 @@ import {
   ATTACHMENT_EXTENSIONS,
   ATTACHMENT_MAX_BYTES,
   checkUploadRequest,
+  DRAWING_ATTACHMENT_KINDS,
   isQuotingModelKind,
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -96,6 +97,8 @@ export function AttachmentsPanel({
   onDrawingStatus,
   heading = 'Attachments',
   headingLevel = 2,
+  itemKey,
+  itemNames,
 }: {
   target: AttachmentTarget;
   defaultKind?: AttachmentKindValue;
@@ -103,6 +106,13 @@ export function AttachmentsPanel({
   onDrawingStatus?: (code: string) => void;
   heading?: string;
   headingLevel?: 2 | 3;
+  /**
+   * FB-19 (W13-32): the item a drawing uploaded here is for (a draft item's key or a quote item's id).
+   * Omitted: item 1.
+   */
+  itemKey?: string | null;
+  /** FB-19: item names by key, so each drawing in the list says which item it is for. */
+  itemNames?: Readonly<Record<string, string>>;
 }) {
   const qc = useQueryClient();
   const key = attachmentsQueryKey(target);
@@ -133,7 +143,14 @@ export function AttachmentsPanel({
     const handle = uploadAttachment(
       target,
       item.file,
-      { kind: item.kind, ...(item.note ? { note: item.note } : {}) },
+      {
+        kind: item.kind,
+        ...(item.note ? { note: item.note } : {}),
+        // FB-19: a drawing belongs to an item.
+        ...(itemKey && (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(item.kind)
+          ? { itemKey }
+          : {}),
+      },
       (fraction) => patch(item.key, { progress: fraction }),
     );
     handles.current.add(handle);
@@ -376,13 +393,22 @@ export function AttachmentsPanel({
           }
         />
       ) : (
-        <AttachmentList items={list.data.items} target={target} />
+        <AttachmentList items={list.data.items} target={target} itemNames={itemNames} />
       )}
     </section>
   );
 }
 
-function AttachmentList({ items, target }: { items: Attachment[]; target: AttachmentTarget }) {
+function AttachmentList({
+  items,
+  target,
+  itemNames,
+}: {
+  items: Attachment[];
+  target: AttachmentTarget;
+  /** FB-19: item names by key; a drawing shows the item it is for. */
+  itemNames?: Readonly<Record<string, string>> | undefined;
+}) {
   const qc = useQueryClient();
   const [removing, setRemoving] = useState<Attachment | null>(null);
   const download = useMutation({
@@ -426,6 +452,12 @@ function AttachmentList({ items, target }: { items: Attachment[]; target: Attach
                   {ATTACHMENT_KIND_LABELS[a.kind]}
                 </span>
                 <span className="min-w-0 font-medium break-all">{a.fileName}</span>
+                {itemNames && a.quoteItemId && itemNames[a.quoteItemId] && (
+                  // FB-19 (W13-32): which item the drawing is for.
+                  <span className="text-muted-foreground text-xs" data-testid="attachment-item">
+                    for {itemNames[a.quoteItemId]}
+                  </span>
+                )}
                 {a.version !== null && (
                   // FB-07 (F-074): one record per model with its history; the latest is flagged.
                   <span

@@ -11,6 +11,7 @@ import {
   ROI_REQUIRED_WHEN_SEED,
   roiRequirement,
   CAPACITY_BASIS_SEED,
+  DRAWING_ATTACHMENT_KINDS,
   computeUtilization,
   storedUtilizationPct,
 } from '@ccq/domain';
@@ -31,6 +32,7 @@ import {
   insertHandoffRecord,
   insertOverride,
   insertQuote,
+  ensurePrimaryItem,
   loadQuoteState,
   loadScoringFacts,
   nextQuoteNumber,
@@ -552,6 +554,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
       createdBy: kam.id,
     });
     const quoteId = quoteRow.id;
+    // FB-19: every quote has its item 1 (from the quote's own columns). No draw is used, so the rest of
+    // the data set is unchanged.
+    await ensurePrimaryItem(db, quoteId);
     await db.insert(stageHistory).values({
       quoteId,
       stageKey: 'INTAKE',
@@ -1076,6 +1081,10 @@ async function addExtras(
           : rng.pick(['pdf', 'xlsx']);
     await insertAttachment(db, {
       quoteId,
+      // FB-19: a drawing belongs to an item, as the app records it (item 1 here). No draw is used.
+      quoteItemId: (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(kind)
+        ? await ensurePrimaryItem(db, quoteId)
+        : null,
       kind,
       fileName: `${kind}-${k + 1}.${ext}`,
       size: rng.int(40, 9_000) * 1_024,

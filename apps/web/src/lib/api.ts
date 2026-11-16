@@ -642,7 +642,8 @@ export interface UploadHandle {
 export function uploadAttachment(
   target: AttachmentTarget,
   file: File,
-  fields: { kind: string; note?: string },
+  /** FB-19: `itemKey` names the item a drawing is for (a draft item's key or a quote item's id). */
+  fields: { kind: string; note?: string; itemKey?: string },
   onProgress: (fraction: number) => void,
 ): UploadHandle {
   let xhr: XMLHttpRequest | null = null;
@@ -654,6 +655,7 @@ export function uploadAttachment(
     const form = new FormData();
     form.append('kind', fields.kind);
     if (fields.note) form.append('note', fields.note);
+    if (fields.itemKey) form.append('itemKey', fields.itemKey);
     form.append('size', String(file.size));
     form.append('file', file, file.name);
     return new Promise((resolve, reject) => {

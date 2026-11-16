@@ -132,4 +132,8 @@ export const PUBLIC_SETTING_KEYS = [
   // equipment BOM is required) and who the hold-owner picker starts on.
   'capital_needed_above_usd',
   'hold_owner_default',
+  // FB-19 (W13-32, provisional): the most items one quote may hold (the wizard checks it as the server does).
+  'quote_items_max',
+  // FB-19 (W13-33, provisional): whether the opportunity picker offers a separate quote beside an open one.
+  'opportunity_active_quotes',
 ] as const;

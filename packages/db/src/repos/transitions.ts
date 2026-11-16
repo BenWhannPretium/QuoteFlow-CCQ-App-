@@ -1,9 +1,10 @@
 import { asQuoteId, asUserId, computeHoldMs, toSnakeCase } from '@ccq/domain';
 import type { HoldInterval, QuoteState, Role, TransitionEffects } from '@ccq/domain';
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, inArray, isNull } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
 import { first } from './_util';
+import { listQuoteItemsForQuotes } from './items';
 import type { Quote } from './quotes';
 import { listCurrentModelVersions, listHolds } from './records';
 import {
@@ -52,7 +53,7 @@ export async function loadQuoteStates(
   const customerIds = [
     ...new Set(rows.map((r) => r.customerId).filter((id): id is string => !!id)),
   ];
-  const [engs, capacity, pricing, holds, decisions, customers, handoffs, models] =
+  const [engs, capacity, pricing, holds, decisions, customers, handoffs, models, items] =
     await Promise.all([
       db.select().from(engReview).where(inArray(engReview.quoteId, found)),
       db
@@ -100,6 +101,8 @@ export async function loadQuoteStates(
       db.select().from(handoffRecord).where(inArray(handoffRecord.quoteId, found)),
       // FB-07: the current Quoting models (costing, ROI, price table), for the G3 rules.
       listCurrentModelVersions(db, found),
+      // FB-19: the items, so a rule that reads an item's engineering facts is checked per item.
+      listQuoteItemsForQuotes(db, found),
     ]);
   const byQuote = <T extends { quoteId: string }>(list: T[]) => {
     const map = new Map<string, T[]>();
@@ -110,7 +113,13 @@ export async function loadQuoteStates(
     }
     return map;
   };
-  const engBy = new Map(engs.map((e) => [e.quoteId, e]));
+  const itemsBy = byQuote(items);
+  // FB-19: one review row per item; the primary item's (item 1) carries the quote-level fields.
+  const primaryItem = new Map(items.filter((i) => i.itemNo === 1).map((i) => [i.quoteId, i.id]));
+  const engByItem = new Map(engs.map((e) => [e.quoteItemId, e]));
+  const engBy = new Map(
+    engs.filter((e) => e.quoteItemId === primaryItem.get(e.quoteId)).map((e) => [e.quoteId, e]),
+  );
   const capacityBy = byQuote(capacity);
   const pricingBy = new Map(pricing.map((p) => [p.record.quoteId, p.record]));
   const holdsBy = byQuote(holds);
@@ -157,6 +166,18 @@ export async function loadQuoteStates(
       price_table_on_file: modelKinds.get(row.id)?.has('price_table') ?? false,
       // FB-06 (F-058): the current equipment BOM, which G2 "Capital required" reads.
       equipment_bom_on_file: modelKinds.get(row.id)?.has('equipment_bom') ?? false,
+      // FB-19: each item's own engineering facts (its review row and its capacity rows).
+      ...(itemsBy.has(row.id)
+        ? {
+            items: itemsBy.get(row.id)!.map((item) =>
+              itemEngineeringFacts(
+                item,
+                engByItem.get(item.id),
+                (capacityBy.get(row.id) ?? []).filter((c) => c.quoteItemId === item.id),
+              ),
+            ),
+          }
+        : {}),
     };
     // B-11: who acted as Pricing on this version (segregation `actor_is_price_approver`).
     const priceApproverIds = [
@@ -202,6 +223,54 @@ export async function loadQuoteStates(
     });
   }
   return states;
+}
+
+/**
+ * FB-19: the review columns that are quote level (kept on the primary item's row) and therefore never an
+ * item's own fact, plus the row's bookkeeping.
+ */
+const NOT_ITEM_FACTS = new Set([
+  'id',
+  'quoteId',
+  'quoteItemId',
+  'createdAt',
+  'updatedAt',
+  'createdBy',
+  'acceptedAt',
+  'acceptedBy',
+  'returnedReason',
+  'capacitySignoffStatus',
+  'capacitySignoffBy',
+  'capacitySignoffAt',
+  'capacitySignoffNote',
+  'capacityReadyAt',
+]);
+
+/** The item-level review columns (snake_case), present even when the item has no review row yet. */
+const ITEM_REVIEW_FIELDS = Object.keys(getTableColumns(engReview)).filter(
+  (k) => !NOT_ITEM_FACTS.has(k),
+);
+
+/**
+ * FB-19: one item's facts for the gate rules: its number and label, its review row's item-level columns
+ * (null when it has none yet) and its capacity rows. The domain's `evaluateQuoteRules` checks a rule that
+ * reads any of these once per item.
+ */
+export function itemEngineeringFacts(
+  item: { id: string; itemNo: number; label: string | null },
+  review: Record<string, unknown> | undefined,
+  capacity: { utilizationAfterPct: number | null }[],
+): Record<string, unknown> & { item_no: number; label: string | null } {
+  const facts: Record<string, unknown> = {};
+  for (const key of ITEM_REVIEW_FIELDS) facts[toSnakeCase(key)] = review?.[key] ?? null;
+  return {
+    item_no: item.itemNo,
+    label: item.label,
+    quote_item_id: item.id,
+    ...facts,
+    capacity_evidence: capacity.map((c) => snake(c as Record<string, unknown>)),
+    capacity_utilization_missing: capacity.some((c) => c.utilizationAfterPct === null),
+  };
 }
 
 export interface PersistTransitionAudit {

@@ -5,6 +5,7 @@ import {
   type CapacityEvidenceRowBody,
   type EngInputField,
   type EngineeringDetail,
+  type EngItemView,
   type EngReviewBody,
   type PublicValueListEntry,
   type QuoteDetail,
@@ -28,7 +29,14 @@ import {
   type CapacityGlance,
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DownloadIcon, EyeOffIcon, PaperclipIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import {
+  CheckCircle2Icon,
+  DownloadIcon,
+  EyeOffIcon,
+  PaperclipIcon,
+  PlusIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
@@ -86,16 +94,37 @@ export function EngineeringTab({
   const refresh = useRefresh(quote.quoteNumber);
   const g2 = quote.availableActions.find((a) => a.gateKey === 'G2');
   const forward = forwardReadiness(quote.availableActions, 'G2');
+  // FB-19 (W13-32 to W13-34): each item has its own solution, two-step and pack-out, and capacity rows.
+  // The assignment, the lead review and the capacity sign-off cover the quote.
+  const [active, setActive] = useState(0);
+  const many = eng.items.length > 1;
+  const index = Math.min(active, Math.max(0, eng.items.length - 1));
+  const view = eng.items[index];
+  const itemQuote = view ? withItemView(quote, view) : quote;
+  const itemId = view?.id;
+  const itemKey = itemId ?? 'quote';
   // The tab reads top to bottom in the order the work is done: who has it, where it stands, the
   // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
   return (
     <div className="grid gap-6" data-testid="engineering-tab">
       {/* FB-02: destination and mold modification from intake. */}
       <IntakeFactsHeader facts={quote.intakeFacts} shipTo={quote.shipTo} />
-      <ProductFactsHeader facts={eng.productFacts} />
+      {!many && <ProductFactsHeader facts={eng.productFacts} />}
       <AssignmentCard quote={quote} />
       <LeadReviewStatus kind="engineering" review={eng.leadReview} />
       <SectionLockLine lock={eng.lock} />
+      {many && (
+        <>
+          {/* FB-19: the quote-level parts sit above the item switcher. */}
+          <EquipmentBomCard quote={quote} />
+          <CapacitySignoffCard
+            key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
+            quote={quote}
+          />
+          <ItemSwitcher items={eng.items} active={index} onSelect={setActive} />
+          <ProductFactsHeader facts={itemQuote.engineering.productFacts} />
+        </>
+      )}
       {eng.commercialRedacted && eng.canEdit && (
         <p
           className="bg-secondary flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -106,15 +135,26 @@ export function EngineeringTab({
           back. Leave a hidden field blank to keep what is saved.
         </p>
       )}
-      <SolutionCard quote={quote} />
-      <EquipmentBomCard quote={quote} />
-      <PricingInputsCard quote={quote} refresh={refresh} />
-      <LegacyNotes review={eng.review} />
-      <CapacityCard key={eng.capacityEvidence.map((r) => r.id).join()} quote={quote} />
-      <CapacitySignoffCard
-        key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
-        quote={quote}
+      <SolutionCard key={`solution-${itemKey}`} quote={itemQuote} itemId={itemId} />
+      {!many && <EquipmentBomCard quote={quote} />}
+      <PricingInputsCard
+        key={`extras-${itemKey}`}
+        quote={itemQuote}
+        refresh={refresh}
+        itemId={itemId}
       />
+      <LegacyNotes review={itemQuote.engineering.review} />
+      <CapacityCard
+        key={`${itemKey}:${itemQuote.engineering.capacityEvidence.map((r) => r.id).join()}`}
+        quote={itemQuote}
+        itemId={itemId}
+      />
+      {!many && (
+        <CapacitySignoffCard
+          key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
+          quote={quote}
+        />
+      )}
       <LeadReviewActions
         kind="engineering"
         review={eng.leadReview}
@@ -140,6 +180,75 @@ export function EngineeringTab({
         }
       />
     </div>
+  );
+}
+
+/**
+ * FB-19: the quote as one item's cards see it: the item's solution, capacity rows, product facts and
+ * volume in the places the cards read them (the quote-level parts are unchanged).
+ */
+function withItemView(quote: QuoteDetail, view: EngItemView): QuoteDetail {
+  return {
+    ...quote,
+    engineering: {
+      ...quote.engineering,
+      review: view.review,
+      capacityEvidence: view.capacityEvidence,
+      quoteAnnualVolume: view.annualVolume,
+      allocationWarning: view.allocationWarning,
+      selectedLabels: view.selectedLabels,
+      productFacts: view.productFacts,
+      processPairLegacy: view.processPairLegacy,
+    },
+  };
+}
+
+/**
+ * FB-19 (W13-32): the item switcher: one tab per item with what it still needs ("Item 2: 24 oz bottle ·
+ * 3 to do", or a tick when it is done).
+ */
+function ItemSwitcher({
+  items,
+  active,
+  onSelect,
+}: {
+  items: readonly EngItemView[];
+  active: number;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <nav aria-label="Items" data-testid="item-switcher">
+      <ul className="flex flex-wrap gap-2">
+        {items.map((item, i) => {
+          const open = i === active;
+          const todo = item.toDo.length;
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                aria-current={open ? 'true' : undefined}
+                onClick={() => onSelect(i)}
+                data-testid="item-tab"
+                className={`rounded-pill flex min-h-11 items-center gap-2 border px-3 text-sm sm:min-h-9 ${
+                  open ? 'bg-primary text-primary-foreground border-primary' : 'border-line-strong'
+                }`}
+                title={todo > 0 ? item.toDo.join('\n') : undefined}
+              >
+                <span className="font-medium">
+                  Item {item.itemNo}
+                  {item.label ? `: ${item.label}` : ''}
+                </span>
+                {todo === 0 ? (
+                  <CheckCircle2Icon aria-label="complete" className="size-4" />
+                ) : (
+                  <span className="text-xs">· {todo} to do</span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
 
@@ -354,12 +463,12 @@ type ExtrasKey =
  * FB-16 (W13-12): the process type is no longer picked. The form sends the plant and one "Process &
  * machine type" pick; the server derives the process type from it (`machine_type_process_map`).
  */
-type SolutionKey = Exclude<keyof EngReviewBody, ExtrasKey | 'processType'>;
+type SolutionKey = Exclude<keyof EngReviewBody, ExtrasKey | 'processType' | 'itemId'>;
 const NUMERIC = ['cavitation', 'cycleTimeS', 'prelimCapitalUsd'] as const satisfies SolutionKey[];
 const isNumeric = (k: SolutionKey): k is (typeof NUMERIC)[number] =>
   (NUMERIC as readonly SolutionKey[]).includes(k);
 
-function SolutionCard({ quote }: { quote: QuoteDetail }) {
+function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string | undefined }) {
   const eng = quote.engineering;
   const review = eng.review;
   const { data: config } = usePublicConfig();
@@ -376,7 +485,7 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
   // FB-16 (W13-13): why the machine type was cleared when the plant changed ("X does not run Y").
   const [cleared, setCleared] = useState<string | null>(null);
   // FB-18 (W13-30): "Progress saved" beside the button until the form changes.
-  const status = useSaved(`solution:${quote.quoteNumber}`);
+  const status = useSaved(`solution:${quote.quoteNumber}:${itemId ?? ''}`);
   const set = (k: SolutionKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   // FB-16 (W13-12, W13-13): plant first, then one pick over the machine types that plant runs.
@@ -438,12 +547,14 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
         const v = form[k].trim();
         body[k] = v === '' ? null : isNumeric(k) ? Number(v) : v;
       }
+      // FB-19: the solution is the item's.
+      if (itemId) body.itemId = itemId;
       return api.updateEngReview(quote.quoteNumber, body);
     },
     onSuccess: async (detail) => {
       setErrors([]);
       setCleared(null);
-      setForm(solutionForm(detail.review));
+      setForm(solutionForm(itemReview(detail, itemId)));
       await refresh(detail);
       status.markSaved();
       // FB-16 (W13-16): this names the card that was saved, not the stage.
@@ -670,6 +781,14 @@ function SolutionCard({ quote }: { quote: QuoteDetail }) {
       </CardContent>
     </Card>
   );
+}
+
+/** FB-19: the review fields of one item in a save's response (item 1's at the top level). */
+export function itemReview(
+  detail: EngineeringDetail,
+  itemId: string | undefined,
+): EngineeringDetail['review'] {
+  return (itemId && detail.items.find((i) => i.id === itemId)?.review) || detail.review;
 }
 
 function solutionForm(review: EngineeringDetail['review']): Record<SolutionKey, string> {
@@ -928,7 +1047,7 @@ function UtilizationAfter({
   );
 }
 
-function CapacityCard({ quote }: { quote: QuoteDetail }) {
+function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string | undefined }) {
   const eng = quote.engineering;
   const me = useCurrentUser();
   const { data: config } = usePublicConfig();
@@ -1022,6 +1141,8 @@ function CapacityCard({ quote }: { quote: QuoteDetail }) {
   const save = useMutation({
     mutationFn: () =>
       api.updateCapacityEvidence(quote.quoteNumber, {
+        // FB-19 (W13-34): the rows are this item's.
+        ...(itemId ? { itemId } : {}),
         rows: rows.map((r) => {
           const row: Record<string, unknown> = {
             ...(r.id ? { id: r.id } : {}),

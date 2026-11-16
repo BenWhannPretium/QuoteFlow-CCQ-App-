@@ -7,9 +7,15 @@ import type {
   ReturnedQuoteSummary,
   SubmitIntakeResponse,
 } from '@ccq/contracts';
-import { INTAKE_PROBLEM_CODES, intakeAddress as address, intakeValues } from '@ccq/contracts';
+import {
+  draftItems,
+  INTAKE_PROBLEM_CODES,
+  intakeAddress as address,
+  intakeValues,
+  normalizeDraftData,
+} from '@ccq/contracts';
 import type { DbOrTx, Tx } from '@ccq/db';
-import { schema } from '@ccq/db';
+import { schema, uuidv7 } from '@ccq/db';
 import {
   deleteOpenQuoteDraft,
   findUserById,
@@ -24,14 +30,14 @@ import {
   getSetting,
   getSfOpportunity,
   insertActivityEvent,
-  listAttachments,
-  listDraftAttachments,
   insertAuditEvent,
   insertCustomer,
   insertQuote,
   insertQuoteDraft,
   listGateDecisionsWithNames,
   listOpenQuoteDrafts,
+  listOpenQuotesOnOpportunity,
+  lockOpportunityForSubmit,
   listReturnedQuotes,
   listActiveValueLists,
   listValueList,
@@ -45,10 +51,15 @@ import {
   type QuoteDraftRow,
 } from '@ccq/db/repos';
 import {
+  activeQuoteWarning,
   asksScopeChange,
   availableActions,
-  DRAWING_ATTACHMENT_KINDS,
+  decideActiveQuotes,
   evaluateIntake,
+  intakeListValueIssues,
+  parseOpportunityActiveQuoteMessage,
+  parseOpportunityActiveQuotes,
+  type OpportunityActiveQuotesMode,
   inapplicableIntakeFields,
   subMarketAfterMarketChange,
   ENG_QUEUE_STAGE_KEY,
@@ -59,7 +70,6 @@ import {
   INTAKE_LIST_FIELDS,
   INTAKE_SETTING_KEYS,
   intakeConfigFromSources,
-  listValueIssues,
   parseVolumeRouting,
   parseWorkflowConfig,
   routeByVolumeBand,
@@ -75,6 +85,17 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { AttachmentService } from './attachments';
 import { onEngQueueArrival } from './engineering-arrival';
 import { deliverDecisionNotifications, deliverResumeNotifications } from './handoff-notifications';
+import {
+  changedDraftData,
+  draftItemsFromQuote,
+  drawingCheck,
+  itemsProblem,
+  keptFromValues,
+  mergeDraftPatch,
+  quoteMirrorColumns,
+  storedItemColumns,
+  syncQuoteItems,
+} from './intake-items';
 import { recordIntakeShipToOverride } from './overrideService';
 import { onPricingArrival } from './pricing-view';
 import { onQualifyArrival } from './qualify-arrival';
@@ -150,18 +171,6 @@ export async function loadIntakeConfig(db: DbOrTx): Promise<IntakeConfig> {
 
 const meta = (m: unknown) => (m ?? {}) as Record<string, unknown>;
 
-/**
- * FB-02 (F-016): a bottle or competitor drawing is attached to the draft or, for a rework, already on
- * the quote. RLS applies (the caller is the draft's owner).
- */
-async function hasDrawingAttachment(db: DbOrTx, draft: QuoteDraftRow): Promise<boolean> {
-  const files = [
-    ...(await listDraftAttachments(db, draft.id)),
-    ...(draft.reworkOfQuoteId ? await listAttachments(db, draft.reworkOfQuoteId) : []),
-  ];
-  return files.some((f) => (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(f.kind));
-}
-
 const blankToNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
 /** numeric(10,2): stored to the cent. */
@@ -197,6 +206,11 @@ export interface IntakeServiceOptions {
    */
   attachments?: Pick<AttachmentService, 'claimDraftFiles' | 'removeDraftFiles' | 'settle'>;
   log?: FastifyBaseLogger;
+  /**
+   * FB-19 (W13-33): a read in system context (every quote, whoever owns it), used ONLY to find the active
+   * quotes on an opportunity (their number and KAM). Without it the read runs under the caller's RLS.
+   */
+  systemTx?: <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 }
 
 export class IntakeService {
@@ -213,7 +227,37 @@ export class IntakeService {
   private async keptValues(tx: DbOrTx, row: QuoteDraftRow): Promise<Record<string, unknown>> {
     if (!row.reworkOfQuoteId) return {};
     const q = await getQuoteById(tx, row.reworkOfQuoteId);
-    return q ? intakeValues(dataFromQuote(q)) : {};
+    if (!q) return {};
+    // FB-19: the codes the quote and every one of its items hold.
+    return keptFromValues(
+      intakeValues({ ...dataFromQuote(q), items: await draftItemsFromQuote(tx, q.id) }),
+    );
+  }
+
+  /**
+   * FB-19 (W13-33): the active quotes on the opportunity, whoever owns them (number and KAM only), read
+   * in system context so another KAM's quote counts. With `lock`, the opportunity's submit lock is
+   * taken first (held until the transaction ends), so two submits cannot both find none.
+   */
+  private async openQuotes(tx: DbOrTx, sfOpportunityId: string, lock = false) {
+    if (lock) await lockOpportunityForSubmit(tx, sfOpportunityId);
+    const read = (db: DbOrTx) => listOpenQuotesOnOpportunity(db, sfOpportunityId);
+    const rows = this.opts.systemTx ? await this.opts.systemTx(read) : await read(tx);
+    return rows.map((r) => ({ quoteNumber: r.quoteNumber, kamName: r.kamName ?? null }));
+  }
+
+  /** FB-19 (W13-33): the setting and the warning's words. */
+  private async openQuoteSettings(
+    tx: DbOrTx,
+  ): Promise<{ mode: OpportunityActiveQuotesMode; template: string }> {
+    const [mode, template] = await Promise.all([
+      getSetting(tx, 'opportunity_active_quotes'),
+      getSetting(tx, 'opportunity_active_quote_message'),
+    ]);
+    return {
+      mode: parseOpportunityActiveQuotes(mode),
+      template: parseOpportunityActiveQuoteMessage(template),
+    };
   }
 
   /** DR-cross-cutting-02: refuse a NEW write of a code that is not an active value-list entry (422). */
@@ -221,32 +265,40 @@ export class IntakeService {
     tx: DbOrTx,
     row: QuoteDraftRow | null,
     written: IntakeDraftData,
+    itemNumbers?: number[],
+    /** How many items the draft holds: a one-item draft's errors name no item (as before FB-19). */
+    itemCount = 1,
   ): Promise<void> {
-    const issues = listValueIssues(
+    const issues = intakeListValueIssues(
       intakeValues(written),
       await loadIntakeConfig(tx),
       row ? await this.keptValues(tx, row) : {},
     );
     if (issues.length === 0) return;
+    // FB-19: `itemNumbers` maps a position in `written.items` to the item's number in the draft.
+    const itemNo = (i: { item?: number }) =>
+      i.item === undefined || itemCount <= 1 ? undefined : (itemNumbers?.[i.item - 1] ?? i.item);
     throw new IntakeError(422, INTAKE_PROBLEM_CODES.invalidListValue, issues[0]!.message, {
-      errors: issues.map((i) => ({ path: camelField(i.field), message: i.message })),
+      errors: issues.map((i) => ({
+        path: camelField(i.field),
+        message: i.message,
+        ...(itemNo(i) !== undefined ? { item: itemNo(i) } : {}),
+      })),
     });
   }
 
   private async toDto(tx: DbOrTx, row: QuoteDraftRow): Promise<IntakeDraft> {
     const config = await loadIntakeConfig(tx);
-    const data = row.data as IntakeDraftData;
+    // FB-19: a draft saved before FB-19 is read with its product fields as item 1.
+    const data = normalizeDraftData(row.data as IntakeDraftData, uuidv7);
     const kept = await this.keptValues(tx, row);
-    const evaluation = evaluateIntake(
-      intakeValues(data, await hasDrawingAttachment(tx, row)),
-      config,
-      this.now(),
-      kept,
-    );
-    const active =
-      row.sfOpportunityId && !row.submittedQuoteId
-        ? await getActiveQuoteForOpportunity(tx, row.sfOpportunityId)
-        : undefined;
+    const drawings = await drawingCheck(tx, row);
+    const evaluation = evaluateIntake(intakeValues(data, drawings.has), config, this.now(), kept);
+    const opp = !row.reworkOfQuoteId && !row.submittedQuoteId ? row.sfOpportunityId : null;
+    const active = opp ? await getActiveQuoteForOpportunity(tx, opp) : undefined;
+    // FB-19 (W13-33): every active quote on the opportunity (number and KAM only) and the warning.
+    const openQuotes = opp ? await this.openQuotes(tx, opp) : [];
+    const openSettings = await this.openQuoteSettings(tx);
     // FB-02 (T-009): the SF close date is read from the latest sync, never stored on the draft.
     const opportunity = row.sfOpportunityId
       ? await getSfOpportunity(tx, row.sfOpportunityId)
@@ -259,6 +311,9 @@ export class IntakeService {
       evaluation,
       sfCloseDate: opportunity?.closeDate ?? null,
       activeQuote: row.reworkOfQuoteId ? null : activeRef(active),
+      openQuotes,
+      openQuoteWarning: activeQuoteWarning(openSettings.template, openQuotes),
+      openQuotesMode: openSettings.mode,
       rework: row.reworkOfQuoteId ? await this.reworkInfo(tx, row.reworkOfQuoteId) : null,
       keptListValues: keptListCodes(kept),
       createdAt: row.createdAt.toISOString(),
@@ -294,12 +349,15 @@ export class IntakeService {
     meta: AuditMeta,
   ): Promise<IntakeDraft> {
     return withTx(async (tx) => {
-      await this.assertListValues(tx, null, body.data);
+      // FB-19: stored with the product fields in `items` (an older client's top-level ones are item 1).
+      const data = normalizeDraftData(body.data, uuidv7);
+      await this.assertItems(tx, data);
+      await this.assertListValues(tx, null, data, undefined, draftItems(data).length);
       const row = await insertQuoteDraft(tx, {
         ownerUserId: actor.userId,
-        sfOpportunityId: body.data.sfOpportunityId ?? null,
+        sfOpportunityId: data.sfOpportunityId ?? null,
         step: body.step,
-        data: body.data,
+        data,
         createdBy: actor.userId,
       });
       await insertAuditEvent(tx, {
@@ -317,6 +375,13 @@ export class IntakeService {
       });
       return this.toDto(tx, row);
     });
+  }
+
+  /** FB-19: at most `quote_items_max` items, each key once (422 `invalid_items`). */
+  private async assertItems(tx: DbOrTx, data: IntakeDraftData): Promise<void> {
+    const problem = itemsProblem(data, await loadIntakeConfig(tx));
+    if (problem)
+      throw new IntakeError(problem.status, problem.code, problem.message, problem.extra);
   }
 
   async get(withTx: WithTx, id: string): Promise<IntakeDraft> {
@@ -408,9 +473,14 @@ export class IntakeService {
       const last = await getLatestSubmittedDraft(tx, q.id);
       // The last submitted intake is the most complete copy (it has the customer and SF display fields);
       // a quote with no draft (e.g. synthetic data) is rebuilt from its columns and customer row.
-      const data: IntakeDraftData = last
+      const base: IntakeDraftData = last
         ? (last.data as IntakeDraftData)
         : { ...dataFromQuote(q), customer: await customerForDraft(tx, q.customerId) };
+      // FB-19: the items are the quote's own (`quote_item`, keyed by their ids), not the last draft's.
+      const data = normalizeDraftData(
+        { ...base, items: await draftItemsFromQuote(tx, q.id) },
+        uuidv7,
+      );
       const row = await insertQuoteDraft(tx, {
         ownerUserId: actor.userId,
         sfOpportunityId: q.sfOpportunityId,
@@ -462,15 +532,13 @@ export class IntakeService {
           'This draft was changed in another tab or window. Reload it to see the latest, then make your change again.',
         );
       }
-      const before = row.data as IntakeDraftData;
-      const data = { ...before, ...(body.data ?? {}) };
-      // DR-cross-cutting-02: only the keys this save changes are new writes.
-      const changed = Object.fromEntries(
-        Object.entries(body.data ?? {}).filter(
-          ([k, v]) => JSON.stringify(v) !== JSON.stringify((before as Record<string, unknown>)[k]),
-        ),
-      ) as IntakeDraftData;
-      await this.assertListValues(tx, row, changed);
+      const before = normalizeDraftData(row.data as IntakeDraftData, uuidv7);
+      // FB-19: `items` is replaced as a whole; an older client's top-level product field changes item 1.
+      const data = mergeDraftPatch(before, body.data ?? {});
+      await this.assertItems(tx, data);
+      // DR-cross-cutting-02: only what this save changes is a new write (FB-19: per item and field).
+      const { changed, itemNumbers } = changedDraftData(before, data, body.data ?? {});
+      await this.assertListValues(tx, row, changed, itemNumbers, draftItems(data).length);
       // FB-12 (F-073): a market change must not leave the old market's sub-market behind.
       if (
         data.subMarket &&
@@ -629,9 +697,12 @@ export class IntakeService {
   ): Promise<SubmitIntakeResponse> {
     const now = this.now();
     const draft = await this.ownDraft(tx, actor, id, true);
-    const data = draft.data as IntakeDraftData;
+    // FB-19: the product fields are per item (a draft saved before FB-19 is one item).
+    const data = normalizeDraftData(draft.data as IntakeDraftData, uuidv7);
     const config = await loadIntakeConfig(tx);
-    const values = intakeValues(data, await hasDrawingAttachment(tx, draft));
+    await this.assertItems(tx, data);
+    const drawings = await drawingCheck(tx, draft);
+    const values = intakeValues(data, drawings.has);
     const evaluation: IntakeEvaluation = evaluateIntake(
       values,
       config,
@@ -664,6 +735,8 @@ export class IntakeService {
       });
     }
     const asked = reworkOf ? asksScopeChange(reworkOfQuote(reworkOf)) : false;
+    /** FB-19 (W13-33): the open quotes a confirmed separate quote was started beside (for the audit). */
+    let separateFrom: string[] = [];
     if (reworkOf) {
       assertReturnedTo(reworkOf, actor);
       if (reworkOf.sfOpportunityId !== sfOpportunityId) {
@@ -675,15 +748,30 @@ export class IntakeService {
         );
       }
     } else {
-      const existing = await getActiveQuoteForOpportunity(tx, sfOpportunityId);
-      if (existing) {
+      // FB-19 (W13-33): one active quote per opportunity is a setting. The check runs in system context
+      // (another KAM's quote counts) under the opportunity's submit lock, so two submits cannot race.
+      const open = await this.openQuotes(tx, sfOpportunityId, true);
+      const settings = await this.openQuoteSettings(tx);
+      const decision = decideActiveQuotes(
+        settings.mode,
+        open.length,
+        data.separateQuoteConfirmed === true,
+      );
+      if (!decision.ok) {
         throw new IntakeError(
           409,
           INTAKE_PROBLEM_CODES.activeQuoteExists,
-          `This Salesforce opportunity already has an active CCQ quote (${existing.quoteNumber})`,
-          { quoteNumber: existing.quoteNumber },
+          decision.reason === 'one'
+            ? `This Salesforce opportunity already has an active CCQ quote (${open[0]!.quoteNumber})`
+            : activeQuoteWarning(settings.template, open)!,
+          {
+            quoteNumber: open[0]!.quoteNumber,
+            openQuotes: open,
+            mode: settings.mode,
+          },
         );
       }
+      separateFrom = decision.separate ? open.map((o) => o.quoteNumber) : [];
     }
 
     const customerId = await this.resolveCustomer(
@@ -697,74 +785,29 @@ export class IntakeService {
     const kam = await findUserById(tx, actor.userId);
     const shipToOverridden =
       Boolean(blankToNull(data.shipToOverrideReason)) && values.ship_to !== null;
+    // The request-level fields that no longer apply (freight without a delivered price, …).
     const cleared = new Set(inapplicableIntakeFields(values, config));
     const keep = <T>(field: string, value: T): T | null => (cleared.has(field) ? null : value);
     const toolingFundingModel =
       values.tooling_funding_model ??
       (reworkOf ? reworkOf.toolingFundingModel : await defaultFundingCode(tx));
+    // FB-19 (decision 6): each item's stored columns, and the quote's product columns mirror item 1 with
+    // the volume summed over every item.
+    const itemsData = draftItems(data);
+    const { items: _itemValues, ...requestValues } = values;
+    const itemRows = itemsData.map((item) => storedItemColumns(item, requestValues, config));
     const fields = {
       customerId,
       description: blankToNull(data.description),
-      structuredDescription: {
-        standard: blankToNull(data.standardDescription),
-        containerType: data.productFamily ?? null,
-        size: blankToNull(data.containerSize),
-        resin: data.resin ?? null,
-        components: data.components ?? [],
-      },
-      productFamily: data.productFamily ?? null,
+      ...quoteMirrorColumns(itemRows),
       market: data.market ?? null,
-      // FB-12 (F-073): optional; evaluateIntake has already checked that it belongs to the market.
+      // FB-12 (F-073): evaluateIntake has already checked that it belongs to the market.
       subMarket: values.sub_market,
-      resin: data.resin ?? null,
-      components: data.components ?? [],
-      estAnnualVolume: data.estAnnualVolume ?? null,
-      estAnnualVolumeConfirmed: data.estAnnualVolumeConfirmed ?? false,
       estAnnualRevenue: data.estAnnualRevenue ?? null,
       estAnnualRevenueSf: data.estAnnualRevenueSf ?? null,
       // FB-02 (F-009): the need-by dates replace the close date (expected_close_date is no longer written).
       quoteNeededBy: data.quoteNeededBy ?? null,
-      productNeededBy: data.productNeededBy ?? null,
-      drawingStatus: data.drawingStatus ?? null,
-      // FB-02 (F-010, F-011, F-055, F-023, F-075): product facts. A description of a value that isn't
-      // "Custom", or a grade without the checkbox, is cleared. The old neck_finish is no longer written.
-      neckDiameter: values.neck_diameter,
-      neckDiameterCustom: keep('neck_diameter_custom', values.neck_diameter_custom),
-      neckFinishType: values.neck_finish_type,
-      neckFinishTypeCustom: keep('neck_finish_type_custom', values.neck_finish_type_custom),
-      neckSpecialFeature: values.neck_special_feature,
-      neckSpecialFeatureCustom: keep(
-        'neck_special_feature_custom',
-        values.neck_special_feature_custom,
-      ),
-      resinCustomerSpecified: values.resin_customer_specified,
-      resinGrade: keep('resin_grade', values.resin_grade),
-      pcrLevel: values.pcr_level,
-      // FB-09: the "Other" PCR detail is kept only while PCR is Other. The additive is a plain pick;
-      // the additives note stays optional (and is the detail for "Other").
-      pcrLevelOther: keep('pcr_level_other', values.pcr_level_other),
-      additive: values.additive,
-      colorType: values.color_type,
-      colorDescription: keep('color_description', values.color_description),
-      additives: values.additives,
       quoteVariantsNote: values.quote_variants_note,
-      // F-013: a component's follow-ups are kept only while the component is picked.
-      linerSpec: keep('liner_spec', values.liner_spec),
-      labelsPurchasedBy: keep('labels_purchased_by', values.labels_purchased_by),
-      decorationType: keep('decoration_type', values.decoration_type),
-      decorationPrintColors: keep('decoration_print_colors', values.decoration_print_colors),
-      // FB-15 (W13-03): what an "Other" product family, component or decoration is; cleared otherwise.
-      productFamilyOther: keep('product_family_other', values.product_family_other),
-      componentOther: keep('component_other', values.component_other),
-      decorationTypeOther: keep('decoration_type_other', values.decoration_type_other),
-      // F-016 dimensions (2 decimals), F-015 mold modification, F-014 RFP link.
-      heightMm: round2(values.height_mm),
-      widthOrDiameterMm: round2(values.width_or_diameter_mm),
-      depthMm: round2(values.depth_mm),
-      gramWeightG: round2(values.gram_weight_g),
-      modifyExistingMold: values.modify_existing_mold,
-      existingMoldRef: keep('existing_mold_ref', values.existing_mold_ref),
-      moldChangeDescription: keep('mold_change_description', values.mold_change_description),
       rfpLink: values.rfp_link,
       // FB-11 (D-032): commercial inputs. Freight is kept only for a delivered price; the "Other"
       // description only for Other. The funding answer defaults to the list's default ("Not discussed"),
@@ -792,8 +835,6 @@ export class IntakeService {
       // FB-10 (F-066): the platform-minimum warning, kept for G1. A warning only; it never blocked the submit.
       guardrailWarning:
         evaluation.warnings.find((w) => w.code === 'BELOW_PLATFORM_MINIMUM')?.message ?? null,
-      packagingType: data.packagingType ?? null,
-      packagingNotes: blankToNull(data.packagingNotes),
       requestClass: data.requestClass ?? null,
       commentsForEngineering: blankToNull(data.commentsForEngineering),
       shipTo: values.ship_to,
@@ -852,6 +893,7 @@ export class IntakeService {
           commercialInputs: commercialInputsAudit(fields),
           scopeChanged: scopeAnswer,
           resumedAt,
+          items: itemsData.length,
         },
         ...audit,
         createdBy: actor.userId,
@@ -902,6 +944,9 @@ export class IntakeService {
           subMarket: quote.subMarket,
           shipToOverridden,
           commercialInputs: commercialInputsAudit(fields),
+          items: itemsData.length,
+          // FB-19 (W13-33): started beside these open quotes after the KAM confirmed the warning.
+          ...(separateFrom.length > 0 ? { separateFrom } : {}),
         },
         ...audit,
         createdBy: actor.userId,
@@ -921,6 +966,17 @@ export class IntakeService {
       );
     }
 
+    const attachments =
+      (await this.opts.attachments?.claimDraftFiles(tx, actor, draft.id, quote.id, now)) ?? 0;
+    // FB-19: the quote's items now match the draft (added, changed, renumbered, removed; audited).
+    const keyToId = await syncQuoteItems(tx, actor, meta, {
+      quoteId: quote.id,
+      draftId: draft.id,
+      items: itemsData,
+      rows: itemRows,
+      now,
+    });
+
     // Priority score (B-08): advisory; orders the G1 and engineering queues.
     const scored = this.opts.scoring
       ? await this.opts.scoring.recalculate(
@@ -932,9 +988,15 @@ export class IntakeService {
         )
       : null;
 
-    const attachments =
-      (await this.opts.attachments?.claimDraftFiles(tx, actor, draft.id, quote.id, now)) ?? 0;
-    await updateQuoteDraft(tx, draft.id, { submittedQuoteId: quote.id, submittedAt: now });
+    // The submitted draft keeps what was submitted, its items keyed by the quote item ids.
+    await updateQuoteDraft(tx, draft.id, {
+      data: {
+        ...data,
+        items: itemsData.map((i) => ({ ...i, key: keyToId.get(i.key) ?? i.key })),
+      },
+      submittedQuoteId: quote.id,
+      submittedAt: now,
+    });
 
     // FB-01 (F-030): no scope change after a G3 send-back: straight back to Quoting, same pricer and
     // pricing lead; the pricing record reopens for the pricer (a new stay starts a new lead review).
@@ -1137,6 +1199,8 @@ function incompleteError(evaluation: IntakeEvaluation): IntakeError {
     errors: evaluation.blocking.map((b) => ({
       path: b.field === 'sub_market' ? 'subMarket' : b.field,
       message: b.message,
+      // FB-19: on a multi-item intake, an item's issue names the item (its Fix opens it).
+      ...(b.item !== undefined ? { item: b.item } : {}),
     })),
     blocking: evaluation.blocking,
     ...(minSpec?.missing ? { missing: minSpec.missing } : {}),
@@ -1226,45 +1290,16 @@ function reasonLabel(
   );
 }
 
-/** Intake fields as stored on the quote, for a rework draft of a quote with no draft of its own. */
+/**
+ * Intake request fields as stored on the quote, for a rework draft of a quote with no draft of its own.
+ * FB-19: the items come from `quote_item` (`draftItemsFromQuote`).
+ */
 function dataFromQuote(q: Quote): IntakeDraftData {
-  const structured = (q.structuredDescription ?? {}) as { standard?: string; size?: string };
   return {
     sfOpportunityId: q.sfOpportunityId,
-    productFamily: q.productFamily,
     market: q.market,
     ...(q.subMarket ? { subMarket: q.subMarket } : {}),
-    resin: q.resin,
-    components: q.components,
-    neckDiameter: q.neckDiameter,
-    neckDiameterCustom: q.neckDiameterCustom,
-    neckFinishType: q.neckFinishType,
-    neckFinishTypeCustom: q.neckFinishTypeCustom,
-    neckSpecialFeature: q.neckSpecialFeature,
-    neckSpecialFeatureCustom: q.neckSpecialFeatureCustom,
-    resinCustomerSpecified: q.resinCustomerSpecified,
-    resinGrade: q.resinGrade,
-    pcrLevel: q.pcrLevel,
-    pcrLevelOther: q.pcrLevelOther,
-    additive: q.additive,
-    colorType: q.colorType,
-    colorDescription: q.colorDescription,
-    additives: q.additives,
     quoteVariantsNote: q.quoteVariantsNote,
-    linerSpec: q.linerSpec,
-    labelsPurchasedBy: q.labelsPurchasedBy,
-    decorationType: q.decorationType,
-    decorationPrintColors: q.decorationPrintColors,
-    productFamilyOther: q.productFamilyOther,
-    componentOther: q.componentOther,
-    decorationTypeOther: q.decorationTypeOther,
-    heightMm: q.heightMm,
-    widthOrDiameterMm: q.widthOrDiameterMm,
-    depthMm: q.depthMm,
-    gramWeightG: q.gramWeightG,
-    modifyExistingMold: q.modifyExistingMold,
-    existingMoldRef: q.existingMoldRef,
-    moldChangeDescription: q.moldChangeDescription,
     rfpLink: q.rfpLink,
     requestedPaymentTerms: q.requestedPaymentTerms,
     requestedPaymentTermsOther: q.requestedPaymentTermsOther,
@@ -1275,19 +1310,11 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     freightType: q.freightType,
     freightSpecialArrangements: q.freightSpecialArrangements,
     bidReference: q.bidReference,
-    packagingType: q.packagingType,
-    packagingNotes: q.packagingNotes,
     requestClass: q.requestClass,
-    estAnnualVolume: q.estAnnualVolume,
-    estAnnualVolumeConfirmed: q.estAnnualVolumeConfirmed,
     estAnnualRevenue: q.estAnnualRevenue,
     estAnnualRevenueSf: q.estAnnualRevenueSf,
     quoteNeededBy: q.quoteNeededBy,
-    productNeededBy: q.productNeededBy,
-    drawingStatus: q.drawingStatus,
     description: q.description,
-    standardDescription: structured.standard ?? null,
-    containerSize: structured.size ?? null,
     commentsForEngineering: q.commentsForEngineering,
     shipTo: (q.shipTo as IntakeDraftData['shipTo']) ?? null,
     shipToDefault: (q.shipToOriginal as IntakeDraftData['shipToDefault']) ?? null,

@@ -1,14 +1,20 @@
 import {
+  draftItems,
+  INTAKE_ITEM_FIELDS,
   intakeValues,
   type IntakeDraftData,
   type IntakeIssue,
+  type IntakeItemData,
   type PublicConfigResponse,
   type PublicValueListEntry,
   type SfOpportunityDetail,
+  type SfProductSpec,
 } from '@ccq/contracts';
 import {
   evaluateIntake,
   fieldsReferenced,
+  isItemField,
+  itemName,
   intakeConfigFromSources,
   MIN_SPEC_FIELDS,
   neckSummary,
@@ -30,7 +36,8 @@ import { marketText, valueListLabel } from '@/lib/value-label';
 export const STEPS = [
   { n: 1, key: 'opportunity', title: 'Opportunity' },
   { n: 2, key: 'customer', title: 'Customer & destination' },
-  { n: 3, key: 'product', title: 'Product & volume' },
+  // FB-19 (W13-32): the request fields once, then the items (each with its product fields).
+  { n: 3, key: 'product', title: 'Request & items' },
   { n: 4, key: 'review', title: 'Drawing, files & review' },
 ] as const;
 export type StepNumber = (typeof STEPS)[number]['n'];
@@ -107,6 +114,9 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   description: { label: 'Description', step: 3 },
   drawing_status: { label: 'Drawing', step: 4 },
   comments_for_engineering: { label: 'Comments for engineering', step: 4 },
+  // FB-19 (W13-32): the items.
+  items: { label: 'Items', step: 3 },
+  label: { label: 'Item name', step: 3 },
 };
 
 /** Label for an issue's field ("a,b" = alternatives). */
@@ -188,7 +198,8 @@ export function requiredFieldsNow(cfg: WizardConfig, hasDrawing: boolean): Set<s
 export const evaluateDraft = (
   data: IntakeDraftData,
   cfg: WizardConfig,
-  hasDrawing: boolean,
+  /** FB-19: per item (its own drawings and links), or one answer for every item. */
+  hasDrawing: boolean | ((item: IntakeItemData, index: number) => boolean),
   kept: Record<string, string[]> = {},
   now: Date = new Date(),
 ): IntakeEvaluation => evaluateIntake(intakeValues(data, hasDrawing), cfg.intake, now, kept);
@@ -226,9 +237,123 @@ export function submitProblemIssues(problem: Record<string, unknown>): IntakeIss
   );
 }
 
-/** The words for one issue in a list: "Market is required", or the server's own message. */
-export const issueText = (issue: IntakeIssue): string =>
-  issue.code === 'MISSING_FIELD' ? `${issueLabel(issue)} is required` : issue.message;
+/**
+ * The words for one issue in a list: "Market is required", or the server's own message. FB-19: an item's
+ * issue on a multi-item intake names the item ("Item 2 (16 oz bottle): Neck finish is required"); its
+ * own message already does.
+ */
+export const issueText = (issue: IntakeIssue): string => issueTextIn(undefined)(issue);
+
+/** `issueText` naming each item by its label ("Item 2 (16 oz bottle)"), from the draft's items. */
+export const issueTextIn =
+  (data: IntakeDraftData | undefined) =>
+  (issue: IntakeIssue): string => {
+    if (issue.code !== 'MISSING_FIELD') return issue.message;
+    const text = `${issueLabel(issue)} is required`;
+    if (issue.item === undefined) return text;
+    const item = data ? draftItems(data)[issue.item - 1] : undefined;
+    return `${itemName(issue.item, item?.label)}: ${text}`;
+  };
+
+// ── FB-19 (W13-32 to W13-34): the items of an intake ─────────────────────────────────────────────
+
+/** Every key an item holds (its product fields and its own bookkeeping). */
+export const ITEM_KEYS: ReadonlySet<string> = new Set<string>([
+  ...INTAKE_ITEM_FIELDS,
+  'key',
+  'label',
+  'sfProductSpecId',
+  'linkedDrawingIds',
+  'duplicatedFrom',
+]);
+
+/** A new item's key (a uuid; the quote item id replaces it at submit). */
+export const newItemKey = (): string => globalThis.crypto.randomUUID();
+
+/** A blank item. */
+export const newItem = (): IntakeItemData => ({ key: newItemKey() });
+
+/**
+ * One item as the product fields see it: the request with the item's own fields on top, so a field that
+ * reads the market or the quote's need-by date keeps working.
+ */
+export function itemView(data: IntakeDraftData, index: number): IntakeDraftData {
+  const item = draftItems(data)[index];
+  return item ? { ...data, ...item } : data;
+}
+
+/**
+ * Splits a patch made on an item's view: the item's own keys go to that item, the rest to the request.
+ * Returns the draft patch to apply (`items` replaced as a whole).
+ */
+export function routeItemPatch(
+  current: IntakeDraftData,
+  index: number,
+  patch: Partial<IntakeDraftData>,
+): Partial<IntakeDraftData> {
+  const items = draftItems(current);
+  const own: Record<string, unknown> = {};
+  const rest: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) (ITEM_KEYS.has(k) ? own : rest)[k] = v;
+  if (Object.keys(own).length === 0) return rest;
+  return {
+    ...(rest as Partial<IntakeDraftData>),
+    items: items.map((it, i) => (i === index ? { ...it, ...own } : it)),
+  };
+}
+
+/**
+ * F-084 "duplicate and change only the container fields": a copy of every product field (the label gets
+ * "(copy)") and of the item's drawings, as links to the same files.
+ */
+export function duplicateItem(
+  item: IntakeItemData,
+  ownDrawingIds: readonly string[],
+): IntakeItemData {
+  const label = item.label?.trim();
+  return {
+    ...item,
+    key: newItemKey(),
+    label: label ? `${label} (copy)`.slice(0, 60) : null,
+    duplicatedFrom: item.key,
+    sfProductSpecId: null,
+    linkedDrawingIds: [...new Set([...(item.linkedDrawingIds ?? []), ...ownDrawingIds])],
+  };
+}
+
+/** Moves the item at `from` to `to` (both in range), keeping the others in order. */
+export function moveItem<T>(items: readonly T[], from: number, to: number): T[] {
+  const next = [...items];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved!);
+  return next;
+}
+
+/**
+ * The issues the selected item's fields show: the request's (no item) and that item's own. A one-item
+ * intake's issues carry no item number: all of them are item 1's.
+ */
+export function scopeEvaluation(evaluation: IntakeEvaluation, itemNo: number): IntakeEvaluation {
+  const keep = (i: IntakeIssue) => !isItemField(i.field) || (i.item ?? 1) === itemNo;
+  return {
+    blocking: evaluation.blocking.filter(keep),
+    warnings: evaluation.warnings.filter(keep),
+    ready: evaluation.ready,
+  };
+}
+
+/** How many blocking issues each item has (the Items list's "n to do"), by item number. */
+export function itemIssueCounts(evaluation: IntakeEvaluation, itemCount: number): number[] {
+  return Array.from(
+    { length: itemCount },
+    (_, i) =>
+      evaluation.blocking.filter((b) => isItemField(b.field) && (b.item ?? 1) === i + 1).length,
+  );
+}
+
+/** "16 oz bottle", "Item 2", for lists and headings. */
+export const draftItemName = (item: IntakeItemData, index: number) =>
+  itemName(index + 1, item.label);
 
 /** The value-list entry for a code (its label and meta). */
 export const listEntry = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
@@ -334,8 +459,29 @@ export function prefillFromOpportunity(
     estAnnualVolume: sfVolume,
     containerSize: sfSize,
   };
+  // FB-19: the first specification pre-fills item 1 (the others can be added from the Items list).
+  const [first, ...others] = draftItems(current);
+  const item1: IntakeItemData = {
+    ...(first ?? newItem()),
+    key: first?.key ?? newItemKey(),
+    sfProductSpecId: spec?.id ?? first?.sfProductSpecId ?? null,
+    resin: sfResin ?? first?.resin ?? null,
+    ...(sfNeck
+      ? sfNeck
+      : {
+          neckDiameter: first?.neckDiameter ?? null,
+          neckFinishType: first?.neckFinishType ?? null,
+          neckFinishTypeCustom: first?.neckFinishTypeCustom ?? null,
+        }),
+    estAnnualVolume: sfVolume ?? first?.estAnnualVolume ?? null,
+    containerSize: sfSize ?? first?.containerSize ?? null,
+    sfPrefill,
+  };
+  const request = Object.fromEntries(
+    Object.entries(current).filter(([k]) => !ITEM_KEYS.has(k)),
+  ) as IntakeDraftData;
   return {
-    ...current,
+    ...request,
     sfOpportunityId: o.id,
     sfOpportunityName: o.name,
     customer: {
@@ -349,19 +495,37 @@ export function prefillFromOpportunity(
     requestClass: current.requestClass ?? cfg.intake.defaultRequestClass,
     estAnnualRevenue: usableAmount,
     estAnnualRevenueSf: o.amount,
-    resin: sfResin ?? current.resin ?? null,
-    ...(sfNeck
-      ? sfNeck
-      : {
-          neckDiameter: current.neckDiameter ?? null,
-          neckFinishType: current.neckFinishType ?? null,
-          neckFinishTypeCustom: current.neckFinishTypeCustom ?? null,
-        }),
-    estAnnualVolume: sfVolume ?? current.estAnnualVolume ?? null,
-    containerSize: sfSize ?? current.containerSize ?? null,
-    sfPrefill,
+    items: [item1, ...others],
     sfProductSpecs: detail.productSpecs.slice(0, 50),
     sfProductSpecsStatus: detail.productSpecsStatus,
+  };
+}
+
+/**
+ * FB-19 (W13-32): "Add from Salesforce products": one item per product specification the opportunity
+ * had, pre-filled the way item 1 is (resin, neck, volume and container size), tagged "from Salesforce".
+ */
+export function itemFromSpec(spec: SfProductSpec, cfg: WizardConfig): IntakeItemData {
+  const resin = matchCode(cfg, 'resin', spec.resin);
+  const neck = neckFromSalesforce(cfg, spec.neckFinish);
+  const size = spec.capacity?.trim() ? spec.capacity.trim() : null;
+  const volume = spec.annualVolume ?? null;
+  return {
+    key: newItemKey(),
+    label: (spec.name?.trim() || size)?.slice(0, 60) ?? null,
+    sfProductSpecId: spec.id,
+    resin,
+    ...(neck ?? {}),
+    estAnnualVolume: volume,
+    containerSize: size,
+    sfPrefill: {
+      resin,
+      neckDiameter: neck?.neckDiameter ?? null,
+      neckFinishType: neck?.neckFinishType ?? null,
+      neckFinishTypeCustom: neck?.neckFinishTypeCustom ?? null,
+      estAnnualVolume: volume,
+      containerSize: size,
+    },
   };
 }
 

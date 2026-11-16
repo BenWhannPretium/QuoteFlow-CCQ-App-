@@ -11,7 +11,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
-- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
+- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_item`](#quote_item), [`quote_item_drawing`](#quote_item_drawing), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`feedback`](#feedback), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
@@ -381,6 +381,7 @@ Attachment metadata (F-13, B-16). Bytes live in SharePoint (attachment_settings.
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | yes |  | quote.id | Quote. Null while the file sits on an intake draft (set on submit). | Uploader |
 | `draft_id` | uuid | yes |  | quote_draft.id | Intake draft the file was uploaded to (B-16); kept after submit for provenance. Null once a deleted draft took its (removed) files with it. | KAM |
+| `quote_item_id` | uuid | yes |  |  | FB-19: the item a drawing (bottle_drawing, spec, competitor_drawing) belongs to; null for every other kind. On a draft it holds the draft item's key, replaced by the quote_item id at submit, so there is no foreign key. A drawing with no item (uploaded before FB-19) counts for item 1. | KAM |
 | `kind` | text | no |  |  | bottle_drawing \| spec \| sample_photo \| capacity_analysis \| other \| bid_file \| project_brief \| competitor_drawing \| cost_model \| roi_model \| price_table (capacity_analysis: FB-03; bid_file, project_brief, competitor_drawing: FB-02; cost_model, roi_model, price_table: FB-07, versioned, uploaded on the Quoting tab). | Uploader |
 | `file_name` | text | no |  |  | Original file name (metadata; the stored name is sanitized). | Uploader |
 | `stored_name` | text | yes |  |  | Sanitized name in storage (after any conflict rename). | CCQ (system) |
@@ -418,6 +419,7 @@ Capacity evidence with stated assumptions (CR-19).
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | no |  | quote.id | Quote. | Engineering (EngLead / Engineer) |
+| `quote_item_id` | uuid | no |  | quote_item.id | FB-19: the item this capacity row is for (W13-34: a variant at another plant is another item). allocated_annual_volume is compared with that item's volume. | Engineering (EngLead / Engineer) |
 | `site` | text | no |  |  | Plant / site code. | Engineering (EngLead / Engineer) |
 | `line_asset` | text | yes |  |  | Line or machine asset. | Engineering (EngLead / Engineer) |
 | `assumed_effectiveness_pct` | numeric(5, 2) | no |  |  | Assumed effectiveness (OEE) %. Always entered, no default (D-08). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
@@ -434,7 +436,7 @@ Capacity evidence with stated assumptions (CR-19).
 
 **Checks:** `capacity_evidence_pct_check`, `capacity_evidence_utilization_check`
 
-**Indexes:** `capacity_evidence_quote_idx`
+**Indexes:** `capacity_evidence_quote_idx`, `capacity_evidence_quote_item_idx`
 
 ### comment
 
@@ -492,9 +494,10 @@ Engineering Review fields (stage 2).
 | `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
 | `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
-| `quote_id` | uuid | no |  | quote.id | Quote (one review per quote). | Engineering (EngLead / Engineer) |
-| `accepted_at` | timestamp with time zone | yes |  |  | When Engineering accepted the request. | Engineering (EngLead / Engineer) |
-| `accepted_by` | uuid | yes |  | app_user.id | Who accepted it (EngLead or the assigned engineer). | Engineering (EngLead / Engineer) |
+| `quote_id` | uuid | no |  | quote.id | Quote. FB-19: one review row per quote item (quote_item_id), so a quote has one row per item. | Engineering (EngLead / Engineer) |
+| `quote_item_id` | uuid | no |  | quote_item.id | FB-19: the item this engineering solution is for (one row per item). The quote-level columns (accepted_*, capacity_signoff_*, capacity_ready_at) are kept on the primary item's row (item_no 1) only. | Engineering (EngLead / Engineer) |
+| `accepted_at` | timestamp with time zone | yes |  |  | When Engineering accepted the request. FB-19: quote level, on item 1's row. | Engineering (EngLead / Engineer) |
+| `accepted_by` | uuid | yes |  | app_user.id | Who accepted it (EngLead or the assigned engineer). FB-19: quote level, on item 1's row. | Engineering (EngLead / Engineer) |
 | `returned_reason` | text | yes |  |  | Why Engineering returned the request. | Engineering (EngLead / Engineer) |
 | `process_type` | text | yes |  |  | value_list process_type code. | Engineering (EngLead / Engineer) |
 | `machine_type` | text | yes |  |  | value_list machine_type code. | Engineering (EngLead / Engineer) |
@@ -507,11 +510,11 @@ Engineering Review fields (stage 2).
 | `technical_concept_notes` | text | yes |  |  | Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
 | `equipment_bom_notes` | text | yes |  |  | Deprecated (FB-06, F-058): replaced by the equipment BOM upload (attachment kind equipment_bom). Kept for history and Fabric; no longer written. Shown read-only as "Legacy notes". B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection). | Engineering (EngLead / Engineer) |
 | `supply_chain_notes` | text | yes |  |  | B-26: Supply Chain network and freight view. | Engineering (EngLead / Engineer) |
-| `capacity_signoff_status` | text | yes |  |  | B-26: approved \| blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved). | Engineering (EngLead / Engineer) |
+| `capacity_signoff_status` | text | yes |  |  | B-26: approved \| blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved). FB-19: one sign-off per quote covering every item, on item 1's row (capacity_signoff_by / _at / _note too). | Engineering (EngLead / Engineer) |
 | `capacity_signoff_by` | uuid | yes |  | app_user.id | B-26: who signed off capacity. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_at` | timestamp with time zone | yes |  |  | B-26: when capacity was signed off. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_note` | text | yes |  |  | B-26: the capacity owner's note (required to block). | Engineering (EngLead / Engineer) |
-| `capacity_ready_at` | timestamp with time zone | yes |  |  | FB-16 (W13-15): when the production scheduler was told capacity can start in this stay (the plant and the machine type are saved). Cleared on a new stay, so they are told once per stay. | Engineering (EngLead / Engineer) |
+| `capacity_ready_at` | timestamp with time zone | yes |  |  | FB-16 (W13-15): when the production scheduler was told capacity can start in this stay (the plant and the machine type are saved). Cleared on a new stay, so they are told once per stay. FB-19: quote level, on item 1's row. | Engineering (EngLead / Engineer) |
 | `two_step` | boolean | no | false |  | FB-06 (F-024): the part is made in two steps (a preform, then blown). Pricing reads it (T-008). | Engineering (EngLead / Engineer) |
 | `preform_plant_code` | text | yes |  |  | FB-06 (F-024): value_list plant code where the preform is made. Only when two_step. | Engineering (EngLead / Engineer) |
 | `blow_plant_code` | text | yes |  |  | FB-06 (F-024): value_list plant code where the preform is blown. Only when two_step. | Engineering (EngLead / Engineer) |
@@ -523,6 +526,8 @@ Engineering Review fields (stage 2).
 | `units_per_pallet` | integer | yes |  |  | FB-06 (F-025): units per pallet (whole number, optional). | Engineering (EngLead / Engineer) |
 
 **Checks:** `eng_review_pack_out_check`, `eng_review_cavitation_check`, `eng_review_capacity_signoff_status_check`
+
+**Indexes:** `eng_review_quote_idx`
 
 ### g4_signoff
 
@@ -753,49 +758,49 @@ The CCQ quote: the workflow record CCQ owns.
 | `status` | text | no | "active" |  | active \| on_hold \| closed. | CCQ (system) |
 | `version` | integer | no | 1 |  | Bumped on return / rework / re-quote. Prior decisions are kept. | CCQ (system) |
 | `description` | text | yes |  |  | Free-text description of the request. | KAM |
-| `structured_description` | jsonb | yes |  |  | Structured description, e.g. {size, shape, finish, decoration}. | KAM |
-| `product_family` | text | yes |  |  | value_list product_family code. | KAM |
+| `structured_description` | jsonb | yes |  |  | Structured description, e.g. {size, shape, finish, decoration}. FB-19: size and standard mirror item 1 (quote_item.container_size, standard_description). | KAM |
+| `product_family` | text | yes |  |  | value_list product_family code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `market` | text | yes |  |  | value_list market code. | KAM |
 | `sub_market` | text | yes |  |  | value_list sub_market code (FB-12); belongs to the quote's market. Optional. Sets the strategic-fit score. | KAM |
-| `resin` | text | yes |  |  | value_list resin code. | KAM |
-| `components` | text[] | no | [] |  | value_list component codes. | KAM |
-| `est_annual_volume` | bigint | yes |  |  | Estimated annual volume (units). | KAM |
+| `resin` | text | yes |  |  | value_list resin code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `components` | text[] | no | [] |  | value_list component codes. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `est_annual_volume` | bigint | yes |  |  | Estimated annual volume (units). FB-19: the sum of the items' volumes (quote_item.est_annual_volume), written by the server at submit. | KAM |
 | `est_annual_revenue` | numeric(14, 2) | yes |  |  | Estimated annual revenue (USD). | KAM |
 | `est_annual_revenue_sf` | numeric(14, 2) | yes |  |  | The SF opportunity amount the revenue was pre-filled from (kept when the KAM edits it). | Salesforce (read-only) |
-| `est_annual_volume_confirmed` | boolean | no | false |  | The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real. | KAM |
+| `est_annual_volume_confirmed` | boolean | no | false |  | The KAM confirmed a round, placeholder-looking volume (e.g. 1,000,000) is real. FB-19: true only when every item's volume is confirmed. | KAM |
 | `expected_close_date` | date | yes |  |  | Deprecated (FB-02, F-008 / T-009): the close date the KAM edited at intake before FB-02. Kept for history and analytics; no longer written. The live value is sf_opportunity_snapshot.close_date. | KAM |
 | `quote_needed_by` | date | yes |  |  | FB-02 (F-009): when the customer needs the quote (after the submit date). Feeds the timing attribute of the priority score. | KAM |
-| `product_needed_by` | date | yes |  |  | FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by. | KAM |
-| `drawing_status` | text | yes |  |  | value_list drawing_status code. | KAM |
+| `product_needed_by` | date | yes |  |  | FB-02 (F-009): the KAM's best estimate of the customer's launch need; on or after quote_needed_by. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `drawing_status` | text | yes |  |  | value_list drawing_status code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `neck_finish` | text | yes |  |  | Deprecated (FB-02, F-010): the old single neck_finish code, or free text when "Other". Kept for history; no longer written. Migration 0028 split it into neck_diameter / neck_finish_type. | KAM |
-| `neck_diameter` | text | yes |  |  | FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM). | KAM |
-| `neck_diameter_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise. | KAM |
-| `neck_finish_type` | text | yes |  |  | FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM). | KAM |
-| `neck_finish_type_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise. | KAM |
-| `neck_special_feature` | text | yes |  |  | FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM). | KAM |
-| `neck_special_feature_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise. | KAM |
-| `resin_customer_specified` | boolean | no | false |  | FB-02 (F-011): the customer specifies the resin; resin_grade names it. | KAM |
-| `resin_grade` | text | yes |  |  | FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". FB-09: also required when resin is Other. | KAM |
-| `pcr_level` | text | yes |  |  | FB-02 (F-055): value_list pcr_level code (0% / Virgin, 25, 30, 50, 100 %, Other). | KAM |
-| `color_type` | text | yes |  |  | FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM). | KAM |
-| `color_description` | text | yes |  |  | FB-02 (F-023): the custom color (≤ 120); null for Natural. | KAM |
-| `pcr_level_other` | text | yes |  |  | FB-09 (Danielle Leu): the customer-specified PCR level (≤ 120) when pcr_level is Other; null otherwise. | KAM |
-| `additive` | text | yes |  |  | FB-09: value_list additive code (None / UV / Barrier / Antistat / Impact Modifier / Other). Not backfilled: older quotes keep their additives text only. | KAM |
-| `additives` | text | yes |  |  | FB-02 (F-023): additives note (≤ 200). FB-09: required, as the customer-specified additive, when additive is Other. | KAM |
-| `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec (≤ 120) when a Liner is picked. | KAM |
-| `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. | KAM |
-| `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |
-| `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. | KAM |
-| `product_family_other` | text | yes |  |  | FB-15 (W13-03): what the product family is when product_family is Other (≤ intake_other_description_max_length, seed 200); null otherwise. | KAM |
-| `component_other` | text | yes |  |  | FB-15 (W13-03): what the "Other" component is when components include Other (≤ intake_other_description_max_length); null otherwise. | KAM |
-| `decoration_type_other` | text | yes |  |  | FB-15 (W13-03): what the decoration is when decoration_type is Other and Decoration is picked (≤ intake_other_description_max_length); null otherwise. | KAM |
-| `height_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product height (mm). | KAM |
-| `width_or_diameter_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product width or diameter (mm). | KAM |
-| `depth_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product depth (mm). | KAM |
-| `gram_weight_g` | numeric(10, 2) | yes |  |  | FB-02 (F-016): gram weight (g). | KAM |
-| `modify_existing_mold` | boolean | no | false |  | FB-02 (F-015): the request modifies an existing mold (Engineering queue chip). | KAM |
-| `existing_mold_ref` | text | yes |  |  | FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold. | KAM |
-| `mold_change_description` | text | yes |  |  | FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400". | KAM |
+| `neck_diameter` | text | yes |  |  | FB-02: value_list neck_diameter code (mm, or 409 / 605D snap; CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `neck_diameter_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_diameter is Custom; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `neck_finish_type` | text | yes |  |  | FB-02: value_list neck_finish_type code (400, 410, CRC, Snap…; CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `neck_finish_type_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_finish_type is Custom; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `neck_special_feature` | text | yes |  |  | FB-02: optional value_list neck_special_feature code (CT, Multi Lead, Tamper Evident, Vented; CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `neck_special_feature_custom` | text | yes |  |  | FB-02: short description (≤ 120) when neck_special_feature is Custom; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `resin_customer_specified` | boolean | no | false |  | FB-02 (F-011): the customer specifies the resin; resin_grade names it. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `resin_grade` | text | yes |  |  | FB-02 (F-011): supplier / grade of a customer-specified resin (≤ 120), e.g. "LyondellBasell Pro-fax 6331". FB-09: also required when resin is Other. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `pcr_level` | text | yes |  |  | FB-02 (F-055): value_list pcr_level code (0% / Virgin, 25, 30, 50, 100 %, Other). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `color_type` | text | yes |  |  | FB-02 (F-023): value_list color_type code (NATURAL / CUSTOM). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `color_description` | text | yes |  |  | FB-02 (F-023): the custom color (≤ 120); null for Natural. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `pcr_level_other` | text | yes |  |  | FB-09 (Danielle Leu): the customer-specified PCR level (≤ 120) when pcr_level is Other; null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `additive` | text | yes |  |  | FB-09: value_list additive code (None / UV / Barrier / Antistat / Impact Modifier / Other). Not backfilled: older quotes keep their additives text only. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `additives` | text | yes |  |  | FB-02 (F-023): additives note (≤ 200). FB-09: required, as the customer-specified additive, when additive is Other. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec (≤ 120) when a Liner is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `product_family_other` | text | yes |  |  | FB-15 (W13-03): what the product family is when product_family is Other (≤ intake_other_description_max_length, seed 200); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `component_other` | text | yes |  |  | FB-15 (W13-03): what the "Other" component is when components include Other (≤ intake_other_description_max_length); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `decoration_type_other` | text | yes |  |  | FB-15 (W13-03): what the decoration is when decoration_type is Other and Decoration is picked (≤ intake_other_description_max_length); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `height_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product height (mm). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `width_or_diameter_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product width or diameter (mm). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `depth_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product depth (mm). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `gram_weight_g` | numeric(10, 2) | yes |  |  | FB-02 (F-016): gram weight (g). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `modify_existing_mold` | boolean | no | false |  | FB-02 (F-015): the request modifies an existing mold (Engineering queue chip). FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `existing_mold_ref` | text | yes |  |  | FB-02 (F-015): the existing mold / part number (≤ 60) when modify_existing_mold. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `mold_change_description` | text | yes |  |  | FB-02 (F-015): what changes (≤ 500), e.g. "finish change 28-410 → 28-400". FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `rfp_link` | text | yes |  |  | FB-02 (F-014): customer RFP / portal link (https only, ≤ 500). | KAM |
 | `quote_variants_note` | text | yes |  |  | FB-02 (F-075, D-017 option B): variants the customer wants priced (limit: intake_variants_note_max_length). No data-model branching; structured scenarios are F-056. | KAM |
 | `requested_payment_terms` | text | yes |  |  | FB-11 (F-080): value_list requested_payment_terms code the customer asks for. Non-standard when not in app_setting standard_payment_terms (derived, not stored). FB-08 reconciles it with the terms record. | KAM |
@@ -807,8 +812,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `customer_share_pct` | numeric(5, 2) | yes |  |  | FB-15 (W13-09, provisional): the customer's share of the tooling in percent (0–100, a whole number or one decimal) when tooling_funding_model is Shared (value_list meta customerShare); Pretium covers the rest. Optional; null for any other funding. | KAM |
 | `bid_reference` | text | yes |  |  | FB-11 (F-085): optional bid / program reference (≤ 60). A plain reference: it does not link quotes or relax one active quote per opportunity (F-084 is P1). | KAM |
 | `guardrail_warning` | text | yes |  |  | FB-10 (F-066): the platform-minimum warning shown to the KAM at the last submit ("Below the platform minimum for …"), kept for G1. Null when none. A warning only: it never blocked the submit. | KAM |
-| `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
-| `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
+| `packaging_type` | text | yes |  |  | value_list packaging_type code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `packaging_notes` | text | yes |  |  | Packaging requirements. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |
 | `comments_for_engineering` | text | yes |  |  | Notes from the KAM to Engineering. | KAM |
 | `submitted_at` | timestamp with time zone | yes |  |  | When the KAM submitted the intake (the quote was created). | CCQ (system) |
@@ -889,7 +894,7 @@ The CCQ quote: the workflow record CCQ owns.
 
 **Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_terms_exception_status_check`, `quote_terms_months_check`, `quote_terms_finalized_consistency_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
-**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_one_active_per_opportunity_uidx`, `quote_assigned_engineer_id_idx`, `quote_assigned_scheduler_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
+**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_assigned_engineer_id_idx`, `quote_assigned_scheduler_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 
 ### quote_draft
 
@@ -937,6 +942,84 @@ Hold intervals, tracked separately so cycle time can exclude holds (CR-57).
 **Checks:** `quote_hold_end_after_start_check`
 
 **Indexes:** `quote_hold_quote_idx`
+
+### quote_item
+
+FB-19: the items of a quote (one quote number, several items quoted together). Item 1 is mirrored onto quote.
+
+**Owner:** KAM
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `quote_id` | uuid | no |  | quote.id | Quote the item belongs to. | CCQ (system) |
+| `item_no` | smallint | no |  |  | FB-19: 1…n within the quote, no gaps (renumbered after a removal or a reorder). Item 1 is the primary item the quote columns mirror. | KAM |
+| `label` | text | yes |  |  | FB-19: the KAM's short name for the item, e.g. "16 oz bottle" (≤ 60). | KAM |
+| `product_family` | text | yes |  |  | value_list product_family code. | KAM |
+| `product_family_other` | text | yes |  |  | FB-15 (W13-03): what the product family is when product_family is Other; null otherwise. | KAM |
+| `components` | text[] | no | [] |  | value_list component codes. | KAM |
+| `component_other` | text | yes |  |  | FB-15 (W13-03): what the "Other" component is; null otherwise. | KAM |
+| `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec when a Liner is picked. | KAM |
+| `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code when a Label is picked. | KAM |
+| `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |
+| `decoration_type_other` | text | yes |  |  | FB-15 (W13-03): what the decoration is when decoration_type is Other; null otherwise. | KAM |
+| `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. | KAM |
+| `resin` | text | yes |  |  | value_list resin code. | KAM |
+| `resin_customer_specified` | boolean | no | false |  | FB-02 (F-011): the customer specifies the resin; resin_grade names it. | KAM |
+| `resin_grade` | text | yes |  |  | FB-02 (F-011): supplier / grade of the resin. | KAM |
+| `pcr_level` | text | yes |  |  | FB-02 (F-055): value_list pcr_level code. | KAM |
+| `pcr_level_other` | text | yes |  |  | FB-09: the customer-specified PCR level when pcr_level is Other. | KAM |
+| `color_type` | text | yes |  |  | FB-02 (F-023): value_list color_type code. | KAM |
+| `color_description` | text | yes |  |  | FB-02 (F-023): the custom color; null for Natural. | KAM |
+| `additive` | text | yes |  |  | FB-09: value_list additive code. | KAM |
+| `additives` | text | yes |  |  | FB-02 (F-023): additives note. | KAM |
+| `neck_diameter` | text | yes |  |  | FB-02: value_list neck_diameter code. | KAM |
+| `neck_diameter_custom` | text | yes |  |  | FB-02: description when neck_diameter is Custom. | KAM |
+| `neck_finish_type` | text | yes |  |  | FB-02: value_list neck_finish_type code. | KAM |
+| `neck_finish_type_custom` | text | yes |  |  | FB-02: description when neck_finish_type is Custom. | KAM |
+| `neck_special_feature` | text | yes |  |  | FB-02: optional value_list neck_special_feature code. | KAM |
+| `neck_special_feature_custom` | text | yes |  |  | FB-02: description when neck_special_feature is Custom. | KAM |
+| `container_size` | text | yes |  |  | FB-19: container size as Sales describes it (e.g. "16 oz"). On quote it is structured_description.size. | KAM |
+| `height_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product height (mm). | KAM |
+| `width_or_diameter_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product width or diameter (mm). | KAM |
+| `depth_mm` | numeric(10, 2) | yes |  |  | FB-02 (F-016): product depth (mm). | KAM |
+| `gram_weight_g` | numeric(10, 2) | yes |  |  | FB-02 (F-016): gram weight (g). | KAM |
+| `modify_existing_mold` | boolean | no | false |  | FB-02 (F-015): the item modifies an existing mold. | KAM |
+| `existing_mold_ref` | text | yes |  |  | FB-02 (F-015): the existing mold / part number when modify_existing_mold. | KAM |
+| `mold_change_description` | text | yes |  |  | FB-02 (F-015): what changes on the existing mold. | KAM |
+| `packaging_type` | text | yes |  |  | value_list packaging_type code. | KAM |
+| `packaging_notes` | text | yes |  |  | Packaging requirements. | KAM |
+| `drawing_status` | text | yes |  |  | value_list drawing_status code. | KAM |
+| `est_annual_volume` | bigint | yes |  |  | Estimated annual volume of this item (units). quote.est_annual_volume is the sum of the quote's items. | KAM |
+| `est_annual_volume_confirmed` | boolean | no | false |  | The KAM confirmed a round, placeholder-looking volume is real. | KAM |
+| `product_needed_by` | date | yes |  |  | FB-19 (Zachary Cairns): this item's launch need; on or after quote.quote_needed_by. | KAM |
+| `standard_description` | text | yes |  |  | Standard description of the item (suggested from intake_description_template, editable). On quote it is structured_description.standard. | KAM |
+| `sf_product_spec_id` | text | yes |  |  | FB-19: the Salesforce Opportunity_Product_Specifications__c row the item was added from; null when typed. | Salesforce (read-only) |
+
+**Checks:** `quote_item_item_no_check`, `quote_item_label_length_check`, `quote_item_dimensions_positive_check`, `quote_item_decoration_print_colors_check`
+
+**Indexes:** `quote_item_quote_item_no_uidx`
+
+### quote_item_drawing
+
+FB-19: an item's links to drawings another item holds (Duplicate copies them). One row per item and drawing.
+
+**Owner:** KAM
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `quote_id` | uuid | no |  | quote.id | Quote. | CCQ (system) |
+| `quote_item_id` | uuid | no |  | quote_item.id | The item that uses the drawing. | KAM |
+| `attachment_id` | uuid | no |  | attachment.id | The drawing (an attachment of kind bottle_drawing, spec or competitor_drawing). | KAM |
+
+**Indexes:** `quote_item_drawing_item_attachment_uidx`, `quote_item_drawing_quote_idx`
 
 ### quote_number_counter
 

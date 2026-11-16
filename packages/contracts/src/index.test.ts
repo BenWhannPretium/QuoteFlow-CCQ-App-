@@ -99,6 +99,11 @@ describe('intake contracts', () => {
     expect(values).toMatchObject({
       sf_opportunity_id: '006SYN000000000001',
       customer: { status: 'not_yet_established', name: 'New Co', sf_account_id: null },
+      ship_to: null,
+    });
+    // FB-19: a draft without items (saved before FB-19) is one item holding its product fields.
+    expect(values.items).toHaveLength(1);
+    expect(values.items[0]).toMatchObject({
       neck_diameter: '53',
       neck_finish_type: 'CUSTOM',
       neck_finish_type_custom: 'lug',
@@ -107,10 +112,10 @@ describe('intake contracts', () => {
       color_type: 'NATURAL',
       color_description: null,
       components: ['CONTAINER'],
-      ship_to: null,
       est_annual_volume_confirmed: false,
     });
-    expect(intakeValues({}).resin_customer_specified).toBe(false);
+    expect(values).not.toHaveProperty('neck_diameter');
+    expect(intakeValues({}).items[0]!.resin_customer_specified).toBe(false);
   });
 
   it('rejects a malformed opportunity id or date in a draft', async () => {

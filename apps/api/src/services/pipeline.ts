@@ -2,6 +2,7 @@ import {
   PIPELINE_PROBLEM_CODES,
   QUOTE_EXPORT_MAX_ROWS,
   QUOTE_LIST_COLUMN_KEYS,
+  QUOTE_ITEM_EXPORT_COLUMNS,
   QUOTE_LIST_COLUMNS,
   QUOTE_LIST_DEFAULT_COLUMNS,
   QUOTE_SORT_DEFAULT_DIR,
@@ -19,11 +20,13 @@ import {
   type QuoteListResponse,
   type QuoteSortKey,
 } from '@ccq/contracts';
-import type { Tx } from '@ccq/db';
+import type { DbOrTx, Tx } from '@ccq/db';
 import {
   listPipelineKeys,
   listPipelinePeople,
   listPipelineRows,
+  listEngReviews,
+  listQuoteItemsForQuotes,
   listValueList,
   loadQuoteStates,
   loadWorkflowConfigInput,
@@ -326,6 +329,8 @@ export class PipelineService {
           tierOverridden: item.priority.tierOverridden,
           accountName: item.accountName,
           productSummary: item.productSummary,
+          itemCount: item.itemCount,
+          itemsSummary: item.itemsSummary,
           estAnnualVolume: item.estAnnualVolume,
           amount: item.amount,
           kamUserId: item.kamUserId,
@@ -430,11 +435,25 @@ export class PipelineService {
           ),
         ),
       );
+      // FB-19 (W13-32): one row per item on request, the item's own columns after the quote's.
+      const perItem = params.perItem === true;
+      const itemRows = perItem
+        ? await itemExportCells(
+            tx,
+            rows.map((r) => r.quote.id),
+          )
+        : null;
       const lines = [
-        columns.map((c) => csvCell(QUOTE_LIST_COLUMNS[c])).join(','),
-        ...rows.map((r) => {
+        [
+          ...columns.map((c) => csvCell(QUOTE_LIST_COLUMNS[c])),
+          ...(perItem ? QUOTE_ITEM_EXPORT_COLUMNS.map(csvCell) : []),
+        ].join(','),
+        ...rows.flatMap((r) => {
           const item = PipelineService.item(r, s);
-          return columns.map((c) => csvCell(exportValue(item, c, label, lists))).join(',');
+          const quoteCells = columns.map((c) => csvCell(exportValue(item, c, label, lists)));
+          if (!itemRows) return [quoteCells.join(',')];
+          const items = itemRows.get(r.quote.id) ?? [[]];
+          return items.map((cells) => [...quoteCells, ...cells.map(csvCell)].join(','));
         }),
       ];
       const { columns: _c, ...filters } = params;
@@ -442,14 +461,57 @@ export class PipelineService {
         at: now,
         action: 'export',
         entity: 'quote',
-        after: { format: 'csv', view: 'quotes', filters, columns, rows: rows.length },
+        after: {
+          format: 'csv',
+          view: 'quotes',
+          filters,
+          columns,
+          rows: lines.length - 1,
+          ...(perItem ? { perItem: true, quotes: rows.length } : {}),
+        },
       });
-      return { lines, rows: rows.length, columns };
+      return { lines, rows: lines.length - 1, columns };
     });
   }
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** FB-19: an item's cells of a per-item export (`QUOTE_ITEM_EXPORT_COLUMNS` order), labels not codes. */
+async function itemExportCells(
+  tx: DbOrTx,
+  quoteIds: readonly string[],
+): Promise<Map<string, unknown[][]>> {
+  const [items, families, resins, plants, machines] = await Promise.all([
+    listQuoteItemsForQuotes(tx, quoteIds),
+    listValueList(tx, 'product_family', { activeOnly: false }),
+    listValueList(tx, 'resin', { activeOnly: false }),
+    listValueList(tx, 'plant', { activeOnly: false }),
+    listValueList(tx, 'machine_type', { activeOnly: false }),
+  ]);
+  const reviews = (
+    await Promise.all([...new Set(quoteIds)].map((id) => listEngReviews(tx, id)))
+  ).flat();
+  const label = (list: { code: string; label: string }[], code: string | null | undefined) =>
+    code ? (list.find((v) => v.code === code)?.label ?? code) : null;
+  const out = new Map<string, unknown[][]>();
+  for (const i of items) {
+    const review = reviews.find((r) => r.quoteItemId === i.id);
+    const cells = [
+      i.itemNo,
+      i.label,
+      label(families, i.productFamily),
+      i.containerSize,
+      label(resins, i.resin),
+      i.estAnnualVolume,
+      i.productNeededBy,
+      label(plants, review?.plantCode),
+      label(machines, review?.machineType),
+    ];
+    out.set(i.quoteId, [...(out.get(i.quoteId) ?? []), cells]);
+  }
+  return out;
+}
 
 /** The exported columns that hold a value-list code, and their list. */
 const EXPORT_LISTS = {

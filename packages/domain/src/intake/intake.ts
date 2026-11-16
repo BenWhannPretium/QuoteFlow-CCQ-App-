@@ -6,6 +6,7 @@ import {
   isSharedFunding,
 } from './commercial-inputs';
 import { guardrailWarning, INTAKE_GUARDRAILS_OFF, intakeGuardrailsSchema } from './guardrails';
+import { isItemField, itemName } from './items';
 import {
   activeFollowUps,
   COMPONENT_FOLLOW_UP_FIELDS,
@@ -147,6 +148,8 @@ export const intakeConfigSchema = z
      * (app_setting `intake_other_description_max_length`, seeded 200, provisional).
      */
     otherDescriptionMaxLength: z.number().int().positive().default(200),
+    /** FB-19 (W13-32): the most items one quote may hold (app_setting `quote_items_max`, seeded 20, provisional). */
+    itemsMax: z.number().int().positive().default(20),
     /**
      * FB-12 (F-073): the active `sub_market` codes and the market each belongs to (value-list meta `market`).
      * A sub-market must belong to the quote's market. FB-15 (W13-02, D-006 owner Bailey Schmitt): required
@@ -199,6 +202,8 @@ export interface IntakeIssue {
   message: string;
   /** FB-02 (F-016): for DRAWING_OR_MIN_SPEC_REQUIRED, the minimum-spec fields still missing (snake_case). */
   missing?: string[];
+  /** FB-19: the item (1…n) a product-field issue belongs to; absent for a request-level issue. */
+  item?: number;
 }
 
 export interface IntakeEvaluation {
@@ -393,6 +398,28 @@ export function listValueIssues(
     }
   }
   return issues;
+}
+
+/**
+ * FB-19: `listValueIssues` for intake values that may hold `items`: the request's list fields once, each
+ * item's list fields against its own values (the issue carries the item's number).
+ */
+export function intakeListValueIssues(
+  values: FieldValues,
+  config: Pick<IntakeConfig, 'listCodes'>,
+  keep: FieldValues = {},
+): IntakeIssue[] {
+  const items = intakeItemValues(values);
+  if (!items) return listValueIssues(values, config, keep);
+  const { items: _items, ...request } = values;
+  return [
+    ...listValueIssues(request, config, keep).filter((i) => !isItemField(i.field)),
+    ...items.flatMap((item, index) =>
+      listValueIssues(item, config, keep)
+        .filter((i) => isItemField(i.field))
+        .map((i) => ({ ...i, item: index + 1 })),
+    ),
+  ];
 }
 
 /**
@@ -626,9 +653,27 @@ export function inapplicableIntakeFields(values: FieldValues, config: IntakeConf
 /** True for a quote that blocks a second CCQ quote on the same SF opportunity. */
 export const isActiveQuoteStatus = (status: QuoteStatus): boolean => status !== 'closed';
 
+/** FB-19: the items of an intake's values (`items`, each an item's snake_case values), or null for a flat one. */
+export function intakeItemValues(values: FieldValues): FieldValues[] | null {
+  const items = values.items;
+  return Array.isArray(items)
+    ? items.filter((i): i is FieldValues => !!i && typeof i === 'object')
+    : null;
+}
+
+/** The issue key that tells two request-level issues apart (they repeat in every item's evaluation). */
+const issueKey = (i: IntakeIssue) => `${i.code}|${i.field}|${i.message}`;
+
 /**
  * Blocking vs warning for an intake. Pure: the API calls it on every autosave (to show the review)
  * and again inside the submit transaction (the authority). `now` judges the need-by dates.
+ *
+ * FB-19 (W13-32): when `values.items` holds the items, the request fields are checked once and the
+ * product fields per item: every rule runs against the request values plus one item's, an issue that
+ * names an item field (`isItemField`) is that item's (`item` = its number, and with more than one item
+ * the message starts "Item 2 (16 oz bottle): "), and the request-level issues are reported once. The
+ * configured rules are not split by hand: which issues are per item follows from the fields they name.
+ * Values without `items` (older callers, a stored quote) are checked as one flat intake, as before.
  */
 export function evaluateIntake(
   values: FieldValues,
@@ -636,6 +681,73 @@ export function evaluateIntake(
   now: Date,
   /** DR-cross-cutting-02: the reworked quote's own values (a retired code it already holds is kept). */
   keep: FieldValues = {},
+): IntakeEvaluation {
+  const items = intakeItemValues(values);
+  if (!items) return evaluateIntakeFlat(values, config, now, keep);
+  const { items: _items, ...request } = values;
+  const blocking: IntakeIssue[] = [];
+  const warnings: IntakeIssue[] = [];
+  if (items.length === 0) {
+    const flat = evaluateIntakeFlat(request, config, now, keep);
+    blocking.push(...flat.blocking.filter((i) => !isItemField(i.field)), {
+      code: 'MISSING_FIELD',
+      field: 'items',
+      message: 'Add at least one item',
+    });
+    warnings.push(...flat.warnings.filter((i) => !isItemField(i.field)));
+    return { blocking, warnings, ready: false };
+  }
+  // A one-item intake is checked exactly as a flat one (same issues, same order), as before FB-19.
+  if (items.length === 1 && config.itemsMax >= 1) {
+    return evaluateIntakeFlat({ ...request, ...items[0]! }, config, now, keep);
+  }
+  if (items.length > config.itemsMax) {
+    blocking.push({
+      code: 'INVALID_VALUE',
+      field: 'items',
+      message: `A quote can hold up to ${config.itemsMax} items. Put the rest in a separate quote.`,
+    });
+  }
+  const seenBlocking = new Set<string>();
+  const seenWarnings = new Set<string>();
+  const perItem: { blocking: IntakeIssue[]; warnings: IntakeIssue[] }[] = [];
+  items.forEach((item, index) => {
+    const itemNo = index + 1;
+    const name = itemName(itemNo, typeof item.label === 'string' ? item.label : null);
+    // A one-item intake reads exactly as before FB-19 (no item number, no item name).
+    const own = (issue: IntakeIssue): IntakeIssue =>
+      items.length > 1 ? { ...issue, item: itemNo, message: `${name}: ${issue.message}` } : issue;
+    const result = evaluateIntakeFlat({ ...request, ...item }, config, now, keep);
+    const mine = { blocking: [] as IntakeIssue[], warnings: [] as IntakeIssue[] };
+    for (const issue of result.blocking) {
+      if (isItemField(issue.field)) mine.blocking.push(own(issue));
+      else if (!seenBlocking.has(issueKey(issue))) {
+        seenBlocking.add(issueKey(issue));
+        blocking.push(issue);
+      }
+    }
+    for (const issue of result.warnings) {
+      if (isItemField(issue.field)) mine.warnings.push(own(issue));
+      else if (!seenWarnings.has(issueKey(issue))) {
+        seenWarnings.add(issueKey(issue));
+        warnings.push(issue);
+      }
+    }
+    perItem.push(mine);
+  });
+  for (const mine of perItem) {
+    blocking.push(...mine.blocking);
+    warnings.push(...mine.warnings);
+  }
+  return { blocking, warnings, ready: blocking.length === 0 };
+}
+
+/** One flat intake (the request and one product): the rules as they were before FB-19. */
+function evaluateIntakeFlat(
+  values: FieldValues,
+  config: IntakeConfig,
+  now: Date,
+  keep: FieldValues,
 ): IntakeEvaluation {
   const blocking: IntakeIssue[] = evaluateRules(config.requiredFields, values).map((e) => ({
     code: 'MISSING_FIELD',

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
+import { itemSummaryColumns, primaryEngReviewOn } from './items';
 import {
   appUser,
   customer,
@@ -27,19 +28,24 @@ const summaryColumns = {
   sfStage: sfOpportunitySnapshot.sfStage,
   /** FB-02 (F-008, T-009): the SF close date from the latest sync (not stored on the quote). */
   sfCloseDate: sfOpportunitySnapshot.closeDate,
+  /** FB-19: how many items, and item 1's label. */
+  ...itemSummaryColumns(),
 };
 
 function summaryQuery(db: DbOrTx) {
-  return db
-    .select(summaryColumns)
-    .from(quote)
-    .leftJoin(
-      sfOpportunitySnapshot,
-      eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
-    )
-    .leftJoin(customer, eq(customer.id, quote.customerId))
-    .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
-    .leftJoin(engReview, eq(engReview.quoteId, quote.id));
+  return (
+    db
+      .select(summaryColumns)
+      .from(quote)
+      .leftJoin(
+        sfOpportunitySnapshot,
+        eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
+      )
+      .leftJoin(customer, eq(customer.id, quote.customerId))
+      .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
+      // FB-19: the primary item's review row (one row per quote).
+      .leftJoin(engReview, primaryEngReviewOn(quote.id))
+  );
 }
 
 /**
@@ -48,8 +54,14 @@ function summaryQuery(db: DbOrTx) {
  */
 export type QuoteSummaryRow = Omit<
   Awaited<ReturnType<typeof getQuoteSummaryByNumber>> & object,
-  'sfStage' | 'sfCloseDate'
-> & { sfStage?: string | null; sfCloseDate?: string | null };
+  'sfStage' | 'sfCloseDate' | 'itemCount' | 'firstItemLabel'
+> & {
+  sfStage?: string | null;
+  sfCloseDate?: string | null;
+  /** FB-19: optional, so rows built by repos that do not select them still fit (then: one item). */
+  itemCount?: number | null;
+  firstItemLabel?: string | null;
+};
 
 export async function getQuoteSummaryByNumber(db: DbOrTx, quoteNumber: string) {
   const [row] = await summaryQuery(db).where(eq(quote.quoteNumber, quoteNumber)).limit(1);

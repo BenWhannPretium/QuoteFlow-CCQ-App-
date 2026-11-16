@@ -37,6 +37,12 @@ export function useIntakeDraft(initial: IntakeDraft) {
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [activeQuote, setActiveQuote] = useState(initial.activeQuote);
+  // FB-19 (W13-33): every active quote on the opportunity (number and KAM) and the configured warning.
+  const [openQuotes, setOpenQuotes] = useState({
+    quotes: initial.openQuotes,
+    warning: initial.openQuoteWarning,
+    mode: initial.openQuotesMode,
+  });
   // FB-02 (T-009): the SF close date as of the latest sync; refreshed by every save (re-picks too).
   const [sfCloseDate, setSfCloseDate] = useState(initial.sfCloseDate);
 
@@ -89,6 +95,11 @@ export function useIntakeDraft(initial: IntakeDraft) {
         base.current = saved.data;
         savedRevision.current = target;
         setActiveQuote(saved.activeQuote);
+        setOpenQuotes({
+          quotes: saved.openQuotes,
+          warning: saved.openQuoteWarning,
+          mode: saved.openQuotesMode,
+        });
         setSfCloseDate(saved.sfCloseDate);
         setSavedAt(new Date());
         lastError.current = null;
@@ -122,6 +133,17 @@ export function useIntakeDraft(initial: IntakeDraft) {
     setData(next);
     setSaveState('dirty');
   }, []);
+
+  /**
+   * FB-19: an edit computed from the latest local copy (an item's change replaces `items` as a whole, so
+   * two edits in one tick must not start from the same stale copy).
+   */
+  const updateWith = useCallback(
+    (fn: (current: IntakeDraftData) => Partial<IntakeDraftData>) => {
+      update(fn(latest.current.data));
+    },
+    [update],
+  );
 
   const setStep = useCallback(
     async (next: number) => {
@@ -172,12 +194,14 @@ export function useIntakeDraft(initial: IntakeDraft) {
     data,
     step,
     update,
+    updateWith,
     setStep,
     flush,
     saveState,
     saveError,
     savedAt,
     activeQuote,
+    openQuotes,
     sfCloseDate,
   };
 }

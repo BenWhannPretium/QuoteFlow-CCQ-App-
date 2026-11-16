@@ -836,6 +836,8 @@ function engineeringEvidence(state: QuoteState) {
       acceptedAt: f.accepted_at ?? null,
     },
     capacityEvidence: f.capacity_evidence ?? [],
+    // FB-19: each item's own solution and capacity rows (item 1's are also the fields above).
+    ...(Array.isArray(f.items) ? { items: f.items } : {}),
     // FB-16: the sign-off as the decision saw it, and both assignees.
     capacitySignoffStatus: f.capacity_signoff_status ?? null,
     assignedEngineerId: state.assignedEngineerId ?? null,

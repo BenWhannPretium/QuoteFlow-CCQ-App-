@@ -17,7 +17,9 @@ import {
 import type { Tx } from '@ccq/db';
 import {
   deleteCapacityEvidence,
+  ensurePrimaryItem,
   getEngReview,
+  getEngReviewForItem,
   getQuoteByNumber,
   getUserWithRoles,
   insertActivityEvent,
@@ -25,6 +27,8 @@ import {
   listAssignableEngineers,
   listAssignableSchedulers,
   listCapacityEvidence,
+  listEngReviews,
+  listQuoteItems,
   listCapacityEvidenceWithNames,
   listAppliedOverridesForQuotes,
   listEngQueueRows,
@@ -91,6 +95,7 @@ import {
   type ReturnTarget,
   type WorkflowConfig,
   type Role,
+  itemName,
 } from '@ccq/domain';
 import type { FastifyBaseLogger } from 'fastify';
 
@@ -910,6 +915,36 @@ export class EngineeringService {
     return errors;
   }
 
+  /**
+   * FB-19: the item an Engineering write is for: `itemId` (it must be one of the quote's items, else
+   * 422), or item 1 when omitted (made from the quote's columns if the quote has no item yet).
+   */
+  private async resolveItem(tx: Tx, q: Quote, itemId: string | undefined) {
+    const id = itemId ?? (await ensurePrimaryItem(tx, q.id));
+    const items = await listQuoteItems(tx, q.id);
+    const item = items.find((i) => i.id === id);
+    if (!item) {
+      throw new EngineeringError(
+        422,
+        ENGINEERING_PROBLEM_CODES.rejected,
+        'That item is not on this quote',
+        {
+          errors: [
+            { path: '/itemId', code: 'INVALID_VALUE', message: "Pick one of the quote's items" },
+          ],
+        },
+      );
+    }
+    return {
+      id: item.id,
+      itemNo: item.itemNo,
+      label: item.label,
+      // A one-item quote is its item (the quote mirrors it): its volume is the quote's, as always.
+      estAnnualVolume: (items.length === 1 ? q.estAnnualVolume : item.estAnnualVolume) ?? null,
+      count: items.length,
+    };
+  }
+
   /** PUT /quotes/:qn/eng-review: the solution fields. A capital change rescores the quote. */
   async updateReview(
     withTx: EngWithTx,
@@ -938,10 +973,12 @@ export class EngineeringService {
           },
         );
       }
-      const eng = await getEngReview(tx, q.id);
+      // FB-19: the solution is per item (omitted: item 1, as a one-item quote has always done).
+      const item = await this.resolveItem(tx, q, body.itemId);
+      const eng = await getEngReviewForItem(tx, item.id);
       const current = reviewColumns(eng);
       const sent = (Object.keys(body) as (keyof EngReviewBody)[]).filter(
-        (k) => body[k] !== undefined,
+        (k) => k !== 'itemId' && body[k] !== undefined,
       );
       const next = { ...current };
       for (const k of sent) (next as Record<string, unknown>)[k] = body[k] ?? null;
@@ -981,13 +1018,18 @@ export class EngineeringService {
       if (extrasErrors.length > 0) fail(extrasErrors);
       // What actually moved, including details cleared by the checkbox.
       const changed = (Object.keys(EngReviewBodySchema.shape) as (keyof EngReviewBody)[]).filter(
-        (k) => (next[k] ?? null) !== (current[k] ?? null),
+        (k) =>
+          k !== 'itemId' &&
+          (next as Record<string, unknown>)[k] !== undefined &&
+          ((next as Record<string, unknown>)[k] ?? null) !==
+            ((current as Record<string, unknown>)[k] ?? null),
       );
       if (changed.length === 0) return this.detail(tx, actor, quoteNumber);
 
       await upsertEngReview(tx, {
         ...next,
         quoteId: q.id,
+        quoteItemId: item.id,
         createdBy: eng?.createdBy ?? actor.userId,
       });
       // Timeline payloads are shown to every reader: field names only, never values.
@@ -996,16 +1038,20 @@ export class EngineeringService {
         type: 'eng_review_updated',
         actorId: actor.userId,
         at: now,
-        payload: { fields: changed },
+        payload: { fields: changed, ...(item.count > 1 ? { itemNo: item.itemNo } : {}) },
         createdBy: actor.userId,
       });
+      const value = (o: object, k: string) => (o as Record<string, unknown>)[k] ?? null;
       await recordAudit(tx, actor, meta, {
         action: 'update',
         entity: 'eng_review',
         entityId: eng?.id ?? null,
         quoteId: q.id,
-        before: Object.fromEntries(changed.map((k) => [k, current[k] ?? null])),
-        after: Object.fromEntries(changed.map((k) => [k, next[k] ?? null])),
+        before: Object.fromEntries(changed.map((k) => [k, value(current, k)])),
+        after: {
+          ...Object.fromEntries(changed.map((k) => [k, value(next, k)])),
+          quoteItemId: item.id,
+        },
         at: now,
       });
       if (changed.includes('prelimCapitalUsd')) {
@@ -1013,11 +1059,21 @@ export class EngineeringService {
       }
       // F-059: utilization after depends on the cavitation, so the stored figures follow it.
       if (changed.includes('cavitation')) {
-        await this.recalculateUtilization(tx, actor, q, next.cavitation ?? null, meta, now);
+        await this.recalculateUtilization(
+          tx,
+          actor,
+          q,
+          item.id,
+          next.cavitation ?? null,
+          meta,
+          now,
+        );
       }
       // FB-16 (W13-15): the first time in a stay that the solution holds the plant and the machine
-      // type, the production scheduler (when one is assigned) is told capacity can start.
-      if (q.assignedSchedulerId && !eng?.capacityReadyAt) {
+      // type, the production scheduler (when one is assigned) is told capacity can start. FB-19: once
+      // per quote (the flag is on item 1's row), for the first item that has both.
+      const primary = item.itemNo === 1 ? eng : await getEngReview(tx, q.id);
+      if (q.assignedSchedulerId && !primary?.capacityReadyAt) {
         const ready = await this.capacityStart(tx, next);
         if (ready) {
           await deliverPlanned(
@@ -1053,7 +1109,9 @@ export class EngineeringService {
     const now = this.now();
     return withTx(async (tx) => {
       const { q } = await this.assertCapacityEditable(tx, actor, quoteNumber);
-      const stored = await listCapacityEvidence(tx, q.id);
+      // FB-19 (W13-34): capacity rows are per item; the set sent replaces that item's rows only.
+      const item = await this.resolveItem(tx, q, body.itemId);
+      const stored = await listCapacityEvidence(tx, q.id, item.id);
       const errors = await this.checkCodes(
         tx,
         body.rows.map((r, i) => ({
@@ -1076,7 +1134,10 @@ export class EngineeringService {
           });
         }
       });
-      const [eng, basis] = await Promise.all([getEngReview(tx, q.id), loadCapacityBasis(tx)]);
+      const [eng, basis] = await Promise.all([
+        getEngReviewForItem(tx, item.id),
+        loadCapacityBasis(tx),
+      ]);
       const plan = planCapacityEvidence(
         actor,
         body.rows,
@@ -1090,7 +1151,8 @@ export class EngineeringService {
         })),
         {
           cavitation: eng?.cavitation ?? null,
-          quoteAnnualVolume: q.estAnnualVolume ?? null,
+          // FB-19: a row's default allocation, and the allocation check, use the item's volume.
+          quoteAnnualVolume: item.estAnnualVolume,
           basis,
         },
       );
@@ -1122,7 +1184,12 @@ export class EngineeringService {
           await updateCapacityEvidence(tx, id, row);
           updated += 1;
         } else {
-          await insertCapacityEvidence(tx, { ...row, quoteId: q.id, createdBy: actor.userId });
+          await insertCapacityEvidence(tx, {
+            ...row,
+            quoteId: q.id,
+            quoteItemId: item.id,
+            createdBy: actor.userId,
+          });
           added += 1;
         }
       }
@@ -1138,6 +1205,7 @@ export class EngineeringService {
           removed,
           rows: plan.upsert.length,
           ...(plan.allocationWarning ? { allocationWarning: true } : {}),
+          ...(item.count > 1 ? { itemNo: item.itemNo } : {}),
         },
         createdBy: actor.userId,
       });
@@ -1147,7 +1215,7 @@ export class EngineeringService {
         entityId: null,
         quoteId: q.id,
         before: stored.map(({ createdAt: _c, updatedAt: _u, createdBy: _b, ...r }) => r),
-        after: plan.upsert,
+        after: plan.upsert.map((r) => ({ ...r, quoteItemId: item.id })),
         at: now,
       });
       return this.detail(tx, actor, quoteNumber);
@@ -1162,11 +1230,13 @@ export class EngineeringService {
     tx: Tx,
     actor: Actor,
     q: Quote,
+    /** FB-19: the item whose cavitation changed (its rows only). */
+    quoteItemId: string,
     cavitation: number | null,
     meta: AuditMeta,
     now: Date,
   ): Promise<void> {
-    const rows = await listCapacityEvidence(tx, q.id);
+    const rows = await listCapacityEvidence(tx, q.id, quoteItemId);
     const before: { id: string; utilizationAfterPct: number | null }[] = [];
     const after: { id: string; utilizationAfterPct: number | null }[] = [];
     for (const r of rows) {
@@ -1211,12 +1281,16 @@ export class EngineeringService {
     const now = this.now();
     return withTx(async (tx) => {
       const { q } = await this.loadQuote(tx, quoteNumber);
-      const [rows, eng, basis] = await Promise.all([
+      const [rows, reviews, items, basis] = await Promise.all([
         listCapacityEvidenceWithNames(tx, q.id),
-        getEngReview(tx, q.id),
+        listEngReviews(tx, q.id),
+        listQuoteItems(tx, q.id),
         loadCapacityBasis(tx),
       ]);
-      const cavitation = eng?.cavitation ?? null;
+      // FB-19: each row is an item's; its cavitation is that item's.
+      const cavitationOf = (quoteItemId: string) =>
+        reviews.find((r) => r.quoteItemId === quoteItemId)?.cavitation ?? null;
+      const itemOf = (quoteItemId: string) => items.find((i) => i.id === quoteItemId);
       // DR-engineering-11: the site as its label ("St. Charles"), retired plants included, not its code.
       const plants = new Map(
         (await listValueList(tx, 'plant', { activeOnly: false })).map((v) => [v.code, v.label]),
@@ -1226,6 +1300,7 @@ export class EngineeringService {
         'quote_number',
         'generated_at_utc',
         'basis',
+        'item',
         'site',
         'line_asset',
         'assumed_effectiveness_pct',
@@ -1244,6 +1319,8 @@ export class EngineeringService {
       const lines = [
         header.map(csvCell).join(','),
         ...rows.map(({ row, analystName }) => {
+          const cavitation = cavitationOf(row.quoteItemId);
+          const item = itemOf(row.quoteItemId);
           const capacity = annualCapacityUnits({
             cycleTimeS: row.cycleTimeS,
             cavitation,
@@ -1266,6 +1343,7 @@ export class EngineeringService {
             q.quoteNumber,
             generatedAt,
             basis.basisLabel,
+            item ? itemName(item.itemNo, item.label) : null,
             plants.get(row.site) ?? row.site,
             row.lineAsset,
             row.assumedEffectivenessPct,

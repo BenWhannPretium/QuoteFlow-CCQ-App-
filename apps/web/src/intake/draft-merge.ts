@@ -27,8 +27,43 @@ export function onlyKnownServerChanges(server: object, base: object, mine: objec
   const b = base as Record<string, unknown>;
   const m = mine as Record<string, unknown>;
   for (const key of new Set([...Object.keys(s), ...Object.keys(b)])) {
+    // FB-19: the items are compared item by item and field by field (an upload sets one item's drawing
+    // status while the KAM may be editing another field or another item).
+    if (key === 'items' && Array.isArray(s[key])) {
+      if (!onlyKnownItemChanges(s[key], b[key], m[key])) return false;
+      continue;
+    }
     const theirs = stableJson(s[key]);
     if (theirs !== stableJson(b[key]) && theirs !== stableJson(m[key])) return false;
+  }
+  return true;
+}
+
+type KeyedItem = { key: string } & Record<string, unknown>;
+const byKey = (list: unknown): Map<string, KeyedItem> =>
+  new Map(
+    (Array.isArray(list) ? (list as KeyedItem[]) : [])
+      .filter((i) => i && typeof i.key === 'string')
+      .map((i) => [i.key, i]),
+  );
+
+/** FB-19: `onlyKnownServerChanges` for the items: per item (by key) and per field. */
+function onlyKnownItemChanges(server: unknown, base: unknown, mine: unknown): boolean {
+  const s = byKey(server);
+  const b = byKey(base);
+  const m = byKey(mine);
+  for (const key of new Set([...s.keys(), ...b.keys()])) {
+    const theirs = s.get(key);
+    const was = b.get(key);
+    const ours = m.get(key);
+    // Added or removed on the server: known only if this copy did the same.
+    if (!theirs || !was) {
+      if (stableJson(theirs) !== stableJson(was) && stableJson(theirs) !== stableJson(ours)) {
+        return false;
+      }
+      continue;
+    }
+    if (!onlyKnownServerChanges(theirs, was, ours ?? {})) return false;
   }
   return true;
 }

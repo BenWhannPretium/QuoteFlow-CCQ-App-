@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { DbOrTx } from '../client';
+import { itemSummaryColumns, primaryEngReviewOn } from './items';
 import {
   appUser,
   customer,
@@ -24,44 +25,56 @@ const engineer = alias(appUser, 'engineer');
  * outcome and the current version's pricing record. RLS applies.
  */
 export function listPricingQueueRows(db: DbOrTx, stageKey: string) {
-  return db
-    .select({
-      quote,
-      opportunityName: sfOpportunitySnapshot.name,
-      customerName: customer.name,
-      customerStatus: customer.status,
-      accountId: customer.sfAccountId,
-      kamName: appUser.displayName,
-      processType: engReview.processType,
-      /** Commercial: the approver-tier hook (B-12) reads it; never put it in a DTO unredacted. */
-      prelimCapitalUsd: engReview.prelimCapitalUsd,
-      assignedEngineerName: engineer.displayName,
-      pricing: pricingRecord,
-      enteredStageAt: sql<Date | null>`(
+  return (
+    db
+      .select({
+        quote,
+        opportunityName: sfOpportunitySnapshot.name,
+        customerName: customer.name,
+        customerStatus: customer.status,
+        accountId: customer.sfAccountId,
+        kamName: appUser.displayName,
+        processType: engReview.processType,
+        // FB-19: the item count and item 1's label.
+        ...itemSummaryColumns(),
+        /** Commercial: the approver-tier hook (B-12) reads it; never put it in a DTO unredacted. */
+        // FB-19: the quote's preliminary capital is the sum of its items' (null when none has a figure).
+        prelimCapitalUsd: sql<number | null>`(
+        select sum(er.prelim_capital_usd) from ${engReview} er where er.quote_id = ${quote.id}
+      )`.mapWith((v: string | number | null) => (v === null ? null : Number(v))),
+        /** FB-19: the largest item figure (capital is needed when any item's is above the threshold). */
+        prelimCapitalMaxUsd: sql<number | null>`(
+        select max(er.prelim_capital_usd) from ${engReview} er where er.quote_id = ${quote.id}
+      )`.mapWith((v: string | number | null) => (v === null ? null : Number(v))),
+        assignedEngineerName: engineer.displayName,
+        pricing: pricingRecord,
+        enteredStageAt: sql<Date | null>`(
         select max(sh.entered_at) from ${stageHistory} sh
         where sh.quote_id = ${quote.id} and sh.stage_key = ${stageKey} and sh.exited_at is null
       )`.mapWith((v: string | Date | null) => (v ? new Date(v) : null)),
-      g2Outcome: sql<string | null>`(
+        g2Outcome: sql<string | null>`(
         select gd.outcome_key from ${gateDecision} gd
         where gd.quote_id = ${quote.id} and gd.gate_key = 'G2'
         order by gd.decided_at desc, gd.id desc limit 1
       )`,
-    })
-    .from(quote)
-    .leftJoin(
-      sfOpportunitySnapshot,
-      eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
-    )
-    .leftJoin(customer, eq(customer.id, quote.customerId))
-    .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
-    .leftJoin(engReview, eq(engReview.quoteId, quote.id))
-    .leftJoin(engineer, eq(engineer.id, quote.assignedEngineerId))
-    .leftJoin(
-      pricingRecord,
-      and(eq(pricingRecord.quoteId, quote.id), eq(pricingRecord.quoteVersion, quote.version)),
-    )
-    .where(and(eq(quote.stageKey, stageKey), ne(quote.status, 'closed')))
-    .limit(500);
+      })
+      .from(quote)
+      .leftJoin(
+        sfOpportunitySnapshot,
+        eq(sfOpportunitySnapshot.sfOpportunityId, quote.sfOpportunityId),
+      )
+      .leftJoin(customer, eq(customer.id, quote.customerId))
+      .leftJoin(appUser, eq(appUser.id, quote.kamUserId))
+      // FB-19: the primary item's review row (one row per quote).
+      .leftJoin(engReview, primaryEngReviewOn(quote.id))
+      .leftJoin(engineer, eq(engineer.id, quote.assignedEngineerId))
+      .leftJoin(
+        pricingRecord,
+        and(eq(pricingRecord.quoteId, quote.id), eq(pricingRecord.quoteVersion, quote.version)),
+      )
+      .where(and(eq(quote.stageKey, stageKey), ne(quote.status, 'closed')))
+      .limit(500)
+  );
 }
 
 export type PricingQueueRow = Awaited<ReturnType<typeof listPricingQueueRows>>[number];

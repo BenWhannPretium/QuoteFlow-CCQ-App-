@@ -4,6 +4,7 @@ import { legalReviewReasons, termsExceptionOpen, type LegalReviewTriggers } from
 import { CAPITAL_NEEDED_ABOVE_USD_SEED, engCapitalNeeded } from '../engineering/capital-needed';
 import { roiRequirement, type RoiReason, type RoiRequiredWhen } from '../quoting-steps';
 import type { QuoteState } from '../types/quote';
+import { quoteItemFacts } from '../workflow/item-rules';
 
 /** The settings the derived decision fields depend on. */
 export interface DerivedFieldSettings {
@@ -67,18 +68,38 @@ export function derivedDecisionFields(
       const roi = roiRequirement(fields, settings.roiRequiredWhen);
       return { roi_required: roi.required, roi_required_reasons: roi.reasons };
     })(),
-    // FB-17 (W13-22): the G2 rules ask for the equipment BOM exactly when this is true.
-    eng_capital_needed: engCapitalNeeded(
-      fields.prelim_capital_usd,
-      settings.capitalNeededAboveUsd ?? CAPITAL_NEEDED_ABOVE_USD_SEED,
-    ),
+    // FB-17 (W13-22): the G2 rules ask for the equipment BOM exactly when this is true. FB-19: with
+    // items, capital is needed when any item's preliminary capital says so.
+    eng_capital_needed: (() => {
+      const threshold = settings.capitalNeededAboveUsd ?? CAPITAL_NEEDED_ABOVE_USD_SEED;
+      const items = quoteItemFacts(fields);
+      return items
+        ? items.some((i) => engCapitalNeeded(i.prelim_capital_usd, threshold))
+        : engCapitalNeeded(fields.prelim_capital_usd, threshold);
+    })(),
   };
 }
 
-/** `state` with its derived fields filled in. */
+/**
+ * `state` with its derived fields filled in. FB-19: each item gets its own `eng_capital_needed` too, so a
+ * G2 rule that reads it is checked per item (an item needing capital needs the equipment BOM).
+ */
 export function withDerivedFields(state: QuoteState, settings: DerivedFieldSettings): QuoteState {
+  const items = quoteItemFacts(state.fields);
+  const threshold = settings.capitalNeededAboveUsd ?? CAPITAL_NEEDED_ABOVE_USD_SEED;
   return {
     ...state,
-    fields: { ...state.fields, ...derivedDecisionFields(state.fields, settings) },
+    fields: {
+      ...state.fields,
+      ...derivedDecisionFields(state.fields, settings),
+      ...(items
+        ? {
+            items: items.map((i) => ({
+              ...i,
+              eng_capital_needed: engCapitalNeeded(i.prelim_capital_usd, threshold),
+            })),
+          }
+        : {}),
+    },
   };
 }

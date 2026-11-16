@@ -1,5 +1,5 @@
 import type { QuoteIntakeFacts } from '@ccq/contracts';
-import type { Quote } from '@ccq/db/repos';
+import type { Quote, QuoteItem } from '@ccq/db/repos';
 
 /**
  * FB-02: the intake's product and timing facts as every reader of the quote sees them (Engineering and
@@ -131,5 +131,64 @@ export function quoteIntakeValues(q: Quote, customerName: string | null | undefi
     description: q.description,
     drawing_status: q.drawingStatus,
     comments_for_engineering: q.commentsForEngineering,
+  };
+}
+
+/** The product columns a `quote_item` shares with `quote` (FB-19: the quote mirrors item 1's). */
+const ITEM_PRODUCT_KEYS = [
+  'productFamily',
+  'productFamilyOther',
+  'components',
+  'componentOther',
+  'linerSpec',
+  'labelsPurchasedBy',
+  'decorationType',
+  'decorationTypeOther',
+  'decorationPrintColors',
+  'resin',
+  'resinCustomerSpecified',
+  'resinGrade',
+  'pcrLevel',
+  'pcrLevelOther',
+  'colorType',
+  'colorDescription',
+  'additive',
+  'additives',
+  'neckDiameter',
+  'neckDiameterCustom',
+  'neckFinishType',
+  'neckFinishTypeCustom',
+  'neckSpecialFeature',
+  'neckSpecialFeatureCustom',
+  'heightMm',
+  'widthOrDiameterMm',
+  'depthMm',
+  'gramWeightG',
+  'modifyExistingMold',
+  'existingMoldRef',
+  'moldChangeDescription',
+  'packagingType',
+  'packagingNotes',
+  'drawingStatus',
+  'estAnnualVolume',
+  'estAnnualVolumeConfirmed',
+  'productNeededBy',
+] as const;
+
+/**
+ * FB-19: the quote as one item sees it: the request from the quote, the product facts from the item
+ * (and its container size and standard description in `structuredDescription`). For readers written
+ * against a quote (the intake facts, the Engineering product facts).
+ */
+export function quoteWithItem(q: Quote, item: QuoteItem): Quote {
+  const product = Object.fromEntries(ITEM_PRODUCT_KEYS.map((k) => [k, item[k]]));
+  return {
+    ...q,
+    ...product,
+    structuredDescription: {
+      ...((q.structuredDescription ?? {}) as Record<string, unknown>),
+      size: item.containerSize,
+      standard: item.standardDescription,
+    },
   };
 }

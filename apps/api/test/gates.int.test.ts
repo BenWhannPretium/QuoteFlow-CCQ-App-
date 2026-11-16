@@ -550,7 +550,9 @@ describe('Rework: back to the KAM, fixed, resubmitted', () => {
     expect(open.statusCode, open.body).toBe(200);
     const draft = IntakeDraft.parse(open.json());
     expect(draft.rework).toMatchObject({ quoteNumber: q.quoteNumber, gateKey: 'G1' });
-    expect(draft.data.estAnnualVolume).toBe(60_000);
+    // FB-19: the rework draft's items are the quote's own (its volume is item 1's).
+    expect(draft.data.items).toHaveLength(1);
+    expect(draft.data.items![0]!.estAnnualVolume).toBe(60_000);
     // Idempotent: the same draft comes back.
     const again = IntakeDraft.parse(
       (await kam().post(`/api/v1/quotes/${q.quoteNumber}/rework`)).json(),

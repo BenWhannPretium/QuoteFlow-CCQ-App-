@@ -1,6 +1,8 @@
 import { PACK_OUT_LABELS, type PackOutField, type SolutionExtras } from './solution-extras';
 import { DomainError } from '../errors';
+import { itemName } from '../intake/items';
 import type { WorkflowConfig } from '../types/workflow-config';
+import { itemView, quoteItemFacts } from '../workflow/item-rules';
 
 /**
  * FB-16 (W13-14; Zachary Cairns, 2026-11-13): pack-out reads as "one of these".
@@ -126,18 +128,28 @@ export function packOutRequirementErrors(
   fields: Readonly<Record<string, unknown>>,
 ): DomainError[] {
   if (!rule.requireOneOf) return [];
-  const provided = packOutUnitProvided({
-    unitsPerBag: fields.units_per_bag,
-    unitsPerTray: fields.units_per_tray,
-    unitsPerCase: fields.units_per_case,
-  });
-  return provided
-    ? []
-    : [
-        new DomainError(
-          'MISSING_FIELD',
-          'Pack-out: units per bag, per tray or per case (fill in one)',
-          PACK_OUT_REQUIREMENT_KEY,
-        ),
-      ];
+  const message = 'Pack-out: units per bag, per tray or per case (fill in one)';
+  const missing = (f: Readonly<Record<string, unknown>>) =>
+    !packOutUnitProvided({
+      unitsPerBag: f.units_per_bag,
+      unitsPerTray: f.units_per_tray,
+      unitsPerCase: f.units_per_case,
+    });
+  // FB-19: each item has its own pack-out; with several items the message names the item.
+  const items = quoteItemFacts(fields);
+  if (items) {
+    return items
+      .filter((item) => missing(itemView(fields, item)))
+      .map(
+        (item) =>
+          new DomainError(
+            'MISSING_FIELD',
+            items.length > 1 ? `${itemName(item.item_no, item.label)}: ${message}` : message,
+            PACK_OUT_REQUIREMENT_KEY,
+          ),
+      );
+  }
+  return missing(fields)
+    ? [new DomainError('MISSING_FIELD', message, PACK_OUT_REQUIREMENT_KEY)]
+    : [];
 }

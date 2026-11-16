@@ -21,7 +21,7 @@ import {
   availableActions,
   canApproveCapacityInDecision,
   canSeePriorityScore,
-  evaluateRules,
+  evaluateQuoteRules,
   fieldsReferenced,
   isForwardOutcome,
   isSupersededDecision,
@@ -53,6 +53,7 @@ import { engineeringSubmissionExtras } from './lead-review';
 import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from './outcome-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
+import { quoteItemSummaries } from './quote-items-view';
 import type { ScoringService } from './scoring';
 
 /** Request-scoped inputs for building quote DTOs (loaded once per request). */
@@ -149,11 +150,22 @@ export function warningsFor(row: QuoteSummaryRow, ctx: QuoteViewContext): Qualif
   });
 }
 
+/** FB-19: "16 oz bottle + 2 more" from the count and item 1's label; a one-item quote: its label. */
+export function itemsSummaryText(itemCount: number, firstLabel: string | null): string | null {
+  const label = firstLabel?.trim() || null;
+  if (itemCount <= 1) return label;
+  return `${label ?? 'Item 1'} + ${itemCount - 1} more`;
+}
+
 export function summaryDto(row: QuoteSummaryRow, ctx: QuoteViewContext): QuoteSummary {
   const q = row.quote;
+  const itemCount = Math.max(1, row.itemCount ?? 1);
   return {
     id: q.id,
     quoteNumber: q.quoteNumber,
+    // FB-19 (W13-32): "16 oz bottle + 2 more".
+    itemCount,
+    itemsSummary: itemsSummaryText(itemCount, row.firstItemLabel ?? null),
     stageKey: q.stageKey,
     status: q.status,
     version: q.version,
@@ -203,7 +215,8 @@ function withSubmitMissing<T extends { leadReview: LeadReviewView }>(
   }
   const fields = withDerivedFields(state, ctx.commercial.derived).fields;
   const submitMissing = [
-    ...evaluateRules(rules, fields),
+    // FB-19: a rule that reads an item's engineering facts is checked for every item.
+    ...evaluateQuoteRules(rules, fields),
     // FB-16 (W13-14): one pack-out count, while `pack_out_rule.requireOneOf` is on (off in the seed).
     ...engineeringSubmissionExtras(kind, workflow, fields, ctx.packOutRule),
   ].map((e) => ({
@@ -233,12 +246,14 @@ export function gateActionsFor(
     // B-13: a rule a note would satisfy that still fails with the validity as it stands (Expired).
     const noteBeforeValidity =
       referenced.includes('decision_note') &&
-      evaluateRules(a.requiredFields, { ...derived.fields, validity_lapsed: lapsed }).length > 0;
+      evaluateQuoteRules(a.requiredFields, { ...derived.fields, validity_lapsed: lapsed }).length >
+        0;
     // FB-16 (W13-18): a lead who holds capacity.signoff approves a not-yet-signed capacity inside the
     // decision (the required checkbox), so the sign-off is not "missing" for them. A block is.
     const capacityApproval = canApproveCapacityInDecision(ctx.actor, derived, a.requiredFields);
     const missing = [
-      ...evaluateRules(
+      // FB-19: per item where a rule reads an item's engineering facts.
+      ...evaluateQuoteRules(
         a.requiredFields.filter((r) => !fieldsReferenced(r).some((f) => DECISION_FIELDS.has(f))),
         capacityApproval ? withCapacityApproved(derived.fields) : derived.fields,
       ),
@@ -392,6 +407,8 @@ export class QuoteReadService {
     const shipTo = q.shipTo as QuoteDetail['shipTo'];
     return {
       ...summary,
+      // FB-19 (W13-32): every item, in item order.
+      items: await quoteItemSummaries(db, ctx.actor, q),
       description: q.description,
       standardDescription: structured.standard ?? null,
       components: q.components,
