@@ -35,7 +35,16 @@ import { api, isApiError, uploadAttachment } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
-import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import {
+  Field,
+  FormErrors,
+  SaveStatus,
+  errorFor,
+  problemErrors,
+  saveStatusOf,
+  useSaved,
+  type ServerError,
+} from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
@@ -401,12 +410,11 @@ export function PricingInputsCard({
   const packOutError = (f: PackOutField) =>
     typed(f) ?? together.find((e) => e.field === f)?.message ?? errorFor(errors, f);
   const invalid = PACK_OUT_FIELDS.some((f) => typed(f)) || together.length > 0;
-  // Bailey (2026-11-12): say "Saved" beside the button, where the eye already is (the toast is easy to miss).
-  const [justSaved, setJustSaved] = useState(false);
-  const set = <K extends keyof ExtrasForm>(k: K, v: ExtrasForm[K]) => {
-    setJustSaved(false);
+  // Bailey (2026-11-12): say it beside the button, where the eye already is (the toast is easy to miss).
+  // FB-18 (W13-30): the shared `SaveStatus` ("Progress saved"), as on every other Save button.
+  const status = useSaved(`pack-out:${quote.quoteNumber}`);
+  const set = <K extends keyof ExtrasForm>(k: K, v: ExtrasForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
-  };
 
   const save = useMutation({
     mutationFn: () => {
@@ -426,7 +434,7 @@ export function PricingInputsCard({
       setErrors([]);
       setForm(extrasForm(detail.review));
       await refresh(detail);
-      setJustSaved(true);
+      status.markSaved();
       toast.success({ title: 'Two-step process and pack-out saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -588,15 +596,7 @@ export function PricingInputsCard({
             <Button type="submit" disabled={!changed || invalid || save.isPending}>
               {save.isPending ? 'Saving…' : 'Save process and pack-out'}
             </Button>
-            {justSaved && !changed && (
-              <span
-                role="status"
-                className="text-muted-foreground text-sm"
-                data-testid="saved-note"
-              >
-                Saved
-              </span>
-            )}
+            <SaveStatus {...saveStatusOf(save, status.saved && !changed)} />
           </div>
         </form>
       </CardContent>

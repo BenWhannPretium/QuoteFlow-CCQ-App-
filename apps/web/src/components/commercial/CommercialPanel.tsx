@@ -25,7 +25,16 @@ import { api } from '@/lib/api';
 import { absoluteTime, calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
-import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import {
+  Field,
+  FormErrors,
+  SaveStatus,
+  errorFor,
+  problemErrors,
+  saveStatusOf,
+  useSaved,
+  type ServerError,
+} from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import {
   customerShareText,
@@ -266,6 +275,8 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
   const option = paymentTerms.find((p) => p.code === form.termsPaymentTermsCode);
   const freeText = option?.meta.freeText === true;
   const nonstandard = isNonStandardPaymentTerms(form.termsPaymentTermsCode, standard);
+  // FB-18 (W13-30): kept outside the editor, which is re-keyed by its own save.
+  const status = useSaved(`terms:${quote.quoteNumber}`);
 
   const save = useMutation({
     mutationFn: () => {
@@ -298,6 +309,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
     onSuccess: async (next) => {
       setErrors([]);
       await apply(next);
+      status.markSaved();
       const opened =
         next.commercial.terms.exception?.status === 'pending' &&
         c.terms.exception?.status !== 'pending';
@@ -618,10 +630,11 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
           </p>
         )}
         <FormErrors errors={errors.filter((e) => !INLINE_TERMS_PATHS.has(e.path))} />
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={save.isPending || !dirty}>
             {save.isPending ? 'Saving…' : 'Save terms'}
           </Button>
+          <SaveStatus {...saveStatusOf(save, status.saved && !dirty)} />
         </div>
       </form>
       {extras}
@@ -648,6 +661,8 @@ function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
   const [moq, setMoq] = useState(t.termsMoq ?? '');
   const [errors, setErrors] = useState<ServerError[]>([]);
   const dirty = funding !== (t.toolingFundingModel ?? '') || moq !== (t.termsMoq ?? '');
+  // FB-18 (W13-30): kept outside the form, which sits inside the re-keyed terms editor.
+  const status = useSaved(`moq-funding:${quote.quoteNumber}`);
   const save = useMutation({
     mutationFn: () => {
       const body: EngineeringTermsBody = {};
@@ -658,6 +673,7 @@ function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
     onSuccess: async (next) => {
       setErrors([]);
       await apply(next);
+      status.markSaved();
       toast.success({ title: 'MOQ and funding saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -724,10 +740,11 @@ function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
       <FormErrors
         errors={errors.filter((e) => e.path !== '/toolingFundingModel' && e.path !== '/termsMoq')}
       />
-      <div>
+      <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={save.isPending || !dirty}>
           {save.isPending ? 'Saving…' : 'Save MOQ and funding'}
         </Button>
+        <SaveStatus {...saveStatusOf(save, status.saved && !dirty)} />
       </div>
     </form>
   );
@@ -843,11 +860,13 @@ function EscalateSection({ quote }: { quote: QuoteDetail }) {
               />
             </div>
             {submitted && problems.length > 0 && (
-              <ul role="alert" className="text-destructive grid gap-1 text-sm">
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
+              <div role="alert">
+                <ul className="text-destructive grid gap-1 text-sm">
+                  {problems.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              </div>
             )}
             <FormErrors errors={errors} />
           </form>

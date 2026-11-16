@@ -50,6 +50,8 @@ const PAIRS: [fg: string, bg: string, min: number][] = [
   ['--pf-tier-standard-fg', '--pf-tier-standard-bg', 4.5],
   ['--pf-tier-low-fg', '--pf-tier-low-bg', 4.5],
   ['--pf-warning-fg', '--pf-warning-bg', 4.5],
+  // FB-18 (W13-26): the "On hold" chip.
+  ['--pf-hold-fg', '--pf-hold-bg', 4.5],
 ];
 
 describe.each(Object.entries(themes))('%s theme contrast', (_name, theme) => {

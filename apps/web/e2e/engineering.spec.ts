@@ -212,7 +212,8 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await inputs.getByTestId('pack-out-unitsPerBag').fill('');
   await inputs.getByTestId('pack-out-unitsPerPallet').fill('14400');
   await inputs.getByRole('button', { name: 'Save process and pack-out' }).click();
-  await expect(eng.getByText('Saved', { exact: true })).toBeVisible();
+  // FB-18 (W13-30): "Progress saved" beside the button (it read "Saved").
+  await expect(inputs.getByTestId('save-progress')).toHaveText('Progress saved');
   await expect(inputs.getByLabel('Preform number')).toHaveValue('PF-2210');
 
   const capacity = eng.getByTestId('capacity-form');

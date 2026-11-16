@@ -2,7 +2,7 @@
 
 **What QuoteFlow is for you.** A one-page review of each quote Pricing submits, and a recorded decision to release the offer (gate G4, **Release proposition**). Approving is internal. It does not award the quote: only the customer's answer does.
 
-**Your home screen: Approvals.** It shows **Pending final review (G4)** and **Decided recently**. You get an email when a quote needs you. Your menu: **Home**, **Pipeline**, **Approvals**, **Analytics**. It works on a phone.
+**Your Command Center: Approvals.** It shows **Pending final review (G4)** and **Decided recently**; a quote on hold is listed first, with an orange **On hold** chip. At the top are two views: **My work** and **Analytics**. You get an email when a quote needs you. Your menu: **Command Center**, **Pipeline**, **Approvals**. It works on a phone.
 
 ## What you'll do
 

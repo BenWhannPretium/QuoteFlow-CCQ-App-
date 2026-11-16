@@ -38,7 +38,9 @@ export function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+        aria-label={
+          unread > 0 ? `Notifications, ${unread > 99 ? '99+' : unread} unread` : 'Notifications'
+        }
         className="hover:bg-header-control relative inline-flex size-11 items-center justify-center rounded-full"
         data-testid="notification-bell"
       >

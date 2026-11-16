@@ -32,6 +32,7 @@ import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { PricerAssignDialog } from '@/components/pricing/PricerAssignDialog';
 import { CAPITAL_LABELS, pricingQueueQueryKey } from '@/components/pricing/QuotingTab';
 import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
+import { SalesforceLink, SalesforceUrlHint } from '@/components/SalesforceLink';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -421,7 +422,15 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
           <span className="grid max-w-56 min-w-0 gap-0.5">
             <span className="break-words">{row.original.customerName ?? 'Unknown customer'}</span>
             <span className="text-muted-foreground text-xs break-words">
-              {row.original.opportunityName}
+              {/* FB-18 (W13-31): the opportunity opens in Salesforce once the URL is set. */}
+              {row.original.opportunityName && (
+                <SalesforceLink
+                  quote={row.original}
+                  label={row.original.opportunityName}
+                  hint={false}
+                  className="text-xs"
+                />
+              )}
             </span>
           </span>
         ),
@@ -592,6 +601,7 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
           </Button>
         </div>
       )}
+      <SalesforceUrlHint quotes={data.items} />
       <DataTable
         caption="Pricing queue"
         columns={columns}

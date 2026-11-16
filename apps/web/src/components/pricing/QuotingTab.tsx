@@ -23,7 +23,17 @@ import { toast } from '@/lib/toast';
 import { valueListLabel } from '@/lib/value-label';
 
 import { EngineeringInputsCard } from '../engineering/EngineeringExtras';
-import { Field, FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import {
+  Field,
+  FormErrors,
+  SaveStatus,
+  errorFor,
+  problemErrors,
+  sameValues,
+  saveStatusOf,
+  useSaved,
+  type ServerError,
+} from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { IntakeCommercialCard } from '../intake/CommercialInputs';
 import { KeyValueGrid } from '../KeyValueGrid';
@@ -412,6 +422,8 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
   const [form, setForm] = useState(initial);
   const costingErrorId = useId();
   const [errors, setErrors] = useState<ServerError[]>([]);
+  // FB-18 (W13-30): kept outside the card, which is re-keyed by its own save.
+  const status = useSaved(`price-approval:${quote.quoteNumber}`);
   const set =
     <K extends keyof typeof form>(k: K) =>
     (v: (typeof form)[K]) =>
@@ -435,6 +447,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     onSuccess: async (detail) => {
       setErrors([]);
       await refresh(detail);
+      status.markSaved();
       toast.success({
         title: detail.approval.approved ? 'Price approval recorded' : 'Pricing record saved',
       });
@@ -452,6 +465,8 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     (e) => e.path === '/erfRefs' || e.path.startsWith('/erfRefs/'),
   )?.message;
   const passThrough = quote.commercial.passThroughEligible;
+  // Nothing to save: what is on screen is what is stored.
+  const unchanged = sameValues(form, stored);
 
   if (!quoting.canEdit) {
     return (
@@ -619,16 +634,11 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
               (e) => !RECORD_INLINE.has(e.path) && !e.path.startsWith('/erfRefs'),
             )}
           />
-          <div>
-            <Button
-              type="submit"
-              disabled={
-                save.isPending ||
-                (Object.keys(form) as (keyof typeof form)[]).every((k) => form[k] === stored[k])
-              }
-            >
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={save.isPending || unchanged}>
               {save.isPending ? 'Saving…' : 'Save price approval'}
             </Button>
+            <SaveStatus {...saveStatusOf(save, status.saved && unchanged)} />
           </div>
         </form>
       </CardContent>
@@ -648,6 +658,8 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
   };
   const [form, setForm] = useState(saved);
   const [errors, setErrors] = useState<ServerError[]>([]);
+  // FB-18 (W13-30): kept outside the card, which is re-keyed by its own save.
+  const status = useSaved(`capital-readiness:${quote.quoteNumber}`);
   const save = useMutation({
     mutationFn: () =>
       api.updateCapitalReadiness(quote.quoteNumber, {
@@ -658,6 +670,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
     onSuccess: async (detail) => {
       setErrors([]);
       await refresh(detail);
+      status.markSaved();
       toast.success({ title: 'Capital readiness saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
@@ -695,6 +708,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
     );
   }
 
+  const unchanged = sameValues(form, saved);
   return (
     <Card>
       <CardHeader>
@@ -779,18 +793,12 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
             )}
           </Field>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
-          <div>
-            <Button
-              type="submit"
-              disabled={
-                !form.capitalReadiness ||
-                save.isPending ||
-                // Nothing to save: stays grey after a save until something changes.
-                (Object.keys(form) as (keyof typeof form)[]).every((k) => form[k] === saved[k])
-              }
-            >
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Nothing to save: stays grey after a save until something changes. */}
+            <Button type="submit" disabled={!form.capitalReadiness || save.isPending || unchanged}>
               {save.isPending ? 'Saving…' : 'Save capital readiness'}
             </Button>
+            <SaveStatus {...saveStatusOf(save, status.saved && unchanged)} />
           </div>
         </form>
       </CardContent>

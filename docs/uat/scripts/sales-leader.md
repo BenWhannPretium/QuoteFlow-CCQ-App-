@@ -25,13 +25,15 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 
 **Changed 2026-11-15 (FB-17, walkthrough of Nov 13).** The decision dialog offers four choices: **Advance**, **Send back to…**, **Hold** and **Stop**. "Rework (back to KAM)" is **Send back to…** → **The KAM (fix the intake)**; "Redirect (not CCQ work)" is **Stop: not CCQ work (send elsewhere)**. Stopping no longer asks for a closure owner. Steps 7, 9, 11, 12, 14 and 15 are changed.
 
-## Part A: Home and the team dashboard
+**Changed 2026-11-15 (FB-18, walkthrough of Nov 13).** Home is now the **Command Center**, with two views at the top: **My work** and **Analytics**. **Analytics** is no longer in the menu. A quote on hold shows an orange **On hold** chip on the Command Center. Steps 1, 2, 3, 11 and 33 are changed.
+
+## Part A: The Command Center and the team dashboard
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 1 | Sign in. | Home **Sales pipeline** ("Qualification decisions and the health of your team’s pipeline."). | | |
-| 2 | Look at the navigation. | **Home**, **New intake**, **My proposals**, **To qualify**, **Pipeline**, **Approvals**, **Analytics**. No Admin. | | |
-| 3 | Read the home blocks. | **To qualify (G1)**, **Pending override requests** (empty is normal: new overrides apply at once), **Team pipeline by stage**, **Proposals with no outcome past validity**. | | |
+| 1 | Sign in. | The **Command Center** opens on **Sales pipeline** ("Qualification decisions and the health of your team’s pipeline."). The line above the title reads "Command Center · Sales leader". | | |
+| 2 | Look at the navigation. | **Command Center**, **New intake**, **My proposals**, **To qualify**, **Pipeline**, **Approvals**. No Admin, and no **Analytics** item: the Command Center has two views at the top, **My work** and **Analytics**. | | |
+| 3 | Read the blocks of **My work**. | **To qualify (G1)**, **Pending override requests** (empty is normal: new overrides apply at once), **Team pipeline by stage**, **Proposals with no outcome past validity**. | | |
 | 4 | Click the ⓘ next to **Team pipeline by stage**. | A pop-up gives the definition and the time window. | | |
 | 5 | Compare the **Team pipeline by stage** counts with **Pipeline** (filter by your team's KAMs). | The counts match. | | |
 
@@ -45,7 +47,7 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 | 8 | Click **Decide** on `<CCQ-G1-A>`. Choose **Advance**. Click **Record decision**. | The dialog shows the priority (advisory) and "Intake complete for this decision." No note is asked for a plain Advance. Then "Advance recorded". The quote leaves the list. Its stage is **Engineering Review**. | | |
 | 9 | **Decide** on the KAM's Part C quote. Choose **Send back to…**. **Send to** already shows **The KAM (fix the intake)**, the only place a quote can go from here. Record with no reason and no note. Then pick reason **Missing information** and type a note in **Note (required)** (the KAM sees it as "What to fix:"). **Record decision**. | "Choose a reason." and "Add a note." Then "Send back to the KAM (fix the intake) recorded". The quote goes back to **Intake**. The KAM is notified and sees the banner (kam.md steps 37–40). | | |
 | 10 | **Decide** on `<CCQ-G1-B>`. Choose **Hold**. Click **Record decision** with no review date and no note. | Refused: it asks for a review date and a note. | | |
-| 11 | Read the text under **Hold**. Set **Review date (required)**, leave the **Hold owner** on **Me** (nobody is assigned at this stage), pick a reason, add a note, **Record decision**. | Hold reads "Pause the quote, for example when the customer asks to revisit it in 6 months. To get something fixed, use Send back to… instead." The **Hold owner** list offers **Me**, **The KAM (<name>)** and a search by name. After recording, the quote header reads "On hold: <reason>. Owner: <you>. Review by <date>.", and the **Timeline** has the same sentence with your note. The KAM is told it is on hold, with the owner, the reason and the review date. | | |
+| 11 | Read the text under **Hold**. Set **Review date (required)**, leave the **Hold owner** on **Me** (nobody is assigned at this stage), pick a reason, add a note, **Record decision**. | Hold reads "Pause the quote, for example when the customer asks to revisit it in 6 months. To get something fixed, use Send back to… instead." The **Hold owner** list offers **Me**, **The KAM (<name>)** and a search by name. After recording, the quote header reads "On hold: <reason>. Owner: <you>. Review by <date>.", and the **Timeline** has the same sentence with your note. The KAM is told it is on hold, with the owner, the reason and the review date. FB-18: on the Command Center, **Team pipeline by stage** lists the quote first in its stage with an orange **On hold** chip; rest the mouse on the chip, or tab to it, to read the same sentence. | | |
 | 12 | **Decide** on `<CCQ-G1-C>`. Choose **Stop: not CCQ work (send elsewhere)** (one of the two choices under Stop; it was "Redirect (not CCQ work)"). Pick **Stock item**. Add a note. **Record decision**. | No **Closure owner** question is asked. The quote closes as **Redirected**. The closure card shows the reason and you as closure owner. The KAM is told it closed. | | |
 | 13 | **Decide** on `<CCQ-G1-D>`. Choose **Stop**. Pick **Not strategic**. Leave the note empty. **Record decision**. | "Add a note." The option is marked "Closes the quote". | | |
 | 14 | Add a note. **Record decision**. | No **Closure owner** question is asked (FB-17): the quote closes as **Declined** with you as closure owner. | | |
@@ -84,7 +86,7 @@ You are the only role that can change a priority tier. It applies at once, with 
 | 30 | Open a quote in **Quoting** or later → **Quoting** tab. | You can read the price approval record and the capital readiness (every role that can read a quote sees them). There is no button to change them. | | |
 | 31 | **Pipeline** → **Columns**. | **Budgetary capital estimate** and **Capital readiness** are offered, like for every role. | | |
 | 32 | Open a quote whose G3 or G4 is decided. | The section is locked: "Locked after G3 · decided by <name> on <date> · reopens if the quote is sent back". | | |
-| 33 | **Analytics**. Pick your region and **Last 90 days**. | The **Leadership report** loads. Every chart has an ⓘ with its definition. | | |
+| 33 | **Command Center** → **Analytics** (the second view, at the top). Pick your region and **Last 90 days**. Then click **Command Center** in the menu. | The **Leadership report** loads, with the same filters and charts as before. Every chart has an ⓘ with its definition. The Command Center opens again on **Analytics**: it remembers the view you chose last. Click **My work** to go back. An old `/analytics` link or bookmark opens this view with its filters. | | |
 
 ## Part F: Terms and extra approval, read and record (FB-08)
 

@@ -16,13 +16,15 @@
 | `<CCQ-ANY-1>` | Any open quote in Quoting or later |
 | `<KAM-1 chosen by Bailey>` | A KAM with several quotes |
 
-## Part A: Home and analytics definitions
+**Changed 2026-11-15 (FB-18, walkthrough of Nov 13).** Home is now the **Command Center**, with two views at the top: **My work** and **Analytics**. **Analytics** is no longer in the menu, and the **Open analytics** button is gone from the overview. Steps 1, 2, 3 and 11 are changed.
+
+## Part A: The Command Center and analytics definitions
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 1 | Sign in. | Home **Leadership overview** ("Pipeline value, throughput and where work is waiting."): **Open quotes**, **Median intake to G4**, **First-pass intake completeness**, **Win rate pairs with capture**, then **Win rate and outcome capture** and **Pipeline by stage**. | | |
-| 2 | Look at the navigation. | **Home**, **Engineering queue**, **Pricing queue**, **Pipeline**, **Approvals**, **Analytics**, **Admin**. | | |
-| 3 | Click **Analytics**. | Page **Analytics** with two views: **Leadership report** and **Engineering**. Filters: **From**, **To**, markets, families, KAMs, regions. Section links: **Pipeline**, **Outcomes**, **Cycle time**, **Flow**, **Reasons**, **Quality and governance**, **Priority**, **Adoption**. | | |
+| 1 | Sign in. | The **Command Center** opens on **Leadership overview** ("Pipeline value, throughput and where work is waiting."): **Open quotes**, **Median intake to G4**, **First-pass intake completeness**, **Win rate pairs with capture**, then **Win rate and outcome capture** and **Pipeline by stage**. | | |
+| 2 | Look at the navigation. | **Command Center**, **Engineering queue**, **Pricing queue**, **Pipeline**, **Approvals**, **Admin**. There is no **Analytics** item: the Command Center has two views at the top, **My work** and **Analytics**. | | |
+| 3 | On the **Command Center** click **Analytics** (at the top, next to **My work**). Later, open an old `/analytics` link or bookmark. | The **Analytics** view, with the line "Command Center · Leadership" above the title and two reports: **Leadership report** and **Engineering**. The old address opens this same view, with any filters the link carried. Filters: **From**, **To**, markets, families, KAMs, regions. Section links: **Pipeline**, **Outcomes**, **Cycle time**, **Flow**, **Reasons**, **Quality and governance**, **Priority**, **Adoption**. | | |
 | 4 | In **Pipeline**, open the ⓘ on **Open quotes by stage**. | A definition and a **Time window**. The amount is the Salesforce opportunity amount as entered (size of opportunity, not price). | | |
 | 5 | In **Outcomes**, open the ⓘ on the win rate and on the capture rate. | The win rate counts decided quotes only and sits next to the outcome capture rate. Awards still in Commit & Hand Off are shown beside it. | | |
 | 6 | In **Cycle time**, open the ⓘ on **Days in each stage (holds excluded)** and **Intake to G4 approval, by week**. | Holds are excluded. The definitions say so. | | |
@@ -30,7 +32,7 @@
 | 8 | On one chart click **Table**. Then **Chart**. | The same numbers as a table, then back. | | |
 | 9 | Click a **View quotes** link in the **Drill down** column of a table. | The **Pipeline** list opens with the matching filter. | | |
 | 10 | Set **KAMs** to `<KAM-1 chosen by Bailey>` and **Last 90 days**. | All charts narrow to that KAM. | | |
-| 11 | Scroll to the bottom of **Analytics**. | It says "Operational metrics from QuoteFlow; not yet D&A-certified." The same line sits under the dashboard on the home screen. | | |
+| 11 | Scroll to the bottom of **Analytics**. | It says "Operational metrics from QuoteFlow; not yet D&A-certified." The same line sits under the dashboard on **My work**. | | |
 
 ## Part B: Override log and audit
 

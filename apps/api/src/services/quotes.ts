@@ -158,6 +158,11 @@ export function summaryDto(row: QuoteSummaryRow, ctx: QuoteViewContext): QuoteSu
     status: q.status,
     version: q.version,
     sfOpportunityId: q.sfOpportunityId,
+    // FB-18 (W13-31): on every summary, so the lists link to the opportunity as the quote page does.
+    sfOpportunityUrl: salesforceOpportunityUrl(
+      ctx.outcome.salesforceInstanceUrl,
+      q.sfOpportunityId,
+    ),
     opportunityName: row.opportunityName ?? null,
     customerName: row.customerName ?? null,
     customerStatus: row.customerStatus ?? null,
@@ -434,10 +439,6 @@ export class QuoteReadService {
         sfStage: row.sfStage,
         decisions: raw,
       }),
-      sfOpportunityUrl: salesforceOpportunityUrl(
-        ctx.outcome.salesforceInstanceUrl,
-        q.sfOpportunityId,
-      ),
       commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!, workflow),
     };
   }

@@ -55,6 +55,9 @@
   --color-success-foreground: var(--pf-success-fg);
   --color-warning: var(--pf-warning-bg);
   --color-warning-foreground: var(--pf-warning-fg);
+  /* FB-18 (W13-26): the "On hold" chip. */
+  --color-hold: var(--pf-hold-bg);
+  --color-hold-foreground: var(--pf-hold-fg);
 
   --color-header: var(--pf-header-bg);
   --color-header-foreground: var(--pf-header-fg);

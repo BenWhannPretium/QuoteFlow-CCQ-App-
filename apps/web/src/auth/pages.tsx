@@ -77,7 +77,7 @@ function ShellMessage({
       <h1 className="font-display text-2xl">{title}</h1>
       {children}
       <Link to="/" className={buttonVariants({ variant: 'outline' })}>
-        Back to home
+        Back to the Command Center
       </Link>
     </div>
   );
@@ -100,7 +100,8 @@ export function NotFoundPage() {
   return (
     <ShellMessage icon={CompassIcon} title="Page not found" testId="not-found">
       <p className="text-muted-foreground text-sm">
-        That address doesn’t match a QuoteFlow page. Check the link, or start again from home.
+        That address doesn’t match a QuoteFlow page. Check the link, or start again from the Command
+        Center.
       </p>
     </ShellMessage>
   );

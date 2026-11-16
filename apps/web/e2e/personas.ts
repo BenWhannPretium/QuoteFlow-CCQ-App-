@@ -7,6 +7,7 @@ const THEME_KEY = 'ccq.theme';
 /**
  * What each synthetic persona (packages/db/seeds/synthetic/personas.ts) should see, given the
  * seeded permission matrix. A matrix change that moves a nav item fails here on purpose.
+ * FB-18 (W13-29): `home` is the Command Center, and Analytics is one of its views, not a nav item.
  */
 export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: string[] }[] = [
   { persona: 'kam', landing: 'KAM', nav: ['home', 'intake', 'proposals', 'pipeline'] },
@@ -15,12 +16,12 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'sales-leader',
     landing: 'SalesLeader',
-    nav: ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
+    nav: ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals'],
   },
   {
     persona: 'eng-lead',
     landing: 'EngLead',
-    nav: ['home', 'queue-engineering', 'pipeline', 'approvals', 'analytics'],
+    nav: ['home', 'queue-engineering', 'pipeline', 'approvals'],
   },
   { persona: 'engineer', landing: 'Engineer', nav: ['home', 'queue-engineering', 'pipeline'] },
   {
@@ -31,13 +32,13 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   {
     persona: 'pricing',
     landing: 'Pricing',
-    nav: ['home', 'queue-pricing', 'pipeline', 'analytics'],
+    nav: ['home', 'queue-pricing', 'pipeline'],
   },
   // B-26: the pricing lead triages the same queue.
   {
     persona: 'pricing-lead',
     landing: 'PricingLead',
-    nav: ['home', 'queue-pricing', 'pipeline', 'analytics'],
+    nav: ['home', 'queue-pricing', 'pipeline'],
   },
   // FB-16 (W13-15): the Production Scheduler works the capacity part of the quotes assigned to them.
   {
@@ -47,38 +48,21 @@ export const PERSONA_EXPECTATIONS: { persona: string; landing: string; nav: stri
   },
   // FB-07 (F-083): Finance reads quotes and uploads the ROI model, nothing else.
   { persona: 'finance', landing: 'Finance', nav: ['home', 'pipeline'] },
-  { persona: 'approver', landing: 'Approver', nav: ['home', 'pipeline', 'approvals', 'analytics'] },
+  { persona: 'approver', landing: 'Approver', nav: ['home', 'pipeline', 'approvals'] },
   {
     persona: 'leadership',
     landing: 'Leadership',
-    nav: [
-      'home',
-      'queue-engineering',
-      'queue-pricing',
-      'pipeline',
-      'approvals',
-      'analytics',
-      'admin',
-    ],
+    nav: ['home', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'admin'],
   },
   {
     persona: 'admin',
     landing: 'Admin',
-    nav: [
-      'home',
-      'intake',
-      'queue-engineering',
-      'queue-pricing',
-      'pipeline',
-      'approvals',
-      'analytics',
-      'admin',
-    ],
+    nav: ['home', 'intake', 'queue-engineering', 'queue-pricing', 'pipeline', 'approvals', 'admin'],
   },
   {
     persona: 'multi-role',
     landing: 'Approver',
-    nav: ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals', 'analytics'],
+    nav: ['home', 'intake', 'proposals', 'qualify', 'pipeline', 'approvals'],
   },
 ];
 

@@ -25,12 +25,14 @@
 
 Labels for stages, outcomes and reasons are provisional configuration. Note a wrong meaning, not a different wording.
 
+**Changed 2026-11-15 (FB-18, walkthrough of Nov 13).** Home is now the **Command Center** (the phone tab says **Command**), with two views at the top: **My work** and **Analytics**. **Analytics** is no longer a tab. A quote on hold shows an orange **On hold** chip on the Command Center. Steps 2, 14 and 22 are changed.
+
 ## Part A: The queue on a phone
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 1 | On your phone, open the email "[QuoteFlow] CCQ-… needs your decision: Final Review". | It names the quote, account, product and priority tier, with a link. It has **no** price, margin or capital amount. | | |
-| 2 | Tap the link and sign in. | Home **Approvals** ("Quotes waiting for your final review decision.") with **Pending final review (G4)** and **Decided recently**. Bottom tabs: **Home**, **Pipeline**, **Approvals**, **Analytics**. | | |
+| 2 | Tap the link and sign in. | The **Command Center** opens on **Approvals** ("Quotes waiting for your final review decision.") with **Pending final review (G4)** and **Decided recently**. Bottom tabs: **Command**, **Pipeline**, **Approvals**. At the top are two views, **My work** and **Analytics**; nothing scrolls sideways. | | |
 | 3 | Tap **Approvals**. | Tab **Final Review**: "Quotes Pricing has submitted, highest tier first…". Chips: **Waiting**, **Capital needed / with risk** (FB-17: it was "Capital required / with risk"), **Capital pending**, **You can decide**. | | |
 | 4 | Read one card. | It shows **Price approval**, **Capital readiness**, **Engineering (G2)**, **KAM** and **Pricing approver**, and a **Review & decide** button. | | |
 | 5 | Tap **Review & decide** on `<CCQ-FR-2>`. | The Final Review page: **The request**, **Priority (advisory)**, **Engineering solution and capacity evidence**, **Price approval**, **Capital readiness**, a **Terms and Legal** section (the terms are read-only; the capital terms are yours to edit and confirm, Part E), the files, **Decisions so far**. If anything is open it shows **Open warnings (n)** at the top. A decision bar stays at the bottom. | | |
@@ -49,7 +51,7 @@ Steps 7 to 9 assume the capital terms on `<CCQ-FR-2>` are already confirmed (see
 | 11 | Pick a reason (for example **Capacity unavailable**) and type a note. **Record decision**. | No **Closure owner** question is asked (FB-17). The quote closes as **Declined**. The KAM and Pricing are notified. | | |
 | 12 | Open `<CCQ-FR-4>`. Tap **Send back to Quoting or Engineering** (it was "Rework (back to the affected gate)"). | The dialog opens on **Send back to…**. **Send to (required)** offers **Quoting** and **Engineering & Capacity**. A reason and a note are both required (FB-17: the reason was optional). | | |
 | 13 | Pick **Quoting**, a reason (for example **Missing information**) and type a note. **Record decision**. | The quote is back in **Quoting** as a new version. Pricing is told. | | |
-| 14 | Open `<CCQ-FR-5>`. Tap **Hold**. Pick a reason, **Review date (required)** and the hold owner (it starts on **Me**: nobody is assigned at Final Review). Leave the note empty and record, then add a note. | A note is required. The review screen shows "On hold until <date>."; the quote page reads "On hold: <reason>. Owner: <name>. Review by <date>." and its timeline has the same sentence. It stays in Final Review. The KAM is told, with the owner, the reason and the review date. | | |
+| 14 | Open `<CCQ-FR-5>`. Tap **Hold**. Pick a reason, **Review date (required)** and the hold owner (it starts on **Me**: nobody is assigned at Final Review). Leave the note empty and record, then add a note. | A note is required. The review screen shows "On hold until <date>."; the quote page reads "On hold: <reason>. Owner: <name>. Review by <date>." and its timeline has the same sentence. It stays in Final Review. The KAM is told, with the owner, the reason and the review date. FB-18: on the Command Center, **Pending final review (G4)** lists it first with an orange **On hold** chip; tap the chip to read the same sentence. | | |
 
 ## Part C: Rules that must stop you (negative checks)
 
@@ -62,7 +64,7 @@ Steps 7 to 9 assume the capital terms on `<CCQ-FR-2>` are already confirmed (see
 | 19 | Open `<CCQ-FR-PRICE>`. | No decision buttons. The bar says "You cannot decide Final Review on a quote whose price you approved or submitted". | | |
 | 20 | Open a quote that is not in Final Review and type `/review` after its address. | "No decision is waiting on this quote." | | |
 | 21 | Look for **Record price approval**, **Save terms** or a gate button for G1, G2, G3 or G5 on any quote. | None. Approvers only decide G4. | | |
-| 22 | Check **Home** → **Decided recently**. | Your decisions from Part B are listed. | | |
+| 22 | Check the **Command Center** → **Decided recently**. | Your decisions from Part B are listed. | | |
 
 ## Part D: Engineering details at Final Review (FB-06)
 

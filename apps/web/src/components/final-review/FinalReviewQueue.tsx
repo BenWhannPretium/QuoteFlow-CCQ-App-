@@ -26,6 +26,7 @@ import {
   type FilterValue,
 } from '../FiltersPopover';
 import { PriorityBadge } from '../Priority';
+import { SalesforceLink, SalesforceUrlHint } from '../SalesforceLink';
 import { SkeletonRows } from '../Skeletons';
 
 /**
@@ -145,11 +146,14 @@ export function FinalReviewQueue({
               }
             />
           ) : (
-            <ol className="grid gap-3 lg:grid-cols-2" aria-label="Final Review queue">
-              {sortFinalReview(data.items, sort).map((item) => (
-                <ApprovalCard key={item.id} item={item} canDecide={data.canDecide} />
-              ))}
-            </ol>
+            <>
+              <SalesforceUrlHint quotes={data.items} />
+              <ol className="grid gap-3 lg:grid-cols-2" aria-label="Final Review queue">
+                {sortFinalReview(data.items, sort).map((item) => (
+                  <ApprovalCard key={item.id} item={item} canDecide={data.canDecide} />
+                ))}
+              </ol>
+            </>
           )}
         </>
       )}
@@ -305,6 +309,17 @@ function ApprovalCard({ item, canDecide }: { item: FinalReviewItem; canDecide: b
 
       <div className="grid gap-0.5">
         <p className="text-sm font-medium break-words">{item.customerName ?? 'Unknown customer'}</p>
+        {/* FB-18 (W13-31): the opportunity, as a link to Salesforce once the URL is set. */}
+        {item.opportunityName && (
+          <p className="text-muted-foreground text-xs break-words" data-testid="opportunity">
+            <SalesforceLink
+              quote={item}
+              label={item.opportunityName}
+              hint={false}
+              className="text-xs"
+            />
+          </p>
+        )}
         <p className="text-muted-foreground text-xs break-words">
           {[
             product,

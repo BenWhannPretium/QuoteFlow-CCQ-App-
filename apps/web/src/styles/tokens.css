@@ -69,6 +69,9 @@
   --pf-success-fg: #ffffff; /* 6.6:1 on #1f6b45 (DR-cross-cutting-06) */
   --pf-warning-bg: #f7d774;
   --pf-warning-fg: #3b2a00;
+  /* FB-18 (W13-26): the orange "On hold" chip. 7.5:1; the words carry the meaning, not the colour. */
+  --pf-hold-bg: #f5a54a;
+  --pf-hold-fg: #3b1f00;
 
   /* Priority tier chips */
   --pf-tier-critical-bg: var(--pf-copper);
@@ -178,6 +181,8 @@
   --pf-success-fg: #0b2618; /* 10:1 on #8fd1ab */
   --pf-warning-bg: #5a4500;
   --pf-warning-fg: #ffe9a8;
+  --pf-hold-bg: #6e3800; /* 7.2:1 with the text below */
+  --pf-hold-fg: #ffdcb3;
 
   --pf-tier-high-bg: #3a2219;
   --pf-tier-high-fg: #ec8a66;

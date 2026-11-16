@@ -12,6 +12,8 @@
 
 **Retest for FB-09, FB-11 and FB-12 (added 2026-11-10).** Session U1 ran on Mon Nov 9, before FB-09 (the "Other" rule) and FB-12 (sub-market and the new market list) were built. Steps 9a–9c, 10a–10e, 13e, 17 and 18 are new or changed. A KAM retests them on the test site, and they stay here for the record. Steps 13a–13d and 17a (FB-11) were already in the Nov 9 script.
 
+**Changed 2026-11-15 (FB-18, walkthrough of Nov 13).** Home is now the **Command Center** (the menu says **Command Center**, the phone tab **Command**). A quote on hold shows an orange **On hold** chip on the Command Center. The Salesforce opportunity ID on the **Intake** card is a link once an Admin has set the Salesforce URL. Steps 1, 2, 17, 30, 38, 42, 66 and 72 are changed, and step 70a is new.
+
 **Data (placeholders until Bailey picks real opportunities)**
 
 | Placeholder | What it is |
@@ -30,12 +32,12 @@
 
 Stage, gate, outcome and reason-code labels are configuration and still provisional. If a label reads differently, note it. It is only a failure if the meaning is wrong.
 
-## Part A: Sign in and home
+## Part A: Sign in and the Command Center
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 1 | Open the test URL. Click **Sign in with Microsoft** and sign in. | Home opens with the title **My quotes** ("Your intakes and quotes, and anything waiting on you."). | | |
-| 2 | Look at the left navigation. | You see **Home**, **New intake**, **My proposals** and **Pipeline**. You do **not** see To qualify, Approvals, Analytics or Admin. | | |
+| 1 | Open the test URL. Click **Sign in with Microsoft** and sign in. | The **Command Center** opens with the title **My quotes** ("Your intakes and quotes, and anything waiting on you."). The line above the title reads "Command Center · Key account manager". | | |
+| 2 | Look at the left navigation. | You see **Command Center**, **New intake**, **My proposals** and **Pipeline**. You do **not** see To qualify, Approvals or Admin. The Command Center has no **My work** / **Analytics** switch at the top: analytics is not part of the KAM role. | | |
 | 3 | Click your initials (top right). | The menu shows your name, email and the role chip **KAM**. | | |
 | 4 | Read the home blocks. | You see **Returned to me**, **My drafts**, **My open quotes by stage**, **Proposals expiring soon** and **My outcome capture rate**. | | |
 
@@ -70,7 +72,7 @@ Stage, gate, outcome and reason-code labels are configuration and still provisio
 | 14 | Click **Next**. On step 4, set **Drawing status** to the "have a drawing" option. Drag the drawing PDF onto **Drawing and other files** (or click **choose files**). Optionally add the **Customer RFP / portal link**. | The file uploads and is listed with its size and your name. The **Drawing or minimum spec** box says a drawing is attached. | | |
 | 15 | Type a note in **Comments for engineering**. Read the **Review** section. | **Needed before you can submit** is not shown. Each step summary has an **Edit** link. | | |
 | 16 | Click **Submit to CCQ**. | "Quote **CCQ-2026-NNNNN** created". It says it is waiting for qualification by a sales leader. Write the number in Notes. | | |
-| 17 | Click **Open the quote**. | The quote page shows the number, the stage **Intake**, a priority tier, the **Overview** (with the product facts you entered: **Market** as "Market › Sub-market", resin grade, PCR %, color, additives, dimensions), **Engineering**, **Quoting** and **Attachments** tabs, **Why this priority?** and a **Timeline**. The Salesforce opportunity is a link, **Open in Salesforce ↗** (or the plain ID if Admin has not set the Salesforce URL yet). | | |
+| 17 | Click **Open the quote**. | The quote page shows the number, the stage **Intake**, a priority tier, the **Overview** (with the product facts you entered: **Market** as "Market › Sub-market", resin grade, PCR %, color, additives, dimensions), **Engineering**, **Quoting** and **Attachments** tabs, **Why this priority?** and a **Timeline**. The Salesforce opportunity is a link, **Open in Salesforce ↗** (or the plain ID if Admin has not set the Salesforce URL yet). FB-18: the **SF opportunity ID** on the **Intake** card is the same link, and it opens the Salesforce app on a phone that has it. | | |
 | 17a | On the **Overview** tab read the **Intake** card, and open **Commercial terms**. | The card shows **Bid / program reference**, **Payment terms requested** (with the non-standard flag when it applies), **Customer funds any tooling**, **Dunnage** and **Delivered or FOB**. **Commercial terms** starts with **Customer requested:** and the same flag. | | |
 | 18 | Open **Why this priority?** | It lists the attributes and points. The strategic-fit line shows **Market: <Market › Sub-market>** (for example "Market: Food › Snacks & Confections") with a **provisional** chip (the points are not set until the business decides). The live model still scores strategic fit at a neutral 50: the sub-market points are only in the draft (priority-calibration.md). | | |
 | 19 | Open the **Attachments** tab. | The drawing is there. | | |
@@ -94,7 +96,7 @@ Stage, gate, outcome and reason-code labels are configuration and still provisio
 |---|---|---|---|---|
 | 28 | **New intake** → `<SF-OPP-3 chosen by Bailey>`. On step 3 leave **Resin** empty. Go to step 4. | **Resin** is listed under **Needed before you can submit**. **Submit to CCQ** is disabled. | | |
 | 29 | Go back to step 3. Set **Request class** to **Stock / stock-plus**. Go to step 4. | A message says stock requests stay in the pricing application. **Submit to CCQ** is disabled. Set the class back. | | |
-| 30 | Click **Home**, then **New intake** again. | **Continue a draft** lists the draft with its step and save time. | | |
+| 30 | Click **Command Center**, then **New intake** again. | **Continue a draft** lists the draft with its step and save time. | | |
 | 31 | Click **Continue**, then **Discard**. Confirm **Discard draft**. | "Draft discarded". Salesforce is not changed. | | |
 | 32 | **New intake** → search `<SF-OPP-1 chosen by Bailey>` again. | The card shows **Has quote CCQ-…** and **Open existing**. There is no **Use this opportunity** button (one quote per opportunity). | | |
 | 33 | Search for a name that does not exist in Salesforce. | **Create the opportunity in Salesforce first**. | | |
@@ -109,7 +111,7 @@ Do steps 37–40 after the sales leader returns your Part C quote at G1 (sales-l
 | 35 | Ask the sales leader tester to override the tier on this quote (sales-leader.md Part D). Reload. | The priority shows the new tier with a marker. The original tier and the justification show under **Why this priority?** | | |
 | 36 | Open **Timeline** → **Overrides**. | The override is listed with who applied it and why. You cannot revert it. | | |
 | 37 | After the return, click the bell (top right). Click the notification. | A notification says your quote was returned to you for rework, with the reason and the note in the notification. FB-15: clicking it opens the rework draft, not the top of the quote: "Rework of CCQ-…. Sent back by <name>: <reason>." and the note are pinned at the top. If something blocks the submit, you land on step 4 with the first **Fix** link selected; otherwise on the field the note names (or step 1). The email's link does the same. | | |
-| 38 | Go to **Home**. | **Returned to me** lists the quote. | | |
+| 38 | Go to the **Command Center**. | **Returned to me** lists the quote. | | |
 | 39 | Open the quote. | A banner: **Returned for rework at G1**, the reason and "What to fix:". A **Fix and resubmit** button. | | |
 | 40 | Click **Fix and resubmit**. Fix the item. Click **Submit to CCQ**. Then click **Open the quote**. | The wizard shows "Rework of CCQ-…". The opportunity cannot be changed. After submit: "Quote CCQ-… **resubmitted**" with the **same** number. FB-15: the quote no longer shows the **Returned for rework** banner (no stale warning). | | |
 
@@ -120,7 +122,7 @@ Do this after the pricing lead returns `<CCQ-RW-1>` and `<CCQ-RW-2>` to you (pri
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 41 | Click the bell. Open the notification for `<CCQ-RW-1>`. | It says the quote was returned to you for rework and that Quoting sent it back. The reason and the pricing lead's note are in the notification. The email names the reason only and carries no note. | | |
-| 42 | Go to **Home**. | **Returned to me** lists `<CCQ-RW-1>` with the reason and note from Pricing. | | |
+| 42 | Go to the **Command Center**. | **Returned to me** lists `<CCQ-RW-1>` with the reason and note from Pricing. | | |
 | 43 | Open `<CCQ-RW-1>`. Click **Fix and resubmit**. | The notice says that if the scope did not change, the quote goes straight back to Pricing. Nothing else in the quote asks to be redone. | | |
 | 44 | Go to step 4. Try **Submit to CCQ** before answering **Did the scope change? (required)**. | **Submit to CCQ** is disabled until you answer. | | |
 | 45 | Choose **No, same scope**. Click **Submit to CCQ**. | "Quote … **resubmitted**" and "It is now in Quoting." The stage is **Quoting**, not Intake. The same pricer and pricing lead are still assigned. They are told it is back from you. | | |
@@ -156,7 +158,7 @@ You can read pricing, margin and capital figures on any quote you can open. You 
 | 63 | Choose both columns. Click **Export CSV**. Open the file. | The file has the columns you chose. | | |
 | 64 | Open the emails QuoteFlow sent you about quotes. | No price, margin or capital amount in any email. | | |
 | 65 | Type `/quotes/<CCQ-FR-1 staged by Ben>/review` after the test URL. | The Final Review page opens **read-only** (no decision buttons: every role that can read a quote can read it). Trying to decide G4 through the API is refused with a 403. | | |
-| 66 | Type `/approvals` after the test URL. Then `/analytics`. Then `/admin`. | "You don’t have access to this" each time. | | |
+| 66 | Type `/approvals` after the test URL. Then `/analytics`. Then `/admin`. | "You don’t have access to this" each time. FB-18: `/analytics` now forwards to the Command Center's Analytics view (the address becomes `/?view=analytics`), which a KAM still cannot open. | | |
 | 67 | Open any quote in **Intake** that is yours. | There is no **Qualify & prioritize** button. A KAM cannot qualify. | | |
 
 ## Part I: Notifications and comments
@@ -166,13 +168,14 @@ You can read pricing, margin and capital figures on any quote you can open. You 
 | 68 | Ask an engineer or a pricer tester to add a comment on one of your quotes. Click the bell. | A notice says there is a new comment, with a link. The email, if you get one, never contains the comment text. | | |
 | 69 | Ask them to add two more comments within a few minutes. Check your email. | The comments arrive as **one** email ("3 new comments"), not three. | | |
 | 70 | Watch your bell while the engineering and pricing testers move one of your quotes on (engineering.md Part C, pricing.md Part D). | You are told each time a quote of yours moves on, is sent back, goes on hold or closes. You are told once per event, even if you hold two roles. FB-17: the on-hold notice names the hold owner, the reason and the review date, and the quote's header and **Timeline** read "On hold: <reason>. Owner: <name>. Review by <date>." | | |
+| 70a | FB-18. When one of your quotes has been put on hold (sales-leader.md step 11, or engineering.md step 37 or 97), go to the **Command Center** and find it under **My open quotes by stage**. Rest the mouse on the orange **On hold** chip. Then press Tab until the chip has the focus. On a phone, tap it. | The quote is listed first in its stage, with an orange **On hold** chip. Each way opens the same sentence as the quote's header and **Timeline**: "On hold: <reason>. Owner: <name>. Review by <date>." Once a decision ends the hold, the chip is gone. | | |
 | 71 | Open your user menu → **Email preferences** (`/me/preferences`). Switch off the email for **Your quote moves or a decision is recorded**. | It saves. The in-app notices stay. | | |
 
 ## Part J: Intake on a phone
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 72 | On your phone, open the test URL and sign in. | A bottom tab bar: **Home**, **Intake**, **Proposals**, **Pipeline**. | | |
+| 72 | On your phone, open the test URL and sign in. | A bottom tab bar: **Command**, **Intake**, **Proposals**, **Pipeline**. | | |
 | 73 | Tap **Intake** → find `<SF-OPP-4 chosen by Bailey>` → **Use this opportunity**. | The stepper reads "Step 2 of 4 · Customer & destination". No sideways scrolling. | | |
 | 74 | Fill steps 2 and 3 (including the needed-by dates and the dimensions). On step 4 tap **Add photo** and take a photo of a sample. | The camera opens. The photo uploads as a sample photo. | | |
 | 75 | Tap **Submit to CCQ**. | The quote is created. Note how long the whole intake took. | | |

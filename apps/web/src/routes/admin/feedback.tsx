@@ -16,7 +16,15 @@ import { useEffect, useId, useState } from 'react';
 import { DataTable } from '@/components/DataTable';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
-import { Field, FormErrors, problemErrors, type ServerError } from '@/components/forms';
+import {
+  Field,
+  FormErrors,
+  SaveStatus,
+  SavedNote,
+  problemErrors,
+  saveStatusOf,
+  type ServerError,
+} from '@/components/forms';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { savedStore } from '@/lib/save-status';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -37,6 +46,8 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 export const Route = createFileRoute('/admin/feedback')({ component: FeedbackPage });
 
 const feedbackKey = (status: string) => ['admin', 'feedback', status] as const;
+/** FB-18 (W13-30): the "Progress saved" scope of one report's row. */
+const triageScope = (id: string) => `admin-feedback:${id}`;
 const col = createColumnHelper<FeedbackItem>();
 
 function SeverityPill({ severity, status }: { severity: number; status: string }) {
@@ -112,7 +123,13 @@ function FeedbackPage() {
     }),
     col.accessor('status', {
       header: 'Status',
-      cell: (c) => FEEDBACK_STATUS_LABELS[c.getValue()],
+      // FB-18 (W13-30): the triage dialog closes on Save, so "Progress saved" is said on the row.
+      cell: (c) => (
+        <span className="grid gap-0.5">
+          {FEEDBACK_STATUS_LABELS[c.getValue()]}
+          <SavedNote scope={triageScope(c.row.original.id)} />
+        </span>
+      ),
     }),
     col.accessor('createdAt', {
       header: 'Reported',
@@ -200,8 +217,11 @@ function TriageDialog({ item, onClose }: { item: FeedbackItem; onClose: () => vo
 
   const save = useMutation({
     mutationFn: (body: UpdateFeedbackBody) => api.admin.updateFeedback(item.id, body),
+    // The report is changing again: the earlier "Progress saved" on its row goes.
+    onMutate: () => savedStore.clear(triageScope(item.id)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'feedback'] });
+      savedStore.mark(triageScope(item.id));
       toast.success({ title: 'Report updated' });
       onClose();
     },
@@ -342,7 +362,8 @@ function TriageDialog({ item, onClose }: { item: FeedbackItem; onClose: () => vo
             )}
           </Field>
           <FormErrors errors={errors} />
-          <DialogFooter>
+          <DialogFooter className="sm:items-center">
+            <SaveStatus {...saveStatusOf(save, false)} />
             <Button type="button" variant="outline" disabled={save.isPending} onClick={onClose}>
               Cancel
             </Button>

@@ -22,6 +22,7 @@ import { RatePair } from '@/analytics/RatePair';
 import { Stat, fmtCount, fmtDays, fmtPct, fmtUsd, fmtUsdCompact } from '@/components/charts';
 import { InfoTip } from '@/components/charts/InfoTip';
 import { ErrorState } from '@/components/ErrorState';
+import { HoldChip } from '@/components/HoldChip';
 import { SkeletonCard } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,7 +116,9 @@ function QuoteList({ items, ageLabel = 'in stage' }: { items: DashQuote[]; ageLa
             {quoteLink(q.quoteNumber)}
             <span className="text-muted-foreground truncate text-xs">{q.account}</span>
           </span>
-          <span className="flex items-center gap-2">
+          <span className="flex flex-wrap items-center gap-2">
+            {/* FB-18 (W13-26): on hold; the reason, owner and review date on hover and focus. */}
+            {q.hold && <HoldChip hold={q.hold} />}
             {q.tier && <TierChip tier={q.tier} />}
             {q.daysInStage !== null && (
               <span className="text-muted-foreground text-xs tabular-nums">
@@ -138,7 +141,10 @@ function Expiring({ items }: { items: ExpiringProposal[] }) {
           className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm"
         >
           <span className="grid min-w-0">
-            {quoteLink(p.quoteNumber)}
+            <span className="flex flex-wrap items-center gap-x-2">
+              {quoteLink(p.quoteNumber)}
+              {p.hold && <HoldChip hold={p.hold} />}
+            </span>
             <span className="text-muted-foreground truncate text-xs">
               {p.account}
               {p.kamName ? ` · ${p.kamName}` : ''}
@@ -210,7 +216,10 @@ function QueueBlock({ q, title, testId }: { q: QueueHealth; title: string; testI
   );
 }
 
-/** Stage columns with counts and the oldest quotes; stacks to one column on a phone. */
+/**
+ * Stage columns with counts and a few quotes each: the ones on hold first (FB-18, W13-26: each with the
+ * "On hold" chip), then the oldest. Stacks to one column on a phone.
+ */
 function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="mini-board">
@@ -226,8 +235,15 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
           {s.quotes.length > 0 && (
             <ul className="mt-2 grid gap-1 text-xs">
               {s.quotes.map((q) => (
-                <li key={q.quoteNumber} className="flex justify-between gap-2">
-                  {quoteLink(q.quoteNumber)}
+                <li
+                  key={q.quoteNumber}
+                  className="flex flex-wrap items-center justify-between gap-x-2"
+                  data-status={q.status}
+                >
+                  <span className="flex flex-wrap items-center gap-x-2">
+                    {quoteLink(q.quoteNumber)}
+                    {q.hold && <HoldChip hold={q.hold} />}
+                  </span>
                   <span className="text-muted-foreground tabular-nums">
                     {q.daysInStage === null ? '' : `${q.daysInStage} d`}
                   </span>
@@ -718,7 +734,12 @@ function Leadership({ d }: { d: LeadershipDashboard }) {
         info={d.pipeline.info}
         testId="dash-pipeline"
         className="lg:col-span-2"
-        action={<MoreLink to="/analytics">Open full analytics</MoreLink>}
+        // FB-18 (W13-29): Analytics is the other view of the Command Center.
+        action={
+          <MoreLink to="/" search={{ view: 'analytics' }}>
+            Open full analytics
+          </MoreLink>
+        }
       >
         {d.pipeline.total === 0 ? (
           <Empty>No open quotes.</Empty>

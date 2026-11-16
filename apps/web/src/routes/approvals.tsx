@@ -22,6 +22,7 @@ import {
   type FinalReviewSearch,
   type FinalReviewSort,
 } from '@/components/final-review/FinalReviewQueue';
+import { SalesforceLink, SalesforceUrlHint } from '@/components/SalesforceLink';
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
@@ -238,17 +239,20 @@ function GateQueueBody({
         />
       )}
       {queue.data?.gate.enabled && queue.data.items.length > 0 && (
-        <ol className="grid gap-3" aria-label={queue.data.gate.label}>
-          {queue.data.items.map((q, i) => (
-            <QueueCard
-              key={q.id}
-              quote={q}
-              rank={i + 1}
-              canDecide={queue.data.canDecide}
-              onDecide={() => setDeciding(q.quoteNumber)}
-            />
-          ))}
-        </ol>
+        <>
+          <SalesforceUrlHint quotes={queue.data.items} className="mb-2" />
+          <ol className="grid gap-3" aria-label={queue.data.gate.label}>
+            {queue.data.items.map((q, i) => (
+              <QueueCard
+                key={q.id}
+                quote={q}
+                rank={i + 1}
+                canDecide={queue.data.canDecide}
+                onDecide={() => setDeciding(q.quoteNumber)}
+              />
+            ))}
+          </ol>
+        </>
       )}
       {deciding && (
         <GateDecisionDialog
@@ -310,7 +314,13 @@ function QueueCard({
         </div>
         <p className="min-w-0 text-sm break-words">
           {quote.customerName ?? 'Unknown customer'}
-          {quote.opportunityName ? ` · ${quote.opportunityName}` : ''}
+          {/* FB-18 (W13-31): the opportunity opens in Salesforce once the URL is set. */}
+          {quote.opportunityName && (
+            <>
+              {' · '}
+              <SalesforceLink quote={quote} label={quote.opportunityName} hint={false} />
+            </>
+          )}
         </p>
         <p className="text-muted-foreground text-xs">
           {[

@@ -29,6 +29,15 @@ export interface DashboardQuoteRow {
   submitted_at: Date | null;
   /** When the current stage stay began (holds included in the age). */
   stage_entered_at: Date | null;
+  /**
+   * FB-18 (W13-26): the hold as the quote carries it (FB-17 writes these with the Hold decision). Read
+   * them only while `status` is `on_hold`: the owner and the review date stay on the row after a hold ends.
+   */
+  hold_owner_name: string | null;
+  /** YYYY-MM-DD */
+  hold_review_date: string | null;
+  /** The open hold's reason code (`quote_hold`); null when the quote is not on hold. */
+  hold_reason_code: string | null;
 }
 
 /**
@@ -65,17 +74,25 @@ const quoteRows = (db: DbOrTx, where: SQL, order: SQL = sql`st.entered_at nulls 
       q.assigned_engineer_id, e.display_name as engineer_name,
       so.amount::float8 as sf_amount,
       to_char(q.validity_until, 'YYYY-MM-DD') as validity_until,
-      q.submitted_at, st.entered_at as stage_entered_at
+      q.submitted_at, st.entered_at as stage_entered_at,
+      ho.display_name as hold_owner_name,
+      to_char(q.review_date, 'YYYY-MM-DD') as hold_review_date,
+      oh.reason_code as hold_reason_code
     from quote q
     left join customer c on c.id = q.customer_id
     left join app_user k on k.id = q.kam_user_id
     left join app_user e on e.id = q.assigned_engineer_id
+    left join app_user ho on ho.id = q.hold_owner_id
     left join sf_opportunity_snapshot so on so.sf_opportunity_id = q.sf_opportunity_id
     left join stage_definition sd on sd.key = q.stage_key
     left join lateral (
       select sh.entered_at from stage_history sh
       where sh.quote_id = q.id and sh.exited_at is null order by sh.entered_at desc limit 1
     ) st on true
+    left join lateral (
+      select qh.reason_code from quote_hold qh
+      where qh.quote_id = q.id and qh.ended_at is null order by qh.started_at desc limit 1
+    ) oh on q.status = 'on_hold'
     where ${where}
     order by ${order}`,
     ['submitted_at', 'stage_entered_at'],
@@ -126,6 +143,7 @@ export interface ReturnedRow extends DashboardQuoteRow {
  * Quotes sent back to the KAM (a G1 / G2 Rework, or since FB-01 a G3 "Rework (back to KAM)", puts the
  * quote back in Intake with `submitted_at` cleared), each with the latest decision that sent it to
  * Intake (its reason and note), and the rework draft if started.
+ * FB-18 (W13-26): only `active` quotes are listed, so none of them is on hold (the hold columns are null).
  */
 export function returnedToKam(db: DbOrTx, userId: string): Promise<ReturnedRow[]> {
   return rows(
@@ -140,6 +158,7 @@ export function returnedToKam(db: DbOrTx, userId: string): Promise<ReturnedRow[]
       null::float8 as sf_amount,
       to_char(q.validity_until, 'YYYY-MM-DD') as validity_until,
       q.submitted_at, st.entered_at as stage_entered_at,
+      null::text as hold_owner_name, null::text as hold_review_date, null::text as hold_reason_code,
       g.gate_key, g.reason_code, rc.label as reason_label, g.note,
       g.decided_at as returned_at, gu.display_name as returned_by,
       d.id as draft_id

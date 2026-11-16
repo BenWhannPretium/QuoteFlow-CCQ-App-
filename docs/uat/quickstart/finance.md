@@ -2,7 +2,7 @@
 
 **What QuoteFlow is for you.** Quotes that need a payback model before the price is approved: capital is required, $0 CER included. Pricing uploads the costing model (costs and the initial price assumptions); you build the payback from it on your template and upload the payback model. You are an input, not an approver: the pricing lead approves the price (G3, **Price approved**) once your payback model is on file.
 
-**Your home screen.** **Payback requests**, with what to do. Your menu: **Home**, **Pipeline**. Your role reads quotes, uploads the payback model and may comment on a quote; it changes nothing else.
+**Your Command Center.** **Payback requests**, with what to do. Your menu: **Command Center**, **Pipeline**. Your role reads quotes, uploads the payback model and may comment on a quote; it changes nothing else.
 
 ## What you'll do
 

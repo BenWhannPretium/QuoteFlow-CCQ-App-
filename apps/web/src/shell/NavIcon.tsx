@@ -1,5 +1,4 @@
 import {
-  BarChart3Icon,
   CheckSquareIcon,
   ClipboardListIcon,
   FileClockIcon,
@@ -24,7 +23,6 @@ export const NAV_ICONS: Record<NavKey, LucideIcon> = {
   pipeline: KanbanSquareIcon,
   qualify: ListChecksIcon,
   approvals: CheckSquareIcon,
-  analytics: BarChart3Icon,
   audit: ScrollTextIcon,
   admin: SettingsIcon,
 };

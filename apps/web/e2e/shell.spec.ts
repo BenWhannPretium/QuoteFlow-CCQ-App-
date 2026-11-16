@@ -19,10 +19,13 @@ test('nav items open their pages', async ({ page }) => {
   await signInAs(page, 'admin');
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Primary' });
+  // FB-18 (W13-29): Home is the Command Center; Analytics is one of its views (fb18.spec.ts).
+  await expect(nav.locator('[data-nav="home"]')).toHaveAccessibleName('Command Center');
+  await expect(nav.locator('[data-nav="home"]')).toHaveAttribute('aria-current', 'page');
+  await expect(page).toHaveTitle('Administration · Command Center · QuoteFlow');
   for (const [key, title] of [
     ['intake', 'New intake'],
     ['pipeline', 'Pipeline'],
-    ['analytics', 'Analytics'],
     ['admin', 'Admin'],
   ] as const) {
     await nav.locator(`[data-nav="${key}"]`).click();
