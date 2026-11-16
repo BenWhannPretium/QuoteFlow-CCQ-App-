@@ -37,6 +37,7 @@ import {
 } from '@/components/pipeline/parts';
 import { PipelineToolbar } from '@/components/pipeline/PipelineToolbar';
 import { CapitalChip } from '@/components/pricing/CapitalChip';
+import { ItemsBadge } from '@/components/QuoteItems';
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
@@ -245,14 +246,21 @@ function QuoteTable({
               ...base,
               meta: { primary: true },
               cell: ({ row }) => (
-                <Link
-                  to="/quotes/$quoteNumber"
-                  params={{ quoteNumber: row.original.quoteNumber }}
-                  className="text-emphasis font-semibold whitespace-nowrap underline-offset-4 hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {row.original.quoteNumber}
-                </Link>
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  <Link
+                    to="/quotes/$quoteNumber"
+                    params={{ quoteNumber: row.original.quoteNumber }}
+                    className="text-emphasis font-semibold whitespace-nowrap underline-offset-4 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {row.original.quoteNumber}
+                  </Link>
+                  {/* FB-19 (W13-32): the item count beside the quote. */}
+                  <ItemsBadge
+                    itemCount={row.original.itemCount}
+                    itemsSummary={row.original.itemsSummary}
+                  />
+                </span>
               ),
             };
           case 'stage':
@@ -484,6 +492,7 @@ function PriorityList({ data }: { data: QuoteListResponse }) {
                   >
                     {q.quoteNumber}
                   </Link>
+                  <ItemsBadge itemCount={q.itemCount} itemsSummary={q.itemsSummary} />
                   <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} />
                   <StageBadge stageKey={q.stageKey} />
                   {q.status === 'on_hold' && (

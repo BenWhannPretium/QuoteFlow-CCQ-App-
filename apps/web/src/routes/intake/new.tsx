@@ -1,4 +1,11 @@
-import type { IntakeDraft, SfOpportunitySummary, SubmitIntakeResponse } from '@ccq/contracts';
+import {
+  draftItems,
+  type IntakeDraft,
+  type IntakeDraftData,
+  type IntakeItemData,
+  type SfOpportunitySummary,
+  type SubmitIntakeResponse,
+} from '@ccq/contracts';
 import { DRAWING_ATTACHMENT_KINDS } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
@@ -10,7 +17,7 @@ import {
   Trash2Icon,
   RotateCcwIcon,
 } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { RequirePermission } from '@/auth';
 import { attachmentsQueryKey } from '@/components/attachments/Attachments';
@@ -22,11 +29,20 @@ import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { publicConfigQueryKey, stageLabel, usePublicConfig } from '@/config/public-config';
 import {
+  draftItemName,
+  duplicateItem,
   evaluateDraft,
+  itemFromSpec,
+  itemIssueCounts,
+  issueTextIn,
+  itemView,
+  moveItem,
+  newItem,
+  routeItemPatch,
+  scopeEvaluation,
   FIELD_META,
   issueLabel,
   issueStep,
-  issueText,
   prefillFromOpportunity,
   requiredFieldsNow,
   submitProblemIssues,
@@ -34,7 +50,13 @@ import {
   type WizardConfig,
 } from '@/intake/model';
 import { OpportunityPicker } from '@/intake/OpportunityPicker';
-import { CustomerStep, focusIntakeField, ProductStep, ReviewStep } from '@/intake/Steps';
+import {
+  CustomerStep,
+  focusIntakeField,
+  ProductStep,
+  ReviewStep,
+  type ItemsProps,
+} from '@/intake/Steps';
 import { Notice, Section, Stepper } from '@/intake/ui';
 import { DraftNotSavedError, useIntakeDraft, type SaveState } from '@/intake/useIntakeDraft';
 import { isApiError, api } from '@/lib/api';
@@ -335,7 +357,11 @@ function Wizard({
   atReview?: boolean;
 }) {
   const draft = useIntakeDraft(initial);
-  const { data, step, update } = draft;
+  const { data, step, update, updateWith } = draft;
+  // FB-19 (W13-32): the items, and the one whose fields are open on step 3 (and whose drawings step 4 shows).
+  const items = draftItems(data);
+  const [itemIndex, setItemIndex] = useState(0);
+  const sel = Math.min(itemIndex, Math.max(0, items.length - 1));
   // F-016: is a bottle or competitor drawing attached (to the draft, or already on a reworked quote)?
   const draftFiles = useQuery({
     queryKey: attachmentsQueryKey({ draftId: draft.id }),
@@ -347,9 +373,25 @@ function Wizard({
     queryFn: () => api.quoteAttachments(reworkNumber),
     enabled: Boolean(reworkNumber),
   });
-  const hasDrawing = [...(draftFiles.data?.items ?? []), ...(quoteFiles.data?.items ?? [])].some(
-    (f) => (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(f.kind),
+  // FB-19: a drawing counts for its own item (and for the items that link to it); a drawing with no item
+  // (uploaded before FB-19) counts for item 1, as on the server.
+  const drawings = useMemo(
+    () =>
+      [...(draftFiles.data?.items ?? []), ...(quoteFiles.data?.items ?? [])].filter((f) =>
+        (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(f.kind),
+      ),
+    [draftFiles.data, quoteFiles.data],
   );
+  const hasDrawingFor = useCallback(
+    (item: IntakeItemData, index: number) =>
+      drawings.some((f) => f.quoteItemId === item.key || (f.quoteItemId === null && index === 0)) ||
+      (item.linkedDrawingIds ?? []).some((id) => drawings.some((f) => f.id === id)),
+    [drawings],
+  );
+  const hasDrawing = useMemo(() => {
+    const open = draftItems(data)[sel];
+    return open ? hasDrawingFor(open, sel) : false;
+  }, [data, sel, hasDrawingFor]);
   // FB-15 (W13-02): the red asterisk also marks the minimum-spec fields while no drawing is attached.
   const cfg = useMemo(
     () => ({ ...baseCfg, requiredFields: requiredFieldsNow(baseCfg, hasDrawing) }),
@@ -357,8 +399,22 @@ function Wizard({
   );
   // FB-15 (W13-01): the same inputs as the server: the active list codes (in cfg) and the quote's own codes.
   const evaluation = useMemo(
-    () => evaluateDraft(data, cfg, hasDrawing, initial.keptListValues),
-    [data, cfg, hasDrawing, initial.keptListValues],
+    () => evaluateDraft(data, cfg, hasDrawingFor, initial.keptListValues),
+    [data, cfg, hasDrawingFor, initial.keptListValues],
+  );
+  // FB-19: the open item's fields see the request plus that item, and their issues are that item's.
+  const itemData = useMemo(() => itemView(data, sel), [data, sel]);
+  const updateItem = useCallback(
+    (patch: Partial<IntakeDraftData>) =>
+      updateWith((current) => routeItemPatch(current, sel, patch)),
+    [updateWith, sel],
+  );
+  const itemEvaluation = useMemo(() => scopeEvaluation(evaluation, sel + 1), [evaluation, sel]);
+  const [removing, setRemoving] = useState<number | null>(null);
+  // Items that came from the quote (a rework): Engineering may have worked on them.
+  const fromQuote = useMemo(
+    () => new Set(initial.rework ? draftItems(initial.data).map((i) => i.key) : []),
+    [initial],
   );
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -369,8 +425,10 @@ function Wizard({
   const [submitError, setSubmitError] = useState<SubmitError | null>(null);
   const [submitted, setSubmitted] = useState<SubmitIntakeResponse | null>(null);
 
-  const goTo = (n: number, field?: string) => {
+  const goTo = (n: number, field?: string, item?: number) => {
     setSubmitError(null);
+    // FB-19: an item's Fix opens that item.
+    if (item !== undefined) setItemIndex(item - 1);
     void draft.setStep(n);
     window.scrollTo({ top: 0 });
     // DR-kam-sales-leader-18: "Fix" lands on the field, not on the page body.
@@ -546,6 +604,44 @@ function Wizard({
     sfCloseDate: draft.sfCloseDate,
     hasDrawing,
   };
+  // FB-19 (W13-32): the Items list's actions. Every change replaces `items` (autosaved like any field).
+  const setItems = (fn: (items: IntakeItemData[]) => IntakeItemData[]) =>
+    updateWith((current) => ({ items: fn(draftItems(current)) }));
+  const usedSpecs = new Set(items.map((i) => i.sfProductSpecId).filter(Boolean));
+  const unusedSpecs = (data.sfProductSpecs ?? []).filter((spec) => !usedSpecs.has(spec.id));
+  const itemsProps: ItemsProps = {
+    items,
+    selected: sel,
+    onSelect: (i) => setItemIndex(i),
+    issueCounts: itemIssueCounts(evaluation, items.length),
+    itemsMax: cfg.intake.itemsMax,
+    onAdd: () => {
+      setItems((list) => [...list, newItem()]);
+      setItemIndex(items.length);
+    },
+    unusedSfSpecs: unusedSpecs.length,
+    onAddFromSalesforce: () => {
+      const room = Math.max(0, cfg.intake.itemsMax - items.length);
+      const added = unusedSpecs.slice(0, room).map((spec) => itemFromSpec(spec, cfg));
+      if (added.length === 0) return;
+      setItems((list) => [...list, ...added]);
+      setItemIndex(items.length);
+    },
+    onDuplicate: (i) => {
+      const item = items[i];
+      if (!item) return;
+      const own = drawings.filter((f) => f.quoteItemId === item.key).map((f) => f.id);
+      setItems((list) => [...list.slice(0, i + 1), duplicateItem(item, own), ...list.slice(i + 1)]);
+      setItemIndex(i + 1);
+    },
+    onRemove: (i) => setRemoving(i),
+    onMove: (i, to) => {
+      setItems((list) => moveItem(list, i, to));
+      if (sel === i) setItemIndex(to);
+      else if (sel === to) setItemIndex(i);
+    },
+  };
+  const itemNames = Object.fromEntries(items.map((it, i) => [it.key, draftItemName(it, i)]));
 
   return (
     <div className="grid gap-4" data-testid="intake-wizard" data-step={step}>
@@ -573,17 +669,39 @@ function Wizard({
         </Notice>
       )}
 
-      {draft.activeQuote && (
-        <Notice tone="blocking" testId="active-quote">
-          This opportunity already has an active CCQ quote ({draft.activeQuote.quoteNumber}). There
-          is one quote per opportunity.{' '}
-          <Link
-            className="underline"
-            to="/quotes/$quoteNumber"
-            params={{ quoteNumber: draft.activeQuote.quoteNumber }}
-          >
-            Open existing
-          </Link>
+      {/* FB-19 (W13-33): another active quote on the opportunity. With `one`, there is one quote per
+          opportunity; with `warn`, the KAM may start a separate quote after confirming. */}
+      {draft.openQuotes.quotes.length > 0 && !initial.rework && (
+        <Notice
+          tone={draft.openQuotes.mode === 'one' ? 'blocking' : 'warning'}
+          testId="active-quote"
+        >
+          <p>
+            {draft.openQuotes.mode === 'one'
+              ? `This opportunity already has an active CCQ quote (${draft.openQuotes.quotes.map((q) => q.quoteNumber).join(', ')}). There is one quote per opportunity.`
+              : draft.openQuotes.warning}{' '}
+            {draft.activeQuote && (
+              <Link
+                className="underline"
+                to="/quotes/$quoteNumber"
+                params={{ quoteNumber: draft.activeQuote.quoteNumber }}
+              >
+                Open existing
+              </Link>
+            )}
+          </p>
+          {draft.openQuotes.mode === 'warn' && (
+            <label className="mt-2 flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 accent-[var(--primary)]"
+                data-testid="separate-quote-confirm"
+                checked={data.separateQuoteConfirmed === true}
+                onChange={(e) => update({ separateQuoteConfirmed: e.target.checked })}
+              />
+              Start a separate quote for these items
+            </label>
+          )}
         </Notice>
       )}
 
@@ -612,8 +730,32 @@ function Wizard({
           </Section>
         ))}
       {step === 2 && <CustomerStep {...stepProps} />}
-      {step === 3 && <ProductStep {...stepProps} />}
-      {step === 4 && <ReviewStep {...stepProps} goTo={goTo} draftId={draft.id} />}
+      {step === 3 && (
+        <ProductStep
+          {...stepProps}
+          data={itemData}
+          update={updateItem}
+          evaluation={itemEvaluation}
+          items={itemsProps}
+        />
+      )}
+      {step === 4 && (
+        <ReviewStep
+          {...stepProps}
+          goTo={goTo}
+          draftId={draft.id}
+          items={{
+            items,
+            selected: sel,
+            onSelect: setItemIndex,
+            hasDrawingFor,
+            itemData,
+            updateItem,
+            itemEvaluation,
+            itemNames,
+          }}
+        />
+      )}
       {step === 4 && askScope && (
         <fieldset
           className="grid gap-2 rounded-md border p-4"
@@ -673,9 +815,12 @@ function Wizard({
                     className="flex flex-wrap items-center gap-x-2"
                   >
                     <span>
-                      {issue.field && issue.code !== 'MISSING_FIELD' && FIELD_META[issue.field]
+                      {issue.field &&
+                      issue.code !== 'MISSING_FIELD' &&
+                      issue.item === undefined &&
+                      FIELD_META[issue.field]
                         ? `${issueLabel(issue)}: ${issue.message}`
-                        : issueText(issue)}
+                        : issueTextIn(data)(issue)}
                     </span>
                     {issue.field && (
                       <Button
@@ -684,7 +829,7 @@ function Wizard({
                         className="h-auto min-h-0 px-0"
                         onClick={() => {
                           const target = issue.missing?.[0] ?? issue.field;
-                          goTo(FIELD_META[target]?.step ?? issueStep(issue), target);
+                          goTo(FIELD_META[target]?.step ?? issueStep(issue), target, issue.item);
                         }}
                       >
                         Fix
@@ -731,7 +876,11 @@ function Wizard({
               disabled={
                 !evaluation.ready ||
                 submit.isPending ||
-                Boolean(draft.activeQuote) ||
+                // FB-19 (W13-33): another active quote on the opportunity blocks (`one`) or needs the
+                // KAM's confirmation (`warn`). The server checks it again.
+                (!initial.rework &&
+                  draft.openQuotes.quotes.length > 0 &&
+                  (draft.openQuotes.mode === 'one' || data.separateQuoteConfirmed !== true)) ||
                 (askScope && scopeChanged === null)
               }
             >
@@ -740,6 +889,33 @@ function Wizard({
           )}
         </div>
       </div>
+
+      {/* FB-19: removing an item asks first; one item always stays. */}
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(o) => {
+          if (!o) setRemoving(null);
+        }}
+        title={
+          removing !== null && items[removing]
+            ? `Remove ${draftItemName(items[removing], removing)}?`
+            : 'Remove this item?'
+        }
+        description={
+          removing !== null && items[removing] && fromQuote.has(items[removing].key)
+            ? 'Its fields are removed from this quote. Any engineering work done on it is discarded when you resubmit (the audit keeps it). Its drawings stay in the files.'
+            : 'Its fields are removed from this intake. Its drawings stay in the files.'
+        }
+        confirmLabel="Remove item"
+        destructive
+        onConfirm={() => {
+          const i = removing;
+          setRemoving(null);
+          if (i === null) return;
+          setItems((list) => (list.length <= 1 ? list : list.filter((_, n) => n !== i)));
+          setItemIndex((cur) => (cur > i ? cur - 1 : cur === i ? Math.max(0, i - 1) : cur));
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDiscard}

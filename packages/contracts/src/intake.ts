@@ -538,7 +538,7 @@ export function normalizeDraftData(data: IntakeDraftData, newKey: () => string):
   const items = data.items ?? [itemFromFlat(data, newKey())];
   const out: Record<string, unknown> = { ...data, items };
   for (const f of INTAKE_ITEM_FIELDS) delete out[f];
-  return out as IntakeDraftData;
+  return out;
 }
 
 /** One item's product fields in the domain's snake_case shape (an entry of `intakeValues(...).items`). */

@@ -329,6 +329,8 @@ export class PipelineService {
           tierOverridden: item.priority.tierOverridden,
           accountName: item.accountName,
           productSummary: item.productSummary,
+          itemCount: item.itemCount,
+          itemsSummary: item.itemsSummary,
           estAnnualVolume: item.estAnnualVolume,
           amount: item.amount,
           kamUserId: item.kamUserId,

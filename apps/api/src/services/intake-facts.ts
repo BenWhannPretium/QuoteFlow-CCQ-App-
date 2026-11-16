@@ -190,5 +190,5 @@ export function quoteWithItem(q: Quote, item: QuoteItem): Quote {
       size: item.containerSize,
       standard: item.standardDescription,
     },
-  } as Quote;
+  };
 }

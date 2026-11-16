@@ -1,5 +1,4 @@
 import { DomainError } from '../errors';
-import { planReworkReturn, type ReworkReturn } from './rework';
 import {
   evaluateQuoteRules,
   itemFactKeys,
@@ -7,6 +6,7 @@ import {
   quoteItemFacts,
   ruleIsPerItem,
 } from './item-rules';
+import { planReworkReturn, type ReworkReturn } from './rework';
 import { fieldsReferenced, getPath } from './rules';
 import type { FieldValues } from './rules';
 import { approverTierErrors, type ApproverTierRules } from '../final-review/tiers';

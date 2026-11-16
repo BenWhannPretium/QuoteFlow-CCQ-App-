@@ -31,6 +31,7 @@ import { formatDuration } from '@/components/engineering/format';
 import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { PricerAssignDialog } from '@/components/pricing/PricerAssignDialog';
 import { CAPITAL_LABELS, pricingQueueQueryKey } from '@/components/pricing/QuotingTab';
+import { ItemsBadge } from '@/components/QuoteItems';
 import { ReviewTabs, type ReviewTab } from '@/components/ReviewTabs';
 import { SalesforceLink, SalesforceUrlHint } from '@/components/SalesforceLink';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -398,6 +399,8 @@ function QueueTable({ data }: { data: PricingQueueResponse }) {
               >
                 {q.quoteNumber}
               </Link>
+              {/* FB-19 (W13-32): the item count beside the quote. */}
+              <ItemsBadge itemCount={q.itemCount} itemsSummary={q.itemsSummary} />
               <span className="text-muted-foreground text-xs" data-testid="approval-status">
                 {q.status === 'on_hold' ? (
                   `On hold${q.reviewDate ? ` until ${calendarDate(q.reviewDate)}` : ''}`

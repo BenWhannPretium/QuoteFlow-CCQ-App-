@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
+import { QuoteItemsList } from '@/components/QuoteItems';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
@@ -462,6 +463,8 @@ function RequestSection({ s }: { s: ReviewSummary }) {
   return (
     <Section id="request" title="The request">
       <KeyValueGrid items={items} />
+      {/* FB-19 (W13-32): every item, with its plant and machine, volume and need-by. */}
+      {s.items.length > 1 && <QuoteItemsList items={s.items} testId="review-items" />}
       {i.commentsForEngineering && (
         <p className="text-foreground-2 text-sm whitespace-pre-line">{i.commentsForEngineering}</p>
       )}

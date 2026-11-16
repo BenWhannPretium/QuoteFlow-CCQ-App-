@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/ErrorState';
 import { StageBadge } from '@/components/StageBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -150,6 +151,9 @@ function OpportunityCard({
   disabled: boolean;
   onPick: () => void;
 }) {
+  // FB-19 (W13-33): `warn` lets a KAM start a separate quote on an opportunity that has one.
+  const { data: config } = usePublicConfig();
+  const allowSeparate = config?.settings.opportunity_active_quotes !== 'one';
   return (
     <li
       data-testid="opportunity-card"
@@ -190,13 +194,24 @@ function OpportunityCard({
       </div>
       {o.activeQuote ? (
         <div className="grid justify-items-start gap-2 sm:justify-items-end">
-          <Pill className="bg-muted text-foreground">Has quote {o.activeQuote.quoteNumber}</Pill>
+          <Pill className="bg-muted text-foreground">
+            Has quote {o.activeQuote.quoteNumber}
+            {o.activeQuotes.length > 1 ? ` + ${o.activeQuotes.length - 1} more` : ''}
+          </Pill>
           <StageBadge stageKey={o.activeQuote.stageKey} />
           <Button asChild variant="outline">
             <Link to="/quotes/$quoteNumber" params={{ quoteNumber: o.activeQuote.quoteNumber }}>
               Open existing
             </Link>
           </Button>
+          {/* FB-19 (W13-33): with `opportunity_active_quotes` = warn, a KAM may start a separate quote
+              (hot items on their own); the draft asks them to confirm the warning first. */}
+          {allowSeparate && o.accountId && (
+            <Button onClick={onPick} disabled={disabled} variant="ghost" size="sm">
+              {busy ? 'Loading…' : 'Start a separate quote'}
+              <span className="sr-only">: {o.name}</span>
+            </Button>
+          )}
         </div>
       ) : !o.accountId ? (
         // FB-02 (F-007, D-011): the customer is the opportunity's SF Account; add it in Salesforce first.

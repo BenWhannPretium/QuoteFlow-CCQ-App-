@@ -37,7 +37,6 @@ import {
   type Actor,
   type IntakeConfig,
 } from '@ccq/domain';
-
 import { eq } from 'drizzle-orm';
 
 import { recordAudit, type AuditMeta } from '../plugins/audit';
@@ -128,7 +127,7 @@ export function mergeDraftPatch(
     merged.items =
       items.length > 0
         ? [{ ...items[0]!, ...flat }, ...items.slice(1)]
-        : [{ ...itemFromFlat(flat as IntakeDraftData, uuidv7()) }];
+        : [{ ...itemFromFlat(flat, uuidv7()) }];
   }
   return normalizeDraftData(merged, uuidv7);
 }
@@ -419,8 +418,8 @@ export async function syncQuoteItems(
       entity: 'quote_item',
       entityId,
       quoteId,
-      before: before as Record<string, unknown> | null,
-      after: after as Record<string, unknown>,
+      before: before,
+      after: after,
     });
 
   // 1. Removed items, with the engineering work done on them (kept in the audit).
@@ -431,8 +430,8 @@ export async function syncQuoteItems(
     await audit(
       old.id,
       {
-        item: jsonable(removed.item as Record<string, unknown> | undefined),
-        engReview: jsonable(removed.review as Record<string, unknown> | null),
+        item: jsonable(removed.item),
+        engReview: jsonable(removed.review),
         capacityEvidence: removed.capacity.map((c) => jsonable(c as Record<string, unknown>)),
         drawingLinks: removed.links.map((l) => l.attachmentId),
       },
@@ -482,7 +481,7 @@ export async function syncQuoteItems(
         ? (keyToId.get(item.duplicatedFrom) ?? item.duplicatedFrom)
         : null;
       await audit(created.id, null, {
-        ...jsonable(values as Record<string, unknown>),
+        ...jsonable(values),
         itemNo: index + 1,
         ...(from ? { duplicatedFrom: from } : {}),
       });

@@ -1,7 +1,7 @@
 import { PACK_OUT_LABELS, type PackOutField, type SolutionExtras } from './solution-extras';
 import { DomainError } from '../errors';
-import type { WorkflowConfig } from '../types/workflow-config';
 import { itemName } from '../intake/items';
+import type { WorkflowConfig } from '../types/workflow-config';
 import { itemView, quoteItemFacts } from '../workflow/item-rules';
 
 /**

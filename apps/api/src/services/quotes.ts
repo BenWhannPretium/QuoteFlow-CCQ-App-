@@ -50,10 +50,10 @@ import { engineeringView, loadEngQueueSettings, loadPackOutRule } from './engine
 import { loadReleaseSettings, type ReleaseSettings } from './final-review-view';
 import { intakeFactsDto } from './intake-facts';
 import { engineeringSubmissionExtras } from './lead-review';
-import { quoteItemSummaries } from './quote-items-view';
 import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from './outcome-view';
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
+import { quoteItemSummaries } from './quote-items-view';
 import type { ScoringService } from './scoring';
 
 /** Request-scoped inputs for building quote DTOs (loaded once per request). */

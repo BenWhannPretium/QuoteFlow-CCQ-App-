@@ -84,6 +84,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { AttachmentService } from './attachments';
 import { onEngQueueArrival } from './engineering-arrival';
+import { deliverDecisionNotifications, deliverResumeNotifications } from './handoff-notifications';
 import {
   changedDraftData,
   draftItemsFromQuote,
@@ -95,7 +96,6 @@ import {
   storedItemColumns,
   syncQuoteItems,
 } from './intake-items';
-import { deliverDecisionNotifications, deliverResumeNotifications } from './handoff-notifications';
 import { recordIntakeShipToOverride } from './overrideService';
 import { onPricingArrival } from './pricing-view';
 import { onQualifyArrival } from './qualify-arrival';

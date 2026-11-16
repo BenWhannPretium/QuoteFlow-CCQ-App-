@@ -374,7 +374,10 @@ const namesOf = (codes: readonly string[], list: readonly { code: string; label:
 export function PricingInputsCard({
   quote,
   refresh,
+  itemId,
 }: {
+  /** FB-19: the item whose two-step process and pack-out these are (item 1 when omitted). */
+  itemId?: string | undefined;
   quote: QuoteDetail;
   refresh: (detail?: EngineeringDetail) => Promise<unknown>;
 }) {
@@ -412,7 +415,7 @@ export function PricingInputsCard({
   const invalid = PACK_OUT_FIELDS.some((f) => typed(f)) || together.length > 0;
   // Bailey (2026-11-12): say it beside the button, where the eye already is (the toast is easy to miss).
   // FB-18 (W13-30): the shared `SaveStatus` ("Progress saved"), as on every other Save button.
-  const status = useSaved(`pack-out:${quote.quoteNumber}`);
+  const status = useSaved(`pack-out:${quote.quoteNumber}:${itemId ?? ''}`);
   const set = <K extends keyof ExtrasForm>(k: K, v: ExtrasForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -428,11 +431,14 @@ export function PricingInputsCard({
           body[k] = t === '' ? null : k.startsWith('unitsPer') ? Number(t) : t;
         }
       }
-      return api.updateEngReview(quote.quoteNumber, body);
+      // FB-19: the two-step process and the pack-out are the item's.
+      return api.updateEngReview(quote.quoteNumber, itemId ? { ...body, itemId } : body);
     },
     onSuccess: async (detail) => {
       setErrors([]);
-      setForm(extrasForm(detail.review));
+      setForm(
+        extrasForm((itemId && detail.items.find((i) => i.id === itemId)?.review) || detail.review),
+      );
       await refresh(detail);
       status.markSaved();
       toast.success({ title: 'Two-step process and pack-out saved' });

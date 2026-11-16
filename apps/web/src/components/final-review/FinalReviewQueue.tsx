@@ -7,6 +7,7 @@ import { useEffect, useId, useState } from 'react';
 
 import { CapitalChip } from '@/components/pricing/CapitalChip';
 import { CAPITAL_LABELS } from '@/components/pricing/QuotingTab';
+import { ItemsBadge } from '@/components/QuoteItems';
 import { buttonVariants } from '@/components/ui/button';
 import { Input, NativeSelect } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
@@ -301,6 +302,8 @@ function ApprovalCard({ item, canDecide }: { item: FinalReviewItem; canDecide: b
           >
             {item.quoteNumber}
           </Link>
+          {/* FB-19 (W13-32): the item count beside the quote. */}
+          <ItemsBadge itemCount={item.itemCount} itemsSummary={item.itemsSummary} />
         </span>
         <span className="text-muted-foreground text-xs whitespace-nowrap" data-testid="waiting">
           Waiting {formatDuration(item.waitingMs)}

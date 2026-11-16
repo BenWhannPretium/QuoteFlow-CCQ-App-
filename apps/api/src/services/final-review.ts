@@ -50,8 +50,8 @@ import { engineeringView } from './engineering-view';
 import { intakeFactsDto } from './intake-facts';
 import { quotingView, recordValues } from './pricing-view';
 import { ServiceProblem } from './problem';
-import { decisionDto, gateActionsFor, summaryDto, type QuoteReadService } from './quotes';
 import { quoteItemSummaries } from './quote-items-view';
+import { decisionDto, gateActionsFor, summaryDto, type QuoteReadService } from './quotes';
 
 export type FinalReviewWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 

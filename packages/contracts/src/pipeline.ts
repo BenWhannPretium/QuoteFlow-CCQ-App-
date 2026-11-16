@@ -173,6 +173,9 @@ export const BoardCard = z.object({
   tierOverridden: z.boolean(),
   accountName: z.string().nullable(),
   productSummary: z.string().nullable(),
+  /** FB-19 (W13-32): the item count and "16 oz bottle + 2 more". */
+  itemCount: z.number().int().min(1).default(1),
+  itemsSummary: z.string().nullable().default(null),
   estAnnualVolume: z.number().nullable(),
   amount: z.number().nullable(),
   kamUserId: z.string(),
