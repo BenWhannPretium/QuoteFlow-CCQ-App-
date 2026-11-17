@@ -12,6 +12,7 @@ import {
   parseProcessOwner,
 } from '../commercial';
 import { parseAssignmentRules } from '../engineering/assignment-rules';
+import { parseCapacityBasis } from '../engineering/capacity';
 import { parseCapitalNeededAboveUsd } from '../engineering/capital-needed';
 import { parsePackOutRule } from '../engineering/pack-out';
 import {
@@ -288,6 +289,22 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'integer',
     z_('intake_variants_note_max_length', intakeConfigSchema.shape.variantsNoteMaxLength),
   ),
+  // Without a spec a key takes any JSON. 0, a negative or a fraction here was saved, and the intake config
+  // (a positive whole number) then failed to parse on every draft, submit and engineering-queue request.
+  spec(
+    'intake_other_description_max_length',
+    'intake',
+    'Longest description of an "Other" choice (characters)',
+    'integer',
+    z_('intake_other_description_max_length', intakeConfigSchema.shape.otherDescriptionMaxLength),
+  ), // FB-15 (W13-10): wording shown on Commit & Hand Off for a customer with no ERP account. Empty = none.
+  spec(
+    'customer_master_data_notice',
+    'intake',
+    'Notice shown when the customer is not yet a Pretium customer (empty = no notice)',
+    'text',
+    z_('customer_master_data_notice', z.string().trim().max(1000)),
+  ),
   // FB-19 (W13-32, W13-33; provisional): multi-item quotes and more than one quote per opportunity.
   spec(
     'quote_items_max',
@@ -439,6 +456,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Capital is needed when the preliminary capital is above this amount (USD); 0 = any amount above $0',
     'number',
     notNull('capital_needed_above_usd', parseCapitalNeededAboveUsd),
+  ),
+  // The basis of practical capacity (provisional, D-021). Validated here as it is where it is read.
+  spec(
+    'capacity_basis',
+    'engineering',
+    'Capacity basis: scheduled run days a year (1-366), the utilization % that raises a warning (1-100) and the label shown beside it',
+    'json',
+    notNull('capacity_basis', parseCapacityBasis),
   ),
   // Pricing (B-26, D-24)
   spec(
