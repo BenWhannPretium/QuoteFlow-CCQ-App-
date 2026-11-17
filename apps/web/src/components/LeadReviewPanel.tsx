@@ -16,6 +16,7 @@ import {
 import { Textarea } from '@/components/ui/input';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { SAVE_FIRST_TEXT, useHasUnsavedChanges } from '@/lib/unsaved-changes';
 
 import { problemErrors, type ServerError } from './forms';
 import { MISSING_LABELS } from './GateDecisionDialog';
@@ -92,6 +93,7 @@ export function LeadReviewStatus({
 
 export function LeadReviewActions<T>({
   kind,
+  quoteNumber,
   review,
   submit,
   sendBack,
@@ -99,6 +101,8 @@ export function LeadReviewActions<T>({
   decide,
 }: {
   kind: LeadReviewKind;
+  /** UX-001: the quote, to know whether one of its cards still has unsaved changes. */
+  quoteNumber: string;
   review: LeadReviewView;
   submit: () => Promise<T>;
   /** FB-16 (W13-19): `to` is sent only when the lead had a choice (a production scheduler is assigned). */
@@ -125,6 +129,10 @@ export function LeadReviewActions<T>({
   const [missing, setMissing] = useState<ServerError[]>([]);
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
+  // UX-001: submitting sends what is saved, then locks it. Typed values that are not saved yet would
+  // be left behind, so Submit waits for the save.
+  const unsaved = useHasUnsavedChanges(quoteNumber);
+  const saveFirstId = useId();
   const submitting = useMutation({
     mutationFn: submit,
     onSuccess: async (result) => {
@@ -212,7 +220,8 @@ export function LeadReviewActions<T>({
                   },
                 });
               }}
-              disabled={submitting.isPending}
+              disabled={submitting.isPending || unsaved}
+              aria-describedby={unsaved ? saveFirstId : undefined}
             >
               <SendIcon aria-hidden="true" />
               {submitting.isPending ? 'Submitting…' : `Submit to ${noun.lead}`}
@@ -225,6 +234,11 @@ export function LeadReviewActions<T>({
             </Button>
           )}
         </div>
+      )}
+      {submitReady && unsaved && (
+        <p id={saveFirstId} className="text-muted-foreground" data-testid="save-first">
+          {SAVE_FIRST_TEXT}
+        </p>
       )}
       {sending && (
         <SendBackDialog

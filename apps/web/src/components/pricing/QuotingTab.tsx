@@ -21,6 +21,7 @@ import { api } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { useReportUnsaved } from '@/lib/unsaved-changes';
 import { valueListLabel } from '@/lib/value-label';
 
 import { EngineeringInputsCard } from '../engineering/EngineeringExtras';
@@ -281,6 +282,7 @@ function PricingLeadActions({
   return (
     <LeadReviewActions
       kind="pricing"
+      quoteNumber={quote.quoteNumber}
       review={quote.quoting.leadReview}
       submit={() => api.submitQuotingToLead(quote.quoteNumber)}
       sendBack={(note) => api.sendBackQuoting(quote.quoteNumber, note)}
@@ -431,6 +433,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     approvedAt: record?.priceApprovedAt ? initial.approvedAt : '',
   };
   const [form, setForm] = useState(initial);
+  const [opened] = useState(initial);
   const costingErrorId = useId();
   const [errors, setErrors] = useState<ServerError[]>([]);
   // FB-18 (W13-30): kept outside the card, which is re-keyed by its own save.
@@ -478,6 +481,13 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
   const passThrough = quote.commercial.passThroughEligible;
   // Nothing to save: what is on screen is what is stored.
   const unchanged = sameValues(form, stored);
+  // UX-001: typed and not saved. Measured from what the card opened with, not from what is stored: the
+  // approver and time filled in for you are not something you typed. A save re-keys the card.
+  useReportUnsaved(
+    quote.quoteNumber,
+    'price-approval',
+    quoting.canEdit && !sameValues(form, opened),
+  );
 
   if (!quoting.canEdit) {
     return (
@@ -695,6 +705,9 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
+  const unchanged = sameValues(form, saved);
+  // UX-001: typed and not saved. Not while the card is read-only (locked, or submitted to the lead).
+  useReportUnsaved(quote.quoteNumber, 'capital-readiness', quoting.canEdit && !unchanged);
 
   if (!quoting.canEdit) {
     return (
@@ -728,7 +741,6 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
     );
   }
 
-  const unchanged = sameValues(form, saved);
   return (
     <Card>
       <CardHeader>

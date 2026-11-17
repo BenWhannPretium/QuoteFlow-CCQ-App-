@@ -41,6 +41,7 @@ import {
 } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { openFileLink } from '@/lib/unsaved-changes';
 import { cn } from '@/lib/utils';
 
 const ACCEPT = ATTACHMENT_EXTENSIONS.map((e) => `.${e}`).join(',');
@@ -413,7 +414,7 @@ function AttachmentList({
   const [removing, setRemoving] = useState<Attachment | null>(null);
   const download = useMutation({
     mutationFn: (id: string) => api.attachmentLink(id),
-    onSuccess: (link) => window.location.assign(link.url),
+    onSuccess: (link) => openFileLink(link.url),
     onError: (err) =>
       toast.error({
         title: 'Could not download the file',
@@ -525,7 +526,7 @@ function AttachmentList({
 export function AttachmentDownloadLink({ id, fileName }: { id: string; fileName: string }) {
   const download = useMutation({
     mutationFn: () => api.attachmentLink(id),
-    onSuccess: (link) => window.location.assign(link.url),
+    onSuccess: (link) => openFileLink(link.url),
     onError: (err) =>
       toast.error({
         title: 'Could not download the file',

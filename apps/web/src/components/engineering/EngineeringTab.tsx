@@ -48,6 +48,7 @@ import { api, downloadBlob, uploadAttachment } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { absoluteTime, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { useReportUnsaved } from '@/lib/unsaved-changes';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
@@ -157,6 +158,7 @@ export function EngineeringTab({
       )}
       <LeadReviewActions
         kind="engineering"
+        quoteNumber={quote.quoteNumber}
         review={eng.leadReview}
         submit={() => api.submitEngReviewToLead(quote.quoteNumber)}
         sendBack={(note, to) => api.sendBackEngReview(quote.quoteNumber, note, to)}
@@ -562,6 +564,9 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
+  const changed = (Object.keys(form) as SolutionKey[]).some((k) => form[k] !== initial[k]);
+  // UX-001: typed and not saved. Not while the card is read-only (locked, or submitted to the lead).
+  useReportUnsaved(quote.quoteNumber, `solution:${itemId ?? ''}`, eng.canEdit && changed);
 
   if (!eng.canEdit) {
     // DR-cross-cutting-12: a plant, machine or process taken off its list reads "(no longer offered)",
@@ -615,7 +620,6 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
     );
   }
 
-  const changed = (Object.keys(form) as SolutionKey[]).some((k) => form[k] !== initial[k]);
   return (
     <Card>
       <CardHeader>
@@ -1076,6 +1080,13 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   const [rows, setRows] = useState<RowForm[]>(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
   const [dirty, setDirty] = useState(false);
+  // UX-001: typed and not saved. A value typed and put back is not a change, and a read-only card
+  // (locked, submitted to the lead, or another person's part) has nothing to save.
+  useReportUnsaved(
+    quote.quoteNumber,
+    `capacity:${itemId ?? ''}`,
+    eng.canEditCapacity && dirty && JSON.stringify(rows) !== JSON.stringify(initial),
+  );
   // FB-18 (W13-30): kept outside the card, which is re-keyed when a save adds or removes a row.
   const status = useSaved(`capacity:${quote.quoteNumber}`);
   const update = (key: string, patch: Partial<RowForm>) => {

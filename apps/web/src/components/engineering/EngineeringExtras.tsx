@@ -34,6 +34,7 @@ import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError, uploadAttachment } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { useReportUnsaved } from '@/lib/unsaved-changes';
 
 import {
   Field,
@@ -445,6 +446,9 @@ export function PricingInputsCard({
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
+  const changed = (Object.keys(form) as (keyof ExtrasForm)[]).some((k) => form[k] !== initial[k]);
+  // UX-001: typed and not saved. Not while the card is read-only (locked, or submitted to the lead).
+  useReportUnsaved(quote.quoteNumber, `pack-out:${itemId ?? ''}`, eng.canEdit && changed);
 
   const packOutInput = (f: PackOutField) => (
     <Field key={f} label={PACK_OUT_LABELS[f]} hint="A whole number" error={packOutError(f)}>
@@ -482,7 +486,6 @@ export function PricingInputsCard({
       </Card>
     );
   }
-  const changed = (Object.keys(form) as (keyof ExtrasForm)[]).some((k) => form[k] !== initial[k]);
   return (
     <Card data-testid="pricing-inputs">
       {title}

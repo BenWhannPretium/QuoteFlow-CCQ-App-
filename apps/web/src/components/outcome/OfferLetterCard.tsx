@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { api, isApiError } from '@/lib/api';
 import { calendarDate, absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { openFileLink } from '@/lib/unsaved-changes';
 
 import {
   allAcknowledged,
@@ -172,7 +173,7 @@ function GenerateForm({ quoteNumber, data }: { quoteNumber: string; data: OfferL
       toast.success({ title: `Offer letter ${out.letter.letterNo} generated` });
       try {
         const link = await api.attachmentLink(out.letter.attachmentId);
-        window.location.assign(link.url);
+        openFileLink(link.url);
       } catch (err) {
         toast.error({
           title: 'The letter was made, but the download did not start',
@@ -420,7 +421,7 @@ function LetterList({ letters }: { letters: OfferLetterSummary[] }) {
 function LetterRow({ letter: l }: { letter: OfferLetterSummary }) {
   const download = useMutation({
     mutationFn: () => api.attachmentLink(l.attachmentId),
-    onSuccess: (link) => window.location.assign(link.url),
+    onSuccess: (link) => openFileLink(link.url),
     onError: (err) =>
       toast.error({
         title: 'Could not download the letter',

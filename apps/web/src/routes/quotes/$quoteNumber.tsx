@@ -40,23 +40,23 @@ import { QuoteItemsList } from '@/components/QuoteItems';
 import { SalesforceLink } from '@/components/SalesforceLink';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
+import { QUOTE_TABS, useOpenedTabs, type QuoteTab } from '@/lib/quote-tabs';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
-const TABS = ['overview', 'engineering', 'quoting', 'attachments'] as const;
 const TAB_LABELS: Record<QuoteTab, string> = {
   overview: 'Overview',
   engineering: 'Engineering',
   quoting: 'Quoting',
   attachments: 'Attachments',
 };
-type QuoteTab = (typeof TABS)[number];
 
 interface QuoteSearch {
   /**
@@ -77,6 +77,13 @@ export const Route = createFileRoute('/quotes/$quoteNumber')({
 function QuotePage() {
   const { quoteNumber } = Route.useParams();
   const { tab = 'overview' } = Route.useSearch();
+  // UX-001: once opened, the Engineering and Quoting tabs stay on the page (hidden) while another tab
+  // is shown, so values typed and not yet saved are still there on the way back.
+  const openedTabs = useOpenedTabs(quoteNumber, tab);
+  const kept = (t: QuoteTab) => ({
+    ...(openedTabs.includes(t) ? { forceMount: true as const } : {}),
+    hidden: tab !== t,
+  });
   const navigate = useNavigate({ from: Route.fullPath });
   useDocumentTitle(quoteNumber);
   const quote = useQuery({
@@ -204,8 +211,9 @@ function QuotePage() {
         }
         className="grid gap-6"
       >
+        <UnsavedChangesGuard quoteNumber={q.quoteNumber} />
         <Tabs.List aria-label="Quote sections" className="flex gap-1 overflow-x-auto border-b">
-          {TABS.map((t) => (
+          {QUOTE_TABS.map((t) => (
             <Tabs.Trigger
               key={t}
               value={t}
@@ -255,7 +263,7 @@ function QuotePage() {
             </CardContent>
           </Card>
         </Tabs.Content>
-        <Tabs.Content value="engineering">
+        <Tabs.Content value="engineering" {...kept('engineering')}>
           <EngineeringTab
             quote={q}
             onDecide={(outcome, scope) =>
@@ -274,7 +282,7 @@ function QuotePage() {
             </CardContent>
           </Card>
         </Tabs.Content>
-        <Tabs.Content value="quoting">
+        <Tabs.Content value="quoting" {...kept('quoting')}>
           <QuotingTab
             quote={q}
             onDecide={(outcome, scope) =>
