@@ -74,7 +74,19 @@ export function entraSession(pca: IPublicClientApplication, apiScope: string): A
       } catch {
         // Storage unavailable: the redirect still goes ahead, without the loop guard.
       }
-      redirecting = pca.acquireTokenRedirect({ ...request, account });
+      redirecting = pca.acquireTokenRedirect({ ...request, account }).catch((err: unknown) => {
+        // The redirect never started (`interaction_in_progress`, a network blip while MSAL read the
+        // authority): the page is still here. Forget the attempt, or every later request in this tab
+        // would get this same rejection until a reload; and lift the loop guard, which is about a
+        // redirect that came back without helping, not one that never left.
+        redirecting = null;
+        try {
+          sessionStorage.removeItem(REDIRECT_GUARD_KEY);
+        } catch {
+          // Storage unavailable: nothing was recorded.
+        }
+        throw err;
+      });
     }
     return redirecting;
   };
