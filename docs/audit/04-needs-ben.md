@@ -97,6 +97,7 @@ One `DATABASE_URL` serves both the migrations and the app. Row-level security ho
 - **Salesforce sync.** One record Postgres refuses drops its whole page on every run; the run ends `partial`, which never alerts.
 - **When email is switched on.** A 401/403 from Graph uses up a message's three tries and fails it for good; rows queued since launch will be worked through at 50 a minute before new mail. Clear the backlog and soften the 403 handling before enabling dispatch.
 - **Staging slot.** When the plan moves to P1v3 with a slot, the slot gets the same settings and will run all four background jobs against prod. Give the slot sticky settings that zero the job intervals.
+- **The entry bundle carries the charts.** `apps/web/vite.config.ts` puts every third-party module that has no named chunk into `vendor` (638 KB), so Recharts, dnd-kit and react-table load on every page, not only on Analytics and the board. Giving Recharts its own chunk is a small build change; not made the day before release.
 - **Source maps are public.** `apps/web` builds with `sourcemap: true` and the API serves the `.map` files without sign-in (9 MB). They expose the SPA's source, not secrets.
 - **Audit gaps against rule 3.** Reading the offer letter's prices (`GET …/offer-letter`) and the pricing-history routes write no audit row.
 - **Geo-redundant backup is off** and can only be chosen when the server is created.
