@@ -37,7 +37,7 @@ export function SavedViewsMenu({
           Views
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="grid w-72 gap-3" align="start">
+      <PopoverContent className="grid w-72 gap-3" align="start" aria-label="Saved views">
         <p className="text-sm font-semibold">Saved views</p>
         {views.length === 0 ? (
           <p className="text-muted-foreground text-sm">

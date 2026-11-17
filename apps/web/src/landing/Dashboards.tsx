@@ -144,7 +144,7 @@ function Expiring({ items }: { items: ExpiringProposal[] }) {
           className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm"
         >
           <span className="grid min-w-0">
-            <span className="flex flex-wrap items-center gap-x-2">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {quoteLink(p.quoteNumber)}
               {p.hold && <HoldChip hold={p.hold} />}
             </span>
@@ -255,7 +255,7 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
                   data-quote={q.quoteNumber}
                 >
                   <span className="flex flex-wrap items-center justify-between gap-x-2">
-                    <span className="flex flex-wrap items-center gap-x-2">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       {quoteLink(q.quoteNumber)}
                       {q.hold && <HoldChip hold={q.hold} />}
                     </span>
@@ -293,6 +293,8 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
               className="text-emphasis mt-2 inline-block text-xs font-medium underline-offset-2 hover:underline"
             >
               View {s.count}
+              {/* UX-018: "View 2" five times over in a list of links; say what and where. */}
+              <span className="sr-only"> in {s.label}</span>
             </Link>
           )}
         </li>
@@ -337,6 +339,7 @@ function Kam({ d }: { d: KamDashboard }) {
                       className="text-emphasis font-medium hover:underline"
                     >
                       Continue the rework draft
+                      <span className="sr-only"> of {i.quoteNumber}</span>
                     </Link>
                   ) : (
                     <Link
@@ -345,6 +348,7 @@ function Kam({ d }: { d: KamDashboard }) {
                       className="text-emphasis font-medium hover:underline"
                     >
                       Open to start the rework
+                      <span className="sr-only"> of {i.quoteNumber}</span>
                     </Link>
                   )}
                 </span>

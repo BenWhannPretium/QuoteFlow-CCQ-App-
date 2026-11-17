@@ -27,9 +27,9 @@ export function HoldChip({ hold, className }: { hold: DashHold; className?: stri
             e.preventDefault();
             setOpen(true);
           }}
-          // 44 px tall on a phone; the chip inside keeps its size.
+          // 44 px tall on a phone, 24 px on a desktop (WCAG 2.5.8); the chip inside keeps its size.
           className={cn(
-            'focus-visible:ring-ring rounded-pill inline-flex min-h-11 shrink-0 items-center focus-visible:ring-2 focus-visible:outline-none sm:min-h-0',
+            'focus-visible:ring-ring rounded-pill inline-flex min-h-11 shrink-0 items-center focus-visible:ring-2 focus-visible:outline-none sm:min-h-6',
             className,
           )}
         >

@@ -531,6 +531,8 @@ function PriorityList({ data }: { data: QuoteListResponse }) {
                     <ChevronDownIcon aria-hidden="true" />
                   )}
                   {expanded ? 'Hide breakdown' : 'Breakdown'}
+                  {/* UX-018: twelve buttons called "Breakdown" in a row; say whose. */}
+                  <span className="sr-only"> for {q.quoteNumber}</span>
                 </Button>
               )}
             </div>

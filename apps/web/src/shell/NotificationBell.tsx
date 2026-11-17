@@ -55,7 +55,11 @@ export function NotificationBell() {
           </span>
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-[min(24rem,calc(100vw-2rem))]" align="end">
+      <PopoverContent
+        className="w-[min(24rem,calc(100vw-2rem))]"
+        align="end"
+        aria-label="Notifications"
+      >
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">Notifications</h2>
           {unread > 0 && (

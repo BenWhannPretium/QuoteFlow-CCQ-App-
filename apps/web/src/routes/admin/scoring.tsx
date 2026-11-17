@@ -347,7 +347,7 @@ function SubMarketPoints({
         .sort(([a], [b]) => b - a)
         .map(([points, names]) => (
           <details key={points}>
-            <summary className="cursor-pointer">
+            <summary className="cursor-pointer py-1">
               <strong>{points}</strong> points: {names.length} sub-market
               {names.length === 1 ? '' : 's'}
             </summary>

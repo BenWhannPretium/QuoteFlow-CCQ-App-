@@ -164,7 +164,11 @@ export function ColumnChooser({
           Columns
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="grid max-h-[70dvh] w-64 gap-1 overflow-y-auto" align="end">
+      <PopoverContent
+        className="grid max-h-[70dvh] w-64 gap-1 overflow-y-auto"
+        align="end"
+        aria-label="Columns"
+      >
         <fieldset className="grid gap-1">
           <legend className="mb-1 text-sm font-semibold">Show columns</legend>
           {keys.map((k) => {

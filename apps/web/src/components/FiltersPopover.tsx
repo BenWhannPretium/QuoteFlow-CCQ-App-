@@ -69,7 +69,10 @@ export function FiltersPopover({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="grid max-h-[min(70dvh,var(--radix-popover-content-available-height))] gap-4 overflow-y-auto pb-0">
+      <PopoverContent
+        aria-label={label}
+        className="grid max-h-[min(70dvh,var(--radix-popover-content-available-height))] gap-4 overflow-y-auto pb-0"
+      >
         {extra}
         {groups.map((group) => (
           <fieldset key={group.key} className="grid gap-1">
