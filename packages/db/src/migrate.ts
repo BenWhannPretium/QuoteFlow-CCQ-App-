@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
+import { ADVISORY_LOCKS } from './advisoryLock';
 import { commentTargets } from './dictionary/model';
 
 export const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations', import.meta.url));
@@ -66,6 +67,13 @@ export async function ensureRoleMembership(sql: postgres.Sql): Promise<void> {
  * and the analytics views. Comments are derived from the Drizzle schema, and the views are
  * `drop … create` files, so both are refreshed on every run rather than frozen into a migration.
  * Views are not mirrored to Fabric (B-27), so re-creating them doesn't touch the mirror.
+ *
+ * The whole run holds a session advisory lock. The API migrates at start-up, so two instances starting
+ * together (scale-out, a restart during a deploy, a slot beside production) used to run the pending set
+ * at once: drizzle reads "what is applied" before it opens its transaction and takes no lock of its own,
+ * so one instance failed on duplicate DDL and a data-only migration could be applied twice. The second
+ * instance now waits here, then finds nothing pending. The lock is released when the connection closes,
+ * including when the process dies.
  */
 export async function runMigrations(
   databaseUrl: string,
@@ -73,6 +81,8 @@ export async function runMigrations(
 ): Promise<void> {
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
   try {
+    // `max: 1`: every statement below runs on the one session that holds the lock.
+    await sql`select pg_advisory_lock(${ADVISORY_LOCKS.migrations.toString()}::bigint)`;
     await ensureRoleMembership(sql);
     await migrate(drizzle(sql), { migrationsFolder: migrationsDir });
     await applyChangedComments(sql);
