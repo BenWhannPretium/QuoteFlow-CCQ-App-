@@ -46,6 +46,22 @@ describe('app', () => {
     expect(res.json()).toMatchObject({ status: 500, title: 'Internal Server Error' });
   });
 
+  it('on close, waits for a scoring rescore before it closes the database pool', async () => {
+    const order: string[] = [];
+    const db = fakeDb();
+    db.close = () => {
+      order.push('db.close');
+      return Promise.resolve();
+    };
+    const closing = await buildApp(testConfig(), { db });
+    closing.adminConfig.rescore.flush = () => {
+      order.push('rescore.flush');
+      return Promise.resolve();
+    };
+    await closing.close();
+    expect(order).toEqual(['rescore.flush', 'db.close']);
+  });
+
   it('sets security headers', async () => {
     app = await buildApp(testConfig(), { db: fakeDb() });
     const res = await app.inject({ method: 'GET', url: '/api/v1/health' });

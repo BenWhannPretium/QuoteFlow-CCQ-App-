@@ -601,7 +601,6 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...now,
   });
   app.decorate('adminConfig', adminConfig);
-  app.addHook('onClose', async () => adminConfig.rescore.flush());
 
   await app.register(v1Routes, {
     prefix: '/api/v1',
@@ -638,11 +637,15 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     await app.register(spaPlugin, { root: config.WEB_DIST_DIR ?? DEFAULT_WEB_DIST });
   }
 
+  // One hook, in order. Fastify runs onClose hooks last-registered-first, so a separate, earlier hook for
+  // the scoring rescore ran *after* this one had closed the pool: a rescore still in flight at shutdown
+  // lost its remaining batches and its audit summary. Everything that needs the database finishes first.
   app.addHook('onClose', async () => {
     await sfSync?.stop();
     await validityExpiry?.stop();
     await notificationDispatch?.stop();
     await fabricMirrorCheck?.stop();
+    await adminConfig.rescore.flush();
     await app.audit.flush();
     await deps.db.close();
   });
