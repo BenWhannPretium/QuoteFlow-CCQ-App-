@@ -9,6 +9,7 @@ import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 // The quote page's tabs (UX proposals approved 2026-11-17, docs/audit/03-ux-proposals.md).
 // UX-001: values typed on the Engineering and Quoting tabs survive a look at another tab; "Submit to
 // lead" waits for the save; leaving the page with unsaved changes asks first.
+// UX-017 (third bullet): the Engineering tab no longer says "Your role cannot see the saved figure".
 // Synthetic data only: every quote is created through the API as a dev persona.
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
@@ -130,6 +131,14 @@ test('UX-001: typed engineering values survive a look at another tab, and Submit
   await expect(submit).toBeEnabled();
   await expect(tab.getByTestId('save-first')).toHaveCount(0);
   expect(await asksBeforeUnload(page)).toBe(false);
+
+  // UX-017: the engineer reads every figure they enter, so no hint says otherwise. The capital and
+  // effectiveness fields keep their ordinary help.
+  await expect(tab).not.toContainText('cannot see the saved figure');
+  await expect(solution).toContainText('Saving it updates the quote’s priority score.');
+  await expect(tab.getByTestId('capacity-row')).toContainText(
+    'Enter the effectiveness you are assuming.',
+  );
 
   // ── Type, do not save: Submit waits and says why ──
   const concept = 'Two-cavity shuttle with an in-mold label';

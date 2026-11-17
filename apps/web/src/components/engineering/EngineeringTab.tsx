@@ -722,11 +722,7 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
             </Field>
             <Field
               label={req(BUDGETARY_CAPITAL_LABEL, 'prelim_capital_usd')}
-              hint={
-                capitalHidden
-                  ? `${BUDGETARY_CAPITAL_HELP} Your role cannot see the saved figure. Leave this blank to keep it.`
-                  : `${BUDGETARY_CAPITAL_HELP} Saving it updates the quote’s priority score.`
-              }
+              hint={`${BUDGETARY_CAPITAL_HELP} Saving it updates the quote’s priority score.`}
               error={inputError('prelimCapitalUsd') ?? errorFor(errors, 'prelimCapitalUsd')}
             >
               {(id) => (
@@ -1328,11 +1324,7 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
                   </Field>
                   <Field
                     label="Assumed effectiveness %"
-                    hint={
-                      hidden && r.id
-                        ? 'Your role cannot see the saved figure. Leave blank to keep it.'
-                        : DF22_HELP
-                    }
+                    hint={DF22_HELP}
                     error={
                       rowErrors[i]?.assumedEffectivenessPct ??
                       errorFor(errors, `rows/${i}/assumedEffectivenessPct`)
