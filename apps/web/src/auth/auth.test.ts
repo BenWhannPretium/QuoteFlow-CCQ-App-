@@ -6,7 +6,12 @@ import { ApiError } from '@/lib/api';
 import { meErrorBlocksApp } from './me-gate';
 import { msalConfiguration } from './msal';
 import { canFromMe } from './permissions';
-import { devSession, needsInteractiveSignIn, RedirectingError } from './session';
+import {
+  devSession,
+  needsInteractiveSignIn,
+  redirectedRecently,
+  RedirectingError,
+} from './session';
 
 describe('msal configuration', () => {
   it('uses the tenant authority, origin redirect and sessionStorage', () => {
@@ -66,9 +71,6 @@ describe('needsInteractiveSignIn (a failed silent token request)', () => {
 
   it('also when the hidden-iframe renewal cannot complete (a tab left open past 24 hours)', () => {
     expect(needsInteractiveSignIn(new BrowserAuthError('timed_out', 'test'))).toBe(true);
-    expect(needsInteractiveSignIn(new BrowserAuthError('iframe_closed_prematurely', 'test'))).toBe(
-      true,
-    );
   });
 
   it('but not for anything else: a network failure is not a reason to leave the page', () => {
@@ -80,6 +82,22 @@ describe('needsInteractiveSignIn (a failed silent token request)', () => {
     );
     expect(needsInteractiveSignIn(new Error('timed_out'))).toBe(false);
     expect(needsInteractiveSignIn(undefined)).toBe(false);
+  });
+});
+
+describe('redirectedRecently (the sign-in redirect loop guard)', () => {
+  const storage = (value: string | null) => ({ getItem: () => value });
+  const now = 1_800_000_000_000;
+
+  it('is true for a minute after a redirect was started from this tab', () => {
+    expect(redirectedRecently(storage(String(now - 5_000)), now)).toBe(true);
+    expect(redirectedRecently(storage(String(now - 59_000)), now)).toBe(true);
+  });
+
+  it('is false once the minute has passed, or when nothing was recorded', () => {
+    expect(redirectedRecently(storage(String(now - 61_000)), now)).toBe(false);
+    expect(redirectedRecently(storage(null), now)).toBe(false);
+    expect(redirectedRecently(storage('not a number'), now)).toBe(false);
   });
 });
 

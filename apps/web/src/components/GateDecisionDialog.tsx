@@ -453,7 +453,7 @@ export function GateDecisionDialog({
         </DialogHeader>
 
         {quote.isPending && <p className="text-muted-foreground text-sm">Loading the quote…</p>}
-        {quote.isError && (
+        {quote.isError && !quote.data && (
           <p role="alert" className="text-destructive text-sm">
             This quote could not be loaded, so no decision can be recorded here. Close this and try
             again.

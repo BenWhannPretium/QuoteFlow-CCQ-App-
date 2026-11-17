@@ -272,7 +272,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
         'default-src': ["'self'"],
         'script-src': ["'self'"],
         'style-src': ["'self'"],
-        'img-src': ["'self'", 'data:'],
+        // blob: for the "Report an issue" screenshot preview (an object URL of a file the user chose).
+        'img-src': ["'self'", 'data:', 'blob:'],
         // MSAL: token requests (fetch) and silent renewal (hidden iframe) go to Entra.
         'connect-src': ["'self'", 'https://login.microsoftonline.com'],
         'frame-src': ['https://login.microsoftonline.com'],
