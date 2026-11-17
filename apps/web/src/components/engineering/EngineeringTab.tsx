@@ -46,7 +46,7 @@ import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, downloadBlob, uploadAttachment } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
@@ -1055,7 +1055,8 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   const hidden = eng.commercialRedacted;
   const basis = eng.capacityBasis;
   const cavitation = eng.review.cavitation;
-  const today = new Date().toISOString().slice(0, 10);
+  // US Central, like every other business date: the UTC day is already tomorrow after 6 PM Central.
+  const today = todayCentral();
   const initial: RowForm[] = eng.capacityEvidence.map((r) => ({
     key: r.id,
     id: r.id,

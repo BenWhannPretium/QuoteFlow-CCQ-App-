@@ -41,6 +41,7 @@ import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewActions, LeadReviewStatus } from '../LeadReviewPanel';
 import { timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
+import { approvedAtIso } from './approval-time';
 import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
 import {
   PricingContextPanel,
@@ -446,7 +447,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
       const changed = (k: keyof typeof form) => form[k] !== stored[k];
       if (changed('approvedBy') || changed('approvedAt')) {
         body.approvedBy = form.approvedBy || null;
-        body.approvedAt = form.approvedBy ? new Date(form.approvedAt).toISOString() : null;
+        body.approvedAt = approvedAtIso(form.approvedBy, form.approvedAt);
       }
       if (changed('pricingBasisNote')) body.pricingBasisNote = form.pricingBasisNote;
       if (changed('approvedRangeNote')) body.approvedRangeNote = form.approvedRangeNote;
