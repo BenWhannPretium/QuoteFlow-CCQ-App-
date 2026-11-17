@@ -198,6 +198,24 @@ export const PAYBACK_TEMPLATE_SEED: ModelSummaryTemplate = {
 const ERF_SUMMARY = 'Summary';
 
 /**
+ * FB-20 (F-070): the offer letter's piece price for item 1, read from the target-price candidate cell
+ * (`costing-template-structure.md`, `Summary!B16`, first variant). **Proposed**, and its unit is a
+ * guess to confirm with Gemma Cebolla (per piece or per 1,000?): seeded per piece. No cell for molds or
+ * change parts is known, so neither is mapped. The map stays inactive.
+ */
+export const ERF_OFFER_PIECE_PRICE_FIELD: ModelSummaryTemplate['fields'][number] = {
+  key: 'offer_piece_price',
+  label: 'Offer: piece price (item 1, first variant)',
+  unit: 'usd_per_unit',
+  type: 'number',
+  sheet: ERF_SUMMARY,
+  ref: 'B16',
+  itemNo: 1,
+  headline: false,
+  proposed: true,
+};
+
+/**
  * Pricing's ERF costing workbook **as it is before the makeover** (Gemma Cebolla, 2026-11-11: the
  * costing templates are being remade). Seeded **inactive**: the layout is being retired, so a costing
  * upload shows "summary not configured" until the new template's map is added. The layout has one
@@ -209,7 +227,7 @@ export const ERF_COSTING_TEMPLATE_SEED: ModelSummaryTemplate = {
   kind: 'cost_model',
   active: false,
   provisional: true,
-  note: 'FB-14: for the ERF costing layout in use before the costing-template makeover. Inactive: not the costing template going forward. Reads the first variant column of the Summary sheet only.',
+  note: 'FB-14: for the ERF costing layout in use before the costing-template makeover. Inactive: not the costing template going forward. Reads the first variant column of the Summary sheet only. FB-20: offer_piece_price (item 1) is the target price, unit per piece proposed (Gemma Cebolla to confirm).',
   recognise: {
     sheet: ERF_SUMMARY,
     labels: [
@@ -300,6 +318,7 @@ export const ERF_COSTING_TEMPLATE_SEED: ModelSummaryTemplate = {
       headline: false,
       proposed: true,
     },
+    ERF_OFFER_PIECE_PRICE_FIELD,
   ],
   warnings: { nonPositive: [], hurdle: null },
 };

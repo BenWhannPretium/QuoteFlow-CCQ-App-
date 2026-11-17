@@ -62,6 +62,7 @@ export default defineConfig({
         'fb17.spec.ts',
         'fb18.spec.ts',
         'fb19.spec.ts',
+        'offer-letter.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

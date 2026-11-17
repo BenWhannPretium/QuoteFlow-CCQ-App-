@@ -535,6 +535,22 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     sampleBody: { notes: 'x' },
   },
   { method: 'GET', route: '/api/v1/admin/reports/outcomes', permission: 'analytics.read' },
+  // FB-20 (F-070): the offer letter. Reading is offer.read (every role that reads a quote; PostAward on
+  // Awarded quotes); generating is offer.generate (KAM own, SalesLeader, Pricing, PricingLead, Admin).
+  // The service checks the quote again, so allowed roles get 404 on the sample quote.
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/offer-letter',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/offer-letter`,
+    permission: 'offer.read',
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/offer-letter',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/offer-letter`,
+    permission: 'offer.generate',
+    sampleBody: { attention: null, items: [], acknowledgedWarnings: [] },
+  },
   // B-26 commercial: capital flag, terms + Legal review, escalations. KAM grants are own-quote and an
   // Engineer's assigned-quote; the service checks the quote, so allowed roles get 404 on the sample.
   {

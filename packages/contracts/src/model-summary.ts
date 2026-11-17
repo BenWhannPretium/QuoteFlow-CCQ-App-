@@ -19,7 +19,19 @@ export type ModelSummaryStatus = z.infer<typeof ModelSummaryStatus>;
 export const ModelSummaryFieldView = z.object({
   key: z.string(),
   label: z.string(),
-  unit: z.enum(['usd', 'units', 'years', 'percent', 'count', 'text']),
+  unit: z.enum([
+    'usd',
+    'units',
+    'years',
+    'percent',
+    'count',
+    'text',
+    // FB-20: a price per piece or per 1,000 pieces (the offer letter's fields).
+    'usd_per_unit',
+    'usd_per_1000',
+  ]),
+  /** FB-20: the quote item the figure belongs to; null = the whole quote. */
+  itemNo: z.number().int().nullable().default(null),
   type: z.enum(['number', 'text', 'date']),
   /** Where it was read (shown on hover / for an Admin checking the map). */
   sheet: z.string(),

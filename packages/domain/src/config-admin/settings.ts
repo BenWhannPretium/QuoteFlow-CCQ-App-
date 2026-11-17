@@ -38,6 +38,11 @@ import {
   parseModelSummaryVisible,
 } from '../model-summary';
 import { COMMENT_EMAIL_COLLAPSE_MINUTES_MAX } from '../notifications/events';
+import {
+  parseOfferLetterBlockIfCostingChanged,
+  parseOfferLetterTemplate,
+  parseOfferLetterWordingApproved,
+} from '../offer-letter';
 import { parseReceivingRoles } from '../outcome/handoff';
 import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome/sf-stage';
 import { parseValidityWarningDays } from '../outcome/validity';
@@ -472,6 +477,28 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Model summary work cap: largest file read (bytes), time limit (ms), most cells kept',
     'json',
     notNull('model_summary_limits', parseModelSummaryLimits),
+  ),
+  // FB-20 (F-070): the offer letter. Provisional; the wording waits on Legal.
+  spec(
+    'offer_letter_template',
+    'pricing',
+    'Offer letter wording and layout: title, introduction, closing, the pricing-assumptions list, the price row labels and which are required, the Specifications rows, the footer. Tokens allowed: {{quoteNumber}}, {{customerName}}, {{validUntil}}, {{paymentTerms}}, {{priceBasis}}, {{freight}}, {{toolingFunding}}, {{moldOwnership}}',
+    'json',
+    notNull('offer_letter_template', parseOfferLetterTemplate),
+  ),
+  spec(
+    'offer_letter_wording_approved',
+    'pricing',
+    'Legal has approved the offer letter\'s wording (off: every letter carries "DRAFT: wording not yet approved by Legal")',
+    'boolean',
+    notNull('offer_letter_wording_approved', parseOfferLetterWordingApproved),
+  ),
+  spec(
+    'offer_letter_block_if_costing_changed',
+    'pricing',
+    'Refuse an offer letter when the costing workbook was replaced after Final Review approved the quote',
+    'boolean',
+    notNull('offer_letter_block_if_costing_changed', parseOfferLetterBlockIfCostingChanged),
   ),
   // Capital and Market Development notices (B-26, D-27)
   spec(

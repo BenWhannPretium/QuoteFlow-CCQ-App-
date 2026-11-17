@@ -81,6 +81,8 @@ export interface ExtractedField {
   date: Date | null;
   proposed: boolean;
   headline: boolean;
+  /** FB-20: the quote item the field belongs to; null = the whole quote. */
+  itemNo: number | null;
 }
 
 export interface ModelSummaryExtraction {
@@ -90,7 +92,7 @@ export interface ModelSummaryExtraction {
   fields: ExtractedField[];
 }
 
-/** Stored as numeric(18, 4) (Fabric-safe): anything at or beyond this is kept as text, flagged. */
+/** Stored as numeric(24, 10) (Fabric-safe; FB-20 widened it from 18, 4): anything at or beyond this is kept as text, flagged. */
 export const MODEL_SUMMARY_MAX_ABS = 1e14;
 const MAX_TEXT = 500;
 
@@ -192,6 +194,7 @@ function readField(
     definedName,
     proposed: field.proposed,
     headline: field.headline,
+    itemNo: field.itemNo ?? null,
     number: null,
     text: null,
     date: null,

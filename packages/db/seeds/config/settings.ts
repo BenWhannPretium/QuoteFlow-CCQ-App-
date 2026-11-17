@@ -32,6 +32,9 @@ import {
   MODEL_SUMMARY_LIMITS_SEED,
   MODEL_SUMMARY_TEMPLATES_SEED,
   MODEL_SUMMARY_VISIBLE_SEED,
+  OFFER_LETTER_BLOCK_IF_COSTING_CHANGED_SEED,
+  OFFER_LETTER_TEMPLATE_SEED,
+  OFFER_LETTER_WORDING_APPROVED_SEED,
   SCORING_DRAFT_V3_CHANGE_REASON,
   SCORING_MODEL_V3_INPUT,
   INTAKE_GUARDRAILS_SEED,
@@ -537,6 +540,25 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: MODEL_SUMMARY_LIMITS_SEED,
     description:
       'FB-14: the work cap for reading a model summary at upload: maxBytes (a larger file is stored and shows "too large"), timeoutMs (well inside the upload request), maxCells. Provisional.',
+  },
+  // ── FB-20 (F-070): the offer letter. Provisional; the wording waits on Legal.
+  {
+    key: 'offer_letter_template',
+    value: OFFER_LETTER_TEMPLATE_SEED,
+    description:
+      "FB-20 (F-070): the offer letter's wording and layout. Every business sentence on the letter (title, introduction, pricing assumptions, closing, sign-off, footer), the price row labels and when each is required (piece price always; molds when the quote's tooling funding is one of customerFundedToolingModels; change parts never), and the Specifications rows. Tokens: {{quoteNumber}}, {{customerName}}, {{validUntil}}, {{paymentTerms}}, {{priceBasis}}, {{freight}}, {{toolingFunding}}, {{moldOwnership}}; a sentence whose token has no value on the quote is left out. Seeded from the old Standard Quote Template (feedback/inputs/offer-letter-template-structure.md). Provisional, not approved by Legal; legalEntity and address are blank until Legal gives them.",
+  },
+  {
+    key: 'offer_letter_wording_approved',
+    value: OFFER_LETTER_WORDING_APPROVED_SEED,
+    description:
+      'FB-20: Legal has approved the offer letter wording. While false, every generated letter carries "DRAFT: wording not yet approved by Legal" in its header and the generate screen warns. Each letter records the value it was made with. Seeded false (Ben, 2026-11-16: no approved wording known).',
+  },
+  {
+    key: 'offer_letter_block_if_costing_changed',
+    value: OFFER_LETTER_BLOCK_IF_COSTING_CHANGED_SEED,
+    description:
+      'FB-20: refuse an offer letter when the costing workbook was uploaded after Final Review approved the quote (the price may have changed since G4). Seeded on. Provisional.',
   },
   {
     key: 'capital_management_notice',

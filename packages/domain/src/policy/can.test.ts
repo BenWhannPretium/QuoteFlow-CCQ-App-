@@ -67,6 +67,22 @@ const EXPECTED: Record<string, Role[]> = {
   'outcome.record': ['SalesLeader'],
   'outcome.assignOwner': ['SalesLeader'],
   'handoff.edit': ['SalesLeader', 'Admin'],
+  // FB-20 (F-070, provisional): every quote reader sees the offer letters (PostAward on Awarded
+  // quotes, stage-qualified); KAM own, SalesLeader, Pricing, PricingLead and Admin generate one.
+  'offer.read': [
+    'KAM',
+    'SalesLeader',
+    'EngLead',
+    'Engineer',
+    'Pricing',
+    'PricingLead',
+    'Approver',
+    'Leadership',
+    'Admin',
+    'Finance',
+    'ProductionScheduler',
+  ],
+  'offer.generate': ['SalesLeader', 'Pricing', 'PricingLead', 'Admin'],
   // B-26 (qualified grants, KAM own / Engineer assigned, are not in this role-level view)
   'gate.G6.decide': ['SalesLeader'],
   'terms.edit': ['SalesLeader', 'Pricing', 'PricingLead'],
@@ -142,7 +158,8 @@ describe('permission matrix', () => {
 
   it('has no unexpected PostAward grant other than reading quotes', () => {
     const granted = PERMISSIONS.filter((p) => rolesWithPermission(p).includes('PostAward'));
-    expect(granted).toEqual(['quote.read', 'quote.read.commercialFields']);
+    // FB-20 (reviewed 2026-11-16): offer.read, the letters of an Awarded quote (read-only).
+    expect(granted).toEqual(['quote.read', 'quote.read.commercialFields', 'offer.read']);
   });
 });
 

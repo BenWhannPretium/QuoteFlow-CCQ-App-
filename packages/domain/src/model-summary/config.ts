@@ -20,9 +20,42 @@ import { DomainError } from '../errors';
 export const MODEL_SUMMARY_KINDS = ['cost_model', 'roi_model', 'price_table'] as const;
 export type ModelSummaryKind = (typeof MODEL_SUMMARY_KINDS)[number];
 
-/** How a value is shown. `percent` is a fraction (0.12 → 12.0 %), as Excel stores it. */
-export const MODEL_SUMMARY_UNITS = ['usd', 'units', 'years', 'percent', 'count', 'text'] as const;
+/**
+ * How a value is shown. `percent` is a fraction (0.12 → 12.0 %), as Excel stores it. FB-20: the two
+ * price units say what a price cell is per (one piece or a thousand pieces), so the offer letter can
+ * print every piece price per 1,000 (`toPer1000`).
+ */
+export const MODEL_SUMMARY_UNITS = [
+  'usd',
+  'units',
+  'years',
+  'percent',
+  'count',
+  'text',
+  'usd_per_unit',
+  'usd_per_1000',
+] as const;
 export type ModelSummaryUnit = (typeof MODEL_SUMMARY_UNITS)[number];
+
+/** FB-20: the units a price on the offer letter may be read in. */
+export const OFFER_PRICE_UNITS = ['usd_per_unit', 'usd_per_1000'] as const;
+export type OfferPriceUnit = (typeof OFFER_PRICE_UNITS)[number];
+
+/**
+ * FB-20 (F-070): the field keys the offer letter reads from a costing map, per item. Any costing map
+ * may carry them (with an `itemNo`); a key with no value for an item is "not in the workbook".
+ */
+export const OFFER_FIELD_KEYS = [
+  'offer_piece_price',
+  'offer_mold_charge',
+  'offer_change_parts_charge',
+] as const;
+export type OfferFieldKey = (typeof OFFER_FIELD_KEYS)[number];
+export const isOfferFieldKey = (key: string): key is OfferFieldKey =>
+  (OFFER_FIELD_KEYS as readonly string[]).includes(key);
+
+/** The most items a map may name (FB-19's `quote_items_max` is lower; this is a sanity bound). */
+export const MODEL_SUMMARY_MAX_ITEM_NO = 50;
 
 export const MODEL_SUMMARY_FIELD_TYPES = ['number', 'text', 'date'] as const;
 export type ModelSummaryFieldType = (typeof MODEL_SUMMARY_FIELD_TYPES)[number];
@@ -72,6 +105,11 @@ export const modelSummaryFieldSchema = z.object({
     .trim()
     .refine((r) => isA1Ref(r), 'an A1 address')
     .optional(),
+  /**
+   * FB-20: the quote item this cell belongs to (1 = the first item). Absent or null = the whole quote
+   * (every FB-14 field). A costing workbook with one column per item maps a field once per item.
+   */
+  itemNo: z.number().int().min(1).max(MODEL_SUMMARY_MAX_ITEM_NO).nullable().optional(),
   /** A headline figure: a blank value is flagged (advisory). */
   headline: z.boolean().default(false),
   /** The mapping is a proposal awaiting the template owner's confirmation. */
@@ -120,10 +158,37 @@ export const modelSummaryTemplateSchema = z
     warnings: modelSummaryWarningsSchema,
   })
   .superRefine((t, ctx) => {
+    // FB-20: a key may repeat once per item; (key, item) must be unique.
+    const slots = t.fields.map((f) => `${f.key}#${f.itemNo ?? ''}`);
+    const dupAt = slots.findIndex((k, i) => slots.indexOf(k) !== i);
+    if (dupAt >= 0) {
+      const f = t.fields[dupAt]!;
+      ctx.addIssue({
+        code: 'custom',
+        message: `duplicate field key ${f.key}${f.itemNo ? ` for item ${f.itemNo}` : ''}`,
+        path: ['fields'],
+      });
+    }
+    t.fields.forEach((f, i) => {
+      if (!isOfferFieldKey(f.key)) return;
+      if (t.kind !== 'cost_model') {
+        ctx.addIssue({
+          code: 'custom',
+          message: `${f.key} is read from a costing map (kind cost_model) only`,
+          path: ['fields', i, 'key'],
+        });
+      }
+      // The piece price says what it is per; a mold or change-parts charge is a lump sum in USD.
+      const units: readonly string[] = f.key === 'offer_piece_price' ? OFFER_PRICE_UNITS : ['usd'];
+      if (f.type !== 'number' || !units.includes(f.unit)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `${f.key} must be a number in ${units.join(' or ')}`,
+          path: ['fields', i, 'unit'],
+        });
+      }
+    });
     const keys = t.fields.map((f) => f.key);
-    const dup = keys.find((k, i) => keys.indexOf(k) !== i);
-    if (dup)
-      ctx.addIssue({ code: 'custom', message: `duplicate field key ${dup}`, path: ['fields'] });
     const known = new Set(keys);
     for (const k of t.warnings.nonPositive) {
       if (!known.has(k))

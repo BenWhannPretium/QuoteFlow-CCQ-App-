@@ -348,3 +348,78 @@ describe('reason text', () => {
     });
   });
 });
+
+describe('FB-20: per-item offer fields', () => {
+  const costing = (fields: unknown[]) =>
+    parseModelSummaryTemplates([
+      {
+        templateId: 'synthetic_costing',
+        label: 'Synthetic costing, one column per item',
+        kind: 'cost_model',
+        active: true,
+        recognise: { sheet: 'Summary', labels: [{ ref: 'A1', contains: 'costing' }] },
+        fields,
+        warnings: { nonPositive: [], hurdle: null },
+      },
+    ]);
+  const piece = (itemNo: number, ref: string) => ({
+    key: 'offer_piece_price',
+    label: `Piece price item ${itemNo}`,
+    unit: 'usd_per_unit',
+    type: 'number',
+    sheet: 'Summary',
+    ref,
+    itemNo,
+  });
+
+  it('reads one field per item and carries the item number', () => {
+    const [t] = costing([piece(1, 'B5'), piece(2, 'C5'), piece(3, 'D5')]);
+    const snap: WorkbookSnapshot = {
+      sheetNames: ['Summary'],
+      definedNames: [],
+      cells: new Map([
+        [
+          'Summary',
+          new Map<string, CellReading>([
+            ['A1', { kind: 'text', value: 'Costing', formula: false }],
+            ['B5', n(0.0825)],
+            ['C5', n(0.091)],
+          ]),
+        ],
+      ]),
+    };
+    const s = extractModelSummary(snap, [t!], 'cost_model');
+    expect(s.status).toBe('complete');
+    expect(s.fields.map((f) => [f.itemNo, f.state, f.number])).toEqual([
+      [1, 'ok', 0.0825],
+      [2, 'ok', 0.091],
+      [3, 'blank', null],
+    ]);
+  });
+
+  it('allows a key once per item, never twice for the same item', () => {
+    expect(() => costing([piece(1, 'B5'), piece(1, 'C5')])).toThrow(
+      /duplicate field key offer_piece_price for item 1/,
+    );
+  });
+
+  it('requires an offer field to be a price on a costing map', () => {
+    expect(() => costing([{ ...piece(1, 'B5'), unit: 'usd' }])).toThrow(
+      /usd_per_unit or usd_per_1000/,
+    );
+    const mold = { ...piece(1, 'B6'), key: 'offer_mold_charge', label: 'Molds item 1' };
+    expect(() => costing([{ ...mold, unit: 'usd_per_1000' }])).toThrow(/must be a number in usd/);
+    expect(costing([{ ...mold, unit: 'usd' }])[0]!.fields[0]!.unit).toBe('usd');
+    expect(() =>
+      parseModelSummaryTemplates([{ ...PAYBACK_TEMPLATE_SEED, fields: [piece(1, 'B5')] }]),
+    ).toThrow(/costing map/);
+  });
+
+  it('seeds the piece price on the inactive pre-makeover map, item 1, per piece, proposed', () => {
+    const f = ERF_COSTING_TEMPLATE_SEED.fields.find((x) => x.key === 'offer_piece_price');
+    expect(ERF_COSTING_TEMPLATE_SEED.active).toBe(false);
+    expect(f).toMatchObject({ ref: 'B16', itemNo: 1, unit: 'usd_per_unit', proposed: true });
+    expect(ERF_COSTING_TEMPLATE_SEED.fields.some((x) => x.key === 'offer_mold_charge')).toBe(false);
+    expect(parseModelSummaryTemplates(MODEL_SUMMARY_TEMPLATES_SEED)).toHaveLength(2);
+  });
+});

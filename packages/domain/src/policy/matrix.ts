@@ -117,6 +117,25 @@ export const PERMISSION_MATRIX: Readonly<
   'outcome.assignOwner': { SalesLeader: true },
   // B-13: the minimal Awarded hand-off record (Stage 6). KAM on their own quotes, SalesLeader, Admin.
   'handoff.edit': { KAM: own, SalesLeader: true, Admin: true },
+  // FB-20 (F-070): the offer letter. Every role that reads the quote sees its letters (rule 2: they
+  // print price, molds and change parts, which every reader already sees). Generating one is the
+  // KAM's on their own quotes, a sales leader's, Pricing's and the Admin's. Provisional: Bailey
+  // Schmitt to confirm (04 §2a).
+  'offer.read': {
+    KAM: true,
+    SalesLeader: true,
+    EngLead: true,
+    Engineer: true,
+    Pricing: true,
+    PricingLead: true,
+    Approver: true,
+    Leadership: true,
+    Admin: true,
+    Finance: true,
+    ProductionScheduler: true,
+    PostAward: { kind: 'stages', stageKeys: ['AWARDED'] },
+  },
+  'offer.generate': { KAM: own, SalesLeader: true, Pricing: true, PricingLead: true, Admin: true },
   // B-26: G6 Commit & Hand Off (Stage 6). The KAM records it on their own quotes, a sales leader on any
   // (CER approvers and the receiving team are outside CCQ; their decisions are recorded as references).
   'gate.G6.decide': { KAM: own, SalesLeader: true },

@@ -24,6 +24,9 @@ export const ATTACHMENT_KINDS = [
   // FB-06 (F-058, D-033): Engineering's equipment BOM, an upload of the one-page CSR BOM from the
   // Engineering Program Office workbook (a generic ballpark at quote time).
   'equipment_bom',
+  // FB-20 (F-070): the customer offer letter QuoteFlow generates after Final Review. Never uploaded:
+  // the upload route refuses the kind; `POST /quotes/:qn/offer-letter` stores it.
+  'offer_letter',
 ] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
@@ -59,7 +62,13 @@ export const KIND_FORMATS: Partial<Readonly<Record<AttachmentKind, readonly File
   cost_model: ['xlsx'],
   roi_model: ['xlsx'],
   price_table: ['xlsx'],
+  offer_letter: ['docx'],
 };
+
+/** FB-20: kinds QuoteFlow generates itself; no one uploads them. */
+export const GENERATED_ATTACHMENT_KINDS: readonly AttachmentKind[] = ['offer_letter'];
+export const isGeneratedKind = (kind: string): boolean =>
+  (GENERATED_ATTACHMENT_KINDS as readonly string[]).includes(kind);
 
 export const isQuotingModelKind = (kind: string): kind is QuotingModelKind =>
   (QUOTING_MODEL_KINDS as readonly string[]).includes(kind);

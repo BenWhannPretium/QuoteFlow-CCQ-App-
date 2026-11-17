@@ -17,6 +17,7 @@ import { healthRoutes } from './health';
 import { intakeRoutes } from './intake';
 import { meRoutes } from './me';
 import { notificationRoutes } from './notifications';
+import { offerLetterRoutes } from './offer-letter';
 import { outcomeRoutes } from './outcome';
 import { overrideRoutes } from './overrides';
 import { pipelineRoutes } from './pipeline';
@@ -40,6 +41,7 @@ import type { FinalReviewService } from '../../services/final-review';
 import type { GateService } from '../../services/gateService';
 import type { IntakeService } from '../../services/intake';
 import type { NotificationService } from '../../services/notificationService';
+import type { OfferLetterService } from '../../services/offer-letter';
 import type { OutcomeService } from '../../services/outcome';
 import type { OverrideService } from '../../services/overrideService';
 import type { PipelineService } from '../../services/pipeline';
@@ -66,6 +68,7 @@ export interface V1Options {
   pricingHistoryService: PricingHistoryService;
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
+  offerLetterService: OfferLetterService;
   commercialService: CommercialService;
   pipelineService: PipelineService;
   attachmentService: AttachmentService;
@@ -101,6 +104,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     pricingHistoryService,
     finalReviewService,
     outcomeService,
+    offerLetterService,
     commercialService,
     pipelineService,
     attachmentService,
@@ -131,6 +135,8 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(pricingHistoryRoutes, { service: pricingHistoryService });
   await app.register(finalReviewRoutes, { service: finalReviewService });
   await app.register(outcomeRoutes, { service: outcomeService });
+  // FB-20 (F-070): the customer offer letter.
+  await app.register(offerLetterRoutes, { service: offerLetterService });
   await app.register(commercialRoutes, { service: commercialService });
   await app.register(pipelineRoutes, { service: pipelineService });
   await app.register(attachmentRoutes, {

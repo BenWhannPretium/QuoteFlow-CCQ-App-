@@ -36,7 +36,8 @@ export const TIMELINE_CATEGORY_TYPES: Readonly<
     // B-07 interim event, before overrides moved to `override` rows.
     'ship_to_overridden',
   ],
-  file: ['attachment_uploaded', 'attachment_removed'],
+  // FB-20 (F-070): an offer letter generated from the approved quote.
+  file: ['attachment_uploaded', 'attachment_removed', 'offer_letter_generated'],
   comment: ['comment_added'],
 };
 

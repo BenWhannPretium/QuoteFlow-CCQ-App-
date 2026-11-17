@@ -34,6 +34,7 @@ import {
   SfUpdateReminder,
   HandoffCard,
 } from '@/components/outcome/CustomerDecision';
+import { OfferLetterCard } from '@/components/outcome/OfferLetterCard';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
 import { QuoteItemsList } from '@/components/QuoteItems';
 import { SalesforceLink } from '@/components/SalesforceLink';
@@ -90,6 +91,7 @@ function QuotePage() {
   /** B-13/B-26: right after recording Awarded (into Commit & Hand Off), the hand-off form opens with focus. */
   const [handoffFocus, setHandoffFocus] = useState(false);
   const canReadFinalReview = useCan('finalReview.read');
+  const canReadOfferLetter = useCan('offer.read');
 
   if (quote.isPending) {
     return (
@@ -214,6 +216,8 @@ function QuotePage() {
           ))}
         </Tabs.List>
         <Tabs.Content value="overview" className="grid gap-6">
+          {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
+          {canReadOfferLetter && <OfferLetterCard quote={q} />}
           <HandoffCard quote={q} autoFocus={handoffFocus} />
           <ClosureCard closure={q.customerDecision.closure} />
           <CommercialPanel quote={q} />

@@ -1,6 +1,7 @@
 // First: installs the plain-language zod messages for every schema below (DR-* messages).
 export * from './messages';
 export * from './model-summary';
+export * from './offer-letter';
 export * from './admin-config';
 export * from './analytics';
 export * from './analytics-engineering';

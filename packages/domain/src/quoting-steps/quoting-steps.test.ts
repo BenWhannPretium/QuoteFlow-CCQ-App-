@@ -133,11 +133,13 @@ describe('model kinds', () => {
 });
 
 describe('F-083: the Finance role reads quotes and uploads the ROI, nothing else', () => {
-  it('holds exactly quote.read, quote.read.commercialFields and roi.upload', () => {
+  it('holds exactly quote.read, quote.read.commercialFields, roi.upload and offer.read', () => {
+    // FB-20: offer.read, the quote's offer letters (read-only, like every quote reader).
     expect(permissionsForRoles(['Finance'])).toEqual([
       'quote.read',
       'quote.read.commercialFields',
       'roi.upload',
+      'offer.read',
     ]);
   });
 

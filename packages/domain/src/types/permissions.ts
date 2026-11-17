@@ -21,6 +21,9 @@ export const PERMISSIONS = [
   'outcome.record',
   'outcome.assignOwner',
   'handoff.edit',
+  // FB-20 (F-070): read a quote's offer letters, and generate one after Final Review.
+  'offer.read',
+  'offer.generate',
   'gate.G6.decide',
   'terms.edit',
   // FB-08 (F-021, D-003 provisional): MOQ and tooling funding are Engineering's.

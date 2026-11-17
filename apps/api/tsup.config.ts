@@ -13,9 +13,11 @@ export default defineConfig({
   sourcemap: true,
   // Workspace packages ship TypeScript source, so bundle them into the API build.
   noExternal: [/^@ccq\//],
-  // azureStart runs the migrations from the deployed bundle, so ship the SQL beside it.
+  // azureStart runs the migrations from the deployed bundle, so ship the SQL (and the brand assets) beside it.
   onSuccess: async () => {
     cpSync('../../packages/db/migrations', 'dist/db/migrations', { recursive: true });
     cpSync('../../packages/db/sql', 'dist/db/sql', { recursive: true });
+    // FB-20: the approved Pretium logo the offer letter prints (documents/brand.ts).
+    cpSync('assets', 'dist/assets', { recursive: true });
   },
 });

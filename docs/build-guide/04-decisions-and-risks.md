@@ -250,6 +250,27 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | `app_setting.g4_additional_approvals` | One rule, **off**: customer-funded or $0 CER → Sales leader, then Leadership (`finalReview.signoff`: SalesLeader, Leadership) | **A-035**, D-002 | Oleg Yarovinski; Sarah |
 | `app_setting.g4_tier_rules` | Unchanged: null (no tiers) | **D-002** thresholds | Oleg Yarovinski |
 
+**FB-20 decisions (Ben Whann, 2026-11-16; the offer letter, F-070):**
+
+| # | Decision | Built in |
+|---|---|---|
+| 1 | The price comes from the costing workbook: the letter reads the figures FB-14's summary took from the current `cost_model` upload. No price is typed into the letter and no pricing figure is entered or edited in QuoteFlow (rule 5). No readable summary, no letter | FB-20: `offer_piece_price` / `offer_mold_charge` / `offer_change_parts_charge` per item in the model-summary maps; prices snapshotted in `offer_letter_item` |
+| 2 | The letter is generated only after Final Review: the quote is in Customer Decision with a proposal date and a validity date. A rule that follows the stage, not a setting | FB-20: `evaluateOfferReadiness` (blocker `not_customer_decision`) |
+| 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
+| 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
+
+**Provisional values FB-20 seeded (built 2026-11-16; all `provisional: true`, changed by config, not code; migration 0048):**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.offer_letter_template` | The old Standard Quote Template's wording, adjusted for the quote's own terms (`feedback/inputs/offer-letter-template-structure.md`): title "Offer Letter", an introduction and closing, 15 pricing assumptions, row labels, the Specifications rows, footer "Confidential"; `legalEntity` and `address` **blank**; `legalApproved: false` | Legal's approved wording; the template owner (Sarah) | Legal; Sarah |
+| `app_setting.offer_letter_wording_approved` | **false**: every letter has the DRAFT line | Legal's approval | Legal |
+| Required price rows (`offer_letter_template.rows`) | Piece price **always**; molds **when the customer funds tooling** (`CUSTOMER_FUNDED`, `ZERO_CER`, `SHARED`); change parts **never** | What Molds and Change Parts mean on the letter | Gemma Cebolla |
+| `app_setting.offer_letter_block_if_costing_changed` | **on**: no letter when the costing workbook was replaced after G4 Approve | — | Gemma Cebolla; Bailey Schmitt |
+| `offer.generate` | KAM (own quotes), SalesLeader, Pricing, PricingLead, Admin. `offer.read`: every quote reader | Who may generate | Bailey Schmitt |
+| The piece price in the inactive pre-makeover costing map | `Summary!B16` (target price), item 1, **per piece** (`usd_per_unit`), proposed; no mold or change-parts cell | Per piece or per 1,000; the new costing template (one column per item, defined names) | Gemma Cebolla |
+| Word only (no PDF) | The letter is a `.docx` the KAM may edit before sending | Whether a PDF is needed (no converter on App Service Linux) | Bailey Schmitt |
+
 **Provisional values FB-19 seeded (built 2026-11-16; all `provisional: true`, changed by config, not code; migration 0047). D-005 stays open: these are the build assumptions Ben agreed on 2026-11-13.**
 
 | Value | Seed | Waits on | Who signs off |
