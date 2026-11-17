@@ -101,6 +101,20 @@ describe('production SPA serving', () => {
     expect(other.statusCode).toBe(200);
   });
 
+  it('cannot be side-stepped by percent-encoding the API path', async () => {
+    // The router decodes `%61` to `a` and serves the API route; the limiter must count it as one.
+    const statuses: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/%61pi/v1/auth/config',
+        headers: { 'x-forwarded-for': '192.0.2.44' },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses).toEqual([200, 200, 429]);
+  });
+
   it('does not expose swagger docs in production', async () => {
     const res = await app.inject({ method: 'GET', url: '/docs/json' });
     expect(res.headers['content-type']).toContain('text/html'); // SPA fallback, not the spec

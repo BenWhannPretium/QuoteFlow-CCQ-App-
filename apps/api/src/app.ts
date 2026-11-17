@@ -292,7 +292,10 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     // The API only. In production this instance also serves the SPA: its files carry no user, so every
     // script, style and font request in the building counted against one shared `ip:<office NAT>`
     // budget, and a morning of page loads could answer 429 for JavaScript.
-    allowList: (req) => !isApiUrl(req.url),
+    // Judged on the route that matched, never on the raw URL: the router percent-decodes the path, so
+    // `/%61pi/v1/…` reaches an API handler while its raw text does not start with `/api`. An unmatched
+    // request (a 404) has no route and falls back to its URL.
+    allowList: (req) => !isApiUrl(req.routeOptions?.url ?? req.url),
   });
   // B-16 uploads: one file per request, streamed. The limit is one byte over the 100 MB cap, so a
   // body that runs past its declared size is caught by the store (413) before the parser cuts it.
