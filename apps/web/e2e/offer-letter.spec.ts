@@ -12,8 +12,8 @@ import { prepareModels } from './models';
 import { signInAs } from './personas';
 import { freeOpportunities, isoDaysFromNow, submitQuote } from './quotes';
 
-// FB-20 (F-070): the customer offer letter. A quote before Final Review says "Not available yet"; a KAM
-// opens an approved three-item quote, types the Attention line and Part #s, sees the prices read from
+// FB-20 (F-070): the customer offer letter. A quote before Final Review shows no offer letter card
+// (UX-012); a KAM opens an approved three-item quote, types the Attention line and Part #s, sees the prices read from
 // the (synthetic) costing workbook, ticks the warnings and downloads the Word document. Synthetic data
 // only: the costing workbook is built in the test and read through a costing map that is switched on
 // for this spec and removed afterwards (the real costing map is not built yet).
@@ -164,17 +164,23 @@ async function approvedThreeItemQuote(request: APIRequestContext): Promise<strin
   return qn;
 }
 
-test('before Final Review approves the quote, the offer letter is not available yet', async ({
+test('before Final Review approves the quote, the offer letter card is not shown', async ({
   page,
   request,
 }) => {
   const qn = await submitQuote(request, await freeOpportunities(request, 3));
   await signInAs(page, 'kam');
+  // UX-012: the card appears once a letter can exist. Wait for the server's answer, then for the
+  // Overview, so "absent" is not just "not loaded yet".
+  const answered = page.waitForResponse(
+    (res) => res.url().endsWith(`/quotes/${qn}/offer-letter`) && res.ok(),
+  );
   await page.goto(`/quotes/${qn}`);
-  const card = page.getByTestId('offer-letter-card');
-  await expect(card).toHaveAttribute('data-state', 'not-available');
-  await expect(card).toContainText('Not available yet');
-  await expect(card.getByRole('button', { name: 'Generate Word document' })).toHaveCount(0);
+  expect(((await (await answered).json()) as { available: boolean }).available).toBe(false);
+  await expect(page.getByTestId('quote-timeline')).toBeVisible();
+  await expect(page.getByTestId('offer-letter-card')).toHaveCount(0);
+  await expect(page.getByText('Not available yet')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Generate Word document' })).toHaveCount(0);
 });
 
 test('a KAM generates the offer letter for an approved three-item quote', async ({
@@ -198,7 +204,8 @@ test('a KAM generates the offer letter for an approved three-item quote', async 
     await page.goto('/proposals');
     const proposal = page.locator(`[data-testid="proposal-card"][data-quote="${qn}"]`);
     await proposal.getByTestId('proposal-offer-letter').click();
-    await expect(page).toHaveURL(new RegExp(`/quotes/${qn}#offer-letter$`));
+    // UX-012: the tab on screen is always in the address; the link to the card keeps its anchor.
+    await expect(page).toHaveURL(new RegExp(`/quotes/${qn}\\?tab=overview#offer-letter$`));
     const card = page.getByTestId('offer-letter-card');
     await expect(card).toHaveAttribute('data-state', 'ready');
     await expect(card.getByTestId('offer-letter-draft-banner')).toContainText(

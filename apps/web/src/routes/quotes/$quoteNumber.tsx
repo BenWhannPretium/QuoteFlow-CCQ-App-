@@ -1,9 +1,9 @@
 import type { QuoteDetail } from '@ccq/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { RotateCcwIcon } from 'lucide-react';
 import { Tabs } from 'radix-ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useCan, useCurrentUser } from '@/auth';
 import {
@@ -45,7 +45,13 @@ import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
-import { QUOTE_TABS, useOpenedTabs, type QuoteTab } from '@/lib/quote-tabs';
+import {
+  QUOTE_TABS,
+  defaultQuoteTab,
+  isQuoteTab,
+  useOpenedTabs,
+  type QuoteTab,
+} from '@/lib/quote-tabs';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
@@ -61,34 +67,69 @@ const TAB_LABELS: Record<QuoteTab, string> = {
 interface QuoteSearch {
   /**
    * `?tab=engineering` opens the Engineering tab (B-10), `?tab=quoting` the Quoting tab (B-11),
-   * `?tab=attachments` the files (B-16).
+   * `?tab=attachments` the files (B-16), `?tab=overview` the Overview. A named tab is exact, for every
+   * reader. With none, the quote opens on the reader's own work (UX-012, `useQuoteTab`).
    */
   tab?: QuoteTab;
 }
 
 export const Route = createFileRoute('/quotes/$quoteNumber')({
   validateSearch: (search: Record<string, unknown>): QuoteSearch =>
-    search.tab === 'engineering' || search.tab === 'quoting' || search.tab === 'attachments'
-      ? { tab: search.tab }
-      : {},
+    isQuoteTab(search.tab) ? { tab: search.tab } : {},
   component: QuotePage,
 });
 
+/**
+ * UX-012: the tab on screen, and how it is kept in the address.
+ *
+ * An address that names a tab (`?tab=`) always wins. One that names none opens on the tab of the
+ * quote's current stage when the reader works that stage (by the permissions in `/me`), otherwise on
+ * Overview. That tab is then written into the address, so a copied link opens on exactly the same tab
+ * for whoever follows it.
+ */
+function useQuoteTab(quote: QuoteDetail | undefined): {
+  tab: QuoteTab;
+  selectTab: (next: QuoteTab) => void;
+} {
+  const { tab: named } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { permissions } = useCurrentUser();
+  // A link to a place on the page (#offer-letter from My proposals, #commercial from Final Review) is a
+  // link to the Overview, where those places are.
+  const toAnchor = useLocation({ select: (l) => l.hash !== '' });
+  const own: QuoteTab | undefined = !quote
+    ? undefined
+    : toAnchor
+      ? 'overview'
+      : defaultQuoteTab({
+          inEngineering: quote.engineering.inQueue,
+          inQuoting: quote.quoting.inQuoting,
+          permissions,
+        });
+  useEffect(() => {
+    if (!named && own) void navigate({ search: { tab: own }, hash: true, replace: true });
+  }, [named, own, navigate]);
+  return {
+    tab: named ?? own ?? 'overview',
+    selectTab: (next) => void navigate({ search: { tab: next }, replace: true }),
+  };
+}
+
 function QuotePage() {
   const { quoteNumber } = Route.useParams();
-  const { tab = 'overview' } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  useDocumentTitle(quoteNumber);
+  const quote = useQuery({
+    queryKey: quoteQueryKey(quoteNumber),
+    queryFn: () => api.quote(quoteNumber),
+  });
+  const { tab, selectTab } = useQuoteTab(quote.data);
   // UX-001: once opened, the Engineering and Quoting tabs stay on the page (hidden) while another tab
   // is shown, so values typed and not yet saved are still there on the way back.
   const openedTabs = useOpenedTabs(quoteNumber, tab);
   const kept = (t: QuoteTab) => ({
     ...(openedTabs.includes(t) ? { forceMount: true as const } : {}),
     hidden: tab !== t,
-  });
-  const navigate = useNavigate({ from: Route.fullPath });
-  useDocumentTitle(quoteNumber);
-  const quote = useQuery({
-    queryKey: quoteQueryKey(quoteNumber),
-    queryFn: () => api.quote(quoteNumber),
   });
   const [deciding, setDeciding] = useState<{
     gate: string;
@@ -203,12 +244,7 @@ function QuotePage() {
 
       <Tabs.Root
         value={tab}
-        onValueChange={(next) =>
-          void navigate({
-            search: next === 'overview' ? {} : { tab: next as QuoteTab },
-            replace: true,
-          })
-        }
+        onValueChange={(next) => selectTab(next as QuoteTab)}
         className="grid gap-6"
       >
         <UnsavedChangesGuard quoteNumber={q.quoteNumber} />

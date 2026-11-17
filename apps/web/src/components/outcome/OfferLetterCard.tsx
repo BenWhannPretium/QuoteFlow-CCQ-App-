@@ -50,8 +50,9 @@ export function OfferLetterCard({ quote }: { quote: QuoteDetail }) {
 
   if (!q.data) return null;
   const data = q.data;
-  // A closed quote that never had a letter has nothing to show.
-  if (!data.available && data.letters.length === 0 && quote.status === 'closed') return null;
+  // UX-012: nothing to show until Final Review has approved the quote. Once a letter can be made, or
+  // one already exists (an earlier version's), the card is shown.
+  if (!data.available && data.letters.length === 0) return null;
 
   return (
     <section

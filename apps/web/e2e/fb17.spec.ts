@@ -249,8 +249,9 @@ test('a hold is owned by the assigned engineer by default, who is told; the time
   expect(forKam?.body).toContain('Reason: Awaiting internal input.');
   expect(forKam?.body).toContain(`Review date: ${reviewDate}.`);
 
-  // The quote header and the timeline read the same: why, who owns it, when it is reviewed.
-  await page.goto(`/quotes/${qn}`);
+  // The quote header and the timeline read the same: why, who owns it, when it is reviewed (UX-012: the
+  // timeline is on Overview; without ?tab= the engineering lead opens this quote on Engineering).
+  await page.goto(`/quotes/${qn}?tab=overview`);
   const sentence = `On hold: Awaiting internal input. Owner: ${engineer.displayName}. Review by`;
   await expect(page.getByTestId('quote-status')).toContainText(sentence);
   const timeline = page.getByTestId('quote-timeline');

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
 import { signInAs } from './personas';
@@ -9,6 +9,9 @@ import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 // The quote page's tabs (UX proposals approved 2026-11-17, docs/audit/03-ux-proposals.md).
 // UX-001: values typed on the Engineering and Quoting tabs survive a look at another tab; "Submit to
 // lead" waits for the save; leaving the page with unsaved changes asks first.
+// UX-012: a quote opens on the tab of its current stage for a reader who works that stage, otherwise
+// on Overview; the tab on screen is always in the address and an explicit ?tab= wins; the Offer letter
+// card is not shown before Final Review approves the quote.
 // UX-017 (third bullet): the Engineering tab no longer says "Your role cannot see the saved figure".
 // Synthetic data only: every quote is created through the API as a dev persona.
 
@@ -233,4 +236,104 @@ test('UX-001: the Quoting tab keeps typed values too, and opening it is not a ch
   await page.getByRole('navigation', { name: 'Primary' }).locator('[data-nav="pipeline"]').click();
   await expect(page).toHaveURL(/\/quotes(\?|$)/);
   expect(asked).toEqual([LEAVE_QUESTION]);
+});
+
+/** A new page in its own browser context, signed in as a persona. */
+async function openAs(browser: Browser, persona: string): Promise<Page> {
+  const page = await (await browser.newContext()).newPage();
+  await signInAs(page, persona);
+  return page;
+}
+
+/** The tab that is selected on the quote page. */
+const selectedTab = (page: Page) => page.getByRole('tab', { selected: true });
+
+test("UX-012: a quote in Engineering opens on the reader's own work, and ?tab= is exact", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const { quoteNumber } = await readyForTheLead(request);
+  const bare = `/quotes/${quoteNumber}`;
+  const address = (tab: string) => new RegExp(`/quotes/${quoteNumber}\\?tab=${tab}$`);
+
+  // ── The engineer works this stage: the quote opens on the Engineering tab ──
+  const eng = await openAs(browser, 'engineer');
+  await eng.goto(bare);
+  await expect(selectedTab(eng)).toHaveText('Engineering');
+  await expect(eng.getByTestId('engineering-tab').getByTestId('solution-form')).toBeVisible();
+  // The tab on screen is written into the address, so a copied link is exact.
+  await expect(eng).toHaveURL(address('engineering'));
+  if (auditScreens) await eng.screenshot({ path: screenshotPath('UX-012') });
+  // An explicit ?tab= wins over the default.
+  await eng.goto(`${bare}?tab=overview`);
+  await expect(selectedTab(eng)).toHaveText('Overview');
+  await expect(eng.getByTestId('quote-timeline')).toBeVisible();
+  await expect(eng).toHaveURL(address('overview'));
+  // Choosing a tab by hand is kept in the address too, Overview included.
+  await eng.getByRole('tab', { name: 'Attachments' }).click();
+  await expect(eng).toHaveURL(address('attachments'));
+  await eng.getByRole('tab', { name: 'Overview' }).click();
+  await expect(eng).toHaveURL(address('overview'));
+  // A link to a place on the Overview (the Commercial panel, the offer letter) opens the Overview.
+  await eng.goto(`${bare}#commercial`);
+  await expect(selectedTab(eng)).toHaveText('Overview');
+  await expect(eng).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=overview#commercial$`));
+
+  // ── The engineering lead and the production scheduler work it too ──
+  for (const persona of ['eng-lead', 'production-scheduler']) {
+    const page = await openAs(browser, persona);
+    await page.goto(bare);
+    await expect(selectedTab(page), persona).toHaveText('Engineering');
+    await expect(page, persona).toHaveURL(address('engineering'));
+    await page.context().close();
+  }
+
+  // ── The KAM does not: Overview, as before ──
+  const kam = await openAs(browser, 'kam');
+  const offerLetter = kam.waitForResponse(
+    (res) => res.url().endsWith(`/quotes/${quoteNumber}/offer-letter`) && res.ok(),
+  );
+  await kam.goto(bare);
+  await expect(selectedTab(kam)).toHaveText('Overview');
+  await expect(kam).toHaveURL(address('overview'));
+  await expect(kam.getByTestId('engineering-tab')).toHaveCount(0);
+  // The Offer letter card is not shown before Final Review approves the quote.
+  expect(((await (await offerLetter).json()) as { available: boolean }).available).toBe(false);
+  await expect(kam.getByTestId('quote-timeline')).toBeVisible();
+  await expect(kam.getByTestId('offer-letter-card')).toHaveCount(0);
+  await expect(kam.getByText('Not available yet')).toHaveCount(0);
+  // The engineer's link opens on the Engineering tab for the KAM as well.
+  await kam.goto(`${bare}?tab=engineering`);
+  await expect(selectedTab(kam)).toHaveText('Engineering');
+  await expect(kam.getByTestId('engineering-tab')).toBeVisible();
+  await expect(kam).toHaveURL(address('engineering'));
+  expect(await seriousViolations(kam)).toEqual([]);
+});
+
+test('UX-012: a quote in Quoting opens on the Quoting tab for Pricing and Finance only', async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const { quoteNumber } = await inQuoting(request);
+  const bare = `/quotes/${quoteNumber}`;
+  const address = (tab: string) => new RegExp(`/quotes/${quoteNumber}\\?tab=${tab}$`);
+
+  for (const persona of ['pricing', 'pricing-lead', 'finance']) {
+    const page = await openAs(browser, persona);
+    await page.goto(bare);
+    await expect(selectedTab(page), persona).toHaveText('Quoting');
+    await expect(page.getByTestId('quoting-tab'), persona).toBeVisible();
+    await expect(page, persona).toHaveURL(address('quoting'));
+    await page.context().close();
+  }
+  // Engineering's stage is over: the engineer and the KAM open on Overview.
+  for (const persona of ['engineer', 'kam']) {
+    const page = await openAs(browser, persona);
+    await page.goto(bare);
+    await expect(selectedTab(page), persona).toHaveText('Overview');
+    await expect(page, persona).toHaveURL(address('overview'));
+    await page.context().close();
+  }
 });

@@ -89,8 +89,9 @@ test('Engineering sees why a sales leader changed the tier on the queue row', as
   await expect(row.getByTestId('queue-priority-override')).toContainText(why);
   expect(await seriousViolations(page)).toEqual([]);
 
-  // The priority panel on the quote's overview repeats it.
-  await page.goto(`/quotes/${quoteNumber}`);
+  // The priority panel on the quote's overview repeats it (UX-012: without ?tab= the engineering lead
+  // opens a quote in Engineering on the Engineering tab).
+  await page.goto(`/quotes/${quoteNumber}?tab=overview`);
   await expect(page.getByTestId('priority-override-note')).toContainText(why);
 });
 
