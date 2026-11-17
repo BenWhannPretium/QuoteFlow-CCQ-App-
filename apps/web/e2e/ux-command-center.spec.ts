@@ -221,3 +221,21 @@ test.describe('UX-008: "Start review" has one name', () => {
     await expect(timeline.getByText('Engineering review accepted')).toHaveCount(0);
   });
 });
+
+test.describe('UX-009: the pricing queue says who approves the price', () => {
+  for (const persona of ['pricing', 'pricing-lead']) {
+    test(`${persona}: pricers submit to the pricing lead, not to Final Review`, async ({
+      page,
+    }) => {
+      await signInAs(page, persona);
+      await page.goto('/queue/pricing');
+      const queue = page.getByTestId('pricing-queue');
+      await expect(queue.getByRole('heading', { level: 1, name: 'Pricing queue' })).toBeVisible();
+      await expect(queue).toContainText(
+        'Record the price approval and capital readiness, then submit to the pricing lead, who approves the price.',
+      );
+      await expect(queue).not.toContainText('submit to Final Review');
+      if (persona === 'pricing') await auditScreen(queue.locator('header').first(), 'UX-009');
+    });
+  }
+});

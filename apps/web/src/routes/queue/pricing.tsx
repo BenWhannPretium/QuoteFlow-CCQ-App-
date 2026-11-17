@@ -56,8 +56,8 @@ export const Route = createFileRoute('/queue/pricing')({
 /**
  * The pricing queue (B-11, DEC-19/20): every quote in Quoting, highest priority first, then the
  * longest waiting. B-26 (A6): the pricing lead assigns each quote to a pricer (and can move a pricer's
- * work in bulk); everyone can filter to their own. Pricing records the approval and submits to Final
- * Review; Leadership reads. The
+ * work in bulk); everyone can filter to their own. A pricer records the approval and submits to the
+ * pricing lead, who decides G3 (L-9); Leadership reads. The
  * API decides who may do what, and no price figure is shown or edited here (DEC-23, PRD §9).
  */
 function PricingQueuePage() {
@@ -94,7 +94,8 @@ function PricingQueuePage() {
         className="mb-0"
         title="Pricing queue"
         eyebrow="Pricing"
-        description="Every quote in Quoting, highest priority first, then the longest waiting. Record the price approval and capital readiness, then submit to Final Review."
+        // UX-009 (L-9): a pricer submits to the pricing lead, who alone decides the price gate.
+        description="Every quote in Quoting, highest priority first, then the longest waiting. Record the price approval and capital readiness, then submit to the pricing lead, who approves the price."
         actions={
           // B-15: the retired pricing app's history (ERF, BPR, SPR), imported into CCQ.
           <Link
