@@ -249,9 +249,14 @@ export function LeadReviewActions<T>({
           )}
         </div>
       )}
-      {(submitReady || decide?.ready || (decide && decide.onOther)) && unsaved && (
-        <p id={saveFirstId} className="text-muted-foreground" data-testid="save-first">
-          {SAVE_FIRST_TEXT}
+      {(submitReady || decide?.ready || (decide && decide.onOther)) && (
+        // UX-018: the live region is on the page before the line appears, so the line is announced.
+        <p role="status" className={unsaved ? 'text-muted-foreground' : 'sr-only'}>
+          {unsaved && (
+            <span id={saveFirstId} data-testid="save-first">
+              {SAVE_FIRST_TEXT}
+            </span>
+          )}
         </p>
       )}
       {sending && (

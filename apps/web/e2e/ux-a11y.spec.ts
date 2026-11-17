@@ -1028,6 +1028,111 @@ test('the board moves a card without a mouse: the Move menu, and the grip with i
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('a new intake step starts at its top for the keyboard, and is announced', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const q = await quotes(request);
+  await page.setViewportSize({ width: 1366, height: 850 });
+  await signInAs(page, 'kam');
+  await page.goto(`/intake/new?draft=${q.draft}`);
+  const wizard = page.getByTestId('intake-wizard');
+  await intakeStep(page, 2);
+
+  // The step line is in the page for a screen reader on a desktop too (it was display:none).
+  const line = wizard.locator('nav[aria-label="Intake steps"] p[aria-live="polite"]');
+  await expect(line).toHaveText('Step 2 of 4 · Customer & destination');
+  expect(await line.evaluate((el) => getComputedStyle(el).display)).not.toBe('none');
+
+  // Next, from the keyboard: the step changes and the keyboard is at the top of the page, so the
+  // first Tab goes into the new step, not past the end of the page.
+  const next = wizard.getByRole('button', { name: /^Next/ });
+  await next.focus();
+  await page.keyboard.press('Enter');
+  await expect(wizard).toHaveAttribute('data-step', '3');
+  await expect(line).toHaveText('Step 3 of 4 · Request & items');
+  await expect(page.locator('main')).toBeFocused();
+  await page.keyboard.press('Tab');
+  const firstStop = await page.evaluate(() => {
+    const el = document.activeElement;
+    const nextButton = [...document.querySelectorAll('main button')].find((b) =>
+      (b.textContent ?? '').trim().startsWith('Next'),
+    );
+    return {
+      inMain: !!el && !!document.querySelector('main')?.contains(el),
+      // DOCUMENT_POSITION_FOLLOWING: the Next button comes after the focused element.
+      beforeNext: !!el && !!nextButton && (el.compareDocumentPosition(nextButton) & 4) === 4,
+    };
+  });
+  expect(firstStop).toEqual({ inMain: true, beforeNext: true });
+
+  // A step chosen in the stepper: its button switches off as it becomes the current step, and the
+  // keyboard is not dropped on the page body.
+  await page.getByRole('button', { name: 'Step 4: ' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(wizard).toHaveAttribute('data-step', '4');
+  await expect(page.locator('main')).toBeFocused();
+});
+
+// ── 4. Status messages ───────────────────────────────────────────────────────────────────────────
+
+test('"Save your changes first." and "saved" are announced without moving focus', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const q = await quotes(request);
+  await page.setViewportSize({ width: 1366, height: 850 });
+  await signInAs(page, 'engineer');
+  await page.goto(`/quotes/${q.eng}?tab=engineering`);
+  const tab = page.getByTestId('engineering-tab');
+  const actions = tab.getByTestId('lead-review-actions');
+  const submit = actions.getByRole('button', { name: 'Submit to engineering lead' });
+  await expect(submit).toBeEnabled();
+  // The live region is on the page, empty, before there is anything to say.
+  const status = actions.getByRole('status');
+  await expect(status).toHaveCount(1);
+  await expect(status).toBeEmpty();
+
+  const concept = tab.getByTestId('solution-form').getByLabel('Technical concept');
+  await concept.focus();
+  await page.keyboard.type('Two-cavity shuttle');
+  await expect(status).toHaveText('Save your changes first.');
+  await expect(submit).toBeDisabled();
+  await expect(submit).toHaveAccessibleDescription('Save your changes first.');
+  await expect(concept).toBeFocused();
+
+  // Saving: the line beside the button and the toast are both status messages, and neither takes focus.
+  const save = tab.getByTestId('solution-form').getByRole('button', { name: 'Save solution' });
+  await save.focus();
+  await page.keyboard.press('Enter');
+  const saved = tab.getByTestId('solution-form').getByTestId('save-progress');
+  await expect(saved).toHaveAttribute('role', 'status');
+  await expect(saved).toHaveText('Progress saved');
+  const toast = page.getByRole('region', { name: 'Messages' }).getByRole('status');
+  await expect(toast).toContainText('Solution saved');
+  await expect(toast.getByRole('button', { name: 'Dismiss' })).toBeVisible();
+  await expect(status).toBeEmpty();
+  await expect(submit).toBeEnabled();
+  expect(
+    await page.evaluate(
+      () =>
+        document.activeElement?.closest(
+          '[role="status"], [role="alert"], [aria-label="Messages"]',
+        ) ?? null,
+    ),
+  ).toBeNull();
+  // The keyboard carries on from the form, not from the top of the page. (The Save button is switched
+  // off while it saves, which drops focus to the page for that moment: reported, not changed here.)
+  await page.keyboard.press('Tab');
+  expect(
+    await page.evaluate(
+      () => document.activeElement?.closest('[data-testid="engineering-tab"]') !== null,
+    ),
+  ).toBe(true);
+});
+
 // ── 6. Targets ───────────────────────────────────────────────────────────────────────────────────
 
 test('targets are at least 24 px tall where they sit next to another one', async ({

@@ -454,6 +454,9 @@ function Wizard({
     window.scrollTo({ top: 0 });
     // DR-kam-sales-leader-18: "Fix" lands on the field, not on the page body.
     if (field) requestAnimationFrame(() => focusIntakeField(field));
+    // UX-018: otherwise the keyboard starts the new step at its top. Focus was left on Next, at the
+    // bottom of the page, or dropped when the step's own button in the stepper switched off.
+    else document.getElementById('main')?.focus({ preventScroll: true });
   };
 
   // FB-15 (W13-01): config can be cached for minutes; refetch it when the review step opens, so a list

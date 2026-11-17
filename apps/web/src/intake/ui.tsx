@@ -89,7 +89,9 @@ export function Stepper({
   const title = STEPS.find((s) => s.n === current)?.title ?? '';
   return (
     <nav aria-label="Intake steps" className="mb-6">
-      <p className="text-muted-foreground mb-2 text-sm sm:hidden" aria-live="polite">
+      {/* UX-018: on a desktop the line is not shown, but it stays in the page for a screen reader:
+          hidden with display:none, a change of step was announced on a phone only. */}
+      <p className="text-muted-foreground mb-2 text-sm sm:sr-only" aria-live="polite">
         Step {current} of {STEPS.length} · <span className="text-foreground">{title}</span>
       </p>
       <ol className="flex gap-1.5 sm:gap-2">
