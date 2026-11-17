@@ -39,6 +39,15 @@ describe('every seeded app setting has a validating spec', () => {
     expect(parseSettingValue('intake_other_description_max_length', 200)).toBe(200);
   });
 
+  it('lets the customer notice be switched off (not set), and still bounds its length', () => {
+    expect(parseSettingValue('customer_master_data_notice', null)).toBeNull();
+    expect(
+      parseSettingValue('customer_master_data_notice', '  Call Customer Service first.  '),
+    ).toBe('Call Customer Service first.');
+    expect(() => parseSettingValue('customer_master_data_notice', 'x'.repeat(1001))).toThrow();
+    expect(() => parseSettingValue('customer_master_data_notice', 42)).toThrow();
+  });
+
   it('refuses a malformed capacity basis and accepts the seeded one', () => {
     expect(() => parseSettingValue('capacity_basis', { scheduledRunDaysPerYear: 0 })).toThrow();
     expect(() => parseSettingValue('capacity_basis', 'x')).toThrow();

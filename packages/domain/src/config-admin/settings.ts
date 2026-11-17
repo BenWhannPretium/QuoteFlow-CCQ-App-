@@ -304,6 +304,8 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Notice shown when the customer is not yet a Pretium customer (empty = no notice)',
     'text',
     z_('customer_master_data_notice', z.string().trim().max(1000)),
+    // Not set = no notice: the text editor cannot send an empty value, so "off" has to be null.
+    { nullable: true },
   ),
   // FB-19 (W13-32, W13-33; provisional): multi-item quotes and more than one quote per opportunity.
   spec(
