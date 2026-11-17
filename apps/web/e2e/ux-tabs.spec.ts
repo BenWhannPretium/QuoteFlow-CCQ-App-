@@ -274,14 +274,11 @@ test('UX-001: a save by someone else is not your unsaved change, and your save d
 
   // The page reads the quote again (here: the first drawing arrives).
   await page.getByRole('tab', { name: 'Attachments' }).click();
-  await page
-    .getByTestId('attachments')
-    .getByTestId('attachment-input')
-    .setInputFiles({
-      name: 'Bottle drawing.synthetic.pdf',
-      mimeType: 'application/pdf',
-      buffer: PDF,
-    });
+  await page.getByTestId('attachments').getByTestId('attachment-input').setInputFiles({
+    name: 'Bottle drawing.synthetic.pdf',
+    mimeType: 'application/pdf',
+    buffer: PDF,
+  });
   await expect(page.getByText('Drawing attached')).toBeVisible();
   await page.getByRole('tab', { name: 'Engineering' }).click();
 
@@ -309,6 +306,39 @@ test('UX-001: a save by someone else is not your unsaved change, and your save d
   await expect(solution.getByLabel(/^Tooling notes/)).toHaveValue('Lead: two-cavity mold');
   await expect(submit).toBeEnabled();
   await expect(tab.getByTestId('save-first')).toHaveCount(0);
+});
+
+test('UX-001: a difference the server ignores is not an unsaved change on the Quoting tab', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const { quoteNumber } = await inQuoting(request);
+  await signInAs(page, 'pricing');
+  await page.goto(`/quotes/${quoteNumber}?tab=quoting`);
+  const tab = page.getByTestId('quoting-tab');
+  const capital = tab.getByTestId('capital-form');
+
+  await capital.getByLabel('Status').selectOption('pre_approved');
+  expect(await asksBeforeUnload(page)).toBe(true);
+  await capital.getByRole('button', { name: /^Save/ }).click();
+  await expect(page.getByText('Capital readiness saved')).toBeVisible();
+  await expect.poll(() => asksBeforeUnload(page)).toBe(false);
+
+  // Pick Pending, say why, pick Pre-approved again: the justification is hidden and the server would
+  // drop it. Counting it as unsaved held Submit back with nothing on screen to save.
+  await capital.getByLabel('Status').selectOption('pending');
+  await capital.getByLabel('Pending-capital justification').fill('Waiting for the CER number');
+  expect(await asksBeforeUnload(page)).toBe(true);
+  await capital.getByLabel('Status').selectOption('pre_approved');
+  expect(await asksBeforeUnload(page)).toBe(false);
+  await expect(tab.getByTestId('save-first')).toHaveCount(0);
+
+  // Spaces the server trims are not a change either.
+  await capital.getByLabel('Capital notes').fill('   ');
+  expect(await asksBeforeUnload(page)).toBe(false);
+  await tab.getByTestId('pricing-record-form').getByLabel('Pricing basis').fill('  ');
+  expect(await asksBeforeUnload(page)).toBe(false);
 });
 
 /** A new page in its own browser context, signed in as a persona. */
