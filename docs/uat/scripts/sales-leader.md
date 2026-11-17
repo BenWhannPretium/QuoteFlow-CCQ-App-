@@ -1,5 +1,7 @@
 # UAT script: Sales leader
 
+> Checked against the build on 2026-11-17 (pre-release audit): the stage after G1 is **Engineering & Capacity**, the Command Center block is **To qualify**, and the buttons read **Qualify quote**, **Override** and **Record customer decision**. Steps 3, 8, 15, 19, 28 and 29 are changed.
+
 | | |
 |---|---|
 | Session | **U1**, Mon Nov 9 (2 h), alongside the KAMs. Run by Bailey Schmitt. |
@@ -33,7 +35,7 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 |---|---|---|---|---|
 | 1 | Sign in. | The **Command Center** opens on **Sales pipeline** ("Qualification decisions and the health of your team’s pipeline."). The line above the title reads "Command Center · Sales leader". | | |
 | 2 | Look at the navigation. | **Command Center**, **New intake**, **My proposals**, **To qualify**, **Pipeline**, **Approvals**. No Admin, and no **Analytics** item: the Command Center has two views at the top, **My work** and **Analytics**. | | |
-| 3 | Read the blocks of **My work**. | **To qualify (G1)**, **Pending override requests** (empty is normal: new overrides apply at once), **Team pipeline by stage**, **Proposals with no outcome past validity**. | | |
+| 3 | Read the blocks of **My work**. | **To qualify**, **Pending override requests** (empty is normal: new overrides apply at once), **Team pipeline by stage**, **Proposals with no outcome past validity**. | | |
 | 4 | Click the ⓘ next to **Team pipeline by stage**. | A pop-up gives the definition and the time window. | | |
 | 5 | Compare the **Team pipeline by stage** counts with **Pipeline** (filter by your team's KAMs). | The counts match. | | |
 
@@ -44,14 +46,14 @@ Labels for stages, outcomes and reasons are provisional configuration. Note a wr
 | 6 | Click **To qualify**. | Tab **To qualify**: "Submitted intakes, highest priority first. The score is advisory: it orders the list; you decide." Each row has **Decide**. | | |
 | 7 | Open `<CCQ-G1-A>`. Read the product facts, then **Why this priority?** | The Overview shows what the KAM entered (**Market** as "Market › Sub-market", resin, PCR %, dimensions, the two needed-by dates, any variants note). **Why this priority?** shows each attribute with its points. Strategic fit shows **Market: <Market › Sub-market>** (for example "Market: Food › Snacks & Confections") with a **provisional** chip. The live model scores strategic fit at a neutral 50; the sub-market points are only in the draft (priority-calibration.md). "Timing" reads the **Quote needed by** date. FB-17: on a laptop the whole explanation stays on the screen (it opens above the button when there is more room there) and scrolls inside when it is long. | | |
 | 7a | Open a quote where the KAM picked **Other** for resin, PCR or additive (for example the quote from kam.md steps 10a–10d). Read **Resin**, **Customer-specified resin**, **PCR %** and **Additives**. | **Resin** reads "Other". The next three show what the KAM typed, so you can qualify without asking. Write in Notes if the customer's value would change your decision. | | |
-| 8 | Click **Decide** on `<CCQ-G1-A>`. Choose **Advance**. Click **Record decision**. | The dialog shows the priority (advisory) and "Intake complete for this decision." No note is asked for a plain Advance. Then "Advance recorded". The quote leaves the list. Its stage is **Engineering Review**. | | |
+| 8 | Click **Decide** on `<CCQ-G1-A>`. Choose **Advance**. Click **Record decision**. | The dialog shows the priority (advisory) and "Intake complete for this decision." No note is asked for a plain Advance. Then "Advance recorded". The quote leaves the list. Its stage is **Engineering & Capacity**. | | |
 | 9 | **Decide** on the KAM's Part C quote. Choose **Send back to…**. **Send to** already shows **The KAM (fix the intake)**, the only place a quote can go from here. Record with no reason and no note. Then pick reason **Missing information** and type a note in **Note (required)** (the KAM sees it as "What to fix:"). **Record decision**. | "Choose a reason." and "Add a note." Then "Send back to the KAM (fix the intake) recorded". The quote goes back to **Intake**. The KAM is notified and sees the banner (kam.md steps 37–40). | | |
 | 10 | **Decide** on `<CCQ-G1-B>`. Choose **Hold**. Click **Record decision** with no review date and no note. | Refused: it asks for a review date and a note. | | |
 | 11 | Read the text under **Hold**. Set **Review date (required)**, leave the **Hold owner** on **Me** (nobody is assigned at this stage), pick a reason, add a note, **Record decision**. | Hold reads "Pause the quote, for example when the customer asks to revisit it in 6 months. To get something fixed, use Send back to… instead." The **Hold owner** list offers **Me**, **The KAM (<name>)** and a search by name. After recording, the quote header reads "On hold: <reason>. Owner: <you>. Review by <date>.", and the **Timeline** has the same sentence with your note. The KAM is told it is on hold, with the owner, the reason and the review date. FB-18: on the Command Center, **Team pipeline by stage** lists the quote first in its stage with an orange **On hold** chip; rest the mouse on the chip, or tab to it, to read the same sentence. | | |
 | 12 | **Decide** on `<CCQ-G1-C>`. Choose **Stop: not CCQ work (send elsewhere)** (one of the two choices under Stop; it was "Redirect (not CCQ work)"). Pick **Stock item**. Add a note. **Record decision**. | No **Closure owner** question is asked. The quote closes as **Redirected**. The closure card shows the reason and you as closure owner. The KAM is told it closed. | | |
 | 13 | **Decide** on `<CCQ-G1-D>`. Choose **Stop**. Pick **Not strategic**. Leave the note empty. **Record decision**. | "Add a note." The option is marked "Closes the quote". | | |
 | 14 | Add a note. **Record decision**. | No **Closure owner** question is asked (FB-17): the quote closes as **Declined** with you as closure owner. | | |
-| 15 | Open `<CCQ-G1-E>`. Click the header button **Qualify & prioritize**. Hover each ⓘ next to the options. | The same dialog opens from the quote page. Advance, Hold and each Stop have a definition behind the ⓘ; **Send back to…** shows the definition of the place chosen under **Send to**. Cancel without deciding. | | |
+| 15 | Open `<CCQ-G1-E>`. Click the header button **Qualify quote**. Hover each ⓘ next to the options. | The same dialog opens from the quote page, titled **Qualify quote**. Advance, Hold and each Stop have a definition behind the ⓘ; **Send back to…** shows the definition of the place chosen under **Send to**. Cancel without deciding. | | |
 | 16 | After the KAM resubmits the Part C quote, check **To qualify**. | It is back in the list with the same quote number. | | |
 
 ## Part C: You cannot qualify your own deal (negative check)
@@ -67,7 +69,7 @@ You are the only role that can change a priority tier. It applies at once, with 
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 19 | Open the KAM's Part B quote. Next to the priority, click **Override priority tier**. | A dialog **Override priority tier** that says "Applies now and is logged with your reason". There is no request-and-wait step. | | |
+| 19 | Open the KAM's Part B quote. Next to the priority, click **Override** (the pencil). | A dialog **Override priority tier** that says "Applies now and is logged with your reason". There is no request-and-wait step. | | |
 | 20 | Pick **New tier** = **Critical** (or another). Type **Justification (required)** "Too short". Click **Apply override**. | Refused: the justification needs at least 15 characters. | | |
 | 21 | Type a justification of 15 or more characters (for example "Strategic launch, customer line trial"). Click **Apply override**. | The dialog closes. The priority shows the new tier with a marker (original tier and why). The justification shows under **Why this priority?** | | |
 | 22 | Advance the quote at G1 first if it is still in Intake (the Engineering queue only lists it after that). Sign in as the engineering lead (or ask the tester). Open **Engineering queue** and find the quote. | The row shows a chip with your justification, so Engineering knows why it moved. | | |
@@ -81,8 +83,8 @@ You are the only role that can change a priority tier. It applies at once, with 
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 28 | Open `<CCQ-CD-3 staged by Ben>`. Click **Outcome recorded** (header). Choose **No response / Expired**. Pick a reason. Leave the note empty. **Record decision**. | Refused: "The proposal is still valid: add a note saying why it is expired now." Close without recording. | | |
-| 29 | **Pipeline** → **Board**. Drag a quote that waits at G1 to **Engineering Review**. | The **Qualify & prioritize** dialog opens to confirm. Cancel. The card goes back. | | |
+| 28 | Open `<CCQ-CD-3 staged by Ben>`. Click **Record customer decision** (header). Choose **No response / Expired**. Pick a reason. Leave the note empty. **Record decision**. | Refused: "The proposal is still valid: add a note saying why it is expired now." Close without recording. | | |
+| 29 | **Pipeline** → **Board**. Drag a quote that waits at G1 to **Engineering & Capacity**. | The **Qualify quote** dialog opens to confirm. Cancel. The card goes back. | | |
 | 30 | Open a quote in **Quoting** or later → **Quoting** tab. | You can read the price approval record and the capital readiness (every role that can read a quote sees them). There is no button to change them. | | |
 | 31 | **Pipeline** → **Columns**. | **Budgetary capital estimate** and **Capital readiness** are offered, like for every role. | | |
 | 32 | Open a quote whose G3 or G4 is decided. | The section is locked: "Locked after G3 · decided by <name> on <date> · reopens if the quote is sent back". | | |

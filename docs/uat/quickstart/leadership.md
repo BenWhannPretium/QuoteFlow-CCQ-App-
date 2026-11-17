@@ -1,8 +1,10 @@
 # QuoteFlow quick-start: Leadership
 
+> Checked against the build on 2026-11-17 (pre-release audit): the overview stat reads **Median: intake to Final Review decision**.
+
 **What QuoteFlow is for you.** A read-only view of every commercial capital quote: where it is, how long it takes, what we win and lose, and how the rules are followed. You see everything, including pricing and capital figures. You do not change them.
 
-**Your Command Center: Leadership overview.** It shows **Open quotes**, **Median intake to G4**, **First-pass intake completeness**, **Win rate and outcome capture** and **Pipeline by stage**. At the top are two views: **My work** and **Analytics**. Your menu: **Command Center**, **Engineering queue**, **Pricing queue**, **Pipeline**, **Approvals**, **Admin**.
+**Your Command Center: Leadership overview.** It shows **Open quotes**, **Median: intake to Final Review decision**, **First-pass intake completeness**, **Win rate and outcome capture** and **Pipeline by stage**. At the top are two views: **My work** and **Analytics**. Your menu: **Command Center**, **Engineering queue**, **Pricing queue**, **Pipeline**, **Approvals**, **Admin**.
 
 ## What you'll do
 

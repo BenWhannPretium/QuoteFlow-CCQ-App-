@@ -1,5 +1,7 @@
 # UAT script: Priority calibration (FB-10, FB-12)
 
+> Checked against the build on 2026-11-17 (pre-release audit): the G1 dialog is titled **Qualify quote** and the stage after G1 is **Engineering & Capacity**. Steps 12 and 14 are changed.
+
 | | |
 |---|---|
 | Session | **U3b**, Wed Nov 11 (30 min), straight after `leadership.md`. Run by Ben Whann (Admin) with Bailey Schmitt. |
@@ -59,14 +61,14 @@ The warning and the routing are switched off; the draft is inactive. D-004 (weig
 | 9 | Admin | **Admin** → **App settings** → **Platform-minimum warning**. Set `enabled` to `true`. Save. | Saved. The minimums read ISBM 1,000,000, RHB 1,000,000, IMM (injection) 3,000,000, IBM 3,000,000, EBM 1,000,000 (corrected on Nov 9, PR #66). The change is in **Admin** → **Audit log**. | | |
 | 10 | KAM | **New intake** from `<SF-OPP-30 chosen by Bailey>`. Fill the required fields with **Estimated annual volume (units)** = **750,000**. Go to **Review**. | Under the volume field on the **Request & items** step: "Below the platform minimum for our machine platforms: 750,000 units/yr. You can still submit." The **Drawing, files & review** step does not repeat it. **Submit** is still available. | | |
 | 11 | KAM | Change the volume to **1,500,000**. | The warning goes away (1,000,000 is the lowest minimum while the platform is unknown). Change it back to **750,000** and **Submit**. | | |
-| 12 | Sales leader | Click **To qualify**. Click **Decide** on the quote from step 11. | The **Qualify & prioritize** dialog shows the same warning. Choose **Advance**: **Record decision** is enabled and no exception note is needed for the warning. **Cancel** (leave it at G1 for Part D). | | |
+| 12 | Sales leader | Click **To qualify**. Click **Decide** on the quote from step 11. | The **Qualify quote** dialog shows the same warning. Choose **Advance**: **Record decision** is enabled and no exception note is needed for the warning. **Cancel** (leave it at G1 for Part D). | | |
 
 ## Part D: Volume-band routing (switched on for this test)
 
 | # | Who | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|---|
 | 13 | Admin | **Admin** → **App settings** → **Volume-band routing at intake**. Set `enabled` to `true`, `metric` `est_annual_volume`, `min` 1000000, `max` empty. Save. | Saved. (It refuses if the G1 qualify gate is off: "Turn the G1 qualify gate on first…".) | | |
-| 14 | KAM | **New intake** from `<SF-OPP-31 chosen by Bailey>` with **Estimated annual volume (units)** = **2,000,000**. Submit. | The quote goes **straight to Engineering Review**. It does not wait at G1. | | |
+| 14 | KAM | **New intake** from `<SF-OPP-31 chosen by Bailey>` with **Estimated annual volume (units)** = **2,000,000**. Submit. | The quote goes **straight to Engineering & Capacity**. It does not wait at G1. | | |
 | 15 | Sales leader | Click **To qualify**. | The step-14 quote is **not** in the G1 queue. Quotes under 1,000,000 a year that are submitted while routing is on wait at G1, and the arrival notice says the volume was outside the band. | | |
 | 16 | Admin | **Admin** → **Audit log**. Filter **Action** = **update**, then **Show** on each quote from steps 14 and 15. (There is no separate "routing" action.) | Each routed submit has an event `quote.volume_routed` with the route and the reason (in or outside the band). | | |
 

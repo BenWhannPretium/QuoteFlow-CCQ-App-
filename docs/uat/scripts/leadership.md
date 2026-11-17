@@ -1,5 +1,7 @@
 # UAT script: Leadership
 
+> Checked against the build on 2026-11-17 (pre-release audit): the overview stat reads **Median: intake to Final Review decision**, and the buttons a reader must not see are now named **Decide price approval**, **Assign engineer** and **Assign pricer**. Steps 1, 20 and 24 are changed.
+
 | | |
 |---|---|
 | Session | **U3**, Wed Nov 11 (2 h), with Pricing and the approvers. Run by Bailey Schmitt. |
@@ -22,7 +24,7 @@
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 1 | Sign in. | The **Command Center** opens on **Leadership overview** ("Pipeline value, throughput and where work is waiting."): **Open quotes**, **Median intake to G4**, **First-pass intake completeness**, **Win rate pairs with capture**, then **Win rate and outcome capture** and **Pipeline by stage**. | | |
+| 1 | Sign in. | The **Command Center** opens on **Leadership overview** ("Pipeline value, throughput and where work is waiting."): **Open quotes**, **Median: intake to Final Review decision**, **First-pass intake completeness**, **Win rate pairs with capture**, then **Win rate and outcome capture** and **Pipeline by stage**. | | |
 | 2 | Look at the navigation. | **Command Center**, **Engineering queue**, **Pricing queue**, **Pipeline**, **Approvals**, **Admin**. There is no **Analytics** item: the Command Center has two views at the top, **My work** and **Analytics**. | | |
 | 3 | On the **Command Center** click **Analytics** (at the top, next to **My work**). Later, open an old `/analytics` link or bookmark. | The **Analytics** view, with the line "Command Center · Leadership" above the title and two reports: **Leadership report** and **Engineering**. The old address opens this same view, with any filters the link carried. Filters: **From**, **To**, markets, families, KAMs, regions. Section links: **Pipeline**, **Outcomes**, **Cycle time**, **Flow**, **Reasons**, **Quality and governance**, **Priority**, **Adoption**. | | |
 | 4 | In **Pipeline**, open the ⓘ on **Open quotes by stage**. | A definition and a **Time window**. The amount is the Salesforce opportunity amount as entered (size of opportunity, not price). | | |
@@ -56,11 +58,11 @@
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 20 | Open `<CCQ-ANY-1>` → **Quoting** tab. | You can read the pricing record and capital readiness. There is no **Save price approval** and no **Price approved: advance to Final Review…**. The **Costing, payback and price approval** steps show who did each and when, with no upload buttons. | | |
+| 20 | Open `<CCQ-ANY-1>` → **Quoting** tab. | You can read the pricing record and capital readiness. There is no **Save price approval** and no **Decide price approval**. The **Costing, payback and price approval** steps show who did each and when, with no upload buttons. | | |
 | 21 | Look at the quote header. | No gate decision buttons. | | |
 | 22 | **Approvals** → **Final Review** → open a quote. | The bar says "You are reading this review. Final Review decisions are taken by an approver." | | |
 | 23 | **Admin** → **App settings**. Then **Reason codes**. | You can read every setting. There are no edit controls. | | |
-| 24 | **Engineering queue** and **Pricing queue**. | Both open read-only. No **Assign…**, **Assign pricer…** or **Reassign work…**. | | |
+| 24 | **Engineering queue** and **Pricing queue**. | Both open read-only. No **Assign engineer**, **Assign pricer** or **Reassign work…**. | | |
 
 ## Part E: Final Review terms and Market (FB-08, FB-12)
 

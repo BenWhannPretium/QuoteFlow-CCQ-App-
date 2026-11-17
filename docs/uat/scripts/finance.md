@@ -1,5 +1,7 @@
 # UAT script: Finance (payback model)
 
+> Checked against the build on 2026-11-17 (pre-release audit): the summary line under the payback model names the version, the uploader and the date (not the file name). Steps 4a and 9 are changed.
+
 | | |
 |---|---|
 | Session | **U3** (with Pricing), or a short session with Stacy Slocum. Run by Bailey Schmitt. |
@@ -28,7 +30,7 @@ After you upload the payback model, QuoteFlow shows a short summary of its headl
 | 2 | Follow the link and sign in. | The quote's **Quoting** tab. **Costing, payback and price approval**: **1. Costing** done, **2. Payback** "Next", "Needed: Capital is flagged likely" (FB-17; a quote decided before it reads "Needed: Engineering’s decision: Advance – capital required"). | | |
 | 3 | In **1. Costing** click the costing model's file name. | It downloads (the download is audited). | | |
 | 4 | In **2. Payback** click **Upload the payback model** and pick the synthetic payback workbook. | "Version 1 uploaded". **Payback model v1 · current**, your name and the time. **3. Price approved** is now "Next". The pricing lead is notified ("<quote>: the payback model is uploaded"). | | |
-| 4a | Upload the synthetic payback workbook; check the summary shows file, version, uploader and date, and the figures with their units. (The step 4 upload counts: do not upload it again.) | The summary is under **2. Payback**. It reads "Read from <file> v<n>, uploaded by <name> on <date>". Each figure shows its label, value and unit. Nothing in it can be edited. An Excel error, a negative or zero payback, or a blank headline figure shows a warning, and nothing is blocked. | | |
+| 4a | Upload the synthetic payback workbook; check the summary shows file, version, uploader and date, and the figures with their units. (The step 4 upload counts: do not upload it again.) | The summary is under **2. Payback**. It is headed **Payback model summary** and ends "Read from v<n>, uploaded by <name> on <date>. Figures come from the workbook and cannot be edited here." (the file name is on the line above the summary). Each figure shows its label, value and unit. A workbook QuoteFlow cannot read is still stored, and the summary says "Summary unavailable." Nothing in it can be edited. An Excel error, a negative or zero payback, or a blank headline figure shows a warning, and nothing is blocked. | | |
 | 5 | Upload a changed workbook. | **v2 · current**; **Earlier versions (1)** lists v1, which still downloads. | | |
 | 6 | Open `<CCQ-QT-2>` → **Quoting**. | **2. Payback** reads "Not required: a payback model is needed only when capital is required ($0 CER included)." with the reason. No upload button. | | |
 
@@ -38,7 +40,7 @@ After you upload the payback model, QuoteFlow shows a short summary of its headl
 |---|---|---|---|---|
 | 7 | Look at the menu and the Command Center (it was "Home" before FB-18). | Menu: **Command Center**, **Pipeline**. Command Center: **Payback requests** with what to do. No pricing queue, no **Analytics** view, no approvals. | | |
 | 8 | On `<CCQ-QT-4>` look for **Save price approval**, **Save capital readiness**, an upload on **Attachments**, or a gate decision. | None of them. The comment box on **Overview** is there: Finance may comment on a quote (decided 2026-11-11, DR-pricing-finance-09). | | |
-| 9 | After the pricing lead approves the price (pricing.md step 20a), open `<CCQ-QT-4>`. | **3. Price approved** done, by whom and when. No upload buttons (locked after G3). | | |
+| 9 | After the pricing lead approves the price (pricing.md steps 20a and 21), open `<CCQ-QT-4>`. | **3. Price approved** done, by whom and when. No upload buttons (locked after G3). | | |
 
 ## Part C: Funding and capital terms, read-only (FB-08)
 

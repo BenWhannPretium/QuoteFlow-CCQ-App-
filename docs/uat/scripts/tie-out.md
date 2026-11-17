@@ -1,5 +1,7 @@
 # UAT script: Tie-out (CCQ ↔ Salesforce ↔ pricing history ↔ Fabric)
 
+> Checked against the build on 2026-11-17 (pre-release audit): the stage is **Engineering & Capacity**, the Intake card's close date is labelled **Salesforce close date**, and the FB-19 and FB-20 tables (items, offer letters) are added to the count for step 29. Part A slots 4–6 and 7–9, the Close date row of Part B and the step 29 table are changed.
+
 | | |
 |---|---|
 | Session | **U5**, Thu Nov 12 (45 min). Run by Ben Whann with Zac Cairns, Graham Parle and D&A (Brennan Paul's engineer). Gate 5 requirement. |
@@ -16,8 +18,8 @@ Bailey and Zac pick 20 quotes that cover every stage and outcome. Ben fills the 
 | Slot | Mix | Quote number | SF opportunity |
 |---|---|---|---|
 | 1–3 | Intake (one returned for rework) | `<CCQ-T01..03>` | `<SF-OPP-T01..03 chosen by Bailey>` |
-| 4–6 | Engineering Review | `<CCQ-T04..06>` | `<SF-OPP-T04..06>` |
-| 7–9 | Quoting (one with a legacy ERF #) | `<CCQ-T07..09>` | `<SF-OPP-T07..09>` |
+| 4–6 | Engineering & Capacity | `<CCQ-T04..06>` | `<SF-OPP-T04..06>` |
+| 7–9 | Quoting (one with a legacy ERF #, one with several items) | `<CCQ-T07..09>` | `<SF-OPP-T07..09>` |
 | 10–11 | Final Review | `<CCQ-T10..11>` | `<SF-OPP-T10..11>` |
 | 12–14 | Customer Decision (one in negotiation, one past validity) | `<CCQ-T12..14>` | `<SF-OPP-T12..14>` |
 | 15 | Commit & Hand Off | `<CCQ-T15>` | `<SF-OPP-T15>` |
@@ -36,7 +38,7 @@ Open the quote in CCQ (**Overview** tab and the **Customer decision** panel) and
 | Account / customer | **Intake** card → **Customer**, **Customer status** | Account Name |
 | Owner | **Intake** card → **KAM** | Opportunity Owner |
 | Amount | **Pipeline** column **Amount (SF)** | Amount |
-| Close date | **Intake** card → **Expected close** (and the **Close date** column) | Close Date |
+| Close date | **Intake** card → **Salesforce close date** (and the **Close date** column) | Close Date |
 | SF stage | **Customer decision** → **Salesforce stage**, or **Pipeline** column **SF stage** | Stage |
 | ERF number | **Admin** → **ERF linkage** → **SF ERF #** and **CCQ ERF #** | ERF number field |
 | Opportunity id | Quote page → **SF opportunity ID** | Opportunity Id (URL) |
@@ -104,6 +106,8 @@ Ben runs the CCQ counts with a read-only SQL login on the test Postgres. D&A run
 | Table | CCQ count | Fabric count | Match |
 |---|---|---|---|
 | `quote` | | | |
+| `quote_item` (FB-19: one row per item) | | | |
+| `quote_item_drawing` (FB-19) | | | |
 | `quote_draft` | | | |
 | `customer` | | | |
 | `stage_history` | | | |
@@ -113,6 +117,8 @@ Ben runs the CCQ counts with a read-only SQL login on the test Postgres. D&A run
 | `capacity_evidence` | | | |
 | `pricing_record` | | | |
 | `handoff_record` | | | |
+| `offer_letter` (FB-20) | | | |
+| `offer_letter_item` (FB-20) | | | |
 | `override` | | | |
 | `attachment` | | | |
 | `comment` | | | |
