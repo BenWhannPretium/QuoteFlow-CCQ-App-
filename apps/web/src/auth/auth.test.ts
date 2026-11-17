@@ -1,8 +1,12 @@
+import { BrowserAuthError, InteractionRequiredAuthError } from '@azure/msal-browser';
 import { describe, expect, it } from 'vitest';
 
+import { ApiError } from '@/lib/api';
+
+import { meErrorBlocksApp } from './me-gate';
 import { msalConfiguration } from './msal';
 import { canFromMe } from './permissions';
-import { devSession } from './session';
+import { devSession, needsInteractiveSignIn, RedirectingError } from './session';
 
 describe('msal configuration', () => {
   it('uses the tenant authority, origin redirect and sessionStorage', () => {
@@ -47,5 +51,54 @@ describe('canFromMe', () => {
     expect(canFromMe(me, 'quoting.edit')).toBe(true);
     expect(canFromMe(me, 'gate.G4.decide')).toBe(false);
     expect(canFromMe(undefined, 'quoting.edit')).toBe(false);
+  });
+});
+
+const apiError = (status: number) =>
+  new ApiError({ type: 'about:blank', title: 'x', status, instance: '/api/v1/me' });
+
+describe('needsInteractiveSignIn (a failed silent token request)', () => {
+  it('sends the user to sign in when Entra asks for interaction', () => {
+    expect(needsInteractiveSignIn(new InteractionRequiredAuthError('login_required', 'test'))).toBe(
+      true,
+    );
+  });
+
+  it('also when the hidden-iframe renewal cannot complete (a tab left open past 24 hours)', () => {
+    expect(needsInteractiveSignIn(new BrowserAuthError('timed_out', 'test'))).toBe(true);
+    expect(needsInteractiveSignIn(new BrowserAuthError('iframe_closed_prematurely', 'test'))).toBe(
+      true,
+    );
+  });
+
+  it('but not for anything else: a network failure is not a reason to leave the page', () => {
+    expect(needsInteractiveSignIn(new BrowserAuthError('no_network_connectivity', 'test'))).toBe(
+      false,
+    );
+    expect(needsInteractiveSignIn(new BrowserAuthError('interaction_in_progress', 'test'))).toBe(
+      false,
+    );
+    expect(needsInteractiveSignIn(new Error('timed_out'))).toBe(false);
+    expect(needsInteractiveSignIn(undefined)).toBe(false);
+  });
+});
+
+describe('meErrorBlocksApp (a failed /me query)', () => {
+  it('always takes the page when there is no identity yet (first load)', () => {
+    expect(meErrorBlocksApp(false, new Error('Failed to fetch'))).toBe(true);
+    expect(meErrorBlocksApp(false, apiError(500))).toBe(true);
+    expect(meErrorBlocksApp(false, apiError(403))).toBe(true);
+  });
+
+  it('keeps the app on screen when a background refetch hits a blip', () => {
+    expect(meErrorBlocksApp(true, new Error('Failed to fetch'))).toBe(false);
+    expect(meErrorBlocksApp(true, apiError(502))).toBe(false);
+    expect(meErrorBlocksApp(true, apiError(429))).toBe(false);
+  });
+
+  it('still takes the page when the identity itself is no longer good', () => {
+    expect(meErrorBlocksApp(true, apiError(401))).toBe(true);
+    expect(meErrorBlocksApp(true, apiError(403))).toBe(true);
+    expect(meErrorBlocksApp(true, new RedirectingError())).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import {
+  BrowserAuthError,
   InteractionRequiredAuthError,
   type IPublicClientApplication,
   type RedirectRequest,
@@ -29,6 +30,24 @@ export class RedirectingError extends Error {
   }
 }
 
+/**
+ * MSAL's codes for "the hidden-iframe renewal could not complete". Once the SPA's refresh token has expired
+ * (24 hours: a tab left open overnight) MSAL falls back to that iframe; the app forbids being framed
+ * (CSP `frame-ancestors 'none'`), so it ends in one of these after about ten seconds, not in an
+ * InteractionRequiredAuthError.
+ */
+const SILENT_RENEWAL_FAILED = new Set(['timed_out', 'iframe_closed_prematurely']);
+
+/**
+ * Whether a failed silent token request means "send the user to sign in". Without the second case the
+ * error was rethrown: every save showed a raw MSAL message, and a reload ended on "Can't reach
+ * QuoteFlow" until the tab was closed.
+ */
+export function needsInteractiveSignIn(err: unknown): boolean {
+  if (err instanceof InteractionRequiredAuthError) return true;
+  return err instanceof BrowserAuthError && SILENT_RENEWAL_FAILED.has(err.errorCode);
+}
+
 /** Entra: silent token for `api://…/access_as_user`, redirect when interaction is required. */
 export function entraSession(pca: IPublicClientApplication, apiScope: string): AuthSession {
   const request: RedirectRequest = { scopes: [apiScope] };
@@ -44,7 +63,7 @@ export function entraSession(pca: IPublicClientApplication, apiScope: string): A
         const result = await pca.acquireTokenSilent({ ...request, account, forceRefresh });
         return { authorization: `Bearer ${result.accessToken}` };
       } catch (err) {
-        if (err instanceof InteractionRequiredAuthError) {
+        if (needsInteractiveSignIn(err)) {
           await pca.acquireTokenRedirect({ ...request, account });
           throw new RedirectingError();
         }

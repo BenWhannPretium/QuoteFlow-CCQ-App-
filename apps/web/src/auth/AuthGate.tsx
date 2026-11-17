@@ -7,8 +7,9 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
 import { api, isApiError } from '@/lib/api';
 
-import { AuthContext, type AuthContextValue } from './context';
+import { AuthContext, useAuth, type AuthContextValue } from './context';
 import { EnvironmentBanner } from './EnvironmentBanner';
+import { meErrorBlocksApp } from './me-gate';
 import { createMsal } from './msal';
 import { AuthErrorPage, LoadingPage, NoRolePage, SignInPage } from './pages';
 import { DEV_PERSONA_STORAGE_KEY, meQueryKey } from './permissions';
@@ -154,11 +155,21 @@ function MeLoader({ children }: { children: ReactNode }) {
     meta: { silentErrors: true },
     retry: (count, err) => !isApiError(err) && !(err instanceof RedirectingError) && count < 2,
   });
+  const { session } = useAuth();
   if (me.isPending) return <LoadingPage />;
-  if (me.isError) {
+  // A failed background refetch keeps the last good identity on screen (see meErrorBlocksApp).
+  if (me.isError && meErrorBlocksApp(me.data !== undefined, me.error)) {
     const err = me.error;
     if (err instanceof RedirectingError) return <LoadingPage message={err.message} />;
-    if (isApiError(err, 403)) return <NoRolePage detail={err.problem.detail} />;
+    if (isApiError(err, 403)) {
+      // A way out: after IT adds the user to a group, signing in again picks the new role up.
+      return (
+        <NoRolePage
+          detail={err.problem.detail}
+          {...(session.mode === 'entra' ? { onSignOut: () => void session.signOut() } : {})}
+        />
+      );
+    }
     if (isApiError(err, 401))
       return <AuthErrorPage message="Your session has expired. Sign in again." />;
     return <AuthErrorPage message={err.message} />;
