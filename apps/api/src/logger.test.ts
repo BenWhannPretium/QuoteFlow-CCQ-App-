@@ -62,6 +62,67 @@ describe('serializeError', () => {
   });
 });
 
+describe('serializeError on a failed database statement', () => {
+  // drizzle's wrapper puts the SQL text and its bound values in the message (and so at the head of the
+  // stack) and on `query` / `params`. None of that may reach the log.
+  const failedStatement = () => {
+    const driver = Object.assign(
+      new Error('duplicate key value violates unique constraint "customer_name_uidx"'),
+      {
+        name: 'PostgresError',
+        code: '23505',
+        constraint_name: 'customer_name_uidx',
+        table_name: 'customer',
+        detail: 'Key (name)=(Acme Bottling) already exists.',
+        query: 'insert into customer (name, est_annual_revenue) values ($1, $2)',
+        parameters: ['Acme Bottling', '4250000.25'],
+      },
+    );
+    const sqlText = 'insert into "customer" ("name", "est_annual_revenue") values ($1, $2)';
+    const wrapper = Object.assign(
+      new Error(`Failed query: ${sqlText}\nparams: Acme Bottling,4250000.25`, { cause: driver }),
+      { query: sqlText, params: ['Acme Bottling', 4250000.25] },
+    );
+    return wrapper;
+  };
+
+  it('withholds the statement and its values, and keeps what failed', () => {
+    const out = serializeError(failedStatement()) as Record<string, unknown>;
+    const text = JSON.stringify(out);
+    expect(text).not.toContain('Acme');
+    expect(text).not.toContain('4250000');
+    expect(text).not.toContain('insert into');
+    expect(out.message).toBe('Failed query (statement and parameters withheld; see cause)');
+    expect(out.code).toBe('23505');
+    expect(out.cause).toMatchObject({
+      type: 'PostgresError',
+      message: 'duplicate key value violates unique constraint "customer_name_uidx"',
+      code: '23505',
+      constraint_name: 'customer_name_uidx',
+      table_name: 'customer',
+    });
+    expect(out.stack).toContain('logger.test.ts');
+  });
+
+  it('is what a request logs through the production logger', async () => {
+    const lines: string[] = [];
+    const options = loggerOptions({ NODE_ENV: 'production', LOG_LEVEL: 'info' } as AppConfig);
+    const app = Fastify({
+      logger: { ...(options as object), stream: { write: (line: string) => lines.push(line) } },
+    });
+    app.get('/boom', (request) => {
+      request.log.error({ err: failedStatement() }, 'unhandled error');
+      return { ok: true };
+    });
+    await app.inject({ method: 'GET', url: '/boom' });
+    await app.close();
+    const everything = lines.join('\n');
+    expect(everything).toContain('"code":"23505"');
+    expect(everything).not.toContain('Acme');
+    expect(everything).not.toContain('insert into');
+  });
+});
+
 describe('loggerOptions (production shape)', () => {
   // Regression: every production log line carried "req":{}, "err":{} and "res":{}, so a 500 could not
   // be diagnosed from the logs. This drives a real Fastify logger and reads what it writes.

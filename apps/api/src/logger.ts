@@ -1,5 +1,4 @@
 import type { FastifyServerOptions } from 'fastify';
-import { stdSerializers } from 'pino';
 
 import { withoutPort } from './clientIp';
 import type { AppConfig } from './config';
@@ -40,19 +39,69 @@ export function redactSensitive(value: unknown, depth = 0): unknown {
 }
 
 /**
- * Postgres error fields that can echo row or statement contents ("Failing row contains (…)", the
- * statement text, its parameters). The code, message, table, column and constraint stay: they say what
- * failed without saying for which customer.
+ * Error fields that can echo row or statement contents: Postgres's "Failing row contains (…)" and
+ * statement context, and the statement text and bound values the driver and drizzle attach (`query`,
+ * `parameters`, `params`). The code, table, column and constraint stay: they say what failed without
+ * saying for which customer.
  */
-const ERR_DATA_FIELDS = ['detail', 'where', 'query', 'parameters', 'internalQuery'] as const;
+const ERR_DATA_FIELDS = new Set([
+  'detail',
+  'where',
+  'query',
+  'parameters',
+  'params',
+  'internalQuery',
+  'message',
+  'stack',
+  'cause',
+]);
 
-/** An error for the log: type, message, stack and code, minus anything that can carry row data. */
+const QUERY_FAILED = 'Failed query (statement and parameters withheld; see cause)';
+
+/**
+ * drizzle wraps every failed statement in an error whose *message* is the SQL text followed by its
+ * bound values (`Failed query: insert into … \nparams: Acme Bottling,4.25`). Logged as it is, customer
+ * names and figures would sit in `message` and at the head of `stack`.
+ */
+const isQueryWrapper = (err: Error): boolean => err.message.startsWith('Failed query:');
+
+/** The frames of a stack, without its first line(s), which repeat the message. */
+const frames = (stack: string | undefined): string =>
+  (stack ?? '')
+    .split('\n')
+    .filter((line) => /^\s+at /.test(line))
+    .join('\n');
+
+function describeError(err: Error, depth: number): Record<string, unknown> {
+  const wrapper = isQueryWrapper(err);
+  const type =
+    err.constructor?.name && err.constructor.name !== 'Error' ? err.constructor.name : err.name;
+  const message = wrapper ? QUERY_FAILED : err.message;
+  const out: Record<string, unknown> = {
+    type,
+    message,
+    stack: `${type}: ${message}\n${frames(err.stack)}`,
+  };
+  for (const [key, value] of Object.entries(err)) {
+    if (!ERR_DATA_FIELDS.has(key)) out[key] = value;
+  }
+  const cause: unknown = err.cause;
+  if (cause instanceof Error && depth < 4) {
+    const inner = describeError(cause, depth + 1);
+    out.cause = inner;
+    // The SQLSTATE lives on the driver's error; lift it so `err.code` is one place to look.
+    if (out.code === undefined && typeof inner.code === 'string') out.code = inner.code;
+  }
+  return out;
+}
+
+/**
+ * An error for the log: type, message, stack frames, code and the cause chain, minus anything that can
+ * carry row data. Sensitive keys are masked as everywhere else.
+ */
 export function serializeError(err: unknown): unknown {
   if (!(err instanceof Error)) return redactSensitive(err);
-  // A plain copy: pino's serialized error has its own prototype, which `redactSensitive` would skip.
-  const out: Record<string, unknown> = { ...stdSerializers.err(err) };
-  for (const field of ERR_DATA_FIELDS) delete out[field];
-  return redactSensitive(out);
+  return redactSensitive(describeError(err, 0));
 }
 
 /** The request path without its query string: search text and filters can name a customer. */
