@@ -49,24 +49,14 @@ test.describe('UX-005: the stage lists say who a quote is for', () => {
     request,
   }) => {
     test.setTimeout(90_000);
-    const [opportunityId] = await freeOpportunities(request, 1);
-    const detail = await request.get(`/api/v1/salesforce/opportunities/${opportunityId}`, {
-      headers: as('kam'),
-    });
-    const sf = (await detail.json()) as {
-      opportunity: { name: string; accountName: string };
-      account: { name: string } | null;
-    };
-    const customer = sf.account?.name ?? sf.opportunity.accountName;
-    const quoteNumber = await submitQuote(request, [opportunityId!]);
-    // Put it on hold: a quote on hold heads its stage, so it is among the few the board lists however
-    // many quotes the KAM already has.
+    // At least one quote of the KAM's, on hold so that it heads its stage.
+    const made = await submitQuote(request, await freeOpportunities(request, 1));
     const leader = (await (
       await request.get('/api/v1/me', { headers: as('sales-leader') })
     ).json()) as {
       user: { id: string };
     };
-    const hold = await request.post(`/api/v1/quotes/${quoteNumber}/gates/G1/decisions`, {
+    const hold = await request.post(`/api/v1/quotes/${made}/gates/G1/decisions`, {
       headers: as('sales-leader'),
       data: {
         outcomeKey: 'hold',
@@ -81,10 +71,19 @@ test.describe('UX-005: the stage lists say who a quote is for', () => {
     await signInAs(page, 'kam');
     await page.goto('/');
     const board = page.getByTestId('dash-my-pipeline').getByTestId('mini-board');
+    // A stage lists five quotes: the held ones first, then the oldest. In a full run other specs hold
+    // quotes of the same KAM too, so the one made above is not always among the five. The check is made
+    // on whichever quote is listed first, against what the quote itself says.
+    await expect(board.locator('li[data-quote]').first()).toBeVisible();
+    const quoteNumber = (await board.locator('li[data-quote]').first().getAttribute('data-quote'))!;
+    const listed = (await (
+      await request.get(`/api/v1/quotes/${quoteNumber}`, { headers: as('kam') })
+    ).json()) as { customerName: string; opportunityName: string };
+    const customer = listed.customerName;
     const row = board.locator(`li[data-quote="${quoteNumber}"]`);
     await expect(row.getByRole('link', { name: quoteNumber })).toBeVisible();
     await expect(row.getByTestId('stage-quote-customer')).toHaveText(customer);
-    await expect(row.getByTestId('stage-quote-opportunity')).toHaveText(sf.opportunity.name);
+    await expect(row.getByTestId('stage-quote-opportunity')).toHaveText(listed.opportunityName);
     // Every listed quote names its customer, not only this one.
     const rows = board.locator('li[data-quote]');
     await expect(rows.getByTestId('stage-quote-customer')).toHaveCount(await rows.count());
