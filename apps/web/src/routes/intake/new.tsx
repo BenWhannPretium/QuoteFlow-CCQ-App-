@@ -60,6 +60,7 @@ import {
 import { Notice, Section, Stepper } from '@/intake/ui';
 import { DraftNotSavedError, useIntakeDraft, type SaveState } from '@/intake/useIntakeDraft';
 import { isApiError, api } from '@/lib/api';
+import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -202,7 +203,8 @@ function StartScreen({ cfg }: { cfg: WizardConfig }) {
                   <span className="min-w-0 break-words">
                     {d.sfOpportunityName ?? 'Untitled draft'}
                     <span className="text-muted-foreground block text-xs">
-                      Step {d.step} · saved {new Date(d.updatedAt).toLocaleString()}
+                      {/* UX-011: the one clock every other screen uses (US Central, zone named). */}
+                      Step {d.step} · saved {absoluteTime(d.updatedAt)}
                     </span>
                   </span>
                 </span>

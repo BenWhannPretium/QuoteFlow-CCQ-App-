@@ -239,3 +239,29 @@ test.describe('UX-009: the pricing queue says who approves the price', () => {
     });
   }
 });
+
+test.describe('UX-011: the intake draft list uses the one clock', () => {
+  // A browser outside US Central: the time used to follow the browser's zone and format.
+  test.use({ timezoneId: 'Europe/Berlin', locale: 'de-DE' });
+
+  test('"saved" is shown in US Central with the zone named', async ({ page, request }) => {
+    const draft = await call<{ id: string }>(request, 'kam', 'post', 'quotes/drafts', {
+      data: { description: 'e2e: UX-011' },
+    });
+    try {
+      await signInAs(page, 'kam');
+      await page.goto('/intake/new');
+      const drafts = page.getByRole('list', { name: 'Your drafts' });
+      await expect(drafts.getByRole('listitem').first()).toContainText(
+        /Step \d · saved [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M C[SD]T/,
+      );
+      // No draft in the list shows a time without the zone (the browser-local format).
+      for (const text of await drafts.getByRole('listitem').allInnerTexts()) {
+        expect(text).toMatch(/saved .+ C[SD]T/);
+      }
+      await auditScreen(drafts, 'UX-011-intake');
+    } finally {
+      await request.delete(`/api/v1/quotes/drafts/${draft.id}`, { headers: as('kam') });
+    }
+  });
+});
