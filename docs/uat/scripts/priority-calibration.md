@@ -1,6 +1,6 @@
 # UAT script: Priority calibration (FB-10, FB-12)
 
-> Checked against the build on 2026-11-17 (pre-release audit): the G1 dialog is titled **Qualify quote** and the stage after G1 is **Engineering & Capacity**. Steps 12 and 14 are changed.
+> Checked against the build on 2026-11-17 (pre-release audit): the G1 dialog is titled **Qualify quote** and the stage after G1 is **Engineering & Capacity**. Steps 12 and 14 are changed. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 | | |
 |---|---|
@@ -61,7 +61,7 @@ The warning and the routing are switched off; the draft is inactive. D-004 (weig
 | 9 | Admin | **Admin** → **App settings** → **Platform-minimum warning**. Set `enabled` to `true`. Save. | Saved. The minimums read ISBM 1,000,000, RHB 1,000,000, IMM (injection) 3,000,000, IBM 3,000,000, EBM 1,000,000 (corrected on Nov 9, PR #66). The change is in **Admin** → **Audit log**. | | |
 | 10 | KAM | **New intake** from `<SF-OPP-30 chosen by Bailey>`. Fill the required fields with **Estimated annual volume (units)** = **750,000**. Go to **Review**. | Under the volume field on the **Request & items** step: "Below the platform minimum for our machine platforms: 750,000 units/yr. You can still submit." The **Drawing, files & review** step does not repeat it. **Submit** is still available. | | |
 | 11 | KAM | Change the volume to **1,500,000**. | The warning goes away (1,000,000 is the lowest minimum while the platform is unknown). Change it back to **750,000** and **Submit**. | | |
-| 12 | Sales leader | Click **To qualify**. Click **Decide** on the quote from step 11. | The **Qualify quote** dialog shows the same warning. Choose **Advance**: **Record decision** is enabled and no exception note is needed for the warning. **Cancel** (leave it at G1 for Part D). | | |
+| 12 | Sales leader | Click **To qualify**. Click **Decide** on the quote from step 11. | The **Qualify quote** dialog shows the same warning. The priority is one closed line, "Priority <score> · <tier> (advisory)"; click it to open the breakdown. Choose **Advance**: **Record decision** is enabled and no exception note is needed for the warning. **Cancel** (leave it at G1 for Part D). | | |
 
 ## Part D: Volume-band routing (switched on for this test)
 

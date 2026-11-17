@@ -1,6 +1,6 @@
 # UAT script: Leadership
 
-> Checked against the build on 2026-11-17 (pre-release audit): the overview stat reads **Median: intake to Final Review decision**, and the buttons a reader must not see are now named **Decide price approval**, **Assign engineer** and **Assign pricer**. Steps 1, 20 and 24 are changed.
+> Checked against the build on 2026-11-17 (pre-release audit): the overview stat reads **Median: intake to Final Review decision**, and the buttons a reader must not see are now named **Decide price approval**, **Assign engineer** and **Assign pricer**. Steps 1, 20 and 24 are changed. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 | | |
 |---|---|
@@ -74,6 +74,16 @@ Added 2026-11-10. Leadership reads the terms and the capital terms; the approver
 | 26 | On the same page read **The request** → **Market**. | "<Market> › <Sub-market>", for example "Food › Snacks & Confections". | | |
 | 27 | **Admin** → **App settings** → **Final Review**. Read **Extra Final Review sign-offs by funding model (e.g. sales leader, then leadership). Rules with active: false do nothing**. | You can read it. It says `"active": false` (the extra approval is off) and there is no **Edit**. The rule is: when the customer funds the capital, the sales leader signs off, then leadership. Is that the rule you want (A-035 is open)? Write your view in Notes. | | |
 | 28 | **Optional.** Only if Bailey runs `approver.md` Part G: sign off as **Leadership**. | See `approver.md` steps 38 and 40. You can sign only after the sales leader has. | | |
+
+## UX changes (2026-11-17)
+
+Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`).
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 29 | Sign in on a browser where you have not opened QuoteFlow before (or in a private window). Read the card at the top of the **Command Center**. Click its link, then **Got it**. Reload the page. | A card **Welcome to QuoteFlow**: "Your main jobs here, and where each one is done." Three jobs: "See where every open quote stands: **Pipeline**.", "Read cycle time, win rate and outcome capture: **Analytics, the second view of this page**." and "Check overrides and the audit trail: **Admin**." The link "Read the one-page quick-start for Leadership" opens the quick-start in a new tab. **Got it** puts the card away for good (for you, in this browser); it does not come back after a reload. | | |
+| 30 | On the **Command Center** read **Pipeline by stage**. | A stage total reads "<amount> Salesforce opportunity amount" (it was "SF amount"). | | |
+| 31 | Open `<CCQ-ANY-1>`. Read the line under the stage tracker, the priority and the times on the page. | The quote opens on **Overview**. The line says whose move it is (for example "Waiting on: Pricing (<name>). Next: complete the costing and the pricing record, then submit to the pricing lead.") and has no button for you. The priority is labelled, for example "Priority 62 HIGH". Every time on the page is US Central in one format, for example "Nov 17, 2026, 12:18 PM CST". | | |
 
 ## Sign-off
 

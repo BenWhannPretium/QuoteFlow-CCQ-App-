@@ -1,6 +1,6 @@
 # UAT script: Tie-out (CCQ ↔ Salesforce ↔ pricing history ↔ Fabric)
 
-> Checked against the build on 2026-11-17 (pre-release audit): the stage is **Engineering & Capacity**, the Intake card's close date is labelled **Salesforce close date**, and the FB-19 and FB-20 tables (items, offer letters) are added to the count for step 29. Part A slots 4–6 and 7–9, the Close date row of Part B and the step 29 table are changed.
+> Checked against the build on 2026-11-17 (pre-release audit): the stage is **Engineering & Capacity**, the Intake card's close date is labelled **Salesforce close date**, and the FB-19 and FB-20 tables (items, offer letters) are added to the count for step 29. Part A slots 4–6 and 7–9, the Close date row of Part B and the step 29 table are changed. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 | | |
 |---|---|

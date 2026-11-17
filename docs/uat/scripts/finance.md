@@ -1,6 +1,6 @@
 # UAT script: Finance (payback model)
 
-> Checked against the build on 2026-11-17 (pre-release audit): the summary line under the payback model names the version, the uploader and the date (not the file name). Steps 4a and 9 are changed.
+> Checked against the build on 2026-11-17 (pre-release audit): the summary line under the payback model names the version, the uploader and the date (not the file name). Steps 4a and 9 are changed. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 | | |
 |---|---|
@@ -51,5 +51,14 @@ Added 2026-11-10. Engineering now enters the tooling funding model on the quote,
 | 10 | On `<CCQ-QT-4>` open **Overview** → **Commercial terms**. Read **Tooling funding model**, **MOQ** and **Capital terms**. | You can read them. There is no **Save terms**, **Save MOQ and funding** or **Save capital terms** button for you. | | |
 | 11 | Ask Engineering to set **Tooling funding model** to **$0 CER (customer-reimbursed capital)** on `<CCQ-QT-2>` (engineering.md step 69). Then open `<CCQ-QT-2>` → **Quoting** → **2. Payback**. | **2. Payback** now reads "Needed: Tooling funding: $0 CER (customer-reimbursed capital)". You can upload a payback model. | | |
 | 12 | Ask Engineering to set the same quote back to **Not discussed**. Open **2. Payback** again. | "Not required: a payback model is needed only when capital is required ($0 CER included)." again, with the reason (no capital, not flagged likely, and the funding model does not call for one). | | |
+
+## UX changes (2026-11-17)
+
+Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`).
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 13 | Sign in on a browser where you have not opened QuoteFlow before (or in a private window). Read the card at the top of the **Command Center**. Click its link, then **Got it**. Reload the page. | A card **Welcome to QuoteFlow**: "Your main jobs here, and where each one is done." Three jobs: "Find out that a quote needs a payback model: **your notifications and email**.", "Download the current costing model: **the quote’s Quoting tab, step 1**." and "Upload the payback model: **the quote’s Quoting tab, step 2**." The link "Read the one-page quick-start for Finance" opens the quick-start in a new tab. **Got it** puts the card away for good (for you, in this browser); it does not come back after a reload. | | |
+| 14 | From **Pipeline**, open a quote in Quoting that waits for its payback model (costing done, no payback model yet). Read the line under the stage tracker. Click the **Overview** tab and read it again. | The quote opens on the **Quoting** tab without a click. The line reads "Waiting on you. Next: upload the payback model." On **Overview** the line has a button **Open the Quoting tab**. After you upload the model, the line names Pricing or the pricing lead instead. | | |
 
 **Sign-off:** Tester ______________________ Date __________

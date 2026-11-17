@@ -1,6 +1,6 @@
 # QuoteFlow quick-start: Engineer
 
-> Checked against the build on 2026-11-17 (pre-release audit): the button reads **Start review**, submit to lead appears once nothing is missing, and on a quote with several items the equipment BOM and the capacity sign-off are once for the quote.
+> Checked against the build on 2026-11-17 (pre-release audit): the button reads **Start review**, submit to lead appears once nothing is missing, and on a quote with several items the equipment BOM and the capacity sign-off are once for the quote. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 **What QuoteFlow is for you.** The engineering reviews assigned to you, with the intake, the drawing and the KAM's notes in one place. You record the solution. The capacity evidence is yours too unless a production scheduler is assigned to the quote: each card says whose part it is (**Your part**, **Production scheduler's part**). Your lead decides G2.
 
@@ -8,12 +8,12 @@
 
 ## What you'll do
 
-1. **Start the review.** Open the quote → **Engineering** tab → **Start review**.
+1. **Start the review.** Open the quote. While it is in Engineering & Capacity it opens on the **Engineering** tab. Click **Start review**. The line under the stage tracker says whose move it is.
 2. **Record the solution.** Pick the **Plant / site** first, then **Process & machine type**: the list shows only what that plant runs, and the process fills in by itself. Fill **Cavitation**, **Cycle time (s)**, **Budgetary capital estimate (USD)** and the notes. Click **Save solution**: **Progress saved** appears beside the button, as it does beside every Save. The product facts from intake are shown at the top: you don't retype them. Upload the **equipment BOM** (the one-page CSR BOM) in its own card; a new upload keeps the earlier versions. Enter **0** in the capital estimate when no capital is needed. When the estimate is above $0, the equipment BOM is needed before the quote can advance. If the part is made in two steps, tick **Two-step process** and fill the plants and preform number; add the **pack-out** if you have it: one of units per bag, tray or case (bag and case are not used together), and units per pallet. Pricing reads both. Enter the **Tooling funding model** and **MOQ** on the quote's **Overview** → **Commercial terms**: they are Engineering's to fill.
 3. **Add capacity evidence.** **Add capacity row**: site, line, utilization before, allocated annual volume, run days, assumed effectiveness, cycle time, analysis date, analyst. Click **Save capacity evidence**. Utilization after is calculated for you: green up to the target, amber above it, red above 100%. A number out of range is flagged as you type and cannot be saved. **Download CSV** exports the rows; **Attach analysis** adds your own file.
 4. **Attach files.** **Attachments** tab: drag CAD files, PDFs or photos onto the drop area.
 5. **A quote with several items.** The **Engineering** tab shows an item switcher (**Item 1**, **Item 2** …) with what each still needs. Each item has its own solution, two-step, pack-out and capacity rows; the equipment BOM and the capacity sign-off are once for the quote, and you start and submit once. Your lead cannot advance it until every item is done.
-6. **Submit to your lead.** When your part is ready, click **Submit to engineering lead** at the bottom of the tab (the button appears once nothing is missing; until then the tab lists what to fill in). It is locked for you until they decide or send it back. **If capacity is blocked**, the work comes back to you at once with the blocker's note at the top of the tab: rework the solution and submit again.
+6. **Submit to your lead.** When your part is ready, click **Submit to engineering lead** at the bottom of the tab (the button appears once nothing is missing; until then the tab lists what to fill in). Save first: while a card has unsaved changes the button is off and says "Save your changes first." It is locked for you until they decide or send it back. **If capacity is blocked**, the work comes back to you at once with the blocker's note at the top of the tab: rework the solution and submit again.
 
 ## What changed from the ERF
 

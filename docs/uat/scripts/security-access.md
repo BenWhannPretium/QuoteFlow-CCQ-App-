@@ -1,6 +1,6 @@
 # UAT script: Security and access (pen test light)
 
-> Checked against the build on 2026-11-17 (pre-release audit): the Production scheduler role (FB-16) is added to the accounts, to Part B (step 14a) and to Part C (step 21b); the Finance menu reads **Command Center**; the stage is **Engineering & Capacity**. Step 21a is changed; steps 14a and 21b are new.
+> Checked against the build on 2026-11-17 (pre-release audit): the Production scheduler role (FB-16) is added to the accounts, to Part B (step 14a) and to Part C (step 21b); the Finance menu reads **Command Center**; the stage is **Engineering & Capacity**. Step 21a is changed; steps 14a and 21b are new. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 | | |
 |---|---|
@@ -28,7 +28,7 @@
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 1 | Sign in with the account in no `SG-CCQ-*` group. | Refused at Microsoft sign-in, or "No QuoteFlow access yet" ("…ask IT to add you to an SG-CCQ group"). No data shows. | | |
+| 1 | Sign in with the account in no `SG-CCQ-*` group. | Refused at Microsoft sign-in, or "No QuoteFlow access yet" ("…ask IT to add you to an SG-CCQ group"). Under it: "If IT has just added you to a group, press Check again.", a **Check again** button and **Sign out**. No data shows. | | |
 | 2 | Sign in with each role account. Open the user menu. | The role chip matches the group (for example `KAM`, `PricingLead`). | | |
 | 3 | Look for a role or persona switcher on the test URL. | None. Dev sign-in mode is off outside a laptop. | | |
 | 4 | Sign out from the user menu. Press the browser Back button. | The sign-in page shows. No quote data is shown from cache. | | |
@@ -79,7 +79,7 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 23 | As Admin: **Admin** → **Users and scope** → KAM test user A → **Scope** → **Own quotes only**. Give a reason in "Why are you making this change?". **Save change**. | Saved. The change is in **Admin** → **Decision log**. | | |
-| 24 | As KAM A: type `/quotes/<CCQ-SEC-B>` after the test URL. | The quote does not open ("Not found" or "You don’t have access to this"). | | |
+| 24 | As KAM A: type `/quotes/<CCQ-SEC-B>` after the test URL. | The quote does not open: "We could not find <number>, or it is outside what your role can see." and "Check the number, or search from the Pipeline.", with a **Go to the Pipeline** button and "Reference for support: <id>". The page reads the same for a number that does not exist, so it never says whether the quote exists. | | |
 | 25 | As KAM A: search `<CCQ-SEC-B>` in the header search, and look in **Pipeline**. | Not found. Only KAM A's quotes are listed. | | |
 | 26 | As KAM A: **New intake** → **All**, search for KAM B's Salesforce opportunity. | It is not listed (Salesforce opportunities follow the same scope). | | |
 | 27 | As KAM A: **Export CSV** from **Pipeline**. | Only KAM A's quotes are in the file. | | |
@@ -111,6 +111,16 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 37 | Read three QuoteFlow emails (arrival, Final Review, G4 decided). | No price, margin or capital amount, whatever the recipient's role. | | |
 | 38 | Upload a file type that is not allowed, and one over the size limit. | Both refused with a reason. | | |
 | 39 | As an uploader, remove your own file. As another non-Admin user, try to remove it. | You can remove your own within 24 hours. The other user cannot. | | |
+
+## UX changes (2026-11-17)
+
+Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`). Steps 1 and 24 above were changed for the same reason.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 40 | With the account in no `SG-CCQ-*` group, on the "No QuoteFlow access yet" page, press **Check again**. | The button reads **Checking…** while it checks. Then the page says "Still no access. If you were added a moment ago, wait a few minutes and check again." No data shows. | | |
+| 41 | IT (or Ben) adds that account to `SG-CCQ-KAM`. Wait a few minutes, then press **Check again** on the same page, without signing out. Remove the account from the group afterwards. | Once Entra has the new membership, the Command Center opens and the role chip reads `KAM`. The account did not have to sign out of Microsoft. Until then the page keeps saying "Still no access…". | | |
+| 42 | As the KAM, type `/quotes/<CCQ-SEC-ENG>?tab=engineering` after the test URL. | The quote opens on the **Engineering** tab, read-only: a link that names a tab chooses what is shown first and gives no right to change anything. The line under the stage tracker has no button for the KAM, and the tab has no Save button. | | |
 
 ## Sign-off
 

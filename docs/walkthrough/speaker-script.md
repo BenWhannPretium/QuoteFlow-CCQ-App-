@@ -1,6 +1,6 @@
 # QuoteFlow walkthrough: speaker script
 
-> Checked against the build on 2026-11-17 (pre-release audit): labels, navigation and flows corrected to the screens after FB-15 to FB-20; the "Hidden" beat removed (every role that can read a quote now sees its figures); segments added for multi-item quotes, the four decision choices, the Production Scheduler, Finance and the offer letter.
+> Checked against the build on 2026-11-17 (pre-release audit): labels, navigation and flows corrected to the screens after FB-15 to FB-20; the "Hidden" beat removed (every role that can read a quote now sees its figures); segments added for multi-item quotes, the four decision choices, the Production Scheduler, Finance and the offer letter. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 One core script, four audience modules. Word-for-word. Demo runs locally in `AUTH_MODE=dev` on synthetic data, switching personas with the yellow **DEV** bar.
 
@@ -33,7 +33,7 @@ pnpm dev                        # open http://localhost:5173
 Check, in this order:
 
 1. The yellow **DEV** bar shows at the very top, with a **Persona** dropdown on the right.
-2. Pick `kam`. **My quotes** loads under the eyebrow **Command Center · Key account manager**, with blocks filled in (the seed holds 150 quotes spread across every stage).
+2. Pick `kam`. **My quotes** loads under the eyebrow **Command Center · Key account manager**, with blocks filled in (the seed holds 150 quotes spread across every stage). The first time a persona opens the Command Center in a browser, a **Welcome to QuoteFlow** card sits at the top (three jobs for the role and a link to its quick-start). Decide whether to show it: either leave it up for `kam` and say one sentence about it, or click **Got it** on each persona you will use, which puts it away for good in that browser.
 3. **New intake** finds opportunities in the search box (the fake Salesforce is built from the same synthetic data).
 4. Browser zoom 125%. Close Slack and email. Hide bookmarks.
 5. Keep a second tab on `http://localhost:3000/docs` (the API docs) in case someone asks.
@@ -61,6 +61,8 @@ Other personas, if a question calls for them: `kam-owner` (sees only their own q
 - A persona switch doesn't change the page: reload the browser tab.
 - The live quote stalls at a step: say "I'll jump to one we prepared earlier" and open any quote already in that stage from **Pipeline** (the seed has 22 in Engineering & Capacity, 18 in Quoting and 10 in Final Review).
 - A button is missing: you are probably on the wrong persona. Check the DEV bar. On the Engineering and Quoting tabs the button that moves a quote forward appears only once the work it needs is filled in; until then the tab offers **Send back, hold or stop** and lists what is still needed.
+- **Submit to engineering lead** or **Submit to pricing lead** is greyed out with "Save your changes first.": a card on the tab has typed values that are not saved. Click its Save button. Typed values survive a look at another tab, and leaving the quote with unsaved changes asks "You have unsaved changes on this quote. Leave without saving?".
+- Not sure whose turn it is on the live quote: read the line under the stage tracker ("Waiting on: … Next: …"). It names the role, and the person when there is one.
 - Never apologise at length. One sentence, then move on.
 
 ---
@@ -169,9 +171,9 @@ DO: Type the **Comments for engineering** from the table. Click **Submit to CCQ*
 
 SAY: "And that's the intake. The system generates the quote number. That number follows this quote everywhere."
 
-DO: Click **Open the quote**. Point at the quote number, stage **Intake**, priority tier, **Why this priority?**, the tabs (**Overview**, **Engineering**, **Quoting**, **Attachments**) and the **Timeline**. **Write the quote number on a sticky note. You'll look for it again later.**
+DO: Click **Open the quote**. Point at the quote number, stage **Intake**, the priority (for example "Priority 62 HIGH"), the line under the stage tracker ("Waiting on: the sales leader. Next: qualify quote."), **Why this priority?**, the tabs (**Overview**, **Engineering**, **Quoting**, **Attachments**) and the **Timeline**. **Write the quote number on a sticky note. You'll look for it again later.**
 
-SAY: "The priority is a score, and it's advisory. It orders the work. People decide."
+SAY: "The priority is a score, and it's advisory. It orders the work. People decide. And this line under the stages tells everyone who opens the quote whose move it is and what happens next."
 
 ### 1.4 G1: qualify and prioritise, as the Sales leader (3 min)
 
@@ -179,7 +181,7 @@ DO: `[PERSONA: sales-leader]`. Click **To qualify**.
 
 SAY: "The first gate belongs to a sales leader. Submitted intakes, highest priority first. The score orders the list and the leader makes the call."
 
-DO: Click **Decide** on your quote (or open it and click **Qualify quote**). Hover an ⓘ. Show the four choices: **Advance**, **Send back to…**, **Hold**, **Stop**. Under **Stop** there are two: **Stop: not CCQ work (send elsewhere)** and **Stop**.
+DO: Click **Decide** on your quote (or open it and click **Qualify quote**). The priority is one closed line in the dialog ("Priority 62 · High (advisory)"), so the choices are on the screen; click the line only if someone asks how the score is made up. Hover an ⓘ. Show the four choices: **Advance**, **Send back to…**, **Hold**, **Stop**. Under **Stop** there are two: **Stop: not CCQ work (send elsewhere)** and **Stop**.
 
 SAY: "Every gate asks the same four plain questions: advance it, send it back, hold it, or stop it. Each has a definition. A send-back says who it goes to, with a reason and a note saying what to fix. A hold needs a reason, a review date and an owner. A stop needs a reason and a note. This is what stops quotes sitting in limbo."
 
@@ -197,7 +199,7 @@ DO: Open the row menu (**…**) on your quote, then **Assign engineer**. Pick an
 
 SAY: "The lead assigns an engineer, with each engineer's open count visible, and can name a production scheduler for the capacity part. Both are notified."
 
-DO: `[PERSONA: engineer]`. **My assignments**. Open your quote, **Engineering** tab, **Start review**.
+DO: `[PERSONA: engineer]`. **My assignments**. Open your quote. It opens on the **Engineering** tab, because the quote is in Engineering & Capacity and the engineer works that stage. Click **Start review**.
 
 SAY: "The engineer starts the review. Plant first, then one pick for process and machine type, limited to what that plant runs. Then cavitation, cycle time, a budgetary capital estimate, tooling, technical concept."
 
@@ -251,7 +253,7 @@ SAY: "The quote is now in Quoting. The pricing lead sees the whole queue, with c
 
 DO: Row menu, **Assign pricer**, pick a pricer, **Assign**.
 
-DO: `[PERSONA: pricing]`. Open the quote. **Quoting** tab.
+DO: `[PERSONA: pricing]`. Open the quote. It opens on the **Quoting** tab for Pricing, the pricing lead and Finance while the quote is in Quoting; everyone else lands on **Overview**.
 
 SAY: "The pricer sees the engineering summary right next to the pricing record: plant, process, capital, capacity evidence. No chasing emails."
 
@@ -333,7 +335,7 @@ DO: `[PERSONA: kam]`. **My proposals**. On your quote's card, follow the offer l
 
 SAY: "Once Final Review has released the offer, the KAM can generate the customer's offer letter here as a Word document, one letter per quote with a row per item. The prices are not typed. They are read from the costing workbook on the quote and cannot be edited here. The wording is still a draft until Legal approves it, and the letter says so."
 
-In a local demo expect the card to read **The offer letter cannot be generated yet:** with the reasons (not verified from the source: the prices come from a costing workbook in a layout QuoteFlow is set up to read, and the build notes say that mapping is not switched on yet). Check it at the dry run, show the card and say so. To show finished letters, run `pnpm --filter @ccq/api offer-letter:sample <folder outside the repo>` beforehand; it writes synthetic sample letters. Before Final Review the card reads **Not available yet**.
+In a local demo expect the card to read **The offer letter cannot be generated yet:** with the reasons (not verified from the source: the prices come from a costing workbook in a layout QuoteFlow is set up to read, and the build notes say that mapping is not switched on yet). Check it at the dry run, show the card and say so. To show finished letters, run `pnpm --filter @ccq/api offer-letter:sample <folder outside the repo>` beforehand; it writes synthetic sample letters. Until Final Review approves the quote there is no **Offer letter** card on the quote at all.
 
 ### 1.8 Customer decision and hand-off (4 min)
 
@@ -410,7 +412,7 @@ SAY: "Please stop me whenever something looks different from how you really work
 |---|---|
 | 1.3 Intake | **Linger (+3 min).** Show the draft behaviour (leave **Gram weight (g)** empty, point at **Needed before you can submit** and its **Fix** link), a destination change with its reason, and **Have drawing** vs **None**. Show **Continue a draft**. |
 | 1.3b Items | **Keep.** Show **Duplicate** for a variant and **Add item**. |
-| 1.4 G1 | Add the send-back loop: have the sales leader choose **Send back to…** (it goes to **The KAM (fix the intake)**), switch back to `kam`, show **Returned to me**, the banner and **Fix and resubmit** with the same quote number. |
+| 1.4 G1 | Add the send-back loop: have the sales leader choose **Send back to…** (it goes to **The KAM (fix the intake)**), switch back to `kam` and show **Returned to me** (the reason and "returned at Qualify & prioritize"). Open the quote: the banner reads "Returned by <name> at Qualify & prioritize" with the reason and "What to fix:", and the line under the stage tracker reads "Waiting on you. Next: fix the intake and resubmit." with the **Fix and resubmit** button. Resubmit and show the same quote number. As the sales leader, the same quote shows no **Qualify quote** button while it is back with the KAM. |
 | 1.5, 1.5b | **Trim to 1 min each.** "Engineering and Pricing do their work here, and you can see the stage and who has it on your quote." |
 | 1.6 | **Keep and explain gently:** "You can read the engineering and pricing records on your own quotes. You can't change them." |
 | 1.7b, 1.8 | **Linger.** This is their gate. Show **My proposals**, the validity dates, the offer letter card, **Record outcome** and the reason codes. |
