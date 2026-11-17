@@ -54,6 +54,7 @@ import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from 
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
 import { quoteItemSummaries } from './quote-items-view';
+import { quoteNextStep } from './quote-next-step';
 import type { ScoringService } from './scoring';
 
 /** Request-scoped inputs for building quote DTOs (loaded once per request). */
@@ -405,7 +406,7 @@ export class QuoteReadService {
     const decisions = raw.map((d) => decisionDto(d, q.version));
     const structured = (q.structuredDescription ?? {}) as { standard?: string | null };
     const shipTo = q.shipTo as QuoteDetail['shipTo'];
-    return {
+    const dto: QuoteDetail = {
       ...summary,
       // FB-19 (W13-32): every item, in item order.
       items: await quoteItemSummaries(db, ctx.actor, q),
@@ -458,5 +459,7 @@ export class QuoteReadService {
       }),
       commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!, workflow),
     };
+    // UX-002: whose move it is, read from the detail itself so it agrees with everything above.
+    return { ...dto, nextStep: quoteNextStep(workflow, ctx.actor, dto) };
   }
 }

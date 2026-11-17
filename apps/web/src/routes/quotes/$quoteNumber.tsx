@@ -1,5 +1,5 @@
 import type { QuoteDetail } from '@ccq/contracts';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { RotateCcwIcon } from 'lucide-react';
 import { Tabs } from 'radix-ui';
@@ -37,6 +37,7 @@ import {
 import { OfferLetterCard } from '@/components/outcome/OfferLetterCard';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
 import { QuoteItemsList } from '@/components/QuoteItems';
+import { QuoteNextStepLine } from '@/components/QuoteNextStepLine';
 import { SalesforceLink } from '@/components/SalesforceLink';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,7 +53,6 @@ import {
   useOpenedTabs,
   type QuoteTab,
 } from '@/lib/quote-tabs';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
@@ -219,7 +219,11 @@ function QuotePage() {
       >
         <div className="flex flex-wrap items-center gap-3">
           <StageBadge stageKey={q.stageKey} />
-          {q.status !== 'active' && (
+          {/* UX-002: on hold, the hold sentence is the next-step line under the tracker. */}
+          {q.status === 'on_hold' && q.nextStep && (
+            <span className="text-muted-foreground text-sm">On hold</span>
+          )}
+          {q.status !== 'active' && !(q.status === 'on_hold' && q.nextStep) && (
             <span className="text-muted-foreground text-sm" data-testid="quote-status">
               {q.status === 'on_hold'
                 ? holdSummary({ ...q.commercial.hold, reviewDate: q.reviewDate })
@@ -232,6 +236,7 @@ function QuotePage() {
           </span>
         </div>
         <GateRail stageKey={q.stageKey} />
+        <QuoteNextStepLine quote={q} />
       </section>
 
       <SfUpdateReminder quote={q} />
@@ -356,19 +361,12 @@ function QuotePage() {
   );
 }
 
-/** A quote returned for rework: what to fix, and (for its KAM) the way back into the wizard. */
+/**
+ * A quote returned for rework: what to fix. UX-002: the KAM's way back into the wizard ("Fix and
+ * resubmit") is on the next-step line under the stage tracker, just above.
+ */
 function ReworkBanner({ quote }: { quote: QuoteDetail }) {
-  const me = useCurrentUser();
-  const navigate = useNavigate();
-  const start = useMutation({
-    mutationFn: () => api.startRework(quote.quoteNumber),
-    // FB-15 (W13-05): straight to the review step, at the first thing to fix.
-    onSuccess: (draft) =>
-      void navigate({ to: '/intake/new', search: { draft: draft.id, at: 'review' } }),
-    onError: () => toast.error({ title: 'Could not open the rework draft' }),
-  });
   if (!quote.rework) return null;
-  const isKam = me.user.id === quote.kamUserId;
   return (
     <section
       role="status"
@@ -385,18 +383,6 @@ function ReworkBanner({ quote }: { quote: QuoteDetail }) {
         {quote.rework.decidedByName ?? 'A reviewer'} ·{' '}
         {new Date(quote.rework.decidedAt).toLocaleString()}
       </p>
-      {isKam && (
-        <div>
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => start.mutate()}
-            disabled={start.isPending}
-          >
-            Fix and resubmit
-          </Button>
-        </div>
-      )}
     </section>
   );
 }
