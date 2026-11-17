@@ -16,6 +16,9 @@ import { useEffect, useSyncExternalStore } from 'react';
 export const SAVE_FIRST_TEXT = 'Save your changes first.';
 /** The question asked before leaving a quote with unsaved changes. */
 export const LEAVE_UNSAVED_TEXT = 'You have unsaved changes on this quote. Leave without saving?';
+/** The question asked before switching to another item while this item's cards have unsaved changes. */
+export const SWITCH_ITEM_UNSAVED_TEXT =
+  'You have unsaved changes on this item. Switch to the other item without saving?';
 
 export interface UnsavedRegistry {
   /** A card says whether it has unsaved changes. `false` forgets the card. */
@@ -61,6 +64,14 @@ export function createUnsavedRegistry(): UnsavedRegistry {
 
 /** One registry for the page: the cards and the buttons that wait for them sit in different trees. */
 export const unsavedRegistry = createUnsavedRegistry();
+
+/**
+ * Whether one item's cards have unsaved changes. An item's cards report as `<card>:<item id>`
+ * (`solution:…`, `capacity:…`, `pack-out:…`); showing another item takes them off the screen, and what
+ * was typed with them.
+ */
+export const itemHasUnsaved = (cards: readonly string[], itemId: string | undefined): boolean =>
+  cards.some((card) => card.endsWith(`:${itemId ?? ''}`));
 
 /**
  * A card reports whether it has unsaved changes. Pass what is true on this render (for example

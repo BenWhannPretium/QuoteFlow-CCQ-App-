@@ -131,8 +131,9 @@ export function LeadReviewActions<T>({
   const [missing, setMissing] = useState<ServerError[]>([]);
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
-  // UX-001: submitting sends what is saved, then locks it. Typed values that are not saved yet would
-  // be left behind, so Submit waits for the save.
+  // UX-001: submitting sends what is saved, then locks it, and a decision is recorded on what is saved.
+  // Typed values that are not saved yet would be left behind, so Submit and the decisions wait for the
+  // save.
   const unsaved = useHasUnsavedChanges(quoteNumber);
   const saveFirstId = useId();
   const submitting = useMutation({
@@ -201,12 +202,23 @@ export function LeadReviewActions<T>({
       {(submitReady || review.canSendBack || decide) && (
         <div className="flex flex-wrap gap-2">
           {decide?.ready && (
-            <Button onClick={decide.onClick} data-testid="decide-gate">
+            <Button
+              onClick={decide.onClick}
+              disabled={unsaved}
+              aria-describedby={unsaved ? saveFirstId : undefined}
+              data-testid="decide-gate"
+            >
               {decide.label}
             </Button>
           )}
           {decide && !decide.ready && decide.onOther && (
-            <Button variant="outline" onClick={decide.onOther} data-testid="decide-other">
+            <Button
+              variant="outline"
+              onClick={decide.onOther}
+              disabled={unsaved}
+              aria-describedby={unsaved ? saveFirstId : undefined}
+              data-testid="decide-other"
+            >
               {decide.otherLabel ?? 'Send back, hold or stop'}
             </Button>
           )}
@@ -237,7 +249,7 @@ export function LeadReviewActions<T>({
           )}
         </div>
       )}
-      {submitReady && unsaved && (
+      {(submitReady || decide?.ready || (decide && decide.onOther)) && unsaved && (
         <p id={saveFirstId} className="text-muted-foreground" data-testid="save-first">
           {SAVE_FIRST_TEXT}
         </p>

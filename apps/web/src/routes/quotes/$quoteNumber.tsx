@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { RotateCcwIcon, SearchXIcon } from 'lucide-react';
 import { Tabs } from 'radix-ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { useCan, useCurrentUser } from '@/auth';
 import {
@@ -48,6 +48,7 @@ import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
 import { blockedDecision } from '@/lib/next-step';
 import { quoteNotFoundText, requestReference, reworkHeadline } from '@/lib/quote-header-text';
+import { STALE_QUOTE_TEXT, quoteLoadFailure } from '@/lib/quote-page-error';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
@@ -57,6 +58,7 @@ import {
 } from '@/lib/quote-tabs';
 import { decisionReasonLabel } from '@/lib/reason-label';
 import { absoluteTime } from '@/lib/time';
+import { SAVE_FIRST_TEXT, useHasUnsavedChanges } from '@/lib/unsaved-changes';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
@@ -144,6 +146,9 @@ function QuotePage() {
   const [handoffFocus, setHandoffFocus] = useState(false);
   const canReadFinalReview = useCan('finalReview.read');
   const canReadOfferLetter = useCan('offer.read');
+  // UX-001: a decision is recorded on what is saved, so the header's decision buttons wait for a save.
+  const unsaved = useHasUnsavedChanges(quoteNumber);
+  const saveFirstId = useId();
 
   if (quote.isPending) {
     return (
@@ -153,7 +158,11 @@ function QuotePage() {
       </div>
     );
   }
-  if (quote.error) {
+  // A refresh that fails in the background keeps the page (and what is typed on it): see
+  // `quoteLoadFailure`.
+  const failure = quoteLoadFailure(quote.error, quote.data !== undefined);
+  const q = quote.data;
+  if (failure === 'replace' || !q) {
     return (
       <div>
         <PageHeader title={quoteNumber} eyebrow="Quote" />
@@ -165,7 +174,6 @@ function QuotePage() {
       </div>
     );
   }
-  const q = quote.data;
   // Final Review is decided on its own screen (the full summary, then the decision), so the header
   // offers that one way in rather than a second button that decides the same thing.
   const onFinalReviewScreen =
@@ -228,13 +236,45 @@ function QuotePage() {
               </Link>
             )}
             {gates.map((g) => (
-              <Button key={g} onClick={() => setDeciding({ gate: g })}>
+              <Button
+                key={g}
+                onClick={() => setDeciding({ gate: g })}
+                disabled={unsaved}
+                aria-describedby={unsaved ? saveFirstId : undefined}
+                data-testid="header-decide"
+              >
                 {decisionLabel(g, q.availableActions.find((a) => a.gateKey === g)?.gateLabel)}
               </Button>
             ))}
           </>
         }
       />
+      {unsaved && gates.length > 0 && (
+        <p
+          id={saveFirstId}
+          className="text-muted-foreground -mt-3 text-sm sm:text-right"
+          data-testid="header-save-first"
+        >
+          {SAVE_FIRST_TEXT}
+        </p>
+      )}
+      {failure === 'keep' && (
+        <div
+          role="status"
+          className="bg-muted rounded-card flex flex-wrap items-center justify-between gap-3 border p-3 text-sm"
+          data-testid="quote-stale"
+        >
+          <p>{STALE_QUOTE_TEXT}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void quote.refetch()}
+            disabled={quote.isFetching}
+          >
+            {quote.isFetching ? 'Refreshing…' : 'Try again'}
+          </Button>
+        </div>
+      )}
       {/* FB-16 (W13-15): both assignees of the Engineering stage, for everyone who opens the quote. */}
       {(q.engineering.assignedEngineerName || q.engineering.assignedSchedulerName) && (
         <p className="text-muted-foreground -mt-3 text-sm" data-testid="quote-assignees">

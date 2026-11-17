@@ -48,7 +48,12 @@ import { api, downloadBlob, uploadAttachment } from '@/lib/api';
 import { decisionLabel, forwardReadiness, otherDecisionsLabel } from '@/lib/decision-label';
 import { absoluteTime, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
-import { useReportUnsaved } from '@/lib/unsaved-changes';
+import {
+  SWITCH_ITEM_UNSAVED_TEXT,
+  itemHasUnsaved,
+  unsavedRegistry,
+  useReportUnsaved,
+} from '@/lib/unsaved-changes';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
@@ -105,6 +110,17 @@ export function EngineeringTab({
   const itemId = view?.id;
   const itemKey = itemId ?? 'quote';
   const otherLabel = otherDecisionsLabel(quote.status === 'on_hold');
+  // UX-001: showing another item takes this item's cards off the screen, and what was typed in them.
+  const selectItem = (next: number) => {
+    if (
+      next !== index &&
+      itemHasUnsaved(unsavedRegistry.cards(quote.quoteNumber), itemId) &&
+      !window.confirm(SWITCH_ITEM_UNSAVED_TEXT)
+    ) {
+      return;
+    }
+    setActive(next);
+  };
   // The tab reads top to bottom in the order the work is done: who has it, where it stands, the
   // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
   return (
@@ -123,7 +139,7 @@ export function EngineeringTab({
             key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
             quote={quote}
           />
-          <ItemSwitcher items={eng.items} active={index} onSelect={setActive} />
+          <ItemSwitcher items={eng.items} active={index} onSelect={selectItem} />
           <ProductFactsHeader facts={itemQuote.engineering.productFacts} />
         </>
       )}

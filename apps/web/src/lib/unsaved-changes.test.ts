@@ -4,6 +4,7 @@ import {
   FILE_LINK_GRACE_MS,
   createUnsavedRegistry,
   fileLinkJustOpened,
+  itemHasUnsaved,
   withinFileLinkGrace,
 } from './unsaved-changes';
 
@@ -69,5 +70,20 @@ describe('the unsaved-changes registry', () => {
     stop();
     registry.report('CCQ-2026-00001', 'solution', true);
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('itemHasUnsaved (switching items on a multi-item quote)', () => {
+  it('is true only for the item whose own cards are unsaved', () => {
+    const cards = ['solution:item-1', 'price-approval'];
+    expect(itemHasUnsaved(cards, 'item-1')).toBe(true);
+    expect(itemHasUnsaved(cards, 'item-2')).toBe(false);
+    expect(itemHasUnsaved(['capacity:item-2', 'pack-out:item-2'], 'item-2')).toBe(true);
+    expect(itemHasUnsaved([], 'item-1')).toBe(false);
+  });
+
+  it('reads a one-item quote, whose cards carry no item id', () => {
+    expect(itemHasUnsaved(['solution:'], undefined)).toBe(true);
+    expect(itemHasUnsaved(['price-approval'], undefined)).toBe(false);
   });
 });

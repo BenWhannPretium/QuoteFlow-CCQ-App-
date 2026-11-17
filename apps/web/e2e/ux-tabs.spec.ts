@@ -239,6 +239,81 @@ test('UX-001: the Quoting tab keeps typed values too, and opening it is not a ch
 });
 
 /** A new page in its own browser context, signed in as a persona. */
+test('UX-001: a decision waits for the save, and a failed refresh keeps what is typed', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  // A quote the engineering lead can decide: the work is complete and capacity is approved. Its drawing
+  // is still to come, so the first drawing uploaded changes the quote (see the refresh below).
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1), {
+    drawingStatus: 'COMING',
+  });
+  const call = caller(request, quoteNumber);
+  const engineer = await userOf(request, 'engineer');
+  await userOf(request, 'eng-lead');
+  await call('post', 'gates/G1/decisions', 'sales-leader', { outcomeKey: 'advance' });
+  await call('put', 'eng-review', 'eng-lead', SOLUTION);
+  await call('put', 'capacity-evidence', 'eng-lead', { rows: [capacityRow(engineer.id)] });
+  await call('put', 'capacity-signoff', 'eng-lead', { status: 'approved' });
+
+  await signInAs(page, 'eng-lead');
+  await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  const tab = page.getByTestId('engineering-tab');
+  const solution = tab.getByTestId('solution-form');
+  const decide = tab.getByTestId('decide-gate');
+  const headerDecide = page.getByTestId('header-decide');
+  await expect(decide).toBeEnabled();
+  await expect(headerDecide).toBeEnabled();
+  await expect(page.getByTestId('header-save-first')).toHaveCount(0);
+
+  // ── Type, do not save: both decision buttons wait, and say why ──
+  const concept = 'Single-stage with a hot runner';
+  await solution.getByLabel('Technical concept').fill(concept);
+  await expect(decide).toBeDisabled();
+  await expect(decide).toHaveAccessibleDescription('Save your changes first.');
+  await expect(headerDecide).toBeDisabled();
+  await expect(headerDecide).toHaveAccessibleDescription('Save your changes first.');
+  await expect(page.getByTestId('header-save-first')).toHaveText('Save your changes first.');
+
+  // ── A refresh of the quote fails in the background: the page stays, with what was typed ──
+  let failing = true;
+  await page.route(`**/api/v1/quotes/${quoteNumber}`, (route) =>
+    failing && route.request().method() === 'GET'
+      ? route.fulfill({
+          status: 503,
+          contentType: 'application/problem+json',
+          body: JSON.stringify({ type: 'about:blank', title: 'Service unavailable', status: 503 }),
+        })
+      : route.fallback(),
+  );
+  // The first drawing on a quote changes its drawing status, so the page asks for the quote again.
+  await page.getByRole('tab', { name: 'Attachments' }).click();
+  await page.getByTestId('attachments').getByTestId('attachment-input').setInputFiles({
+    name: 'Bottle drawing.synthetic.pdf',
+    mimeType: 'application/pdf',
+    buffer: PDF,
+  });
+  const stale = page.getByTestId('quote-stale');
+  await expect(stale).toContainText('This quote could not be refreshed', { timeout: 20_000 });
+  await expect(page.getByTestId('quote-not-found')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Engineering' }).click();
+  await expect(solution.getByLabel('Technical concept')).toHaveValue(concept);
+
+  // ── The server is back: the line goes, the typed value stays ──
+  failing = false;
+  await stale.getByRole('button', { name: 'Try again' }).click();
+  await expect(stale).toHaveCount(0);
+  await expect(solution.getByLabel('Technical concept')).toHaveValue(concept);
+
+  // ── Save: the decision is offered again ──
+  await solution.getByRole('button', { name: 'Save solution' }).click();
+  await expect(page.getByText('Solution saved')).toBeVisible();
+  await expect(decide).toBeEnabled();
+  await expect(headerDecide).toBeEnabled();
+  await expect(page.getByTestId('header-save-first')).toHaveCount(0);
+});
+
 async function openAs(browser: Browser, persona: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await signInAs(page, persona);
