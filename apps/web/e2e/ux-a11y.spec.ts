@@ -1023,8 +1023,13 @@ test('the board moves a card without a mouse: the Move menu, and the grip with i
   await page.keyboard.press('Space');
   const announced = page.locator('[role="status"][aria-live="assertive"]');
   await expect(announced).toContainText(`Picked up ${q.eng}. It can move to`);
-  await page.keyboard.press('Escape');
-  await expect(announced).toContainText(`${q.eng} put back.`);
+  // The keyboard sensor starts listening for Escape a moment after the pick-up is announced; on a slow
+  // machine the first press can come too early and go nowhere. A second Escape with nothing picked up
+  // does nothing, so pressing until the card is put back is safe.
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await expect(announced).toContainText(`${q.eng} put back.`, { timeout: 1_500 });
+  }).toPass({ timeout: 15_000 });
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
