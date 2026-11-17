@@ -125,7 +125,23 @@ Before the go / no-go, two fresh reviewers were given only the diff and the arch
 | A-16: "this quote could not be loaded" showed above a working form when a background refetch failed | `da1817f` |
 | A-14: the "QuoteFlow was updated" screen appears mostly when it is not an update (the router already reloads once by itself). Reworded to "This page could not be loaded" | `da1817f` |
 
-Also from the re-check and left as they are, with the reason: the migration lock waits without limit if its holder hangs (the holder is another instance mid-migration; the platform's start limit ends the wait); the config seed still runs outside that lock (it is idempotent upserts in a fixed order); the tightened intake schema also validates responses, so a draft stored earlier with a value it now refuses would not load (a pre-deploy query for such drafts is in `05-release-runbook.md`, pre-flight 10a).
+Also from the re-check and left as they are, with the reason: the migration lock waits without limit if its holder hangs (the holder is another instance mid-migration; the platform's start limit ends the wait); the config seed still runs outside that lock (it is idempotent upserts in a fixed order). A third item was left here at first and then fixed: the tightened intake schema also validated responses, so a draft stored earlier with a value it now refuses would not load. The review on the pull request rated that a defect, rightly; see the next section.
+
+## Found by the review on the pull request
+
+The automated review that runs on each push found seven more problems after the pull request was opened. Each was checked in the code first; all seven were real, and each fix has a test that fails without it.
+
+| What was wrong | Fixed in |
+|---|---|
+| A-07: a draft saved before the stricter checks, holding a value they refuse (an impossible day, a figure beyond its column), answered 500 on every open and save, because the same schema described the response. Stored drafts are now read as stored; what a request sends is still checked | `5787079` |
+| The fix above let the draft open, but the wizard sends the whole draft on every save, so the old value was refused each time whatever the KAM had edited. The server now checks strictly only the values a save changes, as it already did for list codes | `9307515` |
+| A need-by date that is not a real day looked ready and failed in the database at submit; a date picker shows it as blank. It is now a blocking issue on its own field | `d3b1a5c` |
+| A-02: the statement a function or trigger was running still reached the error log. The serializer withheld `internalQuery`; this driver names the field `internal_query`. Confirmed against a real driver error | `e1e6685` |
+| A-06: intake audit rows still stored the caller's address with its source port; the earlier fix covered every route but this one | `29ad342` |
+| A-15: a sign-in redirect that failed to start was remembered for the life of the page, so every later request replayed that failure | `e38a6f6` |
+| UX-001 (two findings): a save by someone else counted as the reader's own unsaved change, and the Quoting cards could stay "unsaved" over a difference the server ignores | `2f8c77c`, `f99f1e5` |
+
+One more thing came from CI, not from review: a new advisory on `picomatch` (build and lint tooling only, no fixed version) failed the dependency audit on every branch. It is accepted as a documented exception, BR-17 in `docs/build-guide/04-decisions-and-risks.md`, approved by Ben (`8a5cfe8`).
 
 ## Behavior changes
 

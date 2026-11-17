@@ -53,6 +53,8 @@ Decision left to you: whether to allow the silent renewal instead (`frame-ancest
 
 `availableActions` lists Hold for an on-hold quote; the server answers 409 "already on hold. Resume it before putting it on hold again", and nothing in the app resumes a hold except another decision. Proposed as UX-004 in `03-ux-proposals.md`.
 
+**Done, 2026-11-17 (UX-004 (a) and (b)):** a quote on hold is no longer offered Hold, and the refusal reads "Record a decision to end the hold." **Still yours:** part (c). Today the only way to move a hold's review date is to end the hold and place it again. If the review date should be changeable in place, say who may do it (the hold owner, the gate's decider, or both) and whether a reason is required; it is a small change once decided.
+
 ### N-08. The hand-off record of a Closed – Won quote can still be edited back to incomplete
 
 `planHandoff` allows edits in `AWARDED`. `PUT /quotes/:qn/handoff` with `complete: false` or `cerStatus: 'not_approved'` leaves a closed-won quote that contradicts the rule G6 enforced. The architecture says the record "stays readable", which reads as not editable. **Recommend** refusing, on `AWARDED`, any edit that un-completes the hand-off or moves the CER status off approved / not required. Not changed: the intent is yours to state.

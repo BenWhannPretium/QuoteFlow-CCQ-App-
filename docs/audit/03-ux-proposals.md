@@ -1,6 +1,46 @@
 # 03: Experience and simplification proposals (Part C)
 
-Pre-release audit, 2026-11-17. **Proposals only. Nothing in this file has been built.** Tick `Approve` on the ones you want (or reply with the ids and any edits) and only those will be implemented, each in its own commit with a test and an updated screenshot.
+Pre-release audit, 2026-11-17. This file was written as proposals only. **Ben approved all eighteen on 2026-11-17, plus the first two items under "Considered and not proposed", and they are now built** on the same branch. Each proposal below keeps its original text and ends with what was built. The next section is the record.
+
+## What was built (2026-11-17)
+
+Each item has its own commits (`feat(ux): UX-0NN …`), unit tests for its rules and Playwright coverage in `apps/web/e2e/ux-*.spec.ts`. Screenshots are in `docs/audit/screens/UX-*.png`. The UAT scripts and quick-starts were updated for every changed label (`docs/uat/`).
+
+| Item | Built | Commits |
+|---|---|---|
+| UX-001 | Engineering and Quoting stay on the page while another tab is shown, so typed values survive. Submit to lead and every decision button wait for a save ("Save your changes first."). Leaving the quote, or switching items on a multi-item quote, asks first. A failed background refresh keeps the page and what is typed. | `a559fe6`, `834460c`, `2f8c77c`, `f99f1e5` |
+| UX-002 | A line under the stage tracker says who the quote waits on and what is next, from one read-only field (`nextStep`) worked out on the server. When it is the reader's move it says so and links to the place. Includes the production scheduler's capacity part and a lead who works the quote themselves. | `d463e19`, `a83f660` |
+| UX-003 | No decision button on a quote that is back with the KAM: "Back with the KAM for rework since <time>. Nothing to decide until it is resubmitted." The button stays wherever one outcome is still possible. | `a724e6d` |
+| UX-004 (a), (b) | A quote on hold is not offered Hold again; the refusal for the two-tab case reads "Record a decision to end the hold."; the button for the other decisions reads "Send back or stop". **(c) is not built**: who may change a hold's review date in place is a business decision. | `d76632a`, `f8454fd` |
+| UX-005 | Stage lists on the Command Center show the customer after the quote number, and the opportunity name on wide screens. | `6c9c8a7` |
+| UX-006 | The Gate decisions card shows "Reason: Missing information", not the stored key. A code retired since the decision keeps its label (one optional read-only field per decision). | `568affa`, `52607ea` |
+| UX-007 | The timeline names the removed item and says when its engineering work was discarded. | `b46b233` |
+| UX-008 | "Start review" is called that in the toast and the timeline too ("review started"). | `1f0b3cb` |
+| UX-009 | The pricing queue says pricers submit to the pricing lead, who approves the price. | `a6885f9` |
+| UX-010 | Under Open warnings, when something blocks the release the screen says what and where to fix it; "none of them blocks it" shows only when nothing does. | `4c7596b` |
+| UX-011 | Every time on the quote page, the lock line, the intake draft list and "Draft saved" is US Central with the zone named. | `7acb381`, `0cf8c0e`, `64e7418` |
+| UX-012 | A quote opens on the tab of its stage for someone who works that stage, otherwise on Overview. The address always names the tab, and a named tab wins for everyone. The Offer letter card is absent until Final Review approves. A payment-terms exception notice opens the Commercial panel. | `e2eff12`, `effe119` |
+| UX-013 | Plain words for the rework banner, stage entries, priority, the Salesforce link, the stage totals, the capture hint, the gate on each decision, the lock line and a closed quote's outcome. | `56c1d03`, `8ed8837`, `64e7418` |
+| UX-014 | A quote that cannot be opened says why it might be, offers the Pipeline and gives a support reference, without revealing whether the quote exists. | `5342181` |
+| UX-015 | The stage tracker shows "Engineering & Capacity" in full on a desktop. | `3aac17c` |
+| UX-016 | "Check again" on the no-access page asks for a fresh token and looks again. | `b02afb7` |
+| UX-017 | A refused intake figure is named on its field; the queue searches wait until typing stops; the dead "cannot see the saved figure" hints are gone. | `f915702`, `d0b4d04` |
+| UX-018 | A pass over 46 pages and their menus, popovers and dialogs as eleven roles: axe at every impact level (WCAG 2.0 to 2.2 A and AA, light and dark), a Tab and Shift+Tab walk of every page, reflow at 320 px, reduced motion. Fixed: keyboard focus hidden under the sticky header and the phone's bottom bars; unnamed popovers and buttons; file inputs with no visible focus; focus lost after a cancelled board move, an intake step change and "Check again"; board announcements; targets under 24 px; sideways scroll at 320 px on the Pipeline list and Admin workflow; step changes and "Save your changes first." now announced. **Not done:** a real screen reader, voice control, forced colors, real browser zoom, Safari and Firefox, touch devices. **Found and left:** the comment box's combobox role (needs a screen reader to change safely); Save buttons lose focus while saving (one decision for the shared button); modal menus hide the page from assistive technology; some information only in a hover title. | `90e8fa5`, `0fc7eeb`, `30dbd77`, `2727160` |
+| First-run orientation | A dismissible "Welcome to QuoteFlow" card on the Command Center with the role's three main jobs and its quick-start link. Dismissal is remembered per person in the browser. | `42f4e6d` |
+| Collapsed score breakdown | In the decision dialog the breakdown is closed by default; its summary line keeps the score in view and opens it. | `82481e6` |
+
+**Not built, and why.**
+
+- **UX-004 (c)**, changing a hold's review date in place: needs a decision on who may do it.
+- **Saved views on more lists.** The first "considered" item said saved views already exist on the queues. That was wrong: the Pipeline (List, Prioritization, Board) has them; the engineering and pricing queues, Approvals, My proposals, Pricing history and the admin logs do not. Bulk actions do exist on both queues. Adding saved views to the queues is a feature with its own data, so it is listed here and not built.
+- **Three small gaps left on purpose.** On Final Review the Open warnings box is not shown when there are no warnings, so a blocker with no warning beside it is named only in Terms and Legal and in the decision dialog. The decision dialog does not itself say that the quote is on hold (the page behind it does). A stored intake figure too large for its column is not flagged in the wizard; submitting it is refused without naming the field.
+- **The term "gone dark"** remains in the metric's own definition, which names and explains it. The hints beside the numbers no longer use it.
+
+**Found by review after the first build, and fixed.** Two defects in UX-001 were reported by the review on the pull request and fixed before merge: a save by someone else (another tab, or the lead) counted as the reader's own unsaved change (`2f8c77c`), and the Quoting cards could stay "unsaved" over a difference the server ignores (`f99f1e5`). Both have a Playwright test that fails without the fix.
+
+---
+
+## The proposals as written
 
 ## One-page summary
 
@@ -29,7 +69,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** Both tabs would load their data when the quote opens (two more requests). Hidden content must stay out of the tab order and out of the accessibility checks.
 - **Changes behavior?** UI state only: no workflow, data or permission change.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built, with three gaps closed afterwards (decision buttons, a failed refresh, switching items).
 
 ## UX-002. Say whose move it is, at the top of every quote
 
@@ -40,7 +80,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** The sentence must come from the server's own facts (`availableActions`, assignee, hold, lead-review state) so it can never disagree with what the server will accept.
 - **Changes behavior?** Copy and layout; one new read-only field on the quote response.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built. The production scheduler and a lead who is the assignee have their own wording.
 
 ## UX-003. Do not offer a decision on a quote that is not waiting for it
 
@@ -51,7 +91,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** Must read the server's `missing` list, not guess from the stage.
 - **Changes behavior?** Layout only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-004. Do not offer "Hold" on a quote that is already on hold
 
@@ -62,7 +102,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** (a) changes what the quote response offers (`availableActions`).
 - **Changes behavior?** (a) and (b): what is offered and one message. (c): workflow.
 - **Needs a business decision?** (c) only.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built: (a) and (b). (c) waits for a business decision.
 
 ## UX-005. Show the customer beside the quote number on the Command Center
 
@@ -73,7 +113,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** Long names on a 390 px screen: truncate with the full name on focus.
 - **Changes behavior?** Layout only (the customer is already in the dashboard data or one field away).
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-006. Reason codes shown as system words
 
@@ -84,7 +124,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** A retired code must still show its label (the config keeps inactive codes for this).
 - **Changes behavior?** Copy only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built, including the label of a code retired since the decision.
 
 ## UX-007. The timeline does not say which item was removed
 
@@ -95,7 +135,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None beyond wording.
 - **Changes behavior?** Copy only; the data is already stored.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-008. One action, one name: "Start review"
 
@@ -106,7 +146,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** The timeline label changes for past events too (it is rendered, not stored).
 - **Changes behavior?** Copy only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-009. The pricing queue tells pricers to submit to Final Review
 
@@ -117,7 +157,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None.
 - **Changes behavior?** Copy only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-010. Final Review says "none of them blocks it" under a blocker
 
@@ -128,7 +168,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None.
 - **Changes behavior?** Copy and a condition.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-011. One clock on the quote page
 
@@ -139,7 +179,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None.
 - **Changes behavior?** Copy only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-012. Open the quote on the reader's own work
 
@@ -150,7 +190,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** Deep links to a quote would open on different tabs for different roles; keep `?tab=` in the address so a shared link is exact.
 - **Changes behavior?** Layout and default navigation.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-013. Plain words for five pieces of jargon
 
@@ -165,7 +205,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** The gate names come from configuration; use the configured gate label, not a hard-coded word.
 - **Changes behavior?** Copy only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built, and extended to the gate numbers and raw keys found afterwards.
 
 ## UX-014. A quote you cannot open should say why it might be
 
@@ -176,7 +216,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** Must not reveal whether the quote exists (the wording above does not).
 - **Changes behavior?** Copy only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-015. The stage tracker cuts off "Engineering & Capacity"
 
@@ -187,7 +227,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None.
 - **Changes behavior?** Layout only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-016. A way back in for someone who has just been given a role
 
@@ -198,7 +238,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None.
 - **Changes behavior?** One button.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-017. Small form frictions
 
@@ -211,7 +251,7 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None.
 - **Changes behavior?** Copy and timing only.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built.
 
 ## UX-018. A proper accessibility pass
 
@@ -221,12 +261,12 @@ Sorted by impact over effort. Impact: H / M / L and how many roles. Effort: S (h
 - **Risk:** None.
 - **Changes behavior?** None by itself.
 - **Needs a business decision?** No.
-- `Approve: [ ]`
+- `Approve: [x]` Approved by Ben, 2026-11-17. Built as one pass with its fixes; what it did not cover is listed under "What was built".
 
 ---
 
 ## Considered and not proposed
 
-- **Saved filters, bulk actions and a first-run tour.** Saved views and bulk assignment already exist on the queues; each role's Command Center already links its one-page quick-start. Nothing in the walkthrough argued for more before the pilot.
-- **Collapsing the score breakdown in the decision dialog.** It pushes the choices below the fold on a laptop, but it is the evidence the decider is asked to look at; UX-002 and UX-003 remove the cases where it gets in the way.
+- **Saved filters, bulk actions and a first-run tour.** Saved views and bulk assignment already exist on the queues; each role's Command Center already links its one-page quick-start. Nothing in the walkthrough argued for more before the pilot. *2026-11-17: asked for by Ben. The first-run card is built. The sentence about saved views was wrong (see "What was built"): the Pipeline has them, the queues do not.*
+- **Collapsing the score breakdown in the decision dialog.** It pushes the choices below the fold on a laptop, but it is the evidence the decider is asked to look at; UX-002 and UX-003 remove the cases where it gets in the way. *2026-11-17: asked for by Ben and built. The summary line with the score stays visible and opens the breakdown.*
 - **Anything that would hide a figure from a role, write to Salesforce, or fix an open business rule in code.** Out of bounds (CLAUDE.md rules 2, 4, 5).
