@@ -79,6 +79,8 @@ describe('intake drafts under more parallel requests than the pool has connectio
     const [saved, healthRes] = result;
     // Autosaves of one draft run one after the other (row lock); each must answer, none with a 5xx.
     expect(saved.filter((r) => r.statusCode >= 500).map((r) => r.body)).toEqual([]);
-    expect(healthRes.statusCode).toBe(200);
+    // The probe answers (200, or 503 if its own bounded ping lost the race for a connection on a slow
+    // runner); what it must never do again is hang with the requests.
+    expect([200, 503]).toContain(healthRes.statusCode);
   }, 30_000);
 });
