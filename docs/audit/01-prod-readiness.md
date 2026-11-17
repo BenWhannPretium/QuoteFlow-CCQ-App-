@@ -46,9 +46,9 @@ Two defects would have hurt in the first week and are fixed: ten simultaneous in
 | CSV exports | Checked-OK | `csvCell` neutralises a leading `= + - @`, tab and CR; file names are server-generated |
 | CSP, headers | Checked-OK, partly Needs Ben | helmet with `default-src 'self'`, `frame-ancestors 'none'`, HSTS from helmet, `upgrade-insecure-requests` in production. Signed-in CSP behavior is unverified; `img-src` lacks `blob:` (N-05 and the table at the end of 04) |
 | Cache headers, SPA fallback | **Fixed** A-14 | `0f2877c`. `/api/*` 404s stay problem+json |
-| Proxy trust, client address, rate limit | **Fixed** A-06 | One hop trusted, so a caller cannot spoof `X-Forwarded-For`. The limits themselves were ineffective. `5cc6b78`. The store is per instance (fine on one instance) |
+| Proxy trust, client address, rate limit | **Fixed** A-06 | One hop trusted, so a caller cannot spoof `X-Forwarded-For`. The limits themselves were ineffective. `5cc6b78`, and `aeaf5fc` for a percent-encoded path that side-stepped the first fix. The store is per instance (fine on one instance) |
 | Error handling | Checked-OK, **Fixed** A-08 | Every error is problem+json; 5xx carries no message, SQL or stack. Database collisions were 500s. `6772adb` |
-| Secrets and PII in logs | **Fixed** A-02 | Logs were empty rather than leaky. Now: no headers, no bodies, no query strings, no Postgres `detail`. `5262040` |
+| Secrets and PII in logs | **Fixed** A-02 | Logs were empty rather than leaky. Now: no headers, no bodies, no query strings, and for a failed statement no SQL text, no bound values and no Postgres `detail` (that last part was caught by the independent re-check of the first fix). `5262040`, `4902a0a`, `f305397` |
 
 ## Data integrity and concurrency
 
