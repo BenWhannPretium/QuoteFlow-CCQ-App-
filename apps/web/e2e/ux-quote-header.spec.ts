@@ -355,3 +355,43 @@ test('UX-014: a quote that cannot be opened says why it might be, and offers the
   await notFound.getByRole('link', { name: 'Go to the Pipeline' }).click();
   await expect(page).toHaveURL(/\/quotes$/);
 });
+
+test('UX-015: the stage tracker shows "Engineering & Capacity" in full on a desktop', async ({
+  page,
+  request,
+}) => {
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  await decide(request, quoteNumber, 'G1', 'sales-leader', { outcomeKey: 'advance' });
+  await signInAs(page, 'eng-lead');
+
+  /** Labels of the tracker that are cut off (wider or taller than their box). */
+  const clipped = () =>
+    page
+      .getByTestId('gate-rail')
+      .locator('li > span[title]')
+      .evaluateAll((labels) =>
+        labels
+          .filter((el) => (el as HTMLElement).offsetParent !== null)
+          .filter((el) => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
+          .map((el) => el.getAttribute('title')),
+      );
+
+  for (const width of [1366, 1280, 1024]) {
+    await page.setViewportSize({ width, height: 768 });
+    await page.goto(`/quotes/${quoteNumber}`);
+    const current = page.getByTestId('gate-rail').locator('li[aria-current="step"] > span[title]');
+    await expect(current).toHaveAttribute('title', 'Engineering & Capacity');
+    await expect(current).toBeVisible();
+    expect(await clipped(), `tracker labels cut off at ${width} px`).toEqual([]);
+    if (width === 1366) await auditScreen(page, 'UX-015');
+  }
+
+  // A phone keeps the tracker inside the page: nothing scrolls sideways.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/quotes/${quoteNumber}`);
+  await expect(page.getByTestId('gate-rail')).toBeVisible();
+  const sideways = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(sideways).toBeLessThanOrEqual(0);
+});

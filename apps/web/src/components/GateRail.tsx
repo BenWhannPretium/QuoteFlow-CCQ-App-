@@ -69,9 +69,12 @@ export function GateRail({ stageKey, className }: { stageKey: string; className?
                 )}
               />
             )}
+            {/* UX-015: on a desktop the label wraps onto a second line instead of being cut off
+                ("ENGINEERING & CAPAC…"). Narrower screens keep one line: the columns are too
+                narrow to wrap whole words, and the stage badge above names the stage in full. */}
             <span
               className={cn(
-                'spec-label block truncate pr-3 text-[0.625rem]',
+                'spec-label block truncate pr-3 text-[0.625rem] lg:pr-2 lg:whitespace-normal',
                 state === 'current'
                   ? closed
                     ? 'text-foreground'
