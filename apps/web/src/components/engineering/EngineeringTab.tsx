@@ -1660,6 +1660,8 @@ function CapacityEvidenceActions({
               type="file"
               className="sr-only"
               aria-label="Capacity analysis file"
+              // UX-018: the "Attach analysis" button is the keyboard stop, not this hidden input.
+              tabIndex={-1}
               data-testid="capacity-attach-input"
               onChange={(e) => {
                 attach(e.target.files?.[0]);

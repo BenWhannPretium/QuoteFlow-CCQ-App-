@@ -269,26 +269,28 @@ export function AttachmentsPanel({
             <UploadCloudIcon className="text-muted-foreground size-8" aria-hidden="true" />
             <p className="text-sm">
               Drag files here, or{' '}
+              {/* UX-018: the hidden file input sits inside its label, so the label shows the focus
+                  ring while the keyboard is on the input (index.css). */}
               <label
                 htmlFor={`${ids}-file`}
-                className="text-emphasis cursor-pointer font-semibold underline underline-offset-4"
+                className="text-emphasis cursor-pointer rounded-sm font-semibold underline underline-offset-4"
               >
                 choose files
+                <input
+                  id={`${ids}-file`}
+                  data-testid="attachment-input"
+                  type="file"
+                  multiple
+                  accept={ACCEPT}
+                  className="sr-only"
+                  aria-describedby={`${ids}-rules`}
+                  onChange={(e) => {
+                    addFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
               </label>
             </p>
-            <input
-              id={`${ids}-file`}
-              data-testid="attachment-input"
-              type="file"
-              multiple
-              accept={ACCEPT}
-              className="sr-only"
-              aria-describedby={`${ids}-rules`}
-              onChange={(e) => {
-                addFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
             <p id={`${ids}-rules`} className="text-muted-foreground text-xs">
               PDF, images (PNG, JPG, HEIC), CAD (DWG, DXF, STEP, IGS), Excel, Word or email (MSG,
               EML). Up to {MAX_MB} MB each.
@@ -299,19 +301,19 @@ export function AttachmentsPanel({
               className="border-line-strong bg-card hover:bg-accent rounded-pill inline-flex min-h-11 cursor-pointer items-center gap-2 border px-4 text-sm font-medium sm:min-h-10"
             >
               <CameraIcon className="size-4" aria-hidden="true" /> Add photo
+              <input
+                id={`${ids}-camera`}
+                data-testid="attachment-camera"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(e) => {
+                  addFiles(e.target.files, 'sample_photo');
+                  e.target.value = '';
+                }}
+              />
             </label>
-            <input
-              id={`${ids}-camera`}
-              data-testid="attachment-camera"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="sr-only"
-              onChange={(e) => {
-                addFiles(e.target.files, 'sample_photo');
-                e.target.value = '';
-              }}
-            />
           </div>
         </div>
       )}

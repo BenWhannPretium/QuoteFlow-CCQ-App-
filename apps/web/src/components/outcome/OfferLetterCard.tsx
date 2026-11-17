@@ -61,7 +61,8 @@ export function OfferLetterCard({ quote }: { quote: QuoteDetail }) {
       aria-labelledby="offer-letter-title"
       data-testid="offer-letter-card"
       data-state={!data.available ? 'not-available' : data.canGenerate ? 'ready' : 'blocked'}
-      className="scroll-mt-20"
+      // The page's own scroll padding (index.css) already clears the sticky header.
+      className="scroll-mt-1"
     >
       <Card>
         <CardHeader>

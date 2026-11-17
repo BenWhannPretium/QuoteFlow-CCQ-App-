@@ -142,7 +142,14 @@ export function NoRolePage({
                 : null}
             </p>
           </div>
-          <button type="button" className={buttonClass} onClick={onCheckAgain} disabled={checking}>
+          {/* UX-018: aria-disabled, not disabled. A disabled button drops keyboard focus, and the
+              person would have to find "Check again" once more for the next try. */}
+          <button
+            type="button"
+            className={`${buttonClass} aria-disabled:opacity-50`}
+            aria-disabled={checking || undefined}
+            onClick={checking ? undefined : onCheckAgain}
+          >
             {checking ? 'Checking…' : 'Check again'}
           </button>
         </>

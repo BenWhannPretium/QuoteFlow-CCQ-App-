@@ -44,7 +44,8 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={`${id}-h`} id={id} className="grid scroll-mt-20 gap-4">
+    // scroll-mt-1: the page's own scroll padding (index.css) already clears the sticky header.
+    <section aria-labelledby={`${id}-h`} id={id} className="grid scroll-mt-1 gap-4">
       <div className="grid gap-1">
         <h2 id={`${id}-h`} className="font-display text-xl">
           {title}

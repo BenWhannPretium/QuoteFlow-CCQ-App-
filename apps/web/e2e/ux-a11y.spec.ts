@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { AxeBuilder } from '@axe-core/playwright';
 import {
@@ -7,6 +8,7 @@ import {
   test,
   type APIRequestContext,
   type APIResponse,
+  type Locator,
   type Page,
 } from '@playwright/test';
 
@@ -313,6 +315,10 @@ const unlabelledControls = (page: Page) =>
     }
     return out;
   });
+
+/** How far the page scrolls sideways (0 = it does not). */
+const sidewaysScroll = (page: Page) =>
+  page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - window.innerWidth));
 
 /** The page has its heading and nothing is still loading. */
 async function loaded(page: Page) {
@@ -649,6 +655,54 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
+test('the sign-in and no-access pages pass axe at every impact, light and dark', async ({
+  page,
+}) => {
+  // Signed out: the production-mode server the smoke project uses (no dev personas there).
+  const signedOut = `http://localhost:${Number(process.env.E2E_PORT ?? 3100)}/`;
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto(signedOut);
+    await expect(page.getByRole('button', { name: 'Sign in with Microsoft' })).toBeVisible();
+    expect(await axeViolations(page), `sign-in (${colorScheme})`).toEqual([]);
+    expect(await sidewaysScroll(page)).toBe(0);
+  }
+  await page.emulateMedia({ colorScheme: null });
+
+  // Signed in with no role: the API's own answer, served here (every dev persona has a role).
+  await page.route('**/api/v1/me', (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: 'application/problem+json',
+      json: {
+        type: 'about:blank',
+        title: 'Forbidden',
+        status: 403,
+        detail: 'No QuoteFlow role assigned; ask IT to add you to an SG-CCQ group',
+        code: 'no_role',
+      },
+    }),
+  );
+  for (const theme of ['light', 'dark'] as const) {
+    await signInAs(page, 'kam', theme);
+    await page.goto('/');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'No QuoteFlow access yet' }),
+    ).toBeVisible();
+    // The answer to "Check again" arrives in a status region that is already on the page.
+    const answer = page
+      .getByRole('status')
+      .filter({ has: page.locator('[data-testid="recheck"]') });
+    await expect(page.getByTestId('recheck')).toHaveAttribute('role', 'status');
+    await expect(answer).toHaveCount(0);
+    await page.getByRole('button', { name: 'Check again' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('recheck')).toContainText('Still no access.');
+    await expect(page.getByRole('button', { name: 'Check again' })).toBeFocused();
+    expect(await axeViolations(page), `no access (${theme})`).toEqual([]);
+  }
+});
+
 // ── 2. Names ─────────────────────────────────────────────────────────────────────────────────────
 
 test('repeated buttons and links say which quote or stage they act on', async ({
@@ -686,6 +740,292 @@ test('repeated buttons and links say which quote or stage they act on', async ({
       .getByTestId('dash-returned')
       .getByRole('link', { name: `Open to start the rework of ${q.rework}`, exact: true }),
   ).toBeVisible();
+});
+
+// ── 3. Keyboard ──────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * What covers the focused element, if it sits under the sticky header, the bottom tab bar or a bar
+ * stuck to the bottom of the page (WCAG 2.4.11). Null when it is clear of all three, or when focus is
+ * on one of those bars itself.
+ */
+const coveredBy = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.activeElement;
+    const main = document.querySelector('main');
+    if (!el || !main?.contains(el) || el === main) return null;
+    const r = el.getBoundingClientRect();
+    // A region taller than the window (a tab panel, a table that scrolls) cannot be shown whole.
+    if (r.height > window.innerHeight / 2) return null;
+    const what = `${el.tagName.toLowerCase()} "${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)}"`;
+    const header = document.querySelector('[data-surface="header"]')?.getBoundingClientRect();
+    if (header && r.top < header.bottom - 1 && r.bottom > header.top) {
+      return `${what} is under the header (top ${Math.round(r.top)}, header ends ${Math.round(header.bottom)})`;
+    }
+    for (const bar of document.querySelectorAll(
+      'nav[aria-label="Primary"], [data-sticky-bottom]',
+    )) {
+      const b = bar.getBoundingClientRect();
+      const stuck = ['fixed', 'sticky'].includes(getComputedStyle(bar).position);
+      if (!stuck || b.height === 0 || bar.contains(el)) continue;
+      // Only a bar at the bottom edge of the window covers anything: not the side rail (the same
+      // landmark on a desktop, full height), and not a sticky bar at rest further up the page.
+      if (b.top < window.innerHeight / 2 || b.bottom < window.innerHeight - 80) continue;
+      // A button, link or select is clear of the bar whole. A text box is scrolled to its caret, not
+      // to its box, so a tall one may run under the bar: its first line, where the caret is, may not.
+      const mustShow = el.matches('textarea') ? Math.min(r.height, 40) : r.height;
+      if (r.top + mustShow > b.top + 1 && r.top < b.bottom) {
+        return `${what} is under the bar at the bottom (top ${Math.round(r.top)}, bottom ${Math.round(r.bottom)}, bar starts ${Math.round(b.top)})`;
+      }
+    }
+    return null;
+  });
+
+test('keyboard focus is never left under the sticky header (desktop, backwards through the page)', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const q = await quotes(request);
+  await page.setViewportSize({ width: 1366, height: 700 });
+  await signInAs(page, 'leadership');
+  for (const path of [
+    '/',
+    '/quotes',
+    '/quotes?view=priority',
+    `/quotes/${q.finalReview}?tab=overview`,
+  ]) {
+    await page.goto(path);
+    await loaded(page);
+    // Start at the last control of the page and walk back up, as Shift+Tab does.
+    await page.evaluate(() => {
+      const all = document.querySelectorAll<HTMLElement>(
+        'main a[href], main button:not([disabled]), main input:not([disabled]), main select, main textarea',
+      );
+      all[all.length - 1]?.focus();
+    });
+    for (let i = 0; i < 45; i++) {
+      await page.keyboard.press('Shift+Tab');
+      expect(await coveredBy(page), `${path}, Shift+Tab ${i + 1}`).toBeNull();
+    }
+  }
+});
+
+test('keyboard focus is never left under the bottom tab bar or the decision bar (phone width, forwards)', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const q = await quotes(request);
+  // 390 px is a phone, and a 1560 px desktop at 400% zoom.
+  await page.setViewportSize({ width: 390, height: 700 });
+  for (const [persona, path] of [
+    ['kam', '/'],
+    ['kam', '/quotes'],
+    ['approver', `/quotes/${q.finalReview}/review`],
+  ] as const) {
+    await signInAs(page, persona);
+    await page.goto(path);
+    await loaded(page);
+    await page.locator('main').focus();
+    for (let i = 0; i < 45; i++) {
+      await page.keyboard.press('Tab');
+      expect(await coveredBy(page), `${path}, Tab ${i + 1}`).toBeNull();
+    }
+  }
+});
+
+test('a hidden tab panel is out of the tab order, and a hidden file input shows focus on its label', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const q = await quotes(request);
+  await page.setViewportSize({ width: 1366, height: 850 });
+  await signInAs(page, 'engineer');
+  await page.goto(`/quotes/${q.eng}?tab=engineering`);
+  const engineering = page.getByTestId('engineering-tab');
+  await expect(engineering).toBeVisible();
+  // The capacity upload is reached through its button; the hidden input behind it is not a stop.
+  await expect(engineering.getByTestId('capacity-attach-input')).toHaveAttribute('tabindex', '-1');
+
+  // Attachments by keyboard: the Engineering tab stays mounted (UX-001), hidden.
+  await page.getByRole('tab', { name: 'Engineering' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Quoting' })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Attachments' })).toBeFocused();
+  await expect(page.getByTestId('drop-zone')).toBeVisible();
+  await expect(engineering).toBeHidden();
+  expect(await engineering.locator('input, select, textarea, button').count()).toBeGreaterThan(5);
+
+  // Tab through the page once: every stop is visible, none is inside the hidden panel, and the two
+  // hidden file inputs of the drop zone draw the focus ring on their labels.
+  const seen: string[] = [];
+  for (let i = 0; i < 80; i++) {
+    await page.keyboard.press('Tab');
+    const stop = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      const ringOn = (node: Element) => {
+        const cs = getComputedStyle(node);
+        return (
+          (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2) ||
+          cs.boxShadow !== 'none'
+        );
+      };
+      const fileLabel = el.matches('input[type="file"]') ? el.closest('label') : null;
+      return {
+        id: el.getAttribute('data-testid') ?? el.tagName,
+        visible: el.checkVisibility(),
+        inHiddenPanel: el.closest('[role="tabpanel"][hidden]') !== null,
+        ring: fileLabel ? ringOn(fileLabel) : ringOn(el),
+        labelVisible: fileLabel ? fileLabel.getBoundingClientRect().height >= 16 : true,
+      };
+    });
+    if (!stop) continue;
+    seen.push(stop.id);
+    expect(stop, `Tab ${i + 1}: ${stop.id}`).toMatchObject({
+      visible: true,
+      inHiddenPanel: false,
+      ring: true,
+      labelVisible: true,
+    });
+  }
+  expect(seen).toContain('attachment-input');
+  expect(seen).toContain('attachment-camera');
+  expect(seen).not.toContain('capacity-attach-input');
+
+  // AUDIT_SCREENS=1 saves the one visible change of the pass: the ring on "choose files".
+  if (process.env.AUDIT_SCREENS === '1') {
+    await page.getByRole('tab', { name: 'Attachments' }).focus();
+    while (!(await page.getByTestId('attachment-input').evaluate((el) => el.matches(':focus')))) {
+      await page.keyboard.press('Tab');
+    }
+    await page.getByTestId('drop-zone').screenshot({
+      path: fileURLToPath(new URL('../../../docs/audit/screens/UX-018.png', import.meta.url)),
+      animations: 'disabled',
+    });
+  }
+});
+
+/** Opens `trigger` from the keyboard, checks `opened` shows, closes with Escape, and expects focus back. */
+async function opensAndGivesFocusBack(
+  page: Page,
+  trigger: Locator,
+  opened: Locator,
+  key = 'Enter',
+) {
+  await trigger.focus();
+  await page.keyboard.press(key);
+  await expect(opened).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(opened).toBeHidden();
+  await expect(trigger).toBeFocused();
+}
+
+test('menus, popovers, the hold tooltip and dialogs open from the keyboard, close on Escape and give focus back', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const q = await quotes(request);
+  await page.setViewportSize({ width: 1366, height: 850 });
+
+  await signInAs(page, 'kam');
+  await page.goto('/');
+  await expect(page.getByTestId('landing')).toBeVisible();
+  await opensAndGivesFocusBack(page, page.getByTestId('user-menu'), page.getByRole('menu'));
+  await opensAndGivesFocusBack(
+    page,
+    page.getByTestId('notification-bell'),
+    page.getByTestId('notifications-view-all'),
+  );
+  await opensAndGivesFocusBack(
+    page,
+    page.getByRole('button', { name: /^About / }).first(),
+    page.getByTestId('info-popover'),
+  );
+  await opensAndGivesFocusBack(
+    page,
+    page.getByTestId('report-issue-footer'),
+    page.getByTestId('report-issue-dialog'),
+  );
+  // The "On hold" chip: its sentence shows on keyboard focus, also when reaching the chip scrolls the
+  // page (a scroll closes a tooltip), and Escape puts it away (WCAG 1.4.13).
+  await page.setViewportSize({ width: 1366, height: 450 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const chip = page.getByTestId('hold-chip').first();
+  await expect(chip).not.toBeInViewport();
+  await chip.focus();
+  await expect(chip).toBeInViewport();
+  await expect(page.getByTestId('hold-chip-detail').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('hold-chip-detail')).toHaveCount(0);
+  await expect(chip).toBeFocused();
+  await page.setViewportSize({ width: 1366, height: 850 });
+
+  await page.goto('/quotes');
+  await loaded(page);
+  await opensAndGivesFocusBack(
+    page,
+    page.getByRole('button', { name: /^Filters/ }),
+    page.getByRole('checkbox', { name: 'Active', exact: true }),
+  );
+  await opensAndGivesFocusBack(
+    page,
+    page.getByTestId('saved-views'),
+    page.getByRole('dialog', { name: 'Saved views' }),
+  );
+
+  // Final Review: the decision dialog from the sticky bar.
+  await signInAs(page, 'approver');
+  await page.goto(`/quotes/${q.finalReview}/review`);
+  await expect(page.getByTestId('review-screen')).toBeVisible();
+  await opensAndGivesFocusBack(
+    page,
+    page.getByTestId('decision-bar').getByRole('button', { name: 'Hold', exact: true }),
+    page.getByRole('dialog'),
+  );
+});
+
+test('the board moves a card without a mouse: the Move menu, and the grip with its announcements', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const q = await quotes(request);
+  await page.setViewportSize({ width: 1366, height: 850 });
+  await signInAs(page, 'eng-lead');
+  await page.goto(`/board?q=${q.eng}`);
+  const card = page.locator(`[data-testid="board-card"][data-quote="${q.eng}"]`);
+  await expect(card).toBeVisible();
+
+  // The Move menu: Enter opens it on its first choice, Enter picks it, the gate dialog opens.
+  const move = card.getByRole('button', { name: `Move ${q.eng} to another stage` });
+  await move.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menuitem').first()).toBeFocused();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('radio', { checked: true })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  // Nothing was decided: the card is back where it was, and the keyboard is back on its Move button.
+  await expect(page.locator('[data-column="ENG_REVIEW"]')).toContainText(q.eng);
+  await expect(move).toBeFocused();
+
+  // The grip: Space picks the card up and says where it can go; Escape puts it back and says so.
+  const grip = card.getByRole('button', { name: `Move ${q.eng} (drag)` });
+  await expect(grip).toHaveAttribute('aria-roledescription', 'draggable quote');
+  await grip.focus();
+  await page.keyboard.press('Space');
+  const announced = page.locator('[role="status"][aria-live="assertive"]');
+  await expect(announced).toContainText(`Picked up ${q.eng}. It can move to`);
+  await page.keyboard.press('Escape');
+  await expect(announced).toContainText(`${q.eng} put back.`);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 // ── 6. Targets ───────────────────────────────────────────────────────────────────────────────────

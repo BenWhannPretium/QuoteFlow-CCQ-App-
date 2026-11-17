@@ -23,8 +23,11 @@ function useReturnFocus(
   const returnTo = React.useRef<HTMLElement | null>(null);
   return {
     onOpenAutoFocus: (e: Event) => {
-      returnTo.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      // UX-018: opened from a menu item (the board's "Move", a queue row's actions). The item is gone
+      // by the time the dialog closes, so focus goes back to the button that opened the menu.
+      const menuButtonId = active?.closest('[role="menu"]')?.getAttribute('aria-labelledby');
+      returnTo.current = (menuButtonId ? document.getElementById(menuButtonId) : null) ?? active;
       onOpenAutoFocus?.(e);
     },
     onCloseAutoFocus: (e: Event) => {

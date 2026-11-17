@@ -69,9 +69,10 @@ export function FiltersPopover({
           )}
         </Button>
       </PopoverTrigger>
+      {/* scroll-pb: a checkbox reached with the keyboard stops above the sticky "Clear all / Done" row. */}
       <PopoverContent
         aria-label={label}
-        className="grid max-h-[min(70dvh,var(--radix-popover-content-available-height))] gap-4 overflow-y-auto pb-0"
+        className="grid max-h-[min(70dvh,var(--radix-popover-content-available-height))] scroll-pb-20 gap-4 overflow-y-auto pb-0"
       >
         {extra}
         {groups.map((group) => (

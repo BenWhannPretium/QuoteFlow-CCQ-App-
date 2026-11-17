@@ -800,6 +800,8 @@ function DecisionBar({
       role="region"
       aria-label="Decision"
       data-testid="decision-bar"
+      // UX-018: index.css keeps keyboard focus clear of a bar stuck to the bottom of the page.
+      data-sticky-bottom=""
     >
       {s.canDecide && s.availableActions.length > 0 ? (
         <div className="grid gap-2">

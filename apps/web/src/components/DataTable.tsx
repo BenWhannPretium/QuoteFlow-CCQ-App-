@@ -107,7 +107,8 @@ export function DataTable<T>({
     />
   ) : (
     <div
-      className="bg-card rounded-card shadow-card overflow-auto border"
+      // scroll-pt: a row link reached with the keyboard stops below the sticky header row.
+      className="bg-card rounded-card shadow-card scroll-pt-14 overflow-auto border"
       style={{ maxHeight }}
       tabIndex={0}
       role="region"
