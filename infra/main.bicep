@@ -101,6 +101,12 @@ param mailAllowlist array = []
 param mailRedirectTo string = ''
 @description('0 = email dispatch off until the shared mailbox exists (M7).')
 param notificationDispatchIntervalSeconds int = 0
+@description('Seconds App Service waits for the container to answer at start-up (platform default 230, maximum 1800). The app runs its migrations before it listens.')
+@minValue(230)
+@maxValue(1800)
+param containerStartTimeLimitSeconds int = 1800
+@description('Send the web app\'s stdout (the API\'s JSON logs), HTTP and platform logs to the Log Analytics workspace. Off by default: turn it on in test first (run what-if), then prod. Without it the logs live only in the App Service file system (35 MB, 7 days).')
+param sendAppLogsToLogAnalytics bool = false
 @allowed(['fake', 'live'])
 param sfMode string = 'fake'
 @allowed(['jwt', 'client_credentials'])
@@ -294,6 +300,10 @@ var baseSettings = {
   NOTIFICATION_DISPATCH_INTERVAL_SECONDS: string(notificationDispatchIntervalSeconds)
   SF_MODE: sfMode
   APPLICATIONINSIGHTS_CONNECTION_STRING: monitoring.outputs.appInsightsConnectionString
+  // The app migrates the database before it listens (azureStart.ts). The platform default gives a
+  // container 230 seconds to answer and then kills and restarts it: a slow migration, or one waiting on
+  // a lock, would be cut off mid-run and looped.
+  WEBSITES_CONTAINER_START_TIME_LIMIT: string(containerStartTimeLimitSeconds)
 }
 var blobSettings = filestoreMode == 'blob'
   ? {
@@ -335,6 +345,14 @@ module app 'modules/appservice.bicep' = {
     enableStagingSlot: enableStagingSlot
     vnetIntegrationSubnetId: deployNetwork ? network!.outputs.appSubnetId : ''
     exposure: exposure
+  }
+}
+
+module appLogs 'modules/diagnostics.bicep' = if (sendAppLogsToLogAnalytics) {
+  name: 'app-logs'
+  params: {
+    webAppName: app.outputs.name
+    logAnalyticsId: monitoring.outputs.logAnalyticsId
   }
 }
 
