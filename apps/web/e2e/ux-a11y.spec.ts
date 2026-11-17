@@ -1133,6 +1133,104 @@ test('"Save your changes first." and "saved" are announced without moving focus'
   ).toBe(true);
 });
 
+// ── 5. Reflow, zoom and motion ───────────────────────────────────────────────────────────────────
+
+test('no page scrolls sideways at 320 px (400% zoom)', async ({ page, request }) => {
+  test.setTimeout(480_000);
+  const q = await quotes(request);
+  await page.setViewportSize({ width: 320, height: 700 });
+  const scrolling: string[] = [];
+  await tour(page, q, STOPS, 'light', async (label) => {
+    const by = await sidewaysScroll(page);
+    if (by > 0) scrolling.push(`${label}: ${by} px`);
+  });
+  expect(scrolling).toEqual([]);
+});
+
+test('at 200% zoom (640 px wide, two device pixels each) the main pages do not scroll sideways', async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(240_000);
+  const q = await quotes(request);
+  const context = await browser.newContext({
+    baseURL: test.info().project.use.baseURL!,
+    viewport: { width: 640, height: 400 },
+    deviceScaleFactor: 2,
+  });
+  const page = await context.newPage();
+  const scrolling: string[] = [];
+  const main = STOPS.filter((s) =>
+    [
+      'Command Center (kam)',
+      'Command Center (leadership)',
+      'Pipeline list',
+      'Pipeline board',
+      'Quote overview, back for rework (KAM)',
+      'Quote Engineering tab (engineer)',
+      'Quote Quoting tab (pricing)',
+      'To qualify (G1 queue)',
+      'Engineering queue (lead)',
+      'Pricing queue (lead)',
+      'Final Review screen',
+      'Intake step 2',
+      'Notifications',
+      'Admin workflow',
+    ].includes(s.name),
+  );
+  await tour(page, q, main, 'light', async (label) => {
+    const by = await sidewaysScroll(page);
+    if (by > 0) scrolling.push(`${label}: ${by} px`);
+  });
+  expect(scrolling).toEqual([]);
+  await context.close();
+});
+
+test('reduced motion: no fade, no page-load wipe, and the board jumps to a stage instead of gliding', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await quotes(request);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 700 });
+  // Record how the board asks the browser to scroll (the scroll itself is not needed here).
+  await page.addInitScript(() => {
+    const asked: unknown[] = [];
+    (window as unknown as { scrollsAsked: unknown[] }).scrollsAsked = asked;
+    Element.prototype.scrollIntoView = (arg?: boolean | ScrollIntoViewOptions) => {
+      asked.push(typeof arg === 'object' ? (arg.behavior ?? 'auto') : 'auto');
+    };
+  });
+  await signInAs(page, 'kam');
+  await page.goto('/board');
+  const stages = page.getByRole('navigation', { name: 'Stages' });
+  await expect(stages).toBeVisible();
+  await stages.getByRole('button').nth(2).click();
+  expect(
+    await page.evaluate(() => (window as unknown as { scrollsAsked: unknown[] }).scrollsAsked),
+  ).toEqual(['auto']);
+
+  // Every animation and transition on the page is cut to nothing (index.css).
+  await page.goto('/');
+  await expect(page.getByTestId('landing')).toBeVisible();
+  await page.getByTestId('report-issue-footer').click();
+  const dialog = page.getByTestId('report-issue-dialog');
+  await expect(dialog).toBeVisible();
+  const longest = await page.evaluate(() =>
+    Math.max(
+      0,
+      ...[...document.querySelectorAll('*')].flatMap((el) => {
+        const cs = getComputedStyle(el);
+        const seconds = (v: string) =>
+          v.split(',').map((s) => parseFloat(s) * (s.includes('ms') ? 0.001 : 1));
+        return [...seconds(cs.animationDuration), ...seconds(cs.transitionDuration)];
+      }),
+    ),
+  );
+  expect(longest).toBeLessThan(0.001);
+});
+
 // ── 6. Targets ───────────────────────────────────────────────────────────────────────────────────
 
 test('targets are at least 24 px tall where they sit next to another one', async ({

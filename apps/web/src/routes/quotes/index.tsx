@@ -298,7 +298,8 @@ function QuoteTable({
             return {
               ...base,
               cell: ({ row }) => (
-                <span className="block min-w-40">{text(row.original) ?? '–'}</span>
+                // The minimum width is for the table; a phone's card must not be pushed wider.
+                <span className="block sm:min-w-40">{text(row.original) ?? '–'}</span>
               ),
             };
           }
@@ -307,7 +308,7 @@ function QuoteTable({
               ...base,
               cell: ({ row }) => (
                 <span
-                  className="line-clamp-2 block min-w-56"
+                  className="line-clamp-2 block sm:min-w-56"
                   title={row.original.productSummary ?? undefined}
                 >
                   {row.original.productSummary ?? '–'}

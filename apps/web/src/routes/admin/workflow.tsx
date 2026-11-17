@@ -160,7 +160,9 @@ function WorkflowPage() {
       ) : !data ? (
         <SkeletonRows rows={8} />
       ) : (
-        <div className="grid gap-4">
+        // UX-018: a long word (a field name in a rule, a code) may break, so the cards fit a 320 px
+        // screen instead of pushing the page sideways.
+        <div className="grid gap-4 [overflow-wrap:anywhere]">
           {data.g1Enabled && (
             <section className="bg-card rounded-card flex flex-wrap items-center gap-3 border p-4">
               <div className="grid flex-1 gap-0.5">

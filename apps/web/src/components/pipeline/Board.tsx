@@ -67,6 +67,7 @@ export function Board({
 }) {
   const isMobile = useIsMobile();
   const coarse = useMediaQuery('(pointer: coarse)');
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const dragEnabled = !isMobile && !coarse;
   // MouseSensor (not PointerSensor) so a finger never starts a drag: on touch, "Move" opens the dialog.
   const sensors = useSensors(
@@ -212,9 +213,12 @@ export function Board({
               type="button"
               className="bg-secondary text-secondary-foreground rounded-pill inline-flex min-h-11 shrink-0 items-center gap-2 px-3 text-sm"
               onClick={() =>
-                scroller.current
-                  ?.querySelector(`[data-column="${l.key}"]`)
-                  ?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+                scroller.current?.querySelector(`[data-column="${l.key}"]`)?.scrollIntoView({
+                  // UX-018: no glide for someone who asked for reduced motion.
+                  behavior: reducedMotion ? 'auto' : 'smooth',
+                  inline: 'start',
+                  block: 'nearest',
+                })
               }
             >
               {l.label}
