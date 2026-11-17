@@ -215,7 +215,8 @@ test.describe('UX-008: "Start review" has one name', () => {
     await expect(page.getByText(`${quoteNumber} accepted`)).toHaveCount(0);
     await auditScreen(toast, 'UX-008');
 
-    await page.goto(`/quotes/${quoteNumber}`);
+    // The timeline is on the Overview; opened without a tab, the lead would land on Engineering (UX-012).
+    await page.goto(`/quotes/${quoteNumber}?tab=overview`);
     const timeline = page.getByTestId('quote-timeline');
     await expect(timeline.getByText('Engineering review started')).toBeVisible();
     await expect(timeline.getByText('Engineering review accepted')).toHaveCount(0);
