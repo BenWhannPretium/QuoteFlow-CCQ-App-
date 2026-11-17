@@ -93,6 +93,11 @@ export interface AppDeps {
     db?: Database;
     /** postgres.js client: background jobs take advisory locks on a reserved session. */
     sql?: Sql;
+    /**
+     * A separate small pool for system-context reads made inside a request transaction, so they never wait
+     * on the request pool the caller is holding a connection from (`createDb` provides it).
+     */
+    systemDb?: Database;
   };
   /** Test seam: the Salesforce reader (defaults to SF_MODE: the synthetic fake or jsforce). */
   salesforce?: SalesforceReader;
@@ -459,7 +464,10 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     attachments: attachmentService,
     log: app.log.child({ component: 'intake' }),
     // FB-19 (W13-33): the active quotes on an opportunity are found whoever owns them (number and KAM only).
-    ...(deps.db.db ? { systemTx: (fn) => withSystemContext(deps.db.db!, fn) } : {}),
+    // On its own pool (see `createDb`): this read runs while the caller's transaction holds a connection.
+    ...(deps.db.db
+      ? { systemTx: (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) }
+      : {}),
   });
 
   // B-09 governed overrides, the quote timeline + comments, and the admin audit viewer / usage report.
