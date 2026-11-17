@@ -47,9 +47,10 @@ Hard limits that no part overrides:
   you create), overriding `.env`, and print the effective values to confirm: `SF_MODE=fake`,
   `FILESTORE_MODE=local`, `MAIL_MODE=fake`, `AUTH_MODE=dev`, `FABRIC_WORKSPACE_ID` and `FABRIC_MIRRORED_DB_ID`
   unset, and a `DATABASE_URL` whose host is `localhost` or `127.0.0.1` (refuse to start otherwise). Never read
-  or print secret values from `.env`. Note `NODE_ENV=production` refuses `local`/`fake` modes by design: use it
-  only to prove the refusals fire, and run the load, fuzz and soak tests on a production *build* with
-  `NODE_ENV` left at development or test.
+  or print secret values from `.env`. Note `NODE_ENV=production` refuses `local` file store and `fake` mail by
+  design: the load, fuzz, soak and role click-throughs run on a production *build* with `NODE_ENV` at development
+  or test (they need `AUTH_MODE=dev` to act as each role). The only production-mode runs are the two short,
+  inert ones described under "Build output" in Part A.
 - **Never push to or merge into `main`.** Work on a new branch `claude/audit-prerelease` cut from
   `origin/main` (`git fetch` first; PRs #98 to #105 are already merged, so local `main` may be behind).
   Commit in small Conventional-Commit units (`fix(...)`, `refactor(...)`, `perf(...)`, `test(...)`, `docs(...)`),
@@ -185,10 +186,20 @@ prove it fine (note it in the report as "checked, OK, here is why") or fix it wi
 - Build output: the production bundle starts cleanly with a production-shaped env (entra mode, no dev vars).
   **Boot the built API against the local DB** and exercise health, auth rejection, SPA fallback, a 404 under
   `/api`, and a graceful SIGTERM. Under `NODE_ENV=production` the config refuses `local` file store and
-  `fake`/`smtp` mail by design, so: (1) first prove those refusals fire with a production env; (2) for the
-  exercising run, keep every integration inert and local (see "Every local run is inert"), using a built bundle
-  with `NODE_ENV` at development or test. Do not point a production-mode boot at real integrations. Record what
-  you ran.
+  `fake`/`smtp` mail by design, and several behaviors exist **only** when `NODE_ENV=production` (the SPA plugin and
+  its fallback, `trustProxy`, the CSP `upgrade-insecure-requests`, Swagger off), so a development-mode boot cannot
+  verify them. Do two runs: (1) prove the production refusals fire (`AUTH_MODE=dev`, `FILESTORE_MODE=local`,
+  `MAIL_MODE` not `graph`, `GRAPH_CLIENT_SECRET`, `MAIL_ALLOWLIST`/`MAIL_REDIRECT_TO` with `APP_ENVIRONMENT=prod`);
+  (2) an **inert production-mode boot**, the one exception to the `AUTH_MODE=dev` rule: `NODE_ENV=production`,
+  `APP_ENVIRONMENT=test`, `AUTH_MODE=entra` with placeholder `ENTRA_*` ids, `SF_MODE=fake` (allowed in production,
+  it logs a warning), `FILESTORE_MODE=blob` pointed at an address that cannot be reached
+  (for example `http://127.0.0.1:1`), `MAIL_MODE=graph` with placeholder ids and no credentials so no mail can
+  leave, and the localhost database. Confirm from the code that none of this can reach a real system (a
+  placeholder tenant may fetch Microsoft's public signing keys: that is acceptable, nothing of ours is sent), then
+  check health, auth rejection with no token and a malformed token, SPA fallback and caching headers, a 404 under
+  `/api` returning problem+json, the CSP, `X-Forwarded-For` handling for the rate limit, no Swagger, and a graceful
+  SIGTERM. Anything that still cannot be verified locally goes in the report as "unverified, needs a real
+  environment". Record what you ran.
 
 **Adversarial pass: actively try to break it (local instance only, synthetic data)**
 - Stop reading and start attacking. Against the running local app, for **each role**, script attempts to do what
