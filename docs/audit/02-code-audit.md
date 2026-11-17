@@ -86,7 +86,7 @@ Method: eight read-only reviews fanned out by area (infrastructure, database, wo
 
 ### A-08. Database collisions were bare 500s
 
-`apps/api/src/plugins/problem-json.ts`, new `services/pg-error.ts`. A unique or foreign-key violation (a double click, two people on one record) is now 409 `conflict`; a deadlock or serialization failure 409 `conflict_retry`; a value that does not fit its column 400 `invalid_value`. Only errors with no status of their own are mapped, the response never quotes the database, and a NOT NULL or CHECK violation is still a 500. Also fixed: the override service looked for the SQLSTATE on the top-level error, where drizzle never puts it, so its own 409 could not fire. Commit `6772adb`; test `pg-error.test.ts`.
+`apps/api/src/plugins/problem-json.ts`, new `services/pg-error.ts`. A unique violation (a double click, two people on one record) is now 409 `conflict`; a deadlock or serialization failure 409 `conflict_retry`; a value that does not fit its column (five named SQLSTATEs: too long, out of range, a bad date, not a uuid or number) 400 `invalid_value`. It is an allow-list: only errors with no status of their own are mapped, the response never quotes the database, and everything else, including NOT NULL, CHECK and foreign-key violations and the rest of class 22, is still a 500 (`231b3af` narrowed the first version, which was too broad). Also fixed: the override service looked for the SQLSTATE on the top-level error, where drizzle never puts it, so its own 409 could not fire. Commit `6772adb`; test `pg-error.test.ts`.
 
 ### A-10, A-11. Start-up guards for production
 
@@ -105,8 +105,27 @@ Method: eight read-only reviews fanned out by area (infrastructure, database, wo
 - **A-13. Request ids repeated.** Fastify's default id is a per-process counter, so the problem `traceId` and `audit_event.request_id` started again from `req-1` after every restart. Now UUIDs. Commit `d80a5cc`.
 - **A-14. SPA files.** Hashed files are cached for good and `index.html` is always revalidated (they were all `max-age=0`); a missing build file is a 404, not the page shell; a tab from the previous build is told to reload instead of being offered a retry that cannot work. Commits `0f2877c`, `d4ac5cc`.
 - **A-16. Stale screens after a gate decision.** The dialog now also refreshes the timeline, the Command Center, the bell and the override inbox, and says so when the quote cannot be loaded. Commit `36292d7`. No unit test (the web package has no component-test harness).
-- **A-17. Two date slips.** Clearing "Approved at" threw `RangeError`; a new capacity row took its date from the UTC day (tomorrow after 6 PM Central). Commit `ea42618`.
+- **A-17. Two date slips.** Clearing "Approved at" threw `RangeError` (the form now marks the field instead of sending); a new capacity row took its date from the UTC day (tomorrow after 6 PM Central). Commits `ea42618`, `c23682c`.
+- **CSP.** `img-src` gains `blob:` for the "Report an issue" screenshot preview, which was blocked in production. Commit `da1817f`.
 - **A-19. Infrastructure.** The start-up time limit and the opt-in diagnostic setting. Commit `000d2d7`. Built and linted; not applied.
+
+## Found by the independent re-check, in this audit's own changes
+
+Before the go / no-go, two fresh reviewers were given only the diff and the architecture document and asked what the changes had broken. Each claim was checked in the code before it was acted on. Nine were right; all are fixed on the branch.
+
+| What was wrong with the first fix | Fixed in |
+|---|---|
+| A-06: the rate-limit scope read the raw URL, and the router decodes the path, so `/%61pi/v1/…` reached an API route unlimited. Now judged on the matched route; test added | `aeaf5fc` |
+| A-02: with errors visible again, a failed database statement would have logged its SQL text and bound values (drizzle puts them in the error's message). The logged error is now built by hand: statement, values and Postgres `detail` withheld at every level, a quoted value in a data-exception message replaced, nested and aggregate errors treated alike | `4902a0a`, `f305397` |
+| A-08: every class-22 SQLSTATE and foreign-key violations were answered as 4xx, which would have hidden server defects from the only alert there is (5xx). Now an allow-list. The override service's "already waiting" 409 also matched any unique violation in its transaction; it now requires the override's own index | `231b3af` |
+| A-09: the facts were stripped from the state the whole decision used, so a G2 decision's stored evidence lost the engineer's acceptance time. Only the copy handed to the rule evaluation is stripped now | `54046ca` |
+| A-12: the customer notice's new spec refused "not set", so the notice could no longer be switched off | `c80d50f` |
+| A-17: a cleared "Approved at" was sent as null, and the server stamps the current time on an approval with none. The form now marks the field and does not send | `c23682c` |
+| A-15: every failing query started its own sign-in redirect (MSAL refuses a second), and nothing stopped a redirect that did not help from repeating. One redirect per page now, and none within a minute of the last. One of the two MSAL codes treated as "sign in again" is never thrown and was dropped | `da1817f` |
+| A-16: "this quote could not be loaded" showed above a working form when a background refetch failed | `da1817f` |
+| A-14: the "QuoteFlow was updated" screen appears mostly when it is not an update (the router already reloads once by itself). Reworded to "This page could not be loaded" | `da1817f` |
+
+Also from the re-check and left as they are, with the reason: the migration lock waits without limit if its holder hangs (the holder is another instance mid-migration; the platform's start limit ends the wait); the config seed still runs outside that lock (it is idempotent upserts in a fixed order); the tightened intake schema also validates responses, so a draft stored earlier with a value it now refuses would not load (a pre-deploy query for such drafts is in `05-release-runbook.md`, pre-flight 10a).
 
 ## Behavior changes
 

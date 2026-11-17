@@ -98,6 +98,8 @@ One `DATABASE_URL` serves both the migrations and the app. Row-level security ho
 - **When email is switched on.** A 401/403 from Graph uses up a message's three tries and fails it for good; rows queued since launch will be worked through at 50 a minute before new mail. Clear the backlog and soften the 403 handling before enabling dispatch.
 - **Staging slot.** When the plan moves to P1v3 with a slot, the slot gets the same settings and will run all four background jobs against prod. Give the slot sticky settings that zero the job intervals.
 - **The entry bundle carries the charts.** `apps/web/vite.config.ts` puts every third-party module that has no named chunk into `vendor` (638 KB), so Recharts, dnd-kit and react-table load on every page, not only on Analytics and the board. Giving Recharts its own chunk is a small build change; not made the day before release.
+- **Nothing compresses responses.** The API registers no compression plugin, and the production-mode boot served a script uncompressed. Unless the App Service front end compresses (not verified), the 2.1 MB of JavaScript and every JSON response go out as they are. `@fastify/compress` is a small addition; not made the day before release.
+- **A draft stored with a value the tightened schema refuses will not load.** The intake request schema now refuses impossible dates and absurd figures, and the same schema is used to send a draft back. Run the query in `05-release-runbook.md` (pre-flight 10a) before the first deploy of this branch.
 - **Source maps are public.** `apps/web` builds with `sourcemap: true` and the API serves the `.map` files without sign-in (9 MB). They expose the SPA's source, not secrets.
 - **Audit gaps against rule 3.** Reading the offer letter's prices (`GET …/offer-letter`) and the pricing-history routes write no audit row.
 - **Geo-redundant backup is off** and can only be chosen when the server is created.
@@ -113,6 +115,6 @@ One `DATABASE_URL` serves both the migrations and the app. Row-level security ho
 | Whether the App Service front end appends `address:port` to `X-Forwarded-For` | The code is now right either way (A-06); one production log line settles it |
 | The 24-hour session path (N-05) | Read from MSAL's source only |
 | The new diagnostic setting and the start-up time limit | Built and linted; never run through what-if |
-| CSP in a signed-in production session | The smoke test covers signed-out pages only; `img-src` lacks `blob:`, which the "Report an issue" screenshot preview uses |
+| CSP in a signed-in production session | The smoke test covers signed-out pages only. `blob:` was added to `img-src` for the "Report an issue" screenshot preview; it has not been seen working in a production session |
 | Bicep what-if, Key Vault reference resolution, the federated credential, GitHub environment variables | No subscription access by design |
 | The Fabric T-SQL twins of the analytics views | Untested until a mirror exists; the guard test compares names only |

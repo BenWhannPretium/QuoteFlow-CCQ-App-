@@ -100,7 +100,7 @@ L
 | order by n desc
 ```
 
-**Act:** any `unhandled error` (that is a 500). A database failure shows `type` = `DrizzleQueryError` with an empty `code`: the SQLSTATE is not a field on these lines. To read one error, filter `L` on `tostring(j.reqId) == "<id>"` and open the line; mind the warning in section 0.
+**Act:** any `unhandled error` (that is a 500). A database failure shows `type` = `DrizzleQueryError` with the SQLSTATE in `code` (lifted from the driver's error, which is under `err.cause` with its table, column and constraint; the statement and its values are withheld). To read one error, filter `L` on `tostring(j.reqId) == "<id>"` and open the line.
 
 ### 2.4 Sign-in and permission failures (401, 403)
 
