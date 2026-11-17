@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { onlyKnownServerChanges } from '@/intake/draft-merge';
 import { oneAtATime } from '@/intake/draft-save';
+import { saveProblemIssues, type SaveIssue } from '@/intake/model';
 import { api, isApiError } from '@/lib/api';
 
 /** Autosave cadence while the KAM types (plus a save on every step change and on leaving). */
@@ -23,6 +24,9 @@ export class DraftNotSavedError extends Error {
     this.name = 'DraftNotSavedError';
   }
 }
+
+/** One empty list, so "no refused fields" never re-renders the wizard. */
+const NO_ISSUES: readonly SaveIssue[] = [];
 
 export const CONFLICT_MESSAGE =
   'This draft was changed in another tab or window. Reload to see the latest; your latest change here is not saved.';
@@ -61,6 +65,9 @@ export function useIntakeDraft(initial: IntakeDraft) {
   // FB-15 (W13-01): why the last save failed (e.g. a 422 "Pick a resin from the list"), until one succeeds.
   const lastError = useRef<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // UX-017: the fields the server refused on the last save (a 400 naming them), until the next edit or
+  // a save that goes through.
+  const [saveIssues, setSaveIssues] = useState<readonly SaveIssue[]>(NO_ISSUES);
 
   // Starts a save of the latest copy when one is due (null: nothing to send), once no save is in flight.
   const save = useCallback(
@@ -109,6 +116,7 @@ export function useIntakeDraft(initial: IntakeDraft) {
             setSavedAt(new Date());
             lastError.current = null;
             setSaveError(null);
+            setSaveIssues(NO_ISSUES);
             setSaveState(revision.current === target ? 'saved' : 'dirty');
           })
           .catch((err: unknown) => {
@@ -117,10 +125,18 @@ export function useIntakeDraft(initial: IntakeDraft) {
               conflicted.current = true;
               setSaveState('conflict');
             } else {
-              lastError.current = isApiError(err)
-                ? err.message
-                : 'the connection failed. Check your network and try again.';
+              // UX-017: a value the API refuses (400) names its field; say that, on the field too.
+              const refused = isApiError(err, 400)
+                ? saveProblemIssues(err.problem, latest.current.data)
+                : NO_ISSUES;
+              lastError.current =
+                refused.length > 0
+                  ? `${refused.map((i) => i.message).join('; ')}.`
+                  : isApiError(err)
+                    ? err.message
+                    : 'the connection failed. Check your network and try again.';
               setSaveError(lastError.current);
+              setSaveIssues(refused.length > 0 ? refused : NO_ISSUES);
               setSaveState('error');
             }
           });
@@ -135,6 +151,8 @@ export function useIntakeDraft(initial: IntakeDraft) {
     latest.current = { ...latest.current, data: next };
     setData(next);
     setSaveState('dirty');
+    // UX-017: the refusal was about the copy that was sent; the next save says whether it still holds.
+    setSaveIssues(NO_ISSUES);
   }, []);
 
   /**
@@ -202,6 +220,7 @@ export function useIntakeDraft(initial: IntakeDraft) {
     flush,
     saveState,
     saveError,
+    saveIssues,
     savedAt,
     activeQuote,
     openQuotes,

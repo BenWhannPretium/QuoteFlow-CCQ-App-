@@ -46,6 +46,7 @@ import {
   prefillFromOpportunity,
   requiredFieldsNow,
   submitProblemIssues,
+  withSaveIssues,
   wizardConfig,
   type WizardConfig,
 } from '@/intake/model';
@@ -308,10 +309,13 @@ function SaveStatus({
   state,
   savedAt,
   error,
+  fieldError = false,
 }: {
   state: SaveState;
   savedAt: Date | null;
   error?: string | null;
+  /** UX-017: `error` names the field to fix (a value the server refused), so a retry will not help. */
+  fieldError?: boolean;
 }) {
   const text =
     state === 'saving'
@@ -319,7 +323,9 @@ function SaveStatus({
       : state === 'conflict'
         ? 'This draft was changed in another tab or window. Reload to see the latest; your latest change here is not saved.'
         : state === 'error'
-          ? `Couldn’t save${error ? `: ${error}` : ''}; will retry`
+          ? fieldError && error
+            ? `Not saved. ${error}`
+            : `Couldn’t save${error ? `: ${error}` : ''}; will retry`
           : state === 'dirty'
             ? 'Unsaved changes'
             : savedAt
@@ -408,9 +414,14 @@ function Wizard({
     [baseCfg, hasDrawing],
   );
   // FB-15 (W13-01): the same inputs as the server: the active list codes (in cfg) and the quote's own codes.
+  // UX-017: plus the fields the server refused on the last save, shown on the field like the rest.
   const evaluation = useMemo(
-    () => evaluateDraft(data, cfg, hasDrawingFor, initial.keptListValues),
-    [data, cfg, hasDrawingFor, initial.keptListValues],
+    () =>
+      withSaveIssues(
+        evaluateDraft(data, cfg, hasDrawingFor, initial.keptListValues),
+        draft.saveIssues,
+      ),
+    [data, cfg, hasDrawingFor, initial.keptListValues, draft.saveIssues],
   );
   // FB-19: the open item's fields see the request plus that item, and their issues are that item's.
   const itemData = useMemo(() => itemView(data, sel), [data, sel]);
@@ -875,7 +886,12 @@ function Wizard({
           </Button>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <SaveStatus state={draft.saveState} savedAt={draft.savedAt} error={draft.saveError} />
+          <SaveStatus
+            state={draft.saveState}
+            savedAt={draft.savedAt}
+            error={draft.saveError}
+            fieldError={draft.saveIssues.length > 0}
+          />
           {step < 4 ? (
             <Button onClick={() => goTo(step + 1)} disabled={!data.sfOpportunityId}>
               Next <ArrowRightIcon aria-hidden />

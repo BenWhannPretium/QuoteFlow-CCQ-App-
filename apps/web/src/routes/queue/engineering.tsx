@@ -39,6 +39,7 @@ import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError, type EngQueueParams } from '@/lib/api';
 import { calendarDate, relativeTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/lib/use-debounced-value';
 import { cn } from '@/lib/utils';
 import { valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
@@ -90,6 +91,8 @@ function EngineeringQueuePage() {
   useDocumentTitle(title);
 
   const [search, setSearch] = useState('');
+  // UX-017: the queue is asked once the typing pauses, not on every keystroke.
+  const q = useDebouncedValue(search.trim(), SEARCH_DEBOUNCE_MS);
   const [filters, setFilters] = useState<FilterValue>({});
   const [buckets, setBuckets] = useState<AgingBucket[]>([]);
   const [agedOver, setAgedOver] = useState('');
@@ -101,7 +104,7 @@ function EngineeringQueuePage() {
     ...(filters.productFamily?.length ? { productFamily: filters.productFamily.join(',') } : {}),
     ...(buckets.length ? { bucket: buckets.join(',') } : {}),
     ...(agedOver ? { agedOver: Number(agedOver) } : {}),
-    ...(search.trim() ? { q: search.trim() } : {}),
+    ...(q ? { q } : {}),
   };
   const queue = useQuery({
     queryKey: [...engQueueQueryKey, params],

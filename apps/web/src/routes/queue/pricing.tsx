@@ -46,6 +46,7 @@ import { usePublicConfig } from '@/config/public-config';
 import { api, type PricingQueueParams } from '@/lib/api';
 import { decisionLabel } from '@/lib/decision-label';
 import { absoluteTime, calendarDate } from '@/lib/time';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/lib/use-debounced-value';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -64,6 +65,8 @@ function PricingQueuePage() {
   const canRead = useCan('pricingQueue.read');
   useDocumentTitle('Pricing queue');
   const [search, setSearch] = useState('');
+  // UX-017: the queue is asked once the typing pauses, not on every keystroke.
+  const q = useDebouncedValue(search.trim(), SEARCH_DEBOUNCE_MS);
   const [filters, setFilters] = useState<FilterValue>({});
   const [approved, setApproved] = useState<'' | 'yes' | 'no'>('');
   const [pricer, setPricer] = useState('');
@@ -76,7 +79,7 @@ function PricingQueuePage() {
     ...(filters.productFamily?.length ? { productFamily: filters.productFamily.join(',') } : {}),
     ...(approved ? { approved } : {}),
     ...(pricer ? { pricer } : {}),
-    ...(search.trim() ? { q: search.trim() } : {}),
+    ...(q ? { q } : {}),
   };
   const queue = useQuery({
     queryKey: [...pricingQueueQueryKey, params],

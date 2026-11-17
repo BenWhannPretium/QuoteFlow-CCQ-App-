@@ -407,3 +407,84 @@ test.describe('UX-016: a way back in from "No QuoteFlow access yet"', () => {
     expect(asked).toBe(3);
   });
 });
+
+test.describe('UX-017: small form frictions', () => {
+  test('an intake figure the server refuses is marked on its field, with what to enter', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    const [opportunityId] = await freeOpportunities(request, 1);
+    const sf = await call<{
+      opportunity: { name: string; accountId: string; accountName: string };
+      account: { id: string; name: string } | null;
+    }>(request, 'kam', 'get', `salesforce/opportunities/${opportunityId}`);
+    const draft = await call<{ id: string }>(request, 'kam', 'post', 'quotes/drafts', {
+      step: 3,
+      data: {
+        sfOpportunityId: opportunityId,
+        sfOpportunityName: sf.opportunity.name,
+        customer: {
+          status: 'existing',
+          sfAccountId: sf.account?.id ?? sf.opportunity.accountId,
+          name: sf.account?.name ?? sf.opportunity.accountName,
+        },
+        estAnnualRevenue: 150_000,
+      },
+    });
+    try {
+      await signInAs(page, 'kam');
+      await page.goto(`/intake/new?draft=${draft.id}`);
+      await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '3');
+      const revenue = page.locator('input#intake-est-annual-revenue');
+      const field = page.locator('[data-field="intake-est-annual-revenue"]');
+      const status = page.getByTestId('save-status');
+
+      // Sixteen digits: more than the API accepts. The autosave (every 5 s) is refused.
+      await revenue.fill('9999999999999999');
+      await revenue.blur();
+      await expect(status).toHaveAttribute('data-state', 'error', { timeout: 20_000 });
+      await expect(status).toHaveText(
+        'Not saved. Estimated annual revenue: enter 999,999,999,999.99 or less.',
+      );
+      await expect(status).not.toContainText('Request body is invalid');
+      await expect(revenue).toHaveAttribute('aria-invalid', 'true');
+      await expect(field.getByRole('alert')).toHaveText(
+        'Estimated annual revenue: enter 999,999,999,999.99 or less',
+      );
+      await auditScreen(field, 'UX-017');
+
+      // A value in range: the mark goes with the edit and the draft saves.
+      await revenue.fill('150000');
+      await expect(field.getByRole('alert')).toHaveCount(0);
+      await expect(status).toHaveAttribute('data-state', 'saved', { timeout: 20_000 });
+      await expect(revenue).not.toHaveAttribute('aria-invalid', 'true');
+    } finally {
+      await request.delete(`/api/v1/quotes/drafts/${draft.id}`, { headers: as('kam') });
+    }
+  });
+
+  for (const [persona, path, label, endpoint] of [
+    ['eng-lead', '/queue/engineering', 'Search the queue', '/api/v1/queue/engineering'],
+    ['pricing-lead', '/queue/pricing', 'Search the pricing queue', '/api/v1/queue/pricing'],
+  ] as const) {
+    test(`${path}: typing five characters in the search asks the server once`, async ({ page }) => {
+      const searches: string[] = [];
+      page.on('request', (r) => {
+        const url = new URL(r.url());
+        const q = url.searchParams.get('q');
+        if (url.pathname === endpoint && q !== null) searches.push(q);
+      });
+      await signInAs(page, persona);
+      await page.goto(path);
+      const box = page.getByLabel(label);
+      await expect(box).toBeVisible();
+      await box.pressSequentially('CCQ-2', { delay: 40 });
+      await expect.poll(() => searches).toEqual(['CCQ-2']);
+      // Nothing more follows once the typing has stopped.
+      await page.waitForTimeout(700);
+      expect(searches).toEqual(['CCQ-2']);
+      await expect(box).toHaveValue('CCQ-2');
+    });
+  }
+});
