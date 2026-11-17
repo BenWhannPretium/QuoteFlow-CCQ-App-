@@ -424,11 +424,12 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
     mutationFn: (qn: string) => api.acceptEngReview(qn),
     onSuccess: async (_d, qn) => {
       await queryClient.invalidateQueries({ queryKey: engQueueQueryKey });
-      toast.success({ title: `${qn} accepted`, description: 'The review is in progress.' });
+      // UX-008: one name for the action. The button is "Start review" and the tab says "Review started".
+      toast.success({ title: `${qn}: review started`, description: 'The review is in progress.' });
     },
     onError: (err) =>
       toast.error({
-        title: 'Could not accept',
+        title: 'Could not start the review',
         description: isApiError(err) ? (err.problem.detail ?? err.problem.title) : 'Try again.',
       }),
   });

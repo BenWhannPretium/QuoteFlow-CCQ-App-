@@ -185,3 +185,39 @@ test.describe('UX-007: the timeline names the item a rework removed', () => {
     await auditScreen(entry, 'UX-007');
   });
 });
+
+/** A quote the sales leader has qualified: it sits in the engineering queue. */
+async function quoteInEngineering(request: APIRequestContext): Promise<string> {
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  await call(request, 'sales-leader', 'post', `quotes/${quoteNumber}/gates/G1/decisions`, {
+    outcomeKey: 'advance',
+  });
+  return quoteNumber;
+}
+
+test.describe('UX-008: "Start review" has one name', () => {
+  test('the queue toast and the timeline both say the review started', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    const quoteNumber = await quoteInEngineering(request);
+    await call(request, 'eng-lead', 'post', `quotes/${quoteNumber}/assignment`, {
+      engineerId: await userId(request, 'engineer'),
+    });
+
+    await signInAs(page, 'eng-lead');
+    await page.goto('/queue/engineering');
+    await page.getByRole('button', { name: `Actions for ${quoteNumber}` }).click();
+    await page.getByRole('menuitem', { name: 'Start review' }).click();
+    const toast = page.getByRole('status').filter({ hasText: `${quoteNumber}: review started` });
+    await expect(toast).toBeVisible();
+    await expect(page.getByText(`${quoteNumber} accepted`)).toHaveCount(0);
+    await auditScreen(toast, 'UX-008');
+
+    await page.goto(`/quotes/${quoteNumber}`);
+    const timeline = page.getByTestId('quote-timeline');
+    await expect(timeline.getByText('Engineering review started')).toBeVisible();
+    await expect(timeline.getByText('Engineering review accepted')).toHaveCount(0);
+  });
+});

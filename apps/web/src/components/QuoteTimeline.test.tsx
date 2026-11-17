@@ -25,6 +25,11 @@ const words = (type: string, payload: Record<string, unknown> = {}) => {
 };
 
 describe('describeEvent', () => {
+  // UX-008: the button is "Start review"; the entry said "accepted".
+  it('calls the start of an engineering review what the button calls it', () => {
+    expect(words('eng_review_accepted').title).toBe('Engineering review started');
+  });
+
   // UX-007: the entry used to read "Quote item removed", with no item and no word on the work.
   describe('an item removed from a multi-item quote', () => {
     it('names the item by its number and label', () => {
