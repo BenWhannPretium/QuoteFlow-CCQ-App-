@@ -73,7 +73,8 @@ test('an unknown quote shows not found; an unknown admin section renders the stu
   await signInAs(page, 'admin');
   await page.goto('/quotes/CCQ-2099-00042');
   await expect(page.getByRole('heading', { level: 1, name: 'CCQ-2099-00042' })).toBeVisible();
-  await expect(page.getByText('Not found')).toBeVisible();
+  // UX-014: the quote route's own wording (ux-quote-header.spec.ts covers the rest).
+  await expect(page.getByText('We could not find CCQ-2099-00042')).toBeVisible();
   await page.goto('/admin/no-such-section');
   await expect(page.getByText('Configuration · no-such-section')).toBeVisible();
 });

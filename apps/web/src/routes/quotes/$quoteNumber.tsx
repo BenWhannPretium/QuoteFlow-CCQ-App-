@@ -1,7 +1,7 @@
 import type { QuoteDetail } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router';
-import { RotateCcwIcon } from 'lucide-react';
+import { RotateCcwIcon, SearchXIcon } from 'lucide-react';
 import { Tabs } from 'radix-ui';
 import { useEffect, useState } from 'react';
 
@@ -43,13 +43,11 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
-import { api } from '@/lib/api';
+import { api, isApiError, type ApiError } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
 import { blockedDecision } from '@/lib/next-step';
-import { reworkHeadline } from '@/lib/quote-header-text';
-import { decisionReasonLabel } from '@/lib/reason-label';
-import { absoluteTime } from '@/lib/time';
+import { quoteNotFoundText, requestReference, reworkHeadline } from '@/lib/quote-header-text';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
@@ -57,6 +55,8 @@ import {
   useOpenedTabs,
   type QuoteTab,
 } from '@/lib/quote-tabs';
+import { decisionReasonLabel } from '@/lib/reason-label';
+import { absoluteTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
@@ -157,7 +157,11 @@ function QuotePage() {
     return (
       <div>
         <PageHeader title={quoteNumber} eyebrow="Quote" />
-        <ErrorState error={quote.error} onRetry={() => void quote.refetch()} />
+        {isApiError(quote.error, 404) ? (
+          <QuoteNotFound quoteNumber={quoteNumber} error={quote.error} />
+        ) : (
+          <ErrorState error={quote.error} onRetry={() => void quote.refetch()} />
+        )}
       </div>
     );
   }
@@ -385,6 +389,39 @@ function QuotePage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * UX-014: a quote that could not be loaded (404). The server answers the same for a number that does
+ * not exist and for a quote outside the reader's scope, and so does this: it never says which. It
+ * offers the way back (the Pipeline) and, in small print, the request reference for support.
+ */
+function QuoteNotFound({ quoteNumber, error }: { quoteNumber: string; error: ApiError }) {
+  const reference = requestReference(error.problem);
+  return (
+    <div
+      role="alert"
+      data-status={404}
+      data-testid="quote-not-found"
+      className="bg-card rounded-card flex gap-3 border p-4 sm:p-5"
+    >
+      <SearchXIcon className="text-emphasis mt-0.5 size-5 shrink-0" aria-hidden="true" />
+      <div className="grid min-w-0 gap-1.5">
+        <p className="font-semibold">{quoteNotFoundText(quoteNumber).title}</p>
+        <p className="text-muted-foreground text-sm">{quoteNotFoundText(quoteNumber).message}</p>
+        <div>
+          <Link to="/quotes" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+            Go to the Pipeline
+          </Link>
+        </div>
+        {reference && (
+          <p className="text-muted-foreground text-xs">
+            Reference for support: <span className="font-mono break-all">{reference}</span>
+          </p>
+        )}
+      </div>
     </div>
   );
 }

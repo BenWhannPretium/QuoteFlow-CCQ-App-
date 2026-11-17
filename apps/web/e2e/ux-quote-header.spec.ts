@@ -321,3 +321,37 @@ test('UX-013: plain words in the quote header: who returned it, entries, priorit
   await expect(link).toHaveAttribute('target', '_blank');
   await expect(page.getByTestId('sf-opportunity-labelled')).toHaveCount(0);
 });
+
+test('UX-014: a quote that cannot be opened says why it might be, and offers the way back', async ({
+  page,
+  request,
+}) => {
+  const sentence = (quoteNumber: string) =>
+    `We could not find ${quoteNumber}, or it is outside what your role can see.`;
+
+  // A number that does not exist.
+  await signInAs(page, 'kam');
+  await page.goto('/quotes/CCQ-2026-99999');
+  const notFound = page.getByTestId('quote-not-found');
+  await expect(notFound).toContainText(sentence('CCQ-2026-99999'));
+  await expect(notFound).toContainText('Check the number, or search from the Pipeline.');
+  // The request reference for support, in small print; never the API path.
+  await expect(notFound).toContainText(/Reference for support: \S+/);
+  await expect(notFound).not.toContainText('/api/');
+  await expect(page.getByText('Not found', { exact: true })).toHaveCount(0);
+  await auditScreen(page, 'UX-014');
+
+  // A quote that exists but is outside the reader's scope reads exactly the same: the page does not
+  // say which of the two it is. (`kam-owner` sees only the quotes they own.)
+  const someoneElses = await submitQuote(request, await freeOpportunities(request, 1));
+  const other = await page.context().browser()!.newPage();
+  await signInAs(other, 'kam-owner');
+  await other.goto(`/quotes/${someoneElses}`);
+  const outOfScope = other.getByTestId('quote-not-found');
+  await expect(outOfScope).toContainText(sentence(someoneElses));
+  await expect(outOfScope).toContainText('Check the number, or search from the Pipeline.');
+  await other.close();
+
+  await notFound.getByRole('link', { name: 'Go to the Pipeline' }).click();
+  await expect(page).toHaveURL(/\/quotes$/);
+});

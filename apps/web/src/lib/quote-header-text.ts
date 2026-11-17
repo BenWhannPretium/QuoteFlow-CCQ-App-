@@ -14,6 +14,26 @@ export function reworkHeadline(decidedByName: string | null, gateLabel: string):
 }
 
 /**
+ * UX-014: a quote number that could not be opened. One wording for "no such quote" and "outside your
+ * scope" (the server answers both the same way), so the page never says whether the quote exists.
+ */
+export function quoteNotFoundText(quoteNumber: string): { title: string; message: string } {
+  return {
+    title: `We could not find ${quoteNumber}, or it is outside what your role can see.`,
+    message: 'Check the number, or search from the Pipeline.',
+  };
+}
+
+/**
+ * UX-014: the server's id for a failed request (`traceId` on every problem response), which support
+ * can look up in the logs. Null when the response carries none. Never the API path.
+ */
+export function requestReference(problem: unknown): string | null {
+  const id = (problem as { traceId?: unknown } | null | undefined)?.traceId;
+  return typeof id === 'string' && id.trim() !== '' ? id : null;
+}
+
+/**
  * Under "Time in stage": how often the quote has been in a stage, when more than once ("entered this
  * stage twice"). Null for a single stay: nothing to say.
  */
