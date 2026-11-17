@@ -112,7 +112,20 @@ describe('mailGuardFor (test mail guard)', () => {
 
   it('is off in prod, and for smtp and fake mail', () => {
     expect(
-      mailGuardFor(testConfig({ ...graph, ...entra, AUTH_MODE: 'entra', APP_ENVIRONMENT: 'prod' })),
+      mailGuardFor(
+        testConfig({
+          ...graph,
+          ...entra,
+          AUTH_MODE: 'entra',
+          APP_ENVIRONMENT: 'prod',
+          // prod must run in production mode on live Salesforce (config.ts).
+          NODE_ENV: 'production',
+          SF_MODE: 'live',
+          SF_CLIENT_ID: 'client',
+          SF_USERNAME: 'integration@example.com',
+          SF_PRIVATE_KEY: 'key',
+        }),
+      ),
     ).toBeNull();
     expect(mailGuardFor(testConfig({ MAIL_MODE: 'smtp', APP_ENVIRONMENT: 'test' }))).toBeNull();
     expect(mailGuardFor(testConfig({ APP_ENVIRONMENT: 'test' }))).toBeNull();

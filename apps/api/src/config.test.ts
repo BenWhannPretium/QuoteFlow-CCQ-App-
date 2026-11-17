@@ -91,6 +91,62 @@ describe('loadConfig', () => {
     );
   });
 
+  describe('APP_ENVIRONMENT=prod', () => {
+    const prod = {
+      ...base,
+      NODE_ENV: 'production',
+      APP_ENVIRONMENT: 'prod',
+      AUTH_MODE: 'entra',
+      ENTRA_TENANT_ID: '00000000-0000-0000-0000-000000000000',
+      ENTRA_API_AUDIENCE: 'api://quoteflow',
+      ENTRA_SPA_CLIENT_ID: '11111111-1111-1111-1111-111111111111',
+      FILESTORE_MODE: 'blob',
+      BLOB_ACCOUNT_URL: 'https://x.blob.core.windows.net',
+      BLOB_CONTAINER: 'c',
+      MAIL_MODE: 'graph',
+      SF_MODE: 'live',
+      SF_AUTH_FLOW: 'client_credentials',
+      SF_LOGIN_URL: 'https://example.my.salesforce.com',
+      SF_CLIENT_ID: 'client',
+      SF_CLIENT_SECRET: 'placeholder',
+    };
+
+    it('accepts a complete production configuration', () => {
+      const c = loadConfig(prod);
+      expect(appEnvironment(c)).toBe('prod');
+      expect(c.NODE_ENV).toBe('production');
+      expect(c.SF_MODE).toBe('live');
+    });
+
+    it('refuses to start outside production mode, where every safeguard is off', () => {
+      for (const NODE_ENV of ['development', 'test']) {
+        expect(() => loadConfig({ ...prod, NODE_ENV })).toThrow(
+          /NODE_ENV=\w+ is forbidden when APP_ENVIRONMENT=prod/,
+        );
+      }
+      // Unset reads as development.
+      const { NODE_ENV: _unset, ...withoutNodeEnv } = prod;
+      expect(() => loadConfig(withoutNodeEnv)).toThrow(
+        /NODE_ENV=development is forbidden when APP_ENVIRONMENT=prod/,
+      );
+    });
+
+    it('refuses the synthetic Salesforce fixture', () => {
+      expect(() => loadConfig({ ...prod, SF_MODE: 'fake' })).toThrow(
+        /SF_MODE=fake is forbidden when APP_ENVIRONMENT=prod/,
+      );
+      const { SF_MODE: _unset, ...withoutSfMode } = prod;
+      expect(() => loadConfig(withoutSfMode)).toThrow(
+        /SF_MODE=fake is forbidden when APP_ENVIRONMENT=prod/,
+      );
+    });
+
+    it('still allows the fake reader on test in production mode (it only warns)', () => {
+      const c = loadConfig({ ...prod, APP_ENVIRONMENT: 'test', SF_MODE: 'fake' });
+      expect(c.SF_MODE).toBe('fake');
+    });
+  });
+
   it('keeps the mail guard settings out of prod, and validates the allowlist', () => {
     for (const extra of [
       { MAIL_ALLOWLIST: 'ben@pretiumpkg.com' },
