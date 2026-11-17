@@ -47,6 +47,7 @@ import { api } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
 import { blockedDecision } from '@/lib/next-step';
+import { decisionReasonLabel } from '@/lib/reason-label';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
@@ -536,7 +537,6 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
               >
                 <span className="font-medium">
                   {d.gateKey} · {outcomeLabel(d.gateKey, d.outcomeKey)}
-                  {d.reasonCode ? ` (${d.reasonCode})` : ''}
                   {d.superseded && (
                     <span
                       className="bg-muted text-muted-foreground rounded-pill ml-2 px-2 py-0.5 text-xs font-normal"
@@ -546,6 +546,12 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
                     </span>
                   )}
                 </span>
+                {/* UX-006: the reason code's label (it was the stored key, in brackets). */}
+                {d.reasonCode && (
+                  <span className="text-foreground-2" data-testid="decision-reason">
+                    Reason: {decisionReasonLabel(config, d, quote)}
+                  </span>
+                )}
                 {d.note && <span className="text-foreground-2">{d.note}</span>}
                 <span className="text-muted-foreground text-xs">
                   {d.decidedByName ?? 'Unknown'} · {new Date(d.decidedAt).toLocaleString()} · v

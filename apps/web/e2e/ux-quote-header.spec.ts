@@ -190,3 +190,18 @@ test.describe('UX-003: no decision is offered on a quote that is not waiting for
     await expect(page.getByTestId('nothing-to-decide')).toHaveCount(0);
   });
 });
+
+test('UX-006: the Gate decisions card shows the reason’s label, not its stored key', async ({
+  page,
+  request,
+}) => {
+  const quoteNumber = await reworkedQuote(request);
+
+  await signInAs(page, 'kam');
+  await page.goto(`/quotes/${quoteNumber}`);
+  const decisions = page.getByTestId('decisions');
+  await expect(decisions.getByTestId('decision-reason')).toHaveText('Reason: Missing information');
+  await expect(decisions).not.toContainText('missing_information');
+  await decisions.scrollIntoViewIfNeeded();
+  await auditScreen(page, 'UX-006');
+});
