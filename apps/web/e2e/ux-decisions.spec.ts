@@ -8,11 +8,13 @@ import {
   type Locator,
 } from '@playwright/test';
 
+import { seriousViolations } from './axe';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), the decisions area:
 // - UX-004 (a): a quote that is already on hold is not offered Hold again.
+// - The score breakdown in the decision dialog is closed when the dialog opens.
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
 
@@ -123,4 +125,52 @@ test('UX-004: a quote on hold is not offered Hold again; a quote not on hold sti
   expect(((await again.json()) as { detail: string }).detail).toBe(
     'This quote is already on hold. Record a decision to end the hold.',
   );
+});
+
+test('the score breakdown is closed when the decision dialog opens, and opens from the keyboard', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const qn = await waitingForG1(request);
+  // A laptop: 1366 px wide, 850 px of page.
+  await page.setViewportSize({ width: 1366, height: 850 });
+  await signInAs(page, 'sales-leader', 'light');
+  await page.goto('/approvals?gate=G1');
+  await page
+    .locator(`[data-testid="queue-item"][data-quote="${qn}"]`)
+    .getByRole('button', { name: `Decide ${qn}` })
+    .click();
+  const dialog = page.getByRole('dialog');
+  const priority = dialog.getByTestId('decision-priority');
+  const summary = priority.locator('summary');
+  const breakdown = priority.getByTestId('score-breakdown');
+
+  // Closed, with the score, the tier and "advisory" on the one line that stays.
+  await expect(summary).toBeVisible();
+  await expect(summary).toHaveText(/^Priority \d+(\.\d+)? · .+ \(advisory\)$/);
+  await expect(priority).toHaveJSProperty('open', false);
+  await expect(breakdown).toBeHidden();
+
+  // The first choice is on the screen without scrolling the dialog.
+  const first = dialog.getByRole('radio').first();
+  await expect(first).toHaveAccessibleName('Advance');
+  await expect(first).toBeInViewport({ ratio: 1 });
+  expect(await dialog.evaluate((el) => el.scrollTop)).toBe(0);
+  if (AUDIT_SCREENS) await page.screenshot({ path: screen('UX-score-breakdown') });
+
+  // One key press opens the evidence, another closes it.
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(priority).toHaveJSProperty('open', true);
+  await expect(breakdown).toBeVisible();
+  await expect(breakdown).toContainText('Capital exposure');
+  for (const column of ['Attribute', 'Weight', 'Points', 'Adds']) {
+    await expect(breakdown.getByRole('columnheader', { name: column, exact: true })).toBeVisible();
+  }
+  await expect(priority).toContainText('Advisory only');
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Space');
+  await expect(priority).toHaveJSProperty('open', false);
+  await expect(breakdown).toBeHidden();
 });

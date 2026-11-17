@@ -464,20 +464,21 @@ export function GateDecisionDialog({
             <QualificationWarnings warnings={quote.data.warnings} />
             <GuardrailNote text={quote.data.intakeFacts.guardrailWarning} />
 
-            <details
-              className="rounded-md border px-3 py-2"
-              open={quote.data.stageKey === 'INTAKE'}
-            >
-              <summary className="cursor-pointer text-sm font-medium">
+            {/* Closed at every gate, so the choices are on the screen on a laptop: the summary line
+                keeps the score in view, and one click or key press (Enter or Space on the summary)
+                opens the evidence. The whole row is the target. */}
+            <details className="rounded-md border" data-testid="decision-priority">
+              <summary className="cursor-pointer rounded-md px-3 py-3 text-sm font-medium">
                 Priority {quote.data.priority.score ?? '–'}
                 {quote.data.priority.tierLabel ? ` · ${quote.data.priority.tierLabel}` : ''}{' '}
                 (advisory)
               </summary>
-              <ScoreBreakdownTable
-                priority={quote.data.priority}
-                market={{ market: quote.data.market, subMarket: quote.data.subMarket }}
-                className="mt-2"
-              />
+              <div className="px-3 pb-2">
+                <ScoreBreakdownTable
+                  priority={quote.data.priority}
+                  market={{ market: quote.data.market, subMarket: quote.data.subMarket }}
+                />
+              </div>
             </details>
 
             <div className="rounded-md border px-3 py-2 text-sm" data-testid="completeness">
