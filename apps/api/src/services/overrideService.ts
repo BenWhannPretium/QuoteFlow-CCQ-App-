@@ -50,7 +50,7 @@ import {
   policyQuoteOf,
   type OverrideViewContext,
 } from './overrides-view';
-import { pgCode } from './pg-error';
+import { pgCode, pgConstraint } from './pg-error';
 import { problemErrors, ServiceProblem } from './problem';
 import type { QuoteReadService } from './quotes';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
@@ -87,7 +87,10 @@ function unwrap<T>(result: PlanResult<T>): T {
 }
 
 // Through the cause chain: drizzle wraps the driver's error, so its own `.code` is never the SQLSTATE.
-const isUniqueViolation = (err: unknown) => pgCode(err) === '23505';
+// Only the override's own partial unique index means "one is already waiting": any other unique
+// violation inside the transaction (a notification, an audit row) must not be reported as that.
+const isUniqueViolation = (err: unknown) =>
+  pgCode(err) === '23505' && pgConstraint(err) === 'override_one_open_per_field_uidx';
 
 export interface OverrideServiceOptions {
   quotes: QuoteReadService;

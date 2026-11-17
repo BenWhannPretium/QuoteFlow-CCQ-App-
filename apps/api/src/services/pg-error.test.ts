@@ -35,17 +35,20 @@ describe('pgCode', () => {
 describe('pgProblem', () => {
   it.each([
     ['23505', 409, 'conflict'],
-    ['23503', 409, 'conflict'],
     ['40001', 409, 'conflict_retry'],
     ['40P01', 409, 'conflict_retry'],
     ['22008', 400, 'invalid_value'],
     ['22P02', 400, 'invalid_value'],
     ['22003', 400, 'invalid_value'],
+    ['22001', 400, 'invalid_value'],
+    ['22007', 400, 'invalid_value'],
   ])('%s is a %i %s', (sqlstate, status, code) => {
     expect(pgProblem(wrapped(sqlstate))).toMatchObject({ status, code });
   });
 
-  it.each(['23502', '23514', '42P01', '08006', '57014'])(
+  // 23503: a foreign-key violation is the server writing a row that points nowhere. 22012: division by
+  // zero in the server's own SQL. Neither is the caller's doing.
+  it.each(['23502', '23503', '23514', '22012', '22023', '42P01', '08006', '57014'])(
     '%s stays a server fault (a defect or an outage must look like one)',
     (sqlstate) => {
       expect(pgProblem(wrapped(sqlstate))).toBeNull();
@@ -106,7 +109,8 @@ describe('the error handler answers an unmapped database collision as a 4xx prob
     );
     // Routes turn a ServiceProblem into its own response (`handleProblems`); if one ever reaches this
     // handler it must not be rewritten as a generic database conflict because of what it wraps.
-    expect(res.json<{ code?: string }>().code).not.toBe('conflict');
+    expect(res.statusCode).toBe(500);
+    expect(res.json<{ code?: string }>().code).toBeUndefined();
     expect(res.body).not.toContain('changed by someone else');
   });
 });
