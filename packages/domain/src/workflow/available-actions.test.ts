@@ -162,6 +162,64 @@ describe('availableActions', () => {
     expect(availableActions(hybridConfig, makeQuote('AWARDED'), makeActor('Admin'))).toEqual([]);
   });
 
+  // UX-004: Hold was offered on a quote already on hold, and `evaluateTransition` then refused it.
+  describe('a quote that is already on hold (UX-004)', () => {
+    const GATES: [string, string, Parameters<typeof makeActor>[0]][] = [
+      ['G1', 'INTAKE', 'SalesLeader'],
+      ['G2', 'ENG_REVIEW', 'EngLead'],
+      ['G3', 'QUOTING', 'PricingLead'],
+      ['G4', 'FINAL_REVIEW', 'Approver'],
+      ['G5', 'CUSTOMER_DECISION', 'SalesLeader'],
+      ['G6', 'COMMIT_HANDOFF', 'SalesLeader'],
+    ];
+
+    it.each(GATES)('%s: no outcome that holds it again is offered', (gateKey, stage, role) => {
+      const held = availableActions(
+        hybridConfig,
+        makeQuote(stage, { status: 'on_hold' }),
+        makeActor(role),
+      );
+      expect(held.length).toBeGreaterThan(0);
+      expect(held.every((a) => a.gateKey === gateKey)).toBe(true);
+      expect(held.filter((a) => a.nextStatus === 'on_hold')).toEqual([]);
+    });
+
+    it.each(GATES)('%s: every other outcome is offered as before', (_gateKey, stage, role) => {
+      const active = availableActions(hybridConfig, makeQuote(stage), makeActor(role));
+      const held = availableActions(
+        hybridConfig,
+        makeQuote(stage, { status: 'on_hold' }),
+        makeActor(role),
+      );
+      // The quote that is not on hold is still offered its hold: exactly one per gate in the seed.
+      expect(active.filter((a) => a.nextStatus === 'on_hold')).toHaveLength(1);
+      expect(held).toEqual(active.filter((a) => a.nextStatus !== 'on_hold'));
+    });
+
+    it('G5 leaves out its own "On hold" outcome, by what the transition does, not by its key', () => {
+      const quote = makeQuote('CUSTOMER_DECISION', { status: 'on_hold' });
+      expect(labels(availableActions(hybridConfig, quote, makeActor('SalesLeader')))).toEqual([
+        'G5/awarded',
+        'G5/negotiating',
+        'G5/lost',
+        'G5/expired',
+        'G5/requote',
+      ]);
+    });
+
+    it('a quote that is not on hold is offered Hold at every gate', () => {
+      for (const [gateKey, stage, role] of GATES) {
+        const holds = availableActions(hybridConfig, makeQuote(stage), makeActor(role)).filter(
+          (a) => a.nextStatus === 'on_hold',
+        );
+        expect(
+          holds.map((a) => a.gateKey),
+          gateKey,
+        ).toEqual([gateKey]);
+      }
+    });
+  });
+
   it('follows the g1Enabled flag', () => {
     const off = buildHybridConfig({ g1Enabled: false });
     expect(labels(availableActions(off, makeQuote('INTAKE'), makeActor('SalesLeader')))).toEqual([

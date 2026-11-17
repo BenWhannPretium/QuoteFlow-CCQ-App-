@@ -423,7 +423,7 @@ export class GateService {
           throw new GateError(
             409,
             GATE_PROBLEM_CODES.alreadyDecided,
-            'This quote is already on hold. Resume it before putting it on hold again.',
+            'This quote is already on hold. Record a decision to end the hold.',
             { title: 'This quote is already on hold' },
           );
         }

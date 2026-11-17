@@ -514,8 +514,11 @@ export function GateDecisionDialog({
                 </p>
                 {capacity.note && <p className="whitespace-pre-wrap">{capacity.note}</p>}
                 <p>
-                  The quote cannot advance until capacity is approved again on the Engineering tab.
-                  Send back, hold or stop are still available.
+                  The quote cannot advance until capacity is approved again on the Engineering tab.{' '}
+                  {/* UX-004: a quote already on hold is not offered Hold. */}
+                  {quote.data.status === 'on_hold'
+                    ? 'Send back and stop are still available.'
+                    : 'Send back, hold or stop are still available.'}
                 </p>
               </div>
             )}

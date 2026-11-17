@@ -1432,7 +1432,16 @@ describe('DR-cross-cutting-01: concurrent gate decisions', () => {
     expect(refused.json()).toMatchObject({
       code: 'already_decided',
       title: 'This quote is already on hold',
+      // UX-004: nothing in the app is called "Resume"; a hold ends when another decision is recorded.
+      detail: 'This quote is already on hold. Record a decision to end the hold.',
     });
     expect(await decisions(qn, 'G1')).toHaveLength(1);
+    // UX-004: the held quote is no longer offered Hold; every other G1 outcome still is.
+    expect((await detail(qn, 'sales-leader')).availableActions.map((a) => a.outcomeKey)).toEqual([
+      'advance',
+      'rework',
+      'redirect',
+      'stop',
+    ]);
   });
 });

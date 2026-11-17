@@ -323,12 +323,13 @@ export function evaluateTransition(
   }
   if (!gate.enabled) errors.push(new DomainError('GATE_DISABLED', `Gate ${gate.key} is disabled`));
   // DR-cross-cutting-04: a quote already on hold is not held again (a second hold would only repeat the
-  // notices). Resume it first, then hold it with the new review date.
+  // notices). A hold ends only when another decision is recorded; nothing in the app is called
+  // "Resume" (UX-004). `availableActions` no longer offers it, so this is the two-tab case.
   if (quote.status === 'on_hold' && transition.nextStatus === 'on_hold') {
     errors.push(
       new DomainError(
         'ALREADY_ON_HOLD',
-        'This quote is already on hold. Resume it before putting it on hold again.',
+        'This quote is already on hold. Record a decision to end the hold.',
       ),
     );
   }

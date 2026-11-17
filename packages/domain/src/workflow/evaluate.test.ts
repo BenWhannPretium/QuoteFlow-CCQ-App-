@@ -918,6 +918,10 @@ describe('hold accounting', () => {
     const result = hold('G2', 'hold', 'EngLead', 'on_hold');
     expect(result.ok).toBe(false);
     expect(!result.ok && result.errors.map((e) => e.code)).toEqual(['ALREADY_ON_HOLD']);
+    // UX-004: nothing in the app is called "Resume"; a hold ends when another decision is recorded.
+    expect(!result.ok && result.errors.map((e) => e.message)).toEqual([
+      'This quote is already on hold. Record a decision to end the hold.',
+    ]);
     // G5's own "On hold" outcome follows the same rule.
     const g5 = hold('G5', 'on_hold', 'SalesLeader', 'on_hold');
     expect(!g5.ok && g5.errors.map((e) => e.code)).toContain('ALREADY_ON_HOLD');
