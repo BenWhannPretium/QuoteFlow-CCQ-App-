@@ -48,6 +48,7 @@ import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
 import { blockedDecision } from '@/lib/next-step';
 import { decisionReasonLabel } from '@/lib/reason-label';
+import { absoluteTime } from '@/lib/time';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
@@ -392,8 +393,7 @@ function ReworkBanner({ quote }: { quote: QuoteDetail }) {
       </p>
       {quote.rework.note && <p className="text-sm">What to fix: {quote.rework.note}</p>}
       <p className="text-xs">
-        {quote.rework.decidedByName ?? 'A reviewer'} ·{' '}
-        {new Date(quote.rework.decidedAt).toLocaleString()}
+        {quote.rework.decidedByName ?? 'A reviewer'} · {absoluteTime(quote.rework.decidedAt)}
       </p>
     </section>
   );
@@ -494,9 +494,7 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
             { label: 'Comments for Engineering', value: quote.commentsForEngineering },
             {
               label: 'Submitted',
-              value: quote.submittedAt
-                ? new Date(quote.submittedAt).toLocaleString()
-                : 'Not submitted',
+              value: quote.submittedAt ? absoluteTime(quote.submittedAt) : 'Not submitted',
             },
             { label: 'Stage', value: stageLabel(config, quote.stageKey) },
             // The proposal dates and validity countdown are in the Customer decision header (B-13).
@@ -554,8 +552,7 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
                 )}
                 {d.note && <span className="text-foreground-2">{d.note}</span>}
                 <span className="text-muted-foreground text-xs">
-                  {d.decidedByName ?? 'Unknown'} · {new Date(d.decidedAt).toLocaleString()} · v
-                  {d.quoteVersion}
+                  {d.decidedByName ?? 'Unknown'} · {absoluteTime(d.decidedAt)} · v{d.quoteVersion}
                 </span>
               </li>
             ))}

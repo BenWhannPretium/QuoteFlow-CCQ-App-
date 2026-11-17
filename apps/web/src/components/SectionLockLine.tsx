@@ -1,15 +1,14 @@
 import type { SectionLockView } from '@ccq/contracts';
 import { LockIcon } from 'lucide-react';
 
-/** The decision date in the user's locale (dates only: "Nov 5, 2026"). */
-function decidedOn(iso: string) {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso));
-}
+import { absoluteTime } from '@/lib/time';
 
 /**
  * FB-01 (F-001): the line a locked section shows: "Locked after G2 · decided by Jim Zweifel on
- * Nov 5, 2026 · reopens if the quote is sent back". The section's fields are read-only and its edit
- * controls are hidden; the server refuses the write either way (409 SECTION_LOCKED).
+ * Nov 5, 2026, 3:04 PM CST · reopens if the quote is sent back". The section's fields are read-only and
+ * its edit controls are hidden; the server refuses the write either way (409 SECTION_LOCKED).
+ * UX-011: the decision time is shown like every other time (US Central, zone named), not in the
+ * browser's own zone and format.
  */
 export function SectionLockLine({ lock }: { lock: SectionLockView }) {
   if (!lock.locked) return null;
@@ -23,7 +22,7 @@ export function SectionLockLine({ lock }: { lock: SectionLockView }) {
       <span>
         Locked after {lock.gate}
         {lock.decidedByName ? ` · decided by ${lock.decidedByName}` : ''}
-        {lock.decidedAt ? ` on ${decidedOn(lock.decidedAt)}` : ''} · reopens if the quote is sent
+        {lock.decidedAt ? ` on ${absoluteTime(lock.decidedAt)}` : ''} · reopens if the quote is sent
         back
       </span>
     </p>

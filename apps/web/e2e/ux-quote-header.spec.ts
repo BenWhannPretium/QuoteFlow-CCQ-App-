@@ -205,3 +205,70 @@ test('UX-006: the Gate decisions card shows the reason’s label, not its stored
   await decisions.scrollIntoViewIfNeeded();
   await auditScreen(page, 'UX-006');
 });
+
+/** Qualified, then engineered and advanced by the engineering lead: in Quoting, Engineering locked. */
+async function quoteInQuoting(request: APIRequestContext): Promise<string> {
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+  const put = (path: string, data: unknown) =>
+    ok(request.put(`/api/v1/quotes/${quoteNumber}/${path}`, { headers: as('eng-lead'), data }));
+  await decide(request, quoteNumber, 'G1', 'sales-leader', { outcomeKey: 'advance' });
+  await put('eng-review', {
+    processType: 'EBM',
+    machineType: 'EBM',
+    plantCode: 'AURORA',
+    cavitation: 8,
+    cycleTimeS: 14.5,
+    prelimCapitalUsd: 0,
+  });
+  await put('capacity-evidence', {
+    rows: [
+      {
+        site: 'AURORA',
+        assumedEffectivenessPct: 70,
+        cycleTimeS: 14.5,
+        utilizationBeforePct: 62,
+        analysisDate: isoDaysFromNow(-1),
+        analystId: (await me(request, 'engineer')).id,
+      },
+    ],
+  });
+  await put('capacity-signoff', { status: 'approved' });
+  await decide(request, quoteNumber, 'G2', 'eng-lead', { outcomeKey: 'proceed' });
+  return quoteNumber;
+}
+
+test('UX-011: one clock on the quote page, whatever the browser’s zone and language', async ({
+  browser,
+  request,
+}) => {
+  // "Nov 17, 2026, 12:13 PM CST": US Central with the zone named, as everywhere else in the app.
+  const CENTRAL = /[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M C[SD]T/;
+  // What a German browser in Tokyo used to show: "18.11.2026, 03:13:49".
+  const BROWSER_LOCAL = /\d{1,2}\.\d{1,2}\.\d{4}/;
+  const reworked = await reworkedQuote(request);
+  const inQuoting = await quoteInQuoting(request);
+
+  const context = await browser.newContext({ timezoneId: 'Asia/Tokyo', locale: 'de-DE' });
+  const page = await context.newPage();
+  await signInAs(page, 'kam');
+
+  // The rework banner and the Gate decisions card.
+  await page.goto(`/quotes/${reworked}`);
+  for (const testId of ['rework-banner', 'decisions']) {
+    await expect(page.getByTestId(testId)).toContainText(CENTRAL);
+    await expect(page.getByTestId(testId)).not.toContainText(BROWSER_LOCAL);
+  }
+  await auditScreen(page, 'UX-011');
+
+  // The Intake card's "Submitted", and the line a locked section shows.
+  await page.goto(`/quotes/${inQuoting}`);
+  await expect(page.locator('div:has(> dt:text-is("Submitted")) > dd')).toHaveText(
+    new RegExp(`^${CENTRAL.source}$`),
+  );
+  await page.goto(`/quotes/${inQuoting}?tab=engineering`);
+  const lock = page.getByTestId('engineering-tab').getByTestId('section-lock').first();
+  await expect(lock).toContainText(
+    new RegExp(`decided by .+ on ${CENTRAL.source} · reopens if the quote is sent back`),
+  );
+  await context.close();
+});
