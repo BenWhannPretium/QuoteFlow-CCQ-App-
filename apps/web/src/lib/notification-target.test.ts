@@ -33,6 +33,11 @@ describe('notificationTarget', () => {
     }
   });
 
+  it('opens a payment-terms exception on the Commercial panel (UX-012)', () => {
+    expect(notificationTarget('quote.terms_exception_requested')).toBe('commercial');
+    expect(notificationTarget('quote.terms_exception_decided')).toBe('commercial');
+  });
+
   it('opens the quote for everything else', () => {
     for (const type of [
       'quote.progress',

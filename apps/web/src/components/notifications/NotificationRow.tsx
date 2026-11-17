@@ -86,6 +86,17 @@ export function NotificationRow({
         >
           {content}
         </Link>
+      ) : kind === 'commercial' ? (
+        <Link
+          to="/quotes/$quoteNumber"
+          params={params}
+          search={{ tab: 'overview' }}
+          hash="commercial"
+          onClick={open}
+          className={rowClass}
+        >
+          {content}
+        </Link>
       ) : (
         <Link to="/quotes/$quoteNumber" params={params} onClick={open} className={rowClass}>
           {content}
