@@ -44,6 +44,7 @@ Priorities are proposals for Bailey Schmitt and Darren Miller to confirm. "Owner
 | Second design pass: dashboard tiles, intake stepper, analytics charts | Only inherited the B-25 tokens | `03` B-25 "not done" | P2 | TBD (after UAT feedback) |
 | Licensed Pretium fonts (Value Serif Pro, Basis Grotesque Pro) | Open substitutes self-hosted; licence check needed | `03` B-25 notes | P2 | TBD (licence) |
 | Remove the BR-13 audit exception (`@azure/msal-node`) when `@azure/identity` allows msal-node ≥ 7.1 | Ignored advisory GHSA-xcx6-jx8p-x3h5 | `04` BR-13 | P2 | Ben |
+| Remove the BR-17 audit exception (`picomatch`, build and lint tooling only) when a release above 4.0.7 exists | Ignored advisory GHSA-fc5q-39xc-vjpf | `04` BR-17 | P2 | Ben |
 | Post-award hand-off view (Nicole Donnelly, Anne DeSmet; `CCQ.PostAward`) | P2 role; no dev persona or matrix coverage yet | `03` post-MVP table; `01` §3.1; D-14 | P2 | TBD (D-14) |
 | MCP / API for Copilot and Cowork agents, user-scoped | — | `03` post-MVP table | P2 | TBD (IT agent-identity pattern) |
 | Full decision log and corrections ledger (F-21) | Minimal log built in B-19 | `03` post-MVP table | P2 | TBD (Knowledge Steward) |

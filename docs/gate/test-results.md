@@ -31,7 +31,7 @@ Owner: Ben Whann (automated evidence), Bailey Schmitt (UAT results).
 | Job | Steps |
 |---|---|
 | `verify` (Lint, typecheck, test, build, e2e) | install (frozen lockfile) → lint → typecheck → unit tests → integration tests (Postgres 16 service) → build → migrate + config seed (no synthetic data) → install Chromium → Playwright (every spec: the `smoke`, `shell` and `mobile` projects, axe included); the Playwright report is uploaded when the job fails. 30-minute limit |
-| `audit` (Dependency audit) | `pnpm audit --audit-level=high` (one documented exception: GHSA-xcx6-jx8p-x3h5, `04` BR-13) |
+| `audit` (Dependency audit) | `pnpm audit --audit-level=high` (two documented exceptions: GHSA-xcx6-jx8p-x3h5, `04` BR-13; GHSA-fc5q-39xc-vjpf, `04` BR-17) |
 | `secrets` (Secret scan) | `gitleaks git --redact --exit-code 1 .` over the full history |
 
 `.github/workflows/deploy.yml` (Deploy (test)) runs after CI passes on `main`: build, package, Fabric stop if migrations changed, deploy, smoke (waits for `/api/v1/health` to report the new commit with `db: up`), Fabric start and wait. First green run: Deploy (test) #6, 2026-10-21 (`03` B-20).
