@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +13,9 @@ describe('production SPA serving', () => {
   beforeAll(async () => {
     const dist = mkdtempSync(join(tmpdir(), 'ccq-web-'));
     writeFileSync(join(dist, 'index.html'), '<!doctype html><div id="root">spa</div>');
+    mkdirSync(join(dist, 'assets'));
+    writeFileSync(join(dist, 'assets', 'index-D5YwkxoZ.js'), 'console.log(1)');
+    writeFileSync(join(dist, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
     app = await buildApp(
       testConfig({
         NODE_ENV: 'production',
@@ -42,6 +45,23 @@ describe('production SPA serving', () => {
     const res = await app.inject({ method: 'GET', url: '/quotes/123' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
+  });
+
+  it('caches hashed build files for good and revalidates everything else', async () => {
+    const asset = await app.inject({ method: 'GET', url: '/assets/index-D5YwkxoZ.js' });
+    expect(asset.statusCode).toBe(200);
+    expect(asset.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    for (const url of ['/', '/quotes/123', '/favicon.svg']) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode, url).toBe(200);
+      expect(res.headers['cache-control'], url).toBe('no-cache');
+    }
+  });
+
+  it('answers 404 for a build file that no longer exists, not the page shell', async () => {
+    const res = await app.inject({ method: 'GET', url: '/assets/index-OLDBUILD.js' });
+    expect(res.statusCode).toBe(404);
+    expect(res.headers['content-type']).toContain('application/problem+json');
   });
 
   it('keeps problem+json 404s for unknown API routes', async () => {

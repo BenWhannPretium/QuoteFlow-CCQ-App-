@@ -160,7 +160,11 @@ export const problemJsonPlugin = fp(
     app.setNotFoundHandler((request, reply) => {
       const isApi = request.url === '/api' || request.url.startsWith('/api/');
       const isPageLoad = request.method === 'GET' || request.method === 'HEAD';
-      if (opts.spaFallback && !isApi && isPageLoad) {
+      // A missing build file is a 404, not the page shell. After a deploy an open tab still asks for the
+      // previous build's hashed chunks; answering `index.html` (200, text/html) for a script hid that
+      // behind a MIME-type error and let caches keep HTML under a script's URL.
+      const isBuildAsset = request.url.startsWith('/assets/');
+      if (opts.spaFallback && !isApi && !isBuildAsset && isPageLoad) {
         // Client-side route: let the SPA router handle it (sendFile comes from spaPlugin).
         return reply.type('text/html').sendFile('index.html');
       }
