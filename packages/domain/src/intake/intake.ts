@@ -247,6 +247,18 @@ export function isPlaceholderVolume(
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * A real calendar day. The pattern alone takes 2026-11-31, which a date column refuses: the draft looked
+ * ready and the submit failed in the database. A date picker shows such a value as blank, so the issue
+ * has to say to pick the date again.
+ */
+function isCalendarDay(value: string): boolean {
+  if (!ISO_DATE.test(value)) return false;
+  const day = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === value;
+}
+const NOT_A_DAY = 'is not a real calendar date. Pick the date again.';
+
 /** Day of the month of the `n`th Sunday of `month` (0-based) in `year`. */
 function nthSunday(year: number, month: number, n: number): number {
   const firstDow = new Date(Date.UTC(year, month, 1)).getUTCDay();
@@ -276,13 +288,16 @@ export function needByDateIssues(values: FieldValues, now: Date): IntakeIssue[] 
   const issues: IntakeIssue[] = [];
   const quoteBy = values.quote_needed_by;
   const productBy = values.product_needed_by;
-  const quoteOk = typeof quoteBy === 'string' && ISO_DATE.test(quoteBy);
+  const quoteOk = typeof quoteBy === 'string' && isCalendarDay(quoteBy);
   if (isPresent(quoteBy)) {
     if (!quoteOk) {
       issues.push({
         code: 'INVALID_VALUE',
         field: 'quote_needed_by',
-        message: 'Quote needed by must be a date (YYYY-MM-DD)',
+        message:
+          typeof quoteBy === 'string' && ISO_DATE.test(quoteBy)
+            ? `Quote needed by ${NOT_A_DAY}`
+            : 'Quote needed by must be a date (YYYY-MM-DD)',
       });
     } else if (typeof quoteBy === 'string' && quoteBy <= todayInCentral(now)) {
       issues.push({
@@ -293,11 +308,14 @@ export function needByDateIssues(values: FieldValues, now: Date): IntakeIssue[] 
     }
   }
   if (isPresent(productBy)) {
-    if (typeof productBy !== 'string' || !ISO_DATE.test(productBy)) {
+    if (typeof productBy !== 'string' || !isCalendarDay(productBy)) {
       issues.push({
         code: 'INVALID_VALUE',
         field: 'product_needed_by',
-        message: 'Product needed by must be a date (YYYY-MM-DD)',
+        message:
+          typeof productBy === 'string' && ISO_DATE.test(productBy)
+            ? `Product needed by ${NOT_A_DAY}`
+            : 'Product needed by must be a date (YYYY-MM-DD)',
       });
     } else if (quoteOk && typeof quoteBy === 'string' && productBy < quoteBy) {
       issues.push({

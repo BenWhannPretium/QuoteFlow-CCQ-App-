@@ -443,6 +443,23 @@ describe('evaluateIntake', () => {
       expect(codes(ev({ ...complete, product_needed_by: 'soon' }).blocking)).toEqual([
         'INVALID_VALUE:product_needed_by',
       ]);
+      // A day that does not exist fits the pattern, and failed in the database at submit instead.
+      // A date picker shows it as blank, so the message says to pick it again.
+      expect(ev({ ...complete, quote_needed_by: '2026-12-32' }).blocking).toEqual([
+        {
+          code: 'INVALID_VALUE',
+          field: 'quote_needed_by',
+          message: 'Quote needed by is not a real calendar date. Pick the date again.',
+        },
+      ]);
+      expect(ev({ ...complete, product_needed_by: '2027-02-30' }).blocking).toEqual([
+        {
+          code: 'INVALID_VALUE',
+          field: 'product_needed_by',
+          message: 'Product needed by is not a real calendar date. Pick the date again.',
+        },
+      ]);
+      expect(ev({ ...complete, product_needed_by: '2028-02-29' }).ready).toBe(true);
       const required = {
         ...config,
         requiredFields: [present('quote_needed_by'), present('product_needed_by')],
