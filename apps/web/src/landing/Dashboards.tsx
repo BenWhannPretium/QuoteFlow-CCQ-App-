@@ -26,9 +26,12 @@ import { HoldChip } from '@/components/HoldChip';
 import { SkeletonCard } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, calendarDate } from '@/lib/time';
 import { cn } from '@/lib/utils';
+
+import { STAGE_AMOUNT_WORDS, captureHint, returnedAt } from './dashboard-text';
 
 /**
  * F-02 role dashboards (B-17). Every number is computed by `GET /api/v1/dashboards/:role`; these
@@ -238,7 +241,9 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
             <span className="font-display text-xl tabular-nums">{s.count}</span>
           </div>
           {s.sfAmount > 0 && (
-            <p className="text-muted-foreground text-xs">{fmtUsdCompact(s.sfAmount)} SF amount</p>
+            <p className="text-muted-foreground text-xs" data-testid="stage-amount">
+              {fmtUsdCompact(s.sfAmount)} {STAGE_AMOUNT_WORDS}
+            </p>
           )}
           {s.quotes.length > 0 && (
             <ul className="mt-2 grid gap-2 text-xs">
@@ -300,6 +305,7 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
 
 function Kam({ d }: { d: KamDashboard }) {
   const r = d.capture.rates;
+  const { data: config } = usePublicConfig();
   return (
     <>
       <Block title="Returned to me" info={d.returned.info} testId="dash-returned">
@@ -314,9 +320,10 @@ function Kam({ d }: { d: KamDashboard }) {
                     {quoteLink(i.quoteNumber)}{' '}
                     <span className="text-muted-foreground text-xs">{i.account}</span>
                   </span>
-                  <span className="text-emphasis text-xs font-semibold">
+                  <span className="text-emphasis text-xs font-semibold" data-testid="returned-why">
                     {i.reason ?? 'Reason not recorded'}
-                    {i.gateKey ? ` · ${i.gateKey}` : ''}
+                    {/* UX-013: the gate by its configured label, never its number. */}
+                    {returnedAt(config, i.gateKey, ' · returned at ')}
                   </span>
                 </span>
                 {i.note && <span className="text-foreground-2">{i.note}</span>}
@@ -412,11 +419,7 @@ function Kam({ d }: { d: KamDashboard }) {
         <Stat
           label="Outcome capture rate"
           value={fmtPct(r.captureRate)}
-          hint={
-            r.recorded + r.goneDark === 0
-              ? 'No proposals are past their validity yet, so there is nothing to measure.'
-              : `${fmtCount(r.recorded)} recorded, ${fmtCount(r.goneDark)} gone dark, ${fmtCount(r.awaiting)} still waiting.`
-          }
+          hint={captureHint(r)}
           {...(r.lowCapture ? { tone: 'alert' as const } : {})}
         />
         {r.goneDark > 0 && (

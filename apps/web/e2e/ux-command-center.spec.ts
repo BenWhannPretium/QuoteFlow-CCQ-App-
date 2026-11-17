@@ -265,3 +265,98 @@ test.describe('UX-011: the intake draft list uses the one clock', () => {
     }
   });
 });
+
+/**
+ * Serves the role's real dashboard with a few numbers replaced, for wording that depends on data the
+ * config-seeded e2e database does not have (a stage total, proposals past their validity date).
+ */
+async function withDashboardNumbers(
+  page: Page,
+  role: string,
+  edit: (body: {
+    pipeline: { stages: { sfAmount: number }[] };
+    capture?: { rates: Record<string, unknown> };
+  }) => void,
+) {
+  await page.route(`**/api/v1/dashboards/${role}`, async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as Parameters<typeof edit>[0];
+    edit(body);
+    await route.fulfill({ response, json: body });
+  });
+}
+
+test.describe('UX-013: plain words on the Command Center and the intake', () => {
+  test('a KAM reads Salesforce spelled out, "past validity with no outcome recorded" and the gate by its name', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    // A quote the sales leader sent back for rework.
+    const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+    await call(request, 'sales-leader', 'post', `quotes/${quoteNumber}/gates/G1/decisions`, {
+      outcomeKey: 'rework',
+      reasonCode: 'missing_information',
+      note: 'e2e: UX-013',
+    });
+    const config = await call<{ gates: { key: string; label: string }[] }>(
+      request,
+      'kam',
+      'get',
+      'config/public',
+    );
+    const gate = config.gates.find((g) => g.key === 'G1')!.label;
+    expect(gate).not.toMatch(/^G\d$/);
+
+    await withDashboardNumbers(page, 'KAM', (body) => {
+      body.pipeline.stages[0]!.sfAmount = 459_100;
+      Object.assign(body.capture!.rates, { recorded: 13, goneDark: 5, awaiting: 0 });
+    });
+    await signInAs(page, 'kam');
+    await page.goto('/');
+
+    const board = page.getByTestId('dash-my-pipeline');
+    await expect(board.getByTestId('stage-amount').first()).toHaveText(
+      '$459.1K Salesforce opportunity amount',
+    );
+    await expect(board).not.toContainText('SF amount');
+
+    const capture = page.getByTestId('dash-capture');
+    await expect(capture).toContainText(
+      '13 recorded, 5 past validity with no outcome recorded, 0 still waiting.',
+    );
+    await expect(capture).not.toContainText('gone dark');
+
+    const returned = page
+      .getByTestId('dash-returned')
+      .getByRole('listitem')
+      .filter({ hasText: quoteNumber });
+    await expect(returned.getByTestId('returned-why')).toHaveText(
+      `Missing information · returned at ${gate}`,
+    );
+    await expect(returned).not.toContainText('G1');
+    await auditScreen(page.getByRole('region', { name: 'Dashboard' }), 'UX-013-command-center');
+
+    // The intake start screen lists the same quote, with the gate by its name there too.
+    await page.goto('/intake/new');
+    const listed = page
+      .getByTestId('returned')
+      .getByRole('listitem')
+      .filter({ hasText: quoteNumber });
+    await expect(listed).toContainText(`Returned at ${gate}: Missing information · e2e: UX-013`);
+    await expect(listed).not.toContainText('G1');
+  });
+
+  test('a sales leader reads Salesforce spelled out on the team pipeline', async ({ page }) => {
+    await withDashboardNumbers(page, 'SalesLeader', (body) => {
+      body.pipeline.stages[0]!.sfAmount = 1_250_000;
+    });
+    await signInAs(page, 'sales-leader');
+    await page.goto('/');
+    const board = page.getByTestId('dash-team-pipeline');
+    await expect(board.getByTestId('stage-amount').first()).toContainText(
+      'Salesforce opportunity amount',
+    );
+    await expect(board).not.toContainText('SF amount');
+  });
+});

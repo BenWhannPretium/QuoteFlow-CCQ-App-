@@ -59,6 +59,7 @@ import {
 } from '@/intake/Steps';
 import { Notice, Section, Stepper } from '@/intake/ui';
 import { DraftNotSavedError, useIntakeDraft, type SaveState } from '@/intake/useIntakeDraft';
+import { returnedAt } from '@/landing/dashboard-text';
 import { isApiError, api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
@@ -132,6 +133,7 @@ function StartScreen({ cfg }: { cfg: WizardConfig }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const drafts = useQuery({ queryKey: draftsKey, queryFn: api.listDrafts });
+  const { data: config } = usePublicConfig();
   const [picking, setPicking] = useState<string | null>(null);
 
   const pick = async (o: SfOpportunitySummary) => {
@@ -179,9 +181,15 @@ function StartScreen({ cfg }: { cfg: WizardConfig }) {
                   <span className="min-w-0 break-words">
                     <strong>{r.quoteNumber}</strong> · {r.customerName ?? r.opportunityName ?? ''}
                     <span className="text-muted-foreground block text-xs">
-                      {r.gateKey}
-                      {r.reasonLabel ? `: ${r.reasonLabel}` : ''}
-                      {r.note ? ` · ${r.note}` : ''}
+                      {/* UX-013: the gate by its configured label, never its number (G1). */}
+                      {[
+                        [returnedAt(config, r.gateKey, 'Returned at '), r.reasonLabel]
+                          .filter(Boolean)
+                          .join(': '),
+                        r.note,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
                   </span>
                 </span>
