@@ -48,8 +48,12 @@ Hard limits that no part overrides:
   `FILESTORE_MODE=local`, `MAIL_MODE=fake`, `AUTH_MODE=dev`, `FABRIC_WORKSPACE_ID` and `FABRIC_MIRRORED_DB_ID`
   unset, and a `DATABASE_URL` whose host is `localhost` or `127.0.0.1` (refuse to start otherwise). Never read
   or print secret values from `.env`. Note `NODE_ENV=production` refuses `local` file store and `fake` mail by
-  design: the load, fuzz, soak and role click-throughs run on a production *build* with `NODE_ENV` at development
-  or test (they need `AUTH_MODE=dev` to act as each role). The only production-mode runs are the two short,
+  design: the load, fuzz, soak and role click-throughs run on a production *build* with `NODE_ENV=development`,
+  **never `test`** (they need `AUTH_MODE=dev` to act as each role). `test` silences the logger entirely
+  (`apps/api/src/logger.ts`), so a fuzz 5xx or a job failure would leave nothing to diagnose; keep `LOG_LEVEL` at
+  `info` or lower and read the logs. `development` adds a `pino-pretty` worker thread, which costs some memory
+  and throughput, so state in the capacity report that its numbers were measured with pretty logging and are
+  slightly conservative against production's JSON logging. The only production-mode runs are the two short,
   inert ones described under "Build output" in Part A.
 - **Never push to or merge into `main`.** Work on a new branch `claude/audit-prerelease` cut from
   `origin/main` (`git fetch` first; PRs #98 to #105 are already merged, so local `main` may be behind).
