@@ -104,6 +104,21 @@ describe('serializeError on a failed database statement', () => {
     expect(out.stack).toContain('logger.test.ts');
   });
 
+  it('withholds the value a Postgres data exception quotes, and errors nested under other keys', () => {
+    const badValue = Object.assign(
+      new Error('invalid input syntax for type uuid: "Acme Bottling"'),
+      {
+        code: '22P02',
+      },
+    );
+    const several = new AggregateError([failedStatement(), badValue], 'two things failed');
+    const text = JSON.stringify(serializeError(several));
+    expect(text).toContain('invalid input syntax for type uuid: \\"…\\"');
+    expect(text).toContain('two things failed');
+    expect(text).not.toContain('Acme');
+    expect(text).not.toContain('insert into');
+  });
+
   it('is what a request logs through the production logger', async () => {
     const lines: string[] = [];
     const options = loggerOptions({ NODE_ENV: 'production', LOG_LEVEL: 'info' } as AppConfig);

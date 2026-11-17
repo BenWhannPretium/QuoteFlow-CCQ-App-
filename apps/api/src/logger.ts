@@ -74,16 +74,38 @@ const frames = (stack: string | undefined): string =>
 
 function describeError(err: Error, depth: number): Record<string, unknown> {
   const wrapper = isQueryWrapper(err);
+  const sqlstate = (err as { code?: unknown }).code;
+  // A Postgres data exception quotes the offending value in its message
+  // (`invalid input syntax for type uuid: "…"`); keep the sentence, withhold the value.
+  const quotesValue = typeof sqlstate === 'string' && /^22[0-9A-Z]{3}$/.test(sqlstate);
   const type =
     err.constructor?.name && err.constructor.name !== 'Error' ? err.constructor.name : err.name;
-  const message = wrapper ? QUERY_FAILED : err.message;
+  const message = wrapper
+    ? QUERY_FAILED
+    : quotesValue
+      ? err.message.replace(/"[^"]*"/g, '"…"')
+      : err.message;
   const out: Record<string, unknown> = {
     type,
     message,
     stack: `${type}: ${message}\n${frames(err.stack)}`,
   };
   for (const [key, value] of Object.entries(err)) {
-    if (!ERR_DATA_FIELDS.has(key)) out[key] = value;
+    if (ERR_DATA_FIELDS.has(key)) continue;
+    // Errors carried under another key (AggregateError.errors, a driver's `original`) get the same
+    // treatment as the one that carries them.
+    if (value instanceof Error) out[key] = depth < 4 ? describeError(value, depth + 1) : value.name;
+    else if (Array.isArray(value) && value.some((v) => v instanceof Error)) {
+      out[key] = value.map((v: unknown) =>
+        v instanceof Error ? (depth < 4 ? describeError(v, depth + 1) : v.name) : v,
+      );
+    } else out[key] = value;
+  }
+  // `AggregateError.errors` is not enumerable, so the loop above does not see it.
+  if (err instanceof AggregateError && depth < 4) {
+    out.errors = (err.errors as unknown[]).map((e) =>
+      e instanceof Error ? describeError(e, depth + 1) : e,
+    );
   }
   const cause: unknown = err.cause;
   if (cause instanceof Error && depth < 4) {
