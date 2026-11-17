@@ -12,8 +12,6 @@ import { SF_PRODUCT_SPECS_STATUSES, SfProductSpec } from './sf-product-spec';
  */
 
 const text = (max: number) => z.string().max(max).nullable().optional();
-// A real calendar day: a bare YYYY-MM-DD pattern let 2026-11-31 through to a 500 (Postgres 22008).
-const isoDate = z.iso.date('Use YYYY-MM-DD').nullable().optional();
 /**
  * Upper bounds of what the columns hold, so an absurd figure is a 400 here and not a numeric overflow
  * (a 500) at submit: money is numeric(14,2), a dimension or weight numeric(10,2), a volume a bigint read as
@@ -22,6 +20,23 @@ const isoDate = z.iso.date('Use YYYY-MM-DD').nullable().optional();
 const MAX_MONEY = 999_999_999_999.99;
 const MAX_MEASURE = 99_999_999.99;
 const MAX_VOLUME = 1_000_000_000_000;
+
+/**
+ * The draft is read two ways. What a request SENDS is checked strictly: a date is a real calendar day (a
+ * bare YYYY-MM-DD pattern let 2026-11-31 through to a 500, Postgres 22008) and a figure fits its column.
+ * What is already STORED is only described: a draft saved before those checks existed (2026-11-17) can
+ * hold such a value, stored drafts are never migrated, and the response schema is enforced on every
+ * draft read and save. Reading a stored draft strictly turned "open my draft" into a 500, so the KAM
+ * could not reach the field to fix it. The stored reading takes any date string and any number; the
+ * value is refused the next time it is sent, where the wizard can mark the field.
+ */
+const fieldKinds = (stored: boolean) => ({
+  isoDate: (stored ? z.string() : z.iso.date('Use YYYY-MM-DD')).nullable().optional(),
+  bounded: (max: number) => (stored ? z.number() : z.number().max(max)).nullable().optional(),
+});
+type FieldKinds = ReturnType<typeof fieldKinds>;
+const SENT = fieldKinds(false);
+const STORED = fieldKinds(true);
 
 export const IntakeAddress = z.object({
   line1: text(200),
@@ -54,19 +69,21 @@ export type IntakeCustomer = z.infer<typeof IntakeCustomer>;
  * change them; a null entry means SF had nothing usable and the KAM enters it. FB-19: per item (each
  * item added from a Salesforce product carries its own).
  */
-export const IntakeSfPrefill = z.object({
-  resin: text(60),
-  neckDiameter: text(60),
-  neckFinishType: text(60),
-  neckFinishTypeCustom: text(120),
-  estAnnualVolume: z.number().max(MAX_VOLUME).nullable().optional(),
-  containerSize: text(60),
-});
+const sfPrefillOf = ({ bounded }: FieldKinds) =>
+  z.object({
+    resin: text(60),
+    neckDiameter: text(60),
+    neckFinishType: text(60),
+    neckFinishTypeCustom: text(120),
+    estAnnualVolume: bounded(MAX_VOLUME),
+    containerSize: text(60),
+  });
+export const IntakeSfPrefill = sfPrefillOf(SENT);
 export type IntakeSfPrefill = z.infer<typeof IntakeSfPrefill>;
 
 /** FB-19 (W13-32, decision 3): the product fields, entered per item. Value-list codes unless noted. */
-const productShape = {
-  sfPrefill: IntakeSfPrefill.nullable().optional(),
+const productShapeOf = (kinds: FieldKinds) => ({
+  sfPrefill: sfPrefillOf(kinds).nullable().optional(),
   productFamily: text(60),
   /** FB-15 (W13-03): what an "Other" product family is (≤ intake_other_description_max_length). */
   productFamilyOther: text(500),
@@ -116,14 +133,14 @@ const productShape = {
   packagingType: text(60),
   packagingNotes: text(2000),
   /** Units per year. FB-19: per item; the quote's volume is the sum of its items'. */
-  estAnnualVolume: z.number().max(MAX_VOLUME).nullable().optional(),
+  estAnnualVolume: kinds.bounded(MAX_VOLUME),
   /** The KAM confirmed a round/placeholder-looking volume is real. */
   estAnnualVolumeConfirmed: z.boolean().optional(),
   /**
    * FB-02 (F-009): best estimate of the customer's launch need (YYYY-MM-DD), on or after quoteNeededBy.
    * FB-19 (Zachary Cairns): per item, since items can be needed at different dates.
    */
-  productNeededBy: isoDate,
+  productNeededBy: kinds.isoDate,
   /** Container size as Sales describes it (e.g. "16 oz"). Feeds the standard description. */
   containerSize: text(60),
   /** Standard description (suggested from the template, editable). */
@@ -132,10 +149,10 @@ const productShape = {
    * FB-02 (F-016, D-018): product dimensions, mm and grams (2 decimals). Without a bottle or competitor
    * drawing attached, the fields in `intake_min_spec_fields` must all be filled to submit.
    */
-  heightMm: z.number().max(MAX_MEASURE).nullable().optional(),
-  widthOrDiameterMm: z.number().max(MAX_MEASURE).nullable().optional(),
-  depthMm: z.number().max(MAX_MEASURE).nullable().optional(),
-  gramWeightG: z.number().max(MAX_MEASURE).nullable().optional(),
+  heightMm: kinds.bounded(MAX_MEASURE),
+  widthOrDiameterMm: kinds.bounded(MAX_MEASURE),
+  depthMm: kinds.bounded(MAX_MEASURE),
+  gramWeightG: kinds.bounded(MAX_MEASURE),
   /**
    * FB-02 (F-015): modify an existing mold (in scope when capital or engineering review is needed).
    * When ticked, the existing mold / part number and what changes are required.
@@ -144,7 +161,8 @@ const productShape = {
   existingMoldRef: text(60),
   moldChangeDescription: text(500),
   drawingStatus: text(60),
-};
+});
+const productShape = productShapeOf(SENT);
 
 /** The camelCase product fields of an item (the draft keys of `productShape`). */
 export const INTAKE_ITEM_FIELDS = Object.keys(productShape) as (keyof typeof productShape)[];
@@ -157,123 +175,130 @@ const ITEM_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
  * the key (`attachment.quote_item_id`). `linkedDrawingIds`: drawings another item holds that this one
  * uses too (Duplicate copies them as links; at submit each becomes this item's own link to the same file).
  */
-export const IntakeItemData = z.object({
-  key: z.string().regex(ITEM_KEY, 'Not an item key'),
-  /** The KAM's short name for the item, e.g. "16 oz bottle" (≤ 60). */
-  label: text(60),
-  /** The Salesforce product specification the item was added from. */
-  sfProductSpecId: text(40),
-  linkedDrawingIds: z.array(z.string().regex(ITEM_KEY)).max(50).optional(),
-  /** The key of the item this one was duplicated from (F-084), for the audit; omitted otherwise. */
-  duplicatedFrom: z.string().regex(ITEM_KEY).optional(),
-  ...productShape,
-});
+const itemDataOf = (kinds: FieldKinds) =>
+  z.object({
+    key: z.string().regex(ITEM_KEY, 'Not an item key'),
+    /** The KAM's short name for the item, e.g. "16 oz bottle" (≤ 60). */
+    label: text(60),
+    /** The Salesforce product specification the item was added from. */
+    sfProductSpecId: text(40),
+    linkedDrawingIds: z.array(z.string().regex(ITEM_KEY)).max(50).optional(),
+    /** The key of the item this one was duplicated from (F-084), for the audit; omitted otherwise. */
+    duplicatedFrom: z.string().regex(ITEM_KEY).optional(),
+    ...productShapeOf(kinds),
+  });
+export const IntakeItemData = itemDataOf(SENT);
 export type IntakeItemData = z.infer<typeof IntakeItemData>;
 
 /** Hard cap on items in a draft (the business limit is the setting `quote_items_max`, checked by the domain). */
 export const INTAKE_ITEMS_HARD_MAX = 200;
 
-export const IntakeDraftData = z.object({
-  // Step 1: opportunity
-  sfOpportunityId: z
-    .string()
-    .regex(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/, 'Not a Salesforce id')
-    .nullable()
-    .optional(),
-  /** Display copy of the picked opportunity (name, account, amount…) so a resumed draft renders offline. */
-  sfOpportunityName: text(300),
-  /**
-   * FB-15 (W13-04): EVERY product specification Salesforce returned when the opportunity was picked.
-   * Request-level. FB-19: "Add from Salesforce products" turns each into an item.
-   */
-  sfProductSpecs: z.array(SfProductSpec).max(50).optional(),
-  /**
-   * FB-15 (W13-04): what the pick learned about product details: `found`, `none` (Salesforce has no
-   * product specification for the opportunity) or `unavailable` (the live read failed). The product
-   * step says so, so the KAM knows why nothing was pre-filled.
-   */
-  sfProductSpecsStatus: z.enum(SF_PRODUCT_SPECS_STATUSES).nullable().optional(),
-  /**
-   * FB-19 (W13-33): the KAM confirmed the warning that the opportunity already has an active quote and
-   * starts a separate one. Needed to submit while `opportunity_active_quotes` is `warn`.
-   */
-  separateQuoteConfirmed: z.boolean().optional(),
+const draftDataOf = (kinds: FieldKinds) =>
+  z.object({
+    // Step 1: opportunity
+    sfOpportunityId: z
+      .string()
+      .regex(/^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/, 'Not a Salesforce id')
+      .nullable()
+      .optional(),
+    /** Display copy of the picked opportunity (name, account, amount…) so a resumed draft renders offline. */
+    sfOpportunityName: text(300),
+    /**
+     * FB-15 (W13-04): EVERY product specification Salesforce returned when the opportunity was picked.
+     * Request-level. FB-19: "Add from Salesforce products" turns each into an item.
+     */
+    sfProductSpecs: z.array(SfProductSpec).max(50).optional(),
+    /**
+     * FB-15 (W13-04): what the pick learned about product details: `found`, `none` (Salesforce has no
+     * product specification for the opportunity) or `unavailable` (the live read failed). The product
+     * step says so, so the KAM knows why nothing was pre-filled.
+     */
+    sfProductSpecsStatus: z.enum(SF_PRODUCT_SPECS_STATUSES).nullable().optional(),
+    /**
+     * FB-19 (W13-33): the KAM confirmed the warning that the opportunity already has an active quote and
+     * starts a separate one. Needed to submit while `opportunity_active_quotes` is `warn`.
+     */
+    separateQuoteConfirmed: z.boolean().optional(),
 
-  // Step 2: customer and ship / fill destination
-  customer: IntakeCustomer.nullable().optional(),
-  /** FB-02 (F-017, D-012): the ship / fill destination; city and state are required (config). */
-  shipTo: IntakeAddress.nullable().optional(),
-  /** The customer default the ship-to was pre-filled from. Kept when the KAM changes the ship-to. */
-  shipToDefault: IntakeAddress.nullable().optional(),
-  /** Required when shipTo differs from shipToDefault (a governed override once B-09 lands). */
-  shipToOverrideReason: text(1000),
+    // Step 2: customer and ship / fill destination
+    customer: IntakeCustomer.nullable().optional(),
+    /** FB-02 (F-017, D-012): the ship / fill destination; city and state are required (config). */
+    shipTo: IntakeAddress.nullable().optional(),
+    /** The customer default the ship-to was pre-filled from. Kept when the KAM changes the ship-to. */
+    shipToDefault: IntakeAddress.nullable().optional(),
+    /** Required when shipTo differs from shipToDefault (a governed override once B-09 lands). */
+    shipToOverrideReason: text(1000),
 
-  // Step 3: the request (entered once per quote)
-  requestClass: text(60),
-  market: text(60),
-  /**
-   * FB-12 (F-073): a `sub_market` code that belongs to `market` (the server checks it and clears it when the
-   * market changes to one it does not belong to). It sets the strategic-fit score.
-   */
-  subMarket: text(60),
-  /**
-   * FB-02 (F-075, interim answer to D-017 option B): the variants the customer wants priced, e.g.
-   * "0/25/50% PCR; near-site vs ideal-site". The limit is the provisional setting
-   * `intake_variants_note_max_length` (300), checked by the domain. FB-19: a variant can also be an item.
-   */
-  quoteVariantsNote: text(2000),
-  /**
-   * FB-11 (D-032): commercial inputs Pricing needs before costing. All optional at submit (D-006 open):
-   * a blank is a warning. `requestedPaymentTerms` is a `requested_payment_terms` code ("Other" needs
-   * `requestedPaymentTermsOther`); it is flagged non-standard when it is not in `standard_payment_terms`.
-   */
-  requestedPaymentTerms: text(60),
-  requestedPaymentTermsOther: text(120),
-  /**
-   * `tooling_funding_model` code: only WHETHER the customer funds any tooling (not how much or how).
-   * The wizard preselects the list's default ("Not discussed"); the Commercial panel edits the same field.
-   */
-  toolingFundingModel: text(40),
-  /**
-   * FB-15 (W13-09, provisional): when funding is Shared, the customer's share in percent (0–100, a whole
-   * number or one decimal; checked by the domain). Pretium covers the rest. Cleared for any other funding.
-   */
-  customerSharePct: z.number().nullable().optional(),
-  /** Customer wants returnable (multi-trip) dunnage; false = single-trip (F-063, dunnage only). */
-  returnableDunnage: z.boolean().optional(),
-  /** `price_basis` code (FOB Pretium plant / Delivered). */
-  priceBasis: text(60),
-  /** `freight_type` code, only while the price basis is delivered (cleared otherwise). */
-  freightType: text(60),
-  freightSpecialArrangements: text(200),
-  /** F-085: an optional bid / program reference (≤ 60). A plain reference: it links nothing. */
-  bidReference: text(60),
-  /** USD per year; pre-filled from the SF amount, editable. FB-19: once per quote, never summed from items. */
-  estAnnualRevenue: z.number().max(MAX_MONEY).nullable().optional(),
-  /** The SF amount it was pre-filled from (kept when edited). */
-  estAnnualRevenueSf: z.number().max(MAX_MONEY).nullable().optional(),
-  /**
-   * FB-02 (F-009): when the customer needs the quote (YYYY-MM-DD, after today). Feeds the `timing`
-   * attribute of the priority score. Replaces the editable expected close date: the SF close date is
-   * shown read-only from the latest sync (`IntakeDraft.sfCloseDate`) and not stored on the quote.
-   */
-  quoteNeededBy: isoDate,
-  /** Free text. */
-  description: text(4000),
+    // Step 3: the request (entered once per quote)
+    requestClass: text(60),
+    market: text(60),
+    /**
+     * FB-12 (F-073): a `sub_market` code that belongs to `market` (the server checks it and clears it when the
+     * market changes to one it does not belong to). It sets the strategic-fit score.
+     */
+    subMarket: text(60),
+    /**
+     * FB-02 (F-075, interim answer to D-017 option B): the variants the customer wants priced, e.g.
+     * "0/25/50% PCR; near-site vs ideal-site". The limit is the provisional setting
+     * `intake_variants_note_max_length` (300), checked by the domain. FB-19: a variant can also be an item.
+     */
+    quoteVariantsNote: text(2000),
+    /**
+     * FB-11 (D-032): commercial inputs Pricing needs before costing. All optional at submit (D-006 open):
+     * a blank is a warning. `requestedPaymentTerms` is a `requested_payment_terms` code ("Other" needs
+     * `requestedPaymentTermsOther`); it is flagged non-standard when it is not in `standard_payment_terms`.
+     */
+    requestedPaymentTerms: text(60),
+    requestedPaymentTermsOther: text(120),
+    /**
+     * `tooling_funding_model` code: only WHETHER the customer funds any tooling (not how much or how).
+     * The wizard preselects the list's default ("Not discussed"); the Commercial panel edits the same field.
+     */
+    toolingFundingModel: text(40),
+    /**
+     * FB-15 (W13-09, provisional): when funding is Shared, the customer's share in percent (0–100, a whole
+     * number or one decimal; checked by the domain). Pretium covers the rest. Cleared for any other funding.
+     */
+    customerSharePct: z.number().nullable().optional(),
+    /** Customer wants returnable (multi-trip) dunnage; false = single-trip (F-063, dunnage only). */
+    returnableDunnage: z.boolean().optional(),
+    /** `price_basis` code (FOB Pretium plant / Delivered). */
+    priceBasis: text(60),
+    /** `freight_type` code, only while the price basis is delivered (cleared otherwise). */
+    freightType: text(60),
+    freightSpecialArrangements: text(200),
+    /** F-085: an optional bid / program reference (≤ 60). A plain reference: it links nothing. */
+    bidReference: text(60),
+    /** USD per year; pre-filled from the SF amount, editable. FB-19: once per quote, never summed from items. */
+    estAnnualRevenue: kinds.bounded(MAX_MONEY),
+    /** The SF amount it was pre-filled from (kept when edited). */
+    estAnnualRevenueSf: kinds.bounded(MAX_MONEY),
+    /**
+     * FB-02 (F-009): when the customer needs the quote (YYYY-MM-DD, after today). Feeds the `timing`
+     * attribute of the priority score. Replaces the editable expected close date: the SF close date is
+     * shown read-only from the latest sync (`IntakeDraft.sfCloseDate`) and not stored on the quote.
+     */
+    quoteNeededBy: kinds.isoDate,
+    /** Free text. */
+    description: text(4000),
 
-  // Step 3: the items (FB-19). A draft saved before FB-19 has none: its flat product fields are item 1.
-  items: z.array(IntakeItemData).max(INTAKE_ITEMS_HARD_MAX).optional(),
-  /**
-   * Before FB-19 the product fields sat at the top level. They are still accepted (an older client, a
-   * fixture) and read as item 1 when `items` is absent; the server moves them into `items` on save.
-   */
-  ...productShape,
+    // Step 3: the items (FB-19). A draft saved before FB-19 has none: its flat product fields are item 1.
+    items: z.array(itemDataOf(kinds)).max(INTAKE_ITEMS_HARD_MAX).optional(),
+    /**
+     * Before FB-19 the product fields sat at the top level. They are still accepted (an older client, a
+     * fixture) and read as item 1 when `items` is absent; the server moves them into `items` on save.
+     */
+    ...productShapeOf(kinds),
 
-  // Step 4: drawing and notes
-  /** FB-02 (F-014): optional customer RFP / portal link (https only, ≤ 500; checked by the domain). */
-  rfpLink: text(500),
-  commentsForEngineering: text(4000),
-});
+    // Step 4: drawing and notes
+    /** FB-02 (F-014): optional customer RFP / portal link (https only, ≤ 500; checked by the domain). */
+    rfpLink: text(500),
+    commentsForEngineering: text(4000),
+  });
+/** What a request may send (create, autosave): every value checked. */
+export const IntakeDraftData = draftDataOf(SENT);
+/** What a stored draft may hold: see `fieldKinds`. The shape a draft is returned in. */
+export const StoredIntakeDraftData = draftDataOf(STORED);
 export type IntakeDraftData = z.infer<typeof IntakeDraftData>;
 
 export const IntakeIssue = z.object({
@@ -324,7 +349,8 @@ export const IntakeDraft = z.object({
   id: z.string(),
   ownerUserId: z.string(),
   step: z.number().int().min(1).max(4),
-  data: IntakeDraftData,
+  // The stored reading: a draft saved before a check was added must still open (see `fieldKinds`).
+  data: StoredIntakeDraftData,
   evaluation: IntakeEvaluation,
   /**
    * FB-02 (F-008, T-009): the opportunity's close date from the latest Salesforce sync, shown read-only

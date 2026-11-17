@@ -113,3 +113,70 @@ describe('ids and numbers that the database would reject are a 400, never a 500'
     expect(ok.statusCode, ok.body).toBe(200);
   });
 });
+
+/**
+ * PR review 2026-11-17. The checks above were added to the schema that also describes the draft a
+ * response returns, and stored drafts are never migrated: a draft saved before the checks, holding a
+ * value they refuse, answered 500 on every read and save, so its KAM could not open it to fix the field.
+ */
+describe('a draft saved before the checks existed still opens and can be fixed', () => {
+  const url = () => `/api/v1/quotes/drafts/${draftId}`;
+
+  beforeAll(async () => {
+    // As an older build stored it: an impossible day and figures beyond the columns, at both levels.
+    await db.db.execute(sql`
+      update quote_draft set data = data
+        || '{"quoteNeededBy": "2026-11-31", "estAnnualRevenue": 1e15}'::jsonb
+        || jsonb_build_object('items', jsonb_build_array(
+             (data->'items'->0)
+             || '{"productNeededBy": "2026-02-30", "heightMm": 1e12, "estAnnualVolume": 1e19}'::jsonb))
+      where id = ${draftId}`);
+  });
+
+  it('opens, showing the stored values as they are', async () => {
+    const res = await asRole(app, 'KAM').get(url());
+    expect(res.statusCode, res.body).toBe(200);
+    const { data } = IntakeDraft.parse(res.json());
+    expect(data.quoteNeededBy).toBe('2026-11-31');
+    expect(data.estAnnualRevenue).toBe(1e15);
+    expect(data.items?.[0]).toMatchObject({ productNeededBy: '2026-02-30', heightMm: 1e12 });
+  });
+
+  it('saves another field without touching the old values', async () => {
+    const res = await asRole(app, 'KAM').patch(url(), { data: { description: 'Two cavities' } });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(IntakeDraft.parse(res.json()).data.quoteNeededBy).toBe('2026-11-31');
+  });
+
+  it('still refuses the old value when it is sent again, naming the field', async () => {
+    const kam = asRole(app, 'KAM');
+    expectValidationProblem(
+      await kam.patch(url(), { data: { quoteNeededBy: '2026-11-31' } }),
+      'quoteNeededBy',
+    );
+    expectValidationProblem(
+      await kam.patch(url(), { data: { estAnnualRevenue: 1e15 } }),
+      'estAnnualRevenue',
+    );
+  });
+
+  it('takes the corrected values', async () => {
+    const kam = asRole(app, 'KAM');
+    const stored = IntakeDraft.parse((await kam.get(url())).json()).data;
+    const item = {
+      ...stored.items![0]!,
+      productNeededBy: '2027-02-27',
+      heightMm: 180,
+      estAnnualVolume: 750_000,
+    };
+    const res = await kam.patch(url(), {
+      data: { quoteNeededBy: '2026-12-15', estAnnualRevenue: 1_250_000, items: [item] },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(IntakeDraft.parse(res.json()).data).toMatchObject({
+      quoteNeededBy: '2026-12-15',
+      estAnnualRevenue: 1_250_000,
+      items: [{ productNeededBy: '2027-02-27', heightMm: 180 }],
+    });
+  });
+});
