@@ -12,6 +12,8 @@ export interface DashboardQuoteRow {
   quote_id: string;
   quote_number: string;
   account: string;
+  /** UX-005: the Salesforce opportunity's name, from the snapshot the amount is read from; null without one. */
+  opportunity_name: string | null;
   stage_key: string;
   stage_label: string;
   stage_sort: number;
@@ -67,7 +69,7 @@ const quoteRows = (db: DbOrTx, where: SQL, order: SQL = sql`st.entered_at nulls 
     db,
     sql`
     select q.id as quote_id, q.quote_number,
-      coalesce(c.name, 'Unknown customer') as account,
+      coalesce(c.name, 'Unknown customer') as account, so.name as opportunity_name,
       q.stage_key, coalesce(sd.label, q.stage_key) as stage_label, coalesce(sd.sort, 0) as stage_sort,
       q.status, q.version, q.priority_tier,
       q.kam_user_id, k.display_name as kam_name,
@@ -150,7 +152,7 @@ export function returnedToKam(db: DbOrTx, userId: string): Promise<ReturnedRow[]
     db,
     sql`
     select q.id as quote_id, q.quote_number,
-      coalesce(c.name, 'Unknown customer') as account,
+      coalesce(c.name, 'Unknown customer') as account, null::text as opportunity_name,
       q.stage_key, coalesce(sd.label, q.stage_key) as stage_label, coalesce(sd.sort, 0) as stage_sort,
       q.status, q.version, q.priority_tier,
       q.kam_user_id, k.display_name as kam_name,

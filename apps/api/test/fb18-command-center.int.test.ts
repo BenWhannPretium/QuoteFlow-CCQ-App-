@@ -249,6 +249,28 @@ describe('W13-26: a quote on hold on the Command Center dashboards', () => {
     }
   });
 
+  // UX-005: the stage lists say who a quote is for, not only its number.
+  it('names the customer and the Salesforce opportunity beside the quote number', async () => {
+    const [row] = await db.db.execute<{ customer: string; opportunity: string }>(sql`
+      select c.name as customer, so.name as opportunity
+      from quote q
+      join customer c on c.id = q.customer_id
+      join sf_opportunity_snapshot so on so.sf_opportunity_id = q.sf_opportunity_id
+      where q.quote_number = ${held.quoteNumber}`);
+    expect(row?.customer).toBeTruthy();
+    expect(row?.opportunity).toBeTruthy();
+    const kam = await dashboard('KAM', 'KAM');
+    const leader = await dashboard('SalesLeader', 'SalesLeader');
+    if (kam.role !== 'KAM' || leader.role !== 'SalesLeader') throw new Error('wrong dashboard');
+    for (const d of [kam, leader]) {
+      const listed = boardQuotes(d).find((q) => q.quoteNumber === held.quoteNumber);
+      expect(listed, d.role).toMatchObject({
+        account: row!.customer,
+        opportunityName: row!.opportunity,
+      });
+    }
+  });
+
   it('is scoped like the quote: another KAM’s Command Center never names it', async () => {
     const res = await asRole(app, 'KAM', 'owner').get('/api/v1/dashboards/KAM');
     expect(res.statusCode, res.body).toBe(200);

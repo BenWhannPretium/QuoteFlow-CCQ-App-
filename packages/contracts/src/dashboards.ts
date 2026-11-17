@@ -41,6 +41,11 @@ export type DashHold = z.infer<typeof DashHold>;
 export const DashQuote = z.object({
   quoteNumber: z.string(),
   account: z.string(),
+  /**
+   * UX-005: the Salesforce opportunity's name, shown beside the customer on the stage lists. Read-only,
+   * from the same row as the quote (the caller's own scope); null when the quote has no snapshot.
+   */
+  opportunityName: z.string().nullable().optional(),
   stageKey: z.string(),
   stageLabel: z.string(),
   tier: z.string().nullable(),

@@ -216,6 +216,10 @@ function QueueBlock({ q, title, testId }: { q: QueueHealth; title: string; testI
   );
 }
 
+/** UX-005: a customer or opportunity name on a stage list: cut to one line, whole while its row has focus. */
+const STAGE_QUOTE_LINE =
+  'truncate group-focus-within:break-words group-focus-within:whitespace-normal';
+
 /**
  * Stage columns with counts and a few quotes each: the ones on hold first (FB-18, W13-26: each with the
  * "On hold" chip), then the oldest. Stacks to one column on a phone.
@@ -224,7 +228,11 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="mini-board">
       {p.stages.map((s) => (
-        <li key={s.stageKey} className="bg-muted/50 rounded-lg border p-3" data-stage={s.stageKey}>
+        <li
+          key={s.stageKey}
+          className="bg-muted/50 min-w-0 rounded-lg border p-3"
+          data-stage={s.stageKey}
+        >
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="text-sm font-semibold">{s.label}</h3>
             <span className="font-display text-xl tabular-nums">{s.count}</span>
@@ -233,20 +241,42 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
             <p className="text-muted-foreground text-xs">{fmtUsdCompact(s.sfAmount)} SF amount</p>
           )}
           {s.quotes.length > 0 && (
-            <ul className="mt-2 grid gap-1 text-xs">
+            <ul className="mt-2 grid gap-2 text-xs">
               {s.quotes.map((q) => (
                 <li
                   key={q.quoteNumber}
-                  className="flex flex-wrap items-center justify-between gap-x-2"
+                  className="group grid min-w-0 gap-0.5"
                   data-status={q.status}
+                  data-quote={q.quoteNumber}
                 >
-                  <span className="flex flex-wrap items-center gap-x-2">
-                    {quoteLink(q.quoteNumber)}
-                    {q.hold && <HoldChip hold={q.hold} />}
+                  <span className="flex flex-wrap items-center justify-between gap-x-2">
+                    <span className="flex flex-wrap items-center gap-x-2">
+                      {quoteLink(q.quoteNumber)}
+                      {q.hold && <HoldChip hold={q.hold} />}
+                    </span>
+                    <span className="text-muted-foreground tabular-nums">
+                      {q.daysInStage === null ? '' : `${q.daysInStage} d`}
+                    </span>
                   </span>
-                  <span className="text-muted-foreground tabular-nums">
-                    {q.daysInStage === null ? '' : `${q.daysInStage} d`}
+                  {/* UX-005: who the quote is for. One line each; the full text shows on hover (the
+                      title) and, for the keyboard, when the row's link has focus. */}
+                  <span
+                    className={cn(STAGE_QUOTE_LINE, 'text-foreground-2')}
+                    title={q.account}
+                    data-testid="stage-quote-customer"
+                  >
+                    {q.account}
                   </span>
+                  {q.opportunityName && (
+                    // Not on a phone: the customer is enough there.
+                    <span
+                      className={cn(STAGE_QUOTE_LINE, 'text-muted-foreground hidden sm:block')}
+                      title={q.opportunityName}
+                      data-testid="stage-quote-opportunity"
+                    >
+                      {q.opportunityName}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

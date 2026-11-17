@@ -136,6 +136,7 @@ function dashQuote(r: DashboardQuoteRow, now: Date, holdOf: HoldOf): DashQuote {
   return {
     quoteNumber: r.quote_number,
     account: r.account,
+    opportunityName: r.opportunity_name,
     stageKey: r.stage_key,
     stageLabel: r.stage_label,
     tier: r.priority_tier,
