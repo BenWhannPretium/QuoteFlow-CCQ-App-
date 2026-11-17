@@ -25,6 +25,7 @@ describe('production SPA serving', () => {
         SP_SITE_ID: 'site',
         SP_DRIVE_ID: 'drive',
         MAIL_MODE: 'graph',
+        RATE_LIMIT_MAX: '2',
       }),
       { db: fakeDb() },
     );
@@ -47,6 +48,37 @@ describe('production SPA serving', () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/nope' });
     expect(res.statusCode).toBe(404);
     expect(res.headers['content-type']).toContain('application/problem+json');
+  });
+
+  it('does not count SPA files against the rate limit (RATE_LIMIT_MAX is 2 here)', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      statuses.push(
+        (await app.inject({ method: 'GET', url: i % 2 ? '/' : '/quotes/1' })).statusCode,
+      );
+    }
+    expect(statuses).toEqual([200, 200, 200, 200, 200, 200]);
+  });
+
+  it('limits a public API route per client address, whatever source port the front end reports', async () => {
+    // One caller, three connections: App Service can append `address:port` to X-Forwarded-For.
+    const statuses: number[] = [];
+    for (const port of [50001, 50002, 50003]) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/config',
+        headers: { 'x-forwarded-for': `203.0.113.9:${port}` },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses).toEqual([200, 200, 429]);
+    // Another caller is unaffected.
+    const other = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/config',
+      headers: { 'x-forwarded-for': '198.51.100.7:50001' },
+    });
+    expect(other.statusCode).toBe(200);
   });
 
   it('does not expose swagger docs in production', async () => {

@@ -1,6 +1,7 @@
 import type { FastifyServerOptions } from 'fastify';
 import { stdSerializers } from 'pino';
 
+import { withoutPort } from './clientIp';
 import type { AppConfig } from './config';
 
 /** Exact paths removed from every log line. */
@@ -65,7 +66,11 @@ interface LoggedRequest {
 
 /** A request for the log: method, path and the client address. Never headers, query or body. */
 export function serializeRequest(req: LoggedRequest): Record<string, unknown> {
-  return { method: req.method, url: pathOnly(req.url), remoteAddress: req.ip };
+  return {
+    method: req.method,
+    url: pathOnly(req.url),
+    remoteAddress: req.ip === undefined ? undefined : withoutPort(req.ip),
+  };
 }
 
 export function loggerOptions(config: AppConfig): NonNullable<FastifyServerOptions['logger']> {

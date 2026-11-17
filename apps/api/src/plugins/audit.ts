@@ -4,6 +4,8 @@ import type { Actor } from '@ccq/domain';
 import type { FastifyBaseLogger, FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 
+import { clientIp } from '../clientIp';
+
 /**
  * Usage audit log (F-12, B-09). Append-only `audit_event` rows for:
  *
@@ -24,7 +26,7 @@ export interface AuditMeta {
 }
 
 export const auditMeta = (req: FastifyRequest): AuditMeta => ({
-  ip: req.ip,
+  ip: clientIp(req),
   userAgent: req.headers['user-agent'],
   requestId: req.id,
 });

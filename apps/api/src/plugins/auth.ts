@@ -15,6 +15,7 @@ import { devIdentity } from '../auth/dev';
 import type { IdentityService, ProvisionedUser } from '../auth/directory';
 import type { EntraVerifier } from '../auth/entra';
 import { AuthError, assertHasRole, type Identity } from '../auth/identity';
+import { clientIp } from '../clientIp';
 
 /** A route's permission: a matrix permission, or any signed-in user with a CCQ role. */
 export type RoutePermission = Permission | 'authenticated';
@@ -104,7 +105,7 @@ export const authPlugin = fp(
     // B-21: the rate limit runs on preHandler (it needs req.actor), which a rejected sign-in never
     // reaches. Count those here, per client address, against the same budget.
     const authFailureLimit = app.hasDecorator('createRateLimit')
-      ? app.createRateLimit({ keyGenerator: (req) => `auth-fail:${req.ip}` })
+      ? app.createRateLimit({ keyGenerator: (req) => `auth-fail:${clientIp(req)}` })
       : null;
 
     app.decorateRequest('actor', null);
@@ -147,7 +148,7 @@ export const authPlugin = fp(
         const who = await authenticate(req);
         personaKey = who.dev?.personaKey;
         user = await identity.resolve(who, {
-          ip: req.ip,
+          ip: clientIp(req),
           userAgent: req.headers['user-agent'],
           requestId: req.id,
         });

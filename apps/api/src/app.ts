@@ -43,6 +43,7 @@ import {
   type UserDirectory,
 } from './auth/directory';
 import { createEntraVerifier } from './auth/entra';
+import { clientIp } from './clientIp';
 import { appEnvironment, type AppConfig, type AppEnvironment } from './config';
 import {
   createFabricMirrorCheckScheduler,
@@ -118,6 +119,8 @@ export interface AppDeps {
 }
 
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
+
+const isApiUrl = (url: string) => url === '/api' || url.startsWith('/api/');
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -280,7 +283,11 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     max: config.RATE_LIMIT_MAX,
     timeWindow: '1 minute',
     hook: 'preHandler',
-    keyGenerator: (req) => (req.actor ? `user:${req.actor.userId}` : `ip:${req.ip}`),
+    keyGenerator: (req) => (req.actor ? `user:${req.actor.userId}` : `ip:${clientIp(req)}`),
+    // The API only. In production this instance also serves the SPA: its files carry no user, so every
+    // script, style and font request in the building counted against one shared `ip:<office NAT>`
+    // budget, and a morning of page loads could answer 429 for JavaScript.
+    allowList: (req) => !isApiUrl(req.url),
   });
   // B-16 uploads: one file per request, streamed. The limit is one byte over the 100 MB cap, so a
   // body that runs past its declared size is caught by the store (413) before the parser cuts it.
