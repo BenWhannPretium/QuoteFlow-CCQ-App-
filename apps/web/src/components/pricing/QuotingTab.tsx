@@ -512,6 +512,15 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
           data-testid="pricing-record-form"
           onSubmit={(e) => {
             e.preventDefault();
+            // An approver needs a time. The server stamps "now" on an approval sent without one, so a
+            // cleared or half-typed field must be stopped here, not sent as null: that would record
+            // (or move) the approval time without the user having chosen it.
+            if (form.approvedBy && approvedAtIso(form.approvedBy, form.approvedAt) === null) {
+              setErrors([
+                { path: '/approvedAt', message: 'Enter the date and time the price was approved' },
+              ]);
+              return;
+            }
             save.mutate();
           }}
         >
