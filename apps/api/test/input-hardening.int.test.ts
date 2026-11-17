@@ -134,31 +134,57 @@ describe('a draft saved before the checks existed still opens and can be fixed',
       where id = ${draftId}`);
   });
 
-  it('opens, showing the stored values as they are', async () => {
+  it('opens, showing the stored values as they are and the dates as blocking issues', async () => {
     const res = await asRole(app, 'KAM').get(url());
     expect(res.statusCode, res.body).toBe(200);
-    const { data } = IntakeDraft.parse(res.json());
+    const { data, evaluation } = IntakeDraft.parse(res.json());
     expect(data.quoteNeededBy).toBe('2026-11-31');
     expect(data.estAnnualRevenue).toBe(1e15);
     expect(data.items?.[0]).toMatchObject({ productNeededBy: '2026-02-30', heightMm: 1e12 });
+    // The date picker shows an impossible day as blank, so the wizard has to name the field.
+    const messages = evaluation.blocking.map((b) => `${b.field}: ${b.message}`);
+    expect(messages).toContain(
+      'quote_needed_by: Quote needed by is not a real calendar date. Pick the date again.',
+    );
+    expect(messages).toContain(
+      'product_needed_by: Product needed by is not a real calendar date. Pick the date again.',
+    );
   });
 
-  it('saves another field without touching the old values', async () => {
-    const res = await asRole(app, 'KAM').patch(url(), { data: { description: 'Two cavities' } });
-    expect(res.statusCode, res.body).toBe(200);
-    expect(IntakeDraft.parse(res.json()).data.quoteNeededBy).toBe('2026-11-31');
-  });
-
-  it('still refuses the old value when it is sent again, naming the field', async () => {
+  it('saves the whole draft back, as the wizard does, with the old values untouched', async () => {
+    // The wizard sends every field on every save. Checking them all as new refused every save,
+    // whatever the KAM had edited.
     const kam = asRole(app, 'KAM');
+    const { data } = IntakeDraft.parse((await kam.get(url())).json());
+    const res = await kam.patch(url(), { data: { ...data, description: 'Two cavities' } });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(IntakeDraft.parse(res.json()).data).toMatchObject({
+      description: 'Two cavities',
+      quoteNeededBy: '2026-11-31',
+      estAnnualRevenue: 1e15,
+      items: [{ productNeededBy: '2026-02-30', heightMm: 1e12 }],
+    });
+  });
+
+  it('still refuses a value this save changes, naming the field and the item', async () => {
+    const kam = asRole(app, 'KAM');
+    const { data } = IntakeDraft.parse((await kam.get(url())).json());
     expectValidationProblem(
-      await kam.patch(url(), { data: { quoteNeededBy: '2026-11-31' } }),
-      'quoteNeededBy',
+      await kam.patch(url(), { data: { ...data, quoteNeededBy: '2026-02-30' } }),
+      '/data/quoteNeededBy',
     );
     expectValidationProblem(
-      await kam.patch(url(), { data: { estAnnualRevenue: 1e15 } }),
-      'estAnnualRevenue',
+      await kam.patch(url(), { data: { ...data, estAnnualRevenue: 2e15 } }),
+      '/data/estAnnualRevenue',
     );
+    expectValidationProblem(
+      await kam.patch(url(), {
+        data: { ...data, items: [{ ...data.items![0]!, productNeededBy: '2026-13-01' }] },
+      }),
+      '/data/items/0/productNeededBy',
+    );
+    // Nothing of a refused save is kept.
+    expect(IntakeDraft.parse((await kam.get(url())).json()).data.quoteNeededBy).toBe('2026-11-31');
   });
 
   it('takes the corrected values', async () => {

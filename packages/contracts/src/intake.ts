@@ -406,7 +406,12 @@ export type CreateIntakeDraftBody = z.input<typeof CreateIntakeDraftBody>;
 
 /** PATCH /api/v1/quotes/drafts/:id (autosave). Top-level keys in `data` replace the stored ones. */
 export const PatchIntakeDraftBody = z.object({
-  data: IntakeDraftData.optional(),
+  /**
+   * Read as stored, not as sent: the wizard sends the whole draft on every save, so a value an older
+   * build stored (see `fieldKinds`) would otherwise refuse every save, whatever field was edited. The
+   * server checks strictly the values a save changes (`refusedDraftValues`), as it does for list codes.
+   */
+  data: StoredIntakeDraftData.optional(),
   step: z.number().int().min(1).max(4).optional(),
   /**
    * DR-kam-sales-leader-05: the draft's `updatedAt` this save was made from. When the stored draft has
@@ -416,6 +421,21 @@ export const PatchIntakeDraftBody = z.object({
   expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
 });
 export type PatchIntakeDraftBody = z.input<typeof PatchIntakeDraftBody>;
+
+/**
+ * The values in `data` a request may not send (an impossible day, a figure beyond its column), each with
+ * its path inside the draft data. Empty when every value passes the strict reading.
+ */
+export function refusedDraftValues(
+  data: IntakeDraftData,
+): { path: (string | number)[]; message: string }[] {
+  const parsed = IntakeDraftData.safeParse(data);
+  if (parsed.success) return [];
+  return parsed.error.issues.map((issue) => ({
+    path: issue.path.filter((p): p is string | number => typeof p !== 'symbol'),
+    message: issue.message,
+  }));
+}
 
 export const IntakeDraftParams = z.object({ id: z.uuid() });
 
