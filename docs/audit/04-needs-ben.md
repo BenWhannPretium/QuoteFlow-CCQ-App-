@@ -8,7 +8,7 @@ Ranked by how much it matters in the first week.
 
 ### N-01. Prod alerts notify nobody, and the app's logs are not kept anywhere queryable
 
-- `infra/main.prod.bicepparam` has `alertEmails = []`, so the nine alert rules fire into the portal only.
+- `infra/main.prod.bicepparam` has `alertEmails = []`, so the eight alert rules (seven metric alerts and the availability alert on the health test) fire into the portal only.
 - The API has no Application Insights SDK. `APPLICATIONINSIGHTS_CONNECTION_STRING` is set and nothing reads it. The logs are JSON on stdout, kept in the App Service file system (35 MB, 7 days).
 - Until this audit every log line read `"err":{}`, `"req":{}`, `"res":{}` (fixed, A-02), so even those files could not explain a 500.
 
