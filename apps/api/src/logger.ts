@@ -41,15 +41,24 @@ export function redactSensitive(value: unknown, depth = 0): unknown {
 /**
  * Error fields that can echo row or statement contents: Postgres's "Failing row contains (…)" and
  * statement context, and the statement text and bound values the driver and drizzle attach (`query`,
- * `parameters`, `params`). The code, table, column and constraint stay: they say what failed without
- * saying for which customer.
+ * `parameters`, `params`, `args`). The code, table, column and constraint stay: they say what failed
+ * without saying for which customer.
+ *
+ * The names are the ones postgres.js sets (snake_case, from the server's error fields): the statement a
+ * function, trigger or policy was running is `internal_query`, with `internal_position` pointing into
+ * it. `hint` goes too: a `RAISE ... USING HINT` can carry whatever its author put in it. `internalQuery`
+ * is node-postgres's spelling, kept in case the driver changes.
  */
 const ERR_DATA_FIELDS = new Set([
   'detail',
   'where',
+  'hint',
   'query',
   'parameters',
   'params',
+  'args',
+  'internal_query',
+  'internal_position',
   'internalQuery',
   'message',
   'stack',

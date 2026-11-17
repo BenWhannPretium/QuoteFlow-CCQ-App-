@@ -104,6 +104,33 @@ describe('serializeError on a failed database statement', () => {
     expect(out.stack).toContain('logger.test.ts');
   });
 
+  it('withholds the statement a function or trigger was running (the driver names it internal_query)', () => {
+    // postgres.js copies the server's error fields under snake_case names. A denylist that spelled this
+    // one `internalQuery` (node-postgres's name) let the statement text into the log.
+    const inFunction = Object.assign(new Error('division by zero'), {
+      name: 'PostgresError',
+      code: '22012',
+      severity: 'ERROR',
+      internal_query: "select 4250000.25 / 0 from customer where name = 'Acme Bottling'",
+      internal_position: '8',
+      hint: 'Check the figures for Acme Bottling.',
+      where: 'PL/pgSQL function rescore(uuid) line 12 at SQL statement',
+      args: ['Acme Bottling'],
+      routine: 'int4div',
+    });
+    const out = serializeError(
+      new Error('Failed query: select rescore($1)\nparams: 7', { cause: inFunction }),
+    );
+    const text = JSON.stringify(out);
+    expect(text).not.toContain('Acme');
+    expect(text).not.toContain('4250000');
+    expect(text).not.toContain('internal_');
+    expect(out).toMatchObject({
+      code: '22012',
+      cause: { type: 'PostgresError', message: 'division by zero', routine: 'int4div' },
+    });
+  });
+
   it('withholds the value a Postgres data exception quotes, and errors nested under other keys', () => {
     const badValue = Object.assign(
       new Error('invalid input syntax for type uuid: "Acme Bottling"'),

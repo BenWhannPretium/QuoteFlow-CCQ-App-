@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
+import { serializeError } from '../src/logger';
 import { testConfig } from '../src/test-utils';
 
 /**
@@ -202,5 +203,28 @@ describe('intake audit rows hold the address without its source port', () => {
       sql`select distinct ip from audit_event where ip like '203.0.113.9%'`,
     );
     expect(rows.map((r) => r.ip)).toEqual(['203.0.113.9']);
+  });
+});
+
+/**
+ * PR review 2026-11-17. A statement failing inside a function, trigger or policy carries the text of the
+ * statement it was running. postgres.js names that field `internal_query`; the log serializer withheld
+ * `internalQuery`, another driver's spelling, so the text reached the log.
+ */
+describe('a real driver error is logged without the statement it was running', () => {
+  it('withholds internal_query', async () => {
+    const err: unknown = await db.db
+      .execute(sql.raw(`do $$ begin execute 'selec audit_marker_statement'; end $$`))
+      .then(
+        () => null,
+        (e: unknown) => e,
+      );
+    // What the driver handed over, so this test cannot pass for the wrong reason.
+    expect((err as { cause?: { internal_query?: string } }).cause?.internal_query).toContain(
+      'audit_marker_statement',
+    );
+    const logged = JSON.stringify(serializeError(err));
+    expect(logged).toContain('42601');
+    expect(logged).not.toContain('audit_marker_statement');
   });
 });
