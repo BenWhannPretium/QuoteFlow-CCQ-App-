@@ -41,6 +41,15 @@ Hard limits that no part overrides:
 - **Never touch real Azure resources or production.** Do not run `deploy-prod.yml`, `az deployment ... create`,
   `az webapp` writes, Key Vault writes, or anything against `rg-ccq-prod` or the test site. Read-only
   `az bicep build` / `lint` is fine. A Bicep what-if is not (it needs the subscription).
+- **Every local run is inert.** `pnpm dev` loads the developer's `.env`, which may point at the SharePoint test
+  site, Graph mail or the Salesforce org. Fuzzing, parallel attacks, soak and role click-throughs would hit them.
+  So before **any** local run of the API, set these explicitly on the command line (or in a throwaway env file
+  you create), overriding `.env`, and print the effective values to confirm: `SF_MODE=fake`,
+  `FILESTORE_MODE=local`, `MAIL_MODE=fake`, `AUTH_MODE=dev`, `FABRIC_WORKSPACE_ID` and `FABRIC_MIRRORED_DB_ID`
+  unset, and a `DATABASE_URL` whose host is `localhost` or `127.0.0.1` (refuse to start otherwise). Never read
+  or print secret values from `.env`. Note `NODE_ENV=production` refuses `local`/`fake` modes by design: use it
+  only to prove the refusals fire, and run the load, fuzz and soak tests on a production *build* with
+  `NODE_ENV` left at development or test.
 - **Never push to or merge into `main`.** Work on a new branch `claude/audit-prerelease` cut from
   `origin/main` (`git fetch` first; PRs #98 to #105 are already merged, so local `main` may be behind).
   Commit in small Conventional-Commit units (`fix(...)`, `refactor(...)`, `perf(...)`, `test(...)`, `docs(...)`),
@@ -152,8 +161,10 @@ prove it fine (note it in the report as "checked, OK, here is why") or fix it wi
 - Migrations: apply the whole chain to an empty DB **and** upgrade a DB loaded with the full synthetic dataset
   from the previous release (use `pnpm db:demo` / seeds, plus your own edge-case rows: nulls, legacy ERF
   references, grandfathered quotes, retired list values) to prove backfills and NOT NULL/CHECK additions do not
-  fail on real-shaped data. Check each migration for long locks on big tables, missing `CONCURRENTLY` indexes
-  where it matters, unsafe defaults, irreversible data loss, and idempotency of the deploy-time migrate step
+  fail on real-shaped data. Check each migration for long locks on big tables, index additions that
+  lock a big table (note: the migrator, `packages/db/src/migrate.ts`, runs drizzle's `migrate()` in one
+  transaction, so `CREATE INDEX CONCURRENTLY` is **not** usable in a migration: use plain `CREATE INDEX`, and flag
+  any index on a table large enough in prod for the lock to matter), unsafe defaults, irreversible data loss, and idempotency of the deploy-time migrate step
   (two instances starting together). Verify the Fabric guards (`fabricCompat`, `fabricTwins`, `fabric.int`) are
   meaningful, not vacuous.
 
@@ -171,10 +182,13 @@ prove it fine (note it in the report as "checked, OK, here is why") or fix it wi
   nothing it must not (no `.env`, no test fixtures, no dev dependencies that matter).
 - Dependencies: `pnpm audit`, the one ignored GHSA (is the ignore still justified?), deprecated or unmaintained
   packages, version ranges that are not pinned, Node 22 compatibility, lockfile integrity.
-- Build output: the production bundle starts cleanly with `NODE_ENV=production` and a production-shaped env
-  (entra mode, no dev vars). **Actually boot the built API that way against the local DB** (with fake/inert
-  integration modes where prod values are unavailable) and exercise health, auth rejection, SPA fallback, a
-  404 under `/api`, and a graceful SIGTERM. Record what you ran.
+- Build output: the production bundle starts cleanly with a production-shaped env (entra mode, no dev vars).
+  **Boot the built API against the local DB** and exercise health, auth rejection, SPA fallback, a 404 under
+  `/api`, and a graceful SIGTERM. Under `NODE_ENV=production` the config refuses `local` file store and
+  `fake`/`smtp` mail by design, so: (1) first prove those refusals fire with a production env; (2) for the
+  exercising run, keep every integration inert and local (see "Every local run is inert"), using a built bundle
+  with `NODE_ENV` at development or test. Do not point a production-mode boot at real integrations. Record what
+  you ran.
 
 **Adversarial pass: actively try to break it (local instance only, synthetic data)**
 - Stop reading and start attacking. Against the running local app, for **each role**, script attempts to do what
@@ -418,4 +432,5 @@ The app being right is not enough: the people releasing and testing it need mate
 - Rank by **likelihood x impact on day one in production**. A one-line fix for a crash on a common path beats ten
   tidy-ups. Spend the effort accordingly.
 - If you hit a decision that is genuinely Ben's and cannot be defaulted (for example, a fix that changes
-  a business rule), do not stall: record it in `04-needs-ben.md`, choose the safe default, and move on.
+  a business rule), do not stall: record it in `04-needs-ben.md`, leave the code and config exactly as they are (never pick and commit a value for an
+  open or `provisional` rule), and move on.
