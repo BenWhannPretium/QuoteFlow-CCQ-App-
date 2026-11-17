@@ -156,8 +156,8 @@ You can read pricing, margin and capital figures on any quote you can open. You 
 |---|---|---|---|---|
 | 58 | Open `<CCQ-QT-1 staged by Ben>` → **Quoting** tab. | You read the price approval record: "Price approved ✓ on <date> by <name>", the pricing basis and range, references and the capital readiness. There is no **Save price approval** or **Save capital readiness** button for you. | | |
 | 59 | Open its **Engineering** tab. | You read the **Budgetary capital estimate (USD)** and the capacity evidence (utilization before and after, assumed effectiveness, cycle time). Nothing is editable. | | |
-| 60 | Open `<CCQ-FR-1 staged by Ben>` → **Quoting** tab. | A lock line reads "Locked after G3 · decided by <name> on <date and time> · reopens if the quote is sent back" (the time is US Central, for example "Nov 17, 2026, 12:18 PM CST"). The Engineering tab shows the same for G2. | | |
-| 61 | Open `<CCQ-CD-4 staged by Ben>` and find **Commercial terms**. | Terms and the capital flag are read-only: "Locked after G4 · decided by <name> on <date and time> …". You cannot edit them. | | |
+| 60 | Open `<CCQ-FR-1 staged by Ben>` → **Quoting** tab. | A lock line reads "Locked after the Quoting decision · decided by <name> on <date and time> · reopens if the quote is sent back" (the time is US Central, for example "Nov 17, 2026, 12:18 PM CST"). The Engineering tab shows the same, naming the Engineering & Capacity decision. | | |
+| 61 | Open `<CCQ-CD-4 staged by Ben>` and find **Commercial terms**. | Terms and the capital flag are read-only: "Locked after the Final Review decision · decided by <name> on <date and time> …". You cannot edit them. | | |
 | 62 | **Pipeline** → **Columns**. | The **Budgetary capital estimate** and **Capital readiness** columns are offered (they are the same for every role). | | |
 | 63 | Choose both columns. Click **Export CSV**. Open the file. | The file has the columns you chose. | | |
 | 64 | Open the emails QuoteFlow sent you about quotes. | No price, margin or capital amount in any email. | | |

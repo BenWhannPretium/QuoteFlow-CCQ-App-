@@ -87,7 +87,7 @@ You are the only role that can change a priority tier. It applies at once, with 
 | 29 | **Pipeline** → **Board**. Drag a quote that waits at G1 to **Engineering & Capacity**. | The **Qualify quote** dialog opens to confirm. Cancel. The card goes back. | | |
 | 30 | Open a quote in **Quoting** or later → **Quoting** tab. | You can read the price approval record and the capital readiness (every role that can read a quote sees them). There is no button to change them. | | |
 | 31 | **Pipeline** → **Columns**. | **Budgetary capital estimate** and **Capital readiness** are offered, like for every role. | | |
-| 32 | Open a quote whose G3 or G4 is decided. | The section is locked: "Locked after G3 · decided by <name> on <date and time> · reopens if the quote is sent back" (the time is US Central, for example "Nov 17, 2026, 12:18 PM CST"). | | |
+| 32 | Open a quote whose G3 or G4 is decided. | The section is locked: "Locked after the Quoting decision · decided by <name> on <date and time> · reopens if the quote is sent back" (the time is US Central, for example "Nov 17, 2026, 12:18 PM CST"). | | |
 | 33 | **Command Center** → **Analytics** (the second view, at the top). Pick your region and **Last 90 days**. Then click **Command Center** in the menu. | The **Leadership report** loads, with the same filters and charts as before. Every chart has an ⓘ with its definition. The Command Center opens again on **Analytics**: it remembers the view you chose last. Click **My work** to go back. An old `/analytics` link or bookmark opens this view with its filters. | | |
 
 ## Part F: Terms and extra approval, read and record (FB-08)
