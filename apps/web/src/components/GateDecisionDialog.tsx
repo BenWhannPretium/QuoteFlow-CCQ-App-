@@ -339,6 +339,12 @@ export function GateDecisionDialog({
         queryClient.invalidateQueries({ queryKey: ['stage-times', quoteNumber] }),
         queryClient.invalidateQueries({ queryKey: ['my-proposals'] }),
         queryClient.invalidateQueries({ queryKey: ['pipeline'] }),
+        // The decision is also a timeline entry, moves the quote on every role's Command Center and
+        // raises notifications; an override waiting on the old stage may no longer apply.
+        queryClient.invalidateQueries({ queryKey: ['timeline', quoteNumber] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+        queryClient.invalidateQueries({ queryKey: ['overrides', 'inbox'] }),
       ]);
       toast.success({
         title: `${action?.outcomeLabel ?? 'Decision'} recorded`,
@@ -447,6 +453,12 @@ export function GateDecisionDialog({
         </DialogHeader>
 
         {quote.isPending && <p className="text-muted-foreground text-sm">Loading the quote…</p>}
+        {quote.isError && (
+          <p role="alert" className="text-destructive text-sm">
+            This quote could not be loaded, so no decision can be recorded here. Close this and try
+            again.
+          </p>
+        )}
         {quote.data && (
           <div className="grid gap-4">
             <QualificationWarnings warnings={quote.data.warnings} />
