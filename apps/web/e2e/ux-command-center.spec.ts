@@ -488,3 +488,93 @@ test.describe('UX-017: small form frictions', () => {
     });
   }
 });
+
+test.describe('First-run orientation: the welcome card on the Command Center', () => {
+  const welcome = (page: Page) => page.getByRole('region', { name: 'Welcome to QuoteFlow' });
+
+  test('a KAM sees their three jobs and the quick-start; "Got it" puts the card away for good', async ({
+    page,
+  }) => {
+    await signInAs(page, 'kam');
+    await page.goto('/');
+    const card = welcome(page);
+    await expect(card).toBeVisible();
+    await expect(card.getByText('Your main jobs here, and where each one is done.')).toBeVisible();
+    await expect(card.getByRole('listitem')).toHaveText([
+      'Start a quote from your Salesforce opportunity: New intake.',
+      'Fix and resubmit a quote that was sent back: Returned to me, on this page.',
+      'Record the customer’s answer: My proposals.',
+    ]);
+    await expect(
+      card.getByRole('link', { name: 'Read the one-page quick-start for Key account manager' }),
+    ).toHaveAttribute('href', '/help/quickstart.html#kam');
+    // While the card is up, the plain "New here?" line under the header is not shown as well.
+    await expect(page.getByTestId('quickstart-link')).toHaveCount(0);
+    await auditScreen(card, 'UX-first-run');
+
+    await card.getByRole('button', { name: 'Got it' }).click();
+    await expect(card).toHaveCount(0);
+    // The quick-start stays one click away, and takes the focus the button had.
+    await expect(page.getByTestId('quickstart-link').getByRole('link')).toBeFocused();
+
+    await page.reload();
+    await expect(page.getByTestId('landing')).toHaveAttribute('data-role', 'KAM');
+    await expect(page.getByTestId('dash-my-pipeline')).toBeVisible();
+    await expect(welcome(page)).toHaveCount(0);
+    await expect(page.getByTestId('quickstart-link')).toBeVisible();
+
+    // Remembered per user: the next person on this browser still gets their own welcome.
+    await page.getByTestId('dev-persona').selectOption('kam-owner');
+    await expect(welcome(page)).toBeVisible();
+  });
+
+  // Every role that lands on the Command Center gets a card, Finance and the scheduler included.
+  for (const [persona, role, firstJob] of [
+    ['sales-leader', 'Sales leader', 'Decide which new intakes go to Engineering: To qualify.'],
+    ['eng-lead', 'Engineering lead', 'Assign each quote to an engineer: Engineering queue.'],
+    ['engineer', 'Engineer', 'See the reviews assigned to you: My assignments.'],
+    [
+      'production-scheduler',
+      'Production scheduler',
+      'See the quotes whose capacity you own: Capacity requests.',
+    ],
+    ['pricing', 'Pricing', 'See the quotes ready to price: Pricing queue.'],
+    ['pricing-lead', 'Pricing lead', 'Assign each quote to a pricer: Pricing queue.'],
+    [
+      'finance',
+      'Finance',
+      'Find out that a quote needs a payback model: your notifications and email.',
+    ],
+    ['approver', 'Approver', 'See the quotes waiting for your decision: Approvals.'],
+    ['leadership', 'Leadership', 'See where every open quote stands: Pipeline.'],
+    ['admin', 'Admin', 'Change value lists, reason codes, labels, settings and scoring: Admin.'],
+  ] as const) {
+    test(`${persona}: the card lists that role's three jobs and links its quick-start`, async ({
+      page,
+    }) => {
+      await signInAs(page, persona);
+      await page.goto('/');
+      const card = welcome(page);
+      await expect(card.getByRole('listitem')).toHaveCount(3);
+      await expect(card.getByRole('listitem').first()).toHaveText(firstJob);
+      await expect(
+        card.getByRole('link', { name: `Read the one-page quick-start for ${role}` }),
+      ).toBeVisible();
+      await expect(card.getByRole('button', { name: 'Got it' })).toBeVisible();
+    });
+  }
+
+  test('on a phone the card fits, and its link and button are 44 px tall', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAs(page, 'finance');
+    await page.goto('/');
+    const card = welcome(page);
+    await expect(card).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    for (const target of [card.getByRole('link'), card.getByRole('button', { name: 'Got it' })]) {
+      expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+    }
+  });
+});
