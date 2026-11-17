@@ -11,6 +11,8 @@ export interface DbClientOptions {
   connectTimeoutSeconds?: number;
   /** Max size of the separate pool for system-context reads nested in a request. Defaults to 2. */
   systemMax?: number;
+  /** How long `ping()` waits for `select 1` before it reports the database as down. Defaults to 3000. */
+  pingTimeoutMs?: number;
 }
 
 export function createDb(databaseUrl: string, options: DbClientOptions = {}) {
@@ -39,11 +41,21 @@ export function createDb(databaseUrl: string, options: DbClientOptions = {}) {
     systemDb,
     /** Returns true if the database answers `select 1`, false on any error. */
     async ping(): Promise<boolean> {
+      // Bounded. With every connection busy, `select 1` queues behind the requests that hold them, and
+      // the health probe that asks used to wait as long as they did: the one signal meant to say "this
+      // instance is stuck" hung instead of answering 503.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const gaveUp = new Promise<false>((resolve) => {
+        timer = setTimeout(() => resolve(false), options.pingTimeoutMs ?? 3000);
+      });
+      const answered = sql`select 1`.then(
+        () => true,
+        () => false,
+      );
       try {
-        await sql`select 1`;
-        return true;
-      } catch {
-        return false;
+        return await Promise.race([answered, gaveUp]);
+      } finally {
+        clearTimeout(timer);
       }
     },
     async close(): Promise<void> {
