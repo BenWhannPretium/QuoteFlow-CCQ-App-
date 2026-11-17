@@ -32,6 +32,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError, uploadAttachment } from '@/lib/api';
+import { useSyncedForm } from '@/lib/synced-form';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { useReportUnsaved } from '@/lib/unsaved-changes';
@@ -385,7 +386,8 @@ export function PricingInputsCard({
   const eng = quote.engineering;
   const { data: config } = usePublicConfig();
   const initial = extrasForm(eng.review);
-  const [form, setForm] = useState(initial);
+  // Untouched fields follow the server; only what is typed and not saved differs from `initial`.
+  const [form, setForm] = useSyncedForm(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
   // FB-16 (W13-13, W13-14): both rules are settings (provisional), read from the public config.
   const twoStepPlants: TwoStepPlantMachineTypes = settingOr(

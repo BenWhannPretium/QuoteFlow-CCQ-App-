@@ -238,6 +238,79 @@ test('UX-001: the Quoting tab keeps typed values too, and opening it is not a ch
   expect(asked).toEqual([LEAVE_QUESTION]);
 });
 
+test('UX-001: a save by someone else is not your unsaved change, and your save does not undo it', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  // The engineer has the quote, with the solution and capacity saved. The drawing is still to come, so
+  // the first drawing uploaded makes the page read the quote again (see below).
+  const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1), {
+    drawingStatus: 'COMING',
+  });
+  const call = caller(request, quoteNumber);
+  const engineer = await userOf(request, 'engineer');
+  await userOf(request, 'eng-lead');
+  await call('post', 'gates/G1/decisions', 'sales-leader', { outcomeKey: 'advance' });
+  await call('post', 'assignment', 'eng-lead', { engineerId: engineer.id });
+  await call('post', 'eng-review/accept', 'engineer');
+  await call('put', 'eng-review', 'engineer', SOLUTION);
+  await call('put', 'capacity-evidence', 'engineer', { rows: [capacityRow(engineer.id)] });
+
+  await signInAs(page, 'engineer');
+  await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  const tab = page.getByTestId('engineering-tab');
+  const solution = tab.getByTestId('solution-form');
+  const submit = tab.getByRole('button', { name: 'Submit to engineering lead' });
+  await expect(submit).toBeEnabled();
+
+  // The engineer types one field and does not save.
+  await solution.getByLabel(/^Cavitation/).fill('12');
+  await expect(submit).toBeDisabled();
+
+  // Meanwhile the lead, who may also edit, saves another field.
+  const leadsConcept = 'Lead: shuttle with an in-mold label';
+  await call('put', 'eng-review', 'eng-lead', { technicalConceptNotes: leadsConcept });
+
+  // The page reads the quote again (here: the first drawing arrives).
+  await page.getByRole('tab', { name: 'Attachments' }).click();
+  await page
+    .getByTestId('attachments')
+    .getByTestId('attachment-input')
+    .setInputFiles({
+      name: 'Bottle drawing.synthetic.pdf',
+      mimeType: 'application/pdf',
+      buffer: PDF,
+    });
+  await expect(page.getByText('Drawing attached')).toBeVisible();
+  await page.getByRole('tab', { name: 'Engineering' }).click();
+
+  // The untouched field shows the lead's value; the typed field is still the engineer's.
+  await expect(solution.getByLabel('Technical concept')).toHaveValue(leadsConcept);
+  await expect(solution.getByLabel(/^Cavitation/)).toHaveValue('12');
+
+  // Saving sends only what the engineer typed: the lead's value is still there afterwards.
+  await solution.getByRole('button', { name: 'Save solution' }).click();
+  await expect(page.getByText('Solution saved')).toBeVisible();
+  await expect(submit).toBeEnabled();
+  await expect(tab.getByTestId('save-first')).toHaveCount(0);
+  expect(await asksBeforeUnload(page)).toBe(false);
+  const stored = (await (
+    await request.get(`/api/v1/quotes/${quoteNumber}`, { headers: as('engineer') })
+  ).json()) as { engineering: { review: { technicalConceptNotes: string; cavitation: number } } };
+  expect(stored.engineering.review).toMatchObject({
+    technicalConceptNotes: leadsConcept,
+    cavitation: 12,
+  });
+
+  // With nothing typed, a save by the lead leaves nothing "unsaved" here.
+  await call('put', 'eng-review', 'eng-lead', { toolingNotes: 'Lead: two-cavity mold' });
+  await page.reload();
+  await expect(solution.getByLabel(/^Tooling notes/)).toHaveValue('Lead: two-cavity mold');
+  await expect(submit).toBeEnabled();
+  await expect(tab.getByTestId('save-first')).toHaveCount(0);
+});
+
 /** A new page in its own browser context, signed in as a persona. */
 test('UX-001: a decision waits for the save, and a failed refresh keeps what is typed', async ({
   page,

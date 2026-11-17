@@ -46,6 +46,7 @@ import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, downloadBlob, uploadAttachment } from '@/lib/api';
 import { decisionLabel, forwardReadiness, otherDecisionsLabel } from '@/lib/decision-label';
+import { useSyncedForm } from '@/lib/synced-form';
 import { absoluteTime, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import {
@@ -499,8 +500,9 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   const req = (label: string, field: string) =>
     required.has(field) ? `${label} (required)` : label;
   const initial = solutionForm(review);
-  // Reset only from our own successful save, never on a background refetch (it would wipe typing).
-  const [form, setForm] = useState(initial);
+  // A field the user has not typed in follows the server (a save from another tab, or by the lead); what
+  // they typed is kept. So `form` differs from `initial` only by what is typed and not saved.
+  const [form, setForm] = useSyncedForm(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
   // FB-16 (W13-13): why the machine type was cleared when the plant changed ("X does not run Y").
   const [cleared, setCleared] = useState<string | null>(null);
