@@ -360,3 +360,50 @@ test.describe('UX-013: plain words on the Command Center and the intake', () => 
     await expect(board).not.toContainText('SF amount');
   });
 });
+
+test.describe('UX-016: a way back in from "No QuoteFlow access yet"', () => {
+  test('Check again asks again, says so when nothing changed, and lets the person in once they have a role', async ({
+    page,
+  }) => {
+    // Every dev persona has a role, so the page cannot be reached with one. The first two answers from
+    // /me are the API's own no-role problem, served here; the third goes to the real API.
+    let asked = 0;
+    await page.route('**/api/v1/me', async (route) => {
+      asked += 1;
+      if (asked > 2) return route.continue();
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/problem+json',
+        json: {
+          type: 'about:blank',
+          title: 'Forbidden',
+          status: 403,
+          detail: 'No QuoteFlow role assigned; ask IT to add you to an SG-CCQ group',
+          code: 'no_role',
+        },
+      });
+    });
+    await signInAs(page, 'kam');
+    await page.goto('/');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'No QuoteFlow access yet' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('If IT has just added you to a group, press Check again.'),
+    ).toBeVisible();
+    await expect(page.getByTestId('recheck')).toBeEmpty();
+
+    // Still no role: the page stays and says it looked.
+    await page.getByRole('button', { name: 'Check again' }).click();
+    await expect(page.getByTestId('recheck')).toHaveText(
+      'Still no access. If you were added a moment ago, wait a few minutes and check again.',
+    );
+    expect(asked).toBe(2);
+    await auditScreen(page.locator('main'), 'UX-016');
+
+    // IT has added the group: the next check lets the person in.
+    await page.getByRole('button', { name: 'Check again' }).click();
+    await expect(page.getByTestId('landing')).toHaveAttribute('data-role', 'KAM');
+    expect(asked).toBe(3);
+  });
+});

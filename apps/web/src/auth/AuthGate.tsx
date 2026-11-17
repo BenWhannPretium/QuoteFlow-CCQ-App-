@@ -7,6 +7,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
 import { api, isApiError } from '@/lib/api';
 
+import { checkAccessAgain } from './check-again';
 import { AuthContext, useAuth, type AuthContextValue } from './context';
 import { EnvironmentBanner } from './EnvironmentBanner';
 import { meErrorBlocksApp } from './me-gate';
@@ -156,20 +157,34 @@ function MeLoader({ children }: { children: ReactNode }) {
     retry: (count, err) => !isApiError(err) && !(err instanceof RedirectingError) && count < 2,
   });
   const { session } = useAuth();
+  // UX-016: "Check again" on the no-access page. Two ways out after IT adds the user to a group: Check
+  // again asks for a fresh token (a plain reload keeps the old one for up to an hour) and looks again;
+  // signing out and in also works. The page stays up while it checks, and says so if nothing changed.
+  const [recheck, setRecheck] = useState<{ checking: boolean; checked: boolean; detail?: string }>({
+    checking: false,
+    checked: false,
+  });
+  const noRolePage = (detail: string | undefined) => (
+    <NoRolePage
+      detail={detail}
+      checking={recheck.checking}
+      checked={recheck.checked}
+      onCheckAgain={() => {
+        setRecheck({ checking: true, checked: false, ...(detail ? { detail } : {}) });
+        void checkAccessAgain(session, () => me.refetch()).finally(() =>
+          setRecheck({ checking: false, checked: true }),
+        );
+      }}
+      {...(session.mode === 'entra' ? { onSignOut: () => void session.signOut() } : {})}
+    />
+  );
+  if (recheck.checking) return noRolePage(recheck.detail);
   if (me.isPending) return <LoadingPage />;
   // A failed background refetch keeps the last good identity on screen (see meErrorBlocksApp).
   if (me.isError && meErrorBlocksApp(me.data !== undefined, me.error)) {
     const err = me.error;
     if (err instanceof RedirectingError) return <LoadingPage message={err.message} />;
-    if (isApiError(err, 403)) {
-      // A way out: after IT adds the user to a group, signing in again picks the new role up.
-      return (
-        <NoRolePage
-          detail={err.problem.detail}
-          {...(session.mode === 'entra' ? { onSignOut: () => void session.signOut() } : {})}
-        />
-      );
-    }
+    if (isApiError(err, 403)) return noRolePage(err.problem.detail);
     if (isApiError(err, 401))
       return <AuthErrorPage message="Your session has expired. Sign in again." />;
     return <AuthErrorPage message={err.message} />;
