@@ -13,20 +13,10 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { auditMeta as meta } from '../../plugins/audit';
 import { requireActor } from '../../plugins/auth';
 import { problem, sendProblem } from '../../plugins/problem-json';
-import {
-  IntakeError,
-  type AuditMeta,
-  type IntakeService,
-  type IntakeWithTx,
-} from '../../services/intake';
-
-const meta = (req: FastifyRequest): AuditMeta => ({
-  ip: req.ip,
-  userAgent: req.headers['user-agent'],
-  requestId: req.id,
-});
+import { IntakeError, type IntakeService, type IntakeWithTx } from '../../services/intake';
 
 /** Run `fn`, turning an IntakeError into problem+json. */
 async function handle<T>(req: FastifyRequest, reply: FastifyReply, fn: () => Promise<T>) {

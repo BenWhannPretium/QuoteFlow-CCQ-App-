@@ -1,4 +1,4 @@
-import { IntakeDraft, PROBLEM_CONTENT_TYPE } from '@ccq/contracts';
+import { DEV_USER_HEADER, IntakeDraft, PROBLEM_CONTENT_TYPE } from '@ccq/contracts';
 import type { DbClient } from '@ccq/db';
 import { sql } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
@@ -178,5 +178,29 @@ describe('a draft saved before the checks existed still opens and can be fixed',
       estAnnualRevenue: 1_250_000,
       items: [{ productNeededBy: '2027-02-27', heightMm: 180 }],
     });
+  });
+});
+
+/**
+ * PR review 2026-11-17. The intake routes built their own audit details from the raw address, so their
+ * rows kept `address:port` (what the App Service front end forwards) while every other route's did not:
+ * a search of the audit log by address split one person's activity in two.
+ */
+describe('intake audit rows hold the address without its source port', () => {
+  it('records 203.0.113.9 for a caller at 203.0.113.9:51234', async () => {
+    const kam = asRole(app, 'KAM');
+    // Starting a draft is audited (an autosave is not).
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/quotes/drafts',
+      headers: { [DEV_USER_HEADER]: kam.persona },
+      remoteAddress: '203.0.113.9:51234',
+      payload: { data: {} },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const rows = await db.db.execute<{ ip: string }>(
+      sql`select distinct ip from audit_event where ip like '203.0.113.9%'`,
+    );
+    expect(rows.map((r) => r.ip)).toEqual(['203.0.113.9']);
   });
 });
