@@ -38,6 +38,10 @@ export interface GraphClientOptions {
   retries?: number;
   /** Test seam: waiting between retries. */
   sleep?: (ms: number) => Promise<void>;
+  /** How long one request may take before it is aborted and treated as a network failure. Default 30 s. */
+  timeoutMs?: number;
+  /** The same for a request that carries file bytes (one upload range). Default 120 s. */
+  uploadTimeoutMs?: number;
 }
 
 export interface GraphRequest {
@@ -80,6 +84,8 @@ export class GraphClient {
   private readonly logger: FileStoreLogger;
   private readonly retries: number;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly timeoutMs: number;
+  private readonly uploadTimeoutMs: number;
 
   constructor(private readonly opts: GraphClientOptions) {
     this.fetch = opts.fetch ?? ((url, init) => fetch(url, init));
@@ -87,6 +93,8 @@ export class GraphClient {
     this.logger = opts.logger ?? silentFileStoreLogger;
     this.retries = opts.retries ?? 3;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.timeoutMs = opts.timeoutMs ?? 30_000;
+    this.uploadTimeoutMs = opts.uploadTimeoutMs ?? 120_000;
   }
 
   private async token(): Promise<string> {
@@ -114,7 +122,15 @@ export class GraphClient {
       }
       let res: Response;
       try {
-        res = await this.fetch(url, { method: req.method, headers, ...(body ? { body } : {}) });
+        // Bounded: fetch has no timeout of its own, and callers hold a database connection (a download
+        // link, a delete, the offer letter under the quote's row lock) while this runs. A connection
+        // that hangs is aborted and handled as any other network failure (retried, then UNAVAILABLE).
+        res = await this.fetch(url, {
+          method: req.method,
+          headers,
+          ...(body ? { body } : {}),
+          signal: AbortSignal.timeout(req.rawBody ? this.uploadTimeoutMs : this.timeoutMs),
+        });
       } catch {
         if (attempt < this.retries) {
           await this.sleep(500 * 2 ** attempt);
