@@ -272,3 +272,52 @@ test('UX-011: one clock on the quote page, whatever the browser’s zone and lan
   );
   await context.close();
 });
+
+test('UX-013: plain words in the quote header: who returned it, entries, priority, Salesforce', async ({
+  page,
+  request,
+}) => {
+  const quoteNumber = await reworkedQuote(request);
+  const leader = await me(request, 'sales-leader');
+
+  await signInAs(page, 'kam');
+  await page.goto(`/quotes/${quoteNumber}`);
+
+  // The rework banner names who returned it and the gate by its configured label, not "G1".
+  const banner = page.getByTestId('rework-banner');
+  await expect(banner).toContainText(`Returned by ${leader.displayName} at Qualify & prioritize`);
+  await expect(banner).toContainText('Reason: Missing information');
+  await expect(banner).toContainText('What to fix: Add the target neck finish');
+  await expect(banner).not.toContainText('G1');
+
+  // Time in stage: back in Intake a second time.
+  const times = page.getByTestId('stage-times');
+  await expect(times).toContainText('entered this stage twice');
+  await expect(times).not.toContainText('visits');
+
+  // The number and the tier are labelled.
+  await expect(page.getByTestId('quote-priority')).toContainText(
+    /Priority\s*\d+\s*(Critical|High|Standard|Low)/,
+  );
+
+  // No Salesforce URL set in this environment: the ID, with its label.
+  const labelled = page.getByTestId('sf-opportunity-labelled');
+  await expect(labelled).toContainText('Salesforce opportunity');
+  await expect(labelled.getByTestId('sf-opportunity-plain')).toHaveText(/^006\w+$/);
+  await auditScreen(page, 'UX-013');
+
+  // With the URL the quote carries (set by an Admin; fb04.spec.ts covers the setting itself), the
+  // label is the link. The response is given a URL here so the shared setting is left alone.
+  const href = 'https://example.lightning.force.com/lightning/r/Opportunity/006X/view';
+  await page.route(`**/api/v1/quotes/${quoteNumber}`, async (route) => {
+    const response = await route.fetch();
+    const json = { ...((await response.json()) as object), sfOpportunityUrl: href };
+    await route.fulfill({ response, json });
+  });
+  await page.reload();
+  const link = page.locator('main header').getByRole('link', { name: 'Salesforce opportunity' });
+  await expect(link).toHaveText('Salesforce opportunity ↗');
+  await expect(link).toHaveAttribute('href', href);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(page.getByTestId('sf-opportunity-labelled')).toHaveCount(0);
+});

@@ -141,7 +141,8 @@ test('Salesforce: the quote links to its opportunity, and recording Awarded show
     const href = `${INSTANCE}/lightning/r/Opportunity/${detail.sfOpportunityId}/view`;
     await page.reload();
     const link = page.getByTestId('open-in-salesforce').first();
-    await expect(link).toHaveText('Open in Salesforce ↗');
+    // UX-013: the header names the opportunity; the label is the link.
+    await expect(link).toHaveText('Salesforce opportunity ↗');
     await expect(link).toHaveAttribute('href', href);
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');

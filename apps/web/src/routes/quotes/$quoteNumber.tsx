@@ -47,6 +47,7 @@ import { api } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
 import { blockedDecision } from '@/lib/next-step';
+import { reworkHeadline } from '@/lib/quote-header-text';
 import { decisionReasonLabel } from '@/lib/reason-label';
 import { absoluteTime } from '@/lib/time';
 import {
@@ -197,7 +198,19 @@ function QuotePage() {
         }
         actions={
           <>
-            <SalesforceLink quote={q} />
+            {/* UX-013: the opportunity is named, as a link once the Salesforce URL is set; until
+                then the ID is shown with the same label (and, to Admins, where to set the URL). */}
+            {q.sfOpportunityUrl ? (
+              <SalesforceLink quote={q} label="Salesforce opportunity" />
+            ) : (
+              <span
+                className="text-muted-foreground inline-flex flex-wrap items-center gap-x-2 text-sm"
+                data-testid="sf-opportunity-labelled"
+              >
+                Salesforce opportunity
+                <SalesforceLink quote={q} />
+              </span>
+            )}
             {onFinalReviewScreen && (
               <Link
                 to="/quotes/$quoteNumber/review"
@@ -244,6 +257,8 @@ function QuotePage() {
             </span>
           )}
           <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="quote-priority">
+            {/* UX-013: say what the number and the tier beside it are. */}
+            {q.priority.visible && <span className="text-foreground-2 text-sm">Priority</span>}
             <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} />
             <FieldOverride quote={q} field="priority_tier" />
           </span>
@@ -379,7 +394,11 @@ function QuotePage() {
  * resubmit") is on the next-step line under the stage tracker, just above.
  */
 function ReworkBanner({ quote }: { quote: QuoteDetail }) {
+  const { data: config } = usePublicConfig();
   if (!quote.rework) return null;
+  // UX-013: the gate by its configured label ("Qualify & prioritize"), not its number ("G1").
+  const gateLabel =
+    config?.gates.find((g) => g.key === quote.rework?.gateKey)?.label ?? quote.rework.gateKey;
   return (
     <section
       role="status"
@@ -387,14 +406,12 @@ function ReworkBanner({ quote }: { quote: QuoteDetail }) {
       className="bg-warning text-warning-foreground rounded-card grid gap-2 p-4"
     >
       <p className="flex items-center gap-2 font-semibold">
-        <RotateCcwIcon className="size-4" aria-hidden="true" />
-        Returned for rework at {quote.rework.gateKey}
-        {quote.rework.reasonLabel ? `: ${quote.rework.reasonLabel}` : ''}
+        <RotateCcwIcon className="size-4 shrink-0" aria-hidden="true" />
+        {reworkHeadline(quote.rework.decidedByName, gateLabel)}
       </p>
+      {quote.rework.reasonLabel && <p className="text-sm">Reason: {quote.rework.reasonLabel}</p>}
       {quote.rework.note && <p className="text-sm">What to fix: {quote.rework.note}</p>}
-      <p className="text-xs">
-        {quote.rework.decidedByName ?? 'A reviewer'} · {absoluteTime(quote.rework.decidedAt)}
-      </p>
+      <p className="text-xs">{absoluteTime(quote.rework.decidedAt)}</p>
     </section>
   );
 }

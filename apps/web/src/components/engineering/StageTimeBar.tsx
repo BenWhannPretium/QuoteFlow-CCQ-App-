@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
+import { stageEntriesText } from '@/lib/quote-header-text';
 import { cn } from '@/lib/utils';
 
 import { formatDuration } from './format';
@@ -42,7 +43,8 @@ export function StageTimeBar({ quoteNumber }: { quoteNumber: string }) {
           <li key={s.stageKey} className={cn(s.current && 'text-foreground font-semibold')}>
             {s.label}: {formatDuration(s.activeMs)}
             {s.heldMs > 0 && ` (+${formatDuration(s.heldMs)} on hold)`}
-            {s.visits > 1 && ` · ${s.visits} visits`}
+            {/* UX-013: "entered this stage twice" (it read "2 visits"). */}
+            {s.visits > 1 && ` · ${stageEntriesText(s.visits)}`}
             {s.current && ' · now'}
           </li>
         ))}
