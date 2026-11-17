@@ -12,11 +12,16 @@ import { SF_PRODUCT_SPECS_STATUSES, SfProductSpec } from './sf-product-spec';
  */
 
 const text = (max: number) => z.string().max(max).nullable().optional();
-const isoDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
-  .nullable()
-  .optional();
+// A real calendar day: a bare YYYY-MM-DD pattern let 2026-11-31 through to a 500 (Postgres 22008).
+const isoDate = z.iso.date('Use YYYY-MM-DD').nullable().optional();
+/**
+ * Upper bounds of what the columns hold, so an absurd figure is a 400 here and not a numeric overflow
+ * (a 500) at submit: money is numeric(14,2), a dimension or weight numeric(10,2), a volume a bigint read as
+ * a JS number.
+ */
+const MAX_MONEY = 999_999_999_999.99;
+const MAX_MEASURE = 99_999_999.99;
+const MAX_VOLUME = 1_000_000_000_000;
 
 export const IntakeAddress = z.object({
   line1: text(200),
@@ -54,7 +59,7 @@ export const IntakeSfPrefill = z.object({
   neckDiameter: text(60),
   neckFinishType: text(60),
   neckFinishTypeCustom: text(120),
-  estAnnualVolume: z.number().nullable().optional(),
+  estAnnualVolume: z.number().max(MAX_VOLUME).nullable().optional(),
   containerSize: text(60),
 });
 export type IntakeSfPrefill = z.infer<typeof IntakeSfPrefill>;
@@ -111,7 +116,7 @@ const productShape = {
   packagingType: text(60),
   packagingNotes: text(2000),
   /** Units per year. FB-19: per item; the quote's volume is the sum of its items'. */
-  estAnnualVolume: z.number().nullable().optional(),
+  estAnnualVolume: z.number().max(MAX_VOLUME).nullable().optional(),
   /** The KAM confirmed a round/placeholder-looking volume is real. */
   estAnnualVolumeConfirmed: z.boolean().optional(),
   /**
@@ -127,10 +132,10 @@ const productShape = {
    * FB-02 (F-016, D-018): product dimensions, mm and grams (2 decimals). Without a bottle or competitor
    * drawing attached, the fields in `intake_min_spec_fields` must all be filled to submit.
    */
-  heightMm: z.number().nullable().optional(),
-  widthOrDiameterMm: z.number().nullable().optional(),
-  depthMm: z.number().nullable().optional(),
-  gramWeightG: z.number().nullable().optional(),
+  heightMm: z.number().max(MAX_MEASURE).nullable().optional(),
+  widthOrDiameterMm: z.number().max(MAX_MEASURE).nullable().optional(),
+  depthMm: z.number().max(MAX_MEASURE).nullable().optional(),
+  gramWeightG: z.number().max(MAX_MEASURE).nullable().optional(),
   /**
    * FB-02 (F-015): modify an existing mold (in scope when capital or engineering review is needed).
    * When ticked, the existing mold / part number and what changes are required.
@@ -244,9 +249,9 @@ export const IntakeDraftData = z.object({
   /** F-085: an optional bid / program reference (≤ 60). A plain reference: it links nothing. */
   bidReference: text(60),
   /** USD per year; pre-filled from the SF amount, editable. FB-19: once per quote, never summed from items. */
-  estAnnualRevenue: z.number().nullable().optional(),
+  estAnnualRevenue: z.number().max(MAX_MONEY).nullable().optional(),
   /** The SF amount it was pre-filled from (kept when edited). */
-  estAnnualRevenueSf: z.number().nullable().optional(),
+  estAnnualRevenueSf: z.number().max(MAX_MONEY).nullable().optional(),
   /**
    * FB-02 (F-009): when the customer needs the quote (YYYY-MM-DD, after today). Feeds the `timing`
    * attribute of the priority score. Replaces the editable expected close date: the SF close date is
