@@ -480,6 +480,35 @@ describe('G5 Awarded', () => {
     expect((await quoteRow(qn)).status).toBe('active');
   });
 
+  // Audit 2026-11-17 (A-09). The rule reads `accepted_at`, and the facts a gate is judged on also carry
+  // the engineering review's `accepted_at` (when the engineer accepted the work). A decision that sent
+  // no date passed on that unrelated timestamp and opened the hand-off with no acceptance date.
+  it('needs its own acceptance date even after the engineer accepted the review', async () => {
+    const qn = await inCustomerDecision();
+    await db.db.execute(sql`
+      update eng_review set accepted_at = now()
+      where quote_id = (select id from quote where quote_number = ${qn})`);
+    const res = await g5(qn, { outcomeKey: 'awarded', reasonCode: 'po' });
+    expect(res.statusCode, res.body).toBe(422);
+    expect(errorCodes(res)).toEqual(['MISSING_FIELD']);
+    expect((await quoteRow(qn)).stageKey).toBe('CUSTOMER_DECISION');
+  });
+
+  it('a hold needs its own review date even when an earlier hold left one on the quote', async () => {
+    const qn = await inCustomerDecision();
+    await db.db.execute(sql`
+      update quote set review_date = current_date + 30 where quote_number = ${qn}`);
+    const res = await g5(qn, {
+      outcomeKey: 'on_hold',
+      reasonCode: 'customer_requested_delay',
+      note: 'Customer pushed the launch',
+      holdOwnerId: await userId('kam'),
+    });
+    expect(res.statusCode, res.body).toBe(422);
+    expect(errorCodes(res)).toEqual(['MISSING_FIELD']);
+    expect((await quoteRow(qn)).status).toBe('active');
+  });
+
   it('→ Commit & Hand Off (B-26: acceptance is not spend authority) and opens the hand-off record', async () => {
     const qn = await inCustomerDecision();
     const res = await g5(qn, {

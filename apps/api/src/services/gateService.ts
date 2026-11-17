@@ -106,6 +106,21 @@ export interface GateServiceOptions {
 }
 
 /** Codes that mean "you may not", reported as 403 rather than 422. */
+/**
+ * Facts a decision supplies with itself: a hold's review date, the date the customer accepted. A rule
+ * that requires one must be met by the decision being recorded, never by what the quote already holds.
+ * The stored facts reuse both names for other things: `review_date` is the date left by an earlier
+ * hold, and `accepted_at` is the engineering review's (the moment the engineer accepted the work).
+ * Read from the quote, a second hold with no date and an Awarded with no acceptance date both passed.
+ */
+const DECISION_SUPPLIED_FACTS = ['review_date', 'accepted_at'] as const;
+
+function withoutDecisionSuppliedFacts(fields: QuoteState['fields']): QuoteState['fields'] {
+  const own: Record<string, unknown> = { ...fields };
+  for (const fact of DECISION_SUPPLIED_FACTS) delete own[fact];
+  return own;
+}
+
 const FORBIDDEN_CODES = new Set(['NOT_PERMITTED', 'SEGREGATION', 'TIER_APPROVER_REQUIRED']);
 
 /** Codes that mean "the quote moved on while you were deciding" (DR-cross-cutting-01), reported as 409. */
@@ -165,10 +180,11 @@ export class GateService {
       if (!row) throw new GateError(404, GATE_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
       const ctx = await this.opts.quotes.context(tx, actor, now);
       // B-26: the rules also read the server-derived fields (Legal review required, pass-through).
-      const state = withDerivedFields(
+      const loaded = withDerivedFields(
         (await loadQuoteState(tx, row.quote.id))!,
         ctx.commercial.derived,
       );
+      const state: QuoteState = { ...loaded, fields: withoutDecisionSuppliedFacts(loaded.fields) };
       const before = summaryDto(row, ctx);
 
       const request: TransitionRequest = {
