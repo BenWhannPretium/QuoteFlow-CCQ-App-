@@ -4,7 +4,7 @@ import type {
   TimelineFilter,
   TimelineItem as TimelineEntry,
 } from '@ccq/contracts';
-import { formatCapitalUsd } from '@ccq/domain';
+import { formatCapitalUsd, itemName } from '@ccq/domain';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
@@ -334,6 +334,16 @@ export function describeEvent(
         ),
         kind: 'system',
       };
+    // UX-007 (FB-19): which item a rework removed, and whether engineering work went with it.
+    case 'quote_item_removed': {
+      const item =
+        typeof p.itemNo === 'number' ? itemName(p.itemNo, str(p.label)) : (str(p.label) ?? 'Item');
+      return {
+        title: `${item} removed`,
+        detail: p.workDiscarded === true ? <p>Its engineering work was discarded.</p> : undefined,
+        kind: 'system',
+      };
+    }
     case 'sf_status_changed':
       return {
         title: str(p.sfStatusFlag)

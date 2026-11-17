@@ -1,9 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 import { signInAs } from './personas';
-import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
+import { DEV_USER_HEADER, freeOpportunities, isoDaysFromNow, submitQuote } from './quotes';
 
 // The Command Center and queue proposals approved on 2026-11-17 (docs/audit/03-ux-proposals.md). The e2e
 // database is config-seeded only: each test makes the quotes it needs through the API.
@@ -21,6 +22,26 @@ async function auditScreen(target: Page | Locator, id: string) {
 }
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
+
+/** One API call as a persona; fails the test with the response body unless the status is `expected`. */
+async function call<T = unknown>(
+  request: APIRequestContext,
+  persona: string,
+  method: 'get' | 'post' | 'put' | 'patch',
+  path: string,
+  data?: object,
+  expected: number[] = [200, 201],
+): Promise<T> {
+  const res = await request[method](`/api/v1/${path}`, {
+    headers: as(persona),
+    ...(data ? { data } : {}),
+  });
+  expect(expected, `${method} ${path}: ${await res.text()}`).toContain(res.status());
+  return (await res.json()) as T;
+}
+
+const userId = async (request: APIRequestContext, persona: string) =>
+  (await call<{ user: { id: string } }>(request, persona, 'get', 'me')).user.id;
 
 test.describe('UX-005: the stage lists say who a quote is for', () => {
   test('a KAM sees the customer beside each quote number, and the opportunity on a wide screen', async ({
@@ -80,5 +101,87 @@ test.describe('UX-005: the stage lists say who a quote is for', () => {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
+  });
+});
+
+/** A complete intake item (FB-19), as the wizard would save it. */
+const intakeItem = (label: string, containerSize: string) => ({
+  key: randomUUID(),
+  label,
+  productFamily: 'BOTTLE',
+  components: ['CONTAINER'],
+  resin: 'HDPE',
+  neckDiameter: '28',
+  neckFinishType: '410',
+  pcrLevel: '0',
+  colorType: 'NATURAL',
+  heightMm: 180,
+  widthOrDiameterMm: 65,
+  depthMm: 65,
+  gramWeightG: 24,
+  packagingType: 'BULK',
+  estAnnualVolume: 750_000,
+  productNeededBy: isoDaysFromNow(120),
+  containerSize,
+  drawingStatus: 'HAVE_DRAWING',
+});
+
+test.describe('UX-007: the timeline names the item a rework removed', () => {
+  test('"Item 2 (24 oz bottle) removed", and that its engineering work was discarded', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1), {
+      items: [intakeItem('16 oz bottle', '16 oz'), intakeItem('24 oz bottle', '24 oz')],
+    });
+    const quote = (path = '') => `quotes/${quoteNumber}${path}`;
+    await call(request, 'sales-leader', 'post', quote('/gates/G1/decisions'), {
+      outcomeKey: 'advance',
+    });
+    await call(request, 'eng-lead', 'post', quote('/assignment'), {
+      engineerId: await userId(request, 'engineer'),
+    });
+    await call(request, 'engineer', 'post', quote('/eng-review/accept'));
+    // Engineering works item 2, then sends the quote back to the KAM.
+    const { items } = await call<{ items: { id: string; itemNo: number }[] }>(
+      request,
+      'engineer',
+      'get',
+      quote(),
+    );
+    await call(request, 'engineer', 'put', quote('/eng-review'), {
+      itemId: items.find((i) => i.itemNo === 2)!.id,
+      processType: 'EBM',
+      cavitation: 4,
+    });
+    await call(request, 'eng-lead', 'post', quote('/gates/G2/decisions'), {
+      outcomeKey: 'rework',
+      reasonCode: 'missing_information',
+      note: 'e2e: drop the 24 oz',
+    });
+    // The KAM removes item 2 in the rework and resubmits.
+    const draft = await call<{ id: string; data: { items: object[] } }>(
+      request,
+      'kam',
+      'post',
+      quote('/rework'),
+    );
+    await call(request, 'kam', 'patch', `quotes/drafts/${draft.id}`, {
+      data: { items: [draft.data.items[0]] },
+    });
+    await call(request, 'kam', 'post', `quotes/drafts/${draft.id}/submit`);
+
+    await signInAs(page, 'kam');
+    await page.goto(`/quotes/${quoteNumber}`);
+    const timeline = page.getByTestId('quote-timeline');
+    const entry = timeline
+      .getByTestId('timeline-item')
+      .filter({ hasText: 'Item 2 (24 oz bottle) removed' });
+    await expect(entry).toBeVisible();
+    await expect(entry).toContainText('Its engineering work was discarded.');
+    await expect(timeline.getByText('Quote item removed')).toHaveCount(0);
+    await entry.scrollIntoViewIfNeeded();
+    await auditScreen(entry, 'UX-007');
   });
 });
