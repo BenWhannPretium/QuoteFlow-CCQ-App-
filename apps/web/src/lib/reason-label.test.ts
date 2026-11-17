@@ -99,6 +99,13 @@ describe('decisionReasonLabel', () => {
     expect(decisionReasonLabel(config, decision({ reasonCode: 'price_change' }))).toBe(
       'Price change',
     );
+    // The server's own label for the decision wins: it still knows a code retired since.
+    expect(
+      decisionReasonLabel(config, {
+        ...decision({ reasonCode: 'retired_code' }),
+        reasonLabel: 'Drawing out of date',
+      }),
+    ).toBe('Drawing out of date');
     // Until the config has loaded.
     expect(decisionReasonLabel(undefined, decision())).toBe('Missing information');
     // The server's own fallback (the code as its label) is not passed off as a label.

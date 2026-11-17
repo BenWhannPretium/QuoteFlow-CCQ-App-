@@ -187,6 +187,12 @@ export const GateDecisionSummary = z.object({
   decidedAt: z.string(),
   note: z.string().nullable(),
   reasonCode: z.string().nullable(),
+  /**
+   * UX-006: the reason code's configured label, read from every code the gate's outcome ever had, so a
+   * code retired since the decision still reads as it did. Null with no reason code, or when the code
+   * has no label at all. Read-only.
+   */
+  reasonLabel: z.string().nullable().optional(),
   quoteVersion: z.number().int(),
   /**
    * B-13 (CR-38): taken against an earlier version than the quote's current one (a re-quote or return

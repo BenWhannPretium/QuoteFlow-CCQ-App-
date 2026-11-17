@@ -3,7 +3,7 @@ import type { PublicConfigResponse, QuoteDetail } from '@ccq/contracts';
 type Decision = Pick<
   QuoteDetail['decisions'][number],
   'gateKey' | 'outcomeKey' | 'reasonCode' | 'decidedAt'
->;
+> & { reasonLabel?: string | null | undefined };
 
 /** What the quote already says about its own send-back and closure (labels resolved by the server). */
 type Known = {
@@ -21,11 +21,13 @@ export function plainWords(code: string): string {
  * UX-006: the label of a gate decision's reason code, for the Gate decisions card on the quote page
  * (it printed the stored key, "(missing_information)").
  *
- * 1. The configured label: the code in the reason context of the decision's outcome (public config).
- * 2. A code that is no longer offered is not in the public config (it lists active codes only). The quote
- *    carries the server's label for the decision that sent it back and for the one that closed it, so
- *    those two keep their label after the code is retired.
- * 3. Otherwise the key in plain words.
+ * 1. The server's label for this decision (`reasonLabel`): it knows every code, retired ones included.
+ * 2. The configured label: the code in the reason context of the decision's outcome (public config).
+ * 3. A code that is no longer offered is not in the public config (it lists active codes only). The quote
+ *    carries the server's label for the decision that sent it back and for the one that closed it.
+ * 4. Otherwise the key in plain words.
+ *
+ * 2 to 4 are what an older server, which sends no `reasonLabel`, leaves to go on.
  */
 export function decisionReasonLabel(
   config: PublicConfigResponse | undefined,
@@ -34,6 +36,7 @@ export function decisionReasonLabel(
 ): string | null {
   const code = decision.reasonCode;
   if (!code) return null;
+  if (decision.reasonLabel && decision.reasonLabel !== code) return decision.reasonLabel;
   const context = config?.outcomes.find(
     (o) => o.gateKey === decision.gateKey && o.key === decision.outcomeKey,
   )?.reasonContext;

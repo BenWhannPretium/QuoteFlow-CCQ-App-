@@ -189,6 +189,22 @@ describe('QuoteDetail.nextStep', () => {
       note: 'Not pursuing',
     });
     expect(refused.statusCode, refused.body).toBe(422);
+
+    // UX-006: the decision carries its reason's label, and keeps it once the code is retired (the
+    // public config, which the page reads labels from, then no longer lists the code).
+    const sendBack = (quote: QuoteDetail) =>
+      quote.decisions.find((d) => d.reasonCode === 'missing_information');
+    expect(sendBack(forLeader)?.reasonLabel).toBe('Missing information');
+    await db.db.execute(
+      sql`update reason_code set active = false where code = 'missing_information'`,
+    );
+    try {
+      expect(sendBack(await detail(qn, 'SalesLeader'))?.reasonLabel).toBe('Missing information');
+    } finally {
+      await db.db.execute(
+        sql`update reason_code set active = true where code = 'missing_information'`,
+      );
+    }
   });
 
   it('on hold it carries the review date, the owner and the reason label; closed, nothing waits', async () => {
