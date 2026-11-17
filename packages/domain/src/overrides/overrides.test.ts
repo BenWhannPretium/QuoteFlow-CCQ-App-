@@ -493,6 +493,25 @@ describe('planOverrideRevert', () => {
     ]);
   });
 
+  // Audit 2026-11-17: request and approve refused a closed quote; revert did not, so an applied
+  // override could still rewrite the tier or the ship-to of a quote that had closed.
+  it('a closed quote is not rewritten by a revert, for an approver or the requester', () => {
+    const closed = quote({ status: 'closed' });
+    expect(codes(planOverrideRevert(settings, leader, closed, applied, 'HIGH'))).toEqual([
+      'QUOTE_CLOSED',
+    ]);
+    expect(codes(planOverrideRevert(settings, kam, closed, shipTo, { line1: '9 New Rd' }))).toEqual(
+      ['QUOTE_CLOSED'],
+    );
+  });
+
+  it('a closed quote offers no Revert', () => {
+    expect(overrideActions(settings, leader, quote(), applied).canRevert).toBe(true);
+    expect(overrideActions(settings, leader, quote({ status: 'closed' }), applied).canRevert).toBe(
+      false,
+    );
+  });
+
   it('a self-requester out of scope may not revert', () => {
     const scoped = makeActor('KAM', {
       userId: KAM_ID,
