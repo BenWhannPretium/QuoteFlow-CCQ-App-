@@ -97,6 +97,7 @@ import {
   syncQuoteItems,
 } from './intake-items';
 import { recordIntakeShipToOverride } from './overrideService';
+import { pgCode } from './pg-error';
 import { onPricingArrival } from './pricing-view';
 import { onQualifyArrival } from './qualify-arrival';
 import type { ScoringService } from './scoring';
@@ -180,16 +181,6 @@ const activeRef = (
   row: { quoteNumber: string; stageKey: string; status: string } | undefined,
 ): ActiveQuoteRef | null =>
   row ? { quoteNumber: row.quoteNumber, stageKey: row.stageKey, status: row.status } : null;
-
-function pgCode(err: unknown): string | undefined {
-  let e: unknown = err;
-  while (e && typeof e === 'object') {
-    const code = (e as { code?: unknown }).code;
-    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
-    e = (e as { cause?: unknown }).cause;
-  }
-  return undefined;
-}
 
 export interface IntakeServiceOptions {
   now?: () => Date;

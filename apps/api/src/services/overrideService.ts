@@ -50,6 +50,7 @@ import {
   policyQuoteOf,
   type OverrideViewContext,
 } from './overrides-view';
+import { pgCode } from './pg-error';
 import { problemErrors, ServiceProblem } from './problem';
 import type { QuoteReadService } from './quotes';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
@@ -85,8 +86,8 @@ function unwrap<T>(result: PlanResult<T>): T {
   return result.plan;
 }
 
-const isUniqueViolation = (err: unknown) =>
-  typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505';
+// Through the cause chain: drizzle wraps the driver's error, so its own `.code` is never the SQLSTATE.
+const isUniqueViolation = (err: unknown) => pgCode(err) === '23505';
 
 export interface OverrideServiceOptions {
   quotes: QuoteReadService;
