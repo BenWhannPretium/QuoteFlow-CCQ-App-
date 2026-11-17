@@ -5,7 +5,8 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { nextStepLine } from '@/lib/next-step';
+import { nextStepLine, nothingToDecideText } from '@/lib/next-step';
+import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +19,17 @@ import { cn } from '@/lib/utils';
  * Everything shown comes from `QuoteDetail.nextStep` (the server's facts); the gate's name from the
  * workflow config. On hold, the line is the hold sentence (FB-17: the same one the timeline shows).
  */
-export function QuoteNextStepLine({ quote }: { quote: QuoteDetail }) {
+export function QuoteNextStepLine({
+  quote,
+  nothingToDecide = null,
+}: {
+  quote: QuoteDetail;
+  /**
+   * UX-003: the reader is offered a gate decision but the server would refuse every outcome: what each
+   * of them lacks (`blockedDecision`). The line then says so, where the decision button would be.
+   */
+  nothingToDecide?: readonly { message: string }[] | null;
+}) {
   const { data: config } = usePublicConfig();
   const navigate = useNavigate();
   const { tab } = useSearch({ from: '/quotes/$quoteNumber' });
@@ -33,6 +44,8 @@ export function QuoteNextStepLine({ quote }: { quote: QuoteDetail }) {
   if (!step) return null;
   const line = nextStepLine(step, config?.gates.find((g) => g.key === step.gateKey)?.label);
   const action = line.action;
+  // Back with the KAM: the one sentence says who has it, since when and what the reader waits for.
+  const onlyNothingToDecide = nothingToDecide !== null && step.state === 'rework';
 
   return (
     <div
@@ -42,13 +55,20 @@ export function QuoteNextStepLine({ quote }: { quote: QuoteDetail }) {
       data-your-move={step.yourMove || undefined}
       className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t pt-4"
     >
-      <p
-        className={cn('text-sm', step.yourMove && 'font-medium')}
-        // FB-17 (W13-26): the hold sentence of the quote header.
-        {...(step.state === 'on_hold' ? { 'data-testid': 'quote-status' } : {})}
-      >
-        {line.text}
-      </p>
+      {!onlyNothingToDecide && (
+        <p
+          className={cn('text-sm', step.yourMove && 'font-medium')}
+          // FB-17 (W13-26): the hold sentence of the quote header.
+          {...(step.state === 'on_hold' ? { 'data-testid': 'quote-status' } : {})}
+        >
+          {line.text}
+        </p>
+      )}
+      {nothingToDecide !== null && (
+        <p className="text-sm" data-testid="nothing-to-decide">
+          {nothingToDecideText(step, nothingToDecide, step.since ? absoluteTime(step.since) : null)}
+        </p>
+      )}
       {action?.kind === 'rework' && (
         <Button
           size="sm"

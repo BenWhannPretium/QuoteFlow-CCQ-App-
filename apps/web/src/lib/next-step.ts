@@ -80,6 +80,49 @@ function actionFor(step: QuoteNextStep): NextStepAction | null {
   }
 }
 
+interface OfferedAction {
+  gateKey: string;
+  missing: readonly { field: string; message: string }[];
+}
+
+/**
+ * UX-003: is the reader offered a gate where nothing can be decided now? Read from the server's own
+ * `availableActions`: every outcome it offers at the gate (Advance, Send back, Hold and Stop alike) lists
+ * something missing that the decision dialog cannot supply, so the server would refuse each of them.
+ * One open outcome is enough to keep the decision: a blocked Advance with Hold still possible is not
+ * blocked. `missing` is what every outcome lacks (the gate's own precondition).
+ */
+export function blockedDecision(
+  actions: readonly OfferedAction[],
+  gateKey: string,
+): { blocked: boolean; missing: readonly { field: string; message: string }[] } {
+  const offered = actions.filter((a) => a.gateKey === gateKey);
+  const blocked = offered.length > 0 && offered.every((a) => a.missing.length > 0);
+  if (!blocked) return { blocked: false, missing: [] };
+  const [first, ...rest] = offered;
+  const shared = first!.missing.filter((m) =>
+    rest.every((a) => a.missing.some((x) => x.field === m.field && x.message === m.message)),
+  );
+  return { blocked: true, missing: shared.length > 0 ? shared : first!.missing };
+}
+
+/**
+ * UX-003: what a reader sees in place of the decision button on a gate where nothing can be decided.
+ * Back with the KAM (the server's `rework` state): since when, and what ends it. Any other precondition:
+ * what is still needed, in the server's own words. `since` is already formatted for display.
+ */
+export function nothingToDecideText(
+  step: Pick<QuoteNextStep, 'state'> | undefined,
+  missing: readonly { message: string }[],
+  since: string | null,
+): string {
+  if (step?.state === 'rework') {
+    return `Back with the KAM for rework${since ? ` since ${since}` : ''}. Nothing to decide until it is resubmitted.`;
+  }
+  const needed = missing.map((m) => m.message).join('; ');
+  return needed ? `Nothing to decide yet. Still needed: ${needed}.` : 'Nothing to decide yet.';
+}
+
 export function nextStepLine(
   step: QuoteNextStep,
   /** The configured label of `step.gateKey` (public config). */

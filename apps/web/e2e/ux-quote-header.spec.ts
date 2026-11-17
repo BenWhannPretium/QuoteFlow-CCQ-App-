@@ -141,3 +141,52 @@ test.describe('UX-002: whose move it is, under the stage tracker', () => {
     ).toHaveCount(1);
   });
 });
+
+test.describe('UX-003: no decision is offered on a quote that is not waiting for one', () => {
+  test('a sales leader on a reworked quote is told there is nothing to decide', async ({
+    page,
+    request,
+  }) => {
+    const quoteNumber = await reworkedQuote(request);
+
+    await signInAs(page, 'sales-leader');
+    await page.goto(`/quotes/${quoteNumber}`);
+    const line = page.getByTestId('quote-next-step');
+    // One sentence, in US Central with the zone named, in place of the decision button.
+    await expect(line).toHaveText(
+      /^Back with the KAM for rework since [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M C[SD]T\. Nothing to decide until it is resubmitted\.$/,
+    );
+    await expect(line.getByTestId('nothing-to-decide')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Qualify quote' })).toHaveCount(0);
+    await auditScreen(page, 'UX-003');
+  });
+
+  test('the decision stays wherever one is possible: submitted, and on hold', async ({
+    page,
+    request,
+  }) => {
+    const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
+
+    await signInAs(page, 'sales-leader');
+    await page.goto(`/quotes/${quoteNumber}`);
+    await expect(page.getByTestId('quote-next-step')).toHaveText(
+      'Waiting on you. Next: qualify quote.',
+    );
+    await expect(page.getByRole('button', { name: 'Qualify quote' })).toBeVisible();
+    await expect(page.getByTestId('nothing-to-decide')).toHaveCount(0);
+
+    // On hold, a decision is still possible (it is what ends the hold): the button stays.
+    const owner = await me(request, 'sales-leader');
+    await decide(request, quoteNumber, 'G1', 'sales-leader', {
+      outcomeKey: 'hold',
+      reasonCode: 'awaiting_customer_info',
+      note: 'Customer is confirming the volume',
+      holdUntil: isoDaysFromNow(14),
+      holdOwnerId: owner.id,
+    });
+    await page.reload();
+    await expect(page.getByTestId('quote-next-step')).toHaveAttribute('data-state', 'on_hold');
+    await expect(page.getByRole('button', { name: 'Qualify quote' })).toBeVisible();
+    await expect(page.getByTestId('nothing-to-decide')).toHaveCount(0);
+  });
+});

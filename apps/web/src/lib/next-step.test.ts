@@ -1,7 +1,7 @@
 import type { QuoteNextStep } from '@ccq/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { nextStepLine } from './next-step';
+import { blockedDecision, nextStepLine, nothingToDecideText } from './next-step';
 
 const step = (over: Partial<QuoteNextStep>): QuoteNextStep => ({
   waitingOn: 'nobody',
@@ -153,5 +153,71 @@ describe('nextStepLine', () => {
       text: 'Closed. No next step.',
       action: null,
     });
+  });
+});
+
+describe('blockedDecision (UX-003)', () => {
+  const submit = { field: 'submitted_at', message: 'The intake, submitted by the KAM' };
+  const volume = { field: 'est_annual_volume', message: 'Annual volume or revenue' };
+
+  it('is blocked only when every outcome the reader is offered at the gate lacks something', () => {
+    // A reworked quote at G1: the gate's own precondition fails for Advance, Send back, Hold and Stop.
+    expect(
+      blockedDecision(
+        [
+          { gateKey: 'G1', missing: [submit, volume] },
+          { gateKey: 'G1', missing: [submit] },
+          { gateKey: 'G1', missing: [submit] },
+        ],
+        'G1',
+      ),
+    ).toEqual({ blocked: true, missing: [submit] });
+  });
+
+  it('keeps the decision while one outcome is open: Advance blocked, Hold possible', () => {
+    expect(
+      blockedDecision(
+        [
+          { gateKey: 'G2', missing: [volume] },
+          { gateKey: 'G2', missing: [] },
+        ],
+        'G2',
+      ),
+    ).toEqual({ blocked: false, missing: [] });
+  });
+
+  it('a gate the reader is not offered is not blocked: there is nothing to replace', () => {
+    expect(blockedDecision([{ gateKey: 'G1', missing: [submit] }], 'G2').blocked).toBe(false);
+    expect(blockedDecision([], 'G1').blocked).toBe(false);
+  });
+
+  it('with nothing in common, it lists what the first outcome lacks', () => {
+    expect(
+      blockedDecision(
+        [
+          { gateKey: 'G1', missing: [volume] },
+          { gateKey: 'G1', missing: [submit] },
+        ],
+        'G1',
+      ).missing,
+    ).toEqual([volume]);
+  });
+});
+
+describe('nothingToDecideText (UX-003)', () => {
+  it('back with the KAM: since when, and what ends it', () => {
+    expect(nothingToDecideText({ state: 'rework' }, [], 'Nov 12, 2026, 3:04 PM CST')).toBe(
+      'Back with the KAM for rework since Nov 12, 2026, 3:04 PM CST. Nothing to decide until it is resubmitted.',
+    );
+    expect(nothingToDecideText({ state: 'rework' }, [], null)).toBe(
+      'Back with the KAM for rework. Nothing to decide until it is resubmitted.',
+    );
+  });
+
+  it('any other precondition: what is still needed, in the server’s words', () => {
+    expect(
+      nothingToDecideText({ state: 'at_gate' }, [{ message: 'A' }, { message: 'B' }], null),
+    ).toBe('Nothing to decide yet. Still needed: A; B.');
+    expect(nothingToDecideText(undefined, [], null)).toBe('Nothing to decide yet.');
   });
 });

@@ -46,6 +46,7 @@ import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
+import { blockedDecision } from '@/lib/next-step';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
@@ -164,8 +165,18 @@ function QuotePage() {
     q.stageKey === 'FINAL_REVIEW' && q.status !== 'closed' && canReadFinalReview;
   // The header's decision button appears once the quote can move forward (the Engineering and Quoting
   // tabs say what is still needed, and hold the other decisions until then).
-  const gates = [...new Set(q.availableActions.map((a) => a.gateKey))].filter(
-    (g) => !(onFinalReviewScreen && g === 'G4') && forwardReadiness(q.availableActions, g).ready,
+  const offeredGates = [...new Set(q.availableActions.map((a) => a.gateKey))].filter(
+    (g) => !(onFinalReviewScreen && g === 'G4'),
+  );
+  // UX-003: a gate where the server would refuse every outcome it offers (a quote back with the KAM,
+  // not resubmitted yet) has nothing to decide: no button, and the next-step line says so.
+  const nothingToDecide = offeredGates
+    .map((g) => blockedDecision(q.availableActions, g))
+    .find((b) => b.blocked);
+  const gates = offeredGates.filter(
+    (g) =>
+      forwardReadiness(q.availableActions, g).ready &&
+      !blockedDecision(q.availableActions, g).blocked,
   );
   const canDecideFinalReview = q.availableActions.some((a) => a.gateKey === 'G4');
   const tierOverride = q.overridableFields.find((f) => f.field === 'priority_tier')?.applied;
@@ -236,7 +247,7 @@ function QuotePage() {
           </span>
         </div>
         <GateRail stageKey={q.stageKey} />
-        <QuoteNextStepLine quote={q} />
+        <QuoteNextStepLine quote={q} nothingToDecide={nothingToDecide?.missing ?? null} />
       </section>
 
       <SfUpdateReminder quote={q} />
