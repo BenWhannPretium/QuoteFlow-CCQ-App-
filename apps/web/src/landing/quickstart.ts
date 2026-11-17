@@ -13,10 +13,13 @@ const ANCHORS: Record<string, string> = {
   Admin: 'admin',
 };
 
-export const quickstartAnchor = (role: string): string => ANCHORS[role] ?? 'kam';
+/** The role's section; undefined for a role that has none (Post-award): the page then opens at its top. */
+export const quickstartAnchor = (role: string): string | undefined => ANCHORS[role];
 
-export const quickstartHref = (role: string | undefined) =>
-  `/help/quickstart.html${role ? `#${quickstartAnchor(role)}` : ''}`;
+export const quickstartHref = (role: string | undefined) => {
+  const anchor = role ? quickstartAnchor(role) : undefined;
+  return `/help/quickstart.html${anchor ? `#${anchor}` : ''}`;
+};
 
 /**
  * Split docs/uat/quickstart/print.html (the source) into the help page and its stylesheet. The API's

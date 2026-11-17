@@ -5,6 +5,8 @@ import {
   requestReference,
   reworkHeadline,
   stageEntriesText,
+  closedText,
+  lockedAfterText,
 } from './quote-header-text';
 
 describe('quoteNotFoundText (UX-014)', () => {
@@ -65,5 +67,22 @@ describe('stageEntriesText', () => {
     expect(stageEntriesText(2)).toBe('entered this stage twice');
     expect(stageEntriesText(3)).toBe('entered this stage 3 times');
     expect(stageEntriesText(11)).toBe('entered this stage 11 times');
+  });
+});
+
+describe('closedText', () => {
+  it('names the outcome by its label, or the key in plain words, never the raw key', () => {
+    expect(closedText('declined', 'Declined')).toBe('Closed (Declined)');
+    expect(closedText('no_response', null)).toBe('Closed (No response)');
+    expect(closedText(null, null)).toBe('Closed');
+  });
+});
+
+describe('lockedAfterText', () => {
+  it('names the stage whose decision locked the section, not the gate number', () => {
+    expect(lockedAfterText('Engineering & Capacity')).toBe(
+      'Locked after the Engineering & Capacity decision',
+    );
+    expect(lockedAfterText(null)).toBe('Locked after a gate decision');
   });
 });

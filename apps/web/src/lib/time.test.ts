@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { absoluteTime, calendarDate, relativeTime, todayCentral } from './time';
+import { absoluteTime, calendarDate, clockTime, relativeTime, todayCentral } from './time';
 
 const now = new Date('2026-10-27T15:00:00Z');
 
@@ -28,6 +28,13 @@ describe('absoluteTime', () => {
   it('defaults to US Central and names the zone (CDT, then CST after Nov 1)', () => {
     expect(absoluteTime('2026-08-07T02:00:00Z')).toBe('Aug 6, 2026, 9:00 PM CDT');
     expect(absoluteTime('2026-11-10T22:00:00Z')).toBe('Nov 10, 2026, 4:00 PM CST');
+  });
+});
+
+describe('clockTime', () => {
+  it('is the time of day in US Central with the zone named, whatever the browser zone', () => {
+    expect(clockTime(new Date('2026-11-17T20:05:00Z'))).toBe('2:05 PM CST');
+    expect(clockTime(new Date('2026-07-01T15:30:00Z'))).toBe('10:30 AM CDT');
   });
 });
 

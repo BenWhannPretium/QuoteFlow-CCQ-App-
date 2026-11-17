@@ -44,6 +44,17 @@ export function absoluteTime(iso: string, opts: { locale?: string; timeZone?: st
   return zone ? `${text} ${zone}` : text;
 }
 
+/** "2:05 PM CST": the time of day on the same clock as `absoluteTime` (US Central, zone named). */
+export function clockTime(at: Date, opts: { locale?: string; timeZone?: string } = {}): string {
+  const timeZone = opts.timeZone ?? DISPLAY_TIME_ZONE;
+  return new Intl.DateTimeFormat(opts.locale ?? 'en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+    timeZoneName: 'short',
+  }).format(at);
+}
+
 /**
  * A calendar date (`YYYY-MM-DD`, no time of day) as "Nov 30, 2026" (DR-kam-sales-leader-13). It is a
  * date, not an instant, so it is never shifted by a time zone. Anything else is returned as it is.

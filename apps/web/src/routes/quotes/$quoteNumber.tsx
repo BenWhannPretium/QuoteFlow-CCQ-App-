@@ -47,7 +47,12 @@ import { api, isApiError, type ApiError } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
 import { blockedDecision } from '@/lib/next-step';
-import { quoteNotFoundText, requestReference, reworkHeadline } from '@/lib/quote-header-text';
+import {
+  closedText,
+  quoteNotFoundText,
+  requestReference,
+  reworkHeadline,
+} from '@/lib/quote-header-text';
 import { STALE_QUOTE_TEXT, quoteLoadFailure } from '@/lib/quote-page-error';
 import {
   QUOTE_TABS,
@@ -297,7 +302,7 @@ function QuotePage() {
             <span className="text-muted-foreground text-sm" data-testid="quote-status">
               {q.status === 'on_hold'
                 ? holdSummary({ ...q.commercial.hold, reviewDate: q.reviewDate })
-                : `Closed${q.outcome ? ` (${q.outcome})` : ''}`}
+                : closedText(q.outcome, q.customerDecision.closure?.outcomeLabel)}
             </span>
           )}
           <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="quote-priority">
@@ -609,6 +614,8 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
   const outcomeLabel = (gate: string, key: string) =>
     config?.outcomes.find((o) => o.gateKey === gate && o.key === key)?.label ?? key;
+  // UX-013: the gate by its configured label ("Qualify & prioritize"), not its number ("G1").
+  const gateName = (gate: string) => config?.gates.find((g) => g.key === gate)?.label ?? gate;
   return (
     <Card>
       <CardHeader>
@@ -628,7 +635,7 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
                 data-superseded={d.superseded || undefined}
               >
                 <span className="font-medium">
-                  {d.gateKey} · {outcomeLabel(d.gateKey, d.outcomeKey)}
+                  {gateName(d.gateKey)} · {outcomeLabel(d.gateKey, d.outcomeKey)}
                   {d.superseded && (
                     <span
                       className="bg-muted text-muted-foreground rounded-pill ml-2 px-2 py-0.5 text-xs font-normal"

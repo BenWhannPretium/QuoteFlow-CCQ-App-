@@ -62,7 +62,7 @@ import { Notice, Section, Stepper } from '@/intake/ui';
 import { DraftNotSavedError, useIntakeDraft, type SaveState } from '@/intake/useIntakeDraft';
 import { returnedAt } from '@/landing/dashboard-text';
 import { isApiError, api } from '@/lib/api';
-import { absoluteTime } from '@/lib/time';
+import { absoluteTime, clockTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -329,7 +329,7 @@ function SaveStatus({
           : state === 'dirty'
             ? 'Unsaved changes'
             : savedAt
-              ? `Draft saved ${savedAt.toLocaleTimeString(undefined, { timeStyle: 'short' })}`
+              ? `Draft saved ${clockTime(savedAt)}`
               : 'Draft saved';
   return (
     <p

@@ -41,3 +41,26 @@ export function stageEntriesText(visits: number): string | null {
   if (visits <= 1) return null;
   return visits === 2 ? 'entered this stage twice' : `entered this stage ${visits} times`;
 }
+
+/**
+ * UX-013: what a closed quote says beside its stage. The outcome by the server's label ("Declined"),
+ * or, when the quote carries none, the stored key in plain words. Never the raw key ("declined",
+ * "no_response").
+ */
+export function closedText(
+  outcome: string | null | undefined,
+  outcomeLabel: string | null | undefined,
+): string {
+  if (!outcome) return 'Closed';
+  const words = outcomeLabel ?? outcome.replace(/[_-]+/g, ' ').trim();
+  return `Closed (${words.charAt(0).toUpperCase()}${words.slice(1)})`;
+}
+
+/**
+ * UX-013: what a locked section was locked by, in words: the decision of the gate's stage ("the
+ * Engineering & Capacity decision"), not the gate's number ("G2"). Until the configuration has loaded,
+ * or for a gate it does not list, "a gate decision".
+ */
+export function lockedAfterText(stageLabel: string | null | undefined): string {
+  return stageLabel ? `Locked after the ${stageLabel} decision` : 'Locked after a gate decision';
+}

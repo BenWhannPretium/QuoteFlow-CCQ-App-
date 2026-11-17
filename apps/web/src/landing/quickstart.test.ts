@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { quickstartAnchor, splitQuickstart } from './quickstart';
+import { quickstartAnchor, quickstartHref, splitQuickstart } from './quickstart';
 
 const SOURCE = fileURLToPath(
   new URL('../../../../docs/uat/quickstart/print.html', import.meta.url),
@@ -39,5 +39,11 @@ describe('UAT quick-start help page (B-23)', () => {
     ]) {
       expect(html, role).toContain(`id="${quickstartAnchor(role)}"`);
     }
+  });
+
+  it('opens at the top for a role with no section of its own, not at the KAM section', () => {
+    expect(quickstartHref('KAM')).toBe('/help/quickstart.html#kam');
+    expect(quickstartHref('PostAward')).toBe('/help/quickstart.html');
+    expect(quickstartHref(undefined)).toBe('/help/quickstart.html');
   });
 });
