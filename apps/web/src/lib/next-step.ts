@@ -50,9 +50,17 @@ function nextText(step: QuoteNextStep, gateLabel: string | null | undefined): st
     case 'in_progress':
       if (step.waitingOn === 'finance') return 'upload the payback model';
       if (step.place === 'engineering') {
+        // The production scheduler's own part, and a lead who works the quote themselves.
+        if (step.part === 'capacity') {
+          return 'add the capacity evidence, then approve capacity or block it with a note';
+        }
+        if (step.part === 'decide') return `complete the solution and capacity, then ${decision}`;
         return 'complete the solution and capacity, then submit to the engineering lead';
       }
       if (step.place === 'quoting') {
+        if (step.part === 'decide') {
+          return `complete the costing and the pricing record, then ${decision}`;
+        }
         return 'complete the costing and the pricing record, then submit to the pricing lead';
       }
       return null;

@@ -49,6 +49,17 @@ export type NextStepState = (typeof NEXT_STEP_STATES)[number];
 export const NEXT_STEP_PLACES = ['intake', 'engineering', 'quoting', 'decision'] as const;
 export type NextStepPlace = (typeof NEXT_STEP_PLACES)[number];
 
+/**
+ * Which part of the stage's work is the reader's, when it is not simply "the assignee's part":
+ * - `capacity`: the reader is the production scheduler assigned to the quote, and the capacity evidence
+ *   and sign-off are theirs to record. Two people work the Engineering stage; the quote still waits on
+ *   Engineering as a whole.
+ * - `decide`: the reader is the assignee and is also the lead who decides the gate, so their own next
+ *   step ends in the decision, not in a submit to themselves.
+ */
+export const NEXT_STEP_PARTS = ['capacity', 'decide'] as const;
+export type NextStepPart = (typeof NEXT_STEP_PARTS)[number];
+
 export interface NextStepHold {
   /** `YYYY-MM-DD`. */
   reviewDate: string | null;
@@ -70,6 +81,8 @@ export interface NextStep {
   yourMove: boolean;
   /** Only while on hold. */
   hold: NextStepHold | null;
+  /** Set only when it is the reader's move and their part is one of `NEXT_STEP_PARTS`. */
+  part?: NextStepPart;
 }
 
 /** One lead-reviewed part (Engineering, Quoting) as the quote detail already reports it for the reader. */
@@ -82,6 +95,12 @@ export interface NextStepWork {
   canAssign: boolean;
   canWork: boolean;
   canReview: boolean;
+  /**
+   * Engineering only: the capacity part, which a production scheduler assigned to the quote owns.
+   * `decided`: the sign-off (approved or blocked) is recorded. `canWork`: the server would accept the
+   * reader's capacity rows or sign-off.
+   */
+  capacity?: { ownerId: string | null; decided: boolean; canWork: boolean };
 }
 
 export interface NextStepFacts {
@@ -212,14 +231,30 @@ export function nextStep(config: WorkflowConfig, facts: NextStepFacts): NextStep
         yourMove: work.canReview && inParty(lead),
       };
     }
-    return {
+    const inProgress = {
       ...base,
       waitingOn: workers,
       personName: work.assigneeName,
       state: 'in_progress',
       place,
-      yourMove: work.assigneeId === facts.readerId && work.canWork,
-    };
+    } satisfies Partial<NextStep>;
+    // The production scheduler assigned to the quote: the capacity evidence and its sign-off are theirs
+    // until the sign-off is recorded. The engineer's own part is unchanged.
+    const capacity = work.capacity;
+    if (
+      capacity &&
+      capacity.ownerId === facts.readerId &&
+      work.assigneeId !== facts.readerId &&
+      !capacity.decided &&
+      capacity.canWork
+    ) {
+      return { ...inProgress, yourMove: true, part: 'capacity' };
+    }
+    const own = work.assigneeId === facts.readerId && work.canWork;
+    // A lead who is also the assignee decides the gate themselves: there is no one to submit to.
+    return own && inParty(lead)
+      ? { ...inProgress, yourMove: true, part: 'decide' }
+      : { ...inProgress, yourMove: own };
   }
 
   if (gate) {

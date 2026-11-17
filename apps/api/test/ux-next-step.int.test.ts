@@ -292,6 +292,29 @@ describe('QuoteDetail.nextStep', () => {
       yourMove: false,
     });
 
+    // FB-16: with a production scheduler assigned, capacity is the scheduler's own move until it is
+    // signed off. The quote still waits on Engineering, and the engineer keeps their part.
+    const scheduler = await userIdOf('ProductionScheduler');
+    expect((await step(qn, 'ProductionScheduler'))?.yourMove).toBe(false);
+    ok(
+      await as('EngLead').post(`/api/v1/quotes/${qn}/assignment`, {
+        engineerId: engineer.id,
+        schedulerId: scheduler.id,
+      }),
+      200,
+    );
+    expect(await step(qn, 'ProductionScheduler')).toMatchObject({
+      waitingOn: 'engineering',
+      personName: engineer.displayName,
+      state: 'in_progress',
+      place: 'engineering',
+      yourMove: true,
+      part: 'capacity',
+    });
+    const engineersOwn = await step(qn, 'Engineer');
+    expect(engineersOwn).toMatchObject({ yourMove: true });
+    expect(engineersOwn?.part).toBeUndefined();
+
     // The engineer does their part and submits to the lead.
     ok(
       await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, {

@@ -93,6 +93,54 @@ describe('nextStepLine', () => {
     ).toBe('Waiting on: Finance. Next: upload the payback model.');
   });
 
+  it('the two other people who work a stage: the scheduler’s capacity, and a lead who is the assignee', () => {
+    const scheduler = nextStepLine(
+      step({
+        waitingOn: 'engineering',
+        personName: 'V. Carroll',
+        state: 'in_progress',
+        place: 'engineering',
+        yourMove: true,
+        part: 'capacity',
+      }),
+    );
+    expect(scheduler.text).toBe(
+      'Waiting on you. Next: add the capacity evidence, then approve capacity or block it with a note.',
+    );
+    expect(scheduler.action).toEqual({
+      kind: 'tab',
+      tab: 'engineering',
+      label: 'Open the Engineering tab',
+    });
+    // A lead working the quote themselves has no one to submit to: the step ends in the decision.
+    expect(
+      nextStepLine(
+        step({
+          waitingOn: 'engineering',
+          state: 'in_progress',
+          place: 'engineering',
+          gateKey: 'G2',
+          yourMove: true,
+          part: 'decide',
+        }),
+      ).text,
+    ).toBe('Waiting on you. Next: complete the solution and capacity, then decide feasibility.');
+    expect(
+      nextStepLine(
+        step({
+          waitingOn: 'pricing',
+          state: 'in_progress',
+          place: 'quoting',
+          gateKey: 'G3',
+          yourMove: true,
+          part: 'decide',
+        }),
+      ).text,
+    ).toBe(
+      'Waiting on you. Next: complete the costing and the pricing record, then decide price approval.',
+    );
+  });
+
   it('with the lead: review, then the gate’s own decision, in the words of its button', () => {
     expect(
       nextStepLine(

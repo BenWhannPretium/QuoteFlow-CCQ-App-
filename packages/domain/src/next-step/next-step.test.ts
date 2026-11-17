@@ -196,6 +196,103 @@ describe('nextStep: Engineering and Quoting (lead review)', () => {
   });
 });
 
+describe('nextStep: the two other people who work a stage', () => {
+  const assigned: NextStepWork = {
+    ...NO_WORK,
+    assigneeId: 'user-engineer',
+    assigneeName: 'Vera Carroll',
+  };
+  const withCapacity = (
+    capacity: NonNullable<NextStepWork['capacity']>,
+  ): NextStepFacts['work'] => ({
+    engineering: { ...assigned, capacity },
+    pricing: NO_WORK,
+  });
+
+  it('the production scheduler assigned to the quote: capacity is their move until it is signed off', () => {
+    const scheduler = { id: 'user-scheduler', roles: ['ProductionScheduler'] as Role[] };
+    const open = step('ENG_REVIEW', scheduler, {
+      work: withCapacity({ ownerId: 'user-scheduler', decided: false, canWork: true }),
+    });
+    // The quote still waits on Engineering, by the engineer's name; the scheduler has their own part.
+    expect(open).toMatchObject({
+      waitingOn: 'engineering',
+      personName: 'Vera Carroll',
+      state: 'in_progress',
+      place: 'engineering',
+      yourMove: true,
+      part: 'capacity',
+    });
+
+    const signedOff = step('ENG_REVIEW', scheduler, {
+      work: withCapacity({ ownerId: 'user-scheduler', decided: true, canWork: true }),
+    });
+    expect(signedOff.yourMove).toBe(false);
+    expect(signedOff.part).toBeUndefined();
+
+    // Not another scheduler's move, and not when the server would refuse the write.
+    for (const capacity of [
+      { ownerId: 'user-other', decided: false, canWork: true },
+      { ownerId: 'user-scheduler', decided: false, canWork: false },
+      { ownerId: null, decided: false, canWork: true },
+    ]) {
+      const other = step('ENG_REVIEW', scheduler, { work: withCapacity(capacity) });
+      expect(other.yourMove, JSON.stringify(capacity)).toBe(false);
+      expect(other.part).toBeUndefined();
+    }
+  });
+
+  it('the engineer keeps their own part while a scheduler is assigned', () => {
+    const engineer = step(
+      'ENG_REVIEW',
+      { id: 'user-engineer', roles: ['Engineer'] },
+      {
+        work: {
+          engineering: {
+            ...assigned,
+            canWork: true,
+            capacity: { ownerId: 'user-scheduler', decided: false, canWork: true },
+          },
+          pricing: NO_WORK,
+        },
+      },
+    );
+    expect(engineer.yourMove).toBe(true);
+    expect(engineer.part).toBeUndefined();
+  });
+
+  it('a lead who is the assignee decides the gate themselves', () => {
+    const lead = step(
+      'ENG_REVIEW',
+      { id: 'user-lead', roles: ['EngLead'] },
+      {
+        work: {
+          engineering: {
+            ...NO_WORK,
+            assigneeId: 'user-lead',
+            assigneeName: 'Jim Lead',
+            canWork: true,
+          },
+          pricing: NO_WORK,
+        },
+      },
+    );
+    expect(lead).toMatchObject({ state: 'in_progress', yourMove: true, part: 'decide' });
+
+    const pricingLead = step(
+      'QUOTING',
+      { id: 'user-pl', roles: ['PricingLead'] },
+      {
+        work: {
+          engineering: NO_WORK,
+          pricing: { ...NO_WORK, assigneeId: 'user-pl', assigneeName: 'Pat Lead', canWork: true },
+        },
+      },
+    );
+    expect(pricingLead).toMatchObject({ place: 'quoting', yourMove: true, part: 'decide' });
+  });
+});
+
 describe('nextStep: gates decided in a dialog', () => {
   it('a submitted intake waits on the sales leader at G1', () => {
     expect(step('INTAKE', { roles: ['SalesLeader'] }, { decidableGateKeys: ['G1'] })).toMatchObject(

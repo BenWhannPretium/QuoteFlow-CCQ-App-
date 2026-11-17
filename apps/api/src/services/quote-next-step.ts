@@ -52,6 +52,12 @@ export function quoteNextStep(
         canAssign: engineering.canAssign,
         canWork: engineering.canEdit,
         canReview: engineering.leadReview.canSendBack,
+        // FB-16: the capacity rows and sign-off belong to the production scheduler, when one is assigned.
+        capacity: {
+          ownerId: engineering.assignedSchedulerId,
+          decided: engineering.capacitySignoff.status !== null,
+          canWork: engineering.canEditCapacity || engineering.canSignOffCapacity,
+        },
       },
       pricing: {
         assigneeId: quoting.assignedPricerId,

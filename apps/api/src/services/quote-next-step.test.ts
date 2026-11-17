@@ -1,4 +1,5 @@
 import {
+  NEXT_STEP_PART_VALUES,
   NEXT_STEP_PARTY_VALUES,
   NEXT_STEP_PLACE_VALUES,
   NEXT_STEP_STATE_VALUES,
@@ -6,6 +7,7 @@ import {
 } from '@ccq/contracts';
 import {
   NEXT_STEP_PARTIES,
+  NEXT_STEP_PARTS,
   NEXT_STEP_PLACES,
   NEXT_STEP_STATES,
   asUserId,
@@ -37,6 +39,10 @@ function source(over: Record<string, unknown> = {}): NextStepSource {
     engineering: {
       assignedEngineerId: null,
       assignedEngineerName: null,
+      assignedSchedulerId: null,
+      capacitySignoff: { status: null },
+      canEditCapacity: false,
+      canSignOffCapacity: false,
       canAssign: false,
       canEdit: false,
       leadReview,
@@ -60,6 +66,7 @@ describe('quoteNextStep', () => {
     expect([...NEXT_STEP_PARTY_VALUES]).toEqual([...NEXT_STEP_PARTIES]);
     expect([...NEXT_STEP_STATE_VALUES]).toEqual([...NEXT_STEP_STATES]);
     expect([...NEXT_STEP_PLACE_VALUES]).toEqual([...NEXT_STEP_PLACES]);
+    expect([...NEXT_STEP_PART_VALUES]).toEqual([...NEXT_STEP_PARTS]);
   });
 
   it('returns what the contract accepts', () => {

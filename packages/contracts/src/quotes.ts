@@ -342,6 +342,7 @@ export const NEXT_STEP_STATE_VALUES = [
   'closed',
 ] as const;
 export const NEXT_STEP_PLACE_VALUES = ['intake', 'engineering', 'quoting', 'decision'] as const;
+export const NEXT_STEP_PART_VALUES = ['capacity', 'decide'] as const;
 
 export const QuoteNextStep = z.object({
   /** Who the quote is waiting on: a role in plain terms, the customer, or nobody (closed). */
@@ -362,6 +363,12 @@ export const QuoteNextStep = z.object({
   place: z.enum(NEXT_STEP_PLACE_VALUES).nullable(),
   /** The caller is the one waited on and the server would accept their move now. */
   yourMove: z.boolean(),
+  /**
+   * Set only when it is the caller's move and their part is not simply the assignee's: `capacity` (the
+   * production scheduler assigned to the quote: the capacity evidence and sign-off), `decide` (a lead
+   * who is the assignee: their work ends in the gate decision, not a submit).
+   */
+  part: z.enum(NEXT_STEP_PART_VALUES).optional(),
   /** Only while on hold: the review date (`YYYY-MM-DD`), the owner and the reason code's label. */
   hold: z
     .object({
