@@ -116,6 +116,8 @@ export function LeadReviewActions<T>({
   decide?:
     | {
         label: string;
+        /** The name of the `onOther` button (a quote on hold is not offered Hold: UX-004). */
+        otherLabel?: string | undefined;
         onClick: () => void;
         ready: boolean;
         missing: readonly { field: string; message: string }[];
@@ -205,7 +207,7 @@ export function LeadReviewActions<T>({
           )}
           {decide && !decide.ready && decide.onOther && (
             <Button variant="outline" onClick={decide.onOther} data-testid="decide-other">
-              Send back, hold or stop
+              {decide.otherLabel ?? 'Send back, hold or stop'}
             </Button>
           )}
           {submitReady && (

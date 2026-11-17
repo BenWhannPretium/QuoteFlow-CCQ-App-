@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
+import { decisionLabel, forwardReadiness, otherDecisionsLabel } from '@/lib/decision-label';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { useReportUnsaved } from '@/lib/unsaved-changes';
@@ -127,6 +127,7 @@ export function QuotingTab({
           g3 && !quoting.commercialRedacted
             ? {
                 label: decisionLabel('G3', g3.gateLabel),
+                otherLabel: otherDecisionsLabel(quote.status === 'on_hold'),
                 onClick: () => onDecide(),
                 ...forward,
                 onOther:
@@ -134,7 +135,7 @@ export function QuotingTab({
                     ? () =>
                         onDecide(undefined, {
                           outcomes: forward.others,
-                          title: 'Send back, hold or stop',
+                          title: otherDecisionsLabel(quote.status === 'on_hold'),
                         })
                     : undefined,
               }

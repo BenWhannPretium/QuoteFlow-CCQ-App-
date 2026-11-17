@@ -19,6 +19,13 @@ export function decisionLabel(gateKey: string, gateLabel?: string | null): strin
 }
 
 /**
+ * What the button for the decisions that do not move a quote forward says, and the title of the dialog
+ * it opens. A quote already on hold is not offered Hold again (UX-004), so the button does not name it.
+ */
+export const otherDecisionsLabel = (onHold: boolean): string =>
+  onHold ? 'Send back or stop' : 'Send back, hold or stop';
+
+/**
  * The gates decided on a work tab (Engineering, Quoting). FB-17 (W13-23): an outcome moves the quote
  * forward when its group is `advance` (config, on every available action). The keys listed here are read
  * only for an action that carries no group; `capital_required` stays listed for that case although the

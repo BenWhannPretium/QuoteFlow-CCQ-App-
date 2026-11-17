@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { decisionLabel, forwardReadiness } from './decision-label';
+import { decisionLabel, forwardReadiness, otherDecisionsLabel } from './decision-label';
 
 const action = (
   gateKey: string,
@@ -75,5 +75,12 @@ describe('forwardReadiness', () => {
 
   it('never holds back a gate that has no work tab', () => {
     expect(forwardReadiness([action('G1', 'advance', ['x'])], 'G1').ready).toBe(true);
+  });
+});
+
+describe('otherDecisionsLabel', () => {
+  it('does not offer Hold by name on a quote that is already on hold', () => {
+    expect(otherDecisionsLabel(false)).toBe('Send back, hold or stop');
+    expect(otherDecisionsLabel(true)).toBe('Send back or stop');
   });
 });

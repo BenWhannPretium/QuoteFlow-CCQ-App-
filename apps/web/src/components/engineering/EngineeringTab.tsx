@@ -45,7 +45,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, downloadBlob, uploadAttachment } from '@/lib/api';
-import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
+import { decisionLabel, forwardReadiness, otherDecisionsLabel } from '@/lib/decision-label';
 import { absoluteTime, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { useReportUnsaved } from '@/lib/unsaved-changes';
@@ -104,6 +104,7 @@ export function EngineeringTab({
   const itemQuote = view ? withItemView(quote, view) : quote;
   const itemId = view?.id;
   const itemKey = itemId ?? 'quote';
+  const otherLabel = otherDecisionsLabel(quote.status === 'on_hold');
   // The tab reads top to bottom in the order the work is done: who has it, where it stands, the
   // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
   return (
@@ -167,6 +168,7 @@ export function EngineeringTab({
           g2
             ? {
                 label: decisionLabel('G2', g2.gateLabel),
+                otherLabel,
                 onClick: () => onDecide(),
                 ...forward,
                 onOther:
@@ -174,7 +176,7 @@ export function EngineeringTab({
                     ? () =>
                         onDecide(undefined, {
                           outcomes: forward.others,
-                          title: 'Send back, hold or stop',
+                          title: otherLabel,
                         })
                     : undefined,
               }
