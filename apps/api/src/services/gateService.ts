@@ -180,11 +180,10 @@ export class GateService {
       if (!row) throw new GateError(404, GATE_PROBLEM_CODES.notFound, `No quote ${quoteNumber}`);
       const ctx = await this.opts.quotes.context(tx, actor, now);
       // B-26: the rules also read the server-derived fields (Legal review required, pass-through).
-      const loaded = withDerivedFields(
+      const state = withDerivedFields(
         (await loadQuoteState(tx, row.quote.id))!,
         ctx.commercial.derived,
       );
-      const state: QuoteState = { ...loaded, fields: withoutDecisionSuppliedFacts(loaded.fields) };
       const before = summaryDto(row, ctx);
 
       const request: TransitionRequest = {
@@ -392,7 +391,14 @@ export class GateService {
         extraErrors.push(...packOutRequirementErrors(ctx.packOutRule, state.fields));
       }
 
-      const result = evaluateTransition(workflow, decisionState, actor, request, now, {
+      // The rules are judged without the stored facts a decision must supply itself (see
+      // DECISION_SUPPLIED_FACTS). Only this copy is stripped: the evidence kept with the decision (the
+      // engineer's acceptance time among it) and everything below still read the full state.
+      const ruleState: QuoteState = {
+        ...decisionState,
+        fields: withoutDecisionSuppliedFacts(decisionState.fields),
+      };
+      const result = evaluateTransition(workflow, ruleState, actor, request, now, {
         approverTiers: ctx.release.approverTiers,
       });
       const errors = [
