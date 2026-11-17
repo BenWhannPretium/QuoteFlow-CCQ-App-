@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { withSystemContext, type Database } from '@ccq/db';
@@ -235,6 +236,10 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
 
   const app = Fastify({
     logger: loggerOptions(config),
+    // Unique across restarts and instances. Fastify's default is a per-process counter (req-1, req-2, …):
+    // the id is the problem `traceId` users quote and `audit_event.request_id`, and it repeated after
+    // every restart, so a log search by id matched unrelated requests.
+    genReqId: () => randomUUID(),
     // Behind the Azure App Service front end: trust that one hop (the socket peer) only. The front end
     // appends the caller's address to X-Forwarded-For, so `true` (trust every entry) took req.ip from
     // what the caller sent. A function, not a hop count: Fastify treats a number as "trust nothing".

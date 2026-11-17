@@ -35,6 +35,20 @@ describe('app', () => {
     expect(res.json()).toMatchObject({ type: 'about:blank', title: 'Not Found', status: 404 });
   });
 
+  it('gives every request its own trace id (a UUID, not a per-process counter)', async () => {
+    app = await buildApp(testConfig(), { db: fakeDb() });
+    const ids = await Promise.all(
+      [1, 2, 3].map(async () => {
+        const res = await app!.inject({ method: 'GET', url: '/api/v1/nope' });
+        return res.json<{ traceId: string }>().traceId;
+      }),
+    );
+    for (const id of ids) {
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    }
+    expect(new Set(ids).size).toBe(3);
+  });
+
   it('500s are problem+json without leaking internals', async () => {
     app = await buildApp(testConfig(), { db: fakeDb() });
     app.get('/boom', { config: { public: true } }, () => {
