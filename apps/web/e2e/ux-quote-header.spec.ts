@@ -91,7 +91,9 @@ test.describe('UX-002: whose move it is, under the stage tracker', () => {
     await decide(request, quoteNumber, 'G1', 'sales-leader', { outcomeKey: 'advance' });
 
     await signInAs(page, 'eng-lead');
-    await page.goto(`/quotes/${quoteNumber}`);
+    // From the Overview (a shared link, say). Opened without a tab, the quote would already be on the
+    // lead's Engineering tab (UX-012), with nothing left for the line to open.
+    await page.goto(`/quotes/${quoteNumber}?tab=overview`);
     const line = page.getByTestId('quote-next-step');
     await expect(line).toHaveAttribute('data-state', 'unassigned');
     await expect(line).toContainText('Waiting on you. Next: assign an engineer.');
