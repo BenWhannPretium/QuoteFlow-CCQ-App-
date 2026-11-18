@@ -1611,6 +1611,113 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 - **Waiting on:** the template's owner and Legal (approved wording, entity name and address); Gemma Cebolla (the price's unit, what belongs on the Molds and Change Parts lines, and the new costing template with one column per item); Bailey Schmitt (who may generate, Word only or PDF too, where the Attention contact comes from).
 - **Prompt:** `prompts/feedback/FB-20-offer-letter.md`
 
+## Nov 17 and 18 feedback (FB-21 to FB-27, added 2026-11-18)
+
+**Source:** "QuoteFlow Walkthrough Pt. 3" (Ben Whann, Bailey Schmitt, Tue 2026-11-17), the "CCQ QuoteFlow Interactive Demo" the same afternoon (about 20 people each acting their own role), Jim Zweifel's engineering session and worksheets (Wed 2026-11-18) and the post-demo sync (Ben and Bailey, Wed 2026-11-18). Each item has an **N17** or **N18** ID, the triage Ben agreed and what the code did on 2026-11-18 in [`feedback/inputs/feedback-2026-11-17.md`](feedback/inputs/feedback-2026-11-17.md). The prompts are in [`prompts/feedback/`](prompts/feedback/); every one follows [`FB-21-to-27-ground-rules.md`](prompts/feedback/FB-21-to-27-ground-rules.md), which also holds the close-out procedure. The production audit and UX pass (UX-001 to UX-018, PR #107) came before this feedback and is not repeated here.
+
+### Steps and run order
+
+**Grouping rule** (as before): one step per area of the code, so sessions running in parallel don't edit the same files.
+
+| Step | Scope | Items | Wave | Model / effort | Why |
+|---|---|---|---|---|---|
+| **FB-21** | Quoting: capital "pending" never blocks and needs no reason (default pending / not required), "not approved" stops; payback only when the pricer or pricing lead requests it (Finance told; the requester and the pricing lead told on upload); the pricer's submit is findable; a pricing lead may approve their own work; engineering facts first; formats on the model uploads | N17-19 to N17-23, N18-15, N17-24 (part) | **1, first** | Opus 5.5 · high | Changes a G3 workflow rule and a derived requirement read by Pricing and Final Review; Bailey wants Part A before the Nov 19 demo |
+| **FB-22** | Engineering tab: engineer and scheduler each submit to the lead; jump to the decision; Technical concept and Supply chain gone; machine platform; "New" in the queue | N17-11 to N17-14, N17-16 | **1**, merge after FB-21 | Opus 5.5 · high | Changes lead review (L-9) for a second assignee, with locks and notices |
+| **FB-23** | Jim's engineering cost estimate and pack-out per item: lead time, tooling and new-line lines with totals, labor, the pack-out calculation | N18-03 to N18-10 | **2**, after FB-22 | Opus 5.5 · high (Fable 5.2 if the budget allows) | The largest data-model change of the batch; promised to Jim for about Fri Nov 20 |
+| **FB-24** | Intake: item fields first; Concept / innovation class; ship-to from the opportunity; decoration multi-select; Soldier pack; longer item name; tooling commitment at intake; dropdowns A to Z; one "Add file" and per-place file types; red / yellow and the key; the "returnable" report | N17-01 to N17-10, N18-01, N18-02 | **1** | Opus 5.5 · high | Domain intake rules, an array column, a Salesforce mapping and the offer letter's assumptions |
+| **FB-25** | Quote page and Final Review: To qualify opens from the notice with expandable cards; a Commercial terms tab and a read-only Overview; a tab bar that is easy to see; one "Decide final review"; tooling commitment required at G4; non-standard terms hidden at standard codes; the funding help fits | N17-18, N17-25 to N17-29, N18-17, N18-18, N18-02 (part) | **1** | Opus 5.5 · high | Restructures the quote page and its links, and a G4 check |
+| **FB-26** | After the offer: a linked re-quote for an expired quote; expiry notices to the sales leader and "Expiring soon"; CER links and proof at hand-off | N17-30 to N17-32 | **2**, after FB-24 | Opus 5.5 · high | A new quote-to-quote link created inside a gate decision |
+| **FB-27** | Lists, timeline and polish: plant in the pipeline, movable columns kept in saved views; file links and score changes on the timeline; the hand cursor; formats on every upload; "Report an issue"; the analytics wording; red / yellow on the gate panels | N17-15, N17-17, N17-33 to N17-35, N18-16, N17-09 and N17-24 (rest) | **2**, after FB-21, FB-22, FB-24, FB-25 | Sonnet 5.5 · high | Screens and one small event; no workflow or permission change |
+
+**Order:**
+1. **Wave 1 (now, four sessions):** FB-21, FB-22, FB-24, FB-25. **Merge FB-21 first** (Part A alone if time is short: Bailey asked for the capital fix before the Thu Nov 19 8:00 CST demo). FB-22 rebases on FB-21 (both touch lead review and the notification catalogue). FB-24 and FB-25 merge in either order.
+2. **Wave 2:** FB-23 when FB-22 has merged; FB-26 when FB-24 has merged; FB-27 when all four Wave 1 steps have merged. They run in parallel; FB-23 and FB-27 both touch the pipeline CSV (merge FB-27 first, FB-23 rebases).
+3. **Migrations:** most steps add one (0049 onward, numbered in the order they merge). The ground rules carry the renumbering rule.
+
+**Decided by Ben on 2026-11-18** (record "Decided by Ben", D1 to D6): pending capital never blocks (FB-21); a lead may approve their own work (FB-21, FB-22); payback only on request (FB-21); the extra pricing cost inputs, optional, placed by best guess (stocking agreement in FB-24; tariffs, special packaging and returnable dunnage in FB-23); no tooling markup unless one is noted on the quote (FB-23); container item numbers as free text (FB-23).
+
+**Not built (open decisions in the record):** quote validity 60 or 30 days (an Admin setting once Bailey confirms with Danielle Leu); whether the budgetary capital estimate is the project total or the net cost; payment terms at intake; the three Quoting steps shown to everyone; resin-only re-pricing; packing spec sign-off; the priority method (Sarah, Nov 19); the opportunity name format; the final role list; who owns the new-line equipment lines; the legacy ERF fields intake still lacks; inspection flags; standard engineering comments.
+
+**Actions outside the code:**
+- **Ben:** give Stacy Slocum (or whoever Bailey names) the Finance role in the test environment, so FB-21's payback requests reach someone; tell Jim Zweifel when FB-23 is in the test environment.
+- **Zachary Cairns:** the opportunity's ship-to fields (FB-24).
+- **Oleg Yarovinski:** the CER tool URL and template (FB-26; an Admin sets them).
+- **Bailey:** the questions each PR lists, and the proposed tracker rows.
+
+---
+
+### FB-21: Quoting: capital pending, payback decision, the lead hand-off · **Not started** · Ben (Opus 5.5 · high)
+- **Why:** every capital quote had to be marked "pre-approved" to leave Quoting, and every one needed a payback model, though no CER exists before award and payback is not always needed (N17-19 to N17-21).
+- **Done when:**
+  - [ ] capital readiness defaults to pending / not required; pending advances with no note; not approved stops; nothing later blocks on pending
+  - [ ] payback requests (permission, record, timeline, audit, withdraw); G3 needs payback only while a request is open; Finance told on request; the requester and the pricing lead(s) told on upload
+  - [ ] the pricer's submit reproduced, fixed and shown at the top as well; the lead's notice tested; a pricing lead approves their own work
+  - [ ] engineering facts first on the Quoting tab; formats on the model uploads
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-21-capital-payback-quoting.md`
+
+### FB-22: Engineering tab · **Not started** · Ben (Opus 5.5 · high)
+- **Why:** the production scheduler had no way to hand their part to the lead; the lead had to scroll to decide; two free-text boxes nobody understood (N17-11 to N17-14, N17-16).
+- **Done when:**
+  - [ ] engineer and scheduler each submit; the lead told per the setting; per-part locks and send-backs; an engineering lead approves their own work
+  - [ ] "Go to the decision" and the `#decision` anchor
+  - [ ] Technical concept and Supply chain no longer asked; machine platform; tooling notes hint
+  - [ ] "New" chip and filter in the engineering queue
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-22-engineering-tab.md`
+
+### FB-23: Engineering cost estimate and pack-out · **Not started** · Ben (Opus 5.5 · high)
+- **Why:** Pricing needs the figures Jim's group puts on the ECE Summary, per size: mold lead time, tooling and start-up costs, who funds them, labor and the pack-out (N18-03 to N18-10).
+- **Done when:**
+  - [ ] plan committed first; per-item columns, `eng_cost_line`, the settings and value lists; migration tested
+  - [ ] the calculations with Jim's examples as tests; tariffs, special packaging and dunnage; the customer tooling price (no markup unless noted) and the letter's Molds line
+  - [ ] the Engineering cards; the estimate untouched with "Use the project total"
+  - [ ] shown on Quoting and Final Review; CSV and letter row (or cut)
+  - [ ] tests, `pnpm verify`, close-out; Jim told
+- **Prompt:** `prompts/feedback/FB-23-engineering-cost-packout.md`
+
+### FB-24: Intake · **Not started** · Ben (Opus 5.5 · high)
+- **Why:** KAMs lost track of which item they were filling in, concept requests could not be submitted, the ship-to was often blank, and several small field and file-list asks (N17-01 to N17-10, N18-01, N18-02).
+- **Done when:**
+  - [ ] item fields first, "Item n of m"
+  - [ ] Concept / innovation class with assumptions on the letter
+  - [ ] ship-to source order (product spec only if confirmed); the opportunity's free-text ship-to shown to the KAM
+  - [ ] decoration multi-select, Soldier pack, item name 120, tooling commitment and stocking agreement at intake, dropdowns A to Z
+  - [ ] one "Add file"; per-place file types enforced on the server
+  - [ ] red / yellow and the key on the intake; the returnable report answered
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-24-intake.md`
+
+### FB-25: Quote page and Final Review · **Not started** · Ben (Opus 5.5 · high)
+- **Why:** a sales leader's notice opened a page of empty fields; people missed the tab bar; Final Review had a row of buttons that all open the same panel; standard terms could trigger Legal (N17-18, N17-25 to N17-29, N18-17, N18-18).
+- **Done when:**
+  - [ ] to-qualify notices open To qualify; expandable cards
+  - [ ] Commercial terms tab; read-only Overview; visible tab bar
+  - [ ] one "Decide final review", twice
+  - [ ] tooling commitment required at G4; required markers shown
+  - [ ] non-standard checkbox hidden at standard codes; funding help fits
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-25-quote-page-final-review.md`
+
+### FB-26: Re-quote, expiry and hand-off · **Not started** · Ben (Opus 5.5 · high)
+- **Why:** an expired quote had no way forward except a send-back on the same record; the sales leader was not told about expiring quotes; the CER at hand-off was a bare reference (N17-30 to N17-32).
+- **Done when:**
+  - [ ] plan committed first; linked re-quote with both links and the read-only "From the expired quote" panels
+  - [ ] expiry notices to the G1 decider; "Expiring soon"
+  - [ ] CER links (empty settings) and `cer_proof`
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-26-requote-expiry-handoff.md`
+
+### FB-27: Lists, timeline and polish · **Not started** · Ben (Sonnet 5.5 · high)
+- **Why:** plants could not see their pipeline; timeline files were not clickable and score moves were invisible; small irritations from both sessions (N17-15, N17-17, N17-33 to N17-35, N18-16, the rest of N17-09 and N17-24).
+- **Done when:**
+  - [ ] plant column and filter; reorderable columns kept in saved views
+  - [ ] timeline file links; score changes recorded and shown
+  - [ ] hand cursor; formats on every upload; Report an issue resets
+  - [ ] analytics tile reworded; red / yellow on the gate panels; Wave 1 follow-ups
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-27-lists-timeline-polish.md`
+
 ## Post-MVP backlog (P1 / P2, not before Nov 13)
 
 | Item | Priority | Blocked by |
