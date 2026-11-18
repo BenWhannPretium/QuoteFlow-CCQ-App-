@@ -1222,7 +1222,7 @@ describe('G2 Feasible solution? (generic gate route)', () => {
     ).toHaveLength(1);
   });
 
-  it('FB-17: $0 means no capital is needed: no BOM, no flag, no capital readiness started', async () => {
+  it('FB-17: $0 means no capital is needed: no BOM, no flag; FB-21: readiness starts "not required"', async () => {
     const qn = await ready();
     const ok = await decide(qn, 'G2', { outcomeKey: 'proceed' });
     expect(ok.statusCode, ok.body).toBe(201);
@@ -1234,7 +1234,8 @@ describe('G2 Feasible solution? (generic gate route)', () => {
       .select()
       .from(schema.pricingRecord)
       .where(eq(schema.pricingRecord.quoteId, quote.id));
-    expect(pricing?.capitalReadiness ?? null).toBeNull();
+    // FB-21 (N17-19): capital_readiness_default.whenNotNeeded (seed "not required").
+    expect(pricing?.capitalReadiness).toBe('not_required');
     const events = await db.db
       .select()
       .from(schema.activityEvent)

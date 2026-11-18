@@ -119,7 +119,21 @@ describe('derived decision fields', () => {
       roi_required_reasons: [],
       // FB-17 (W13-22): no preliminary capital figure yet, so capital is not ruled out (fail closed).
       eng_capital_needed: true,
+      // FB-21 (N17-20): no pricing record, so capital is not marked "not approved".
+      capital_not_approved: false,
     });
+    // FB-21: only "not approved" sets it; pending never does.
+    for (const [readiness, expected] of [
+      ['not_approved', true],
+      ['pending', false],
+      ['pre_approved', false],
+      ['not_required', false],
+    ] as const) {
+      expect(
+        derivedDecisionFields({ pricing_record: { capital_readiness: readiness } }, settings)
+          .capital_not_approved,
+      ).toBe(expected);
+    }
     // FB-08 (T-007): a pending or rejected exception is open.
     expect(
       derivedDecisionFields({ terms_exception_status: 'rejected' }, settings).terms_exception_open,

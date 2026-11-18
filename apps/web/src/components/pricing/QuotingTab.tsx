@@ -6,7 +6,12 @@ import type {
   QuotingDetail,
 } from '@ccq/contracts';
 import { BUDGETARY_CAPITAL_LABEL } from '@ccq/contracts';
-import { CAPITAL_READINESS_LABELS, roundPct } from '@ccq/domain';
+import {
+  CAPITAL_READINESS_HELP,
+  CAPITAL_READINESS_INTRO,
+  CAPITAL_READINESS_LABELS,
+  roundPct,
+} from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -740,11 +745,14 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
               { id: 'cap-notes', label: 'Notes', value: record?.capitalNotes },
               {
                 id: 'cap-just',
-                label: 'Pending justification',
+                label: 'Note on pending capital',
                 value: record?.capitalPendingJustification,
               },
             ]}
           />
+          <p className="text-muted-foreground mt-3 text-sm" data-testid="capital-readiness-intro">
+            {CAPITAL_READINESS_INTRO}
+          </p>
         </CardContent>
       </Card>
     );
@@ -797,6 +805,14 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
                 </NativeSelect>
               )}
             </Field>
+            <div className="grid gap-1 text-sm sm:col-span-2" data-testid="capital-readiness-intro">
+              <p className="text-muted-foreground">{CAPITAL_READINESS_INTRO}</p>
+              {form.capitalReadiness && (
+                <p data-testid="capital-readiness-help">
+                  {CAPITAL_READINESS_HELP[form.capitalReadiness as CapitalReadiness]}
+                </p>
+              )}
+            </div>
             {record?.cerReference && (
               <div className="grid gap-1 text-sm" data-testid="legacy-cer-reference">
                 <span className="font-medium">Legacy CER reference</span>
@@ -809,8 +825,8 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
           </div>
           {form.capitalReadiness === 'pending' && (
             <Field
-              label="Pending-capital justification"
-              hint="Required while capital is still pending: say why the quote should go ahead. The approver sees this at Final Review."
+              label="Note on pending capital (optional)"
+              hint="Optional. Anything the pricing lead or the approver should know; the approver sees it at Final Review."
               error={errorFor(errors, 'capitalPendingJustification')}
             >
               {(id) => (

@@ -48,7 +48,11 @@ import { parseReceivingRoles } from '../outcome/handoff';
 import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome/sf-stage';
 import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
-import { CAPITAL_READINESS_VALUES, parsePricingRefFormats } from '../pricing/record';
+import {
+  CAPITAL_READINESS_VALUES,
+  parseCapitalReadinessDefault,
+  parsePricingRefFormats,
+} from '../pricing/record';
 import { parseRoiRequiredWhen } from '../quoting-steps';
 import { volumeRoutingSchema } from '../scoring/volume-routing';
 import { requiredRuleSchema } from '../types/workflow-config';
@@ -450,6 +454,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Capital readiness written by a gate decision (GATE:outcome → readiness)',
     'json',
     z_('capital_readiness_on_outcome', z.record(gateOutcomePair, z.enum(CAPITAL_READINESS_VALUES))),
+  ),
+  // FB-21 (N17-19, provisional): the readiness a quote entering Quoting with none starts on.
+  spec(
+    'capital_readiness_default',
+    'pricing',
+    'Capital readiness a quote starts on when it enters Quoting: whenNeeded (Engineering says capital is needed) and whenNotNeeded',
+    'json',
+    notNull('capital_readiness_default', parseCapitalReadinessDefault),
   ),
   // FB-17 (W13-22, provisional): capital is needed when the preliminary capital is above this.
   spec(

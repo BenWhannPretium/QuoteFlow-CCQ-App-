@@ -40,6 +40,72 @@ export const CAPITAL_READINESS_LABELS: Record<CapitalReadiness, string> = {
   not_approved: 'Capital not approved (budgetary)',
 };
 
+/**
+ * FB-21 (N17-19, N17-20; Ben, 2026-11-18): no CER exists before award, so "pending" is the normal state
+ * and never blocks a quote. Shown under the status on the Capital readiness card.
+ */
+export const CAPITAL_READINESS_INTRO =
+  'Pending is normal before award: no CER is raised until the customer awards the business. Pre-approved is an exception. Not approved means the quote should stop.';
+
+/** FB-21: one line per status, shown under the status the pricer has chosen. */
+export const CAPITAL_READINESS_HELP: Record<CapitalReadiness, string> = {
+  not_required:
+    'No capital is needed for this quote. Not available when Engineering says capital is needed.',
+  pending:
+    'The usual state before award. The quote goes ahead; the CER is raised after the customer awards the business.',
+  pre_approved: 'Use only when capital has already been approved ahead of award (rare).',
+  not_approved:
+    'Capital will not be approved, so the quote should stop. The pricing lead cannot advance it while this is chosen.',
+};
+
+/**
+ * FB-21 (N17-19): app_setting `capital_readiness_default`, the readiness a quote starts with when it
+ * enters Quoting with none: `whenNeeded` when Engineering's figures say capital is needed (or a figure is
+ * blank), `whenNotNeeded` when every figure is entered and none is above `capital_needed_above_usd`.
+ * `whenNeeded` cannot be "not_required" (the pricing record refuses it while capital is needed).
+ */
+export const capitalReadinessDefaultSchema = z
+  .object({
+    whenNeeded: z.enum(CAPITAL_READINESS_VALUES),
+    whenNotNeeded: z.enum(CAPITAL_READINESS_VALUES),
+  })
+  .strict()
+  .refine((v) => v.whenNeeded !== 'not_required', {
+    message: 'whenNeeded cannot be not_required: Engineering said capital is needed',
+    path: ['whenNeeded'],
+  });
+export type CapitalReadinessDefault = z.infer<typeof capitalReadinessDefaultSchema>;
+
+/** Provisional seed (Bailey Schmitt, WT3b / S18): pending when capital is needed, else not required. */
+export const CAPITAL_READINESS_DEFAULT_SEED: CapitalReadinessDefault = {
+  whenNeeded: 'pending',
+  whenNotNeeded: 'not_required',
+};
+
+/** Null / undefined → the seed. Throws INVALID_CONFIG on anything else that does not validate. */
+export function parseCapitalReadinessDefault(input: unknown): CapitalReadinessDefault {
+  if (input === undefined || input === null) return CAPITAL_READINESS_DEFAULT_SEED;
+  const parsed = capitalReadinessDefaultSchema.safeParse(input);
+  if (!parsed.success) {
+    const detail = parsed.error.issues
+      .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+      .join('; ');
+    throw new DomainError(
+      'INVALID_CONFIG',
+      `capital_readiness_default failed validation: ${detail}`,
+    );
+  }
+  return parsed.data;
+}
+
+/** The readiness a quote entering Quoting with none starts on. */
+export function defaultCapitalReadiness(
+  capitalNeeded: boolean,
+  setting: CapitalReadinessDefault = CAPITAL_READINESS_DEFAULT_SEED,
+): CapitalReadiness {
+  return capitalNeeded ? setting.whenNeeded : setting.whenNotNeeded;
+}
+
 // ── Pricing-app reference formats (config) ───────────────────────────────────────────────────────
 
 const refFormat = z
@@ -450,7 +516,7 @@ export interface QuotingWarning {
 
 /**
  * Things the G3 decider and the Final Review approver should see: capital still pending (with its
- * justification; D-11 is open, so it does not block), capital not approved, and costing not attested
+ * optional note; FB-21: pending is normal and never blocks), capital not approved, and costing not attested
  * (CR-25; B-26 made it a G3 rule, cost before price, so this warning now explains the block).
  */
 export function quotingWarnings(
@@ -459,16 +525,20 @@ export function quotingWarnings(
 ): QuotingWarning[] {
   if (!record) return [];
   const out: QuotingWarning[] = [];
+  // FB-21 (Ben, 2026-11-18): pending is normal before award and never blocks; the note is optional.
   if (record.capitalReadiness === 'pending') {
     out.push({
       code: 'CAPITAL_PENDING',
       message: record.capitalPendingJustification
-        ? `Capital is still pending: ${record.capitalPendingJustification}`
-        : 'Capital is still pending: enter a justification before you submit',
+        ? `Capital is pending (normal before award): ${record.capitalPendingJustification}`
+        : 'Capital is pending (normal before award: the CER is raised after the customer awards the business)',
     });
   }
   if (record.capitalReadiness === 'not_approved') {
-    out.push({ code: 'CAPITAL_NOT_APPROVED', message: 'Capital is not approved' });
+    out.push({
+      code: 'CAPITAL_NOT_APPROVED',
+      message: 'Capital is not approved: the quote should stop, or capital readiness be changed',
+    });
   }
   if (!record.costingCompleted) {
     out.push({

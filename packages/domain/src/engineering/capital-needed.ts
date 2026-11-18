@@ -107,6 +107,25 @@ export function capitalNeed(
   return { needed: reasons.length > 0, byEngineering, reasons, prelimCapitalUsd: figure };
 }
 
+/**
+ * FB-21 (N17-19): whether a quote entering Quoting starts on the "capital needed" readiness
+ * (`capital_readiness_default.whenNeeded`). Not needed only when every figure is entered (each item's,
+ * on a multi-item quote) and none is above the threshold, and the quote was not decided with the retired
+ * "Advance – capital required". A blank figure counts as needed, as at G2 (`engCapitalNeeded`).
+ */
+export function capitalNeededForReadiness(
+  fields: Readonly<Record<string, unknown>>,
+  aboveUsd: number = CAPITAL_NEEDED_ABOVE_USD_SEED,
+): boolean {
+  if (fields.g2_outcome === HISTORICAL_CAPITAL_OUTCOME) return true;
+  const items = Array.isArray(fields.items)
+    ? (fields.items as Readonly<Record<string, unknown>>[])
+    : null;
+  return items && items.length > 0
+    ? items.some((i) => engCapitalNeeded(i.prelim_capital_usd, aboveUsd))
+    : engCapitalNeeded(fields.prelim_capital_usd, aboveUsd);
+}
+
 /** "$250,000" for the timeline and messages (whole dollars; the figure is a budgetary estimate). */
 export function formatCapitalUsd(value: number): string {
   return `$${Math.round(value).toLocaleString('en-US')}`;

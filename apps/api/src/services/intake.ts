@@ -1026,7 +1026,7 @@ export class IntakeService {
         await onPricingArrival(
           tx,
           { id: quote.id, quoteNumber: quote.quoteNumber, version: quote.version },
-          actor.userId,
+          { actor, meta, at: now },
         );
       } else if (route.stageKey === ENG_QUEUE_STAGE_KEY) {
         await onEngQueueArrival(tx, quote, actor.userId, this.opts.log);

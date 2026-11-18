@@ -3,6 +3,7 @@ import {
   OPPORTUNITY_ACTIVE_QUOTES_SEED,
   QUOTE_ITEMS_MAX_SEED,
   CAPITAL_NEEDED_ABOVE_USD_SEED,
+  CAPITAL_READINESS_DEFAULT_SEED,
   CAPITAL_NOTICE_SEED,
   ESCALATION_ROUTES_SEED,
   G4_REQUIRED_CHECKS_SEED,
@@ -68,6 +69,10 @@ export const INTAKE_REQUIRED_FIELDS = [
   present('market'),
   present('sub_market'),
 ];
+
+/** FB-21 (N17-19): migration 0049 inserts the same description. */
+export const CAPITAL_READINESS_DEFAULT_DESCRIPTION =
+  'FB-21 (N17-19): the capital readiness a quote starts on when it enters Quoting with none. whenNeeded: Engineering says capital is needed (a preliminary capital figure is above capital_needed_above_usd or blank). whenNotNeeded: every figure is entered and none is above it. whenNeeded cannot be not_required. The pricer can change it. Seed: pending / not_required. Provisional.';
 
 /** FB-15 (W13-10): the master-data reminder for a customer with no ERP account (provisional wording). */
 export const CUSTOMER_MASTER_DATA_NOTICE =
@@ -469,6 +474,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: { 'G2:capital_required': 'pending' },
     description:
       'gate:outcome → the capital_readiness the decision writes on the pricing record (B-10: "Capital required" at G2 starts Pricing on pending).',
+  },
+  // ── FB-21 (N17-19): the readiness a quote starts on in Quoting. Provisional. Existing environments
+  // get the same row from migration 0049.
+  {
+    key: 'capital_readiness_default',
+    value: CAPITAL_READINESS_DEFAULT_SEED,
+    description: CAPITAL_READINESS_DEFAULT_DESCRIPTION,
   },
   // ── FB-17 (W13-22): capital needed follows the preliminary capital figure. Provisional.
   // Existing environments get the same row from migration 0046.

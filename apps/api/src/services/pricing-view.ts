@@ -3,6 +3,7 @@ import type { DbOrTx } from '@ccq/db';
 import {
   clearLeadReview,
   getSetting,
+  loadQuoteState,
   listActiveUsersWithRoles,
   listGateDecisionsWithNames,
   listPricingRecords,
@@ -11,13 +12,17 @@ import {
   type Quote,
 } from '@ccq/db/repos';
 import {
+  CAPITAL_READINESS_DEFAULT_SEED,
   PRICING_QUEUE_STAGE_KEY,
   PRICING_REF_FORMATS_SEED,
   can,
   canEditQuoting,
   canSeeCommercialFields,
   capitalNeed,
+  capitalNeededForReadiness,
   carryForwardPricingRecord,
+  defaultCapitalReadiness,
+  parseCapitalReadinessDefault,
   parsePricingRefFormats,
   priceApprovalStatus,
   quotingWarnings,
@@ -25,6 +30,7 @@ import {
   rolesWithPermission,
   type Actor,
   type CapitalReadiness,
+  type CapitalReadinessDefault,
   type PricingRecordValues,
   type PricingRefFormats,
   type QuoteState,
@@ -35,6 +41,7 @@ import { loadCapitalNeededAboveUsd } from './engineering-view';
 import { leadReviewView } from './lead-review';
 import { sectionLockView } from './locks';
 import { quotingStepsView } from './quoting-steps';
+import { recordAudit, type AuditMeta } from '../plugins/audit';
 
 type PricingRow = Awaited<ReturnType<typeof listPricingRecords>>[number];
 
@@ -206,27 +213,82 @@ export async function quotingView(
 }
 
 /**
+ * FB-21 (N17-19): `capital_readiness_default`, falling back to the seed when unset or invalid (an
+ * invalid value cannot be saved through the Admin console; this only guards a hand-edited row).
+ */
+export async function loadCapitalReadinessDefault(db: DbOrTx): Promise<CapitalReadinessDefault> {
+  try {
+    return parseCapitalReadinessDefault(await getSetting(db, 'capital_readiness_default'));
+  } catch {
+    return CAPITAL_READINESS_DEFAULT_SEED;
+  }
+}
+
+/** Who moved the quote into Quoting, for the readiness default's audit row. */
+export interface PricingArrivalAudit {
+  actor: Actor;
+  meta: AuditMeta;
+  at: Date;
+}
+
+/**
  * A quote entering Quoting (G2 Proceed / Capital required, G4 Return, G5 Re-quote, a KAM resubmission
  * with no scope change): its version gets a pricing record carrying forward the pricing-app and CER
  * references of the latest earlier version (the approval is recorded afresh, CR-38), and a new stay
  * starts a new lead-review round. Runs in the transition's transaction. The notifications are FB-05's
  * (`handoff-notifications.ts`): the pricer and the pricing lead, once each.
+ *
+ * FB-21 (N17-19): a record with no capital readiness starts on `capital_readiness_default` (pending when
+ * Engineering's figures say capital is needed, else not required), audited as the mover's change. A
+ * readiness someone chose (a resubmission in the same version) is left alone; the pricer can change it.
  */
 export async function onPricingArrival(
   tx: DbOrTx,
   quote: { id: string; quoteNumber: string; version: number },
-  actorId: string,
+  audit: PricingArrivalAudit,
 ): Promise<void> {
+  const actorId = audit.actor.userId;
   // Lead review: a new stay in Quoting starts a new round (like engineering's acceptance).
   await clearLeadReview(tx, quote.id, 'pricing');
   const rows = await listPricingRecords(tx, quote.id);
-  if (!rows.some((r) => r.quoteVersion === quote.version)) {
+  let current = rows.find((r) => r.quoteVersion === quote.version) ?? null;
+  if (!current) {
     const prior = rows.find((r) => r.quoteVersion < quote.version);
-    await upsertPricingRecord(tx, {
+    current = await upsertPricingRecord(tx, {
       quoteId: quote.id,
       quoteVersion: quote.version,
       ...recordColumns(carryForwardPricingRecord(recordValues(prior))),
       createdBy: actorId,
     });
   }
+  if (current.capitalReadiness) return;
+  const state = await loadQuoteState(tx, quote.id);
+  if (!state) return;
+  const [aboveUsd, setting] = await Promise.all([
+    loadCapitalNeededAboveUsd(tx),
+    loadCapitalReadinessDefault(tx),
+  ]);
+  const capitalNeeded = capitalNeededForReadiness(state.fields, aboveUsd);
+  const readiness = defaultCapitalReadiness(capitalNeeded, setting);
+  await upsertPricingRecord(tx, {
+    ...recordColumns(recordValues(current)!),
+    quoteId: quote.id,
+    quoteVersion: quote.version,
+    capitalReadiness: readiness,
+    createdBy: current.createdBy,
+  });
+  await recordAudit(tx, audit.actor, audit.meta, {
+    action: 'update',
+    entity: 'pricing_record',
+    entityId: current.id,
+    quoteId: quote.id,
+    before: { capitalReadiness: null },
+    after: {
+      capitalReadiness: readiness,
+      source: 'capital_readiness_default',
+      capitalNeeded,
+      quoteVersion: quote.version,
+    },
+    at: audit.at,
+  });
 }

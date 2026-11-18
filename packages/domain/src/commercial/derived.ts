@@ -45,6 +45,7 @@ export function derivedDecisionFields(
   roi_required: boolean;
   roi_required_reasons: RoiReason[];
   eng_capital_needed: boolean;
+  capital_not_approved: boolean;
 } {
   const reasons = legalReviewReasons(settings.legalReviewTriggers, {
     customerStatus: (fields.customer_status as string | null | undefined) ?? null,
@@ -77,6 +78,11 @@ export function derivedDecisionFields(
         ? items.some((i) => engCapitalNeeded(i.prelim_capital_usd, threshold))
         : engCapitalNeeded(fields.prelim_capital_usd, threshold);
     })(),
+    // FB-21 (N17-20; Ben, 2026-11-18): G3 Advance is refused while capital readiness is "not approved"
+    // (a recommendation to stop). Pending never blocks.
+    capital_not_approved:
+      (fields.pricing_record as { capital_readiness?: unknown } | null | undefined)
+        ?.capital_readiness === 'not_approved',
   };
 }
 
