@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { api, isApiError } from '@/lib/api';
 import { calendarDate, absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { openFileLink } from '@/lib/unsaved-changes';
 
 import {
   allAcknowledged,
@@ -49,8 +50,9 @@ export function OfferLetterCard({ quote }: { quote: QuoteDetail }) {
 
   if (!q.data) return null;
   const data = q.data;
-  // A closed quote that never had a letter has nothing to show.
-  if (!data.available && data.letters.length === 0 && quote.status === 'closed') return null;
+  // UX-012: nothing to show until Final Review has approved the quote. Once a letter can be made, or
+  // one already exists (an earlier version's), the card is shown.
+  if (!data.available && data.letters.length === 0) return null;
 
   return (
     <section
@@ -59,7 +61,8 @@ export function OfferLetterCard({ quote }: { quote: QuoteDetail }) {
       aria-labelledby="offer-letter-title"
       data-testid="offer-letter-card"
       data-state={!data.available ? 'not-available' : data.canGenerate ? 'ready' : 'blocked'}
-      className="scroll-mt-20"
+      // The page's own scroll padding (index.css) already clears the sticky header.
+      className="scroll-mt-1"
     >
       <Card>
         <CardHeader>
@@ -172,7 +175,7 @@ function GenerateForm({ quoteNumber, data }: { quoteNumber: string; data: OfferL
       toast.success({ title: `Offer letter ${out.letter.letterNo} generated` });
       try {
         const link = await api.attachmentLink(out.letter.attachmentId);
-        window.location.assign(link.url);
+        openFileLink(link.url);
       } catch (err) {
         toast.error({
           title: 'The letter was made, but the download did not start',
@@ -420,7 +423,7 @@ function LetterList({ letters }: { letters: OfferLetterSummary[] }) {
 function LetterRow({ letter: l }: { letter: OfferLetterSummary }) {
   const download = useMutation({
     mutationFn: () => api.attachmentLink(l.attachmentId),
-    onSuccess: (link) => window.location.assign(link.url),
+    onSuccess: (link) => openFileLink(link.url),
     onError: (err) =>
       toast.error({
         title: 'Could not download the letter',

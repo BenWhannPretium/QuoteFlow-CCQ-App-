@@ -1,7 +1,7 @@
 import { ANALYTICS_DISCLAIMER, DASHBOARD_ROLES, type DashboardRole } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
 import { AnalyticsPage } from '@/analytics/AnalyticsPage';
 import { RequirePermission, canFromMe, useCurrentUser } from '@/auth';
@@ -31,6 +31,8 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 import { RoleDashboard } from './Dashboards';
 import { LANDINGS, landingFor, landingRolesFor, type LandingDefinition } from './landings';
 import { quickstartHref } from './quickstart';
+import { readWelcomeDismissed, rememberWelcomeDismissed, welcomeJobsFor } from './welcome';
+import { WelcomeCard } from './WelcomeCard';
 
 /**
  * The Command Center (FB-18, W13-29; it was "Home"). Two views:
@@ -173,6 +175,16 @@ function MyWork({
   const me = useCurrentUser();
   const roles = landingRolesFor(me.roles);
   useDocumentTitle(commandCenterTitle(landing.title));
+  // First run: the welcome card, until this person puts it away (remembered per user).
+  const [welcomed, setWelcomed] = useState(() => readWelcomeDismissed(me.user.id));
+  const showWelcome = !welcomed && welcomeJobsFor(landing.role) !== null;
+  const quickstartLink = useRef<HTMLAnchorElement>(null);
+  const dismissWelcome = () => {
+    rememberWelcomeDismissed(me.user.id);
+    setWelcomed(true);
+    // The button is gone: put focus on the quick-start link that takes the card's place.
+    setTimeout(() => quickstartLink.current?.focus(), 0);
+  };
 
   const action =
     landing.action && canFromMe(me, landing.action.permission) ? landing.action : undefined;
@@ -196,18 +208,23 @@ function MyWork({
           )
         }
       />
-      <p className="text-muted-foreground -mt-2 mb-5 text-sm" data-testid="quickstart-link">
-        New here?{' '}
-        <a
-          href={quickstartHref(landing.role)}
-          target="_blank"
-          rel="noreferrer"
-          // 44 px tap target on phones (mobile.spec.ts).
-          className="text-emphasis inline-flex min-h-11 items-center font-medium underline-offset-4 hover:underline sm:min-h-0"
-        >
-          Read the one-page quick-start for {landing.roleLabel}
-        </a>
-      </p>
+      {showWelcome ? (
+        <WelcomeCard role={landing.role} roleLabel={landing.roleLabel} onDismiss={dismissWelcome} />
+      ) : (
+        <p className="text-muted-foreground -mt-2 mb-5 text-sm" data-testid="quickstart-link">
+          New here?{' '}
+          <a
+            ref={quickstartLink}
+            href={quickstartHref(landing.role)}
+            target="_blank"
+            rel="noreferrer"
+            // 44 px tap target on phones (mobile.spec.ts).
+            className="text-emphasis inline-flex min-h-11 items-center font-medium underline-offset-4 hover:underline sm:min-h-0"
+          >
+            Read the one-page quick-start for {landing.roleLabel}
+          </a>
+        </p>
+      )}
       {roles.length > 1 && <RoleTabs roles={roles} current={landing} />}
       <section aria-label="Dashboard" className="stagger grid gap-5 lg:grid-cols-2">
         {isDashboardRole(landing.role) ? (

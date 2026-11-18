@@ -260,6 +260,26 @@ const EnvSchema = z
           message: 'AUTH_MODE=dev is forbidden when APP_ENVIRONMENT=prod',
         });
       }
+      // Every production safeguard below keys on NODE_ENV=production (no local file store, Graph mail
+      // only, no Swagger, the proxy trust, the SPA). A prod deployment that lost the setting would start
+      // in development mode with all of them off, so it does not start at all.
+      if (env.NODE_ENV !== 'production') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['NODE_ENV'],
+          message: `NODE_ENV=${env.NODE_ENV} is forbidden when APP_ENVIRONMENT=prod. Set NODE_ENV=production.`,
+        });
+      }
+      // The fake reader is the synthetic fixture: its sync would write made-up customers and
+      // opportunities beside real ones (CLAUDE.md rule 8). Test may still run on it.
+      if (env.SF_MODE === 'fake') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SF_MODE'],
+          message:
+            'SF_MODE=fake is forbidden when APP_ENVIRONMENT=prod: it serves the synthetic Salesforce fixture. Set SF_MODE=live.',
+        });
+      }
     }
     if (env.AUTH_MODE === 'entra') {
       for (const key of ['ENTRA_TENANT_ID', 'ENTRA_API_AUDIENCE', 'ENTRA_SPA_CLIENT_ID'] as const) {

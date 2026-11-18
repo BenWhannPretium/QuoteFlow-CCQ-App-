@@ -77,7 +77,7 @@ test('a SalesLeader qualifies one quote and stops another as not CCQ work from t
   await page.goto(`/quotes/${toRedirect}`);
   await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'REDIRECTED');
   await expect(page.getByTestId('decisions')).toContainText(
-    'G1 · Stop: not CCQ work (send elsewhere)',
+    'Qualify & prioritize · Stop: not CCQ work (send elsewhere)',
   );
   await page.goto(`/quotes/${toAdvance}`);
   await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'ENG_REVIEW');

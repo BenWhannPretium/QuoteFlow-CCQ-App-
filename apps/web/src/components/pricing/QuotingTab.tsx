@@ -18,9 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
-import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
+import { decisionLabel, forwardReadiness, otherDecisionsLabel } from '@/lib/decision-label';
 import { absoluteTime, toLocalInput } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { useReportUnsaved } from '@/lib/unsaved-changes';
 import { valueListLabel } from '@/lib/value-label';
 
 import { EngineeringInputsCard } from '../engineering/EngineeringExtras';
@@ -36,11 +37,19 @@ import {
   type ServerError,
 } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
+import {
+  capitalComparable,
+  capitalForm,
+  recordComparable,
+  splitRefs,
+  type PricingRecordForm,
+} from './quoting-forms';
 import { IntakeCommercialCard } from '../intake/CommercialInputs';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { LeadReviewActions, LeadReviewStatus } from '../LeadReviewPanel';
 import { timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
+import { approvedAtIso } from './approval-time';
 import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
 import {
   PricingContextPanel,
@@ -53,12 +62,6 @@ export { pricingQueueQueryKey };
 
 /** F-064: capital at quoting is budgetary; none of the labels says a CER is ready. One source: the domain. */
 export const CAPITAL_LABELS: Record<CapitalReadiness, string> = CAPITAL_READINESS_LABELS;
-
-const splitRefs = (text: string) =>
-  text
-    .split(/[\s,;]+/)
-    .map((r) => r.trim())
-    .filter(Boolean);
 
 /**
  * The quote's "Quoting" tab (B-11, CR-25/26, DEC-19/20/23). Pricing records the price APPROVAL as a
@@ -125,6 +128,7 @@ export function QuotingTab({
           g3 && !quoting.commercialRedacted
             ? {
                 label: decisionLabel('G3', g3.gateLabel),
+                otherLabel: otherDecisionsLabel(quote.status === 'on_hold'),
                 onClick: () => onDecide(),
                 ...forward,
                 onOther:
@@ -132,7 +136,7 @@ export function QuotingTab({
                     ? () =>
                         onDecide(undefined, {
                           outcomes: forward.others,
-                          title: 'Send back, hold or stop',
+                          title: otherDecisionsLabel(quote.status === 'on_hold'),
                         })
                     : undefined,
               }
@@ -280,6 +284,7 @@ function PricingLeadActions({
   return (
     <LeadReviewActions
       kind="pricing"
+      quoteNumber={quote.quoteNumber}
       review={quote.quoting.leadReview}
       submit={() => api.submitQuotingToLead(quote.quoteNumber)}
       sendBack={(note) => api.sendBackQuoting(quote.quoteNumber, note)}
@@ -415,14 +420,16 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
   const me = useCurrentUser();
   const refresh = useRefresh(quote.quoteNumber);
   const meIsPricing = quoting.pricingUsers.some((u) => u.id === me.user.id);
-  const initial = {
-    approvedBy: record?.priceApprovedBy ?? (meIsPricing ? me.user.id : ''),
-    approvedAt: toLocalInput(record?.priceApprovedAt),
-    pricingBasisNote: record?.pricingBasisNote ?? '',
-    approvedRangeNote: record?.approvedRangeNote ?? '',
-    erfRefs: (record?.erfRefs ?? []).join(', '),
-    costingCompleted: record?.costingCompleted ?? false,
-  };
+  // The form for a record: the approver defaults to the caller when they are in Pricing.
+  const formOf = (r: typeof record): PricingRecordForm => ({
+    approvedBy: r?.priceApprovedBy ?? (meIsPricing ? me.user.id : ''),
+    approvedAt: toLocalInput(r?.priceApprovedAt),
+    pricingBasisNote: r?.pricingBasisNote ?? '',
+    approvedRangeNote: r?.approvedRangeNote ?? '',
+    erfRefs: (r?.erfRefs ?? []).join(', '),
+    costingCompleted: r?.costingCompleted ?? false,
+  });
+  const initial = formOf(record);
   // What is stored: the defaulted approver (the caller) and time are a change until saved.
   const stored = {
     ...initial,
@@ -430,6 +437,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     approvedAt: record?.priceApprovedAt ? initial.approvedAt : '',
   };
   const [form, setForm] = useState(initial);
+  const [opened, setOpened] = useState(initial);
   const costingErrorId = useId();
   const [errors, setErrors] = useState<ServerError[]>([]);
   // FB-18 (W13-30): kept outside the card, which is re-keyed by its own save.
@@ -446,7 +454,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
       const changed = (k: keyof typeof form) => form[k] !== stored[k];
       if (changed('approvedBy') || changed('approvedAt')) {
         body.approvedBy = form.approvedBy || null;
-        body.approvedAt = form.approvedBy ? new Date(form.approvedAt).toISOString() : null;
+        body.approvedAt = approvedAtIso(form.approvedBy, form.approvedAt);
       }
       if (changed('pricingBasisNote')) body.pricingBasisNote = form.pricingBasisNote;
       if (changed('approvedRangeNote')) body.approvedRangeNote = form.approvedRangeNote;
@@ -456,6 +464,12 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     },
     onSuccess: async (detail) => {
       setErrors([]);
+      // What the server now holds is the card's new starting point. The card is re-keyed when the
+      // record's time changes, but a save the server reads as "no change" does not move it, and the
+      // card would go on calling itself unsaved.
+      const next = formOf(detail.pricingRecord ?? null);
+      setForm(next);
+      setOpened(next);
       await refresh(detail);
       status.markSaved();
       toast.success({
@@ -475,8 +489,15 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
     (e) => e.path === '/erfRefs' || e.path.startsWith('/erfRefs/'),
   )?.message;
   const passThrough = quote.commercial.passThroughEligible;
-  // Nothing to save: what is on screen is what is stored.
-  const unchanged = sameValues(form, stored);
+  // Nothing to save: what is on screen is what is stored, as the server would store it.
+  const unchanged = sameValues(recordComparable(form), recordComparable(stored));
+  // UX-001: typed and not saved. Measured from what the card opened with (or last saved), not from what
+  // is stored: the approver and time filled in for you are not something you typed.
+  useReportUnsaved(
+    quote.quoteNumber,
+    'price-approval',
+    quoting.canEdit && !sameValues(recordComparable(form), recordComparable(opened)),
+  );
 
   if (!quoting.canEdit) {
     return (
@@ -511,6 +532,15 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
           data-testid="pricing-record-form"
           onSubmit={(e) => {
             e.preventDefault();
+            // An approver needs a time. The server stamps "now" on an approval sent without one, so a
+            // cleared or half-typed field must be stopped here, not sent as null: that would record
+            // (or move) the approval time without the user having chosen it.
+            if (form.approvedBy && approvedAtIso(form.approvedBy, form.approvedAt) === null) {
+              setErrors([
+                { path: '/approvedAt', message: 'Enter the date and time the price was approved' },
+              ]);
+              return;
+            }
             save.mutate();
           }}
         >
@@ -661,11 +691,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
   const record = quoting.pricingRecord ?? null;
   const refresh = useRefresh(quote.quoteNumber);
   const capitalRequired = quoting.capitalNeeded;
-  const saved = {
-    capitalReadiness: record?.capitalReadiness ?? '',
-    capitalNotes: record?.capitalNotes ?? '',
-    capitalPendingJustification: record?.capitalPendingJustification ?? '',
-  };
+  const saved = capitalForm(record);
   const [form, setForm] = useState(saved);
   const [errors, setErrors] = useState<ServerError[]>([]);
   // FB-18 (W13-30): kept outside the card, which is re-keyed by its own save.
@@ -679,12 +705,18 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
       }),
     onSuccess: async (detail) => {
       setErrors([]);
+      // Start again from what the server holds (see the pricing record card).
+      setForm(capitalForm(detail.pricingRecord));
       await refresh(detail);
       status.markSaved();
       toast.success({ title: 'Capital readiness saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
+  // As the server would store it: a justification left behind under another status is not a change.
+  const unchanged = sameValues(capitalComparable(form), capitalComparable(saved));
+  // UX-001: typed and not saved. Not while the card is read-only (locked, or submitted to the lead).
+  useReportUnsaved(quote.quoteNumber, 'capital-readiness', quoting.canEdit && !unchanged);
 
   if (!quoting.canEdit) {
     return (
@@ -718,7 +750,6 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
     );
   }
 
-  const unchanged = sameValues(form, saved);
   return (
     <Card>
       <CardHeader>

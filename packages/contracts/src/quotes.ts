@@ -187,6 +187,12 @@ export const GateDecisionSummary = z.object({
   decidedAt: z.string(),
   note: z.string().nullable(),
   reasonCode: z.string().nullable(),
+  /**
+   * UX-006: the reason code's configured label, read from every code the gate's outcome ever had, so a
+   * code retired since the decision still reads as it did. Null with no reason code, or when the code
+   * has no label at all. Read-only.
+   */
+  reasonLabel: z.string().nullable().optional(),
   quoteVersion: z.number().int(),
   /**
    * B-13 (CR-38): taken against an earlier version than the quote's current one (a re-quote or return
@@ -308,6 +314,72 @@ export const QuoteItemSummary = z.object({
 });
 export type QuoteItemSummary = z.infer<typeof QuoteItemSummary>;
 
+/**
+ * UX-002: whose move the quote is, as facts (the UI words them, with the gate's label from the public
+ * config). The same lists as the domain's `NEXT_STEP_PARTIES`, `NEXT_STEP_STATES` and
+ * `NEXT_STEP_PLACES` (this package does not import the domain; an API unit test keeps them equal).
+ */
+export const NEXT_STEP_PARTY_VALUES = [
+  'kam',
+  'sales_leader',
+  'engineering',
+  'engineering_lead',
+  'pricing',
+  'pricing_lead',
+  'finance',
+  'approver',
+  'leadership',
+  'customer',
+  'nobody',
+] as const;
+export const NEXT_STEP_STATE_VALUES = [
+  'rework',
+  'unassigned',
+  'in_progress',
+  'with_lead',
+  'at_gate',
+  'on_hold',
+  'closed',
+] as const;
+export const NEXT_STEP_PLACE_VALUES = ['intake', 'engineering', 'quoting', 'decision'] as const;
+export const NEXT_STEP_PART_VALUES = ['capacity', 'decide'] as const;
+
+export const QuoteNextStep = z.object({
+  /** Who the quote is waiting on: a role in plain terms, the customer, or nobody (closed). */
+  waitingOn: z.enum(NEXT_STEP_PARTY_VALUES),
+  /** The person waited on, when the quote names one (its KAM, the assigned engineer or pricer). */
+  personName: z.string().nullable(),
+  /**
+   * `rework`: back with the KAM until resubmitted. `unassigned`: nobody assigned in Engineering or
+   * Quoting. `in_progress`: the assignee (or Finance, for the payback model) is doing their part.
+   * `with_lead`: submitted to the lead. `at_gate`: waiting for the stage's gate decision.
+   */
+  state: z.enum(NEXT_STEP_STATE_VALUES),
+  /** When it entered this state, when known: the send-back (`rework`), the submit (`with_lead`). */
+  since: z.string().nullable(),
+  /** The enabled gate of the quote's stage (what is decided next); null when closed. */
+  gateKey: z.string().nullable(),
+  /** Where the next step is done: the intake wizard, a work tab of the quote, or the gate's decision. */
+  place: z.enum(NEXT_STEP_PLACE_VALUES).nullable(),
+  /** The caller is the one waited on and the server would accept their move now. */
+  yourMove: z.boolean(),
+  /**
+   * Set only when it is the caller's move and their part is not simply the assignee's: `capacity` (the
+   * production scheduler assigned to the quote: the capacity evidence and sign-off), `decide` (a lead
+   * who is the assignee: their work ends in the gate decision, not a submit).
+   */
+  part: z.enum(NEXT_STEP_PART_VALUES).optional(),
+  /** Only while on hold: the review date (`YYYY-MM-DD`), the owner and the reason code's label. */
+  hold: z
+    .object({
+      reviewDate: z.string().nullable(),
+      ownerName: z.string().nullable(),
+      reasonLabel: z.string().nullable(),
+    })
+    .nullable(),
+});
+export type QuoteNextStep = z.infer<typeof QuoteNextStep>;
+
 export const QuoteDetail = QuoteSummary.extend({
   /** FB-19 (W13-32): every item, in item order (one for a single-item quote). */
   items: z.array(QuoteItemSummary).default([]),
@@ -342,6 +414,8 @@ export const QuoteDetail = QuoteSummary.extend({
   customerDecision: CustomerDecisionDetail,
   /** B-26: capital flag, commercial terms, Legal review, hold owner and escalations. */
   commercial: CommercialDetail,
+  /** UX-002: who the quote is waiting on and whether it is the caller's move. Read-only. */
+  nextStep: QuoteNextStep.optional(),
 });
 export type QuoteDetail = z.infer<typeof QuoteDetail>;
 

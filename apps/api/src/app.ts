@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { withSystemContext, type Database } from '@ccq/db';
@@ -43,6 +44,7 @@ import {
   type UserDirectory,
 } from './auth/directory';
 import { createEntraVerifier } from './auth/entra';
+import { clientIp } from './clientIp';
 import { appEnvironment, type AppConfig, type AppEnvironment } from './config';
 import {
   createFabricMirrorCheckScheduler,
@@ -93,6 +95,11 @@ export interface AppDeps {
     db?: Database;
     /** postgres.js client: background jobs take advisory locks on a reserved session. */
     sql?: Sql;
+    /**
+     * A separate small pool for system-context reads made inside a request transaction, so they never wait
+     * on the request pool the caller is holding a connection from (`createDb` provides it).
+     */
+    systemDb?: Database;
   };
   /** Test seam: the Salesforce reader (defaults to SF_MODE: the synthetic fake or jsforce). */
   salesforce?: SalesforceReader;
@@ -113,6 +120,8 @@ export interface AppDeps {
 }
 
 const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
+
+const isApiUrl = (url: string) => url === '/api' || url.startsWith('/api/');
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -227,6 +236,10 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
 
   const app = Fastify({
     logger: loggerOptions(config),
+    // Unique across restarts and instances. Fastify's default is a per-process counter (req-1, req-2, …):
+    // the id is the problem `traceId` users quote and `audit_event.request_id`, and it repeated after
+    // every restart, so a log search by id matched unrelated requests.
+    genReqId: () => randomUUID(),
     // Behind the Azure App Service front end: trust that one hop (the socket peer) only. The front end
     // appends the caller's address to X-Forwarded-For, so `true` (trust every entry) took req.ip from
     // what the caller sent. A function, not a hop count: Fastify treats a number as "trust nothing".
@@ -259,7 +272,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
         'default-src': ["'self'"],
         'script-src': ["'self'"],
         'style-src': ["'self'"],
-        'img-src': ["'self'", 'data:'],
+        // blob: for the "Report an issue" screenshot preview (an object URL of a file the user chose).
+        'img-src': ["'self'", 'data:', 'blob:'],
         // MSAL: token requests (fetch) and silent renewal (hidden iframe) go to Entra.
         'connect-src': ["'self'", 'https://login.microsoftonline.com'],
         'frame-src': ['https://login.microsoftonline.com'],
@@ -275,7 +289,14 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     max: config.RATE_LIMIT_MAX,
     timeWindow: '1 minute',
     hook: 'preHandler',
-    keyGenerator: (req) => (req.actor ? `user:${req.actor.userId}` : `ip:${req.ip}`),
+    keyGenerator: (req) => (req.actor ? `user:${req.actor.userId}` : `ip:${clientIp(req)}`),
+    // The API only. In production this instance also serves the SPA: its files carry no user, so every
+    // script, style and font request in the building counted against one shared `ip:<office NAT>`
+    // budget, and a morning of page loads could answer 429 for JavaScript.
+    // Judged on the route that matched, never on the raw URL: the router percent-decodes the path, so
+    // `/%61pi/v1/…` reaches an API handler while its raw text does not start with `/api`. An unmatched
+    // request (a 404) has no route and falls back to its URL.
+    allowList: (req) => !isApiUrl(req.routeOptions?.url ?? req.url),
   });
   // B-16 uploads: one file per request, streamed. The limit is one byte over the 100 MB cap, so a
   // body that runs past its declared size is caught by the store (413) before the parser cuts it.
@@ -459,7 +480,10 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     attachments: attachmentService,
     log: app.log.child({ component: 'intake' }),
     // FB-19 (W13-33): the active quotes on an opportunity are found whoever owns them (number and KAM only).
-    ...(deps.db.db ? { systemTx: (fn) => withSystemContext(deps.db.db!, fn) } : {}),
+    // On its own pool (see `createDb`): this read runs while the caller's transaction holds a connection.
+    ...(deps.db.db
+      ? { systemTx: (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) }
+      : {}),
   });
 
   // B-09 governed overrides, the quote timeline + comments, and the admin audit viewer / usage report.
@@ -593,7 +617,6 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     ...now,
   });
   app.decorate('adminConfig', adminConfig);
-  app.addHook('onClose', async () => adminConfig.rescore.flush());
 
   await app.register(v1Routes, {
     prefix: '/api/v1',
@@ -630,11 +653,15 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     await app.register(spaPlugin, { root: config.WEB_DIST_DIR ?? DEFAULT_WEB_DIST });
   }
 
+  // One hook, in order. Fastify runs onClose hooks last-registered-first, so a separate, earlier hook for
+  // the scoring rescore ran *after* this one had closed the pool: a rescore still in flight at shutdown
+  // lost its remaining batches and its audit summary. Everything that needs the database finishes first.
   app.addHook('onClose', async () => {
     await sfSync?.stop();
     await validityExpiry?.stop();
     await notificationDispatch?.stop();
     await fabricMirrorCheck?.stop();
+    await adminConfig.rescore.flush();
     await app.audit.flush();
     await deps.db.close();
   });

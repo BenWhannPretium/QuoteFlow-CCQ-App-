@@ -89,7 +89,9 @@ export function Stepper({
   const title = STEPS.find((s) => s.n === current)?.title ?? '';
   return (
     <nav aria-label="Intake steps" className="mb-6">
-      <p className="text-muted-foreground mb-2 text-sm sm:hidden" aria-live="polite">
+      {/* UX-018: on a desktop the line is not shown, but it stays in the page for a screen reader:
+          hidden with display:none, a change of step was announced on a phone only. */}
+      <p className="text-muted-foreground mb-2 text-sm sm:sr-only" aria-live="polite">
         Step {current} of {STEPS.length} · <span className="text-foreground">{title}</span>
       </p>
       <ol className="flex gap-1.5 sm:gap-2">
@@ -143,8 +145,11 @@ export function Section({
 }) {
   return (
     <section className="bg-card rounded-card shadow-card grid gap-4 border p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">{title}</h2>
+      {/* UX-018: the title and its action share a row only while both fit. At 320 px "Ship / fill
+          destination" beside "Change destination" was a pixel-tight fit (2 px too wide on Linux), which
+          scrolled the page sideways; the action now drops under the title. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h2 className="min-w-0 text-base font-semibold">{title}</h2>
         {action}
       </div>
       {children}

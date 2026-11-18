@@ -123,6 +123,19 @@ adds the exporter (or a diagnostic setting sends `AppServiceConsoleLogs` to the 
 `Microsoft.Insights/scheduledQueryRules` rule on that message. Until then `-pg-replication-lag` covers the
 most damaging failure (a stalled slot filling the disk), and the check's `integration_run` rows show the rest.
 
+### Start-up time limit and app logs (added 2026-11-17, pre-release audit; not yet applied)
+
+- `containerStartTimeLimitSeconds` (default 1800) sets `WEBSITES_CONTAINER_START_TIME_LIMIT`. The app
+  migrates the database before it listens; the platform default (230 seconds) would kill and restart a
+  container whose migration ran longer. It is an app setting, so it arrives with the next apply.
+- `sendAppLogsToLogAnalytics` (default **false**) adds a diagnostic setting on the web app
+  (`modules/diagnostics.bicep`) that sends `AppServiceConsoleLogs` (the API's JSON log lines),
+  `AppServiceHTTPLogs` and `AppServicePlatformLogs` to the Log Analytics workspace. The API has no
+  Application Insights SDK, so without this its logs exist only in the App Service file system (35 MB,
+  7 days). Turn it on in test first: add `param sendAppLogsToLogAnalytics = true` to the parameter file,
+  run what-if, apply, check the tables fill, then do the same for prod. The queries are in
+  `docs/audit/06-first-week.md`. The module builds and lints; it has not been run against Azure.
+
 ## Prod network posture
 
 **Decided 2026-11-12 (Ben): prod uses the same network posture as test.** `main.prod.bicepparam` sets

@@ -35,6 +35,20 @@ describe('app', () => {
     expect(res.json()).toMatchObject({ type: 'about:blank', title: 'Not Found', status: 404 });
   });
 
+  it('gives every request its own trace id (a UUID, not a per-process counter)', async () => {
+    app = await buildApp(testConfig(), { db: fakeDb() });
+    const ids = await Promise.all(
+      [1, 2, 3].map(async () => {
+        const res = await app!.inject({ method: 'GET', url: '/api/v1/nope' });
+        return res.json<{ traceId: string }>().traceId;
+      }),
+    );
+    for (const id of ids) {
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    }
+    expect(new Set(ids).size).toBe(3);
+  });
+
   it('500s are problem+json without leaking internals', async () => {
     app = await buildApp(testConfig(), { db: fakeDb() });
     app.get('/boom', { config: { public: true } }, () => {
@@ -44,6 +58,22 @@ describe('app', () => {
     expect(res.statusCode).toBe(500);
     expect(res.body).not.toContain('secret internal detail');
     expect(res.json()).toMatchObject({ status: 500, title: 'Internal Server Error' });
+  });
+
+  it('on close, waits for a scoring rescore before it closes the database pool', async () => {
+    const order: string[] = [];
+    const db = fakeDb();
+    db.close = () => {
+      order.push('db.close');
+      return Promise.resolve();
+    };
+    const closing = await buildApp(testConfig(), { db });
+    closing.adminConfig.rescore.flush = () => {
+      order.push('rescore.flush');
+      return Promise.resolve();
+    };
+    await closing.close();
+    expect(order).toEqual(['rescore.flush', 'db.close']);
   });
 
   it('sets security headers', async () => {
@@ -96,7 +126,20 @@ describe('mailGuardFor (test mail guard)', () => {
 
   it('is off in prod, and for smtp and fake mail', () => {
     expect(
-      mailGuardFor(testConfig({ ...graph, ...entra, AUTH_MODE: 'entra', APP_ENVIRONMENT: 'prod' })),
+      mailGuardFor(
+        testConfig({
+          ...graph,
+          ...entra,
+          AUTH_MODE: 'entra',
+          APP_ENVIRONMENT: 'prod',
+          // prod must run in production mode on live Salesforce (config.ts).
+          NODE_ENV: 'production',
+          SF_MODE: 'live',
+          SF_CLIENT_ID: 'client',
+          SF_USERNAME: 'integration@example.com',
+          SF_PRIVATE_KEY: 'key',
+        }),
+      ),
     ).toBeNull();
     expect(mailGuardFor(testConfig({ MAIL_MODE: 'smtp', APP_ENVIRONMENT: 'test' }))).toBeNull();
     expect(mailGuardFor(testConfig({ APP_ENVIRONMENT: 'test' }))).toBeNull();

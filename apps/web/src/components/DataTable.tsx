@@ -107,7 +107,8 @@ export function DataTable<T>({
     />
   ) : (
     <div
-      className="bg-card rounded-card shadow-card overflow-auto border"
+      // scroll-pt: a row link reached with the keyboard stops below the sticky header row.
+      className="bg-card rounded-card shadow-card scroll-pt-14 overflow-auto border"
       style={{ maxHeight }}
       tabIndex={0}
       role="region"
@@ -253,7 +254,9 @@ function CardList<T>({
                   {flexRender(primary.column.columnDef.cell, primary.getContext())}
                 </div>
               )}
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+              {/* UX-018: one column under 390 px (320 px is 400% zoom on a laptop), where half a card
+                  is too narrow for a stage name or a date range and the page scrolled sideways. */}
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-2 min-[390px]:grid-cols-2">
                 {rest.map((cell) => (
                   <div key={cell.id} className="min-w-0">
                     <dt className="spec-label text-muted-foreground text-[0.625rem]">

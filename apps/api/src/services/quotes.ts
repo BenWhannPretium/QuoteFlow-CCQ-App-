@@ -54,6 +54,7 @@ import { customerDecisionView, loadOutcomeSettings, type OutcomeSettings } from 
 import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
 import { quoteItemSummaries } from './quote-items-view';
+import { quoteNextStep } from './quote-next-step';
 import type { ScoringService } from './scoring';
 
 /** Request-scoped inputs for building quote DTOs (loaded once per request). */
@@ -304,9 +305,28 @@ export function gateActionsFor(
 }
 
 /** One decision as shown. `quoteVersion` is the quote's current version (for "superseded", CR-38). */
+/**
+ * The configured label of a decision's reason code. The workflow config holds every code, retired ones
+ * included (only the public config leaves those out), so an old decision keeps its words.
+ */
+export function decisionReasonLabel(
+  workflow: WorkflowConfig,
+  d: { gateKey: string; outcomeKey: string; reasonCode: string | null },
+): string | null {
+  if (!d.reasonCode) return null;
+  const context = workflow.outcomes.find(
+    (o) => o.gateKey === d.gateKey && o.key === d.outcomeKey,
+  )?.reasonContext;
+  return (
+    workflow.reasonCodes.find((r) => r.code === d.reasonCode && r.context === context)?.label ??
+    null
+  );
+}
+
 export function decisionDto(
   d: Awaited<ReturnType<typeof listGateDecisionsWithNames>>[number],
   quoteVersion: number,
+  workflow: WorkflowConfig,
 ): GateDecisionSummary {
   return {
     id: d.decision.id,
@@ -317,6 +337,7 @@ export function decisionDto(
     decidedAt: d.decision.decidedAt.toISOString(),
     note: d.decision.note,
     reasonCode: d.decision.reasonCode,
+    reasonLabel: decisionReasonLabel(workflow, d.decision),
     quoteVersion: d.decision.quoteVersion,
     superseded: isSupersededDecision(d.decision.quoteVersion, quoteVersion),
   };
@@ -333,14 +354,10 @@ export function reworkRequestFor(
   const idx = rawDecisions.findIndex((d) => d.decision.targetStageKey === 'INTAKE');
   const d = decisions[idx];
   if (!d) return null;
-  const context = workflow.outcomes.find(
-    (o) => o.gateKey === d.gateKey && o.key === d.outcomeKey,
-  )?.reasonContext;
-  const reason = workflow.reasonCodes.find((r) => r.code === d.reasonCode && r.context === context);
   return {
     gateKey: d.gateKey,
     reasonCode: d.reasonCode,
-    reasonLabel: reason?.label ?? d.reasonCode,
+    reasonLabel: decisionReasonLabel(workflow, d) ?? d.reasonCode,
     note: d.note,
     decidedAt: d.decidedAt,
     decidedByName: d.decidedByName,
@@ -402,10 +419,10 @@ export class QuoteReadService {
       listGateDecisionsWithNames(db, q.id),
     ]);
     const summary = summaryDto(row, ctx);
-    const decisions = raw.map((d) => decisionDto(d, q.version));
+    const decisions = raw.map((d) => decisionDto(d, q.version, workflow));
     const structured = (q.structuredDescription ?? {}) as { standard?: string | null };
     const shipTo = q.shipTo as QuoteDetail['shipTo'];
-    return {
+    const dto: QuoteDetail = {
       ...summary,
       // FB-19 (W13-32): every item, in item order.
       items: await quoteItemSummaries(db, ctx.actor, q),
@@ -458,5 +475,7 @@ export class QuoteReadService {
       }),
       commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!, workflow),
     };
+    // UX-002: whose move it is, read from the detail itself so it agrees with everything above.
+    return { ...dto, nextStep: quoteNextStep(workflow, ctx.actor, dto) };
   }
 }

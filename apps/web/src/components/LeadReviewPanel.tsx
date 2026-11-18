@@ -16,6 +16,7 @@ import {
 import { Textarea } from '@/components/ui/input';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import { SAVE_FIRST_TEXT, useHasUnsavedChanges } from '@/lib/unsaved-changes';
 
 import { problemErrors, type ServerError } from './forms';
 import { MISSING_LABELS } from './GateDecisionDialog';
@@ -92,6 +93,7 @@ export function LeadReviewStatus({
 
 export function LeadReviewActions<T>({
   kind,
+  quoteNumber,
   review,
   submit,
   sendBack,
@@ -99,6 +101,8 @@ export function LeadReviewActions<T>({
   decide,
 }: {
   kind: LeadReviewKind;
+  /** UX-001: the quote, to know whether one of its cards still has unsaved changes. */
+  quoteNumber: string;
   review: LeadReviewView;
   submit: () => Promise<T>;
   /** FB-16 (W13-19): `to` is sent only when the lead had a choice (a production scheduler is assigned). */
@@ -112,6 +116,8 @@ export function LeadReviewActions<T>({
   decide?:
     | {
         label: string;
+        /** The name of the `onOther` button (a quote on hold is not offered Hold: UX-004). */
+        otherLabel?: string | undefined;
         onClick: () => void;
         ready: boolean;
         missing: readonly { field: string; message: string }[];
@@ -125,6 +131,11 @@ export function LeadReviewActions<T>({
   const [missing, setMissing] = useState<ServerError[]>([]);
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
+  // UX-001: submitting sends what is saved, then locks it, and a decision is recorded on what is saved.
+  // Typed values that are not saved yet would be left behind, so Submit and the decisions wait for the
+  // save.
+  const unsaved = useHasUnsavedChanges(quoteNumber);
+  const saveFirstId = useId();
   const submitting = useMutation({
     mutationFn: submit,
     onSuccess: async (result) => {
@@ -191,13 +202,24 @@ export function LeadReviewActions<T>({
       {(submitReady || review.canSendBack || decide) && (
         <div className="flex flex-wrap gap-2">
           {decide?.ready && (
-            <Button onClick={decide.onClick} data-testid="decide-gate">
+            <Button
+              onClick={decide.onClick}
+              disabled={unsaved}
+              aria-describedby={unsaved ? saveFirstId : undefined}
+              data-testid="decide-gate"
+            >
               {decide.label}
             </Button>
           )}
           {decide && !decide.ready && decide.onOther && (
-            <Button variant="outline" onClick={decide.onOther} data-testid="decide-other">
-              Send back, hold or stop
+            <Button
+              variant="outline"
+              onClick={decide.onOther}
+              disabled={unsaved}
+              aria-describedby={unsaved ? saveFirstId : undefined}
+              data-testid="decide-other"
+            >
+              {decide.otherLabel ?? 'Send back, hold or stop'}
             </Button>
           )}
           {submitReady && (
@@ -212,7 +234,8 @@ export function LeadReviewActions<T>({
                   },
                 });
               }}
-              disabled={submitting.isPending}
+              disabled={submitting.isPending || unsaved}
+              aria-describedby={unsaved ? saveFirstId : undefined}
             >
               <SendIcon aria-hidden="true" />
               {submitting.isPending ? 'Submitting…' : `Submit to ${noun.lead}`}
@@ -225,6 +248,16 @@ export function LeadReviewActions<T>({
             </Button>
           )}
         </div>
+      )}
+      {(submitReady || decide?.ready || (decide && decide.onOther)) && (
+        // UX-018: the live region is on the page before the line appears, so the line is announced.
+        <p role="status" className={unsaved ? 'text-muted-foreground' : 'sr-only'}>
+          {unsaved && (
+            <span id={saveFirstId} data-testid="save-first">
+              {SAVE_FIRST_TEXT}
+            </span>
+          )}
+        </p>
       )}
       {sending && (
         <SendBackDialog

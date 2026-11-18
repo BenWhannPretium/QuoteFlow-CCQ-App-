@@ -1,5 +1,7 @@
 # QuoteFlow UAT pack (B-23)
 
+> Checked against the build on 2026-11-17 (pre-release audit): every script and quick-start was walked against the app's source and Playwright specs; the block below says what changed and where the Production scheduler and Finance roles are tested.
+
 This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Schmitt runs the sessions. Ben Whann fixes. Tre Curry coordinates.
 
 > **Pilot-group UAT runs Nov 13 to Nov 20, 2026** (Ben, 2026-11-10). The sessions below (U0 to U6, Nov 9 to 13) come first. Before the pilot, Claude Code also runs a dry run of every script against a local copy of the app; its reports are in [`dry-run/`](dry-run/README.md). That does not replace the pilot or any sign-off.
@@ -18,6 +20,16 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 > - **No hidden figures:** every role that can read a quote sees pricing, margin and capital (KAM Part H, pricing Part E, security-access Parts C and E).
 >
 > Labels in the scripts come from the app's code as built; Ben re-checks them against the test site before Nov 9.
+
+> **Updated 2026-11-17 (pre-release audit, FB-15 to FB-20 as built).** Changes testers will notice:
+> - **Button names.** One name per decision: **Qualify quote**, **Decide feasibility**, **Decide price approval**, **Record customer decision**, **Commit and hand off**. Engineers click **Start review**; the row menus read **Assign engineer** and **Assign pricer**. The gate names (for example "Feasible solution?") still show in the timeline.
+> - **Nothing moves forward half-done.** **Submit to engineering lead** / **Submit to pricing lead** and the lead's decision button appear only when nothing is missing; until then the bottom of the tab lists what is. A decision that is still blocked switches **Record decision** off and says what is missing.
+> - **Stage name.** Stage 2 is **Engineering & Capacity** in every script.
+> - **Several items in one quote (FB-19):** KAM Part K, engineering Part J, approver step 34a, tie-out step 29.
+> - **Offer letter (FB-20):** KAM Part L (who may generate, when it is ready, the download; nothing is sent from QuoteFlow).
+> - **Production scheduler (FB-16, provisional):** no script of its own. It is tested in `scripts/engineering.md` **Part H** (steps 76 to 88) and `scripts/security-access.md` steps 14a and 21b; its quick-start is `quickstart/production-scheduler.md`.
+> - **Finance:** `scripts/finance.md` (uploads the payback model, nothing else) and `scripts/security-access.md` steps 14a and 21a; its quick-start is `quickstart/finance.md`.
+> - The Finance and Production scheduler roles have no **Report an issue** button: they tell Ben or Bailey.
 
 > **Updated 2026-11-15 for FB-17 (walkthrough of Nov 13).** Changes testers will notice:
 > - **Four choices.** Every decision dialog (except the customer's decision) offers **Advance**, **Send back to…**, **Hold** and **Stop**. **Send back to…** asks where the quote goes and always needs a reason and a note. "Rework" and "Redirect" are gone as names; at qualification "Redirect (not CCQ work)" is **Stop: not CCQ work (send elsewhere)** (sales-leader steps 9 to 15, engineering steps 36 to 40 and Part I, pricing steps 22 to 26 and Part H, approver steps 12 to 14).
@@ -67,7 +79,7 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 |---|---|---|---|---|
 | **U0** kickoff | Mon Nov 9, 9:00 (45 min) | This README, the quick-starts | All testers | All |
 | **U1** | Mon Nov 9 (2 h) | `scripts/kam.md`, `scripts/sales-leader.md` | Jordan Albin and 1–2 KAMs (e.g. Linda Vinegar, Josh Edmonson); a sales leader (Matt Graden or Jack Gordon's delegate) | `SG-CCQ-KAM`, `SG-CCQ-SalesLeader` |
-| **U2** | Tue Nov 10 (2 h) | `scripts/engineering.md` | Jim Zweifel's team (lead and engineers), Faron Ipox (capacity) | `SG-CCQ-EngLead`, `SG-CCQ-Engineer` |
+| **U2** | Tue Nov 10 (2 h) | `scripts/engineering.md` (Part H: the Production scheduler, FB-16) | Jim Zweifel's team (lead and engineers), Faron Ipox (capacity) | `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-ProductionScheduler` (once IT has created it) |
 | **U3** | Wed Nov 11 (2 h) | `scripts/pricing.md`, `scripts/finance.md` (FB-07), `scripts/approver.md`, `scripts/leadership.md` | Gemma Cebolla and a pricing analyst, the pricing lead; Stacy Slocum (Finance, payback model); the Final Review approver candidate(s) (D-10); leadership | `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance`, `SG-CCQ-Approver`, `SG-CCQ-Leadership` |
 | **U3b** | Wed Nov 11 (30 min), after U3 | `scripts/priority-calibration.md` (FB-10) | Ben (Admin), the U3 leadership tester, a sales leader and a KAM (test accounts if the U1 testers are not free) | `SG-CCQ-Admin`, `SG-CCQ-Leadership`, `SG-CCQ-SalesLeader`, `SG-CCQ-KAM` |
 | **U4** | Wed Nov 11 (60 min) | `scripts/security-access.md` | IT security delegate, with Ben | One test account per group, plus one in no group |
@@ -85,7 +97,7 @@ Admins (`SG-CCQ-Admin`: Ben, Tre, and Bailey as interim Knowledge Steward) use `
 
 ## How to report an issue
 
-Use the **Report an issue** button. It is in your user menu (your initials, top right) and at the bottom of every page.
+Use the **Report an issue** button. It is in your user menu (your initials, top right) and at the bottom of every page. (Finance and Production scheduler testers have no such button: tell Ben or Bailey.)
 
 1. **What kind of issue?** Something is broken (bug), Something is confusing, Something is missing, An idea.
 2. **How bad is it?** Severity 1 to 4 (rules below).
@@ -102,7 +114,7 @@ Admins triage reports at **Admin → Feedback** (`/admin/feedback`). Each report
 | Severity | Means | Example | Fix by |
 |---|---|---|---|
 | **Sev-1** | Blocks a core flow | You can't submit an intake, decide a gate, or sign in | **Thu Nov 12** |
-| **Sev-2** | Wrong data or permission | A KAM sees a price figure; a count doesn't match Salesforce; a decision is allowed that shouldn't be | **Thu Nov 12** |
+| **Sev-2** | Wrong data or permission | A KAM can change a price approval; a count doesn't match Salesforce; a decision is allowed that shouldn't be | **Thu Nov 12** |
 | **Sev-3** | Usability | A label is unclear; a step takes too many clicks | P1 backlog, unless trivial |
 | **Sev-4** | Cosmetic | Alignment, spelling, colour | P1 backlog, unless trivial |
 

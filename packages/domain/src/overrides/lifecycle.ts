@@ -328,6 +328,10 @@ export function planOverrideRevert(
   if (!canRevertOverride(config, actor, quote, record)) {
     return fail(new DomainError('NOT_PERMITTED', 'You may not revert this override'));
   }
+  // As for a request and an approval: a closed quote's values are no longer changed.
+  if (quote.status === 'closed') {
+    return fail(new DomainError('QUOTE_CLOSED', 'The quote is closed'));
+  }
   if (!overrideValuesEqual(currentValue, record.requestedValue)) {
     return fail(
       new DomainError(
@@ -368,6 +372,9 @@ export function overrideActions(
       config !== undefined &&
       record.requestedBy !== actor.userId &&
       canDecideOverride(config, actor, quote, record),
-    canRevert: record.status === 'applied' && canRevertOverride(config, actor, quote, record),
+    canRevert:
+      record.status === 'applied' &&
+      quote.status !== 'closed' &&
+      canRevertOverride(config, actor, quote, record),
   };
 }

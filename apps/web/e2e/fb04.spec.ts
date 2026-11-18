@@ -89,8 +89,9 @@ test('Engineering sees why a sales leader changed the tier on the queue row', as
   await expect(row.getByTestId('queue-priority-override')).toContainText(why);
   expect(await seriousViolations(page)).toEqual([]);
 
-  // The priority panel on the quote's overview repeats it.
-  await page.goto(`/quotes/${quoteNumber}`);
+  // The priority panel on the quote's overview repeats it (UX-012: without ?tab= the engineering lead
+  // opens a quote in Engineering on the Engineering tab).
+  await page.goto(`/quotes/${quoteNumber}?tab=overview`);
   await expect(page.getByTestId('priority-override-note')).toContainText(why);
 });
 
@@ -140,7 +141,8 @@ test('Salesforce: the quote links to its opportunity, and recording Awarded show
     const href = `${INSTANCE}/lightning/r/Opportunity/${detail.sfOpportunityId}/view`;
     await page.reload();
     const link = page.getByTestId('open-in-salesforce').first();
-    await expect(link).toHaveText('Open in Salesforce ↗');
+    // UX-013: the header names the opportunity; the label is the link.
+    await expect(link).toHaveText('Salesforce opportunity ↗');
     await expect(link).toHaveAttribute('href', href);
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');

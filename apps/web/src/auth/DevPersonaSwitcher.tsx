@@ -11,7 +11,9 @@ export function DevPersonaSwitcher() {
   const id = useId();
   if (!dev) return null;
   return (
-    <div
+    // A landmark of its own, so no page content sits outside one (axe "region").
+    <aside
+      aria-label="Development sign-in"
       data-testid="dev-bar"
       className="bg-warning text-warning-foreground flex items-center gap-2 px-4 py-1 text-xs"
     >
@@ -34,6 +36,6 @@ export function DevPersonaSwitcher() {
           </option>
         ))}
       </select>
-    </div>
+    </aside>
   );
 }

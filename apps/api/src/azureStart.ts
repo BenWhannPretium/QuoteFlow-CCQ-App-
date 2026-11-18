@@ -16,6 +16,8 @@ import { createDb } from '@ccq/db';
 import { runMigrations } from '@ccq/db/migrate';
 import { seedConfig, seedSynthetic } from '@ccq/db/seeds';
 
+import { describeStartupError, syntheticSeedRequested } from './startup';
+
 function fail(message: string): never {
   console.error(`[quoteflow-start] refusing to start\n${message}`);
   process.exit(1);
@@ -29,7 +31,12 @@ if (!/^postgres(ql)?:\/\//.test(databaseUrl)) {
     'DATABASE_URL is not a postgres:// URL. If it is a Key Vault reference, it has not resolved: check the web app identity has "Key Vault Secrets User" on the vault, then restart.',
   );
 }
-const synthetic = process.env.SEED_SYNTHETIC_DATA === 'true';
+let synthetic = false;
+try {
+  synthetic = syntheticSeedRequested(process.env);
+} catch (err) {
+  fail((err as Error).message);
+}
 
 // tsup copies packages/db/migrations and packages/db/sql next to this bundle (see tsup.config.ts).
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -60,9 +67,8 @@ try {
   }
   console.warn(`[quoteflow-start] config seeded${synthetic ? ' (+ synthetic data)' : ''}`);
 } catch (err) {
-  // Log the code only: Postgres messages can echo row data.
-  const code = (err as { code?: string } | null)?.code;
-  fail(`database preparation failed${code ? ` (${code})` : ''}: ${(err as Error).name}`);
+  // The code and the schema objects only: Postgres messages can echo row data.
+  fail(`database preparation failed: ${describeStartupError(err)}`);
 }
 
 // A computed specifier, so the bundler leaves server.js as its own entry instead of inlining it.

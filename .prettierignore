@@ -11,3 +11,5 @@ LICENSE
 CLAUDE.md
 packages/integrations/src/salesforce/fixtures/*.json
 apps/web/public/help/
+# Local Claude Code worktrees (untracked): whole checkouts that `prettier --check .` would otherwise scan.
+.claude/

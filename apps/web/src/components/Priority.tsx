@@ -197,6 +197,7 @@ function WhyPopover({
         className="flex max-h-[var(--radix-popover-content-available-height)] w-[min(28rem,calc(100vw-2rem))] flex-col"
         align="start"
         side={side}
+        aria-label={`Why this priority? ${quoteNumber}`}
         data-testid="why-priority"
       >
         <p className="mb-2 text-sm font-semibold">Why this priority?</p>

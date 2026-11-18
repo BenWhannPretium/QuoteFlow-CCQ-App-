@@ -47,6 +47,8 @@ interface Pending {
   plan: DropPlan;
   /** The column the card shows in while the dialog is open (cancel snaps it back). */
   columnKey: string;
+  /** Where the move began: a drag from the grip, or the "Move" menu (focus returns there on cancel). */
+  via: 'grip' | 'menu';
 }
 
 /**
@@ -65,6 +67,7 @@ export function Board({
 }) {
   const isMobile = useIsMobile();
   const coarse = useMediaQuery('(pointer: coarse)');
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const dragEnabled = !isMobile && !coarse;
   // MouseSensor (not PointerSensor) so a finger never starts a drag: on touch, "Move" opens the dialog.
   const sensors = useSensors(
@@ -122,19 +125,24 @@ export function Board({
     onDragOver: ({ active: a, over }) => {
       const card = cards.get(String(a.id));
       if (!card || !over) return undefined;
+      // UX-018: a pick-up starts over the card's own column. Saying "Over <its own stage>. Drop to
+      // decide." there replaced "Picked up… It can move to…" before a screen reader had read it.
+      if (String(over.id) === card.stageKey) return undefined;
       return reasonFor(card, String(over.id)) ?? `Over ${label(String(over.id))}. Drop to decide.`;
     },
     onDragEnd: ({ active: a, over }) => {
       const card = cards.get(String(a.id));
-      if (!card || !over) return `${card?.quoteNumber ?? 'Card'} put back.`;
+      if (!card || !over || String(over.id) === card.stageKey) {
+        return `${card?.quoteNumber ?? 'Card'} put back.`;
+      }
       return reasonFor(card, String(over.id)) ?? `Dropped on ${label(String(over.id))}.`;
     },
     onDragCancel: ({ active: a }) => `${cards.get(String(a.id))?.quoteNumber ?? 'Card'} put back.`,
   };
 
-  const startMove = (card: BoardCard, columnKey: string) => {
+  const startMove = (card: BoardCard, columnKey: string, via: Pending['via']) => {
     const plan = planDrop(movesOf(card), terminal, columnKey);
-    if (plan) setPending({ card, plan, columnKey });
+    if (plan) setPending({ card, plan, columnKey, via });
     else setDenied({ columnKey, message: reasonFor(card, columnKey) ?? '' });
   };
 
@@ -150,7 +158,7 @@ export function Board({
     if (!card || !e.over) return;
     const columnKey = String(e.over.id);
     if (columnKey === card.stageKey) return;
-    startMove(card, columnKey);
+    startMove(card, columnKey, 'grip');
   };
 
   // While the dialog is open, the card shows in the column it was dropped on.
@@ -205,9 +213,12 @@ export function Board({
               type="button"
               className="bg-secondary text-secondary-foreground rounded-pill inline-flex min-h-11 shrink-0 items-center gap-2 px-3 text-sm"
               onClick={() =>
-                scroller.current
-                  ?.querySelector(`[data-column="${l.key}"]`)
-                  ?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+                scroller.current?.querySelector(`[data-column="${l.key}"]`)?.scrollIntoView({
+                  // UX-018: no glide for someone who asked for reduced motion.
+                  behavior: reducedMotion ? 'auto' : 'smooth',
+                  inline: 'start',
+                  block: 'nearest',
+                })
               }
             >
               {l.label}
@@ -232,7 +243,7 @@ export function Board({
                 moveTargets={[...droppableColumns(movesOf(card), terminal).entries()]
                   .filter(([k]) => k !== CLOSED_LANE_KEY)
                   .map(([k, m]) => ({ key: k, label: label(k), outcome: m[0]!.outcomeLabel }))}
-                onMove={(key) => startMove(card, key)}
+                onMove={(key) => startMove(card, key, 'menu')}
               />
             ))}
           </Column>
@@ -286,7 +297,14 @@ export function Board({
           initialOutcomeKey={pending.plan.outcomeKey ?? ''}
           initialTargetStageKey={pending.plan.targetStageKey ?? ''}
           onOpenChange={(o) => {
-            if (!o) setPending(null);
+            if (o) return;
+            // UX-018: cancelled. The card goes back to its own column as a new element, so the dialog
+            // has nothing to return focus to: put the keyboard back on the control the move began on.
+            const from = `[data-testid="board-card"][data-quote="${pending.card.quoteNumber}"] ${
+              pending.via === 'grip' ? '[aria-roledescription]' : '[data-testid="card-move"]'
+            }`;
+            setPending(null);
+            requestAnimationFrame(() => document.querySelector<HTMLElement>(from)?.focus());
           }}
           onDecided={() => setPending(null)}
         />

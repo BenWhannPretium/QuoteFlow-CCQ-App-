@@ -27,9 +27,17 @@ export function HoldChip({ hold, className }: { hold: DashHold; className?: stri
             e.preventDefault();
             setOpen(true);
           }}
-          // 44 px tall on a phone; the chip inside keeps its size.
+          // UX-018: reaching the chip with Tab can scroll it into view, and a tooltip closes when the
+          // page scrolls. Open it again after that scroll, so it stays up while the chip has focus.
+          onFocus={(e) => {
+            const chip = e.currentTarget;
+            window.setTimeout(() => {
+              if (document.activeElement === chip) setOpen(true);
+            }, 200);
+          }}
+          // 44 px tall on a phone, 24 px on a desktop (WCAG 2.5.8); the chip inside keeps its size.
           className={cn(
-            'focus-visible:ring-ring rounded-pill inline-flex min-h-11 shrink-0 items-center focus-visible:ring-2 focus-visible:outline-none sm:min-h-0',
+            'focus-visible:ring-ring rounded-pill inline-flex min-h-11 shrink-0 items-center focus-visible:ring-2 focus-visible:outline-none sm:min-h-6',
             className,
           )}
         >

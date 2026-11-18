@@ -117,8 +117,9 @@ test('the scheduler works capacity, blocks it, and the work goes straight back t
   await expect(
     eng.getByTestId('capacity-signoff').getByRole('button', { name: 'Approve capacity' }),
   ).toHaveCount(0);
-  // The block is on the quote's timeline, with its reason.
-  await eng.goto(`/quotes/${quoteNumber}`);
+  // The block is on the quote's timeline, with its reason (UX-012: the timeline is on Overview; without
+  // ?tab= the engineer opens a quote in Engineering on the Engineering tab).
+  await eng.goto(`/quotes/${quoteNumber}?tab=overview`);
   await expect(
     eng.getByText('Capacity blocked: Line 4 is full until March.').first(),
   ).toBeVisible();

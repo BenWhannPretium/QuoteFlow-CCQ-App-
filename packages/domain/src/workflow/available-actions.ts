@@ -30,7 +30,8 @@ export interface AvailableAction {
 
 /**
  * The gate/outcome options `actor` may take on `quote` right now: the right gate for the stage, enabled,
- * decider permission held, no segregation conflict. The UI renders its buttons from this list.
+ * decider permission held, no segregation conflict, and no second hold on a quote already on hold
+ * (UX-004). The UI renders its buttons from this list.
  * Required fields are NOT evaluated here (the form fills them in); `evaluateTransition` is the authority.
  */
 export function availableActions(
@@ -51,6 +52,10 @@ export function availableActions(
       if (!outcome.active) continue;
       const transition = findTransition(config, gate.key, outcome.key);
       if (!transition) continue;
+      // UX-004: a quote already on hold is not offered another hold. `evaluateTransition` refuses it
+      // (ALREADY_ON_HOLD), and stays the authority when two tabs race. A hold ends when another
+      // decision is recorded, so every other outcome is still offered.
+      if (quote.status === 'on_hold' && transition.nextStatus === 'on_hold') continue;
       if (violatedSegregationRules(config, quote, actor, gate.key, outcome.key).length > 0)
         continue;
       if (

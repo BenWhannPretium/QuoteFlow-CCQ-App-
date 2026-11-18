@@ -66,7 +66,12 @@ export function InfoTip({ label, info }: { label: string; info: MetricInfo }) {
           <InfoIcon className="size-4" aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="grid gap-3 text-sm" data-testid="info-popover">
+      <PopoverContent
+        className="grid gap-3 text-sm"
+        // A popover is a dialog to a screen reader, and a dialog needs a name.
+        aria-label={`About ${label}`}
+        data-testid="info-popover"
+      >
         <div className="grid gap-1">
           <p className="text-emphasis text-xs font-semibold tracking-wider uppercase">Definition</p>
           <Definition text={info.definition} />

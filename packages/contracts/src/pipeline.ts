@@ -18,7 +18,8 @@ const multi = z.union([z.string().max(500), z.array(z.string().max(200)).max(50)
 );
 
 const flag = z.enum(['true', 'false']).transform((v) => v === 'true');
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
+// A real calendar day: a bare YYYY-MM-DD pattern let 2026-11-31 through to a 500 (Postgres 22008).
+const isoDate = z.iso.date('Use YYYY-MM-DD');
 
 /** Sort keys of `GET /quotes` (the "inline sort"). Each has a natural default direction. */
 export const QUOTE_SORT_KEYS = ['score', 'tier', 'age', 'closeDate', 'amount', 'updated'] as const;

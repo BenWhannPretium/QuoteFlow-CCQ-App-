@@ -26,9 +26,12 @@ import { HoldChip } from '@/components/HoldChip';
 import { SkeletonCard } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, calendarDate } from '@/lib/time';
 import { cn } from '@/lib/utils';
+
+import { STAGE_AMOUNT_WORDS, captureHint, returnedAt } from './dashboard-text';
 
 /**
  * F-02 role dashboards (B-17). Every number is computed by `GET /api/v1/dashboards/:role`; these
@@ -141,7 +144,7 @@ function Expiring({ items }: { items: ExpiringProposal[] }) {
           className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm"
         >
           <span className="grid min-w-0">
-            <span className="flex flex-wrap items-center gap-x-2">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {quoteLink(p.quoteNumber)}
               {p.hold && <HoldChip hold={p.hold} />}
             </span>
@@ -216,6 +219,10 @@ function QueueBlock({ q, title, testId }: { q: QueueHealth; title: string; testI
   );
 }
 
+/** UX-005: a customer or opportunity name on a stage list: cut to one line, whole while its row has focus. */
+const STAGE_QUOTE_LINE =
+  'truncate group-focus-within:break-words group-focus-within:whitespace-normal';
+
 /**
  * Stage columns with counts and a few quotes each: the ones on hold first (FB-18, W13-26: each with the
  * "On hold" chip), then the oldest. Stacks to one column on a phone.
@@ -224,29 +231,57 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="mini-board">
       {p.stages.map((s) => (
-        <li key={s.stageKey} className="bg-muted/50 rounded-lg border p-3" data-stage={s.stageKey}>
+        <li
+          key={s.stageKey}
+          className="bg-muted/50 min-w-0 rounded-lg border p-3"
+          data-stage={s.stageKey}
+        >
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="text-sm font-semibold">{s.label}</h3>
             <span className="font-display text-xl tabular-nums">{s.count}</span>
           </div>
           {s.sfAmount > 0 && (
-            <p className="text-muted-foreground text-xs">{fmtUsdCompact(s.sfAmount)} SF amount</p>
+            <p className="text-muted-foreground text-xs" data-testid="stage-amount">
+              {fmtUsdCompact(s.sfAmount)} {STAGE_AMOUNT_WORDS}
+            </p>
           )}
           {s.quotes.length > 0 && (
-            <ul className="mt-2 grid gap-1 text-xs">
+            <ul className="mt-2 grid gap-2 text-xs">
               {s.quotes.map((q) => (
                 <li
                   key={q.quoteNumber}
-                  className="flex flex-wrap items-center justify-between gap-x-2"
+                  className="group grid min-w-0 gap-0.5"
                   data-status={q.status}
+                  data-quote={q.quoteNumber}
                 >
-                  <span className="flex flex-wrap items-center gap-x-2">
-                    {quoteLink(q.quoteNumber)}
-                    {q.hold && <HoldChip hold={q.hold} />}
+                  <span className="flex flex-wrap items-center justify-between gap-x-2">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {quoteLink(q.quoteNumber)}
+                      {q.hold && <HoldChip hold={q.hold} />}
+                    </span>
+                    <span className="text-muted-foreground tabular-nums">
+                      {q.daysInStage === null ? '' : `${q.daysInStage} d`}
+                    </span>
                   </span>
-                  <span className="text-muted-foreground tabular-nums">
-                    {q.daysInStage === null ? '' : `${q.daysInStage} d`}
+                  {/* UX-005: who the quote is for. One line each; the full text shows on hover (the
+                      title) and, for the keyboard, when the row's link has focus. */}
+                  <span
+                    className={cn(STAGE_QUOTE_LINE, 'text-foreground-2')}
+                    title={q.account}
+                    data-testid="stage-quote-customer"
+                  >
+                    {q.account}
                   </span>
+                  {q.opportunityName && (
+                    // Not on a phone: the customer is enough there.
+                    <span
+                      className={cn(STAGE_QUOTE_LINE, 'text-muted-foreground hidden sm:block')}
+                      title={q.opportunityName}
+                      data-testid="stage-quote-opportunity"
+                    >
+                      {q.opportunityName}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -258,6 +293,8 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
               className="text-emphasis mt-2 inline-block text-xs font-medium underline-offset-2 hover:underline"
             >
               View {s.count}
+              {/* UX-018: "View 2" five times over in a list of links; say what and where. */}
+              <span className="sr-only"> in {s.label}</span>
             </Link>
           )}
         </li>
@@ -270,6 +307,7 @@ function StageBoard({ p, drill }: { p: StagePipeline; drill?: boolean }) {
 
 function Kam({ d }: { d: KamDashboard }) {
   const r = d.capture.rates;
+  const { data: config } = usePublicConfig();
   return (
     <>
       <Block title="Returned to me" info={d.returned.info} testId="dash-returned">
@@ -284,9 +322,10 @@ function Kam({ d }: { d: KamDashboard }) {
                     {quoteLink(i.quoteNumber)}{' '}
                     <span className="text-muted-foreground text-xs">{i.account}</span>
                   </span>
-                  <span className="text-emphasis text-xs font-semibold">
+                  <span className="text-emphasis text-xs font-semibold" data-testid="returned-why">
                     {i.reason ?? 'Reason not recorded'}
-                    {i.gateKey ? ` · ${i.gateKey}` : ''}
+                    {/* UX-013: the gate by its configured label, never its number. */}
+                    {returnedAt(config, i.gateKey, ' · returned at ')}
                   </span>
                 </span>
                 {i.note && <span className="text-foreground-2">{i.note}</span>}
@@ -300,6 +339,7 @@ function Kam({ d }: { d: KamDashboard }) {
                       className="text-emphasis font-medium hover:underline"
                     >
                       Continue the rework draft
+                      <span className="sr-only"> of {i.quoteNumber}</span>
                     </Link>
                   ) : (
                     <Link
@@ -308,6 +348,7 @@ function Kam({ d }: { d: KamDashboard }) {
                       className="text-emphasis font-medium hover:underline"
                     >
                       Open to start the rework
+                      <span className="sr-only"> of {i.quoteNumber}</span>
                     </Link>
                   )}
                 </span>
@@ -382,11 +423,7 @@ function Kam({ d }: { d: KamDashboard }) {
         <Stat
           label="Outcome capture rate"
           value={fmtPct(r.captureRate)}
-          hint={
-            r.recorded + r.goneDark === 0
-              ? 'No proposals are past their validity yet, so there is nothing to measure.'
-              : `${fmtCount(r.recorded)} recorded, ${fmtCount(r.goneDark)} gone dark, ${fmtCount(r.awaiting)} still waiting.`
-          }
+          hint={captureHint(r)}
           {...(r.lowCapture ? { tone: 'alert' as const } : {})}
         />
         {r.goneDark > 0 && (

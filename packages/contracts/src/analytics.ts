@@ -19,7 +19,8 @@ const multi = z.union([z.string().max(500), z.array(z.string().max(200)).max(50)
     .map((s) => s.trim())
     .filter(Boolean),
 );
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
+// A real calendar day: a bare YYYY-MM-DD pattern let 2026-11-31 through to a 500 (Postgres 22008).
+const isoDate = z.iso.date('Use YYYY-MM-DD');
 
 /**
  * Filters shared by every analytics chart. `from` / `to` are US Central calendar days, both inclusive;
@@ -31,7 +32,7 @@ export const AnalyticsQuery = z.object({
   market: multi.optional(),
   productFamily: multi.optional(),
   /** KAM user ids. */
-  kam: multi.optional(),
+  kam: multi.pipe(z.array(z.uuid('Use user ids'))).optional(),
   region: multi.optional(),
 });
 export type AnalyticsQuery = z.input<typeof AnalyticsQuery>;

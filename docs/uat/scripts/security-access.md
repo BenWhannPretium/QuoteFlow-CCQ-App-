@@ -1,11 +1,13 @@
 # UAT script: Security and access (pen test light)
 
+> Checked against the build on 2026-11-17 (pre-release audit): the Production scheduler role (FB-16) is added to the accounts, to Part B (step 14a) and to Part C (step 21b); the Finance menu reads **Command Center**; the stage is **Engineering & Capacity**. Step 21a is changed; steps 14a and 21b are new. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
+
 | | |
 |---|---|
 | Session | **U4**, Wed Nov 11 (60 min). Run by Ben Whann with the IT security delegate. Part of the Gate 5 evidence. |
 | Tester roles | IT security delegate (observer and tester), Ben (driver) |
 | Test URL | https://quoteflow-test.azurewebsites.net |
-| Sign in | One test account per role, each in exactly one group: `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance` (FB-07; created 2026-11-10), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin`. Plus one account in **no** `SG-CCQ-*` group. Use a private browser window per account. |
+| Sign in | One test account per role, each in exactly one group: `SG-CCQ-KAM`, `SG-CCQ-SalesLeader`, `SG-CCQ-EngLead`, `SG-CCQ-Engineer`, `SG-CCQ-Pricing`, `SG-CCQ-PricingLead`, `SG-CCQ-Finance` (FB-07; created 2026-11-10), `SG-CCQ-ProductionScheduler` (FB-16, provisional; once IT has created the group), `SG-CCQ-Approver`, `SG-CCQ-Leadership`, `SG-CCQ-Admin`. Plus one account in **no** `SG-CCQ-*` group. Use a private browser window per account. |
 | Before you start | Ben lists the test accounts: `<TEST-USER per role, from IT>`. Quotes from U1–U3 exist. Browser developer tools are allowed (Network tab). |
 | How to log a problem | Use **Report an issue**. Every access failure is **Sev-2** or higher. |
 
@@ -17,7 +19,7 @@
 | `<CCQ-SEC-B>` | A quote owned by a different KAM, in a region KAM A does not cover |
 | `<CCQ-SEC-FR>` | A quote in Final Review |
 | `<CCQ-SEC-QT>` | A quote in Quoting with a price approval and capital readiness |
-| `<CCQ-SEC-ENG>` | A quote in Engineering Review assigned to engineer test user 1 (FB-08 steps 22a–22d) |
+| `<CCQ-SEC-ENG>` | A quote in Engineering & Capacity assigned to engineer test user 1, with the Production scheduler test user as its scheduler (FB-08 steps 22a–22d, FB-16 step 21b) |
 | `<CCQ-SEC-EXC>` | A quote in Final Review with a non-standard payment-terms exception waiting (FB-08 steps 22c–22d) |
 
 **Changes for FB-08, FB-09, FB-12 and FB-13 (2026-11-10).** FB-08 added four permissions (`terms.engineering.edit`, `terms.finalize`, `terms.exception.decide`, `finalReview.signoff`), four routes and two quote-child tables with row-level security: steps 22a–22e and 28a cover them. FB-09, FB-12 and FB-13 changed no permission, route or row-level-security policy (value lists, one nullable quote column, data only): no steps.
@@ -26,7 +28,7 @@
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 1 | Sign in with the account in no `SG-CCQ-*` group. | Refused at Microsoft sign-in, or "No QuoteFlow access yet" ("…ask IT to add you to an SG-CCQ group"). No data shows. | | |
+| 1 | Sign in with the account in no `SG-CCQ-*` group. | Refused at Microsoft sign-in, or "No QuoteFlow access yet" ("…ask IT to add you to an SG-CCQ group"). Under it: "If IT has just added you to a group, press Check again.", a **Check again** button and **Sign out**. No data shows. | | |
 | 2 | Sign in with each role account. Open the user menu. | The role chip matches the group (for example `KAM`, `PricingLead`). | | |
 | 3 | Look for a role or persona switcher on the test URL. | None. Dev sign-in mode is off outside a laptop. | | |
 | 4 | Sign out from the user menu. Press the browser Back button. | The sign-in page shows. No quote data is shown from cache. | | |
@@ -48,6 +50,10 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 13 | `/admin/settings` | Denied | Denied | Denied | Denied | Denied | Denied | Denied | Allowed (read-only) | Allowed (edit) | | |
 | 14 | `/pricing-history` | Allowed | Allowed | Allowed | Allowed | Allowed | Allowed | Allowed | Allowed | Allowed | | |
 
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 14a | FB-07, FB-16. Repeat steps 5 to 14 with the Finance account and with the Production scheduler account. | **Both:** `/intake/new`, `/approvals?gate=G1`, `/queue/pricing`, `/?view=analytics` and the three `/admin/…` addresses are denied; `/quotes/<CCQ-SEC-FR>/review` opens read-only; `/pricing-history` opens. **`/queue/engineering`:** denied for Finance; allowed for the Production scheduler as **Capacity requests** (their quotes, then the queue, read-only). | | |
+
 ## Part C: The server enforces it, not the screen
 
 | # | Action | Expected result | Pass/Fail | Notes |
@@ -59,7 +65,8 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 19 | On a quote whose G2, G3 or G4 is decided, as the role that owns the section (for example Pricing on `<CCQ-SEC-FR>`), send the save request for that section. | **409** problem+json of type `…/problems/section-locked`. Nothing changes. A role without permission still gets 403. | | |
 | 20 | As the KAM, copy a G4 call: send `POST /api/v1/quotes/<CCQ-SEC-FR>/gates/G4/decisions` with `{"outcomeKey":"approve"}` (Ben shows how, using the browser's token). | **403**, an RFC 9457 problem+json body. Nothing changes on the quote. | | |
 | 21 | As the Approver who is also the KAM on a quote (Ben stages it), send the same call for that quote. | Refused (segregation). The quote stays in Final Review. | | |
-| 21a | FB-07 (F-083). As the Finance account, open `<CCQ-SEC-QT>`, then try **Save price approval**, a file upload on **Attachments**, `/queue/pricing` and a G3 decision (Ben shows how). | The quote and its Quoting tab open read-only, with **Upload the payback model** only when the quote needs a payback model. Every other write is **403**; `/queue/pricing` is denied. The menu shows **Home** and **Pipeline** only. | | |
+| 21a | FB-07 (F-083). As the Finance account, open `<CCQ-SEC-QT>`, then try **Save price approval**, a file upload on **Attachments**, `/queue/pricing` and a G3 decision (Ben shows how). | The quote and its Quoting tab open read-only, with **Upload the payback model** only when the quote needs a payback model. Every other write is **403**; `/queue/pricing` is denied. The menu shows **Command Center** and **Pipeline** only. | | |
+| 21b | FB-16. As the Production scheduler account, on `<CCQ-SEC-ENG>` (where it is the scheduler): send the save for the engineering solution (`PUT /api/v1/quotes/<CCQ-SEC-ENG>/eng-review`), then for the capacity rows (`PUT …/capacity-evidence`) and the sign-off (`PUT …/capacity-signoff`). Send the last two again on a quote where the account is not the scheduler. | **403** for the solution: only the assigned engineer and the lead write it. **200** for the capacity rows and the sign-off on `<CCQ-SEC-ENG>`. **403** for both on the other quote. The menu shows **Command Center**, **Capacity requests** and **Pipeline**; the role has no **Report an issue** button and no upload on **Attachments**. | | |
 | 22 | As the Engineer, `GET /api/v1/pricing/erf/<a known ERF number>`. | **200**. The pricing history is open to every role that reads a quote. | | |
 | 22a | FB-08 (F-068, T-031). Send the capital-terms save: `PUT /api/v1/quotes/<CCQ-SEC-FR>/terms/capital` with `{"termsMoldOwnership":"CUSTOMER"}` as the KAM, then as Pricing, then as the Approver on `<CCQ-SEC-QT>` (not in Final Review), then as the Approver on `<CCQ-SEC-FR>`. | **403** for the KAM, for Pricing, and for the Approver on a quote that is not in Final Review. **200** for the Approver on `<CCQ-SEC-FR>`. Only the approver confirms the capital terms, and only while the quote is in Final Review. | | |
 | 22b | FB-08 (F-021). Send `PUT /api/v1/quotes/<CCQ-SEC-ENG>/terms/engineering` with `{"termsMoq":"10 pallets"}` as Pricing, as the KAM, as engineer test user 2 (not assigned), then as engineer test user 1 (assigned) and as the Engineering lead. Then send `PUT /api/v1/quotes/<CCQ-SEC-ENG>/terms` with `{"termsMoq":"10 pallets"}` as the KAM. | **403** for Pricing, the KAM and the unassigned engineer. **200** for the assigned engineer and the lead. The last call is **400**: the terms route no longer accepts `termsMoq` or `toolingFundingModel`. Nothing changes on the quote in the refused calls. | | |
@@ -72,7 +79,7 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 23 | As Admin: **Admin** → **Users and scope** → KAM test user A → **Scope** → **Own quotes only**. Give a reason in "Why are you making this change?". **Save change**. | Saved. The change is in **Admin** → **Decision log**. | | |
-| 24 | As KAM A: type `/quotes/<CCQ-SEC-B>` after the test URL. | The quote does not open ("Not found" or "You don’t have access to this"). | | |
+| 24 | As KAM A: type `/quotes/<CCQ-SEC-B>` after the test URL. | The quote does not open: "We could not find <number>, or it is outside what your role can see." and "Check the number, or search from the Pipeline.", with a **Go to the Pipeline** button and "Reference for support: <id>". The page reads the same for a number that does not exist, so it never says whether the quote exists. | | |
 | 25 | As KAM A: search `<CCQ-SEC-B>` in the header search, and look in **Pipeline**. | Not found. Only KAM A's quotes are listed. | | |
 | 26 | As KAM A: **New intake** → **All**, search for KAM B's Salesforce opportunity. | It is not listed (Salesforce opportunities follow the same scope). | | |
 | 27 | As KAM A: **Export CSV** from **Pipeline**. | Only KAM A's quotes are in the file. | | |
@@ -104,6 +111,16 @@ Type each address after the test URL. "Allowed" means the page opens. "Denied" m
 | 37 | Read three QuoteFlow emails (arrival, Final Review, G4 decided). | No price, margin or capital amount, whatever the recipient's role. | | |
 | 38 | Upload a file type that is not allowed, and one over the size limit. | Both refused with a reason. | | |
 | 39 | As an uploader, remove your own file. As another non-Admin user, try to remove it. | You can remove your own within 24 hours. The other user cannot. | | |
+
+## UX changes (2026-11-17)
+
+Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`). Steps 1 and 24 above were changed for the same reason.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 40 | With the account in no `SG-CCQ-*` group, on the "No QuoteFlow access yet" page, press **Check again**. | The button reads **Checking…** while it checks. Then the page says "Still no access. If you were added a moment ago, wait a few minutes and check again." No data shows. | | |
+| 41 | IT (or Ben) adds that account to `SG-CCQ-KAM`. Wait a few minutes, then press **Check again** on the same page, without signing out. Remove the account from the group afterwards. | Once Entra has the new membership, the Command Center opens and the role chip reads `KAM`. The account did not have to sign out of Microsoft. Until then the page keeps saying "Still no access…". | | |
+| 42 | As the KAM, type `/quotes/<CCQ-SEC-ENG>?tab=engineering` after the test URL. | The quote opens on the **Engineering** tab, read-only: a link that names a tab chooses what is shown first and gives no right to change anything. The line under the stage tracker has no button for the KAM, and the tab has no Save button. | | |
 
 ## Sign-off
 

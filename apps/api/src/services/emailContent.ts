@@ -80,6 +80,11 @@ export class EmailContentBuilder {
     if (type === 'quote.submitted_to_lead' || type === 'quote.returned_by_lead') {
       return this.url(`/quotes/${n}?tab=${payload.kind === 'pricing' ? 'quoting' : 'engineering'}`);
     }
+    // UX-012: a payment-terms exception is on the Commercial panel (Overview); the bare quote opens on
+    // the reader's own work tab.
+    if (type === 'quote.terms_exception_requested' || type === 'quote.terms_exception_decided') {
+      return this.url(`/quotes/${n}?tab=overview#commercial`);
+    }
     return ENGINEERING_TYPES.has(type)
       ? this.url(`/quotes/${n}?tab=engineering`)
       : this.url(`/quotes/${n}`);

@@ -45,7 +45,9 @@ param postgresEntraAdmins = []
 param keyVaultPurgeProtection = true
 
 // Same app registrations as test (decided 2026-11-02; add the prod URL as an SPA redirect URI). Prod
-// honours only CCQ.* roles; test honours CCQ.Test.* (runbook A8a), so test grants never reach prod.
+// honours only CCQ.* roles. The target is for test to honour CCQ.Test.* (runbook A8a) so that test grants
+// never reach prod, but test is still on 'CCQ.' today (main.test.bicepparam): until it moves, every CCQ.*
+// role assigned for UAT is honoured here too. Review the app-role assignments before go-live.
 param entraApiClientId = 'ad1e0bca-1df0-476d-84a2-1af5840b9569' // gitleaks:allow (public Entra client id)
 param entraSpaClientId = '033b5ed1-f56f-48c7-9c74-83089f6b311f' // gitleaks:allow (public Entra client id)
 param entraRolePrefix = 'CCQ.'

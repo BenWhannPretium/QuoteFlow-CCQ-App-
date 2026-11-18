@@ -63,7 +63,7 @@ function ReportBody({ r }: { r: OutcomesReport }) {
         <Stat
           label="Outcome capture rate"
           value={pct(r.capture.rate)}
-          hint={`${r.capture.recorded} recorded, ${r.capture.goneDark} gone dark`}
+          hint={`${r.capture.recorded} recorded, ${r.capture.goneDark} past validity with no outcome recorded`}
         />
         <Stat
           label="Win rate"

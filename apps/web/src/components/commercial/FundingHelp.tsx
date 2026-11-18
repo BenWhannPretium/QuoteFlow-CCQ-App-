@@ -24,7 +24,11 @@ export function FundingHelp({
           <InfoIcon className="size-3.5" aria-hidden="true" />
           What do the funding options mean?
         </PopoverTrigger>
-        <PopoverContent className="w-[min(28rem,calc(100vw-2rem))]" align="start">
+        <PopoverContent
+          className="w-[min(28rem,calc(100vw-2rem))]"
+          align="start"
+          aria-label="Funding options"
+        >
           <dl className="grid gap-2 text-xs">
             {withHelp.map((o) => (
               <div key={o.code}>

@@ -237,6 +237,72 @@ export function submitProblemIssues(problem: Record<string, unknown>): IntakeIss
   );
 }
 
+/** A blocking issue as the wizard's own evaluation lists them (the server's refusals join that list). */
+export type SaveIssue = IntakeEvaluation['blocking'][number];
+
+/** "999999999999.99" as "999,999,999,999.99": a limit the server names is easier to read grouped. */
+const groupDigits = (text: string) =>
+  text.replace(/\d{5,}(?:\.\d+)?/g, (n) =>
+    Number(n).toLocaleString('en-US', { maximumFractionDigits: 6 }),
+  );
+
+/**
+ * UX-017: the fields a refused autosave names. A value outside what the API accepts (a revenue of 16
+ * digits) is refused with a 400 whose `errors[].path` points into the request ("/data/estAnnualRevenue",
+ * "/data/items/1/heightMm"). The save status used to say only "Request body is invalid". Each error on
+ * a field of the form becomes a blocking issue on that field, worded "Label: what to enter", so it shows
+ * under the field and in the review list like any other. A path that is not a field of the form is left
+ * out: the save status still says the save failed.
+ */
+export function saveProblemIssues(
+  problem: Record<string, unknown>,
+  data?: IntakeDraftData,
+): SaveIssue[] {
+  const errors = problem.errors;
+  if (!Array.isArray(errors)) return [];
+  const items = data ? draftItems(data) : [];
+  const issues: SaveIssue[] = [];
+  for (const e of errors as { path?: unknown; message?: unknown }[]) {
+    if (typeof e.path !== 'string' || typeof e.message !== 'string') continue;
+    const inItem = /^\/data\/items\/(\d+)\/(.+)$/.exec(e.path);
+    const field = problemField(inItem ? `/${inItem[2]}` : e.path);
+    const label = FIELD_META[field]?.label;
+    if (!label) continue;
+    // FB-19: an issue names its item only when the intake has several (a one-item intake's are item 1's).
+    const item = inItem && items.length > 1 ? Number(inItem[1]) + 1 : undefined;
+    if (issues.some((i) => i.field === field && i.item === item)) continue;
+    const said = groupDigits(e.message);
+    const words = said.startsWith(label)
+      ? said
+      : `${label}: ${said.charAt(0).toLowerCase()}${said.slice(1)}`;
+    issues.push({
+      code: 'INVALID_VALUE',
+      field,
+      message: item === undefined ? words : `${itemName(item, items[item - 1]?.label)}: ${words}`,
+      ...(item === undefined ? {} : { item }),
+    });
+  }
+  return issues;
+}
+
+/**
+ * UX-017: the wizard's evaluation with the fields the server refused on the last save added to the
+ * blocking list (unless the wizard already flags the same field), so Submit waits for them too.
+ */
+export function withSaveIssues(
+  evaluation: IntakeEvaluation,
+  issues: readonly SaveIssue[],
+): IntakeEvaluation {
+  const extra = issues.filter(
+    (i) =>
+      !evaluation.blocking.some(
+        (b) => b.code === i.code && b.field === i.field && b.item === i.item,
+      ),
+  );
+  if (extra.length === 0) return evaluation;
+  return { ...evaluation, blocking: [...evaluation.blocking, ...extra], ready: false };
+}
+
 /**
  * The words for one issue in a list: "Market is required", or the server's own message. FB-19: an item's
  * issue on a multi-item intake names the item ("Item 2 (16 oz bottle): Neck finish is required"); its

@@ -339,6 +339,12 @@ export function GateDecisionDialog({
         queryClient.invalidateQueries({ queryKey: ['stage-times', quoteNumber] }),
         queryClient.invalidateQueries({ queryKey: ['my-proposals'] }),
         queryClient.invalidateQueries({ queryKey: ['pipeline'] }),
+        // The decision is also a timeline entry, moves the quote on every role's Command Center and
+        // raises notifications; an override waiting on the old stage may no longer apply.
+        queryClient.invalidateQueries({ queryKey: ['timeline', quoteNumber] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+        queryClient.invalidateQueries({ queryKey: ['overrides', 'inbox'] }),
       ]);
       toast.success({
         title: `${action?.outcomeLabel ?? 'Decision'} recorded`,
@@ -447,25 +453,32 @@ export function GateDecisionDialog({
         </DialogHeader>
 
         {quote.isPending && <p className="text-muted-foreground text-sm">Loading the quote…</p>}
+        {quote.isError && !quote.data && (
+          <p role="alert" className="text-destructive text-sm">
+            This quote could not be loaded, so no decision can be recorded here. Close this and try
+            again.
+          </p>
+        )}
         {quote.data && (
           <div className="grid gap-4">
             <QualificationWarnings warnings={quote.data.warnings} />
             <GuardrailNote text={quote.data.intakeFacts.guardrailWarning} />
 
-            <details
-              className="rounded-md border px-3 py-2"
-              open={quote.data.stageKey === 'INTAKE'}
-            >
-              <summary className="cursor-pointer text-sm font-medium">
+            {/* Closed at every gate, so the choices are on the screen on a laptop: the summary line
+                keeps the score in view, and one click or key press (Enter or Space on the summary)
+                opens the evidence. The whole row is the target. */}
+            <details className="rounded-md border" data-testid="decision-priority">
+              <summary className="cursor-pointer rounded-md px-3 py-3 text-sm font-medium">
                 Priority {quote.data.priority.score ?? '–'}
                 {quote.data.priority.tierLabel ? ` · ${quote.data.priority.tierLabel}` : ''}{' '}
                 (advisory)
               </summary>
-              <ScoreBreakdownTable
-                priority={quote.data.priority}
-                market={{ market: quote.data.market, subMarket: quote.data.subMarket }}
-                className="mt-2"
-              />
+              <div className="px-3 pb-2">
+                <ScoreBreakdownTable
+                  priority={quote.data.priority}
+                  market={{ market: quote.data.market, subMarket: quote.data.subMarket }}
+                />
+              </div>
             </details>
 
             <div className="rounded-md border px-3 py-2 text-sm" data-testid="completeness">
@@ -502,8 +515,11 @@ export function GateDecisionDialog({
                 </p>
                 {capacity.note && <p className="whitespace-pre-wrap">{capacity.note}</p>}
                 <p>
-                  The quote cannot advance until capacity is approved again on the Engineering tab.
-                  Send back, hold or stop are still available.
+                  The quote cannot advance until capacity is approved again on the Engineering tab.{' '}
+                  {/* UX-004: a quote already on hold is not offered Hold. */}
+                  {quote.data.status === 'on_hold'
+                    ? 'Send back and stop are still available.'
+                    : 'Send back, hold or stop are still available.'}
                 </p>
               </div>
             )}

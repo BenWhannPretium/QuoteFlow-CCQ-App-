@@ -41,7 +41,11 @@ import { PriorityBadge, ScoreBreakdownTable } from '../Priority';
 import { SalesforceLink } from '../SalesforceLink';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
+import { releaseBlockers } from './blockers';
 import { reviewSummaryKey } from './keys';
+
+/** The Terms and Legal section's id (its heading is `${id}-heading`). */
+const TERMS_LEGAL_ID = 'terms-legal';
 
 const money = (n: number | null | undefined) =>
   n === null || n === undefined ? null : `$${n.toLocaleString('en-US')}`;
@@ -73,6 +77,8 @@ function Section({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2
           id={`${id}-heading`}
+          // UX-010: "Go to Terms and Legal on this page" moves focus here.
+          tabIndex={-1}
           className="font-display text-[1.1875rem] font-[450] tracking-[-0.012em]"
         >
           {title}
@@ -248,6 +254,8 @@ function NotInFinalReview({ s }: { s: ReviewSummary }) {
 
 function Warnings({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string }) {
   if (s.warnings.length === 0) return null;
+  // UX-010: the footer said "none of them blocks it" even when the release was blocked.
+  const blockers = releaseBlockers(s);
   return (
     <section
       className="border-warning bg-warning/20 grid gap-2 rounded-md border px-4 py-3"
@@ -271,25 +279,61 @@ function Warnings({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string })
           </li>
         ))}
       </ul>
-      <p className="text-muted-foreground text-xs">
-        Warnings inform the decision; none of them blocks it.
-      </p>
+      {blockers.length === 0 ? (
+        <p className="text-muted-foreground text-xs" data-testid="review-warnings-footer">
+          Warnings inform the decision; none of them blocks it.
+        </p>
+      ) : (
+        <div className="grid gap-1 border-t pt-2 text-sm" data-testid="review-blockers">
+          <p className="font-semibold">The offer cannot be released yet. This blocks it:</p>
+          <ul className="grid list-disc gap-1 pl-5">
+            {blockers.map((b) => (
+              <li key={b.key} data-fix-at={b.fixAt}>
+                {b.message}
+                {b.fixAt !== 'none' && ' · '}
+                {b.fixAt === 'commercial' && <CommercialLink quoteNumber={quoteNumber} />}
+                {b.fixAt === 'terms-legal' && <TermsLegalJump />}
+                {b.fixAt === 'quote' && (
+                  <Link to="/quotes/$quoteNumber" params={{ quoteNumber }} className={FIX_LINK}>
+                    Open the full quote
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
 
+// Inherits the surrounding text colour (contrast on the warning background), underlined.
+const FIX_LINK =
+  'inline-flex min-h-11 items-center font-medium underline underline-offset-2 sm:min-h-0';
+
 /** FB-01 (F-069): Sales or Pricing records these on the quote's Commercial panel. */
 function CommercialLink({ quoteNumber }: { quoteNumber: string }) {
   return (
-    <Link
-      to="/quotes/$quoteNumber"
-      params={{ quoteNumber }}
-      hash="commercial"
-      // Inherits the surrounding text colour (contrast on the warning background), underlined.
-      className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 sm:min-h-0"
-    >
+    <Link to="/quotes/$quoteNumber" params={{ quoteNumber }} hash="commercial" className={FIX_LINK}>
       Open the Commercial panel
     </Link>
+  );
+}
+
+/** UX-010: the approver confirms the capital terms further down this page; this goes there. */
+function TermsLegalJump() {
+  return (
+    <button
+      type="button"
+      className={cn(FIX_LINK, 'cursor-pointer')}
+      onClick={() => {
+        const heading = document.getElementById(`${TERMS_LEGAL_ID}-heading`);
+        heading?.scrollIntoView({ block: 'center' });
+        heading?.focus({ preventScroll: true });
+      }}
+    >
+      Go to Terms and Legal on this page
+    </button>
   );
 }
 
@@ -319,7 +363,7 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
         : t.termsPaymentTermsLabel;
   return (
     <Section
-      id="terms-legal"
+      id={TERMS_LEGAL_ID}
       title="Terms and Legal"
       aside={<CommercialLink quoteNumber={quoteNumber} />}
     >
@@ -756,6 +800,8 @@ function DecisionBar({
       role="region"
       aria-label="Decision"
       data-testid="decision-bar"
+      // UX-018: index.css keeps keyboard focus clear of a bar stuck to the bottom of the page.
+      data-sticky-bottom=""
     >
       {s.canDecide && s.availableActions.length > 0 ? (
         <div className="grid gap-2">

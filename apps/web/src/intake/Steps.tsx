@@ -359,10 +359,13 @@ function NumberInput({
   id,
   value,
   onChange,
+  invalid,
 }: {
   id: string;
   value: number | null | undefined;
   onChange: (v: number | null) => void;
+  /** UX-017: the server refused the value (its message is shown under the field). */
+  invalid?: boolean;
 }) {
   // While focused, show exactly what was typed; otherwise the value (so outside changes show).
   const [editing, setEditing] = useState<string | null>(null);
@@ -371,6 +374,7 @@ function NumberInput({
     <Input
       id={id}
       aria-describedby={`${id}-help`}
+      aria-invalid={invalid || undefined}
       inputMode="numeric"
       value={text}
       onFocus={() => setEditing(text)}
@@ -1628,8 +1632,10 @@ function ItemFields({
             <NumberInput
               id={fid('est_annual_volume')}
               value={data.estAnnualVolume}
+              invalid={invalid('est_annual_volume')}
               onChange={(v) => update({ estAnnualVolume: v, estAnnualVolumeConfirmed: false })}
             />
+            <FieldError issue={invalidIssue('est_annual_volume')} />
             {sf.estAnnualVolume != null && (
               <SfValueNote
                 testId="sf-volume"
@@ -1809,8 +1815,11 @@ export function ProductStep({
             <NumberInput
               id={fid('est_annual_revenue')}
               value={data.estAnnualRevenue}
+              invalid={invalid('est_annual_revenue')}
               onChange={(v) => update({ estAnnualRevenue: v })}
             />
+            {/* UX-017: a figure the server refuses (out of range) says so here, not only in the footer. */}
+            <FieldError issue={invalidIssue('est_annual_revenue')} />
             {data.estAnnualRevenueSf != null && (
               <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
                 Salesforce amount: {formatUsd(data.estAnnualRevenueSf)} <SfTag />

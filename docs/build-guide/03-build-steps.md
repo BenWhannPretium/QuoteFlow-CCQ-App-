@@ -1,5 +1,7 @@
 # 03: Ordered Build Steps
 
+> Checked against the build on 2026-11-17 (pre-release audit): no existing text changed and no box ticked; dated "Checked 2026-11-17" notes added under B-10, B-11, B-14, B-20, B-21, FB-17 and FB-18 where a statement no longer matches the code.
+
 Each step lists:
 - **why** it's at this point in the order
 - **who** you need, and the meeting that unblocks it (see `02-schedule-and-meetings.md`)
@@ -156,6 +158,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] `deploy.yml` deploys `main` to test via OIDC
   - [x] the DB migrates on deploy
   - [x] smoke test passes against the test URL. First green run: Deploy (test) #6 on 2026-10-21, triggered by the merge of PR 25.
+- **Checked 2026-11-17 (pre-release audit).** The first box's "private endpoint", "VNet" and "staging slot in prod" are not what is deployed: prod was applied on 2026-11-12 with public endpoints and no VNet (`deployNetwork = false`) and, for now, a B1 plan with no slot (`infra/main.prod.bicepparam`; B-22 notes). Test's Bicep is still not applied. The API has no Application Insights SDK, so the App Insights resource the Bicep creates receives nothing (`infra/modules/diagnostics.bicep`, written 2026-11-17 and not applied, would send the App Service logs to Log Analytics).
 - **Prompt:** `prompts/B-20-azure-iac-cd.md`
 - **First deploy 2026-10-21 (runbook `06`). Values (identifiers, not secrets):**
   - Test URL: `https://quoteflow-test.azurewebsites.net` · resource group `rg-ccq-test` · web app `quoteflow-test`
@@ -356,6 +359,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] **capacity evidence** sub-form (site, line/asset, assumed effectiveness %, cycle time, utilization, buffer, analysis date; no OEE default)
   - [x] G2 outcomes: Proceed / Proceed with risk / Capital required / Hold / Rework / Stop
   - [ ] **R2 (Thu Oct 29)** with Jim Zweifel, Faron Ipox, Jeffrey Pitrak (Danielle Leu): walk-through done and feedback recorded below
+- **Checked 2026-11-17 (pre-release audit).** The "Eng Review form" box no longer describes the form: since FB-16 the engineer picks the plant and then one "Process & machine type" (the process is derived), the capital field is labelled "Budgetary capital estimate (USD)", and "Downstream equipment" is no longer an input (`apps/web/e2e/engineering.spec.ts` asserts it is absent; old values show under "Legacy notes"). The stage is labelled "Engineering & Capacity".
 - **Prompt:** `prompts/B-10-engineering-queue-review.md`
 - **Built 2026-10-16, ahead of R2. Notes and deviations:**
   - **R2 feedback: not yet held (R2 is Thu Oct 29).** Record Jim's, Faron's and Jeffrey's feedback here after the session. Questions to put to R2 are in `04-decisions-and-risks.md` §2 ("Provisional choices B-10 shipped"): the G2 solution field set, whether "Capital required" also needs capacity evidence, the aging edges, the backup assigner, and whether assigned Engineers should read the commercial numbers they enter.
@@ -384,6 +388,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] Pricing can't approve Final Review
   - [x] commercial fields are redacted for other roles (tested)
   - [ ] **R3 (Thu Nov 5)** with Gemma Cebolla (+ pricing analyst): walk-through done and feedback recorded below
+- **Checked 2026-11-17 (pre-release audit).** "commercial fields are redacted for other roles (tested)" is no longer what the code does: since 2026-10-30 every role holds `quote.read.commercialFields` (`packages/domain/src/policy/matrix.ts`), so nothing is stripped, and `apps/web/e2e/pricing.spec.ts` now asserts that the KAM reads the price approval record. Only the pricing lead decides G3 (L-9); the pricer submits to the lead.
 - **Prompt:** `prompts/B-11-quoting-stage.md`
 - **Built 2026-10-16, ahead of M5 and R3. Notes and deviations:**
   - **R3 feedback: not yet held (R3 is Thu Nov 5).** Questions for R3 and M5 are in `04-decisions-and-risks.md` §2 ("Provisional choices B-11 shipped"): costing attestation required or warned, whether "capital not approved" blocks, the ERF/BPR formats (Cory, M5), and D-11.
@@ -462,6 +467,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] CSV export (scoped, redacted, audited)
   - [x] all views mobile usable
   - [x] performance on ≥ 500 open quotes: list API p95 95 ms (target < 300), board API p95 230 ms, board render 945 ms for 560 cards (target < 1.5 s)
+- **Checked 2026-11-17 (pre-release audit).** "CSV export (scoped, redacted, audited)": the export is still scoped and audited, but no column is redacted for any role today (every role holds `quote.read.commercialFields` since 2026-10-30). FB-19 added the "One row per item" export.
 - **Prompt:** `prompts/B-14-board-and-lists.md`
 - **Built 2026-10-16. Notes and deviations:**
   - **One query layer for three views.** `GET /quotes` (list; the Prioritization view is the same route sorted by score), `GET /quotes/board` and `GET /quotes/export.csv` take the same filters: `q`, `stage`, `tier`, `kam`, `engineer`, `productFamily`, `market`, `resin` (arrays as repeated keys, `key[]=` or comma-separated), `status` (`open` | `active` | `on_hold` | `closed`), `agedOverDays`, `closeDateFrom/To`, `hasWarnings`, `sfMismatch`; the list adds `sort` (score, tier, age, closeDate, amount, updated), `dir`, `page`, `pageSize` (≤ 200). **Paging is `page`, not a cursor:** at ~600 quotes a year a cursor buys nothing, and the two-phase query below already returns the total.
@@ -708,6 +714,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - [x] mobile pass at 390 px: `mobile.spec.ts`, `dashboards.mobile.spec.ts`, `final-review.spec.ts` (mobile project, 390 × 844)
   - [ ] load test (k6): 50 users, p95 < 400 ms
   - [x] runbook draft: `docs/gate/runbook.md` (PR 37). The final runbook is a B-24 item
+- **Checked 2026-11-17 (pre-release audit).** (1) "Health alerts … Bicep only, not yet applied" below is no longer true for prod: the availability test and the metric alerts were applied there on 2026-11-12 (B-22), with no receivers (`alertEmails` empty); test still has none. (2) The route inventory now lists 129 routes (3 public, 6 any signed-in role, 120 gated) and the code has twelve roles, not nine. (3) The rate limit is per signed-in user and, on the audit branch `claude/audit-prerelease`, counts API requests only (the SPA's files are exempt). (4) `docs/security/hardening-report.md` still does not exist.
 - **Prompt:** `prompts/B-21-hardening.md`
 - **Runbook draft (2026-10-27):** in [`docs/gate/runbook.md`](../gate/runbook.md) (not `docs/runbook.md` as the prompt says), for M9 review. Box stays open until M9 accepts it.
 - **Notes (2026-10-26):**
@@ -1489,6 +1496,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Not done, or left for later.** No Playwright test flips an outcome in Admin (it would change shared config under the other specs; the integration tests cover it). Under Stop, "Stop: not CCQ work" is listed before "Stop" at G1 (config order; change `sort` if it should be the other way round). Noticed and not touched: `sales-leader.md` step 8 still says "Engineering Review"; the pricing script and quick-start named buttons that no longer exist ("Return to KAM…", "Hold or stop…"), corrected only in the rows this step changed; `packages/db/README.md`'s migration table stops at 0021.
   - **Provisional values** (`04` §2a "Provisional values FB-17 seeded"): `capital_needed_above_usd` (0), `hold_owner_default` (`stage_assignee`), the outcome groups, the new labels, the reason requirement on every send-back, G2 `capital_required` switched off, the two G2 rules, the hold help text and the G2 Advance help text.
   - **Waiting on:** Bailey Schmitt for the sign-off of those values and the wording; Gemma Cebolla and Stacy Slocum on whether a quote with capital above $0 may still reach Final Review with capital pending; Jim Zweifel on whether $0 is the right line; Bailey to paste the proposed tracker rows (in the PR).
+- **Checked 2026-11-17 (pre-release audit).** The open close-out box above says "Tick this when CI is green": CI on `main` is green on the audit's baseline commit `06c02c5` (`docs/audit/00-baseline.md`). The box is left for Ben to tick.
 - **Prompt:** `prompts/feedback/FB-17-gate-decisions-holds.md`
 
 ### FB-18: Command Center and screen polish · **Built 2026-11-15 (in PR [#101](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/101))** · Ben (standard model · high)
@@ -1529,6 +1537,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Where CI is most likely to fail first.** Prettier (hand formatting; `pnpm format` fixes it); the router calls that were typed against a stub (`validateSearch` on `/`, `redirect({ throw: true })` in `/analytics`' `beforeLoad`, `Link search`); the component tests that render to static markup (written against React's server renderer under the substitute runner); the SQL in the integration test; and the tooltip timing in `fb18.spec.ts`.
   - **Provisional values** (`04` §2a "Provisional values FB-18 seeded"): none seeded. The screen wording ("Command Center", "My work", "Progress saved", the chip) is in the web app's code and waits for the round-table.
   - **Waiting on:** an Admin (Ben) to set the Pretium Lightning URL in each environment (Admin → App settings → "Salesforce Lightning URL"); AR / Finance and Brennan Paul for the source of the ERP customer number (W13-W1); Bailey Schmitt for the wording at the Nov 17 round-table and to paste the proposed tracker rows (in the PR).
+- **Checked 2026-11-17 (pre-release audit).** As for FB-17: CI on `main` is green on `06c02c5`; the open close-out box is left for Ben to tick.
 - **Prompt:** `prompts/feedback/FB-18-command-center-polish.md`
 
 ### FB-19: Multi-item quotes · **Built 2026-11-16 (in PR [#102](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/102))** · Ben (most capable model · high)

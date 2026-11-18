@@ -28,12 +28,23 @@ const shuffled = <T>(xs: T[]) =>
     .sort((a, b) => a.k - b.k)
     .map(({ x }) => x);
 
+/**
+ * Opportunities handed out although they already have an active quote, because the free ones ran out.
+ * The specs share 87 open synthetic opportunities; since the UX specs (2026-11-17) a full run asks for
+ * more than that, and the specs that ran last failed with "no free Salesforce opportunity". A quote
+ * built through the API does not need an opportunity of its own: the workflow setting
+ * `opportunity_active_quotes` (seeded `warn`) lets a KAM put a separate quote on the same opportunity
+ * after confirming, and `submitQuote` confirms for these.
+ */
+const sharedOpportunities = new Set<string>();
+
 export async function freeOpportunities(
   request: APIRequestContext,
   count: number,
 ): Promise<string[]> {
   const drafted = await draftedOpportunities(request);
   const found = new Set<string>();
+  const taken = new Set<string>();
   // A search returns at most 50 rows, ranked the same way every time, so a few broad words alone stop
   // reaching free opportunities once the specs have quoted the top 50. The synthetic names carry the
   // size ("16oz HDPE Boston Round"), so the sizes split the pool into small, reachable groups.
@@ -48,12 +59,19 @@ export async function freeOpportunities(
       items: { id: string; accountId: string | null; activeQuote: unknown }[];
     };
     for (const o of body.items) {
-      if (!o.activeQuote && o.accountId && !drafted.has(o.id)) found.add(o.id);
+      if (!o.accountId) continue;
+      if (!o.activeQuote && !drafted.has(o.id)) found.add(o.id);
+      else if (o.activeQuote) taken.add(o.id);
     }
     if (found.size >= count + 5) break;
   }
   // Shuffle so parallel / repeated runs don't race for the same opportunity.
-  return shuffled([...found]).slice(0, count + 5);
+  const free = shuffled([...found]).slice(0, count + 5);
+  if (free.length >= count) return free;
+  // Not enough free ones left: make up the number with opportunities that already have a quote.
+  const shared = shuffled([...taken]).slice(0, count + 5 - free.length);
+  for (const id of shared) sharedOpportunities.add(id);
+  return [...free, ...shared];
 }
 
 /**
@@ -181,6 +199,8 @@ export async function submitQuote(
           quoteNeededBy: isoDaysFromNow(30),
           productNeededBy: isoDaysFromNow(120),
           drawingStatus: 'HAVE_DRAWING',
+          // An opportunity handed out although it has a quote: the KAM's "separate quote" confirmation.
+          ...(sharedOpportunities.has(id) ? { separateQuoteConfirmed: true } : {}),
           ...over,
         },
       },

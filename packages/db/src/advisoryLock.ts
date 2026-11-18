@@ -13,6 +13,8 @@ export const ADVISORY_LOCKS = {
   notificationDispatch: 1_801_001n,
   /** B-27: hourly Fabric mirror health check. */
   fabricMirrorCheck: 2_701_001n,
+  /** B-20: start-up migrations, comments and analytics views (`runMigrations`); waits, never skips. */
+  migrations: 2_001_001n,
 } as const;
 
 /**

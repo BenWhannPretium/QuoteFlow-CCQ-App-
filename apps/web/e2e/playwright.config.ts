@@ -63,6 +63,12 @@ export default defineConfig({
         'fb18.spec.ts',
         'fb19.spec.ts',
         'offer-letter.spec.ts',
+        // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), one spec per area.
+        'ux-tabs.spec.ts',
+        'ux-quote-header.spec.ts',
+        'ux-command-center.spec.ts',
+        'ux-decisions.spec.ts',
+        'ux-a11y.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], baseURL: webURL },
     },

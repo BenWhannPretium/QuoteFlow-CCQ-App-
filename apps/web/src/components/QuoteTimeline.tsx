@@ -4,7 +4,7 @@ import type {
   TimelineFilter,
   TimelineItem as TimelineEntry,
 } from '@ccq/contracts';
-import { formatCapitalUsd } from '@ccq/domain';
+import { formatCapitalUsd, itemName } from '@ccq/domain';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
@@ -281,8 +281,9 @@ export function describeEvent(
       }
       return { title: `Capacity sign-off undone${by}`, kind: 'system' };
     }
+    // UX-008: the event is the "Start review" button (the stored type keeps its older name).
     case 'eng_review_accepted':
-      return { title: 'Engineering review accepted', kind: 'system' };
+      return { title: 'Engineering review started', kind: 'system' };
     // Lead review (2026-10-30): the assignee submits to the lead; the lead may send it back.
     case 'lead_review_submitted':
       return {
@@ -334,6 +335,16 @@ export function describeEvent(
         ),
         kind: 'system',
       };
+    // UX-007 (FB-19): which item a rework removed, and whether engineering work went with it.
+    case 'quote_item_removed': {
+      const item =
+        typeof p.itemNo === 'number' ? itemName(p.itemNo, str(p.label)) : (str(p.label) ?? 'Item');
+      return {
+        title: `${item} removed`,
+        detail: p.workDiscarded === true ? <p>Its engineering work was discarded.</p> : undefined,
+        kind: 'system',
+      };
+    }
     case 'sf_status_changed':
       return {
         title: str(p.sfStatusFlag)

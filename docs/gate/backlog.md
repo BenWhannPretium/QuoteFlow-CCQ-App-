@@ -1,5 +1,7 @@
 # P1 / P2 backlog (draft)
 
+> Checked against the build on 2026-11-17 (pre-release audit): items since built are marked done (per-user rate limit, the Analytics label, the Salesforce id on the quote, the prod build, the offer letter); the monitoring item is narrowed to what is still missing; the open items FB-15 to FB-20 left behind are added.
+
 **Status: DRAFT, 2026-10-27.** Drawn from the deferred items in `03-build-steps.md` (notes, deviations, the post-MVP table), the open decisions in `04-decisions-and-risks.md`, the P1 features the PRD and architecture cite, the UAT known gaps (`docs/uat/README.md`) and the B-21 findings. UAT Sev-3 / Sev-4 defects join at U6 (`docs/uat/README.md` severity rules).
 
 Priorities are proposals for Bailey Schmitt and Darren Miller to confirm. "Owner" is named only where the repo names one; otherwise **TBD**.
@@ -8,11 +10,12 @@ Priorities are proposals for Bailey Schmitt and Darren Miller to confirm. "Owner
 
 | Item | Why | Source | Owner |
 |---|---|---|---|
-| Rate limiter keyed on the signed-in user, not the client IP (**in progress**) | One office NAT or one load generator shares 300 req/min today; the B-21 target is 300/min per user | `03` B-21 notes; `tests/load/README.md` "Rate limit" | Ben (being fixed separately) |
-| App Insights telemetry, availability test, alert rules, action group | No telemetry or alerts exist; monitoring is health check + Log stream | `06` §6 deviation 5; `infra/README.md` "Not yet in Bicep (B-21)" | Ben |
+| Rate limiter keyed on the signed-in user, not the client IP (**done 2026-10-27**) | It now allows 300 req/min per signed-in user (per caller address only for public routes) and counts API requests only | `03` B-21 notes; `apps/api/src/app.ts`; `apps/api/test/rate-limit.int.test.ts` | Ben (done) |
+| Application telemetry, alert receivers, alerts on test | **Partly done.** Prod has the availability test and metric alert rules (Bicep applied 2026-11-12). Still missing: a receiver (`alertEmails` is empty, so the rules notify nobody); any rule on test (its Bicep is not applied); application telemetry (the API has no Application Insights SDK, logs are stdout only); applying `infra/modules/diagnostics.bicep` (written 2026-11-17, sends the App Service logs to Log Analytics); a log alert for the Fabric mirror check | `infra/README.md` "Alerts"; `03` B-21 and B-22 notes; `infra/main.*.bicepparam` | Ben + IT (the address) |
 | Low-privilege database login for the app | The app connects as the Postgres admin login and switches to `ccq_app` per request | `06` §6 deviation 3 | Ben + IT |
-| Analytics page "operational, not certified" label | Missing on Analytics (present on Usage and ERF linkage) | `docs/uat/README.md` known gaps | Ben |
-| Apply Bicep (what-if, then apply) and build prod | Test was built by CLI; prod not deployed | `03` B-20, B-22 | Ben + IT |
+| Analytics page "operational, not certified" label (**done**) | The Analytics view now shows "Operational metrics from QuoteFlow; not yet D&A-certified." | `apps/web/src/analytics/AnalyticsPage.tsx`; `packages/contracts/src/analytics.ts` | Ben (done) |
+| Apply Bicep (what-if, then apply) and build prod | **Prod built from Bicep and first deployed 2026-11-12**, on an interim B1 plan with one instance and no staging slot. Still open: the P1v3 quota and the `staging` slot (IT), the test apply (test is still CLI-built), and the open B-22 boxes (Salesforce reconciliation, UAT sign-in, synthetic-data purge, prod Fabric mirror) | `03` B-20, B-22; `infra/main.prod.bicepparam` | Ben + IT |
+| Separate app roles for test (`CCQ.Test.*`) | Test and prod share the app registrations and both honour `CCQ.` today, so a role assigned for UAT is honoured in prod too | `infra/main.test.bicepparam`, `infra/main.prod.bicepparam` comments; `06` A8a | Ben + IT |
 
 ## Backlog
 
@@ -25,7 +28,7 @@ Priorities are proposals for Bailey Schmitt and Darren Miller to confirm. "Owner
 | Guided onboarding walkthrough per role | Quick-starts exist; no in-app walkthrough | `03` post-MVP table | P1 | TBD |
 | Per-field "why we ask" explanations (F-19) | Help text already seeded in `intake_field_help` | B-07 prompt; `settings.ts` | P1 | TBD |
 | D&A-certified analytics on the Fabric mirror | MVP dashboards are operational only | `03` post-MVP table; `01` §6 | P1 | Brennan Paul |
-| Governed proposal templates | Future-state deck; parked | `03` post-MVP table; D-25 | P1 | TBD (Pricing + Legal) |
+| Governed proposal templates | **First version built as FB-20** (the offer letter, a Word document generated after Final Review). Still open: Legal-approved wording and the legal entity and address for the footer; the price's unit and the new costing template with one column per item (the real-layout price map is inactive); Word only or PDF too; who may generate | `03` FB-20 "Waiting on"; `04` §2a FB-20; D-25 | P1 | TBD (Pricing + Legal; Bailey) |
 | Tiered or same-sitting G3 + G4 approvals | Tier hook exists (`g4_tier_rules`, off) | `03` post-MVP table; D-10 | P1 | TBD (D-10 tiers) |
 | Gate owners editable in the admin console (`role_permission` as the route-time control) | Today a gate owner change is a code change; needs a security decision | `03` B-19 "not done"; `05` Step 11 | P1 | Ben, after a decision (D-02 / Darren) |
 | Revalidate a proposal without a re-quote | Not built; waits on D-12 | `04` B-13 provisional choices | P1 | TBD (Pricing + sales leadership) |
@@ -37,10 +40,11 @@ Priorities are proposals for Bailey Schmitt and Darren Miller to confirm. "Owner
 | 7:00 AM digest on business days only | Digest goes on weekends too | `03` B-18 notes; `05` §4 | P2 | Jim Zweifel / sales leader to decide |
 | Capital-likely checkbox in the intake wizard | Flag is set on the quote after intake only | `03` B-26 "not built" | P2 | TBD |
 | Ship-to from Salesforce `Ship_to_Locations__c` / spec ship-to fields; intake pre-fill from SF fields | Only 1,714 of 6,199 accounts have a shipping address | `03` B-06 notes; D-18 | P2 | Zac Cairns / Graham Parle |
-| Show the Salesforce opportunity id on the quote page | Tie-out reads it from ERF linkage | `docs/uat/README.md` known gaps | P2 | TBD |
+| Show the Salesforce opportunity id on the quote page (**done, FB-18**) | The quote header and the Intake card show it, as a link once an Admin sets the Salesforce URL. Not linked yet: the pipeline list and board, My proposals, the ERF linkage report | `03` FB-18 D | P2 (the remaining links) | TBD |
 | Second design pass: dashboard tiles, intake stepper, analytics charts | Only inherited the B-25 tokens | `03` B-25 "not done" | P2 | TBD (after UAT feedback) |
 | Licensed Pretium fonts (Value Serif Pro, Basis Grotesque Pro) | Open substitutes self-hosted; licence check needed | `03` B-25 notes | P2 | TBD (licence) |
 | Remove the BR-13 audit exception (`@azure/msal-node`) when `@azure/identity` allows msal-node ≥ 7.1 | Ignored advisory GHSA-xcx6-jx8p-x3h5 | `04` BR-13 | P2 | Ben |
+| Remove the BR-17 audit exception (`picomatch`, build and lint tooling only) when a release above 4.0.7 exists | Ignored advisory GHSA-fc5q-39xc-vjpf | `04` BR-17 | P2 | Ben |
 | Post-award hand-off view (Nicole Donnelly, Anne DeSmet; `CCQ.PostAward`) | P2 role; no dev persona or matrix coverage yet | `03` post-MVP table; `01` §3.1; D-14 | P2 | TBD (D-14) |
 | MCP / API for Copilot and Cowork agents, user-scoped | — | `03` post-MVP table | P2 | TBD (IT agent-identity pattern) |
 | Full decision log and corrections ledger (F-21) | Minimal log built in B-19 | `03` post-MVP table | P2 | TBD (Knowledge Steward) |
@@ -52,3 +56,11 @@ Priorities are proposals for Bailey Schmitt and Darren Miller to confirm. "Owner
 | Final pricing-app export at switch-off | Re-import is idempotent; nothing deleted | `04` B-15 revised | Before switch-off | Cory McGahan |
 | Retention for `CCQ/_removed` and `CCQ/_drafts` files | Soft delete only today | `04` B-16 questions | P2 | IT |
 | Prod Fabric mirror via the VNet data gateway, if deferred | D-FB5 fallback = hypercare week 1 | `04` D-FB5; `03` B-27 | Hypercare | Brennan Paul + IT |
+| Production Scheduler in Entra: the `CCQ.ProductionScheduler` app role and `SG-CCQ-ProductionScheduler` group | The role exists in the code and the dev personas; nobody can hold it through Entra until IT creates it | `03` FB-16 "Actions outside the code"; `06` A4c | Before the role is used | IT |
+| Decide who owns capacity; whether the scheduler may attach files and send feedback; whether a send-back to the scheduler returns to the lead without the engineer resubmitting | Built on a stated assumption (provisional) | `03` FB-16 "Left for later"; D-008 | Decision first | Paul Slomkowski; Danielle Leu (D-008) |
+| Capital above $0 can no longer reach Final Review with capital "pending with a justification" | Follows from FB-17's capital rule; flagged for UAT, not changed. Relax the G3 rule or raise `capital_needed_above_usd` if Pricing should keep that path | `03` FB-17 B "Consequence to confirm in UAT" | Decision first | Gemma Cebolla; Stacy Slocum |
+| Edit an outcome's group (Advance / Send back / Hold / Stop) in the admin console | Shown in Admin, not editable there yet | `03` FB-17 C | P2 | TBD |
+| "Progress saved" on the Admin workflow, scoring and users pages | Left for later in FB-18 | `03` FB-18 C | P2 | TBD |
+| ERP customer number on the quote | No source yet | `03` FB-18 D; W13-W1 | P2 (source first) | AR / Finance; Brennan Paul |
+| Pricing per item on a multi-item quote; whether the capital line applies to the total; scoring of multi-item quotes | FB-19 prices once per quote and sums the items' capital (build assumptions) | `03` FB-19 "Waiting on"; D-005; D-004; W13-W6 | Decision first | Bailey Schmitt; Gemma Cebolla; Stacy Slocum; Jim Zweifel |
+| Intake pre-fill from the Salesforce product record (capacity, neck finish, markets); PET stock colors | Waits for the Salesforce API field names and the colorant list | `03` FB-15 "Left for later"; W13-W10; W13-W5 | P2 | Zachary Cairns; Seamus |

@@ -98,7 +98,7 @@ test('T-001: after the pricing lead approves G3, the pricing fields are read-onl
     const lock = tab.getByTestId('section-lock');
     await expect(lock).toHaveAttribute('data-gate', 'G3');
     await expect(lock).toContainText(
-      /Locked after G3 · decided by .+ on .+ · reopens if the quote is sent back/,
+      /Locked after the Quoting decision · decided by .+ on .+ · reopens if the quote is sent back/,
     );
     // Read-only: no edit form, the recorded values are shown.
     await expect(tab.getByTestId('pricing-record-form')).toHaveCount(0);

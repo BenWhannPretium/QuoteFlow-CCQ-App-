@@ -89,6 +89,29 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
+    /*
+     * UX-018 (WCAG 2.4.11, Focus Not Obscured): when the keyboard or an in-page link scrolls
+     * something into view, it stops clear of the sticky header (4 rem tall) instead of under it.
+     */
+    scroll-padding-top: 4.75rem;
+  }
+  /*
+   * The same at the bottom. On a phone (which is also a desktop at 400% zoom): the tab bar (3.5 rem),
+   * and on a page with a bar stuck above it (the Final Review decision), that bar as well. The two
+   * rules are told apart by specificity, never by their order.
+   */
+  @media (max-width: 40rem) {
+    html {
+      scroll-padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
+    }
+    html:has([data-sticky-bottom]) {
+      scroll-padding-bottom: calc(15rem + env(safe-area-inset-bottom));
+    }
+  }
+  @media (min-width: 40.0625rem) {
+    html:has([data-sticky-bottom]) {
+      scroll-padding-bottom: 6.5rem;
+    }
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
@@ -123,6 +146,14 @@
   [data-surface='rail'] :focus-visible,
   [data-surface='header'] :focus-visible {
     outline-color: var(--pf-copper-on-green);
+  }
+  /*
+   * UX-018 (WCAG 2.4.7): a file input hidden inside its label ("choose files", "Add photo", "Upload
+   * image") is a 1 px box, so its own ring cannot be seen. The label shows the ring instead.
+   */
+  label:has(> input[type='file']:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   /* <main> takes focus from the skip link; no ring around the whole page. */
   main:focus {

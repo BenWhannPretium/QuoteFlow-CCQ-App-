@@ -46,6 +46,7 @@ import {
   prefillFromOpportunity,
   requiredFieldsNow,
   submitProblemIssues,
+  withSaveIssues,
   wizardConfig,
   type WizardConfig,
 } from '@/intake/model';
@@ -59,7 +60,9 @@ import {
 } from '@/intake/Steps';
 import { Notice, Section, Stepper } from '@/intake/ui';
 import { DraftNotSavedError, useIntakeDraft, type SaveState } from '@/intake/useIntakeDraft';
+import { returnedAt } from '@/landing/dashboard-text';
 import { isApiError, api } from '@/lib/api';
+import { absoluteTime, clockTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
@@ -131,6 +134,7 @@ function StartScreen({ cfg }: { cfg: WizardConfig }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const drafts = useQuery({ queryKey: draftsKey, queryFn: api.listDrafts });
+  const { data: config } = usePublicConfig();
   const [picking, setPicking] = useState<string | null>(null);
 
   const pick = async (o: SfOpportunitySummary) => {
@@ -178,9 +182,15 @@ function StartScreen({ cfg }: { cfg: WizardConfig }) {
                   <span className="min-w-0 break-words">
                     <strong>{r.quoteNumber}</strong> · {r.customerName ?? r.opportunityName ?? ''}
                     <span className="text-muted-foreground block text-xs">
-                      {r.gateKey}
-                      {r.reasonLabel ? `: ${r.reasonLabel}` : ''}
-                      {r.note ? ` · ${r.note}` : ''}
+                      {/* UX-013: the gate by its configured label, never its number (G1). */}
+                      {[
+                        [returnedAt(config, r.gateKey, 'Returned at '), r.reasonLabel]
+                          .filter(Boolean)
+                          .join(': '),
+                        r.note,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
                   </span>
                 </span>
@@ -202,7 +212,8 @@ function StartScreen({ cfg }: { cfg: WizardConfig }) {
                   <span className="min-w-0 break-words">
                     {d.sfOpportunityName ?? 'Untitled draft'}
                     <span className="text-muted-foreground block text-xs">
-                      Step {d.step} · saved {new Date(d.updatedAt).toLocaleString()}
+                      {/* UX-011: the one clock every other screen uses (US Central, zone named). */}
+                      Step {d.step} · saved {absoluteTime(d.updatedAt)}
                     </span>
                   </span>
                 </span>
@@ -298,10 +309,13 @@ function SaveStatus({
   state,
   savedAt,
   error,
+  fieldError = false,
 }: {
   state: SaveState;
   savedAt: Date | null;
   error?: string | null;
+  /** UX-017: `error` names the field to fix (a value the server refused), so a retry will not help. */
+  fieldError?: boolean;
 }) {
   const text =
     state === 'saving'
@@ -309,11 +323,13 @@ function SaveStatus({
       : state === 'conflict'
         ? 'This draft was changed in another tab or window. Reload to see the latest; your latest change here is not saved.'
         : state === 'error'
-          ? `Couldn’t save${error ? `: ${error}` : ''}; will retry`
+          ? fieldError && error
+            ? `Not saved. ${error}`
+            : `Couldn’t save${error ? `: ${error}` : ''}; will retry`
           : state === 'dirty'
             ? 'Unsaved changes'
             : savedAt
-              ? `Draft saved ${savedAt.toLocaleTimeString(undefined, { timeStyle: 'short' })}`
+              ? `Draft saved ${clockTime(savedAt)}`
               : 'Draft saved';
   return (
     <p
@@ -398,9 +414,14 @@ function Wizard({
     [baseCfg, hasDrawing],
   );
   // FB-15 (W13-01): the same inputs as the server: the active list codes (in cfg) and the quote's own codes.
+  // UX-017: plus the fields the server refused on the last save, shown on the field like the rest.
   const evaluation = useMemo(
-    () => evaluateDraft(data, cfg, hasDrawingFor, initial.keptListValues),
-    [data, cfg, hasDrawingFor, initial.keptListValues],
+    () =>
+      withSaveIssues(
+        evaluateDraft(data, cfg, hasDrawingFor, initial.keptListValues),
+        draft.saveIssues,
+      ),
+    [data, cfg, hasDrawingFor, initial.keptListValues, draft.saveIssues],
   );
   // FB-19: the open item's fields see the request plus that item, and their issues are that item's.
   const itemData = useMemo(() => itemView(data, sel), [data, sel]);
@@ -433,6 +454,9 @@ function Wizard({
     window.scrollTo({ top: 0 });
     // DR-kam-sales-leader-18: "Fix" lands on the field, not on the page body.
     if (field) requestAnimationFrame(() => focusIntakeField(field));
+    // UX-018: otherwise the keyboard starts the new step at its top. Focus was left on Next, at the
+    // bottom of the page, or dropped when the step's own button in the stepper switched off.
+    else document.getElementById('main')?.focus({ preventScroll: true });
   };
 
   // FB-15 (W13-01): config can be cached for minutes; refetch it when the review step opens, so a list
@@ -865,7 +889,12 @@ function Wizard({
           </Button>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <SaveStatus state={draft.saveState} savedAt={draft.savedAt} error={draft.saveError} />
+          <SaveStatus
+            state={draft.saveState}
+            savedAt={draft.savedAt}
+            error={draft.saveError}
+            fieldError={draft.saveIssues.length > 0}
+          />
           {step < 4 ? (
             <Button onClick={() => goTo(step + 1)} disabled={!data.sfOpportunityId}>
               Next <ArrowRightIcon aria-hidden />

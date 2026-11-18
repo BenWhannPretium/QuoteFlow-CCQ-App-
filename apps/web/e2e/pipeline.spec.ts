@@ -63,7 +63,8 @@ test('filter, then sort, then open a quote (URL holds the view)', async ({ page,
     .getByTestId(`quote-row-${quoteNumber}`)
     .getByRole('link', { name: quoteNumber })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/quotes/${quoteNumber}$`));
+  // UX-012: a KAM opens on Overview, and the tab on screen is always in the address.
+  await expect(page).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=overview$`));
   await expect(page.getByRole('heading', { level: 1 })).toContainText(quoteNumber);
 });
 

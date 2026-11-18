@@ -40,7 +40,7 @@ export function RatePair({
           testId={`${testId}-capture`}
           label="Outcome capture rate"
           value={fmtPct(rates.captureRate)}
-          hint={`${fmtCount(rates.recorded)} recorded, ${fmtCount(rates.goneDark)} gone dark, ${fmtCount(rates.awaiting)} still waiting.`}
+          hint={`${fmtCount(rates.recorded)} recorded, ${fmtCount(rates.goneDark)} past validity with no outcome recorded, ${fmtCount(rates.awaiting)} still waiting.`}
           info={captureInfo}
           {...(rates.lowCapture ? { tone: 'alert' as const } : {})}
         />

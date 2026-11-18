@@ -6,6 +6,8 @@ import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from
 import fp from 'fastify-plugin';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 
+import { pgCode, pgProblem } from '../services/pg-error';
+
 export function problem(
   status: number,
   request: FastifyRequest,
@@ -131,10 +133,22 @@ export const problemJsonPlugin = fp(
         );
       }
 
-      const status =
-        typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 600
-          ? error.statusCode
-          : 500;
+      const explicit =
+        typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 600;
+
+      // An error no service gave a status: a database state that is a collision or a value that does
+      // not fit is answered as such, not as a server fault. A service's own problem always wins.
+      const ownStatus = typeof (error as { status?: unknown }).status === 'number';
+      const db = explicit || ownStatus ? null : pgProblem(error);
+      if (db) {
+        request.log.warn({ err: error, pgCode: pgCode(error) }, 'database error answered as 4xx');
+        return sendProblem(
+          reply,
+          problem(db.status, request, { detail: db.detail, code: db.code }),
+        );
+      }
+
+      const status = explicit ? error.statusCode! : 500;
 
       if (status >= 500) {
         request.log.error({ err: error }, 'unhandled error');
@@ -146,7 +160,11 @@ export const problemJsonPlugin = fp(
     app.setNotFoundHandler((request, reply) => {
       const isApi = request.url === '/api' || request.url.startsWith('/api/');
       const isPageLoad = request.method === 'GET' || request.method === 'HEAD';
-      if (opts.spaFallback && !isApi && isPageLoad) {
+      // A missing build file is a 404, not the page shell. After a deploy an open tab still asks for the
+      // previous build's hashed chunks; answering `index.html` (200, text/html) for a script hid that
+      // behind a MIME-type error and let caches keep HTML under a script's URL.
+      const isBuildAsset = request.url.startsWith('/assets/');
+      if (opts.spaFallback && !isApi && !isBuildAsset && isPageLoad) {
         // Client-side route: let the SPA router handle it (sendFile comes from spaPlugin).
         return reply.type('text/html').sendFile('index.html');
       }

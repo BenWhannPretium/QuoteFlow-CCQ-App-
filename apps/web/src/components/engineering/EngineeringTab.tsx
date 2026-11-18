@@ -45,9 +45,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api, downloadBlob, uploadAttachment } from '@/lib/api';
-import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
-import { absoluteTime } from '@/lib/time';
+import { decisionLabel, forwardReadiness, otherDecisionsLabel } from '@/lib/decision-label';
+import { useSyncedForm } from '@/lib/synced-form';
+import { absoluteTime, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
+import {
+  SWITCH_ITEM_UNSAVED_TEXT,
+  itemHasUnsaved,
+  unsavedRegistry,
+  useReportUnsaved,
+} from '@/lib/unsaved-changes';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
@@ -103,6 +110,18 @@ export function EngineeringTab({
   const itemQuote = view ? withItemView(quote, view) : quote;
   const itemId = view?.id;
   const itemKey = itemId ?? 'quote';
+  const otherLabel = otherDecisionsLabel(quote.status === 'on_hold');
+  // UX-001: showing another item takes this item's cards off the screen, and what was typed in them.
+  const selectItem = (next: number) => {
+    if (
+      next !== index &&
+      itemHasUnsaved(unsavedRegistry.cards(quote.quoteNumber), itemId) &&
+      !window.confirm(SWITCH_ITEM_UNSAVED_TEXT)
+    ) {
+      return;
+    }
+    setActive(next);
+  };
   // The tab reads top to bottom in the order the work is done: who has it, where it stands, the
   // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
   return (
@@ -121,7 +140,7 @@ export function EngineeringTab({
             key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
             quote={quote}
           />
-          <ItemSwitcher items={eng.items} active={index} onSelect={setActive} />
+          <ItemSwitcher items={eng.items} active={index} onSelect={selectItem} />
           <ProductFactsHeader facts={itemQuote.engineering.productFacts} />
         </>
       )}
@@ -157,6 +176,7 @@ export function EngineeringTab({
       )}
       <LeadReviewActions
         kind="engineering"
+        quoteNumber={quote.quoteNumber}
         review={eng.leadReview}
         submit={() => api.submitEngReviewToLead(quote.quoteNumber)}
         sendBack={(note, to) => api.sendBackEngReview(quote.quoteNumber, note, to)}
@@ -165,6 +185,7 @@ export function EngineeringTab({
           g2
             ? {
                 label: decisionLabel('G2', g2.gateLabel),
+                otherLabel,
                 onClick: () => onDecide(),
                 ...forward,
                 onOther:
@@ -172,7 +193,7 @@ export function EngineeringTab({
                     ? () =>
                         onDecide(undefined, {
                           outcomes: forward.others,
-                          title: 'Send back, hold or stop',
+                          title: otherLabel,
                         })
                     : undefined,
               }
@@ -479,8 +500,9 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   const req = (label: string, field: string) =>
     required.has(field) ? `${label} (required)` : label;
   const initial = solutionForm(review);
-  // Reset only from our own successful save, never on a background refetch (it would wipe typing).
-  const [form, setForm] = useState(initial);
+  // A field the user has not typed in follows the server (a save from another tab, or by the lead); what
+  // they typed is kept. So `form` differs from `initial` only by what is typed and not saved.
+  const [form, setForm] = useSyncedForm(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
   // FB-16 (W13-13): why the machine type was cleared when the plant changed ("X does not run Y").
   const [cleared, setCleared] = useState<string | null>(null);
@@ -562,6 +584,9 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
+  const changed = (Object.keys(form) as SolutionKey[]).some((k) => form[k] !== initial[k]);
+  // UX-001: typed and not saved. Not while the card is read-only (locked, or submitted to the lead).
+  useReportUnsaved(quote.quoteNumber, `solution:${itemId ?? ''}`, eng.canEdit && changed);
 
   if (!eng.canEdit) {
     // DR-cross-cutting-12: a plant, machine or process taken off its list reads "(no longer offered)",
@@ -615,7 +640,6 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
     );
   }
 
-  const changed = (Object.keys(form) as SolutionKey[]).some((k) => form[k] !== initial[k]);
   return (
     <Card>
       <CardHeader>
@@ -718,11 +742,7 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
             </Field>
             <Field
               label={req(BUDGETARY_CAPITAL_LABEL, 'prelim_capital_usd')}
-              hint={
-                capitalHidden
-                  ? `${BUDGETARY_CAPITAL_HELP} Your role cannot see the saved figure. Leave this blank to keep it.`
-                  : `${BUDGETARY_CAPITAL_HELP} Saving it updates the quote’s priority score.`
-              }
+              hint={`${BUDGETARY_CAPITAL_HELP} Saving it updates the quote’s priority score.`}
               error={inputError('prelimCapitalUsd') ?? errorFor(errors, 'prelimCapitalUsd')}
             >
               {(id) => (
@@ -1055,7 +1075,8 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   const hidden = eng.commercialRedacted;
   const basis = eng.capacityBasis;
   const cavitation = eng.review.cavitation;
-  const today = new Date().toISOString().slice(0, 10);
+  // US Central, like every other business date: the UTC day is already tomorrow after 6 PM Central.
+  const today = todayCentral();
   const initial: RowForm[] = eng.capacityEvidence.map((r) => ({
     key: r.id,
     id: r.id,
@@ -1075,6 +1096,13 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   const [rows, setRows] = useState<RowForm[]>(initial);
   const [errors, setErrors] = useState<ServerError[]>([]);
   const [dirty, setDirty] = useState(false);
+  // UX-001: typed and not saved. A value typed and put back is not a change, and a read-only card
+  // (locked, submitted to the lead, or another person's part) has nothing to save.
+  useReportUnsaved(
+    quote.quoteNumber,
+    `capacity:${itemId ?? ''}`,
+    eng.canEditCapacity && dirty && JSON.stringify(rows) !== JSON.stringify(initial),
+  );
   // FB-18 (W13-30): kept outside the card, which is re-keyed when a save adds or removes a row.
   const status = useSaved(`capacity:${quote.quoteNumber}`);
   const update = (key: string, patch: Partial<RowForm>) => {
@@ -1316,11 +1344,7 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
                   </Field>
                   <Field
                     label="Assumed effectiveness %"
-                    hint={
-                      hidden && r.id
-                        ? 'Your role cannot see the saved figure. Leave blank to keep it.'
-                        : DF22_HELP
-                    }
+                    hint={DF22_HELP}
                     error={
                       rowErrors[i]?.assumedEffectivenessPct ??
                       errorFor(errors, `rows/${i}/assumedEffectivenessPct`)
@@ -1636,6 +1660,8 @@ function CapacityEvidenceActions({
               type="file"
               className="sr-only"
               aria-label="Capacity analysis file"
+              // UX-018: the "Attach analysis" button is the keyboard stop, not this hidden input.
+              tabIndex={-1}
               data-testid="capacity-attach-input"
               onChange={(e) => {
                 attach(e.target.files?.[0]);

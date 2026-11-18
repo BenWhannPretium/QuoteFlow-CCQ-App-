@@ -13,6 +13,7 @@ import {
   intakeAddress as address,
   intakeValues,
   normalizeDraftData,
+  refusedDraftValues,
 } from '@ccq/contracts';
 import type { DbOrTx, Tx } from '@ccq/db';
 import { schema, uuidv7 } from '@ccq/db';
@@ -97,6 +98,7 @@ import {
   syncQuoteItems,
 } from './intake-items';
 import { recordIntakeShipToOverride } from './overrideService';
+import { pgCode } from './pg-error';
 import { onPricingArrival } from './pricing-view';
 import { onQualifyArrival } from './qualify-arrival';
 import type { ScoringService } from './scoring';
@@ -180,16 +182,6 @@ const activeRef = (
   row: { quoteNumber: string; stageKey: string; status: string } | undefined,
 ): ActiveQuoteRef | null =>
   row ? { quoteNumber: row.quoteNumber, stageKey: row.stageKey, status: row.status } : null;
-
-function pgCode(err: unknown): string | undefined {
-  let e: unknown = err;
-  while (e && typeof e === 'object') {
-    const code = (e as { code?: unknown }).code;
-    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
-    e = (e as { cause?: unknown }).cause;
-  }
-  return undefined;
-}
 
 export interface IntakeServiceOptions {
   now?: () => Date;
@@ -538,6 +530,22 @@ export class IntakeService {
       await this.assertItems(tx, data);
       // DR-cross-cutting-02: only what this save changes is a new write (FB-19: per item and field).
       const { changed, itemNumbers } = changedDraftData(before, data, body.data ?? {});
+      // The body is read as stored (a draft from an older build can hold a value today's checks refuse,
+      // and the wizard sends the whole draft back). What this save changes is checked as a request.
+      const refused = refusedDraftValues(changed);
+      if (refused.length > 0) {
+        throw new IntakeError(400, 'invalid_value', 'Request body is invalid', {
+          title: 'Validation failed',
+          errors: refused.map(({ path, message }) => ({
+            // `changed.items` holds only the items this save touches: name the item's own position.
+            path: `/data/${(path[0] === 'items' && typeof path[1] === 'number'
+              ? ['items', (itemNumbers[path[1]] ?? path[1] + 1) - 1, ...path.slice(2)]
+              : path
+            ).join('/')}`,
+            message,
+          })),
+        });
+      }
       await this.assertListValues(tx, row, changed, itemNumbers, draftItems(data).length);
       // FB-12 (F-073): a market change must not leave the old market's sub-market behind.
       if (

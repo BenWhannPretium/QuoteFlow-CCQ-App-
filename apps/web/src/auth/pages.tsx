@@ -107,20 +107,59 @@ export function NotFoundPage() {
   );
 }
 
+/**
+ * Signed in, but with no QuoteFlow role. UX-016: "Check again" asks for a fresh token and looks again,
+ * so someone IT has just added to a group gets in without signing out of Microsoft.
+ */
 export function NoRolePage({
   detail,
   onSignOut,
+  onCheckAgain,
+  checking = false,
+  checked = false,
 }: {
   detail?: string | undefined;
   onSignOut?: () => void;
+  onCheckAgain?: () => void;
+  /** A check is under way. */
+  checking?: boolean;
+  /** A check has finished and the answer was still "no role" (this page is showing again). */
+  checked?: boolean;
 }) {
   return (
     <AuthPanel
       title="No QuoteFlow access yet"
       description={detail ?? 'No QuoteFlow role assigned; ask IT to add you to an SG-CCQ group.'}
     >
+      {onCheckAgain && (
+        <>
+          <div className="text-foreground-2 grid gap-1 text-sm">
+            <p>If IT has just added you to a group, press Check again.</p>
+            {/* Always in the page, so a screen reader hears the answer when it arrives. */}
+            <p role="status" data-testid="recheck">
+              {checked && !checking
+                ? 'Still no access. If you were added a moment ago, wait a few minutes and check again.'
+                : null}
+            </p>
+          </div>
+          {/* UX-018: aria-disabled, not disabled. A disabled button drops keyboard focus, and the
+              person would have to find "Check again" once more for the next try. */}
+          <button
+            type="button"
+            className={`${buttonClass} aria-disabled:opacity-50`}
+            aria-disabled={checking || undefined}
+            onClick={checking ? undefined : onCheckAgain}
+          >
+            {checking ? 'Checking…' : 'Check again'}
+          </button>
+        </>
+      )}
       {onSignOut && (
-        <button type="button" className={buttonClass} onClick={onSignOut}>
+        <button
+          type="button"
+          className={onCheckAgain ? buttonVariants({ variant: 'outline' }) : buttonClass}
+          onClick={onSignOut}
+        >
           Sign out
         </button>
       )}

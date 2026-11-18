@@ -106,6 +106,21 @@ export interface GateServiceOptions {
 }
 
 /** Codes that mean "you may not", reported as 403 rather than 422. */
+/**
+ * Facts a decision supplies with itself: a hold's review date, the date the customer accepted. A rule
+ * that requires one must be met by the decision being recorded, never by what the quote already holds.
+ * The stored facts reuse both names for other things: `review_date` is the date left by an earlier
+ * hold, and `accepted_at` is the engineering review's (the moment the engineer accepted the work).
+ * Read from the quote, a second hold with no date and an Awarded with no acceptance date both passed.
+ */
+const DECISION_SUPPLIED_FACTS = ['review_date', 'accepted_at'] as const;
+
+function withoutDecisionSuppliedFacts(fields: QuoteState['fields']): QuoteState['fields'] {
+  const own: Record<string, unknown> = { ...fields };
+  for (const fact of DECISION_SUPPLIED_FACTS) delete own[fact];
+  return own;
+}
+
 const FORBIDDEN_CODES = new Set(['NOT_PERMITTED', 'SEGREGATION', 'TIER_APPROVER_REQUIRED']);
 
 /** Codes that mean "the quote moved on while you were deciding" (DR-cross-cutting-01), reported as 409. */
@@ -376,7 +391,14 @@ export class GateService {
         extraErrors.push(...packOutRequirementErrors(ctx.packOutRule, state.fields));
       }
 
-      const result = evaluateTransition(workflow, decisionState, actor, request, now, {
+      // The rules are judged without the stored facts a decision must supply itself (see
+      // DECISION_SUPPLIED_FACTS). Only this copy is stripped: the evidence kept with the decision (the
+      // engineer's acceptance time among it) and everything below still read the full state.
+      const ruleState: QuoteState = {
+        ...decisionState,
+        fields: withoutDecisionSuppliedFacts(decisionState.fields),
+      };
+      const result = evaluateTransition(workflow, ruleState, actor, request, now, {
         approverTiers: ctx.release.approverTiers,
       });
       const errors = [
@@ -401,7 +423,7 @@ export class GateService {
           throw new GateError(
             409,
             GATE_PROBLEM_CODES.alreadyDecided,
-            'This quote is already on hold. Resume it before putting it on hold again.',
+            'This quote is already on hold. Record a decision to end the hold.',
             { title: 'This quote is already on hold' },
           );
         }

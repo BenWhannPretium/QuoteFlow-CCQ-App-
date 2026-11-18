@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +13,9 @@ describe('production SPA serving', () => {
   beforeAll(async () => {
     const dist = mkdtempSync(join(tmpdir(), 'ccq-web-'));
     writeFileSync(join(dist, 'index.html'), '<!doctype html><div id="root">spa</div>');
+    mkdirSync(join(dist, 'assets'));
+    writeFileSync(join(dist, 'assets', 'index-D5YwkxoZ.js'), 'console.log(1)');
+    writeFileSync(join(dist, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
     app = await buildApp(
       testConfig({
         NODE_ENV: 'production',
@@ -25,6 +28,7 @@ describe('production SPA serving', () => {
         SP_SITE_ID: 'site',
         SP_DRIVE_ID: 'drive',
         MAIL_MODE: 'graph',
+        RATE_LIMIT_MAX: '2',
       }),
       { db: fakeDb() },
     );
@@ -43,10 +47,72 @@ describe('production SPA serving', () => {
     expect(res.headers['content-type']).toContain('text/html');
   });
 
+  it('caches hashed build files for good and revalidates everything else', async () => {
+    const asset = await app.inject({ method: 'GET', url: '/assets/index-D5YwkxoZ.js' });
+    expect(asset.statusCode).toBe(200);
+    expect(asset.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    for (const url of ['/', '/quotes/123', '/favicon.svg']) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode, url).toBe(200);
+      expect(res.headers['cache-control'], url).toBe('no-cache');
+    }
+  });
+
+  it('answers 404 for a build file that no longer exists, not the page shell', async () => {
+    const res = await app.inject({ method: 'GET', url: '/assets/index-OLDBUILD.js' });
+    expect(res.statusCode).toBe(404);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+  });
+
   it('keeps problem+json 404s for unknown API routes', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/nope' });
     expect(res.statusCode).toBe(404);
     expect(res.headers['content-type']).toContain('application/problem+json');
+  });
+
+  it('does not count SPA files against the rate limit (RATE_LIMIT_MAX is 2 here)', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      statuses.push(
+        (await app.inject({ method: 'GET', url: i % 2 ? '/' : '/quotes/1' })).statusCode,
+      );
+    }
+    expect(statuses).toEqual([200, 200, 200, 200, 200, 200]);
+  });
+
+  it('limits a public API route per client address, whatever source port the front end reports', async () => {
+    // One caller, three connections: App Service can append `address:port` to X-Forwarded-For.
+    const statuses: number[] = [];
+    for (const port of [50001, 50002, 50003]) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/config',
+        headers: { 'x-forwarded-for': `203.0.113.9:${port}` },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses).toEqual([200, 200, 429]);
+    // Another caller is unaffected.
+    const other = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/config',
+      headers: { 'x-forwarded-for': '198.51.100.7:50001' },
+    });
+    expect(other.statusCode).toBe(200);
+  });
+
+  it('cannot be side-stepped by percent-encoding the API path', async () => {
+    // The router decodes `%61` to `a` and serves the API route; the limiter must count it as one.
+    const statuses: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/%61pi/v1/auth/config',
+        headers: { 'x-forwarded-for': '192.0.2.44' },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses).toEqual([200, 200, 429]);
   });
 
   it('does not expose swagger docs in production', async () => {
