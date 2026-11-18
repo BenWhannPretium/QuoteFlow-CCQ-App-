@@ -22,9 +22,10 @@ jobs:
   verify:
     name: Lint, typecheck, test, build, e2e
     runs-on: ubuntu-latest
-    # 30, not 20: the job takes 13 to 20 minutes on a busy runner (integration tests alone take 10 to 13), so a
-    # 20-minute cap cancelled the Playwright step on FB-13 even though every earlier step passed.
-    timeout-minutes: 30
+    # 45, not 30: the job now takes 25 to 30 minutes (integration tests alone take 12 to 19, Playwright 6 to 8), so
+    # the 30-minute cap cancelled the Playwright step on PR 107 with every test up to then passing. It was raised
+    # from 20 to 30 on FB-13 for the same reason. If the job keeps growing, split e2e into its own job instead.
+    timeout-minutes: 45
 
     services:
       postgres:
