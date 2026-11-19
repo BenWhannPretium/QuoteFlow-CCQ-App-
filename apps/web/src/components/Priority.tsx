@@ -228,6 +228,7 @@ export function GuardrailNote({ text, className }: { text: string | null; classN
         className,
       )}
       data-testid="guardrail-note"
+      data-tone="warning"
     >
       <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
       <span>{text}</span>
@@ -249,6 +250,7 @@ export function QualificationWarnings({
         <li
           key={w.code}
           className="bg-warning text-warning-foreground flex items-start gap-2 rounded-md px-2.5 py-1.5 text-xs"
+          data-tone="warning"
         >
           <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           <span>{w.message}</span>

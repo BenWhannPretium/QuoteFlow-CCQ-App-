@@ -141,6 +141,13 @@ Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`). 
 | 51 | Fill everything, **Confirm capital terms**, then tap **Decide final review** under **Terms and Legal** (not the bar). Choose **Advance (release the offer)** and **Record decision**. | The same dialog as from the bar. The offer is released. | | |
 | 52 | Tap **What do the funding options mean?** next to **Funding model**, on a laptop (1366 × 768) and on a phone. | The help stays inside the screen; when it is longer than the room left it scrolls on its own. | | |
 
+## FB-27: red and yellow on Final Review (2026-11-19)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 53 | On a quote in Final Review with something blocking, read **What blocks the release** and the line beside **Decide final review**. | Both are red: a light red box, a red border and a red warning circle, with the words in the normal text colour. **Open warnings** (if any) are yellow, in a separate box. A small key says "Red: fix before you can go on. Yellow: worth checking; you can still go on." and shows only while one of them is on screen. | | |
+| 54 | Open **Decide final review** on a quote with fields still missing. | "Missing before it can move on:" is red, with the key under it. On a quote with nothing missing it is a quiet line and there is no key. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

@@ -13,6 +13,16 @@ import { cn } from '@/lib/utils';
  * intake's `Notice`). FB-27 applies it to the gate, lead-review and Final Review panels.
  */
 
+/**
+ * FB-27 (N17-09): the red and yellow boxes of the gate, lead-review and Final Review panels, the same as the
+ * intake's `Notice`. Red is a light red fill with a red border and a red icon (body text stays the
+ * foreground colour, never red on red); yellow is the amber fill. Put `data-tone="blocking"` /
+ * `data-tone="warning"` on the box so the key shows while one is on screen.
+ */
+export const BLOCKING_BOX =
+  'border-destructive bg-destructive/10 text-foreground rounded-md border-2';
+export const WARNING_BOX = 'bg-warning text-warning-foreground rounded-md';
+
 export const FLAG_KEY_TEXT = {
   red: 'Red: fix before you can go on.',
   yellow: 'Yellow: worth checking; you can still go on.',

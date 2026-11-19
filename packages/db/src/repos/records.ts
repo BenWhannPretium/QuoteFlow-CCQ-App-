@@ -312,6 +312,19 @@ export async function getAttachment(db: DbOrTx, id: string, forUpdate = false) {
   return first(await (forUpdate ? q.for('update') : q));
 }
 
+/**
+ * FB-27 (N17-34): which of these files have been removed (soft), so the timeline leaves a removed file's
+ * name unlinked. RLS applies (a file the caller can't see simply isn't returned).
+ */
+export async function listRemovedAttachmentIds(db: DbOrTx, ids: readonly string[]) {
+  if (ids.length === 0) return [] as string[];
+  const rows = await db
+    .select({ id: attachment.id })
+    .from(attachment)
+    .where(and(inArray(attachment.id, [...ids]), isNotNull(attachment.removedAt)));
+  return rows.map((r) => r.id);
+}
+
 export async function insertAttachment(db: DbOrTx, values: typeof attachment.$inferInsert) {
   const [row] = await db.insert(attachment).values(values).returning();
   return row!;

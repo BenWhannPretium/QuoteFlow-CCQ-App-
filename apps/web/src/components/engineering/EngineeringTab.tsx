@@ -40,6 +40,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
+import { UploadFormats, acceptFor } from '@/components/attachments/UploadFormats';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
@@ -1751,8 +1752,10 @@ function CapacityEvidenceActions({
             <input
               ref={fileInput}
               type="file"
+              accept={acceptFor('capacity_analysis')}
               className="sr-only"
               aria-label="Capacity analysis file"
+              aria-describedby="capacity-analysis-formats"
               // UX-018: the "Attach analysis" button is the keyboard stop, not this hidden input.
               tabIndex={-1}
               data-testid="capacity-attach-input"
@@ -1767,6 +1770,8 @@ function CapacityEvidenceActions({
       {!hasRows && (
         <p className="text-muted-foreground text-xs">Save at least one row to download the CSV.</p>
       )}
+      {/* FB-27 (N17-24): the formats and size limit of the analysis upload. */}
+      {canAttach && <UploadFormats kind="capacity_analysis" id="capacity-analysis-formats" />}
       {analyses.length > 0 && (
         <p className="text-muted-foreground text-xs" data-testid="capacity-analyses">
           Capacity analysis attached: {analyses.map((a) => a.fileName).join(', ')}

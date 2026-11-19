@@ -284,6 +284,39 @@ describe('FB-23: cost lines, labor and pack-out per item on a three-item quote',
     expect(stored).toHaveLength(8);
     expect(new Set(stored.map((r) => r.quoteItemId))).toEqual(new Set([one.id, two.id]));
     void three;
+
+    // Build D: the per-item CSV carries the lead time, the three totals and the pack-out figures.
+    const csv = await as('Admin').get(
+      `/api/v1/quotes/export.csv?q=${encodeURIComponent(qn)}&perItem=true`,
+    );
+    ok(csv);
+    const lines = csv.body.trim().split(/\r?\n/);
+    // No cell in this synthetic data holds a comma, so a split is enough; cells may be quoted.
+    const cells = (line: string) => line.split(',').map((c) => c.replace(/^"|"$/g, ''));
+    const header = cells(lines[0]!);
+    for (const h of [
+      'Item mold lead time',
+      'Item customer funded (USD)',
+      'Item net cost to Pretium (USD)',
+      'Item project total (USD)',
+      'Item pieces per pallet',
+      'Item pieces per trailer',
+    ]) {
+      expect(header).toContain(h);
+    }
+    const tail = (line: string) => cells(line).slice(-6);
+    const rows = lines.slice(1).filter((l) => l.includes(qn));
+    expect(rows).toHaveLength(3);
+    expect(tail(rows[0]!)).toEqual([
+      '16-18 weeks',
+      '259000',
+      '1012000',
+      '1271000',
+      '3696',
+      '103488',
+    ]);
+    expect(tail(rows[1]!)).toEqual(['', '43000', '900.25', '43900.25', '5120', '143360']);
+    expect(tail(rows[2]!)).toEqual(['', '', '', '', '', '']);
   });
 
   it('removes a blank line, audits every line change and writes field names only to the timeline', async () => {

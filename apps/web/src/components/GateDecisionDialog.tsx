@@ -14,7 +14,7 @@ import {
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, InfoIcon } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { BLOCKING_BOX, FlagKey } from '@/components/ui/flag-key';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
 import { api, isApiError } from '@/lib/api';
@@ -123,6 +124,7 @@ export function GateDecisionDialog({
   );
   const gateLabel = actions[0]?.gateLabel ?? config?.gates.find((g) => g.key === gateKey)?.label;
 
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [outcomeKey, setOutcomeKey] = useState(initialOutcomeKey);
   const [reasonCode, setReasonCode] = useState('');
   const [note, setNote] = useState('');
@@ -460,7 +462,7 @@ export function GateDecisionDialog({
           </p>
         )}
         {quote.data && (
-          <div className="grid gap-4">
+          <div className="grid gap-4" ref={bodyRef}>
             <QualificationWarnings warnings={quote.data.warnings} />
             <GuardrailNote text={quote.data.intakeFacts.guardrailWarning} />
 
@@ -481,7 +483,14 @@ export function GateDecisionDialog({
               </div>
             </details>
 
-            <div className="rounded-md border px-3 py-2 text-sm" data-testid="completeness">
+            <div
+              className={cn(
+                'px-3 py-2 text-sm',
+                completeness.length === 0 ? 'rounded-md border' : BLOCKING_BOX,
+              )}
+              data-testid="completeness"
+              data-tone={completeness.length === 0 ? undefined : 'blocking'}
+            >
               {completeness.length === 0 ? (
                 <p className="flex items-center gap-2">
                   <CheckCircle2Icon className="text-emphasis size-4" aria-hidden="true" />
@@ -492,10 +501,10 @@ export function GateDecisionDialog({
               ) : (
                 <>
                   <p className="flex items-center gap-2 font-medium">
-                    <CircleAlertIcon className="size-4" aria-hidden="true" />
+                    <CircleAlertIcon className="text-destructive size-4" aria-hidden="true" />
                     Missing before it can move on:
                   </p>
-                  <ul className="text-muted-foreground mt-1 list-disc pl-6">
+                  <ul className="mt-1 list-disc pl-6">
                     {completeness.map((m) => (
                       <li key={m.field + m.message}>{MISSING_LABELS[m.field] ?? m.message}</li>
                     ))}
@@ -507,10 +516,12 @@ export function GateDecisionDialog({
             {capacityBlocked && (
               <div
                 role="status"
-                className="bg-warning text-warning-foreground grid gap-1 rounded-md px-3 py-2 text-sm"
+                className={cn('grid gap-1 px-3 py-2 text-sm', BLOCKING_BOX)}
+                data-tone="blocking"
                 data-testid="capacity-blocked-note"
               >
-                <p className="font-semibold">
+                <p className="flex items-center gap-2 font-semibold">
+                  <CircleAlertIcon className="text-destructive size-4" aria-hidden="true" />
                   Capacity is blocked{capacity.byName ? ` by ${capacity.byName}` : ''}
                 </p>
                 {capacity.note && <p className="whitespace-pre-wrap">{capacity.note}</p>}
@@ -523,6 +534,9 @@ export function GateDecisionDialog({
                 </p>
               </div>
             )}
+
+            {/* FB-27 (N17-09): the key shows only while a red or yellow flag is on screen here. */}
+            <FlagKey scope={bodyRef} />
 
             {actions.length === 0 ? (
               <p className="text-muted-foreground text-sm">

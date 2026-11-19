@@ -9,10 +9,11 @@ import {
   InfoIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
 import { QuoteItemsList } from '@/components/QuoteItems';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { BLOCKING_BOX, FlagKey, WARNING_BOX } from '@/components/ui/flag-key';
 import { stageLabel, usePublicConfig, useValueList } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, relativeTime } from '@/lib/time';
@@ -133,6 +134,8 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
   const [deciding, setDeciding] = useState(false);
   const navigate = useNavigate();
   const fundingNotAnswered = useFundingNotAnswered();
+  // FB-27 (N17-09): the red / yellow key watches the whole review.
+  const pageRef = useRef<HTMLDivElement>(null);
 
   if (summary.isPending) {
     return (
@@ -154,7 +157,12 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
   const q = s.quote;
 
   return (
-    <div className="grid gap-4 pb-4" data-testid="review-screen" data-stage={q.stageKey}>
+    <div
+      className="grid gap-4 pb-4"
+      data-testid="review-screen"
+      data-stage={q.stageKey}
+      ref={pageRef}
+    >
       <PageHeader
         className="mb-0"
         title={q.quoteNumber}
@@ -175,6 +183,7 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
       <Header s={s} now={summary.dataUpdatedAt} />
       {q.status === 'on_hold' && <OnHoldBanner reviewDate={q.reviewDate} />}
       {!s.inFinalReview && <NotInFinalReview s={s} />}
+      <FlagKey scope={pageRef} />
       <Warnings s={s} quoteNumber={quoteNumber} fundingNotAnswered={fundingNotAnswered} />
       <RequestSection s={s} />
       <PrioritySection s={s} />
@@ -282,40 +291,64 @@ function Warnings({
   const blockers = releaseBlockers(s, fundingNotAnswered);
   // FB-25: a missing required term blocks without a warning of its own, so the list shows for it too.
   if (s.warnings.length === 0 && blockers.length === 0) return null;
+  const hasWarnings = s.warnings.length > 0;
   return (
     <section
       id="review-warnings"
-      className="border-warning bg-warning/20 grid gap-2 rounded-md border px-4 py-3"
+      className="grid gap-3"
       aria-labelledby="open-warnings-heading"
       data-testid="review-warnings"
     >
-      <h2
-        id="open-warnings-heading"
-        tabIndex={-1}
-        className="flex items-center gap-2 text-sm font-semibold"
-      >
-        <TriangleAlertIcon className="size-4" aria-hidden="true" />
-        {s.warnings.length > 0 ? `Open warnings (${s.warnings.length})` : 'What blocks the release'}
-      </h2>
-      <ul className="grid gap-1 text-sm">
-        {s.warnings.map((w) => (
-          <li key={w.code + w.message} data-severity={w.severity} data-code={w.code}>
-            {w.message}
-            {w.link === 'commercial' && (
-              <>
-                {' · '}
-                <CommercialLink quoteNumber={quoteNumber} />
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-      {blockers.length === 0 ? (
-        <p className="text-muted-foreground text-xs" data-testid="review-warnings-footer">
-          Warnings inform the decision; none of them blocks it.
-        </p>
-      ) : (
-        <div className="grid gap-1 border-t pt-2 text-sm" data-testid="review-blockers">
+      {/* Yellow: worth checking, none of them stops the decision (FB-27, N17-09). */}
+      {hasWarnings && (
+        <div
+          className={cn('border-warning bg-warning/20 grid gap-2 border px-4 py-3', WARNING_BOX)}
+          data-tone="warning"
+        >
+          <h2
+            // The decision bar's "See what blocks it" lands on the blockers when there are any.
+            id={blockers.length === 0 ? 'open-warnings-heading' : undefined}
+            tabIndex={blockers.length === 0 ? -1 : undefined}
+            className="flex items-center gap-2 text-sm font-semibold"
+          >
+            <TriangleAlertIcon className="size-4" aria-hidden="true" />
+            Open warnings ({s.warnings.length})
+          </h2>
+          <ul className="grid gap-1 text-sm">
+            {s.warnings.map((w) => (
+              <li key={w.code + w.message} data-severity={w.severity} data-code={w.code}>
+                {w.message}
+                {w.link === 'commercial' && (
+                  <>
+                    {' · '}
+                    <CommercialLink quoteNumber={quoteNumber} />
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          {blockers.length === 0 && (
+            <p className="text-muted-foreground text-xs" data-testid="review-warnings-footer">
+              Warnings inform the decision; none of them blocks it.
+            </p>
+          )}
+        </div>
+      )}
+      {/* Red: these stop the release until they are fixed (FB-27, N17-09). */}
+      {blockers.length > 0 && (
+        <div
+          className={cn('grid gap-2 px-4 py-3 text-sm', BLOCKING_BOX)}
+          data-tone="blocking"
+          data-testid="review-blockers"
+        >
+          <h2
+            id="open-warnings-heading"
+            tabIndex={-1}
+            className="flex items-center gap-2 font-semibold"
+          >
+            <CircleAlertIcon className="text-destructive size-4" aria-hidden="true" />
+            What blocks the release
+          </h2>
           <p className="font-semibold">The offer cannot be released yet. This blocks it:</p>
           <ul className="grid list-disc gap-1 pl-5">
             {blockers.map((b) => (
@@ -939,9 +972,11 @@ function DecisionBar({
             )}
             {/* UX-010: what blocks the release, next to the decision. */}
             {blockers.length > 0 ? (
-              <p className="text-sm" data-testid="decision-bar-blockers">
-                <TriangleAlertIcon
-                  className="mr-1 inline size-4 align-text-bottom"
+              // Unboxed on purpose: a padded box made the sticky bar taller than the scroll padding that
+              // keeps keyboard focus clear of it (UX-018). The red box is "What blocks the release".
+              <p className="text-sm" data-testid="decision-bar-blockers" data-tone="blocking">
+                <CircleAlertIcon
+                  className="text-destructive mr-1 inline size-4 align-text-bottom"
                   aria-hidden="true"
                 />
                 The offer cannot be released yet: {blockers[0]!.message}

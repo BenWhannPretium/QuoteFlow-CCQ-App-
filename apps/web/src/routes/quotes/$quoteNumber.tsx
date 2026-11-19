@@ -25,6 +25,7 @@ import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { CommercialPanel } from '@/components/commercial/CommercialPanel';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
+import { focusDecision } from '@/components/LeadReviewPanel';
 import {
   ClosureCard,
   CustomerDecisionHeader,
@@ -164,6 +165,9 @@ function useQuoteTab(quote: QuoteDetail | undefined): {
   };
 }
 
+/** FB-27 (N17-11): the tab that holds each lead decision's `#decision` section. */
+const DECISION_TABS: Partial<Record<string, QuoteTab>> = { G2: 'engineering', G3: 'quoting' };
+
 function QuotePage() {
   const { quoteNumber } = Route.useParams();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -185,6 +189,25 @@ function QuotePage() {
     outcome?: string;
     scope?: { outcomes: string[]; title: string };
   } | null>(null);
+  // FB-27 (N17-11): the header's "Decide feasibility" / "Decide pricing" lands on the lead's decision at the
+  // bottom of the work (`#decision`, FB-22) instead of opening the dialog from here; the dialog is the
+  // fallback when that section is not on the page.
+  const [goingToDecision, setGoingToDecision] = useState<string | null>(null);
+  useEffect(() => {
+    if (!goingToDecision) return;
+    const wanted = DECISION_TABS[goingToDecision];
+    if (wanted && tab !== wanted) return;
+    const gate = goingToDecision;
+    const frame = requestAnimationFrame(() => {
+      setGoingToDecision(null);
+      if (focusDecision()) {
+        window.history.replaceState(window.history.state, '', '#decision');
+      } else {
+        setDeciding({ gate });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [goingToDecision, tab]);
   /** B-13/B-26: right after recording Awarded (into Commit & Hand Off), the hand-off form opens with focus. */
   const [handoffFocus, setHandoffFocus] = useState(false);
   const canReadFinalReview = useCan('finalReview.read');
@@ -284,7 +307,15 @@ function QuotePage() {
             {gates.map((g) => (
               <Button
                 key={g}
-                onClick={() => setDeciding({ gate: g })}
+                onClick={() => {
+                  const decisionTab = DECISION_TABS[g];
+                  if (!decisionTab) {
+                    setDeciding({ gate: g });
+                    return;
+                  }
+                  if (tab !== decisionTab) selectTab(decisionTab);
+                  setGoingToDecision(g);
+                }}
                 disabled={unsaved}
                 aria-describedby={unsaved ? saveFirstId : undefined}
                 data-testid="header-decide"

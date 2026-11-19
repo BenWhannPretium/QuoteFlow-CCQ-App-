@@ -174,6 +174,12 @@ Added 2026-11-18. Data: `<CCQ-GD-1>`, advanced by the engineering lead with a **
 | 66 | Lead | On `<CCQ-QT-6>` (back in Quoting after step 25) → **Quoting** tab: click **Reassign** next to **Pricer** and pick yourself. Upload the costing model, fill the **Price approval record** with yourself as **Approved by**, and save. Read the top and the bottom of the tab. Then **Decide price approval** → **Advance – price approved** → **Record decision**. | You are in the list of pricers, and **Pricer:** shows your name. There is no **Submit to pricing lead**, at the top or the bottom: a pricing lead has nobody to submit to. **Decide price approval** appears once the costing model and the price approval are saved. "Advance – price approved recorded"; stage **Final Review**. | | |
 | 67 | Everyone | Is **Not requested** the right start for the payback step, and is the hint useful? Is it right that Finance hears only when asked, not on every costing upload? Should anyone else (for example the KAM) be able to ask Finance? | Write the answers in Notes (Gemma Cebolla, Stacy Slocum). | | |
 
+## FB-27: score changes on the timeline (2026-11-19)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 68 | Lead, Analyst | Open a quote whose inputs changed since it was scored (a volume or capital figure edited by Engineering, or the intake resubmitted). On **Overview** read the **Timeline**. | One line per recalculation that moved the score: "Priority score up 53 → 61 (Standard)" or "down …", with "(tier Standard → High)" in the same line when the tier moved. There is no second tier line for the same change. Older "Priority tier … → …" lines still show. A KAM who may not see peers' scores does not see these lines on another KAM's quote. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

@@ -246,35 +246,81 @@ describe('the timeline', () => {
     );
   });
 
-  it("hides priority events from a KAM on another KAM's quote when peer scores are hidden", async () => {
-    tick();
-    await db.db.insert(schema.activityEvent).values({
-      quoteId,
-      type: 'priority_tier_changed',
-      actorId: null,
-      at: clock,
-      payload: { from: 'LOW', to: 'HIGH', score: 71 },
-    });
-    const viewer = await me('KAM');
-    expect(viewer.id).not.toBe(kamId);
-    expect((await allItems(qn, 'all', 'KAM')).map((i) => i.type)).toContain(
-      'priority_tier_changed',
-    );
-    await db.db.execute(
-      sql`update app_setting set value = 'false'::jsonb where key = 'kam_can_see_peer_scores'`,
-    );
-    try {
-      expect((await allItems(qn, 'all', 'KAM')).map((i) => i.type)).not.toContain(
-        'priority_tier_changed',
-      );
-      expect((await allItems(qn, 'all', 'SalesLeader')).map((i) => i.type)).toContain(
-        'priority_tier_changed',
-      );
-    } finally {
+  it.each(['priority_tier_changed', 'priority_score_changed'])(
+    "hides %s from a KAM on another KAM's quote when peer scores are hidden",
+    async (type) => {
+      tick();
+      await db.db.insert(schema.activityEvent).values({
+        quoteId,
+        type,
+        actorId: null,
+        at: clock,
+        payload: { from: 'LOW', to: 'HIGH', score: 71 },
+      });
+      const viewer = await me('KAM');
+      expect(viewer.id).not.toBe(kamId);
+      expect((await allItems(qn, 'all', 'KAM')).map((i) => i.type)).toContain(type);
       await db.db.execute(
-        sql`update app_setting set value = 'true'::jsonb where key = 'kam_can_see_peer_scores'`,
+        sql`update app_setting set value = 'false'::jsonb where key = 'kam_can_see_peer_scores'`,
       );
-    }
+      try {
+        expect((await allItems(qn, 'all', 'KAM')).map((i) => i.type)).not.toContain(type);
+        expect((await allItems(qn, 'all', 'SalesLeader')).map((i) => i.type)).toContain(type);
+      } finally {
+        await db.db.execute(
+          sql`update app_setting set value = 'true'::jsonb where key = 'kam_can_see_peer_scores'`,
+        );
+      }
+    },
+  );
+});
+
+describe('file events link to the file (FB-27, N17-34)', () => {
+  it('carry the attachment id, and mark a file that has since been removed', async () => {
+    tick();
+    const file = (name: string, removed: boolean) =>
+      db.db
+        .insert(schema.attachment)
+        .values({
+          quoteId,
+          kind: 'other',
+          fileName: name,
+          size: 10,
+          mime: 'application/pdf',
+          uploadedBy: kamId,
+          ...(removed ? { removedAt: clock, removedBy: kamId } : {}),
+        })
+        .returning({ id: schema.attachment.id });
+    const [kept] = await file('kept-file.pdf', false);
+    const [gone] = await file('gone-file.pdf', true);
+    await db.db.insert(schema.activityEvent).values([
+      {
+        quoteId,
+        type: 'attachment_uploaded',
+        actorId: kamId,
+        at: clock,
+        payload: { attachmentId: kept!.id, fileName: 'kept-file.pdf', kind: 'other' },
+      },
+      {
+        quoteId,
+        type: 'attachment_uploaded',
+        actorId: kamId,
+        at: new Date(clock.getTime() + 1),
+        payload: { attachmentId: gone!.id, fileName: 'gone-file.pdf', kind: 'other' },
+      },
+    ]);
+    const files = await allItems(qn, 'files', 'SalesLeader');
+    const byName = (name: string) => files.find((i) => i.payload.fileName === name)!;
+    expect(byName('kept-file.pdf').payload).toMatchObject({ attachmentId: kept!.id });
+    expect(byName('kept-file.pdf').payload.fileRemoved).toBeUndefined();
+    expect(byName('gone-file.pdf').payload).toMatchObject({
+      attachmentId: gone!.id,
+      fileRemoved: true,
+    });
+    // An event from before the attachment id was kept (no id) is plain text: nothing to mark or link.
+    expect(
+      files.find((i) => i.payload.fileName === 'drawing.pdf')!.payload.attachmentId,
+    ).toBeUndefined();
   });
 });
 

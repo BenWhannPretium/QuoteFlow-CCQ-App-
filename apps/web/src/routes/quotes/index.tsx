@@ -41,6 +41,7 @@ import { ItemsBadge } from '@/components/QuoteItems';
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
+import { cleanColumns } from '@/lib/pipeline-columns';
 import {
   parsePipelineSearch,
   pipelineApiQuery,
@@ -113,10 +114,8 @@ function QuotesPage() {
 
   const { user } = useCurrentUser();
   const [columns, setColumns] = useState<QuoteListColumnKey[]>(() => {
-    const saved = readColumns(user.id)?.filter(
-      (c): c is QuoteListColumnKey => c in QUOTE_LIST_COLUMNS,
-    );
-    return saved?.length ? saved : QUOTE_LIST_DEFAULT_COLUMNS;
+    const saved = cleanColumns(readColumns(user.id) ?? []);
+    return saved.length ? saved : QUOTE_LIST_DEFAULT_COLUMNS;
   });
   const data = list.data;
   const visibleColumns = columns.filter(
@@ -144,6 +143,13 @@ function QuotesPage() {
           sortKeys={priority ? PRIORITY_SORTS : LIST_SORTS}
           defaultSort={priority ? 'score' : 'updated'}
           savedViewsKey={priority ? 'priority' : 'quotes'}
+          columns={priority ? undefined : visibleColumns}
+          onApplyColumns={(next) => {
+            const valid = cleanColumns(next);
+            if (valid.length === 0) return;
+            setColumns(valid);
+            writeColumns(user.id, valid);
+          }}
         >
           {!priority && data && (
             <ColumnChooser
@@ -426,6 +432,15 @@ function QuoteTable({
             return {
               ...base,
               cell: ({ row }) => <CapitalChip value={row.original.commercial?.capitalReadiness} />,
+            };
+          case 'plant':
+            return {
+              ...base,
+              cell: ({ row }) => (
+                <span className="whitespace-nowrap" data-testid="plant-cell">
+                  {row.original.plants.length ? row.original.plants.join(' · ') : '–'}
+                </span>
+              ),
             };
           default:
             return {

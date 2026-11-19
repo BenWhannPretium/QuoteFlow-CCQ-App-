@@ -53,6 +53,11 @@ export const QuoteFilterQuery = z.object({
   productFamily: multi.optional(),
   market: multi.optional(),
   resin: multi.optional(),
+  /**
+   * FB-27 (N17-17): plant codes (the `plant` value list). A quote matches when any of its items has
+   * Engineering's plant set to one of them; quotes whose items have no plant yet never match.
+   */
+  plant: multi.optional(),
   status: QuoteStatusFilter.optional(),
   /** In the current stage for more than N calendar days (time on hold included). */
   agedOverDays: z.coerce.number().int().min(0).max(3650).optional(),
@@ -114,6 +119,11 @@ export const QuoteListItem = QuoteSummary.extend({
   toolingCommitment: z.boolean().nullable(),
   stockHoldRequested: z.boolean().nullable(),
   stockHoldWeeks: z.number().int().nullable(),
+  /**
+   * FB-27 (N17-17): the plant labels of the quote's items, distinct, in item order; empty until
+   * Engineering picks a plant.
+   */
+  plants: z.array(z.string()),
   /** B-13: the proposal's validity has passed with no outcome recorded. */
   validityExpired: z.boolean(),
   updatedAt: z.string(),
@@ -244,6 +254,8 @@ export const QUOTE_LIST_COLUMNS = {
   amount: 'Amount (SF)',
   kamName: 'KAM',
   assignedEngineerName: 'Engineer',
+  // FB-27 (N17-17): the plants Engineering chose for the quote's items.
+  plant: 'Plant',
   daysInStage: 'Days in stage',
   expectedCloseDate: 'Close date',
   sfStage: 'SF stage',
@@ -301,6 +313,13 @@ export const QUOTE_ITEM_EXPORT_COLUMNS = [
   'Item product needed by',
   'Item plant',
   'Item machine type',
+  // FB-23 (N18-03, N18-06, N18-10): Engineering's cost estimate and pack-out, per item.
+  'Item mold lead time',
+  'Item customer funded (USD)',
+  'Item net cost to Pretium (USD)',
+  'Item project total (USD)',
+  'Item pieces per pallet',
+  'Item pieces per trailer',
 ] as const;
 export type QuoteExportQuery = z.input<typeof QuoteExportQuery>;
 export type QuoteExportParams = z.output<typeof QuoteExportQuery>;

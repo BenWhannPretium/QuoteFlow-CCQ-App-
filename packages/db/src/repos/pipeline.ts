@@ -10,6 +10,7 @@ import {
   engReview,
   pricingRecord,
   quote,
+  quoteItem,
   sfOpportunitySnapshot,
   stageHistory,
 } from '../schema/index';
@@ -36,6 +37,8 @@ export interface PipelineSqlFilter {
   productFamilies?: string[] | undefined;
   markets?: string[] | undefined;
   resins?: string[] | undefined;
+  /** FB-27: plant codes; a quote matches when any of its items' engineering reviews is at one. */
+  plants?: string[] | undefined;
   status?: 'open' | 'active' | 'on_hold' | 'closed' | undefined;
   /** In the current stage since before this instant. */
   enteredStageBefore?: Date | undefined;
@@ -118,6 +121,14 @@ function whereFor(opts: PipelineQueryOptions): SQL | undefined {
   if (f.productFamilies?.length) where.push(inArray(quote.productFamily, f.productFamilies));
   if (f.markets?.length) where.push(inArray(quote.market, f.markets));
   if (f.resins?.length) where.push(inArray(quote.resin, f.resins));
+  if (f.plants?.length) {
+    where.push(
+      sql`exists (select 1 from ${engReview} er where er.quote_id = ${quote.id} and er.plant_code in (${sql.join(
+        f.plants.map((p) => sql`${p}`),
+        sql`, `,
+      )}))`,
+    );
+  }
   if (f.status === 'open') where.push(ne(quote.status, 'closed'));
   else if (f.status) where.push(eq(quote.status, f.status));
   if (f.enteredStageBefore) {
@@ -233,6 +244,15 @@ export function listPipelineRows(db: DbOrTx, ids: readonly string[]) {
         select sum(er.prelim_capital_usd) from ${engReview} er where er.quote_id = ${quote.id}
       )`.mapWith((v: string | number | null) => (v === null ? null : Number(v))),
         capitalReadiness: pricingRecord.capitalReadiness,
+        // FB-27: the distinct plant codes of the quote's items, in item order (none until Engineering picks).
+        plantCodes: sql<string[]>`coalesce((
+          select array_agg(t.code order by t.first_item) from (
+            select er.plant_code as code, min(qi.item_no) as first_item
+            from ${engReview} er join ${quoteItem} qi on qi.id = er.quote_item_id
+            where er.quote_id = ${quote.id} and er.plant_code is not null and er.plant_code <> ''
+            group by er.plant_code
+          ) t
+        ), array[]::text[])`,
         stageEnteredAt: stageEnteredAtSql,
         // FB-19: the item count and item 1's label.
         ...itemSummaryColumns(),

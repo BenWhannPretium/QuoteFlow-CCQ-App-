@@ -25,6 +25,7 @@ import {
   listPipelineKeys,
   listPipelinePeople,
   listPipelineRows,
+  listEngCostLines,
   listEngReviews,
   listQuoteItemsForQuotes,
   listValueList,
@@ -54,6 +55,7 @@ import {
 } from '@ccq/domain';
 
 import { csvCell } from './auditAdmin';
+import { costEstimateView, loadCostEstimateContext } from './engineering-view';
 import { productSummary } from './final-review';
 import { ServiceProblem } from './problem';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
@@ -74,6 +76,8 @@ interface Scope {
   ctx: QuoteViewContext;
   workflow: WorkflowConfig;
   terminal: string[];
+  /** FB-27: plant code → label (retired plants included). */
+  plantLabels: Map<string, string>;
 }
 
 /**
@@ -93,12 +97,18 @@ export class PipelineService {
   }
 
   private async scope(tx: Tx, actor: Actor, now: Date): Promise<Scope> {
-    const [ctx, workflowInput] = await Promise.all([
+    const [ctx, workflowInput, plants] = await Promise.all([
       this.opts.quotes.context(tx, actor, now),
       loadWorkflowConfigInput(tx),
+      listValueList(tx, 'plant', { activeOnly: false }),
     ]);
     const workflow = parseWorkflowConfig(workflowInput);
-    return { ctx, workflow, terminal: workflow.stages.filter((s) => s.terminal).map((s) => s.key) };
+    return {
+      ctx,
+      workflow,
+      terminal: workflow.stages.filter((s) => s.terminal).map((s) => s.key),
+      plantLabels: new Map(plants.map((p) => [p.code, p.label])),
+    };
   }
 
   /** The URL filters as SQL filters: `me`, `unassigned`, ids checked, aging as an instant. */
@@ -124,6 +134,7 @@ export class PipelineService {
       productFamilies: f.productFamily,
       markets: f.market,
       resins: f.resin,
+      plants: f.plant,
       status: f.status,
       enteredStageBefore:
         f.agedOverDays !== undefined
@@ -229,6 +240,7 @@ export class PipelineService {
       toolingCommitment: q.termsToolingCommitment,
       stockHoldRequested: q.stockHoldRequested,
       stockHoldWeeks: q.stockHoldRequested === true ? q.stockHoldWeeks : null,
+      plants: row.plantCodes.map((code) => s.plantLabels.get(code) ?? code),
       validityExpired: q.status !== 'closed' && isValidityLapsed(q.validityUntil, ctx.now),
       updatedAt: q.updatedAt.toISOString(),
       commercial: canSeeCommercialFields(ctx.actor)
@@ -485,16 +497,18 @@ async function itemExportCells(
   tx: DbOrTx,
   quoteIds: readonly string[],
 ): Promise<Map<string, unknown[][]>> {
-  const [items, families, resins, plants, machines] = await Promise.all([
+  const [items, families, resins, plants, machines, costCtx] = await Promise.all([
     listQuoteItemsForQuotes(tx, quoteIds),
     listValueList(tx, 'product_family', { activeOnly: false }),
     listValueList(tx, 'resin', { activeOnly: false }),
     listValueList(tx, 'plant', { activeOnly: false }),
     listValueList(tx, 'machine_type', { activeOnly: false }),
+    loadCostEstimateContext(tx),
   ]);
-  const reviews = (
-    await Promise.all([...new Set(quoteIds)].map((id) => listEngReviews(tx, id)))
-  ).flat();
+  const unique = [...new Set(quoteIds)];
+  const reviews = (await Promise.all(unique.map((id) => listEngReviews(tx, id)))).flat();
+  // FB-23: each item's cost lines, for its totals.
+  const costRows = (await Promise.all(unique.map((id) => listEngCostLines(tx, id)))).flat();
   const label = (list: { code: string; label: string }[], code: string | null | undefined) =>
     code ? (list.find((v) => v.code === code)?.label ?? code) : null;
   const out = new Map<string, unknown[][]>();
@@ -510,6 +524,22 @@ async function itemExportCells(
       i.productNeededBy,
       label(plants, review?.plantCode),
       label(machines, review?.machineType),
+      // FB-23: the lead time, the three totals and the pack-out figures (blank when not entered).
+      ...(() => {
+        const cost = costEstimateView(
+          review,
+          costRows.filter((c) => c.quoteItemId === i.id),
+          costCtx,
+        );
+        return [
+          review?.moldLeadTime ?? null,
+          cost.costTotals?.customerFundedUsd ?? null,
+          cost.costTotals?.netCostUsd ?? null,
+          cost.costTotals?.projectTotalUsd ?? null,
+          cost.packOut.piecesPerPallet,
+          cost.packOut.piecesPerTrailer,
+        ];
+      })(),
     ];
     out.set(i.quoteId, [...(out.get(i.quoteId) ?? []), cells]);
   }
@@ -553,6 +583,8 @@ function exportValue(
       return item.priority.tierLabel;
     case 'score':
       return item.priority.score;
+    case 'plant':
+      return item.plants.join(' · ');
     case 'warnings':
       return item.warnings.map((w) => w.message).join('; ');
     case 'prelimCapitalUsd':

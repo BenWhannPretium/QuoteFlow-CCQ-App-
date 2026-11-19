@@ -20,6 +20,8 @@ export const MULTI_KEYS = [
   'productFamily',
   'market',
   'resin',
+  // FB-27 (N17-17): plant codes.
+  'plant',
 ] as const;
 export type MultiKey = (typeof MULTI_KEYS)[number];
 

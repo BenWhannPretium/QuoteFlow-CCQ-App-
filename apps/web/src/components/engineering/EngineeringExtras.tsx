@@ -1,6 +1,5 @@
 import { type EngineeringDetail, type EquipmentBomView, type QuoteDetail } from '@ccq/contracts';
 import {
-  ATTACHMENT_EXTENSIONS,
   ATTACHMENT_MAX_BYTES,
   PREFORM_NUMBER_MAX_LENGTH,
   TWO_STEP_FREIGHT_NOTE_MAX_LENGTH,
@@ -16,6 +15,7 @@ import { UploadIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
 import { AttachmentDownloadLink, attachmentsQueryKey } from '@/components/attachments/Attachments';
+import { UploadFormats, acceptFor } from '@/components/attachments/UploadFormats';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
@@ -48,8 +48,6 @@ import { timelineQueryKey } from '../Overrides';
  * - Two-step process and pack-out (F-024, F-025): small inputs Pricing reads when it costs.
  * - Legacy notes: the two free-text fields the BOM upload replaced, read-only.
  */
-
-const ACCEPT = ATTACHMENT_EXTENSIONS.map((e) => `.${e}`).join(',');
 
 // ── Equipment BOM ────────────────────────────────────────────────────────────────────────────────
 
@@ -109,6 +107,7 @@ function BomHistory({ bom }: { bom: EquipmentBomView }) {
 
 function BomUpload({ quoteNumber, replace }: { quoteNumber: string; replace: boolean }) {
   const id = useId();
+  const hintId = useId();
   const input = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const [progress, setProgress] = useState<number | null>(null);
@@ -149,9 +148,10 @@ function BomUpload({ quoteNumber, replace }: { quoteNumber: string; replace: boo
         ref={input}
         id={id}
         type="file"
-        accept={ACCEPT}
+        accept={acceptFor('equipment_bom')}
         className="sr-only"
         aria-label={label}
+        aria-describedby={hintId}
         tabIndex={-1}
         data-testid="upload-equipment_bom"
         onChange={(e) => pick(e.target.files?.[0])}
@@ -165,6 +165,8 @@ function BomUpload({ quoteNumber, replace }: { quoteNumber: string; replace: boo
         <UploadIcon />
         {progress !== null ? `Uploading… ${Math.round(progress * 100)}%` : label}
       </Button>
+      {/* FB-27 (N17-24): the formats and size limit the server checks. */}
+      <UploadFormats kind="equipment_bom" id={hintId} />
     </div>
   );
 }
