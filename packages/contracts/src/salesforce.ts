@@ -56,6 +56,12 @@ export const SfOpportunity = z.object({
   erfNumber: z.string().nullable(),
   /** Quote source recorded in SF. Inconsistent. */
   quoteSource: z.string().nullable(),
+  /**
+   * FB-24 (N17-01): "Ship to Locations" (Ship_to_Locations__c), a free-text textarea (≤ 255; "City, State"
+   * by convention, often "TBD" or several places). Shown to the KAM, never parsed. Optional: a snapshot
+   * written before FB-24 has none.
+   */
+  shipToLocations: z.string().nullable().optional(),
   /** ISO timestamp; drives the delta sync. */
   systemModstamp: z.string().nullable(),
   dataQuality: z.array(SfDataQualityFlag),

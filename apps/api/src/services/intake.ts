@@ -285,7 +285,12 @@ export class IntakeService {
     const data = normalizeDraftData(row.data as IntakeDraftData, uuidv7);
     const kept = await this.keptValues(tx, row);
     const drawings = await drawingCheck(tx, row);
-    const evaluation = evaluateIntake(intakeValues(data, drawings.has), config, this.now(), kept);
+    const evaluation = evaluateIntake(
+      intakeValues(data, drawings.has, drawings.hasRender),
+      config,
+      this.now(),
+      kept,
+    );
     const opp = !row.reworkOfQuoteId && !row.submittedQuoteId ? row.sfOpportunityId : null;
     const active = opp ? await getActiveQuoteForOpportunity(tx, opp) : undefined;
     // FB-19 (W13-33): every active quote on the opportunity (number and KAM only) and the warning.
@@ -710,7 +715,7 @@ export class IntakeService {
     const config = await loadIntakeConfig(tx);
     await this.assertItems(tx, data);
     const drawings = await drawingCheck(tx, draft);
-    const values = intakeValues(data, drawings.has);
+    const values = intakeValues(data, drawings.has, drawings.hasRender);
     const evaluation: IntakeEvaluation = evaluateIntake(
       values,
       config,
@@ -844,6 +849,16 @@ export class IntakeService {
       guardrailWarning:
         evaluation.warnings.find((w) => w.code === 'BELOW_PLATFORM_MINIMUM')?.message ?? null,
       requestClass: data.requestClass ?? null,
+      // FB-24 (N17-03): a concept's assumptions (checked ≤ 1,000 and required above); null otherwise.
+      conceptAssumptions: keep('concept_assumptions', values.concept_assumptions),
+      // FB-24 (N18-02): the KAM's tooling-commitment answer, the column the Commercial terms panel edits.
+      // A rework keeps the quote's answer when the KAM left it unanswered.
+      termsToolingCommitment:
+        values.tooling_commitment ?? (reworkOf ? reworkOf.termsToolingCommitment : null),
+      // FB-24 (D4): the stocking agreement; the weeks and the note only with a yes.
+      stockHoldRequested: values.stock_hold_requested,
+      stockHoldWeeks: keep('stock_hold_weeks', values.stock_hold_weeks),
+      stockHoldNote: keep('stock_hold_note', values.stock_hold_note),
       commentsForEngineering: blankToNull(data.commentsForEngineering),
       shipTo: values.ship_to,
       shipToOriginal: values.ship_to_default,
@@ -1264,8 +1279,19 @@ function commercialInputsAudit(f: {
   freightType: string | null;
   freightSpecialArrangements: string | null;
   bidReference: string | null;
+  termsToolingCommitment: boolean | null;
+  stockHoldRequested: boolean | null;
+  stockHoldWeeks: number | null;
+  stockHoldNote: string | null;
+  conceptAssumptions: string | null;
 }) {
   return {
+    // FB-24 (N18-02, D4, N17-03).
+    toolingCommitment: f.termsToolingCommitment,
+    stockHoldRequested: f.stockHoldRequested,
+    stockHoldWeeks: f.stockHoldWeeks,
+    stockHoldNote: f.stockHoldNote,
+    conceptAssumptions: f.conceptAssumptions,
     requestedPaymentTerms: f.requestedPaymentTerms,
     requestedPaymentTermsOther: f.requestedPaymentTermsOther,
     toolingFundingModel: f.toolingFundingModel,
@@ -1314,11 +1340,16 @@ function dataFromQuote(q: Quote): IntakeDraftData {
     toolingFundingModel: q.toolingFundingModel,
     customerSharePct: q.customerSharePct,
     returnableDunnage: q.returnableDunnage,
+    toolingCommitment: q.termsToolingCommitment,
+    stockHoldRequested: q.stockHoldRequested,
+    stockHoldWeeks: q.stockHoldWeeks,
+    stockHoldNote: q.stockHoldNote,
     priceBasis: q.priceBasis,
     freightType: q.freightType,
     freightSpecialArrangements: q.freightSpecialArrangements,
     bidReference: q.bidReference,
     requestClass: q.requestClass,
+    conceptAssumptions: q.conceptAssumptions,
     estAnnualRevenue: q.estAnnualRevenue,
     estAnnualRevenueSf: q.estAnnualRevenueSf,
     quoteNeededBy: q.quoteNeededBy,

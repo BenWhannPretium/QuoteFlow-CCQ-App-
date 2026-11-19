@@ -246,7 +246,8 @@ export const QuoteIntakeFacts = z.object({
   /** F-013: component follow-ups. */
   linerSpec: z.string().nullable(),
   labelsPurchasedBy: z.string().nullable(),
-  decorationType: z.string().nullable(),
+  /** FB-24 (N17-02): decoration_type codes, several at once (was one `decorationType`). */
+  decorationTypes: z.array(z.string()),
   decorationPrintColors: z.number().int().nullable(),
   /** F-016: dimensions (mm) and gram weight (g). */
   heightMm: z.number().nullable(),
@@ -276,6 +277,17 @@ export const QuoteIntakeFacts = z.object({
   bidReference: z.string().nullable(),
   /** FB-15 (W13-09, provisional): the customer's share in percent when funding is Shared; Pretium covers the rest. */
   customerSharePct: z.number().nullable(),
+  /** FB-24 (N17-03): what a concept / innovation quote assumes; null for any other class. */
+  conceptAssumptions: z.string().nullable(),
+  /**
+   * FB-24 (N18-02): will the customer commit to the tooling (`terms_tooling_commitment`, the column the
+   * Commercial terms panel edits): true / false; null = not known yet.
+   */
+  toolingCommitment: z.boolean().nullable(),
+  /** FB-24 (D4): the stocking agreement the customer asks for (null = not known yet), weeks and a note. */
+  stockHoldRequested: z.boolean().nullable(),
+  stockHoldWeeks: z.number().int().nullable(),
+  stockHoldNote: z.string().nullable(),
   /** FB-15 (W13-03): what an "Other" product family, component or decoration is. */
   productFamilyOther: z.string().nullable(),
   componentOther: z.string().nullable(),

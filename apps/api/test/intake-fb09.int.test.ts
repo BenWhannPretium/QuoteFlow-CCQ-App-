@@ -220,13 +220,14 @@ describe('"Other" resin, PCR level and additive (FB-09)', () => {
     );
     const res = await kam().get('/api/v1/config/public');
     const config = PublicConfigResponse.parse(res.json());
+    // FB-24 (N17-08): every list reads A to Z, Other last (was the seeded order).
     expect(config.valueLists.additive?.map((e) => e.label)).toEqual([
+      'Antistat',
+      'Barrier',
+      'Fluorination', // FB-15 (W13-08, provisional)
+      'Impact Modifier',
       'None',
       'UV',
-      'Barrier',
-      'Antistat',
-      'Impact Modifier',
-      'Fluorination', // FB-15 (W13-08, provisional)
       'Other',
     ]);
     expect(config.valueLists.pcr_level?.map((e) => e.label)).toEqual([
@@ -238,10 +239,10 @@ describe('"Other" resin, PCR level and additive (FB-09)', () => {
       'Other',
     ]);
     expect(config.valueLists.resin?.map((e) => e.label)).toEqual([
-      'PET',
       'HDPE',
-      'PP',
       'LDPE',
+      'PET',
+      'PP',
       'Other',
     ]);
     expect(config.retiredValues?.resin).toEqual({ PS: 'PS' });

@@ -27,6 +27,7 @@ import { quoteQueryKey } from '@/components/GateDecisionDialog';
 import { notificationsQueryKey } from '@/components/notifications/useNotifications';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
+import { FlagKey } from '@/components/ui/flag-key';
 import { publicConfigQueryKey, stageLabel, usePublicConfig } from '@/config/public-config';
 import {
   draftItemName,
@@ -408,20 +409,32 @@ function Wizard({
     const open = draftItems(data)[sel];
     return open ? hasDrawingFor(open, sel) : false;
   }, [data, sel, hasDrawingFor]);
+  // FB-24 (N17-03): a sample photo / render on file counts for a concept request (as on the server).
+  const hasRender = useMemo(
+    () =>
+      [...(draftFiles.data?.items ?? []), ...(quoteFiles.data?.items ?? [])].some(
+        (f) => f.kind === 'sample_photo',
+      ),
+    [draftFiles.data, quoteFiles.data],
+  );
+  const concept = Boolean(
+    data.requestClass && baseCfg.intake.minSpecExemptClasses.includes(data.requestClass),
+  );
   // FB-15 (W13-02): the red asterisk also marks the minimum-spec fields while no drawing is attached.
+  // FB-24 (N17-03): never for a concept request (the minimum spec is optional there).
   const cfg = useMemo(
-    () => ({ ...baseCfg, requiredFields: requiredFieldsNow(baseCfg, hasDrawing) }),
-    [baseCfg, hasDrawing],
+    () => ({ ...baseCfg, requiredFields: requiredFieldsNow(baseCfg, hasDrawing, concept) }),
+    [baseCfg, hasDrawing, concept],
   );
   // FB-15 (W13-01): the same inputs as the server: the active list codes (in cfg) and the quote's own codes.
   // UX-017: plus the fields the server refused on the last save, shown on the field like the rest.
   const evaluation = useMemo(
     () =>
       withSaveIssues(
-        evaluateDraft(data, cfg, hasDrawingFor, initial.keptListValues),
+        evaluateDraft(data, cfg, hasDrawingFor, initial.keptListValues, undefined, hasRender),
         draft.saveIssues,
       ),
-    [data, cfg, hasDrawingFor, initial.keptListValues, draft.saveIssues],
+    [data, cfg, hasDrawingFor, initial.keptListValues, draft.saveIssues, hasRender],
   );
   // FB-19: the open item's fields see the request plus that item, and their issues are that item's.
   const itemData = useMemo(() => itemView(data, sel), [data, sel]);
@@ -445,6 +458,7 @@ function Wizard({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [submitError, setSubmitError] = useState<SubmitError | null>(null);
   const [submitted, setSubmitted] = useState<SubmitIntakeResponse | null>(null);
+  const wizardRef = useRef<HTMLDivElement>(null);
 
   const goTo = (n: number, field?: string, item?: number) => {
     setSubmitError(null);
@@ -627,7 +641,11 @@ function Wizard({
     evaluation,
     sfCloseDate: draft.sfCloseDate,
     hasDrawing,
+    hasRender,
   };
+  // FB-24 (N18-01): after Add or Duplicate, keyboard focus moves to the new item's first field (its name)
+  // once the item's fields have rendered (focusIntakeField retries for a moment).
+  const focusNewItem = () => requestAnimationFrame(() => focusIntakeField('label'));
   // FB-19 (W13-32): the Items list's actions. Every change replaces `items` (autosaved like any field).
   const setItems = (fn: (items: IntakeItemData[]) => IntakeItemData[]) =>
     updateWith((current) => ({ items: fn(draftItems(current)) }));
@@ -639,9 +657,11 @@ function Wizard({
     onSelect: (i) => setItemIndex(i),
     issueCounts: itemIssueCounts(evaluation, items.length),
     itemsMax: cfg.intake.itemsMax,
+    // FB-24 (N18-01): the new item's fields open above the Items box, its first field focused.
     onAdd: () => {
       setItems((list) => [...list, newItem()]);
       setItemIndex(items.length);
+      focusNewItem();
     },
     unusedSfSpecs: unusedSpecs.length,
     onAddFromSalesforce: () => {
@@ -650,6 +670,7 @@ function Wizard({
       if (added.length === 0) return;
       setItems((list) => [...list, ...added]);
       setItemIndex(items.length);
+      focusNewItem();
     },
     onDuplicate: (i) => {
       const item = items[i];
@@ -657,6 +678,7 @@ function Wizard({
       const own = drawings.filter((f) => f.quoteItemId === item.key).map((f) => f.id);
       setItems((list) => [...list.slice(0, i + 1), duplicateItem(item, own), ...list.slice(i + 1)]);
       setItemIndex(i + 1);
+      focusNewItem();
     },
     onRemove: (i) => setRemoving(i),
     onMove: (i, to) => {
@@ -668,12 +690,14 @@ function Wizard({
   const itemNames = Object.fromEntries(items.map((it, i) => [it.key, draftItemName(it, i)]));
 
   return (
-    <div className="grid gap-4" data-testid="intake-wizard" data-step={step}>
+    <div className="grid gap-4" data-testid="intake-wizard" data-step={step} ref={wizardRef}>
       <Stepper
         current={step}
         onSelect={goTo}
         canSelect={(n) => n !== step && Boolean(data.sfOpportunityId)}
       />
+      {/* FB-24 (N17-09, intake half): what red and yellow mean, only while one is on screen. */}
+      <FlagKey scope={wizardRef} />
 
       {initial.rework && (
         <Notice tone="warning" testId="rework-notice">

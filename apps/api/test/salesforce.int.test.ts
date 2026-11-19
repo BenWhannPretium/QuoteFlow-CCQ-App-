@@ -214,6 +214,35 @@ describe('GET /api/v1/salesforce/opportunities/:id', () => {
     expect(body.opportunity.dataQuality).toContain('amount_suspect');
   });
 
+  it("FB-24 (N17-01): the product's ship-to and the opportunity's free-text ship-to come through", async () => {
+    const spec = fixture.productSpecs.find((p) => p.Ship_To_City__c && p.Ship_To_State__c)!;
+    const id = spec.Opportunity__c as string;
+    const body = SfOpportunityDetail.parse((await detail(id)).json());
+    expect(body.productSpecs.find((p) => p.id === spec.Id)).toMatchObject({
+      shipToCity: spec.Ship_To_City__c,
+      shipToState: spec.Ship_To_State__c,
+      shipToCountry: spec.Shipping_Country__c,
+    });
+    const noted = fixture.opportunities.find((o) => o.Ship_to_Locations__c === 'TBD')!;
+    const live = SfOpportunityDetail.parse((await detail(noted.Id as string, 'Admin')).json());
+    expect(live.opportunity.shipToLocations).toBe('TBD');
+  });
+
+  it('FB-24 (N17-01): SF down, the free-text ship-to is read from the snapshot', async () => {
+    const noted = fixture.opportunities.find((o) =>
+      (o.Ship_to_Locations__c as string | null)?.includes('\n'),
+    )!;
+    reader.failWith = Object.assign(new Error('x'), { errorCode: 'SERVER_UNAVAILABLE' });
+    try {
+      clock = new Date(clock.getTime() + DETAIL_CACHE_MS);
+      const body = SfOpportunityDetail.parse((await detail(noted.Id as string, 'Admin')).json());
+      expect(body.liveError).toContain('SERVER_UNAVAILABLE');
+      expect(body.opportunity.shipToLocations).toBe(noted.Ship_to_Locations__c);
+    } finally {
+      reader.failWith = null;
+    }
+  });
+
   it('404 for an unknown id, 400 for a malformed one', async () => {
     expect((await detail('006000000000000AAA')).statusCode).toBe(404);
     expect((await detail('not-an-id')).statusCode).toBe(400);

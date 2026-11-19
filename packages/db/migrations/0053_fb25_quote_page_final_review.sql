@@ -55,7 +55,7 @@ SELECT encode(
   jsonb_build_object(
     'termsNonstandard', false,
     'termsPaymentTermsCode', u."terms_payment_terms_code",
-    'source', 'migration:0051_fb25_quote_page_final_review',
+    'source', 'migration:0053_fb25_quote_page_final_review',
     'quoteVersion', u."version"),
   'FB-25 (N17-28): standard payment terms are never non-standard; the box ticked by hand is cleared'
 FROM updated u;

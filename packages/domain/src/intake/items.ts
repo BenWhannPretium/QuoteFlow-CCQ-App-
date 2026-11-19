@@ -20,7 +20,8 @@ export const ITEM_VALUE_FIELDS = [
   'component_other',
   'liner_spec',
   'labels_purchased_by',
-  'decoration_type',
+  // FB-24 (N17-02): several at once; `decoration_type` (one code) is deprecated.
+  'decoration_types',
   'decoration_type_other',
   'decoration_print_colors',
   'resin',
@@ -64,6 +65,8 @@ const ITEM_ISSUE_FIELDS: ReadonlySet<string> = new Set<string>([
   ...ITEM_VALUE_FIELDS,
   'has_drawing_attachment',
   'drawing_or_min_spec',
+  // FB-24 (N17-03): a concept item's drawing, or the request's render / photo.
+  'drawing_or_render',
   'label',
   'sf_product_spec_id',
 ]);
@@ -73,8 +76,11 @@ export function isItemField(field: string): boolean {
   return field.split(',').some((f) => ITEM_ISSUE_FIELDS.has(f.trim().split('.')[0] ?? ''));
 }
 
-/** Longest item label (the KAM's short name), as `quote_item_label_length_check`. */
-export const ITEM_LABEL_MAX_LENGTH = 60;
+/**
+ * Longest item label (the KAM's short name), as `quote_item_label_length_check` and the contract's
+ * `ITEM_LABEL_MAX`. FB-24 (N17-05): 120 (was 60).
+ */
+export const ITEM_LABEL_MAX_LENGTH = 120;
 
 /** `app_setting.quote_items_max` seed (provisional). */
 export const QUOTE_ITEMS_MAX_SEED = 20;

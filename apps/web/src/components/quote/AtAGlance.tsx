@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { useCapitalTermItems } from '@/components/commercial/CapitalTerms';
 import { standardTermsFrom, NonStandardTermsBadge } from '@/components/intake/CommercialInputs';
+import { ConceptBadge, conceptClassesFrom } from '@/components/intake/ConceptBadge';
 import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import { KeyValueGrid, type KeyValueItem } from '@/components/KeyValueGrid';
 import { FieldOverride } from '@/components/Overrides';
@@ -106,7 +107,19 @@ export function IntakeSummary({
             ),
           },
           { label: 'KAM', value: quote.kamName },
-          { label: 'Request class', value: label('request_class', quote.requestClass) },
+          {
+            label: 'Request class',
+            // FB-24 (N17-03): a concept / innovation request is marked Concept.
+            value: (
+              <>
+                {label('request_class', quote.requestClass)}
+                {quote.requestClass &&
+                  conceptClassesFrom(config?.settings).includes(quote.requestClass) && (
+                    <ConceptBadge className="ml-2" />
+                  )}
+              </>
+            ),
+          },
           // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
           { label: 'Market', value: marketText(config, quote.market, quote.subMarket) },
           { label: 'Product family', value: label('product_family', quote.productFamily) },

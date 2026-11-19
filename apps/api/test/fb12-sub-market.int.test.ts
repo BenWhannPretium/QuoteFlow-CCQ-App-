@@ -157,7 +157,8 @@ afterAll(async () => {
 });
 
 describe('the lists (F-020)', () => {
-  it('offers Melanie Rasche’s 8 markets in her order and her 30 sub-markets, each under a market', async () => {
+  // FB-24 (N17-08, Bailey Schmitt): every list is offered A to Z now, the markets included.
+  it('offers Melanie Rasche’s 8 markets (A to Z) and her 30 sub-markets, each under a market', async () => {
     for (const role of ALL_ROLES) {
       const res = await asRole(app, role).get('/api/v1/config/public');
       expect(res.statusCode, role).toBe(200);
@@ -165,14 +166,14 @@ describe('the lists (F-020)', () => {
     const config = PublicConfigResponse.parse((await kam().get('/api/v1/config/public')).json());
     const markets = config.valueLists.market!;
     expect(markets.map((m) => m.code)).toEqual([
-      'FOOD',
+      'AUTO_COMMERCIAL_CHEMICAL',
       'BEVERAGE',
+      'CLINICAL',
+      'FOOD',
+      'HOME_CARE',
       'NUTRITION_WELLNESS',
       'OTC_HEALTH',
-      'CLINICAL',
       'PERSONAL_CARE',
-      'HOME_CARE',
-      'AUTO_COMMERCIAL_CHEMICAL',
     ]);
     const subs = config.valueLists.sub_market!;
     expect(subs).toHaveLength(30);

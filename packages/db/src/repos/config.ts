@@ -1,9 +1,11 @@
-import type {
-  OutcomeGroup,
-  Permission,
-  Role,
-  ScoringModelInput,
-  WorkflowConfigInput,
+import {
+  sortValueListEntries,
+  sortValueListsByKey,
+  type OutcomeGroup,
+  type Permission,
+  type Role,
+  type ScoringModelInput,
+  type WorkflowConfigInput,
 } from '@ccq/domain';
 import { and, asc, desc, eq, lte } from 'drizzle-orm';
 
@@ -100,26 +102,42 @@ export async function loadWorkflowConfigInput(db: DbOrTx): Promise<WorkflowConfi
   };
 }
 
-export const listValueList = (db: DbOrTx, listKey: ValueListKey, { activeOnly = true } = {}) =>
-  db
-    .select()
-    .from(valueList)
-    .where(
-      activeOnly
-        ? and(eq(valueList.listKey, listKey), eq(valueList.active, true))
-        : eq(valueList.listKey, listKey),
-    )
-    .orderBy(asc(valueList.sort));
+/**
+ * One value list's entries in display order (FB-24, N17-08): A to Z by label, numeric-aware, "Other" last,
+ * unless the list opts out with `meta.keepOrder` (`sortValueListEntries`). Admin's list editor reads the
+ * stored order through its own query (`listAllValueLists` in admin-config.ts).
+ */
+export const listValueList = async (
+  db: DbOrTx,
+  listKey: ValueListKey,
+  { activeOnly = true } = {},
+) =>
+  sortValueListEntries(
+    await db
+      .select()
+      .from(valueList)
+      .where(
+        activeOnly
+          ? and(eq(valueList.listKey, listKey), eq(valueList.active, true))
+          : eq(valueList.listKey, listKey),
+      )
+      .orderBy(asc(valueList.sort), asc(valueList.code)),
+  );
 
-/** Every active value-list entry, grouped order (list key, then sort). For the UI config bootstrap. */
-export const listActiveValueLists = (db: DbOrTx) =>
-  db
-    .select()
-    .from(valueList)
-    .where(eq(valueList.active, true))
-    .orderBy(asc(valueList.listKey), asc(valueList.sort), asc(valueList.code));
+/** Every active value-list entry, grouped by list key, each list in display order (FB-24). For the UI config bootstrap. */
+export const listActiveValueLists = async (db: DbOrTx) =>
+  sortValueListsByKey(
+    await db
+      .select()
+      .from(valueList)
+      .where(eq(valueList.active, true))
+      .orderBy(asc(valueList.listKey), asc(valueList.sort), asc(valueList.code)),
+  );
 
-/** Inactive entries (retired values), so old quotes can still show their label (FB-09). */
+/**
+ * Inactive entries (retired values), so old quotes can still show their label (FB-09). A label lookup,
+ * not a picker: kept in the stored order.
+ */
 export const listInactiveValueLists = (db: DbOrTx) =>
   db
     .select({ listKey: valueList.listKey, code: valueList.code, label: valueList.label })

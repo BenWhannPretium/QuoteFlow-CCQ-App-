@@ -378,7 +378,12 @@ export const quote = documented(
       ),
       decorationType: c(
         text('decoration_type'),
-        'FB-02 (F-013): value_list decoration_type code when Decoration is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item.',
+        'Deprecated by FB-24 (N17-02): use decoration_types. Kept, no longer written (the last single code before FB-24). Was: value_list decoration_type code when Decoration is picked; mirrored item 1.',
+        KAM,
+      ),
+      decorationTypes: c(
+        text('decoration_types').array().notNull().default([]),
+        'FB-24 (N17-02): value_list decoration_type codes when Decoration is picked (several at once). Mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. Back-filled from decoration_type.',
         KAM,
       ),
       decorationPrintColors: c(
@@ -509,6 +514,27 @@ export const quote = documented(
         KAM,
       ),
       requestClass: c(text('request_class'), 'value_list request_class code.', KAM),
+      conceptAssumptions: c(
+        text('concept_assumptions'),
+        "FB-24 (N17-03): the KAM's assumptions for a concept / innovation request (a class in intake_min_spec_exempt_classes; ≤ 1,000, required then). Shown to Engineering, Pricing and Final Review, and in the offer letter ({{conceptAssumptions}}). Null for any other class.",
+        KAM,
+      ),
+      // FB-24 (Ben's decision D4, provisional placement): the customer asks Pretium to hold stock for it.
+      stockHoldRequested: c(
+        boolean('stock_hold_requested'),
+        'FB-24 (D4, Faron Ipox): the customer wants Pretium to hold stock for it (an extra cost Pricing needs to know). true = yes, false = no, null = not known yet. Optional.',
+        KAM,
+      ),
+      stockHoldWeeks: c(
+        integer('stock_hold_weeks'),
+        'FB-24 (D4): for how long (weeks, whole number 1-520) the customer wants stock held; only when stock_hold_requested is true.',
+        KAM,
+      ),
+      stockHoldNote: c(
+        text('stock_hold_note'),
+        'FB-24 (D4): a note on the stocking agreement (≤ 300).',
+        KAM,
+      ),
       commentsForEngineering: c(
         text('comments_for_engineering'),
         'Notes from the KAM to Engineering.',
@@ -713,7 +739,7 @@ export const quote = documented(
       ),
       termsToolingCommitment: c(
         boolean('terms_tooling_commitment'),
-        'B-26: the offer carries a tooling commitment (a Legal review trigger).',
+        'B-26: the offer carries a tooling commitment (a Legal review trigger). FB-24 (N18-02): the KAM may answer it at intake ("Will the customer commit to the tooling?"; null = not known yet); the Commercial terms panel edits the same column.',
         KAM,
       ),
       termsMoq: c(text('terms_moq'), 'B-26: minimum order quantity terms.', KAM),
@@ -900,6 +926,11 @@ export const quote = documented(
         'quote_decoration_print_colors_check',
         sql`${t.decorationPrintColors} is null or ${t.decorationPrintColors} between 1 and 12`,
       ),
+      // FB-24 (D4): weeks of stock held, a whole number; only with a yes. The domain checks it first.
+      check(
+        'quote_stock_hold_weeks_check',
+        sql`${t.stockHoldWeeks} is null or (${t.stockHoldWeeks} between 1 and 520 and ${t.stockHoldRequested} is true)`,
+      ),
       // FB-02 (F-009): the product is needed on or after the quote. The domain checks it first.
       check(
         'quote_need_by_order_check',
@@ -959,7 +990,7 @@ export const quoteItem = documented(
       ),
       label: c(
         text('label'),
-        'FB-19: the KAM\'s short name for the item, e.g. "16 oz bottle" (≤ 60).',
+        'FB-19: the KAM\'s short name for the item, e.g. "16 oz bottle" (≤ 120 since FB-24, N17-05; was 60).',
         KAM,
       ),
       productFamily: c(text('product_family'), 'value_list product_family code.', KAM),
@@ -986,7 +1017,12 @@ export const quoteItem = documented(
       ),
       decorationType: c(
         text('decoration_type'),
-        'FB-02 (F-013): value_list decoration_type code when Decoration is picked.',
+        'Deprecated by FB-24 (N17-02): use decoration_types. Kept, no longer written. Was: value_list decoration_type code when Decoration is picked.',
+        KAM,
+      ),
+      decorationTypes: c(
+        text('decoration_types').array().notNull().default([]),
+        'FB-24 (N17-02): value_list decoration_type codes when Decoration is picked (several at once; "Other" has one description). Back-filled from decoration_type.',
         KAM,
       ),
       decorationTypeOther: c(
@@ -1116,7 +1152,7 @@ export const quoteItem = documented(
       check('quote_item_item_no_check', sql`${t.itemNo} >= 1`),
       check(
         'quote_item_label_length_check',
-        sql`${t.label} is null or char_length(${t.label}) <= 60`,
+        sql`${t.label} is null or char_length(${t.label}) <= 120`,
       ),
       check(
         'quote_item_dimensions_positive_check',

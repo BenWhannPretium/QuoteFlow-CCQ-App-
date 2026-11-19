@@ -44,6 +44,7 @@ const lists = {
   product_family: [entry('BOTTLE'), entry('OTHER', { freeText: true })],
   component: [
     entry('CONTAINER'),
+    // The follow-up name from before FB-24 (an Admin-edited entry 0051 left alone) still works.
     entry('DECORATION', { followUps: ['decoration_type', 'decoration_print_colors'] }),
     entry('OTHER', { freeText: true }),
   ],
@@ -158,12 +159,12 @@ describe('W13-03: "Other" asks what it is', () => {
     const decorated = {
       ...base,
       components: ['CONTAINER', 'DECORATION'],
-      decoration_type: 'OTHER',
+      decoration_types: ['SILK_SCREEN', 'OTHER'],
       decoration_print_colors: 2,
     };
     expect(blockingFields(decorated)).toEqual(['MISSING_FIELD:decoration_type_other']);
     // Decoration unpicked: the stale decoration type asks nothing and its description is cleared.
-    const unpicked = { ...base, decoration_type: 'OTHER', decoration_type_other: 'Foil' };
+    const unpicked = { ...base, decoration_types: ['OTHER'], decoration_type_other: 'Foil' };
     expect(blockingFields(unpicked)).toEqual([]);
     expect(inapplicableIntakeFields(unpicked, config)).toContain('decoration_type_other');
   });

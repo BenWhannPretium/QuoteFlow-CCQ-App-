@@ -9,7 +9,7 @@ import { G4_REQUIRED_CHECKS_DESCRIPTION } from '../seeds/config/settings';
 import type { Tx } from '../src/client';
 
 /**
- * FB-25 (0051): Final Review requires the customer tooling commitment (N17-26, N18-02), and standard payment
+ * FB-25 (0053): Final Review requires the customer tooling commitment (N17-26, N18-02), and standard payment
  * terms are never non-standard (N17-28).
  *
  * - `g4_required_checks` gains `tooling_commitment_answered`, only while unedited (version 1) and unapproved.
@@ -22,7 +22,7 @@ import type { Tx } from '../src/client';
  */
 const { db } = testDb();
 const MIGRATION = readFileSync(
-  new URL('../migrations/0051_fb25_quote_page_final_review.sql', import.meta.url),
+  new URL('../migrations/0053_fb25_quote_page_final_review.sql', import.meta.url),
   'utf8',
 );
 const statements = MIGRATION.split('--> statement-breakpoint').filter(
@@ -96,10 +96,10 @@ const migrationAudits = (tx: Tx) =>
   }>(
     tx,
     sql`select quote_id, actor_id, entity, before, after, change_reason from audit_event
-        where after->>'source' = 'migration:0051_fb25_quote_page_final_review'`,
+        where after->>'source' = 'migration:0053_fb25_quote_page_final_review'`,
   );
 
-describe('migration 0051 (FB-25): tooling commitment at Final Review, standard terms', () => {
+describe('migration 0053 (FB-25): tooling commitment at Final Review, standard terms', () => {
   it('has three statements: the setting, the G4 rule, the open quotes', () => {
     expect(statements).toHaveLength(3);
     expect(G4_RULE_NOW).toHaveLength(5);

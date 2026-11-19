@@ -53,12 +53,20 @@ export const OPPORTUNITY_FIELDS = {
   erfNumber: custom('ERF_Number__c'),
   /** Labelled "Quote Source": a picklist (SPR, ERF, Stock Bottle Price List, Price List); 17 % filled. */
   quoteSource: custom('Quote_Type__c'),
+  /**
+   * FB-24 (N17-01, D-18): "Ship to Locations", a textarea (255) whose help asks for "City, State" and
+   * "TBD" when unknown (55 % filled). Free text, possibly several places: shown to the KAM, never parsed.
+   */
+  shipToLocations: custom('Ship_to_Locations__c'),
 } as const satisfies Record<string, FieldRef>;
 
 /**
- * TODO(M3, D-18): ship-to source. The standard Account shipping address, the MVP default, is filled on
- * only 1,714 of 6,199 accounts (28 %). The org also has a free-text Opportunity `Ship_to_Locations__c`
- * (55 % filled) and `Ship_To_City__c` / `Ship_To_State__c` on each product spec. Not mapped yet.
+ * Ship-to sources (D-18; FB-24, N17-01). The standard Account shipping address is filled on only 1,714
+ * of 6,199 accounts (28 %). A read-only describe on 2026-11-19 confirmed the other two: the product
+ * specification's structured `Ship_To_City__c` (text 255), `Ship_To_State__c` (picklist of full names,
+ * e.g. "Texas") and `Shipping_Country__c` (picklist), mapped on PRODUCT_SPEC_FIELDS; and the
+ * opportunity's free-text `Ship_to_Locations__c` (OPPORTUNITY_FIELDS.shipToLocations). The order the
+ * intake tries them in is the `ship_to_sources` setting (provisional; Zachary Cairns says which wins).
  */
 export const ACCOUNT_FIELDS = {
   id: std('Id'),
@@ -85,6 +93,11 @@ export const PRODUCT_SPEC_FIELDS = {
   neckFinish: custom('Neck_Finish__c'),
   color: custom('Color__c'),
   annualVolume: custom('Line_Annual_Volume__c'),
+  // FB-24 (N17-01): the product's ship-to (describe, 2026-11-19). City is text; state and country are
+  // picklists of full names.
+  shipToCity: custom('Ship_To_City__c'),
+  shipToState: custom('Ship_To_State__c'),
+  shipToCountry: custom('Shipping_Country__c'),
 } as const satisfies Record<string, FieldRef>;
 
 /*

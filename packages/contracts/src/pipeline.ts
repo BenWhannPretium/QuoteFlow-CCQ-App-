@@ -110,6 +110,10 @@ export const QuoteListItem = QuoteSummary.extend({
   priceBasis: z.string().nullable(),
   freightType: z.string().nullable(),
   returnableDunnage: z.boolean(),
+  /** FB-24 (N18-02, D4): the KAM's tooling-commitment answer and the stocking agreement (null = not known). */
+  toolingCommitment: z.boolean().nullable(),
+  stockHoldRequested: z.boolean().nullable(),
+  stockHoldWeeks: z.number().int().nullable(),
   /** B-13: the proposal's validity has passed with no outcome recorded. */
   validityExpired: z.boolean(),
   updatedAt: z.string(),
@@ -255,6 +259,10 @@ export const QUOTE_LIST_COLUMNS = {
   priceBasis: 'Delivered / FOB',
   freightType: 'Freight type',
   returnableDunnage: 'Returnable dunnage',
+  // FB-24 (N18-02, D4): optional columns, not in the default set.
+  toolingCommitment: 'Customer tooling commitment',
+  stockHoldRequested: 'Hold stock for customer',
+  stockHoldWeeks: 'Stock held (weeks)',
 } as const;
 export type QuoteListColumnKey = keyof typeof QUOTE_LIST_COLUMNS;
 export const QUOTE_LIST_COLUMN_KEYS = Object.keys(QUOTE_LIST_COLUMNS) as QuoteListColumnKey[];

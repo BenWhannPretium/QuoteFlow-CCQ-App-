@@ -4,3 +4,4 @@ export * from './commercial-inputs';
 export * from './guardrails';
 export * from './config-sources';
 export * from './items';
+export * from './ship-to';

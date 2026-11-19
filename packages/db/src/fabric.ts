@@ -76,6 +76,8 @@ export const FABRIC_JSON_COMPANIONS: Readonly<Record<string, readonly string[]>>
   pricing_record: ['pricing_refs'],
   quote: [
     'components',
+    // FB-24 (N17-02): the decoration types, several at once (an array, like components).
+    'decoration_types',
     'priority_breakdown',
     'ship_to',
     'ship_to_original',
@@ -83,7 +85,7 @@ export const FABRIC_JSON_COMPANIONS: Readonly<Record<string, readonly string[]>>
   ],
   quote_draft: ['data'],
   // FB-19: the item's components (an array, like quote.components).
-  quote_item: ['components'],
+  quote_item: ['components', 'decoration_types'],
   role_permission: ['qualifier'],
   scoring_model: ['attributes', 'tier_thresholds'],
   segregation_rule: ['gate_keys', 'outcome_keys'],

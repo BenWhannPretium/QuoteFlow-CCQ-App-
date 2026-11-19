@@ -101,8 +101,10 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
   await expect(list.getByTestId('item-row')).toHaveCount(2);
   await expect(page.getByTestId('item-fields')).toHaveAttribute('data-item', '2');
   await fillItem(page, '24 oz bottle', '24 oz');
-  // Duplicate item 2 and change only what differs (F-084).
-  await page.getByRole('button', { name: 'Duplicate item 2' }).click();
+  // Duplicate item 2 and change only what differs (F-084). FB-24 (N18-01): the open item is duplicated
+  // from the Items box below its fields.
+  await expect(page.getByTestId('item-heading')).toContainText('Item 2 of 2');
+  await page.getByTestId('duplicate-item').click();
   await expect(list.getByTestId('item-row')).toHaveCount(3);
   await expect(page.getByTestId('item-fields')).toHaveAttribute('data-item', '3');
   await expect(page.locator('#intake-label')).toHaveValue('24 oz bottle (copy)');

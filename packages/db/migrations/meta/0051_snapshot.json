@@ -1,5 +1,5 @@
 {
-  "id": "d2d8a664-2122-41df-8f97-3728535a15f4",
+  "id": "f8ce5371-267b-40fa-8c2b-37835776300d",
   "prevId": "c62b1068-95cc-4909-9587-d36941171d1f",
   "version": "7",
   "dialect": "postgresql",
@@ -5494,6 +5494,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "decoration_types": {
+          "name": "decoration_types",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
         "decoration_print_colors": {
           "name": "decoration_print_colors",
           "type": "integer",
@@ -5642,6 +5649,30 @@
         },
         "request_class": {
           "name": "request_class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "concept_assumptions": {
+          "name": "concept_assumptions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stock_hold_requested": {
+          "name": "stock_hold_requested",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stock_hold_weeks": {
+          "name": "stock_hold_weeks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stock_hold_note": {
+          "name": "stock_hold_note",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -6554,6 +6585,10 @@
           "name": "quote_decoration_print_colors_check",
           "value": "\"quote\".\"decoration_print_colors\" is null or \"quote\".\"decoration_print_colors\" between 1 and 12"
         },
+        "quote_stock_hold_weeks_check": {
+          "name": "quote_stock_hold_weeks_check",
+          "value": "\"quote\".\"stock_hold_weeks\" is null or (\"quote\".\"stock_hold_weeks\" between 1 and 520 and \"quote\".\"stock_hold_requested\" is true)"
+        },
         "quote_need_by_order_check": {
           "name": "quote_need_by_order_check",
           "value": "\"quote\".\"product_needed_by\" is null or \"quote\".\"quote_needed_by\" is null or \"quote\".\"product_needed_by\" >= \"quote\".\"quote_needed_by\""
@@ -6993,6 +7028,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "decoration_types": {
+          "name": "decoration_types",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
         "decoration_type_other": {
           "name": "decoration_type_other",
           "type": "text",
@@ -7256,7 +7298,7 @@
         },
         "quote_item_label_length_check": {
           "name": "quote_item_label_length_check",
-          "value": "\"quote_item\".\"label\" is null or char_length(\"quote_item\".\"label\") <= 60"
+          "value": "\"quote_item\".\"label\" is null or char_length(\"quote_item\".\"label\") <= 120"
         },
         "quote_item_dimensions_positive_check": {
           "name": "quote_item_dimensions_positive_check",

@@ -10,7 +10,7 @@ import {
   type IntakeItemData,
 } from '@ccq/contracts';
 import { schema, type DbClient } from '@ccq/db';
-import type { Role } from '@ccq/domain';
+import { OFFER_LETTER_TEMPLATE_SEED, type Role } from '@ccq/domain';
 import {
   buildJunkWorkbook,
   buildOfferCostingWorkbook,
@@ -439,7 +439,8 @@ describe('FB-20: a three-item letter from the synthetic costing workbook', () =>
       letterNo: 1,
       quoteVersion: 1,
       itemCount: 3,
-      templateVersion: 'fb20-2026-11-16',
+      // The seeded template's version (FB-24 added the concept sentence: fb24-2026-11-19).
+      templateVersion: OFFER_LETTER_TEMPLATE_SEED.templateVersion,
       wordingApproved: false,
       costModelVersion: 1,
     });

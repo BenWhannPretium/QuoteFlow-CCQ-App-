@@ -854,7 +854,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `additives` | text | yes |  |  | FB-02 (F-023): additives note (≤ 200). FB-09: required, as the customer-specified additive, when additive is Other. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec (≤ 120) when a Liner is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code (CUSTOMER / PRETIUM) when a Label is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
-| `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
+| `decoration_type` | text | yes |  |  | Deprecated by FB-24 (N17-02): use decoration_types. Kept, no longer written (the last single code before FB-24). Was: value_list decoration_type code when Decoration is picked; mirrored item 1. | KAM |
+| `decoration_types` | text[] | no | [] |  | FB-24 (N17-02): value_list decoration_type codes when Decoration is picked (several at once). Mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. Back-filled from decoration_type. | KAM |
 | `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `product_family_other` | text | yes |  |  | FB-15 (W13-03): what the product family is when product_family is Other (≤ intake_other_description_max_length, seed 200); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `component_other` | text | yes |  |  | FB-15 (W13-03): what the "Other" component is when components include Other (≤ intake_other_description_max_length); null otherwise. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
@@ -880,6 +881,10 @@ The CCQ quote: the workflow record CCQ owns.
 | `packaging_type` | text | yes |  |  | value_list packaging_type code. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `packaging_notes` | text | yes |  |  | Packaging requirements. FB-19: mirrors item 1 (quote_item), written by the server at submit; new code reads quote_item. | KAM |
 | `request_class` | text | yes |  |  | value_list request_class code. | KAM |
+| `concept_assumptions` | text | yes |  |  | FB-24 (N17-03): the KAM's assumptions for a concept / innovation request (a class in intake_min_spec_exempt_classes; ≤ 1,000, required then). Shown to Engineering, Pricing and Final Review, and in the offer letter ({{conceptAssumptions}}). Null for any other class. | KAM |
+| `stock_hold_requested` | boolean | yes |  |  | FB-24 (D4, Faron Ipox): the customer wants Pretium to hold stock for it (an extra cost Pricing needs to know). true = yes, false = no, null = not known yet. Optional. | KAM |
+| `stock_hold_weeks` | integer | yes |  |  | FB-24 (D4): for how long (weeks, whole number 1-520) the customer wants stock held; only when stock_hold_requested is true. | KAM |
+| `stock_hold_note` | text | yes |  |  | FB-24 (D4): a note on the stocking agreement (≤ 300). | KAM |
 | `comments_for_engineering` | text | yes |  |  | Notes from the KAM to Engineering. | KAM |
 | `submitted_at` | timestamp with time zone | yes |  |  | When the KAM submitted the intake (the quote was created). | CCQ (system) |
 | `ship_to` | jsonb | yes |  |  | Ship / fill destination used for the quote {line1, city, state, postal, country}; city and state required at intake (FB-02, F-017). | KAM |
@@ -919,7 +924,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `capital_notice_sent_at` | timestamp with time zone | yes |  |  | B-26: when Capital Management was given early notice (awareness, not approval). Once per quote. | CCQ (system) |
 | `market_dev_notice_sent_at` | timestamp with time zone | yes |  |  | B-26: when Market Development was told the quote is above the value threshold. Once per quote. | CCQ (system) |
 | `tooling_funding_model` | text | yes |  |  | B-26: value_list tooling_funding_model code (company-funded, customer-funded, $0 CER, amortized). | KAM |
-| `terms_tooling_commitment` | boolean | yes |  |  | B-26: the offer carries a tooling commitment (a Legal review trigger). | KAM |
+| `terms_tooling_commitment` | boolean | yes |  |  | B-26: the offer carries a tooling commitment (a Legal review trigger). FB-24 (N18-02): the KAM may answer it at intake ("Will the customer commit to the tooling?"; null = not known yet); the Commercial terms panel edits the same column. | KAM |
 | `terms_moq` | text | yes |  |  | B-26: minimum order quantity terms. | KAM |
 | `terms_payment_terms` | text | yes |  |  | B-26: payment terms. | KAM |
 | `terms_nonstandard` | boolean | no | false |  | B-26: the terms are nonstandard (a Legal review trigger). | KAM |
@@ -957,7 +962,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
 
-**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_terms_exception_status_check`, `quote_terms_months_check`, `quote_terms_finalized_consistency_check`, `quote_decoration_print_colors_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
+**Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_terms_exception_status_check`, `quote_terms_months_check`, `quote_terms_finalized_consistency_check`, `quote_decoration_print_colors_check`, `quote_stock_hold_weeks_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
 **Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_assigned_engineer_id_idx`, `quote_assigned_scheduler_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 
@@ -1022,14 +1027,15 @@ FB-19: the items of a quote (one quote number, several items quoted together). I
 | `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
 | `quote_id` | uuid | no |  | quote.id | Quote the item belongs to. | CCQ (system) |
 | `item_no` | smallint | no |  |  | FB-19: 1…n within the quote, no gaps (renumbered after a removal or a reorder). Item 1 is the primary item the quote columns mirror. | KAM |
-| `label` | text | yes |  |  | FB-19: the KAM's short name for the item, e.g. "16 oz bottle" (≤ 60). | KAM |
+| `label` | text | yes |  |  | FB-19: the KAM's short name for the item, e.g. "16 oz bottle" (≤ 120 since FB-24, N17-05; was 60). | KAM |
 | `product_family` | text | yes |  |  | value_list product_family code. | KAM |
 | `product_family_other` | text | yes |  |  | FB-15 (W13-03): what the product family is when product_family is Other; null otherwise. | KAM |
 | `components` | text[] | no | [] |  | value_list component codes. | KAM |
 | `component_other` | text | yes |  |  | FB-15 (W13-03): what the "Other" component is; null otherwise. | KAM |
 | `liner_spec` | text | yes |  |  | FB-02 (F-013): liner spec when a Liner is picked. | KAM |
 | `labels_purchased_by` | text | yes |  |  | FB-02 (F-013): value_list labels_purchased_by code when a Label is picked. | KAM |
-| `decoration_type` | text | yes |  |  | FB-02 (F-013): value_list decoration_type code when Decoration is picked. | KAM |
+| `decoration_type` | text | yes |  |  | Deprecated by FB-24 (N17-02): use decoration_types. Kept, no longer written. Was: value_list decoration_type code when Decoration is picked. | KAM |
+| `decoration_types` | text[] | no | [] |  | FB-24 (N17-02): value_list decoration_type codes when Decoration is picked (several at once; "Other" has one description). Back-filled from decoration_type. | KAM |
 | `decoration_type_other` | text | yes |  |  | FB-15 (W13-03): what the decoration is when decoration_type is Other; null otherwise. | KAM |
 | `decoration_print_colors` | integer | yes |  |  | FB-02 (F-013): number of print colors (1–12) when Decoration is picked. | KAM |
 | `resin` | text | yes |  |  | value_list resin code. | KAM |

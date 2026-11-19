@@ -55,7 +55,20 @@ describe('SOQL', () => {
     expect(select).toContain('Owner.Email');
     expect(select).toContain('Account.ShippingPostalCode');
     expect(select).toContain('ERF_Number__c');
+    // FB-24 (N17-01): the free-text ship-to on the opportunity.
+    expect(select).toContain('Ship_to_Locations__c');
     expect(select).not.toMatch(/FIELDS\(/);
+  });
+
+  it("FB-24 (N17-01): the product specifications select the product's ship-to", () => {
+    const soql = productSpecsSoql('006000000000001AAA')!;
+    for (const f of ['Ship_To_City__c', 'Ship_To_State__c', 'Shipping_Country__c']) {
+      expect(soql).toContain(f);
+    }
+    const without = productSpecsSoql('006000000000001AAA', {
+      [PRODUCT_SPEC_OBJECT]: new Set(['Opportunity__c']),
+    })!;
+    expect(without).not.toContain('Ship_To_City__c');
   });
 
   it('drops custom fields the org does not have', () => {

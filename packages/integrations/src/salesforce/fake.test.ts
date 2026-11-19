@@ -63,6 +63,18 @@ describe('FakeSalesforceReader over the synthetic fixture', () => {
     expect(first).toBeDefined();
   });
 
+  it('FB-24 (N17-01): synthetic ship-to on some specifications and free text on some opportunities', async () => {
+    const r = reader();
+    const all = await r.searchOpportunities({ q: '', openOnly: false, limit: 500 });
+    const texts = all.map((o) => o.shipToLocations ?? null);
+    expect(texts).toContain('TBD');
+    expect(texts.some((t) => t?.includes('\n'))).toBe(true);
+    expect(texts).toContain(null);
+    const specs = (await Promise.all(all.map((o) => r.getProductSpecs(o.id)))).flat();
+    expect(specs.some((s) => s.shipToCity && s.shipToState)).toBe(true);
+    expect(specs.some((s) => !s.shipToCity)).toBe(true);
+  });
+
   it('delta: only records modified after `since`, oldest first, paged', async () => {
     const r = reader();
     const pages = [];

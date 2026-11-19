@@ -133,6 +133,8 @@ describe('mapOpportunity', () => {
       isWon: false,
       erfNumber: 'ERF-2026-00042',
       quoteSource: 'CCQ',
+      // FB-24: the record has no Ship_to_Locations__c.
+      shipToLocations: null,
       systemModstamp: '2026-10-15T15:00:00.000Z',
       dataQuality: [],
     });
@@ -239,7 +241,43 @@ describe('mapAccount / mapProductSpec', () => {
       neckFinish: '110-400',
       color: null,
       annualVolume: 250000,
+      shipToCity: null,
+      shipToState: null,
+      shipToCountry: null,
     });
     expect(mapProductSpec({ Id: 'a0P000000000001AAA' })).toBeNull(); // no opportunity link
+  });
+
+  it("FB-24 (N17-01): maps the product's ship-to (city text, state and country full names)", () => {
+    expect(
+      mapProductSpec({
+        Id: 'a0P000000000002AAA',
+        Opportunity__c: '006000000000001AAA',
+        Ship_To_City__c: '  Springfield ',
+        Ship_To_State__c: 'Illinois',
+        Shipping_Country__c: 'United States of America',
+      }),
+    ).toMatchObject({
+      shipToCity: 'Springfield',
+      shipToState: 'Illinois',
+      shipToCountry: 'United States of America',
+    });
+    expect(
+      mapProductSpec({
+        Id: 'a0P000000000002AAA',
+        Opportunity__c: '006000000000001AAA',
+        Ship_To_City__c: '',
+      }),
+    ).toMatchObject({ shipToCity: null, shipToState: null, shipToCountry: null });
+  });
+
+  it("FB-24 (N17-01): keeps the opportunity's free-text Ship to Locations as typed, never parsed", () => {
+    const o = mapOpportunity({
+      Id: '006000000000001AAA',
+      Name: 'Synthetic',
+      Ship_to_Locations__c: ' Dallas, TX\nReno, NV ',
+    })!;
+    expect(o.shipToLocations).toBe('Dallas, TX\nReno, NV');
+    expect(mapOpportunity({ Id: '006000000000001AAA', Name: 'x' })!.shipToLocations).toBeNull();
   });
 });

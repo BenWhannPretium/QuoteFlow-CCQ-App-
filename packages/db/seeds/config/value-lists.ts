@@ -143,22 +143,26 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['CLOSURE', 'Closure'],
     ['LINER', 'Liner', { followUps: ['liner_spec'] }],
     ['LABEL', 'Label', { followUps: ['labels_purchased_by'] }],
-    ['DECORATION', 'Decoration', { followUps: ['decoration_type', 'decoration_print_colors'] }],
+    // FB-24 (N17-02): several decoration types at once (`decoration_types`); migration 0051 renames the follow-up.
+    ['DECORATION', 'Decoration', { followUps: ['decoration_types', 'decoration_print_colors'] }],
     // FB-15 (W13-03): "Other" asks what the component is.
     ['OTHER', 'Other', { freeText: true }],
   ],
   request_class: [
     ['CCQ', 'CCQ (new business + capital/engineering)'],
+    // FB-24 (N17-03, Bailey Schmitt, Jordan): CCQ work that starts from a render, not a drawing. Provisional.
+    ['CONCEPT', 'Concept / innovation'],
     ['STOCK', 'Stock / stock-plus'],
     ['PRICE_INQUIRY', 'Price inquiry / RFP check'],
     ['OTHER_CAPITAL', 'Other capital'],
   ],
   // meta.hasDrawing: the intake's "quotes without a drawing take longer" nudge is silent for these.
+  // FB-24 (N17-08): meta.keepOrder keeps the stored order (best to worst) instead of A to Z. Provisional.
   drawing_status: [
-    ['HAVE_DRAWING', 'Have drawing', { hasDrawing: true }],
-    ['COMING', 'Coming'],
-    ['SAMPLE_ONLY', 'Sample only'],
-    ['NONE', 'None (quote will take longer)'],
+    ['HAVE_DRAWING', 'Have drawing', { hasDrawing: true, keepOrder: true }],
+    ['COMING', 'Coming', { keepOrder: true }],
+    ['SAMPLE_ONLY', 'Sample only', { keepOrder: true }],
+    ['NONE', 'None (quote will take longer)', { keepOrder: true }],
   ],
   // Retired by FB-02 (F-010): kept, inactive, so older quotes still show their label. The neck is now
   // neck_diameter + neck_finish_type + neck_special_feature (migration 0028 split the stored values).
@@ -175,6 +179,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['BAGGED', 'Bagged'],
     ['TRAYED', 'Trayed'],
     ['PALLETIZED_CUSTOM', 'Palletized-custom'],
+    // FB-24 (N17-04, Kal Kaliszewski: Operations uses the same name). Provisional.
+    ['SOLDIER_PACK', 'Soldier pack'],
     // FB-09 (F-012, D-016 default): reserved for customer-dictated packaging; the note is then required.
     ['OTHER', 'Other', { freeText: true }],
   ],
@@ -336,11 +342,12 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
   ],
   // FB-08 (D-029, Gemma Cebolla, Nov 6): how customer-funded tooling is paid. No quarterly installments.
   // `milestones` (percent + trigger, summing to 100) is shown on the quote; provisional.
+  // FB-24 (N17-08): meta.keepOrder keeps the stored order (upfront, split, amortized) instead of A to Z.
   tooling_payment_terms: [
     [
       'UPFRONT',
       'Upfront (100% at the order)',
-      { milestones: [{ percent: 100, trigger: 'At the order' }] },
+      { milestones: [{ percent: 100, trigger: 'At the order' }], keepOrder: true },
     ],
     [
       'SPLIT_50_50',
@@ -350,9 +357,14 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
           { percent: 50, trigger: 'At the order' },
           { percent: 50, trigger: 'At qualification' },
         ],
+        keepOrder: true,
       },
     ],
-    ['AMORTIZED_PER_PIECE', 'Amortized into the per-piece price', { milestones: [] }],
+    [
+      'AMORTIZED_PER_PIECE',
+      'Amortized into the per-piece price',
+      { milestones: [], keepOrder: true },
+    ],
   ],
   // FB-08 (F-068, V-054): who owns the mold. Provisional (D-003).
   mold_ownership: [

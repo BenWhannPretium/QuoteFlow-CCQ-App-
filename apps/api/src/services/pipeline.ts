@@ -226,6 +226,9 @@ export class PipelineService {
       priceBasis: q.priceBasis,
       freightType: q.freightType,
       returnableDunnage: q.returnableDunnage,
+      toolingCommitment: q.termsToolingCommitment,
+      stockHoldRequested: q.stockHoldRequested,
+      stockHoldWeeks: q.stockHoldRequested === true ? q.stockHoldWeeks : null,
       validityExpired: q.status !== 'closed' && isValidityLapsed(q.validityUntil, ctx.now),
       updatedAt: q.updatedAt.toISOString(),
       commercial: canSeeCommercialFields(ctx.actor)
@@ -560,6 +563,11 @@ function exportValue(
     }
     case 'returnableDunnage':
       return item.returnableDunnage ? 'Yes' : 'No';
+    case 'toolingCommitment':
+    case 'stockHoldRequested': {
+      const v = item[column];
+      return v === true ? 'Yes' : v === false ? 'No' : 'Not known yet';
+    }
     default:
       return item[column];
   }

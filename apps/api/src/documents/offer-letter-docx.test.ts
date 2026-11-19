@@ -104,6 +104,22 @@ describe('renderOfferLetterDocx', () => {
     expect(text).not.toMatch(/undefined|NaN|\{\{|\}\}|null/);
   });
 
+  it("FB-24: prints a concept quote's assumptions, and nothing of the kind on any other quote", async () => {
+    const concept = textOf(
+      (
+        await render(
+          syntheticOfferLetter({ conceptAssumptions: 'about 28 g, PET, one-color print' }),
+        )
+      ).body,
+    );
+    expect(concept).toContain(
+      'This is a concept quote. It assumes: about 28 g, PET, one-color print',
+    );
+    const standard = textOf((await render()).body);
+    expect(standard).not.toContain('concept quote');
+    expect(standard).not.toMatch(/\{\{|\}\}/);
+  });
+
   it('carries the DRAFT line in the header while the wording is not approved, and not after', async () => {
     const draft = await render(syntheticOfferLetter({ wordingApproved: false }));
     expect(textOf(draft.headers)).toContain(OFFER_DRAFT_TEXT);

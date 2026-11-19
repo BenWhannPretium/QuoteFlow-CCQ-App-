@@ -64,9 +64,9 @@ describe('config seeds', () => {
       sub_market: 30,
       product_family: 7,
       component: 6, // FB-02 (F-013): + Decoration
-      request_class: 4,
+      request_class: 5, // FB-24 (N17-03): + Concept / innovation
       drawing_status: 4,
-      packaging_type: 5,
+      packaging_type: 6, // FB-24 (N17-04): + Soldier pack
       plant: 25, // FB-13: Jim Zweifel's 22 locations + the 3 placeholders kept inactive
       machine_type: 21, // FB-13: his 14 types + the 7 placeholders kept inactive
       // FB-02: Jim Zweifel's neck lists (F-010), PCR (F-055), color (F-023), component follow-ups (F-013).
@@ -98,7 +98,9 @@ describe('config seeds', () => {
     const [decoration] = await q<{ meta: unknown }>(
       sql`select meta from value_list where list_key = 'component' and code = 'DECORATION'`,
     );
-    expect(decoration!.meta).toEqual({ followUps: ['decoration_type', 'decoration_print_colors'] });
+    expect(decoration!.meta).toEqual({
+      followUps: ['decoration_types', 'decoration_print_colors'],
+    });
   });
 
   it('settings, scoring v1 and sf_stage_map are seeded', async () => {
@@ -132,7 +134,9 @@ describe('config seeds', () => {
       weight: 0.1,
     });
     // FB-02 settings (provisional).
-    expect(await getSetting(db, 'intake_allowed_request_classes')).toEqual(['CCQ']);
+    // FB-24 (N17-03): a concept / innovation request can be submitted too.
+    expect(await getSetting(db, 'intake_allowed_request_classes')).toEqual(['CCQ', 'CONCEPT']);
+    expect(await getSetting(db, 'intake_min_spec_exempt_classes')).toEqual(['CONCEPT']);
     expect(await getSetting(db, 'intake_variants_note_max_length')).toBe(300);
     expect(await getSetting(db, 'intake_min_spec_fields')).toEqual([
       'height',

@@ -181,7 +181,7 @@ export const attachmentRoutes: FastifyPluginAsyncZod<AttachmentRoutesOptions> = 
       config: { permission: 'quote.create' },
       schema: {
         tags,
-        summary: `Upload a file to your open intake draft (it moves to the quote folder on submit). ${UPLOAD_HELP}`,
+        summary: `Upload a file to your open intake draft (it moves to the quote folder on submit). FB-24: only the kinds in app_setting attachment_kinds_by_place.intake (seed: bottle_drawing, sample_photo, bid_file, project_brief, competitor_drawing, other); any other kind is 422. ${UPLOAD_HELP}`,
         security,
         consumes: ['multipart/form-data'],
         params: IntakeDraftParams,

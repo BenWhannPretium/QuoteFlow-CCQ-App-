@@ -52,7 +52,9 @@ describe('draft items', () => {
 
   it('item keys must look like uuids; labels stay short', () => {
     expect(IntakeItemData.safeParse({ key: 'not-a-key' }).success).toBe(false);
-    expect(IntakeItemData.safeParse({ key: KEY_1, label: 'x'.repeat(61) }).success).toBe(false);
+    // FB-24 (N17-05): up to 120 characters (was 60).
+    expect(IntakeItemData.safeParse({ key: KEY_1, label: 'x'.repeat(120) }).success).toBe(true);
+    expect(IntakeItemData.safeParse({ key: KEY_1, label: 'x'.repeat(121) }).success).toBe(false);
     expect(IntakeItemData.safeParse({ key: KEY_1, label: '16 oz bottle' }).success).toBe(true);
   });
 
