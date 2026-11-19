@@ -969,11 +969,9 @@ function DecisionBar({
             )}
             {/* UX-010: what blocks the release, next to the decision. */}
             {blockers.length > 0 ? (
-              <p
-                className={cn('px-3 py-2 text-sm', BLOCKING_BOX)}
-                data-testid="decision-bar-blockers"
-                data-tone="blocking"
-              >
+              // Unboxed on purpose: a padded box made the sticky bar taller than the scroll padding that
+              // keeps keyboard focus clear of it (UX-018). The red box is "What blocks the release".
+              <p className="text-sm" data-testid="decision-bar-blockers" data-tone="blocking">
                 <CircleAlertIcon
                   className="text-destructive mr-1 inline size-4 align-text-bottom"
                   aria-hidden="true"

@@ -88,7 +88,8 @@ describe('priority_score_changed', () => {
       trigger: 'input_change',
       modelVersion: now.modelVersion,
     });
-    expect(written[0]!.payload.from).toBeLessThan(written[0]!.payload.to as number);
+    const p = written[0]!.payload as { from: number; to: number };
+    expect(p.from).toBeLessThan(p.to);
     expect(written[0]!.actorId).toBe(actorId);
     expect(await events('priority_tier_changed')).toHaveLength(0);
   });
@@ -101,7 +102,8 @@ describe('priority_score_changed', () => {
     await recalc();
     const written = await events('priority_score_changed');
     expect(written).toHaveLength(1);
-    expect(written[0]!.payload.from).toBeGreaterThan(written[0]!.payload.to as number);
+    const p = written[0]!.payload as { from: number; to: number };
+    expect(p.from).toBeGreaterThan(p.to);
     expect(written[0]!.payload).toMatchObject({ tierChanged: false });
   });
 
