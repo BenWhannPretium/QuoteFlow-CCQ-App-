@@ -343,6 +343,12 @@ describe('QuoteDetail.nextStep', () => {
       200,
     );
     ok(await as('Engineer').post(`/api/v1/quotes/${qn}/eng-review/submit`), 200);
+    // FB-22 (N17-14): with a scheduler assigned, the review is with the lead once capacity is in too.
+    expect((await detail(qn, 'EngLead')).nextStep?.state).not.toBe('with_lead');
+    ok(
+      await as('ProductionScheduler').post(`/api/v1/quotes/${qn}/eng-review/submit-capacity`),
+      200,
+    );
     const withLead = await detail(qn, 'EngLead');
     expect(withLead.nextStep).toEqual({
       waitingOn: 'engineering_lead',
