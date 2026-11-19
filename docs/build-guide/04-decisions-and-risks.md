@@ -275,6 +275,19 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Stocking agreement | Optional at intake (Commercial inputs): Yes / No / Not known yet, weeks (whole number 1 to 520) on a yes, note ≤ 300 | Placement (D4 "best guess") | Faron Ipox; Gemma Cebolla |
 | Tooling commitment at intake | Optional Yes / No / Not known yet, writes `terms_tooling_commitment` (the Commercial terms panel's field); Yes is a Legal review trigger as before | FB-25 makes it required at Final Review | Bailey Schmitt |
 
+**Provisional values FB-22 seeded (built 2026-11-19; all `provisional: true`, changed by config or a small code change, not a schema change; migration 0051). Decided by Ben on 2026-11-18 (D2): a lead may approve their own work.**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.eng_lead_notify_when` | `both_parts`: the engineering lead is told once the engineer and the production scheduler have both submitted (or the engineer alone with no scheduler; or the scheduler alone when the engineer is a lead). `each_part` tells on each submission | Question 1 to Bailey and Jim: each part, or both | Bailey Schmitt; Jim Zweifel |
+| The scheduler's part (`SCHEDULER_PART_FIELDS`, code) | The G2 rules that read `capacity_evidence` or `capacity_utilization_missing` are the scheduler's to submit when one is assigned; the engineer's check leaves them out | D-008 (engineering roles) | Jim Zweifel |
+| Send-back per part | Once either part is in, the lead may send back to either person; only that person's submission is cleared. A capacity block reopens both parts; a new scheduler reopens capacity | — | Bailey Schmitt |
+| `quote.part_submitted` notice | In-app only (no email) to the owner of the other part | Whether engineers and schedulers want an email | Jim Zweifel; Faron Ipox |
+| `eng_review.machine_platform` | Free text, optional, ≤ 80 characters, under "Process & machine type"; shown on Quoting's engineering summary | Question 2: a list per plant later? | Jim Zweifel |
+| Hot runner | No field: "Tooling notes" hint "Say whether the mold has a hot runner, and anything else about the tooling." | — | Jim Zweifel |
+| Technical concept / Supply chain | No longer asked or accepted; columns kept (deprecated), old values read-only under "Legacy notes"; Charter / Scope text goes in the tooling notes or stays in the workbook | Question 3: where Charter / Scope text goes | Bailey Schmitt; Jim Zweifel |
+| "New" in the engineering queue | New to the assigned engineer until Start review; to the assigned scheduler until a capacity row is saved; "New to me" filter | — | Faron Ipox |
+
 **Provisional values FB-21 seeded (built 2026-11-18; all `provisional: true`, changed by config, not code; migrations 0049 and 0050). Decided by Ben on 2026-11-18: pending capital never blocks; payback only on request; a pricing lead may approve their own work.**
 
 | Value | Seed | Waits on | Who signs off |

@@ -546,7 +546,11 @@ export function PartSubmit<T>({
             {submitting.isPending ? 'Submitting…' : label}
           </Button>
           <p role="status" className={unsaved ? 'text-muted-foreground' : 'sr-only'}>
-            {unsaved && <span id={saveFirstId}>{SAVE_FIRST_TEXT}</span>}
+            {unsaved && (
+              <span id={saveFirstId} data-testid="save-first">
+                {SAVE_FIRST_TEXT}
+              </span>
+            )}
           </p>
         </div>
       )}

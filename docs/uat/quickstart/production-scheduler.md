@@ -6,12 +6,13 @@
 
 ## What you'll do
 
-1. **Get told.** You get a bell notice and an email when the lead assigns you ("capacity is assigned to you"), and again when the engineer has saved the plant and the machine type ("Capacity can start", with the plant and the machine type). You can start before that: nothing locks you out.
+1. **Get told.** New quotes show a **New** chip in **Capacity requests** until you save a capacity row (**New to me** lists them). You get a bell notice and an email when the lead assigns you ("capacity is assigned to you"), and again when the engineer has saved the plant and the machine type ("Capacity can start", with the plant and the machine type). You can start before that: nothing locks you out.
 2. **Open your part.** **Capacity requests** → the quote. It opens on the **Engineering** tab. **Capacity evidence** and **Capacity sign-off** are marked **Your part**. The **Solution** is the **Engineer's part**: you can read it, not change it.
 3. **Add capacity evidence.** **Add capacity row**: site (the plants that run the chosen machine type), line, utilization before, allocated annual volume, run days, assumed effectiveness, cycle time, analysis date. Click **Save capacity evidence**: **Progress saved** appears beside the button. Utilization after is calculated for you: green up to the target, amber above it, red above 100%. A number out of range (for example 750% effectiveness) is flagged as you type and cannot be saved.
 4. **Approve capacity.** In **Capacity sign-off** click **Approve capacity**. The engineering lead can then advance the quote.
 5. **Or block it.** Type why in **Sign-off note** and click **Block capacity**. The work goes straight back to the engineer with your note; the engineering lead and the KAM are told. When the engineer has reworked the solution, come back and approve.
-6. **If the lead sends it back to you.** You get a notice with the lead's note. Fix your rows and save. The engineer submits the quote to the lead again.
+6. **Submit capacity to the lead.** When your rows are done, click **Submit capacity to engineering lead** at the end of the capacity part (it lists what is missing until then). The lead is told once the engineer has submitted too; the engineer gets a bell notice. Your rows are read-only until the lead sends them back.
+7. **If the lead sends it back to you.** You get a notice with the lead's note. Fix your rows, save and submit capacity again. The engineer's part stays with the lead.
 
 ## What changed
 
