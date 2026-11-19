@@ -1,6 +1,6 @@
 {
   "id": "1681dcf0-dc37-43ff-9cf4-32476eca2c66",
-  "prevId": "f8ce5371-267b-40fa-8c2b-37835776300d",
+  "prevId": "5d7a737f-a05d-4d34-9d3f-44d66a6cd9db",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3027,6 +3027,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "machine_platform": {
+          "name": "machine_platform",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "prelim_capital_usd": {
           "name": "prelim_capital_usd",
           "type": "numeric(14, 2)",
@@ -3246,6 +3252,10 @@
         "eng_review_cavitation_check": {
           "name": "eng_review_cavitation_check",
           "value": "\"eng_review\".\"cavitation\" between 1 and 99"
+        },
+        "eng_review_machine_platform_check": {
+          "name": "eng_review_machine_platform_check",
+          "value": "\"eng_review\".\"machine_platform\" is null or char_length(\"eng_review\".\"machine_platform\") <= 80"
         },
         "eng_review_capacity_signoff_status_check": {
           "name": "eng_review_capacity_signoff_status_check",
@@ -5836,6 +5846,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "capacity_submitted_at": {
+          "name": "capacity_submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capacity_submitted_by": {
+          "name": "capacity_submitted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "pricing_submitted_at": {
           "name": "pricing_submitted_at",
           "type": "timestamp with time zone",
@@ -6421,6 +6443,19 @@
           "tableTo": "app_user",
           "columnsFrom": [
             "eng_returned_to"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "quote_capacity_submitted_by_app_user_id_fk": {
+          "name": "quote_capacity_submitted_by_app_user_id_fk",
+          "tableFrom": "quote",
+          "tableTo": "app_user",
+          "columnsFrom": [
+            "capacity_submitted_by"
           ],
           "columnsTo": [
             "id"

@@ -37,7 +37,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useCurrentUser } from '@/auth';
 import { Button } from '@/components/ui/button';
@@ -74,7 +74,14 @@ import {
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { IntakeFactsHeader } from '../intake/IntakeFacts';
 import { KeyValueGrid } from '../KeyValueGrid';
-import { LeadReviewActions, LeadReviewStatus } from '../LeadReviewPanel';
+import {
+  EngPartsStatus,
+  GoToDecision,
+  LeadReviewActions,
+  LeadReviewStatus,
+  PartSubmit,
+  focusDecision,
+} from '../LeadReviewPanel';
 import { FieldOverride, timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
 
@@ -111,6 +118,15 @@ export function EngineeringTab({
   const itemId = view?.id;
   const itemKey = itemId ?? 'quote';
   const otherLabel = otherDecisionsLabel(quote.status === 'on_hold');
+  const me = useCurrentUser().user.id;
+  // FB-22 (D2): a lead who is the assigned engineer decides on their own work; nothing to submit.
+  const selfReview = !!g2 && !!eng.assignedEngineerId && eng.assignedEngineerId === me;
+  // FB-22 (N17-11): the decision waits on this reader: every part is in, or it is their own work.
+  const waitingOnMe = !!g2 && (eng.leadReview.status === 'submitted' || selfReview);
+  // `?tab=engineering#decision` lands on the decision once (a link with no hash never scrolls).
+  useEffect(() => {
+    if (window.location.hash === '#decision') focusDecision();
+  }, []);
   // UX-001: showing another item takes this item's cards off the screen, and what was typed in them.
   const selectItem = (next: number) => {
     if (
@@ -126,11 +142,13 @@ export function EngineeringTab({
   // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
   return (
     <div className="grid gap-6" data-testid="engineering-tab">
+      {waitingOnMe && <GoToDecision />}
       {/* FB-02: destination and mold modification from intake. */}
       <IntakeFactsHeader facts={quote.intakeFacts} shipTo={quote.shipTo} />
       {!many && <ProductFactsHeader facts={eng.productFacts} />}
       <AssignmentCard quote={quote} />
       <LeadReviewStatus kind="engineering" review={eng.leadReview} />
+      <EngPartsStatus review={eng.leadReview} />
       <SectionLockLine lock={eng.lock} />
       {many && (
         <>
@@ -163,6 +181,18 @@ export function EngineeringTab({
         itemId={itemId}
       />
       <LegacyNotes review={itemQuote.engineering.review} />
+      {/* FB-22 (N17-14): the engineer's Submit closes the engineer's part. */}
+      <PartSubmit
+        quoteNumber={quote.quoteNumber}
+        canSubmit={eng.leadReview.canSubmit}
+        missing={eng.leadReview.submitMissing}
+        blockedReason={eng.leadReview.submitBlockedReason ?? null}
+        label="Submit to engineering lead"
+        submit={() => api.submitEngReviewToLead(quote.quoteNumber)}
+        onDone={(detail) => refresh(detail)}
+        testId="eng-submit"
+        neededTestId="lead-review-needed"
+      />
       <CapacityCard
         key={`${itemKey}:${itemQuote.engineering.capacityEvidence.map((r) => r.id).join()}`}
         quote={itemQuote}
@@ -174,7 +204,21 @@ export function EngineeringTab({
           quote={quote}
         />
       )}
+      {/* FB-22 (N17-14): the production scheduler's Submit closes the capacity part. */}
+      <PartSubmit
+        quoteNumber={quote.quoteNumber}
+        canSubmit={eng.leadReview.canSubmitCapacity ?? false}
+        missing={eng.leadReview.capacitySubmitMissing}
+        blockedReason={null}
+        label="Submit capacity to engineering lead"
+        submit={() => api.submitCapacityToLead(quote.quoteNumber)}
+        onDone={(detail) => refresh(detail)}
+        testId="capacity-submit"
+        neededTestId="capacity-submit-needed"
+      />
       <LeadReviewActions
+        hideSubmit
+        selfReview={selfReview}
         kind="engineering"
         quoteNumber={quote.quoteNumber}
         review={eng.leadReview}
@@ -620,6 +664,7 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
                 label: eng.processPairLegacy ? 'Process (as saved)' : 'Process',
                 value: shown('process_type', review.processType, eng.selectedLabels.processType),
               },
+              { id: 'platform', label: 'Machine platform', value: review.machinePlatform },
               { label: 'Cavitation', value: review.cavitation?.toString() },
               { label: 'Cycle time (s)', value: review.cycleTimeS?.toString() },
               {
@@ -630,9 +675,7 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
                   `$${review.prelimCapitalUsd.toLocaleString('en-US')}`
                 ) : null,
               },
-              { id: 'tooling', label: 'Tooling (mold / hot runner)', value: review.toolingNotes },
-              { id: 'concept', label: 'Technical concept', value: review.technicalConceptNotes },
-              { id: 'supply-chain', label: 'Supply Chain', value: review.supplyChainNotes },
+              { id: 'tooling', label: 'Tooling notes', value: review.toolingNotes },
             ]}
           />
         </CardContent>
@@ -706,6 +749,21 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
                   : 'Follows the process & machine type. Not picked separately.'}
               </span>
             </div>
+            {/* FB-22 (N17-13, provisional): free text, not a list (platforms differ by plant; machines move). */}
+            <Field
+              label="Machine platform"
+              hint="The machine you are quoting on, for example its model or line"
+              error={errorFor(errors, 'machinePlatform')}
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  maxLength={80}
+                  value={form.machinePlatform}
+                  onChange={(e) => set('machinePlatform')(e.target.value)}
+                />
+              )}
+            </Field>
             <Field
               label={req('Cavitation', 'cavitation')}
               hint="A whole number, 1 to 99"
@@ -759,34 +817,17 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
               )}
             </Field>
           </div>
-          <Field label="Tooling notes (mold, hot runner)" error={errorFor(errors, 'toolingNotes')}>
+          {/* FB-22 (N17-13): the hot runner is asked here, not in a field of its own. */}
+          <Field
+            label="Tooling notes"
+            hint="Say whether the mold has a hot runner, and anything else about the tooling."
+            error={errorFor(errors, 'toolingNotes')}
+          >
             {(id) => (
               <Textarea
                 id={id}
                 value={form.toolingNotes}
                 onChange={(e) => set('toolingNotes')(e.target.value)}
-              />
-            )}
-          </Field>
-          <Field label="Technical concept" error={errorFor(errors, 'technicalConceptNotes')}>
-            {(id) => (
-              <Textarea
-                id={id}
-                value={form.technicalConceptNotes}
-                onChange={(e) => set('technicalConceptNotes')(e.target.value)}
-              />
-            )}
-          </Field>
-          <Field
-            label="Supply Chain"
-            hint="What Supply Chain says about the chosen plant: network, resin and freight"
-            error={errorFor(errors, 'supplyChainNotes')}
-          >
-            {(id) => (
-              <Textarea
-                id={id}
-                value={form.supplyChainNotes}
-                onChange={(e) => set('supplyChainNotes')(e.target.value)}
               />
             )}
           </Field>
@@ -817,10 +858,9 @@ function solutionForm(review: EngineeringDetail['review']): Record<SolutionKey, 
     plantCode: review.plantCode ?? '',
     cavitation: review.cavitation?.toString() ?? '',
     cycleTimeS: review.cycleTimeS?.toString() ?? '',
+    machinePlatform: review.machinePlatform ?? '',
     toolingNotes: review.toolingNotes ?? '',
     prelimCapitalUsd: review.prelimCapitalUsd?.toString() ?? '',
-    technicalConceptNotes: review.technicalConceptNotes ?? '',
-    supplyChainNotes: review.supplyChainNotes ?? '',
   };
 }
 

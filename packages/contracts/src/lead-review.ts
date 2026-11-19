@@ -4,6 +4,17 @@ import { z } from 'zod';
 // moves the quote on (G2 / G3) or sends it back with a note. No imports from quotes.ts here: the
 // Engineering and Quoting tabs embed this.
 
+/** FB-22 (N17-14): one part of an engineering review. */
+export const EngPartView = z.object({
+  ownerName: z.string().nullable(),
+  submittedAt: z.string().nullable(),
+  submittedByName: z.string().nullable(),
+  /** D2: the owner is an engineering lead, so their part needs no submit. */
+  ownerIsLead: z.boolean(),
+  in: z.boolean(),
+});
+export type EngPartView = z.infer<typeof EngPartView>;
+
 /** The current round on a tab. `status`: waiting on the lead, sent back, or neither. */
 export const LeadReviewView = z.object({
   status: z.enum(['none', 'submitted', 'returned']),
@@ -42,6 +53,24 @@ export const LeadReviewView = z.object({
    * mark them "(required)". Present on the quote detail only.
    */
   requiredFields: z.array(z.string()).optional(),
+  /**
+   * FB-22 (N17-14): Engineering only. The two parts and where each stands: the engineer's (solution, BOM,
+   * pricing inputs) and, when one is assigned, the production scheduler's (the capacity rows). A part is
+   * `in` when submitted, or (D2) when its owner is an engineering lead and needs no submit.
+   */
+  parts: z
+    .object({
+      engineer: EngPartView,
+      scheduler: EngPartView.nullable(),
+    })
+    .optional(),
+  /** FB-22: the caller is the production scheduler assigned to the quote and may submit capacity now. */
+  canSubmitCapacity: z.boolean().optional(),
+  /**
+   * FB-22: what the capacity part still needs before the scheduler can submit it (empty = ready). Present
+   * on the quote detail only, for the scheduler who may submit.
+   */
+  capacitySubmitMissing: z.array(z.object({ field: z.string(), message: z.string() })).optional(),
 });
 export type LeadReviewView = z.infer<typeof LeadReviewView>;
 

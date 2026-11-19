@@ -28,7 +28,13 @@ const scheduler = alias(appUser, 'scheduler');
  * row), the assigned engineer's name, acceptance and the SF close date. RLS applies: an owner-scoped
  * Engineer sees only their assignments.
  */
-export function listEngQueueRows(db: DbOrTx, stageKey: string) {
+export function listEngQueueRows(
+  db: DbOrTx,
+  stageKey: string,
+  /** FB-22: the roles that lead the stage, so a row says whether its engineer is a lead (D2). */
+  leadRoles: readonly string[] = [],
+) {
+  const leads = leadRoles.length > 0 ? [...leadRoles] : ['__none__'];
   return (
     db
       .select({
@@ -46,6 +52,19 @@ export function listEngQueueRows(db: DbOrTx, stageKey: string) {
         assignedSchedulerName: scheduler.displayName,
         // FB-19: the item count and item 1's label ("16 oz bottle + 2 more").
         ...itemSummaryColumns(),
+        // FB-22 (N17-16): "New" for the scheduler until a capacity row is saved (RLS applies).
+        capacityRowCount: sql<number>`(
+        select count(*) from ${capacityEvidence} ce where ce.quote_id = ${quote.id}
+      )`.mapWith(Number),
+        // FB-22 (D2): the assigned engineer is a lead, so their own part needs no submit.
+        assignedEngineerIsLead: sql<boolean>`exists (
+        select 1 from ${userRole} ur
+        where ur.user_id = ${quote.assignedEngineerId}
+          and ur.role in (${sql.join(
+            leads.map((r) => sql`${r}`),
+            sql`, `,
+          )})
+      )`.mapWith(Boolean),
         enteredQueueAt: sql<Date | null>`(
         select max(sh.entered_at) from ${stageHistory} sh
         where sh.quote_id = ${quote.id} and sh.stage_key = ${stageKey} and sh.exited_at is null

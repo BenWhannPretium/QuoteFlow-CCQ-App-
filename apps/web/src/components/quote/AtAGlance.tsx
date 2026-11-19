@@ -221,6 +221,7 @@ export function EngineeringGlance({ quote }: { quote: QuoteDetail }) {
           .filter(Boolean)
           .join(' · '),
       },
+      { id: 'platform', label: 'Machine platform', value: r.machinePlatform },
       { id: 'cavitation', label: 'Cavitation', value: r.cavitation },
       {
         id: 'cycle',

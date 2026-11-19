@@ -657,6 +657,8 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
         items={withValues([
           { label: 'Process', value: label('process_type', r.processType) },
           { label: 'Machine', value: label('machine_type', r.machineType) },
+          // FB-22 (N17-16): the machine the quote is on (its model or line); left out when empty.
+          { label: 'Machine platform', value: r.machinePlatform },
           { label: 'Plant / site', value: label('plant', r.plantCode) },
           { label: 'Cavitation', value: r.cavitation },
           { label: 'Cycle time', value: r.cycleTimeS != null ? `${r.cycleTimeS} s` : null },

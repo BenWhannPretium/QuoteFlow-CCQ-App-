@@ -1097,7 +1097,8 @@ test('"Save your changes first." and "saved" are announced without moving focus'
   await signInAs(page, 'engineer');
   await page.goto(`/quotes/${q.eng}?tab=engineering`);
   const tab = page.getByTestId('engineering-tab');
-  const actions = tab.getByTestId('lead-review-actions');
+  // FB-22 (N17-14): the engineer's Submit sits at the end of the engineer's part.
+  const actions = tab.getByTestId('eng-submit');
   const submit = actions.getByRole('button', { name: 'Submit to engineering lead' });
   await expect(submit).toBeEnabled();
   // The live region is on the page, empty, before there is anything to say.
@@ -1105,7 +1106,7 @@ test('"Save your changes first." and "saved" are announced without moving focus'
   await expect(status).toHaveCount(1);
   await expect(status).toBeEmpty();
 
-  const concept = tab.getByTestId('solution-form').getByLabel('Technical concept');
+  const concept = tab.getByTestId('solution-form').getByLabel('Machine platform');
   await concept.focus();
   await page.keyboard.type('Two-cavity shuttle');
   await expect(status).toHaveText('Save your changes first.');

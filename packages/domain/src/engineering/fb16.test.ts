@@ -612,14 +612,23 @@ describe('W13-15: the Production Scheduler as a second assignee', () => {
     expect(canEditCapacity(me, { ...mine, status: 'closed' }, config)).toBe(false);
   });
 
-  it('while the engineer’s work is with the lead the rows are locked for everyone but the lead', () => {
+  // FB-22 (N17-14): the scheduler's part is submitted on its own, so the engineer's submission no longer
+  // locks the scheduler's rows (it locks them for the engineer); the scheduler's own submission does.
+  it('while the engineer’s work is with the lead the rows are locked for the engineer, not the scheduler', () => {
     const submitted = makeQuote('ENG_REVIEW', {
       assignedEngineerId: ENGINEER_ID,
       assignedSchedulerId: SCHEDULER_ID,
       engSubmittedAt: new Date('2026-11-14T15:00:00Z'),
     });
     const me = makeActor('ProductionScheduler', { userId: SCHEDULER_ID });
-    expect(canEditCapacity(me, submitted, config)).toBe(false);
+    expect(canEditCapacity(me, submitted, config)).toBe(true);
+    expect(
+      canEditCapacity(
+        me,
+        { ...submitted, capacitySubmittedAt: new Date('2026-11-14T16:00:00Z') },
+        config,
+      ),
+    ).toBe(false);
     expect(canEditCapacity(makeActor('Engineer', { userId: ENGINEER_ID }), submitted, config)).toBe(
       false,
     );

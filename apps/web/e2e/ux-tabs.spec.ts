@@ -145,13 +145,13 @@ test('UX-001: typed engineering values survive a look at another tab, and Submit
 
   // ── Type, do not save: Submit waits and says why ──
   const concept = 'Two-cavity shuttle with an in-mold label';
-  await solution.getByLabel('Technical concept').fill(concept);
+  await solution.getByLabel('Machine platform').fill(concept);
   await expect(submit).toBeDisabled();
   await expect(tab.getByTestId('save-first')).toHaveText('Save your changes first.');
   await expect(submit).toHaveAccessibleDescription('Save your changes first.');
   expect(await asksBeforeUnload(page)).toBe(true);
   if (auditScreens) {
-    await tab.getByTestId('lead-review-actions').scrollIntoViewIfNeeded();
+    await tab.getByTestId('eng-submit').scrollIntoViewIfNeeded();
     await page.screenshot({ path: screenshotPath('UX-001') });
   }
 
@@ -164,7 +164,7 @@ test('UX-001: typed engineering values survive a look at another tab, and Submit
   await expect(tab).toBeHidden();
   await expect(panelOf(page, 'engineering-tab')).toHaveAttribute('hidden', '');
   // Hidden means out of the tab order and out of the accessibility tree: no field of it can be reached.
-  await expect(page.getByRole('textbox', { name: 'Technical concept' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Machine platform' })).toHaveCount(0);
   expect(await seriousViolations(page)).toEqual([]);
   // A download is not "leaving": no question, and the file arrives.
   const [download] = await Promise.all([
@@ -176,7 +176,7 @@ test('UX-001: typed engineering values survive a look at another tab, and Submit
 
   // ── Back on Engineering: what was typed is still there ──
   await page.getByRole('tab', { name: 'Engineering' }).click();
-  await expect(solution.getByLabel('Technical concept')).toHaveValue(concept);
+  await expect(solution.getByLabel('Machine platform')).toHaveValue(concept);
   await expect(submit).toBeDisabled();
 
   // ── Leaving the quote asks first; "stay" keeps the page and the typed value ──
@@ -184,7 +184,7 @@ test('UX-001: typed engineering values survive a look at another tab, and Submit
   await nav.locator('[data-nav="pipeline"]').click();
   await expect.poll(() => asked).toEqual([{ type: 'confirm', message: LEAVE_QUESTION }]);
   await expect(page).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=engineering`));
-  await expect(solution.getByLabel('Technical concept')).toHaveValue(concept);
+  await expect(solution.getByLabel('Machine platform')).toHaveValue(concept);
 
   // ── Save: Submit is offered again and nothing asks any more ──
   await solution.getByRole('button', { name: 'Save solution' }).click();
@@ -270,7 +270,7 @@ test('UX-001: a save by someone else is not your unsaved change, and your save d
 
   // Meanwhile the lead, who may also edit, saves another field.
   const leadsConcept = 'Lead: shuttle with an in-mold label';
-  await call('put', 'eng-review', 'eng-lead', { technicalConceptNotes: leadsConcept });
+  await call('put', 'eng-review', 'eng-lead', { machinePlatform: leadsConcept });
 
   // The page reads the quote again (here: the first drawing arrives).
   await page.getByRole('tab', { name: 'Attachments' }).click();
@@ -283,7 +283,7 @@ test('UX-001: a save by someone else is not your unsaved change, and your save d
   await page.getByRole('tab', { name: 'Engineering' }).click();
 
   // The untouched field shows the lead's value; the typed field is still the engineer's.
-  await expect(solution.getByLabel('Technical concept')).toHaveValue(leadsConcept);
+  await expect(solution.getByLabel('Machine platform')).toHaveValue(leadsConcept);
   await expect(solution.getByLabel(/^Cavitation/)).toHaveValue('12');
 
   // Saving sends only what the engineer typed: the lead's value is still there afterwards.
@@ -294,9 +294,9 @@ test('UX-001: a save by someone else is not your unsaved change, and your save d
   expect(await asksBeforeUnload(page)).toBe(false);
   const stored = (await (
     await request.get(`/api/v1/quotes/${quoteNumber}`, { headers: as('engineer') })
-  ).json()) as { engineering: { review: { technicalConceptNotes: string; cavitation: number } } };
+  ).json()) as { engineering: { review: { machinePlatform: string; cavitation: number } } };
   expect(stored.engineering.review).toMatchObject({
-    technicalConceptNotes: leadsConcept,
+    machinePlatform: leadsConcept,
     cavitation: 12,
   });
 
@@ -373,7 +373,7 @@ test('UX-001: a decision waits for the save, and a failed refresh keeps what is 
 
   // ── Type, do not save: both decision buttons wait, and say why ──
   const concept = 'Single-stage with a hot runner';
-  await solution.getByLabel('Technical concept').fill(concept);
+  await solution.getByLabel('Machine platform').fill(concept);
   await expect(decide).toBeDisabled();
   await expect(decide).toHaveAccessibleDescription('Save your changes first.');
   await expect(headerDecide).toBeDisabled();
@@ -402,13 +402,13 @@ test('UX-001: a decision waits for the save, and a failed refresh keeps what is 
   await expect(stale).toContainText('This quote could not be refreshed', { timeout: 20_000 });
   await expect(page.getByTestId('quote-not-found')).toHaveCount(0);
   await page.getByRole('tab', { name: 'Engineering' }).click();
-  await expect(solution.getByLabel('Technical concept')).toHaveValue(concept);
+  await expect(solution.getByLabel('Machine platform')).toHaveValue(concept);
 
   // ── The server is back: the line goes, the typed value stays ──
   failing = false;
   await stale.getByRole('button', { name: 'Try again' }).click();
   await expect(stale).toHaveCount(0);
-  await expect(solution.getByLabel('Technical concept')).toHaveValue(concept);
+  await expect(solution.getByLabel('Machine platform')).toHaveValue(concept);
 
   // ── Save: the decision is offered again ──
   await solution.getByRole('button', { name: 'Save solution' }).click();

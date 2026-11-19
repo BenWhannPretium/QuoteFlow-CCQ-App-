@@ -27,8 +27,12 @@ export function quoteNextStep(
   quote: NextStepSource,
 ): QuoteNextStep {
   const { engineering, quoting } = quote;
+  // FB-22: in Engineering "submitted" means every part is in; when the engineer is a lead (D2) only the
+  // production scheduler's part was submitted.
   const submittedAt = (review: QuoteDetail['engineering']['leadReview']) =>
-    review.status === 'submitted' ? review.submittedAt : null;
+    review.status === 'submitted'
+      ? (review.submittedAt ?? review.parts?.scheduler?.submittedAt ?? null)
+      : null;
   return nextStep(workflow, {
     stageKey: quote.stageKey,
     status: quote.status === 'closed' || quote.status === 'on_hold' ? quote.status : 'active',

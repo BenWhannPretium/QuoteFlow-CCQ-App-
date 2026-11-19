@@ -63,12 +63,20 @@ export function LeadReviewStatus({
       {review.status === 'submitted' && (
         <p className="flex items-start gap-2" data-testid="lead-review-submitted">
           <LockIcon className="text-emphasis mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <span>
-            <span className="font-semibold">Submitted to the {noun.lead}</span>
-            {review.submittedAt ? ` on ${absoluteTime(review.submittedAt)}` : ''}
-            {review.submittedByName ? ` by ${review.submittedByName}` : ''}. Waiting on their
-            review. The {noun.assignee} cannot edit until it is sent back.
-          </span>
+          {review.parts ? (
+            // FB-22 (N17-14): every part is in; `EngPartsStatus` says who submitted what.
+            <span>
+              <span className="font-semibold">Every part is with the {noun.lead}.</span> Waiting on
+              their review. Each part is read-only for its owner until it is sent back.
+            </span>
+          ) : (
+            <span>
+              <span className="font-semibold">Submitted to the {noun.lead}</span>
+              {review.submittedAt ? ` on ${absoluteTime(review.submittedAt)}` : ''}
+              {review.submittedByName ? ` by ${review.submittedByName}` : ''}. Waiting on their
+              review. The {noun.assignee} cannot edit until it is sent back.
+            </span>
+          )}
         </p>
       )}
       {review.status === 'returned' && (
@@ -99,8 +107,17 @@ export function LeadReviewActions<T>({
   sendBack,
   onDone,
   decide,
+  hideSubmit = false,
+  selfReview = false,
 }: {
   kind: LeadReviewKind;
+  /**
+   * FB-22 (N17-14): Engineering shows each person's Submit at the end of their own section
+   * (`PartSubmit`), so this section keeps only the lead's decision and send-back.
+   */
+  hideSubmit?: boolean;
+  /** FB-22 (D2): the viewer is the lead and the assignee: their own part needs no submit. */
+  selfReview?: boolean;
   /** UX-001: the quote, to know whether one of its cards still has unsaved changes. */
   quoteNumber: string;
   review: LeadReviewView;
@@ -150,25 +167,36 @@ export function LeadReviewActions<T>({
   });
 
   // Submit appears once the server says nothing is missing (unknown right after a save: held back).
-  const submitReady = review.canSubmit && review.submitMissing?.length === 0;
-  if (!review.canSubmit && !review.canSendBack && !review.submitBlockedReason && !decide) {
+  const submitReady = !hideSubmit && review.canSubmit && review.submitMissing?.length === 0;
+  const canSubmit = !hideSubmit && review.canSubmit;
+  const blockedReason = hideSubmit ? null : review.submitBlockedReason;
+  if (!canSubmit && !review.canSendBack && !blockedReason && !decide) {
     return null;
   }
   return (
     <section
-      aria-label="Next step"
-      className="bg-card rounded-card grid gap-3 border p-4 text-sm"
+      // FB-22 (N17-11): "Go to the decision" and `?tab=engineering#decision` land here.
+      id={decide ? 'decision' : undefined}
+      tabIndex={decide ? -1 : undefined}
+      aria-label={decide ? 'Your decision' : 'Next step'}
+      className="bg-card rounded-card grid scroll-mt-20 gap-3 border p-4 text-sm"
       data-testid="lead-review-actions"
     >
       <h2 className="text-base font-semibold">
         {decide ? 'Your decision' : 'When you are finished'}
       </h2>
-      {review.canSubmit && submitReady && (
+      {selfReview && decide && (
+        <p className="text-muted-foreground" data-testid="lead-self-review">
+          You are the {noun.assignee} and the {noun.lead} on this quote, so there is nothing to
+          submit: decide when the work is done.
+        </p>
+      )}
+      {canSubmit && submitReady && (
         <p className="text-muted-foreground">
           Everything needed is filled in. Submit it and the {noun.lead} reviews it and decides.
         </p>
       )}
-      {review.canSubmit && review.submitMissing && review.submitMissing.length > 0 && (
+      {canSubmit && review.submitMissing && review.submitMissing.length > 0 && (
         <StillNeeded
           intro={`Fill these in and save. Then you can submit to the ${noun.lead}:`}
           items={review.submitMissing}
@@ -182,9 +210,9 @@ export function LeadReviewActions<T>({
           testId="decide-needed"
         />
       )}
-      {review.submitBlockedReason && (
+      {blockedReason && (
         <p className="text-muted-foreground" data-testid="lead-review-blocked">
-          {review.submitBlockedReason}
+          {blockedReason}
         </p>
       )}
       {missing.length > 0 && (
@@ -340,7 +368,7 @@ function SendBackDialog<T>({
             {!choice
               ? `They can edit the ${noun.work} again and resubmit it to you.`
               : to === 'scheduler'
-                ? 'The production scheduler reworks the capacity part. The engineer submits it to you again. Only the person you choose is notified.'
+                ? 'The production scheduler reworks the capacity part and submits it to you again. The engineer’s part stays with you. Only the person you choose is notified.'
                 : 'The engineer can edit the solution again and resubmit it to you. Only the person you choose is notified.'}
           </DialogDescription>
         </DialogHeader>
@@ -411,4 +439,193 @@ function SendBackDialog<T>({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * FB-22 (N17-14): one person's Submit, at the end of their own section of the Engineering tab: the
+ * engineer's part ("Submit to engineering lead") or the production scheduler's ("Submit capacity to
+ * engineering lead"). It shows only for the person who may submit now; until the server says nothing is
+ * missing, the "Still needed" list says what to fill in.
+ */
+export function PartSubmit<T>({
+  quoteNumber,
+  canSubmit,
+  missing,
+  label,
+  submit,
+  onDone,
+  testId,
+  neededTestId,
+  blockedReason,
+}: {
+  quoteNumber: string;
+  canSubmit: boolean;
+  /** DR-pricing-finance-10: why a team member sees no Submit (shown instead of the button). */
+  blockedReason: string | null;
+  neededTestId: string;
+  /** What the part still needs (empty = ready; undefined = unknown right after a save). */
+  missing: readonly { field: string; message: string }[] | undefined;
+  label: string;
+  submit: () => Promise<T>;
+  onDone: (result: T) => Promise<unknown>;
+  testId: string;
+}) {
+  const [errors, setErrors] = useState<ServerError[]>([]);
+  const inFlight = useRef(false);
+  const unsaved = useHasUnsavedChanges(quoteNumber);
+  const saveFirstId = useId();
+  const submitting = useMutation({
+    mutationFn: submit,
+    onSuccess: async (result) => {
+      setErrors([]);
+      await onDone(result);
+      toast.success({
+        title: 'Submitted to the engineering lead',
+        description:
+          'They are told once every part is in. You can edit again if they send it back.',
+      });
+    },
+    onError: (err) => setErrors(problemErrors(err)),
+  });
+  if (!canSubmit) {
+    return blockedReason ? (
+      <p className="text-muted-foreground text-sm" data-testid="lead-review-blocked">
+        {blockedReason}
+      </p>
+    ) : null;
+  }
+  const ready = missing?.length === 0;
+  return (
+    <section
+      aria-label={label}
+      className="bg-card rounded-card grid gap-3 border p-4 text-sm"
+      data-testid={testId}
+    >
+      {ready ? (
+        <p className="text-muted-foreground">
+          Everything needed is filled in. Submit it and the engineering lead reviews it.
+        </p>
+      ) : (
+        missing &&
+        missing.length > 0 && (
+          <StillNeeded
+            intro="Fill these in and save. Then you can submit to the engineering lead:"
+            items={missing}
+            testId={neededTestId}
+          />
+        )
+      )}
+      {errors.length > 0 && (
+        <div role="alert" className="text-destructive grid gap-1">
+          <p className="font-semibold">Fill these in before you submit:</p>
+          <ul className="list-disc pl-5">
+            {uniqueRequirements(
+              errors.map((m) => ({ ...m, field: m.path.replace(/^\//, '') })),
+            ).map((m) => (
+              <li key={`${m.path}-${m.message}`}>{MISSING_LABELS[m.field] ?? m.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {ready && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={() => {
+              if (inFlight.current) return;
+              inFlight.current = true;
+              submitting.mutate(undefined, {
+                onSettled: () => {
+                  inFlight.current = false;
+                },
+              });
+            }}
+            disabled={submitting.isPending || unsaved}
+            aria-describedby={unsaved ? saveFirstId : undefined}
+          >
+            <SendIcon aria-hidden="true" />
+            {submitting.isPending ? 'Submitting…' : label}
+          </Button>
+          <p role="status" className={unsaved ? 'text-muted-foreground' : 'sr-only'}>
+            {unsaved && (
+              <span id={saveFirstId} data-testid="save-first">
+                {SAVE_FIRST_TEXT}
+              </span>
+            )}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * FB-22 (N17-14): where each part of an engineering review stands, for everyone on the tab, so the lead
+ * sees which part is in and which is not. Shown once a part has an owner.
+ */
+export function EngPartsStatus({ review }: { review: LeadReviewView }) {
+  const parts = review.parts;
+  if (!parts || (!parts.engineer.ownerName && !parts.scheduler)) return null;
+  const line = (
+    name: string,
+    p: NonNullable<LeadReviewView['parts']>['engineer'],
+    testId: string,
+  ) => (
+    <li className="flex flex-wrap items-baseline gap-x-2" data-testid={testId} data-in={p.in}>
+      <span className="font-medium">{name}:</span>
+      <span className={p.in ? '' : 'text-muted-foreground'}>
+        {p.submittedAt
+          ? `Submitted${p.submittedByName ? ` by ${p.submittedByName}` : ''} on ${absoluteTime(p.submittedAt)}`
+          : p.ownerIsLead
+            ? `${p.ownerName ?? 'The engineer'} is an engineering lead: no submit needed`
+            : `Not submitted yet${p.ownerName ? ` (${p.ownerName})` : ''}`}
+      </span>
+    </li>
+  );
+  return (
+    <section
+      aria-label="Parts submitted to the engineering lead"
+      className="bg-card rounded-card grid gap-2 border p-4 text-sm"
+      data-testid="eng-parts"
+    >
+      <h2 className="text-base font-semibold">With the engineering lead</h2>
+      <ul className="grid gap-1">
+        {line('Engineer’s part', parts.engineer, 'eng-part-engineer')}
+        {parts.scheduler && line('Capacity', parts.scheduler, 'eng-part-scheduler')}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * FB-22 (N17-11): a link at the top of the tab to the lead's decision at the bottom (`#decision`). It
+ * scrolls there (smoothly unless the reader asked for reduced motion) and moves keyboard focus to it. It
+ * never scrolls by itself on load: the lead may want to read first.
+ */
+export function GoToDecision() {
+  return (
+    <p className="text-sm" data-testid="go-to-decision-line">
+      <a
+        href="#decision"
+        className="text-emphasis font-semibold underline underline-offset-4"
+        data-testid="go-to-decision"
+        onClick={(e) => {
+          e.preventDefault();
+          focusDecision();
+          window.history.replaceState(window.history.state, '', '#decision');
+        }}
+      >
+        Go to the decision
+      </a>
+    </p>
+  );
+}
+
+/** Scroll to the decision section and focus it (honours prefers-reduced-motion). */
+export function focusDecision(): boolean {
+  const target = document.getElementById('decision');
+  if (!target) return false;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  target.focus({ preventScroll: true });
+  return true;
 }

@@ -97,6 +97,14 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     email: 'immediate',
   },
   {
+    // FB-22 (N17-14, provisional): in-app only; the lead's own notice is quote.submitted_to_lead.
+    type: 'quote.part_submitted',
+    label: 'The other person on an engineering review submits their part',
+    description:
+      'Engineers and production schedulers: the person who owns the other part (solution or capacity) submitted it to the engineering lead.',
+    email: 'none',
+  },
+  {
     type: 'quote.returned_by_lead',
     label: 'Your lead sends your part back',
     description: 'Engineers and pricers: your lead asked for changes before moving the quote on.',

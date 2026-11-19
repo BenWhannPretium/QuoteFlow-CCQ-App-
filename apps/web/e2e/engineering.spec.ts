@@ -160,7 +160,9 @@ test('EngLead assigns → Engineer completes the review with capacity evidence �
   // FB-06 (F-058): the two free-text equipment fields are gone; the BOM is an upload (below).
   await expect(solution.getByLabel('Downstream equipment')).toHaveCount(0);
   await expect(solution.getByLabel('Equipment BOM')).toHaveCount(0);
-  await solution.getByLabel('Supply Chain').fill('Resin from the Midwest hub; freight OK');
+  // FB-22 (N17-12, N17-13): Technical concept and Supply chain are gone; the hot runner goes in the tooling notes.
+  await expect(solution.getByLabel('Supply Chain')).toHaveCount(0);
+  await solution.getByLabel('Tooling notes').fill('Hot runner: yes, 8-drop');
   await solution.getByRole('button', { name: 'Save solution' }).click();
   await expect(eng.getByText('Solution saved')).toBeVisible();
   // FB-16 (W13-15): each card says whose part it is (no scheduler is assigned on this quote).
@@ -410,13 +412,14 @@ test('the engineer submits to the engineering lead, who sends it back with a not
   // ── The engineer submits ──
   const eng = await open('engineer');
   await eng.goto(`/quotes/${quoteNumber}?tab=engineering`);
-  // The submit button is the last thing on the tab, after the work.
+  // FB-22 (N17-14): the engineer's submit closes the engineer's part.
   await eng
-    .getByTestId('lead-review-actions')
+    .getByTestId('eng-submit')
     .getByRole('button', { name: 'Submit to engineering lead' })
     .click();
+  // No production scheduler on this quote: the engineer's part is the whole review.
   await expect(eng.getByTestId('lead-review-submitted')).toContainText(
-    'Submitted to the engineering lead',
+    'Every part is with the engineering lead',
   );
   await expect(eng.getByTestId('solution-form')).toHaveCount(0); // locked for the engineer
 
@@ -442,9 +445,7 @@ test('the engineer submits to the engineering lead, who sends it back with a not
   );
   await expect(eng.getByTestId('solution-form')).toBeVisible();
   await expect(
-    eng
-      .getByTestId('lead-review-actions')
-      .getByRole('button', { name: 'Submit to engineering lead' }),
+    eng.getByTestId('eng-submit').getByRole('button', { name: 'Submit to engineering lead' }),
   ).toBeVisible();
   expect(await seriousViolations(eng)).toEqual([]);
 });

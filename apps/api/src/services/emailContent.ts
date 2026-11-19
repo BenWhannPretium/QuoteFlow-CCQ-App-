@@ -41,6 +41,8 @@ const ENGINEERING_TYPES = new Set([
   'quote.capacity_assigned',
   'quote.capacity_ready',
   'quote.capacity_blocked',
+  // FB-22 (N17-14): the other part of an engineering review was submitted.
+  'quote.part_submitted',
 ]);
 
 const stringsOnly = (value: unknown): Record<string, string> =>

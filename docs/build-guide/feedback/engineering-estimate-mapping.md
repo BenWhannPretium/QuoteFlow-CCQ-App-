@@ -84,7 +84,7 @@ fields.
 | Workbook tab / cell | What it holds | QuoteFlow field | Decision |
 |---|---|---|---|
 | Charter B1, E1 and S1 (title, prepared by, date) | Project name, author, date | Quote number, opportunity name, audit trail | **Excluded**: already on the quote |
-| Charter B5; Scope Doc A, B, C, D | Objectives, scope in and out, assumptions, risks | `technicalConceptNotes` | **Covered** as free text |
+| Charter B5; Scope Doc A, B, C, D | Objectives, scope in and out, assumptions, risks | `toolingNotes` when it concerns the tooling; otherwise not captured | **FB-22 (N17-12):** Technical concept is no longer asked, so a short scope or assumption goes in the tooling notes and the rest stays in the workbook (question to Bailey and Jim: where should it go?). Old `technicalConceptNotes` values stay readable under "Legacy notes" |
 | Charter E5 and G5 (project manager) | The engineer running it | Assigned engineer (F-062) | **Covered** |
 | Charter E6 (key team members) | Post-award team | None | **Excluded**: post-award |
 | Charter N5 and Q5 (total budget) | Equals Total Item Cost (AQ) in the example reviewed | None | **Not mapped**: the same figure as AQ (point 1) |
