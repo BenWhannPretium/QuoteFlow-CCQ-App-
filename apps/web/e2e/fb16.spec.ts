@@ -80,11 +80,16 @@ test('the scheduler works capacity, blocks it, and the work goes straight back t
   const mine = sched.getByTestId('my-assignment').filter({ hasText: quoteNumber });
   await expect(mine).toContainText('Capacity not signed off yet');
   await mine.getByRole('link', { name: quoteNumber }).click();
-  const tab = sched.getByTestId('engineering-tab');
-  // The solution is the engineer's part: read-only here. Capacity is "Your part".
-  await expect(tab.getByTestId('solution-form')).toHaveCount(0);
-  await expect(tab.getByTestId('part-engineer')).toHaveText('Engineer’s part');
+  // FB-30 (N19-28): a capacity request opens the Capacity tab. Capacity is "Your part".
+  await expect(sched).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=capacity`));
+  const tab = sched.getByTestId('capacity-tab');
   await expect(tab.getByTestId('part-scheduler').first()).toHaveText('Your part');
+  // The solution is the engineer's part: read-only, on the Engineering tab.
+  await sched.getByRole('tab', { name: 'Engineering', exact: true }).click();
+  const engTab = sched.getByTestId('engineering-tab');
+  await expect(engTab.getByTestId('solution-form')).toHaveCount(0);
+  await expect(engTab.getByTestId('part-engineer')).toHaveText('Engineer’s part');
+  await sched.getByRole('tab', { name: 'Capacity', exact: true }).click();
 
   const capacity = tab.getByTestId('capacity-form');
   await capacity.getByRole('button', { name: 'Add capacity row' }).click();
@@ -113,7 +118,9 @@ test('the scheduler works capacity, blocks it, and the work goes straight back t
     'Capacity blocked: Line 4 is full until March.',
   );
   await expect(eng.getByTestId('solution-form')).toBeVisible();
-  // The engineer does not sign capacity off: no buttons on the card.
+  // The engineer does not sign capacity off: no buttons on the card (FB-30: on the Capacity tab).
+  await eng.getByRole('tab', { name: 'Capacity', exact: true }).click();
+  await expect(eng.getByTestId('capacity-signoff')).toBeVisible();
   await expect(
     eng.getByTestId('capacity-signoff').getByRole('button', { name: 'Approve capacity' }),
   ).toHaveCount(0);
@@ -215,6 +222,6 @@ test('the lead sends work back to the scheduler, then approves capacity inside "
   await g2.getByRole('button', { name: 'Record decision' }).click();
   await expect(g2).toHaveCount(0);
   await expect(lead.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'QUOTING');
-  await lead.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  await lead.goto(`/quotes/${quoteNumber}?tab=capacity`);
   await expect(lead.getByTestId('capacity-signoff-status')).toContainText('Capacity approved');
 });

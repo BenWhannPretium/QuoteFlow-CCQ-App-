@@ -488,6 +488,18 @@ const STOPS: Stop[] = [
   quotePage('Quote Engineering tab, read only (KAM)', 'kam', 'eng', 'engineering', {
     lightOnly: true,
   }),
+  // FB-30 (N19-28): the capacity part, on its own tab.
+  quotePage('Quote Capacity tab (engineer)', 'engineer', 'eng', 'capacity', {
+    ready: async (page) => {
+      await expect(page.getByTestId('capacity-tab')).toBeVisible();
+    },
+  }),
+  quotePage('Quote Capacity tab, read only (KAM)', 'kam', 'eng', 'capacity', {
+    ready: async (page) => {
+      await expect(page.getByTestId('capacity-recommendation')).toBeVisible();
+    },
+    lightOnly: true,
+  }),
   quotePage('Quote Quoting tab (pricing)', 'pricing', 'quoting', 'quoting'),
   quotePage('Quote Quoting tab (pricing lead)', 'pricing-lead', 'quoting', 'quoting', {
     lightOnly: true,
@@ -844,14 +856,19 @@ test('a hidden tab panel is out of the tab order, and a hidden file input shows 
   const q = await quotes(request);
   await page.setViewportSize({ width: 1366, height: 850 });
   await signInAs(page, 'engineer');
-  await page.goto(`/quotes/${q.eng}?tab=engineering`);
+  // FB-30 (N19-28): the capacity upload is on the Capacity tab. It is reached through its button; the
+  // hidden input behind it is not a stop.
+  await page.goto(`/quotes/${q.eng}?tab=capacity`);
+  const capacity = page.getByTestId('capacity-tab');
+  await expect(capacity.getByTestId('capacity-attach-input')).toHaveAttribute('tabindex', '-1');
+  await page.getByRole('tab', { name: 'Engineering', exact: true }).click();
   const engineering = page.getByTestId('engineering-tab');
   await expect(engineering).toBeVisible();
-  // The capacity upload is reached through its button; the hidden input behind it is not a stop.
-  await expect(engineering.getByTestId('capacity-attach-input')).toHaveAttribute('tabindex', '-1');
 
-  // Attachments by keyboard: the Engineering tab stays mounted (UX-001), hidden.
-  await page.getByRole('tab', { name: 'Engineering' }).focus();
+  // Attachments by keyboard: the Engineering and Capacity tabs stay mounted (UX-001), hidden.
+  await page.getByRole('tab', { name: 'Engineering', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Capacity', exact: true })).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Quoting' })).toBeFocused();
   // FB-25 (N18-18): Commercial terms sits between Quoting and Attachments.
@@ -861,6 +878,7 @@ test('a hidden tab panel is out of the tab order, and a hidden file input shows 
   await expect(page.getByRole('tab', { name: 'Attachments' })).toBeFocused();
   await expect(page.getByTestId('drop-zone')).toBeVisible();
   await expect(engineering).toBeHidden();
+  await expect(capacity).toBeHidden();
   expect(await engineering.locator('input, select, textarea, button').count()).toBeGreaterThan(5);
 
   // Tab through the page once: every stop is visible, none is inside the hidden panel, and the hidden

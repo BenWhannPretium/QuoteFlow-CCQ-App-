@@ -186,8 +186,12 @@ test('the hand cursor, and the formats beside the engineering uploads', async ({
   );
   await expect(bom.getByTestId('upload-formats-equipment_bom')).toContainText('up to 100 MB');
   expect(await bom.getByTestId('upload-equipment_bom').getAttribute('accept')).toContain('.xlsx');
-  await expect(eng.getByTestId('upload-formats-capacity_analysis')).toContainText('up to 100 MB');
-  expect(await eng.getByTestId('capacity-attach-input').getAttribute('accept')).toContain('.pdf');
+  // FB-30 (N19-28): the capacity analysis upload is on the Capacity tab.
+  await page.getByRole('tab', { name: 'Capacity', exact: true }).click();
+  const cap = page.getByTestId('capacity-tab');
+  await expect(cap.getByTestId('upload-formats-capacity_analysis')).toContainText('up to 100 MB');
+  expect(await cap.getByTestId('capacity-attach-input').getAttribute('accept')).toContain('.pdf');
+  await page.getByRole('tab', { name: 'Engineering', exact: true }).click();
 
   // N18-16: enabled controls get the pointer, disabled ones "not allowed".
   const cursor = (loc: ReturnType<Page['locator']>) =>
@@ -197,7 +201,8 @@ test('the hand cursor, and the formats beside the engineering uploads', async ({
   );
   expect(await cursor(page.getByRole('tab', { name: 'Overview' }))).toBe('pointer');
   expect(await cursor(page.getByRole('tab', { name: 'Attachments' }))).toBe('pointer');
-  const csv = eng.getByTestId('capacity-csv'); // disabled until a row is saved
+  await page.getByRole('tab', { name: 'Capacity', exact: true }).click();
+  const csv = cap.getByTestId('capacity-csv'); // disabled until a row is saved
   await expect(csv).toBeDisabled();
   expect(await cursor(csv)).toBe('not-allowed');
 

@@ -139,9 +139,12 @@ test('UX-001: typed engineering values survive a look at another tab, and Submit
   // effectiveness fields keep their ordinary help.
   await expect(tab).not.toContainText('cannot see the saved figure');
   await expect(solution).toContainText('Saving it updates the quote’s priority score.');
-  await expect(tab.getByTestId('capacity-row')).toContainText(
+  // FB-30 (N19-28): the capacity rows are on the Capacity tab, with the same help.
+  await page.getByRole('tab', { name: 'Capacity', exact: true }).click();
+  await expect(page.getByTestId('capacity-tab').getByTestId('capacity-row')).toContainText(
     'Enter the effectiveness you are assuming.',
   );
+  await page.getByRole('tab', { name: 'Engineering', exact: true }).click();
 
   // ── Type, do not save: Submit waits and says why ──
   const concept = 'Two-cavity shuttle with an in-mold label';
@@ -464,12 +467,16 @@ test("UX-012: a quote in Engineering opens on the reader's own work, and ?tab= i
   await expect(selectedTab(eng)).toHaveText('Commercial terms');
   await expect(eng).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=commercial#commercial$`));
 
-  // ── The engineering lead and the production scheduler work it too ──
-  for (const persona of ['eng-lead', 'production-scheduler']) {
+  // ── The engineering lead works it too; FB-30 (N19-28): the production scheduler's work is capacity,
+  // so they open on the Capacity tab ──
+  for (const [persona, tab, label] of [
+    ['eng-lead', 'engineering', 'Engineering'],
+    ['production-scheduler', 'capacity', 'Capacity'],
+  ] as const) {
     const page = await openAs(browser, persona);
     await page.goto(bare);
-    await expect(selectedTab(page), persona).toHaveText('Engineering');
-    await expect(page, persona).toHaveURL(address('engineering'));
+    await expect(selectedTab(page), persona).toHaveText(label);
+    await expect(page, persona).toHaveURL(address(tab));
     await page.context().close();
   }
 

@@ -222,7 +222,9 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await pack.getByRole('button', { name: 'Save pack-out' }).click();
   await expect(pack.getByTestId('save-progress')).toHaveText('Progress saved');
 
-  const capacity = eng.getByTestId('capacity-form');
+  // FB-30 (N19-28): capacity is worked on its own tab.
+  await eng.getByRole('tab', { name: 'Capacity', exact: true }).click();
+  const capacity = eng.getByTestId('capacity-tab').getByTestId('capacity-form');
   await capacity.getByRole('button', { name: 'Add capacity row' }).click();
   const capRow = capacity.getByTestId('capacity-row');
   await capRow.getByLabel('Line / asset').fill('Line 4');
@@ -265,10 +267,13 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await lead.goto(`/quotes/${quoteNumber}?tab=engineering`);
   const leadTab = lead.getByTestId('engineering-tab');
   await expect(leadTab.getByLabel('Budgetary capital estimate (USD)')).toHaveValue('350000');
-  const signoff = leadTab.getByTestId('capacity-signoff');
+  // FB-30: the sign-off is on the Capacity tab; the decision stays on Engineering.
+  await lead.getByRole('tab', { name: 'Capacity', exact: true }).click();
+  const signoff = lead.getByTestId('capacity-tab').getByTestId('capacity-signoff');
   await expect(signoff.getByTestId('capacity-signoff-status')).toContainText('Not signed off yet');
   await signoff.getByRole('button', { name: 'Approve capacity' }).click();
   await expect(signoff.getByTestId('capacity-signoff-status')).toContainText('Capacity approved');
+  await lead.getByRole('tab', { name: 'Engineering', exact: true }).click();
   await leadTab.getByRole('button', { name: 'Decide feasibility' }).click();
   const g2 = lead.getByRole('dialog');
   await expect(g2.getByTestId('completeness')).toContainText('Nothing missing for this decision');
@@ -484,7 +489,8 @@ test('the engineer enters two lines, sees before and after, and downloads the CS
 
   const page = await (await browser.newContext({ acceptDownloads: true })).newPage();
   await signInAs(page, 'engineer');
-  await page.goto(`/quotes/${quoteNumber}?tab=engineering`);
+  // FB-30 (N19-28): the capacity rows are on the Capacity tab.
+  await page.goto(`/quotes/${quoteNumber}?tab=capacity`);
   const capacity = page.getByTestId('capacity-form');
   await expect(page.getByTestId('capacity-basis')).toContainText('A line runs 350 days a year');
 

@@ -236,6 +236,19 @@ test('a KAM builds a three-item quote; Engineering works each item; G2 waits for
   // The other items kept their own solutions.
   await switcher.getByTestId('item-tab').nth(0).click();
   await expect(eng.getByTestId('solution-form').getByLabel('Cavitation')).toHaveValue('8');
+  // FB-30 (N19-28): the Capacity tab has its own item switcher, kept in step with this one, and the
+  // sign-off (one per quote) above it.
+  await switcher.getByTestId('item-tab').nth(1).click();
+  await eng.getByRole('tab', { name: 'Capacity', exact: true }).click();
+  const capTab = eng.getByTestId('capacity-tab');
+  const capSwitcher = capTab.getByTestId('item-switcher');
+  await expect(capSwitcher.getByTestId('item-tab').nth(1)).toHaveAttribute('aria-current', 'true');
+  await expect(capTab.getByTestId('capacity-signoff')).toBeVisible();
+  await capSwitcher.getByTestId('item-tab').nth(0).click();
+  await eng.getByRole('tab', { name: 'Engineering', exact: true }).click();
+  await expect(
+    eng.getByTestId('engineering-tab').getByTestId('item-switcher').getByTestId('item-tab').nth(0),
+  ).toHaveAttribute('aria-current', 'true');
   for (const theme of ['light', 'dark'] as const) {
     await eng.emulateMedia({ colorScheme: theme });
     for (const size of [
