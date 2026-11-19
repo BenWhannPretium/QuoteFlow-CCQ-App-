@@ -9,7 +9,7 @@ import type { Tx } from '../src/client';
 import { uuidv7 } from '../src/ids';
 
 /**
- * FB-29 (0056): the Salesforce write-back outbox and its settings.
+ * FB-29 (0057): the Salesforce write-back outbox and its settings.
  *
  * - The six settings (provisional, switched off), only in a configured database, with the seed's values
  *   and words; an Admin's value is kept on a re-run; an empty database gets nothing (the seed inserts it).
@@ -20,7 +20,7 @@ import { uuidv7 } from '../src/ids';
  */
 const { db } = testDb();
 const MIGRATION = readFileSync(
-  new URL('../migrations/0056_fb29_salesforce_writeback.sql', import.meta.url),
+  new URL('../migrations/0057_fb29_salesforce_writeback.sql', import.meta.url),
   'utf8',
 );
 const statements = MIGRATION.slice(MIGRATION.indexOf('-- 2. The settings (provisional'))
@@ -51,7 +51,7 @@ const settings = (tx: Tx) =>
     )}) order by key`,
   );
 
-describe('0056: the write-back settings', () => {
+describe('0057: the write-back settings', () => {
   it('a configured database gets the six settings (provisional, off) as seeded; an Admin’s value is kept', async () => {
     await rolledBack(async (tx) => {
       await tx.execute(
@@ -90,7 +90,7 @@ describe('0056: the write-back settings', () => {
   });
 });
 
-describe('0056: sf_writeback_outbox', () => {
+describe('0057: sf_writeback_outbox', () => {
   let ownQuote = { id: '', opp: '' };
   let otherQuote = { id: '', opp: '' };
 
