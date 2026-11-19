@@ -730,3 +730,53 @@ describe('FB-20: an offer letter is generated, never uploaded', () => {
     expect(res.body).toContain('generated');
   });
 });
+
+describe('FB-23 (N18-03, N18-14, D5): the Molds row from Engineering, and the lead time', () => {
+  it('a customer-funded item with no workbook mold charge prints its customer tooling price', async () => {
+    const { qn, quoteId, items } = await inCustomerDecision({ n: 1, prices: [{ piece: 0.1 }] });
+    // Engineering's figures, entered before G2 (written directly: the section is locked now).
+    await db.db
+      .update(schema.engReview)
+      .set({ moldLeadTime: '16-18 weeks', toolingMarkupPct: 15 })
+      .where(eq(schema.engReview.quoteItemId, items[0]!));
+    await db.db.insert(schema.engCostLine).values(
+      [
+        ['molds', 252_000],
+        ['freight', 1_500],
+        ['start_up', 5_500],
+        ['unit_mold', 9_000], // not customer funded: never on the letter
+      ].map(([lineKey, amountUsd]) => ({
+        quoteId,
+        quoteItemId: items[0]!,
+        lineKey: lineKey as string,
+        amountUsd: amountUsd as number,
+      })),
+    );
+    await db.db
+      .update(schema.quote)
+      .set({ toolingFundingModel: 'CUSTOMER_FUNDED' })
+      .where(eq(schema.quote.id, quoteId));
+
+    const v = await view(qn);
+    expect(v.blockers).toEqual([]);
+    expect(v.preview!.items[0]!.moldCharge).toBe('$297,850.00');
+
+    const res = await generate(qn);
+    expect(res.statusCode, res.body).toBe(201);
+    const [line] = await db.db
+      .select()
+      .from(schema.offerLetterItem)
+      .where(eq(schema.offerLetterItem.quoteId, quoteId));
+    expect(line).toMatchObject({ moldCharge: '297850.0000', moldChargeSource: 'engineering' });
+
+    // workbook_only (FB-20's rule): the same quote is refused again.
+    await setSetting('offer_mold_charge_source', 'workbook_only');
+    try {
+      expect((await view(qn)).blockers).toEqual([
+        expect.objectContaining({ code: 'missing_required_row', itemNo: 1 }),
+      ]);
+    } finally {
+      await setSetting('offer_mold_charge_source', 'workbook_then_engineering');
+    }
+  }, 120_000);
+});

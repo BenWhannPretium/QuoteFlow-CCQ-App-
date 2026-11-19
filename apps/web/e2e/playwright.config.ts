@@ -63,6 +63,7 @@ export default defineConfig({
         'fb18.spec.ts',
         'fb19.spec.ts',
         'fb22.spec.ts',
+        'fb23.spec.ts',
         'fb24.spec.ts',
         'offer-letter.spec.ts',
         // FB-25 (Nov 17 and 18 feedback): the quote page, To qualify and Final Review.

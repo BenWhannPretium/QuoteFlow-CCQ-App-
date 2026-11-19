@@ -58,6 +58,12 @@ import {
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
+import {
+  CostLinesCapitalLine,
+  CostLinesCard,
+  LaborCard,
+  PackOutCard,
+} from './EngineeringCostCards';
 import { EquipmentBomCard, LegacyNotes, PricingInputsCard } from './EngineeringExtras';
 import { attachmentsQueryKey } from '../attachments/Attachments';
 import {
@@ -176,6 +182,28 @@ export function EngineeringTab({
       {!many && <EquipmentBomCard quote={quote} />}
       <PricingInputsCard
         key={`extras-${itemKey}`}
+        quote={itemQuote}
+        refresh={refresh}
+        itemId={itemId}
+      />
+      {/* FB-23 (N18-03 to N18-10): Jim's ECE Summary, per item, below the solution. */}
+      <CostLinesCard
+        key={`tooling-${itemKey}`}
+        quote={itemQuote}
+        refresh={refresh}
+        itemId={itemId}
+        group="tooling"
+      />
+      <CostLinesCard
+        key={`new-line-${itemKey}`}
+        quote={itemQuote}
+        refresh={refresh}
+        itemId={itemId}
+        group="new_line"
+      />
+      <LaborCard key={`labor-${itemKey}`} quote={itemQuote} refresh={refresh} itemId={itemId} />
+      <PackOutCard
+        key={`pack-out-${itemKey}`}
         quote={itemQuote}
         refresh={refresh}
         itemId={itemId}
@@ -523,7 +551,24 @@ type ExtrasKey =
   | 'unitsPerBag'
   | 'unitsPerTray'
   | 'unitsPerCase'
-  | 'unitsPerPallet';
+  | 'unitsPerPallet'
+  // FB-23: the cost estimate and pack-out cards (EngineeringCostCards).
+  | 'moldLeadTime'
+  | 'packersPerLine'
+  | 'operatorsPerLine'
+  | 'packMethod'
+  | 'packContainerItemNo'
+  | 'packContainerDescription'
+  | 'containersPerLayer'
+  | 'layersPerPallet'
+  | 'palletBuildHeight'
+  | 'palletType'
+  | 'palletsPerTrailer'
+  | 'specialPackagingNote'
+  | 'returnableDunnageDescription'
+  | 'returnableDunnageCostUsd'
+  | 'toolingMarkupPct'
+  | 'costLines';
 /**
  * FB-16 (W13-12): the process type is no longer picked. The form sends the plant and one "Process &
  * machine type" pick; the server derives the process type from it (`machine_type_process_map`).
@@ -678,6 +723,9 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
               { id: 'tooling', label: 'Tooling notes', value: review.toolingNotes },
             ]}
           />
+          <div className="mt-3">
+            <CostLinesCapitalLine totals={review.costTotals} onUse={null} />
+          </div>
         </CardContent>
       </Card>
     );
@@ -817,6 +865,11 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
               )}
             </Field>
           </div>
+          {/* FB-23 (C5): never changed on its own; the button fills the field, saving is the edit. */}
+          <CostLinesCapitalLine
+            totals={review.costTotals}
+            onUse={(value) => set('prelimCapitalUsd')(String(value))}
+          />
           {/* FB-22 (N17-13): the hot runner is asked here, not in a field of its own. */}
           <Field
             label="Tooling notes"

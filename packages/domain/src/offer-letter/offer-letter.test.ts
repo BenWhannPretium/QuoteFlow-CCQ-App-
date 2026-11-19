@@ -486,3 +486,74 @@ describe('buildOfferLetterModel', () => {
     expect(longDate('2026-12-31')).toBe('December 31, 2026');
   });
 });
+
+describe('FB-23 (N18-03, N18-14, D5): the Molds row from Engineering and the lead-time row', () => {
+  const customerFunded = (over: Partial<OfferItemFacts> = {}) =>
+    facts({ toolingFundingModel: 'CUSTOMER_FUNDED', items: [item(1, over)] });
+
+  it('uses the item’s customer tooling price when the workbook has no mold charge, and says so', () => {
+    const f = customerFunded({ engineeringMoldCharge: '297850.00' });
+    expect(codes(f)).toEqual([]);
+    const model = buildOfferLetterModel(f, { attention: null, partNumbers: {} }, settings());
+    expect(model.pricing.showMolds).toBe(true);
+    expect(model.pricing.rows[0]).toMatchObject({
+      moldCharge: '297850.00',
+      moldChargeText: '$297,850.00',
+      moldChargeSource: 'engineering',
+    });
+  });
+
+  it('the workbook’s mold charge wins when the item has one', () => {
+    const f = customerFunded({ engineeringMoldCharge: '297850.00' });
+    f.costing!.fields = [...f.costing!.fields, price(1, 'offer_mold_charge', 12_000)];
+    const model = buildOfferLetterModel(f, { attention: null, partNumbers: {} }, settings());
+    expect(model.pricing.rows[0]).toMatchObject({ moldChargeSource: 'workbook' });
+    expect(model.pricing.rows[0]!.moldChargeText).toBe('$12,000.00');
+  });
+
+  it('an unusable workbook value still blocks (never replaced by Engineering’s figure)', () => {
+    const f = customerFunded({ engineeringMoldCharge: '100.00' });
+    f.costing!.fields = [
+      ...f.costing!.fields,
+      price(1, 'offer_mold_charge', null, { state: 'error' }),
+    ];
+    expect(codes(f)).toEqual(['invalid_price']);
+  });
+
+  it('workbook_only (FB-20’s rule) ignores Engineering; zero is no charge', () => {
+    const s = settings({ moldChargeSource: 'workbook_only' });
+    expect(codes(customerFunded({ engineeringMoldCharge: '500.00' }), s)).toEqual([
+      'missing_required_row',
+    ]);
+    expect(codes(customerFunded({ engineeringMoldCharge: '0.00' }))).toEqual([
+      'missing_required_row',
+    ]);
+    const r = evaluateOfferReadiness(customerFunded(), settings());
+    expect(r.blockers[0]!.message).toMatch(/Engineering's customer-funded cost lines/);
+  });
+
+  it('a company-funded quote prints Engineering’s figure only if it has one (not required)', () => {
+    const f = facts({ items: [item(1, { engineeringMoldCharge: null })] });
+    expect(codes(f)).toEqual([]);
+    expect(
+      buildOfferLetterModel(f, { attention: null, partNumbers: {} }, settings()).pricing.showMolds,
+    ).toBe(false);
+  });
+
+  it('prints "Equipment / tool lead time" from the mold lead time, omitted when no item has one', () => {
+    const withLead = facts({
+      items: [item(1, { specs: { material: 'PET', toolLeadTime: '16-18 weeks' } })],
+    });
+    const rows = buildOfferLetterModel(withLead, { attention: null, partNumbers: {} }, settings())
+      .specifications!.rows;
+    expect(rows.find((r) => r.label === 'Equipment / tool lead time')?.values).toEqual([
+      '16-18 weeks',
+    ]);
+    const none = buildOfferLetterModel(facts(), { attention: null, partNumbers: {} }, settings())
+      .specifications!.rows;
+    expect(none.some((r) => r.label === 'Equipment / tool lead time')).toBe(false);
+    expect(parseOfferLetterTemplate(OFFER_LETTER_TEMPLATE_SEED).templateVersion).toBe(
+      'fb23-2026-11-19',
+    );
+  });
+});

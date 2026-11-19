@@ -1,8 +1,10 @@
-import type {
-  OfferLetterTemplate,
-  OfferRowRequired,
-  OfferSpecFact,
-  OfferLetterToken,
+import {
+  OFFER_MOLD_CHARGE_SOURCE_SEED,
+  type OfferLetterTemplate,
+  type OfferMoldChargeSource,
+  type OfferRowRequired,
+  type OfferSpecFact,
+  type OfferLetterToken,
 } from './config';
 import { isPositiveDecimal, toCharge, toPer1000 } from './money';
 import { CUSTOMER_DECISION_STAGE_KEY } from '../final-review/release';
@@ -35,6 +37,11 @@ export interface OfferItemFacts {
   annualVolume: number | null;
   /** Labels for the Specifications table; a missing or blank fact is not printed. */
   specs: Partial<Record<OfferSpecFact, string | null>>;
+  /**
+   * FB-23 (N18-14, D5): the item's customer tooling price from Engineering's cost lines (customer funded ×
+   * (1 + noted markup)), a decimal string; null when the item has no customer-funded line.
+   */
+  engineeringMoldCharge?: string | null;
 }
 
 export interface OfferCostingField {
@@ -86,6 +93,8 @@ export interface OfferSettings {
   template: OfferLetterTemplate;
   wordingApproved: boolean;
   blockIfCostingChanged: boolean;
+  /** FB-23 (D5): `offer_mold_charge_source`; omitted = the seed (workbook, then engineering). */
+  moldChargeSource?: OfferMoldChargeSource;
 }
 
 export interface OfferInputs {
@@ -144,6 +153,8 @@ export interface OfferItemPrices {
   itemNo: number;
   piecePricePer1000: string | null;
   moldCharge: string | null;
+  /** FB-23: where the mold charge came from (null when there is none). */
+  moldChargeSource: 'workbook' | 'engineering' | null;
   changePartsCharge: string | null;
 }
 
@@ -233,17 +244,47 @@ function rowRequired(
   );
 }
 
-/** The prices the letter will print, per item (absent or unusable values are null). */
-export function offerItemPrices(facts: OfferFacts): OfferItemPrices[] {
+/**
+ * FB-23 (D5): the item's mold charge from Engineering, when the setting allows it and the item has one
+ * above zero (a zero is "no charge", never printed as $0.00).
+ */
+function engineeringMold(
+  item: OfferItemFacts,
+  source: OfferMoldChargeSource | undefined,
+): string | null {
+  if ((source ?? OFFER_MOLD_CHARGE_SOURCE_SEED) !== 'workbook_then_engineering') return null;
+  const v = item.engineeringMoldCharge ?? null;
+  return v !== null && isPositiveDecimal(v) ? v : null;
+}
+
+/**
+ * The prices the letter will print, per item (absent or unusable values are null). FB-23 (D5): the Molds
+ * row is the workbook's mold charge when the item has one, otherwise (per `offer_mold_charge_source`) the
+ * item's customer tooling price from Engineering, otherwise nothing; the source is returned with it.
+ */
+export function offerItemPrices(
+  facts: OfferFacts,
+  settings?: Pick<OfferSettings, 'moldChargeSource'>,
+): OfferItemPrices[] {
   const fields = facts.costing?.fields ?? [];
   const n = facts.items.length;
   const value = (r: RowRead) => (r.kind === 'value' ? r.value : null);
-  return facts.items.map((item) => ({
-    itemNo: item.itemNo,
-    piecePricePer1000: value(readRow(fields, 'piecePrice', item.itemNo, n)),
-    moldCharge: value(readRow(fields, 'molds', item.itemNo, n)),
-    changePartsCharge: value(readRow(fields, 'changeParts', item.itemNo, n)),
-  }));
+  return facts.items.map((item) => {
+    const read = readRow(fields, 'molds', item.itemNo, n);
+    const workbook = value(read);
+    // An unusable workbook value is a blocker (the workbook must be fixed), never replaced.
+    const engineering =
+      workbook === null && read.kind === 'absent'
+        ? engineeringMold(item, settings?.moldChargeSource)
+        : null;
+    return {
+      itemNo: item.itemNo,
+      piecePricePer1000: value(readRow(fields, 'piecePrice', item.itemNo, n)),
+      moldCharge: workbook ?? engineering,
+      moldChargeSource: workbook ? 'workbook' : engineering ? 'engineering' : null,
+      changePartsCharge: value(readRow(fields, 'changeParts', item.itemNo, n)),
+    };
+  });
 }
 
 const fmtDate = (d: Date) =>
@@ -400,6 +441,8 @@ export function evaluateOfferReadiness(
         continue;
       }
       if (read.kind === 'value') continue;
+      // FB-23 (D5): a customer-paid or shared quote's Molds row may come from Engineering's cost lines.
+      if (row === 'molds' && engineeringMold(item, settings.moldChargeSource) !== null) continue;
       if (row === 'piecePrice') {
         block(
           'missing_piece_price',
@@ -418,9 +461,15 @@ export function evaluateOfferReadiness(
           settings.template.rows[row].required === 'always'
             ? 'it is required on every letter'
             : 'the customer funds tooling on this quote';
+        const where =
+          row === 'molds' &&
+          (settings.moldChargeSource ?? OFFER_MOLD_CHARGE_SOURCE_SEED) ===
+            'workbook_then_engineering'
+            ? "in the costing workbook or in Engineering's customer-funded cost lines"
+            : 'in the costing workbook';
         block(
           'missing_required_row',
-          `${who} has no ${ROW_WORDS[row]} in the costing workbook, and ${because}. Ask Pricing to add it.`,
+          `${who} has no ${ROW_WORDS[row]} ${where}, and ${because}. Ask Pricing to add it${row === 'molds' && where !== 'in the costing workbook' ? ', or Engineering to enter the tooling lines' : ''}.`,
           'quoting',
           item.itemNo,
         );

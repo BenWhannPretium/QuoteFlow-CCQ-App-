@@ -1,25 +1,12 @@
-import {
-  engInputError,
-  type EngineeringDetail,
-  type EquipmentBomView,
-  type QuoteDetail,
-} from '@ccq/contracts';
+import { type EngineeringDetail, type EquipmentBomView, type QuoteDetail } from '@ccq/contracts';
 import {
   ATTACHMENT_EXTENSIONS,
   ATTACHMENT_MAX_BYTES,
-  PACK_OUT_FIELDS,
-  PACK_OUT_LABELS,
-  PACK_OUT_RULE_SEED,
-  PACK_OUT_UNIT_FIELDS,
   PREFORM_NUMBER_MAX_LENGTH,
   TWO_STEP_FREIGHT_NOTE_MAX_LENGTH,
   TWO_STEP_PLANT_MACHINE_TYPES_SEED,
-  packOutRuleErrors,
-  parsePackOutRule,
   parseTwoStepPlantMachineTypes,
   plantsRunning,
-  type PackOutField,
-  type PackOutRule,
   type TwoStepPlantMachineTypes,
 } from '@ccq/domain';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +36,7 @@ import {
 } from '../forms';
 import { quoteQueryKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
+import { CostEstimateReadOnly, CostTotalsGrid } from './EngineeringCostCards';
 import { timelineQueryKey } from '../Overrides';
 
 /**
@@ -281,14 +269,7 @@ export function pricingInputItems(
       { id: 'two-step-freight', label: 'Freight between plants', value: review.twoStepFreightNote },
     );
   }
-  for (const f of PACK_OUT_FIELDS) {
-    const v = review[f];
-    items.push({
-      id: `pack-${f}`,
-      label: PACK_OUT_LABELS[f],
-      value: v === null ? null : v.toLocaleString('en-US'),
-    });
-  }
+  // FB-23: the pack-out has its own card and read-only grid (`PackOutGrid`).
   return items.filter((i) => i.value !== null);
 }
 
@@ -298,9 +279,7 @@ export function PricingInputsReadOnly({ review }: { review: EngineeringDetail['r
     code ? (config?.valueLists.plant?.find((v) => v.code === code)?.label ?? code) : null;
   const items = pricingInputItems(review, plantLabel);
   if (items.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm">No two-step or pack-out details entered.</p>
-    );
+    return <p className="text-muted-foreground text-sm">Not a two-step process.</p>;
   }
   return <KeyValueGrid items={items} />;
 }
@@ -311,10 +290,6 @@ interface ExtrasForm {
   blowPlantCode: string;
   preformNumber: string;
   twoStepFreightNote: string;
-  unitsPerBag: string;
-  unitsPerTray: string;
-  unitsPerCase: string;
-  unitsPerPallet: string;
 }
 
 const extrasForm = (r: EngineeringDetail['review']): ExtrasForm => ({
@@ -323,10 +298,6 @@ const extrasForm = (r: EngineeringDetail['review']): ExtrasForm => ({
   blowPlantCode: r.blowPlantCode ?? '',
   preformNumber: r.preformNumber ?? '',
   twoStepFreightNote: r.twoStepFreightNote ?? '',
-  unitsPerBag: r.unitsPerBag?.toString() ?? '',
-  unitsPerTray: r.unitsPerTray?.toString() ?? '',
-  unitsPerCase: r.unitsPerCase?.toString() ?? '',
-  unitsPerPallet: r.unitsPerPallet?.toString() ?? '',
 });
 
 /**
@@ -410,30 +381,10 @@ export function PricingInputsCard({
     config?.settings.two_step_plant_machine_types,
     TWO_STEP_PLANT_MACHINE_TYPES_SEED,
   );
-  const packOutRule: PackOutRule = settingOr(
-    parsePackOutRule,
-    config?.settings.pack_out_rule,
-    PACK_OUT_RULE_SEED,
-  );
-  const machineTypes = config?.valueLists.machine_type ?? [];
-  // FB-16 (W13-20): checked as typed with the server's rules; bag and case are not filled in together.
-  const typed = (f: PackOutField) => engInputError(f, form[f]) ?? undefined;
-  const filled = (f: PackOutField) => (form[f].trim() === '' ? null : Number(form[f]));
-  const together = packOutRuleErrors(
-    {
-      unitsPerBag: filled('unitsPerBag'),
-      unitsPerTray: filled('unitsPerTray'),
-      unitsPerCase: filled('unitsPerCase'),
-      unitsPerPallet: filled('unitsPerPallet'),
-    },
-    packOutRule,
-  );
-  const packOutError = (f: PackOutField) =>
-    typed(f) ?? together.find((e) => e.field === f)?.message ?? errorFor(errors, f);
-  const invalid = PACK_OUT_FIELDS.some((f) => typed(f)) || together.length > 0;
   // Bailey (2026-11-12): say it beside the button, where the eye already is (the toast is easy to miss).
   // FB-18 (W13-30): the shared `SaveStatus` ("Progress saved"), as on every other Save button.
-  const status = useSaved(`pack-out:${quote.quoteNumber}:${itemId ?? ''}`);
+  const machineTypes = config?.valueLists.machine_type ?? [];
+  const status = useSaved(`two-step:${quote.quoteNumber}:${itemId ?? ''}`);
   const set = <K extends keyof ExtrasForm>(k: K, v: ExtrasForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -446,7 +397,7 @@ export function PricingInputsCard({
         if (typeof v === 'boolean') body[k] = v;
         else {
           const t = v.trim();
-          body[k] = t === '' ? null : k.startsWith('unitsPer') ? Number(t) : t;
+          body[k] = t === '' ? null : t;
         }
       }
       // FB-19: the two-step process and the pack-out are the item's.
@@ -459,35 +410,18 @@ export function PricingInputsCard({
       );
       await refresh(detail);
       status.markSaved();
-      toast.success({ title: 'Two-step process and pack-out saved' });
+      toast.success({ title: 'Two-step process saved' });
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
   const changed = (Object.keys(form) as (keyof ExtrasForm)[]).some((k) => form[k] !== initial[k]);
   // UX-001: typed and not saved. Not while the card is read-only (locked, or submitted to the lead).
-  useReportUnsaved(quote.quoteNumber, `pack-out:${itemId ?? ''}`, eng.canEdit && changed);
-
-  const packOutInput = (f: PackOutField) => (
-    <Field key={f} label={PACK_OUT_LABELS[f]} hint="A whole number" error={packOutError(f)}>
-      {(id) => (
-        <Input
-          id={id}
-          type="number"
-          min={1}
-          step={1}
-          inputMode="numeric"
-          data-testid={`pack-out-${f}`}
-          value={form[f]}
-          onChange={(e) => set(f, e.target.value)}
-        />
-      )}
-    </Field>
-  );
+  useReportUnsaved(quote.quoteNumber, `two-step:${itemId ?? ''}`, eng.canEdit && changed);
 
   const title = (
     <CardHeader>
       <CardTitle>
-        <h2 className="text-base font-semibold">Two-step process and pack-out</h2>
+        <h2 className="text-base font-semibold">Two-step process</h2>
       </CardTitle>
       {/* FB-16 (W13-15): part of the engineer's work; the production scheduler does not edit it. */}
       <p className="text-muted-foreground text-xs">Engineer’s part</p>
@@ -513,13 +447,11 @@ export function PricingInputsCard({
           data-testid="pricing-inputs-form"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!invalid) save.mutate();
+            save.mutate();
           }}
         >
           <p className="text-muted-foreground text-sm">
-            {packOutRule.requireOneOf
-              ? 'Pricing reads these when it costs the quote. The two-step process is optional; the quote needs one units-per-pack count before it can advance.'
-              : 'Pricing reads these when it costs the quote. Both are optional.'}
+            Pricing reads this when it costs the quote. Optional.
           </p>
           <label className="flex items-center gap-2 text-sm font-medium">
             <input
@@ -599,28 +531,10 @@ export function PricingInputsCard({
               </Field>
             </div>
           )}
-          {/* FB-16 (W13-14): bag, tray and case are one choice; the pallet count is separate. */}
-          <div className="grid gap-4 sm:grid-cols-4" data-testid="pack-out">
-            <fieldset
-              className="grid gap-3 rounded-md border p-3 sm:col-span-3"
-              data-testid="pack-out-units"
-            >
-              <legend className="px-1 text-sm font-medium">
-                Units per pack (fill in one: bag, tray or case)
-                {packOutRule.requireOneOf ? ' (required)' : ''}
-              </legend>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {PACK_OUT_UNIT_FIELDS.map(packOutInput)}
-              </div>
-            </fieldset>
-            <div className="grid content-start gap-3 p-3 sm:pt-7">
-              {packOutInput('unitsPerPallet')}
-            </div>
-          </div>
           <FormErrors errors={errors.filter((e) => !e.path.match(/^\/\w+$/))} />
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={!changed || invalid || save.isPending}>
-              {save.isPending ? 'Saving…' : 'Save process and pack-out'}
+            <Button type="submit" disabled={!changed || save.isPending}>
+              {save.isPending ? 'Saving…' : 'Save two-step process'}
             </Button>
             <SaveStatus {...saveStatusOf(save, status.saved && !changed)} />
           </div>
@@ -632,10 +546,16 @@ export function PricingInputsCard({
 
 /**
  * FB-06 (T-008): what Engineering gave Pricing, on the Quoting tab: the equipment BOM file (version,
- * uploader, date), the two-step process and the pack-out counts. Read-only.
+ * uploader, date), and per item the two-step process. FB-23 (N18-03 to N18-10): per item, the mold lead
+ * time, the cost lines with a value and their totals (with the customer tooling price), labor and the
+ * pack-out with its calculated figures. Read-only.
  */
 export function EngineeringInputsCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
+  const items =
+    eng.items.length > 0
+      ? eng.items.map((i) => ({ id: i.id, name: i.name, review: i.review }))
+      : [{ id: 'quote', name: null, review: eng.review }];
   return (
     <Card data-testid="quoting-from-engineering">
       <CardHeader>
@@ -643,12 +563,33 @@ export function EngineeringInputsCard({ quote }: { quote: QuoteDetail }) {
           <h2 className="text-base font-semibold">From engineering</h2>
         </CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-3">
+      <CardContent className="grid gap-4">
         <div className="grid gap-1">
           <p className="text-sm font-medium">Equipment BOM</p>
           <EquipmentBomLine bom={eng.equipmentBom} />
         </div>
-        <PricingInputsReadOnly review={eng.review} />
+        {items.map((item) => (
+          <section
+            key={item.id}
+            className="grid gap-3 border-t pt-3"
+            aria-label={item.name ?? 'Engineering inputs'}
+            data-testid="quoting-engineering-item"
+          >
+            {items.length > 1 && <h3 className="text-sm font-semibold">{item.name}</h3>}
+            <PricingInputsReadOnly review={item.review} />
+            <CostEstimateReadOnly review={item.review} />
+          </section>
+        ))}
+        {eng.costTotals && items.length > 1 && (
+          <section
+            className="grid gap-2 border-t pt-3"
+            aria-label="All items"
+            data-testid="quoting-cost-totals-quote"
+          >
+            <h3 className="text-sm font-semibold">All items</h3>
+            <CostTotalsGrid totals={eng.costTotals} testId="cost-totals-quote" />
+          </section>
+        )}
       </CardContent>
     </Card>
   );

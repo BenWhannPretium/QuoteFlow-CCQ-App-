@@ -40,6 +40,8 @@ export interface OfferLetterPriceLine {
   piecePricePer1000Text: string | null;
   moldCharge: string | null;
   moldChargeText: string | null;
+  /** FB-23: workbook | engineering (never printed; recorded on the letter). */
+  moldChargeSource: 'workbook' | 'engineering' | null;
   changePartsCharge: string | null;
   changePartsChargeText: string | null;
 }
@@ -153,7 +155,7 @@ export function buildOfferLetterModel(
     customerName: clean(facts.customerName),
     validUntil: validUntilText,
   };
-  const prices = offerItemPrices(facts);
+  const prices = offerItemPrices(facts, settings);
   const multi = facts.items.length > 1;
 
   const items: OfferLetterItemLine[] = facts.items.map((item) => ({
@@ -177,6 +179,7 @@ export function buildOfferLetterModel(
       piecePricePer1000Text: p.piecePricePer1000 ? formatUsd(p.piecePricePer1000) : null,
       moldCharge: p.moldCharge,
       moldChargeText: p.moldCharge ? formatUsd(p.moldCharge) : null,
+      moldChargeSource: p.moldChargeSource,
       changePartsCharge: p.changePartsCharge,
       changePartsChargeText: p.changePartsCharge ? formatUsd(p.changePartsCharge) : null,
     };
