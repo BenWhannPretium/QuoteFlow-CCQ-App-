@@ -54,7 +54,7 @@ import { appSetting, scoringModel, sfStageMap } from '../../src/schema/index';
 
 const present = (field: string) => ({ field, op: 'present' });
 
-/** FB-23: the four settings' descriptions (migration 0053 inserts the same text). */
+/** FB-23: the four settings' descriptions (migration 0054 inserts the same text). */
 export const FB23_SETTING_DESCRIPTIONS = {
   engineering_cost_lines:
     'FB-23 (N18-04, N18-06, N18-07, D4): the engineering cost estimate lines (Jim Zweifel\'s ECE Summary), in order. Each: key (stored on eng_cost_line), label, group (tooling: Engineering; new_line: new-line capital equipment, Operations), processes (process-type codes that show the line, or "all"), customerFunded (counted in "customer funded"), needsDescription (Other), prefill (freight or start_up, from engineering_cost_defaults). Seed: Molds, Unit mold, Perso parts (RHB), Head tooling (EBM), Freight, Start-up assistance (3 days), Tariffs / duties (D4), Other; Blow molders, Resin handling, Packaging & inspection, Support, Misc. equipment. Customer funded: Molds, Freight, Start-up (as the sheet) and Tariffs / duties (D4). A line that holds a value always shows. Provisional until Jim confirms the process mapping and Operations the new-line split.',
@@ -588,7 +588,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description: ENG_LEAD_NOTIFY_WHEN_DESCRIPTION,
   },
   // ── FB-23 (N18-04 to N18-07, N18-14, D4, D5): the engineering cost estimate. Provisional. Existing
-  // environments get the same rows from migration 0053.
+  // environments get the same rows from migration 0054.
   {
     key: 'engineering_cost_lines',
     value: ENGINEERING_COST_LINES_SEED,

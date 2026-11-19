@@ -22,6 +22,7 @@ import { marketText, valueListLabel } from '@/lib/value-label';
 import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { CapitalTerms, capitalTermFieldId } from '../commercial/CapitalTerms';
 import { AdditionalApprovals, TermsExceptionCard } from '../commercial/TermsException';
+import { CostEstimateSummary } from '../engineering/EngineeringCostCards';
 import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringExtras';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
@@ -680,6 +681,8 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
         ])}
       />
       {g2?.note && <p className="text-foreground-2 text-sm whitespace-pre-line">{g2.note}</p>}
+      {/* FB-23 (N18-03, N18-06): each item's mold lead time and cost totals. */}
+      <CostEstimateSummary engineering={e} />
 
       <div className="grid gap-2">
         <h3 className="text-sm font-semibold">Capacity evidence</h3>

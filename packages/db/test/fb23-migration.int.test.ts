@@ -9,7 +9,7 @@ import type { Tx } from '../src/client';
 import { uuidv7 } from '../src/ids';
 
 /**
- * FB-23 (0053): the engineering cost estimate and pack-out.
+ * FB-23 (0054): the engineering cost estimate and pack-out.
  *
  * - The four settings (provisional) and the two value lists, only in a configured database; an existing
  *   row (an Admin's value) is left alone; an empty database gets nothing (the seed inserts it).
@@ -21,7 +21,7 @@ import { uuidv7 } from '../src/ids';
  */
 const { db } = testDb();
 const MIGRATION = readFileSync(
-  new URL('../migrations/0053_fb23_engineering_cost_packout.sql', import.meta.url),
+  new URL('../migrations/0054_fb23_engineering_cost_packout.sql', import.meta.url),
   'utf8',
 );
 // The data statements only (the DDL and the policies cannot run twice).
@@ -63,7 +63,7 @@ const lists = (tx: Tx) =>
         where list_key in ('pack_method', 'pallet_type') order by list_key, sort`,
   );
 
-describe('0053: settings and value lists', () => {
+describe('0054: settings and value lists', () => {
   it('a configured database gets the four settings (provisional) and the two lists; existing rows are kept', async () => {
     await rolledBack(async (tx) => {
       await tx.execute(
@@ -134,7 +134,7 @@ describe('0053: settings and value lists', () => {
   });
 });
 
-describe('0053: the offer letter lead-time row', () => {
+describe('0054: the offer letter lead-time row', () => {
   const template = async (tx: Tx) =>
     (
       await raw<{ value: { templateVersion: string; specifications: { fact: string }[] } }>(
@@ -174,7 +174,7 @@ describe('0053: the offer letter lead-time row', () => {
   });
 });
 
-describe('0053: eng_cost_line row-level security', () => {
+describe('0054: eng_cost_line row-level security', () => {
   let ownQuote = { id: '', item: '' };
   let otherQuote = { id: '', item: '' };
 

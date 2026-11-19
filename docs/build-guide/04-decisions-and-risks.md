@@ -298,7 +298,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Technical concept / Supply chain | No longer asked or accepted; columns kept (deprecated), old values read-only under "Legacy notes"; Charter / Scope text goes in the tooling notes or stays in the workbook | Question 3: where Charter / Scope text goes | Bailey Schmitt; Jim Zweifel |
 | "New" in the engineering queue | New to the assigned engineer until Start review; to the assigned scheduler until a capacity row is saved; "New to me" filter | — | Faron Ipox |
 
-**Provisional values FB-23 seeded (built 2026-11-19; all `provisional: true`, changed by an Admin without a deploy; migration 0053). Decided by Ben on 2026-11-18: D4 (tariffs, special packaging, returnable dunnage placed in Engineering), D5 (no tooling markup unless noted), D6 (container item numbers free text). Provisional until Bailey Schmitt confirms.**
+**Provisional values FB-23 seeded (built 2026-11-19; all `provisional: true`, changed by an Admin without a deploy; migration 0054). Decided by Ben on 2026-11-18: D4 (tariffs, special packaging, returnable dunnage placed in Engineering), D5 (no tooling markup unless noted), D6 (container item numbers free text). Provisional until Bailey Schmitt confirms.**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|

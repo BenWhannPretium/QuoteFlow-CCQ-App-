@@ -1231,3 +1231,39 @@ export function CostEstimateReadOnly({ review }: { review: Review }) {
     </div>
   );
 }
+
+// ── Final Review: the lead time and the three totals per item ────────────────────────────────────
+
+/**
+ * FB-23 (D): what Final Review shows of the cost estimate: each item's mold lead time and its customer
+ * funded, net cost to Pretium and project total (and the customer tooling price). Nothing when no item has
+ * a lead time or a cost line.
+ */
+export function CostEstimateSummary({ engineering }: { engineering: EngineeringDetail }) {
+  const items =
+    engineering.items.length > 0
+      ? engineering.items.map((i) => ({ id: i.id, name: i.name, review: i.review }))
+      : [{ id: 'quote', name: null as string | null, review: engineering.review }];
+  const shown = items.filter((i) => i.review.moldLeadTime || i.review.costTotals);
+  if (shown.length === 0) return null;
+  return (
+    <div className="grid gap-3" data-testid="review-cost-estimate">
+      <h3 className="text-sm font-semibold">Engineering cost estimate</h3>
+      {shown.map((item) => (
+        <div key={item.id} className="grid gap-2" data-testid="review-cost-estimate-item">
+          {items.length > 1 && <p className="text-sm font-medium">{item.name}</p>}
+          <KeyValueGrid
+            items={[
+              {
+                id: 'lead-time',
+                label: 'Estimated mold lead time',
+                value: item.review.moldLeadTime,
+              },
+            ]}
+          />
+          {item.review.costTotals && <CostTotalsGrid totals={item.review.costTotals} />}
+        </div>
+      ))}
+    </div>
+  );
+}
