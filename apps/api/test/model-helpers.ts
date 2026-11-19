@@ -131,14 +131,46 @@ export async function prepareBom(app: FastifyInstance, quoteNumber: string): Pro
 }
 
 /**
+ * FB-25 (N17-26): G4 Advance needs the customer tooling commitment answered (`g4_required_checks`
+ * tooling_commitment_answered). Pricing answers "No" (no Legal trigger) when nobody has answered it; an
+ * answer already given is kept, so an earlier terms check is not cleared.
+ */
+export async function answerToolingCommitment(
+  app: FastifyInstance,
+  quoteNumber: string,
+  answer = false,
+): Promise<void> {
+  const read = await app.inject({
+    method: 'GET',
+    url: `/api/v1/quotes/${quoteNumber}`,
+    headers: { [DEV_USER_HEADER]: personaFor('Pricing') },
+  });
+  if (read.statusCode !== 200) {
+    throw new Error(`reading the quote failed: ${read.statusCode} ${read.body}`);
+  }
+  if (QuoteDetail.parse(read.json()).commercial.terms.termsToolingCommitment !== null) return;
+  const res = await app.inject({
+    method: 'PUT',
+    url: `/api/v1/quotes/${quoteNumber}/terms`,
+    headers: { [DEV_USER_HEADER]: personaFor('Pricing') },
+    payload: { termsToolingCommitment: answer },
+  });
+  if (res.statusCode !== 200) {
+    throw new Error(`answering the tooling commitment failed: ${res.statusCode} ${res.body}`);
+  }
+}
+
+/**
  * FB-08 (F-068, T-031): the approver confirms the capital terms in Final Review, which G4 Advance
  * needs (`g4_required_checks` terms_finalized). Call it on a quote in Final Review before approving.
+ * FB-25: it also answers the customer tooling commitment when nobody has (`answerToolingCommitment`).
  */
 export async function confirmCapitalTerms(
   app: FastifyInstance,
   quoteNumber: string,
   persona = personaFor('Approver'),
 ): Promise<void> {
+  await answerToolingCommitment(app, quoteNumber);
   const res = await app.inject({
     method: 'PUT',
     url: `/api/v1/quotes/${quoteNumber}/terms/capital`,

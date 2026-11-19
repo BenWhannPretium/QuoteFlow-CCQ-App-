@@ -20,6 +20,10 @@ const DIGEST_GATE_KEY = 'G1';
 /** The digest lists this many quotes, then "…and N more". */
 export const DIGEST_MAX_ITEMS = 25;
 
+/** FB-25 (N18-17): To qualify with the quote's card expanded and scrolled into view. */
+export const toQualifyPath = (quoteNumber: string) =>
+  `/approvals?tab=to-qualify&quote=${encodeURIComponent(quoteNumber)}`;
+
 export interface EmailContentDeps {
   database: Database;
   quotes: QuoteReadService;
@@ -81,11 +85,13 @@ export class EmailContentBuilder {
     if (type === 'quote.submitted_to_lead' || type === 'quote.returned_by_lead') {
       return this.url(`/quotes/${n}?tab=${payload.kind === 'pricing' ? 'quoting' : 'engineering'}`);
     }
-    // UX-012: a payment-terms exception is on the Commercial panel (Overview); the bare quote opens on
+    // UX-012: a payment-terms exception is on the Commercial terms tab (FB-25); the bare quote opens on
     // the reader's own work tab.
     if (type === 'quote.terms_exception_requested' || type === 'quote.terms_exception_decided') {
-      return this.url(`/quotes/${n}?tab=overview#commercial`);
+      return this.url(`/quotes/${n}?tab=commercial#commercial`);
     }
+    // FB-25 (N18-17): a quote to qualify opens To qualify with its card expanded.
+    if (type === 'quote.to_qualify') return this.url(toQualifyPath(quoteNumber));
     return ENGINEERING_TYPES.has(type)
       ? this.url(`/quotes/${n}?tab=engineering`)
       : this.url(`/quotes/${n}`);
@@ -183,7 +189,8 @@ export class EmailContentBuilder {
       account: q.customerName ?? q.opportunityName,
       product: label(q.productFamily, q.resin),
       tier: q.priority.visible && q.priority.tierLabel ? q.priority.tierLabel : null,
-      url: this.url(`/quotes/${encodeURIComponent(q.quoteNumber)}`),
+      // FB-25 (N18-17): each row opens To qualify with that quote's card expanded.
+      url: this.url(toQualifyPath(q.quoteNumber)),
     }));
     return {
       items,

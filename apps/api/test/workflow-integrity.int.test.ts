@@ -770,7 +770,10 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
       .select()
       .from(schema.appSetting)
       .where(eq(schema.appSetting.key, 'g4_required_checks'));
-    expect(row).toMatchObject({ value: ['terms_exception', 'terms_finalized'], provisional: true });
+    expect(row).toMatchObject({
+      value: ['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
+      provisional: true,
+    });
   });
 
   it('[]: the review screen shows terms and Legal read-only, the open checks as warnings', async () => {
@@ -784,7 +787,7 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
       termsPaymentTermsLabel: 'Net 30',
       checkedAt: null,
       legal: { required: true, reasons: [{ code: 'tooling_commitment' }], reviewedOn: null },
-      requiredChecks: ['terms_exception', 'terms_finalized'],
+      requiredChecks: ['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
     });
     expect(dto.warnings.filter((w) => w.link === 'commercial')).toEqual([
       expect.objectContaining({ code: 'TERMS_NOT_CHECKED', severity: 'risk' }),
@@ -847,7 +850,10 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
   });
 
   it("['terms_checked']: unchecked terms block the approver; Legal stays optional", async () => {
-    await setChecks(['terms_checked', ...['terms_exception', 'terms_finalized']]);
+    await setChecks([
+      'terms_checked',
+      ...['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
+    ]);
     try {
       const qn = await uncheckedWithLegal();
       const dto = ReviewSummary.parse(
@@ -857,6 +863,7 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
         'terms_checked',
         'terms_exception',
         'terms_finalized',
+        'tooling_commitment_answered',
       ]);
       expect(dto.warnings.filter((w) => w.link === 'commercial').map((w) => w.code)).toEqual([
         'LEGAL_REVIEW_NOT_RECORDED',
@@ -869,7 +876,7 @@ describe('F-069: the approver is not blocked by fields other roles own (T-026)',
       ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { checked: true }), 200);
       ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'Approver'));
     } finally {
-      await setChecks(['terms_exception', 'terms_finalized']);
+      await setChecks(['terms_exception', 'terms_finalized', 'tooling_commitment_answered']);
     }
   });
 });
