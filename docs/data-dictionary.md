@@ -913,7 +913,7 @@ The CCQ quote: the workflow record CCQ owns.
 | `eng_return_note` | text | yes |  |  | Lead review: what the lead asked the engineer to change. | Engineering (EngLead / Engineer) |
 | `eng_returned_to` | uuid | yes |  | app_user.id | FB-16: who the latest send-back went to: the engineer, or the production scheduler (W13-19). A capacity block returns the work to the engineer the same way. Null before FB-16. | Engineering (EngLead / Engineer) |
 | `capacity_submitted_at` | timestamp with time zone | yes |  |  | FB-22: when the production scheduler submitted the capacity part to the engineering lead (null: not submitted). The lead is told once both parts are in (app_setting eng_lead_notify_when). | Engineering (EngLead / Engineer) |
-| `capacity_submitted_by` | uuid | yes |  | app_user.id | FB-22: who submitted the capacity part (null on rounds carried over by migration 0051). | Engineering (EngLead / Engineer) |
+| `capacity_submitted_by` | uuid | yes |  | app_user.id | FB-22: who submitted the capacity part (null on rounds carried over by migration 0052). | Engineering (EngLead / Engineer) |
 | `pricing_submitted_at` | timestamp with time zone | yes |  |  | Lead review: when the pricer submitted their part to the lead (null: not waiting on the lead). | Pricing |
 | `pricing_submitted_by` | uuid | yes |  | app_user.id | Lead review: who submitted it. | Pricing |
 | `pricing_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the pricer. | Pricing |

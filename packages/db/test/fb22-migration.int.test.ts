@@ -8,7 +8,7 @@ import { ENG_LEAD_NOTIFY_WHEN_DESCRIPTION } from '../seeds/config/settings';
 import type { Tx } from '../src/client';
 
 /**
- * FB-22 (0051): the Engineering tab.
+ * FB-22 (0052): the Engineering tab.
  *
  * - The setting `eng_lead_notify_when` (provisional, seed both_parts), only in a configured database; a
  *   value an Admin set is left alone.
@@ -20,7 +20,7 @@ import type { Tx } from '../src/client';
  */
 const { db } = testDb();
 const MIGRATION = readFileSync(
-  new URL('../migrations/0051_fb22_engineering_tab.sql', import.meta.url),
+  new URL('../migrations/0052_fb22_engineering_tab.sql', import.meta.url),
   'utf8',
 );
 // Only the hand-written statements: the column DDL above them cannot run twice.
@@ -51,7 +51,7 @@ const setting = async (tx: Tx) =>
     )
   )[0];
 
-describe('0051: eng_lead_notify_when', () => {
+describe('0052: eng_lead_notify_when', () => {
   it('is inserted provisional with the seed value and description, and an Admin’s value is kept', async () => {
     await rolledBack(async (tx) => {
       await tx.execute(sql`delete from app_setting where key = 'eng_lead_notify_when'`);
@@ -70,7 +70,7 @@ describe('0051: eng_lead_notify_when', () => {
   });
 });
 
-describe('0051: the scheduler’s part of a submitted review', () => {
+describe('0052: the scheduler’s part of a submitted review', () => {
   it('is marked in (and audited) only on open quotes in Engineering with a scheduler', async () => {
     await rolledBack(async (tx) => {
       const open = await raw<{ id: string }>(
@@ -134,7 +134,7 @@ describe('0051: the scheduler’s part of a submitted review', () => {
       );
       expect(audit.map((a) => a.quote_id)).toEqual([withScheduler]);
       expect(audit[0]!.actor_id).toBeNull();
-      expect(audit[0]!.after).toMatchObject({ source: 'migration:0051_fb22_engineering_tab' });
+      expect(audit[0]!.after).toMatchObject({ source: 'migration:0052_fb22_engineering_tab' });
 
       // Safe to re-run: nothing changes the second time.
       await runMigration(tx);

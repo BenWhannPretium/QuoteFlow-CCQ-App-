@@ -275,7 +275,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Stocking agreement | Optional at intake (Commercial inputs): Yes / No / Not known yet, weeks (whole number 1 to 520) on a yes, note ≤ 300 | Placement (D4 "best guess") | Faron Ipox; Gemma Cebolla |
 | Tooling commitment at intake | Optional Yes / No / Not known yet, writes `terms_tooling_commitment` (the Commercial terms panel's field); Yes is a Legal review trigger as before | FB-25 makes it required at Final Review | Bailey Schmitt |
 
-**Provisional values FB-22 seeded (built 2026-11-19; all `provisional: true`, changed by config or a small code change, not a schema change; migration 0051). Decided by Ben on 2026-11-18 (D2): a lead may approve their own work.**
+**Provisional values FB-22 seeded (built 2026-11-19; all `provisional: true`, changed by config or a small code change, not a schema change; migration 0052). Decided by Ben on 2026-11-18 (D2): a lead may approve their own work.**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|

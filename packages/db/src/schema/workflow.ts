@@ -676,7 +676,7 @@ export const quote = documented(
       ),
       capacitySubmittedBy: c(
         userRef('capacity_submitted_by'),
-        'FB-22: who submitted the capacity part (null on rounds carried over by migration 0051).',
+        'FB-22: who submitted the capacity part (null on rounds carried over by migration 0052).',
         ENG,
       ),
       // Lead review (2026-10-30): the assigned pricer submits their part to the lead; the lead may send
