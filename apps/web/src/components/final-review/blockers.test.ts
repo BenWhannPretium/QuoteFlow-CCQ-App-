@@ -309,3 +309,39 @@ describe('releaseBlockers (UX-010)', () => {
     ).toEqual([]);
   });
 });
+
+describe('FB-31 (N19-08): an extra Final Review sign-off still missing blocks the release', () => {
+  const signoff = (signedAt: string | null) =>
+    ({
+      ruleKey: 'amortized_finance_review',
+      ruleLabel: 'Customer funded (amortized): finance review',
+      signoffKey: 'finance_review',
+      signoffLabel: 'Finance review (Leadership)',
+      signedByName: null,
+      signedAt,
+      note: null,
+      canSign: false,
+    }) as Terms['additionalApprovals'][number];
+
+  it('is listed in the server’s words until it is given, for the approver and for a reader', () => {
+    const t = { ...terms({}), additionalApprovals: [signoff(null)] };
+    const expected = [
+      {
+        key: 'signoff:amortized_finance_review:finance_review',
+        message: 'Final Review also needs: Finance review (Leadership)',
+        fixAt: 'terms-legal',
+      },
+    ];
+    expect(releaseBlockers(review({ termsAndLegal: t }))).toEqual(expected);
+    expect(
+      releaseBlockers(
+        review({
+          termsAndLegal: t,
+          availableActions: [action('approve', { releasesProposal: true })],
+        }),
+      ),
+    ).toEqual(expected);
+    const given = { ...t, additionalApprovals: [signoff('2026-11-20T10:00:00.000Z')] };
+    expect(releaseBlockers(review({ termsAndLegal: given }))).toEqual([]);
+  });
+});

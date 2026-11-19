@@ -12,6 +12,7 @@ import {
   isNonStandardPaymentTerms,
   isSharedFunding,
   shipToChanged,
+  TERMS_DOCUMENT_REQUIRED_TEXT,
   todayInCentral,
   type ComponentFollowUpField,
   type IntakeEvaluation,
@@ -28,13 +29,15 @@ import {
 } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
+
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
-import { FundingHelp } from '@/components/commercial/FundingHelp';
+import { FinanceReviewLine, FundingHelp } from '@/components/commercial/FundingHelp';
 import { RequiredKey } from '@/components/forms';
 import {
   answerText,
-  NON_STANDARD_TERMS_TEXT,
   stockHoldText,
+  useNonStandardTermsText,
+  useTermsTier,
 } from '@/components/intake/CommercialInputs';
 import { ConceptBadge } from '@/components/intake/ConceptBadge';
 import { Button } from '@/components/ui/button';
@@ -975,7 +978,9 @@ function AnswerRadios({
 
 /**
  * FB-24 (Ben's decision D4, provisional placement; Faron Ipox): holding bottles for a customer is an extra
- * cost Pricing needs to know. The customer's ask, so the KAM records it. All optional.
+ * cost Pricing needs to know. The customer's ask, so the KAM records it. All optional. FB-31 (N19-10,
+ * Sarah Brennan): asked in the contract's words, inventory and safety stock requirements ("subtle
+ * training"); the fields (stock_hold_*) are unchanged.
  */
 function StockHoldFields({ data, update, cfg, evaluation }: StepProps) {
   const yes = data.stockHoldRequested === true;
@@ -986,7 +991,7 @@ function StockHoldFields({ data, update, cfg, evaluation }: StepProps) {
     <div className="grid gap-4" data-testid="stock-hold">
       <AnswerRadios
         field="stock_hold_requested"
-        legend="Does the customer want us to hold stock for them?"
+        legend="Does the customer have inventory or safety stock requirements?"
         value={data.stockHoldRequested}
         help={cfg.help.stock_hold_requested}
         onChange={(v) =>
@@ -1014,7 +1019,7 @@ function StockHoldFields({ data, update, cfg, evaluation }: StepProps) {
               aria-describedby={`${fid('stock_hold_note')}-count`}
               aria-invalid={noteIssue ? true : undefined}
               maxLength={max}
-              placeholder="e.g. hold two months of safety stock at the plant"
+              placeholder="e.g. a minimum inventory, or two months of safety stock at the plant"
               value={data.stockHoldNote ?? ''}
               onChange={(e) => update({ stockHoldNote: nullIfBlank(e.target.value) })}
               className="min-h-16"
@@ -1088,6 +1093,8 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
     data.requestedPaymentTerms,
     cfg.intake.standardPaymentTerms,
   );
+  const termsTier = useTermsTier(data.requestedPaymentTerms);
+  const nonStandardText = useNonStandardTermsText(data.requestedPaymentTerms);
   const delivered = isDeliveredPrice(data.priceBasis, cfg.intake.deliveredPriceBasisCodes);
   const freightIssue = evaluation.blocking.find((b) => b.field === 'freight_special_arrangements');
   // FB-15 (W13-03): freight "Other" makes the special arrangements required.
@@ -1140,6 +1147,7 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
             cfg={cfg}
           />
           <FundingHelp options={entries} className="pb-0" />
+          <FinanceReviewLine code={funding} options={entries} />
         </Field>
         <Reveal when={shared}>
           <Field {...meta(cfg, 'customer_share_pct')}>
@@ -1171,9 +1179,16 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
         max={INTAKE_TEXT_LIMITS.custom_description}
         placeholder="e.g. Net 75, paid on receipt of goods"
       />
+      {/* FB-31 (N19-07): says who must approve it (terms_exception_routes) and, where the tier says so,
+          that a supporting document is needed. */}
       {nonStandard && (
         <Notice tone="warning" testId="payment-terms-nonstandard">
-          {NON_STANDARD_TERMS_TEXT}
+          {nonStandardText}
+          {termsTier.documentRequired && (
+            <span className="block" data-testid="payment-terms-document-required">
+              {TERMS_DOCUMENT_REQUIRED_TEXT}
+            </span>
+          )}
         </Notice>
       )}
       {fundingEntry?.meta.taxHint === true && cfg.help.tooling_funding_tax_hint && (
@@ -2413,6 +2428,8 @@ export function ReviewStep({
   const text = issueTextIn(data);
   const label = (list: string, code: string | null | undefined) =>
     valueLabel(cfg, list, code) || '—';
+  // FB-31 (N19-07): who must approve a non-standard request (terms_exception_routes).
+  const reviewNonStandardText = useNonStandardTermsText(data.requestedPaymentTerms);
   const pickerId = useId();
 
   const drawingText = (item: IntakeItemData, index: number) =>
@@ -2465,7 +2482,7 @@ export function ReviewStep({
         // FB-24 (N18-02, D4).
         ['Customer commits to the tooling', answerText(data.toolingCommitment)],
         [
-          'Hold stock for the customer',
+          'Inventory or safety stock requirements',
           [stockHoldText(data), data.stockHoldRequested === true ? data.stockHoldNote : null]
             .filter(Boolean)
             .join(' · '),
@@ -2480,7 +2497,7 @@ export function ReviewStep({
                     data.requestedPaymentTerms,
                     cfg.intake.standardPaymentTerms,
                   )
-                    ? ` (${NON_STANDARD_TERMS_TEXT})`
+                    ? ` (${reviewNonStandardText})`
                     : ''
                 }`
               : null,

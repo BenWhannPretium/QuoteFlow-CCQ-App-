@@ -176,7 +176,8 @@ test('a KAM fills item 1, duplicates it below and edits item 2; lists A to Z; to
   await expect(page.getByRole('heading', { name: '12 oz jar' })).toBeVisible();
   await expect(reviewValue(page, 'Returnable dunnage')).toHaveText('Yes');
   await expect(reviewValue(page, 'Customer commits to the tooling')).toHaveText('Yes');
-  await expect(reviewValue(page, 'Hold stock for the customer')).toHaveText(
+  // FB-31 (N19-10): the contract's words.
+  await expect(reviewValue(page, 'Inventory or safety stock requirements')).toHaveText(
     'Yes, for 12 weeks · Hold two months of safety stock',
   );
   await expect(page.getByTestId('blocking-list')).toHaveCount(0);

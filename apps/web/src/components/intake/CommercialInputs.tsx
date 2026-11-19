@@ -1,5 +1,13 @@
 import type { PublicConfigResponse, QuoteDetail, QuoteIntakeFacts } from '@ccq/contracts';
-import { isNonStandardPaymentTerms } from '@ccq/domain';
+import {
+  TERMS_DOCUMENT_REQUIRED_TEXT,
+  isNonStandardPaymentTerms,
+  nonStandardTermsText,
+  parseTermsExceptionRoutes,
+  termsExceptionTier,
+  type TermsExceptionRoutes,
+  type TermsExceptionTier,
+} from '@ccq/domain';
 
 import { usePublicConfig } from '@/config/public-config';
 
@@ -7,8 +15,45 @@ import { factLabel, type Lists } from './factLabel';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
-/** The copy shown for a non-standard request (FB-11, F-080, D-032). */
-export const NON_STANDARD_TERMS_TEXT = 'Non-standard: Pricing will review';
+
+/**
+ * The copy shown for a non-standard request (FB-11, F-080, D-032) when no code is known. FB-31 (N19-07):
+ * with a code, it names who must approve it, from `terms_exception_routes` ("Non-standard: needs approval
+ * by Leadership").
+ */
+export const NON_STANDARD_TERMS_TEXT = 'Non-standard: needs approval';
+
+/** FB-31: `terms_exception_routes` from the public config (the seed while it loads, or if malformed). */
+export function termsRoutesFrom(config: PublicConfigResponse | undefined): TermsExceptionRoutes {
+  try {
+    return parseTermsExceptionRoutes(config?.settings.terms_exception_routes);
+  } catch {
+    return parseTermsExceptionRoutes(null);
+  }
+}
+
+/** FB-31: the tier a payment-terms code goes to (who approves it, and whether a document is needed). */
+export function useTermsTier(code: string | null | undefined): TermsExceptionTier {
+  const { data: config } = usePublicConfig();
+  return termsExceptionTier(termsRoutesFrom(config), code);
+}
+
+/** FB-31: "Non-standard: needs approval by Leadership" for a code, the generic text without one. */
+export function useNonStandardTermsText(code: string | null | undefined): string {
+  const tier = useTermsTier(code);
+  return code ? nonStandardTermsText(tier) : NON_STANDARD_TERMS_TEXT;
+}
+
+/** FB-31 (N19-07, Sarah Brennan): under a non-standard code whose tier needs formal documentation. */
+export function NonStandardTermsDocumentLine({ code }: { code: string | null | undefined }) {
+  const tier = useTermsTier(code);
+  if (!code || !tier.documentRequired) return null;
+  return (
+    <p className="text-muted-foreground text-xs" data-testid="payment-terms-document-required">
+      {TERMS_DOCUMENT_REQUIRED_TEXT}
+    </p>
+  );
+}
 
 /** The `standard_payment_terms` setting as a code list (empty while config loads). */
 export const standardTermsFrom = (config: PublicConfigResponse | undefined): string[] => {
@@ -16,14 +61,22 @@ export const standardTermsFrom = (config: PublicConfigResponse | undefined): str
   return Array.isArray(v) ? v.filter((c): c is string => typeof c === 'string') : [];
 };
 
-export function NonStandardTermsBadge({ show }: { show: boolean }) {
+export function NonStandardTermsBadge({
+  show,
+  code,
+}: {
+  show: boolean;
+  /** FB-31: the payment-terms code, so the badge says who must approve it. */
+  code?: string | null | undefined;
+}) {
+  const text = useNonStandardTermsText(code);
   if (!show) return null;
   return (
     <span
       data-testid="payment-terms-nonstandard"
       className="bg-warning text-warning-foreground rounded-pill ml-2 inline-flex items-center px-2 py-0.5 text-xs font-semibold whitespace-nowrap"
     >
-      {NON_STANDARD_TERMS_TEXT}
+      {text}
     </span>
   );
 }
@@ -39,7 +92,9 @@ export function customerShareText(
 ): string | null {
   if (pct == null || !fundingCode) return null;
   const entry = lists?.tooling_funding_model?.find((v) => v.code === fundingCode);
-  if (entry?.meta.customerShare !== true) return null;
+  // FB-31 (N19-08): Shared is no longer offered, so an old quote's code is not in the active list; a
+  // share is only ever recorded with Shared, so it still shows.
+  if (entry && entry.meta.customerShare !== true) return null;
   const rest = Math.round((100 - pct) * 10) / 10;
   return `Customer ${pct}%, Pretium ${rest}%`;
 }
@@ -95,7 +150,7 @@ export function commercialFactItems(
       value: terms ? (
         <span data-testid="fact-payment-terms">
           {terms}
-          <NonStandardTermsBadge show={nonStandard} />
+          <NonStandardTermsBadge show={nonStandard} code={f.requestedPaymentTerms} />
         </span>
       ) : null,
     },
@@ -132,17 +187,18 @@ export function commercialFactItems(
       label: 'Customer commits to the tooling',
       value: <span data-testid="fact-tooling-commitment">{answerText(f.toolingCommitment)}</span>,
     },
-    // FB-24 (D4): holding stock for the customer is an extra cost Pricing needs to know.
+    // FB-24 (D4): holding stock for the customer is an extra cost Pricing needs to know. FB-31 (N19-10,
+    // Sarah Brennan): in the contract's words.
     {
       id: 'stock-hold',
-      label: 'Hold stock for the customer',
+      label: 'Inventory or safety stock requirements',
       value: <span data-testid="fact-stock-hold">{stockHoldText(f)}</span>,
     },
     ...(f.stockHoldRequested === true && f.stockHoldNote
       ? [
           {
             id: 'stock-hold-note',
-            label: 'Stocking note',
+            label: 'Inventory / safety stock note',
             value: (
               <span className="whitespace-pre-line" data-testid="fact-stock-hold-note">
                 {f.stockHoldNote}
@@ -219,6 +275,7 @@ export function CustomerRequested({ quote }: { quote: QuoteDetail }) {
       <span className="font-medium">Customer requested:</span> {terms ?? 'Not given at intake'}
       <NonStandardTermsBadge
         show={isNonStandardPaymentTerms(f.requestedPaymentTerms, standardTermsFrom(config))}
+        code={f.requestedPaymentTerms}
       />
     </p>
   );

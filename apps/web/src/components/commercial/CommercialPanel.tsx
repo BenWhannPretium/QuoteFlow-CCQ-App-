@@ -40,14 +40,16 @@ import {
   customerShareText,
   CustomerRequested,
   NonStandardTermsBadge,
+  NonStandardTermsDocumentLine,
   standardTermsFrom,
 } from '../intake/CommercialInputs';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
 import { CapitalTerms } from './CapitalTerms';
-import { FundingHelp } from './FundingHelp';
+import { FinanceReviewLine, FundingHelp, useFundingLabel, useFundingOptions } from './FundingHelp';
 import { AdditionalApprovals, TermsExceptionCard } from './TermsException';
+
 
 // B-26 (CCQ demo and the future-state process deck): the quote's commercial controls. The early
 // "capital likely" flag (Capital Management awareness, not approval), the terms check and Legal review
@@ -242,7 +244,8 @@ function milestoneText(meta: Record<string, unknown> | undefined): string | null
 }
 
 /**
- * B-26 (B6, B8), FB-08: payment terms (a list; non-standard opens an exception for the pricing lead),
+ * B-26 (B6, B8), FB-08: payment terms (a list; non-standard opens an exception for the approver its tier
+ * of terms_exception_routes names, FB-31),
  * the tooling payment milestones, the terms check and, when a trigger applies, the Legal review. MOQ
  * and tooling funding are Engineering's (`EngineeringTerms`); the capital terms are `CapitalTerms`.
  */
@@ -251,7 +254,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
   const paymentTerms = useValueList('requested_payment_terms');
   const toolingPayments = useValueList('tooling_payment_terms');
-  const fundingModels = useValueList('tooling_funding_model');
+  const fundingLabel = useFundingLabel(c.terms.toolingFundingModel);
   const standard = standardTermsFrom(config);
   const fallback =
     typeof config?.settings.default_payment_terms === 'string'
@@ -315,12 +318,15 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
       status.markSaved();
       const opened =
         next.commercial.terms.exception?.status === 'pending' &&
-        c.terms.exception?.status !== 'pending';
+        c.terms.exception?.status !== 'pending'
+          ? next.commercial.terms.exception
+          : null;
       toast.success({
         title: next.commercial.terms.checkedAt ? 'Terms checked' : 'Terms saved',
+        // FB-31 (N19-07): who decides comes from the request's tier.
         ...(opened
           ? {
-              description: 'Non-standard payment terms: the pricing lead has been asked to decide.',
+              description: `Non-standard payment terms: ${opened.approverLabel} has been asked to decide.${opened.documentRequired ? ' Attach the supporting document below.' : ''}`,
             }
           : {}),
       });
@@ -387,7 +393,10 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
               value: paymentText ? (
                 <>
                   {paymentText}
-                  <NonStandardTermsBadge show={c.terms.paymentTermsNonstandard} />
+                  <NonStandardTermsBadge
+                    show={c.terms.paymentTermsNonstandard}
+                    code={c.terms.termsPaymentTermsCode}
+                  />
                 </>
               ) : null,
             },
@@ -453,7 +462,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
             label="Payment terms"
             hint={
               standard.length > 0
-                ? `Standard: ${standard.map((s) => listLabel(paymentTerms, s)).join(', ')}. Anything else goes to the pricing lead as an exception.`
+                ? `Standard: ${standard.map((s) => listLabel(paymentTerms, s)).join(', ')}. Anything else needs approval as an exception.`
                 : undefined
             }
             error={errorFor(errors, 'termsPaymentTermsCode')}
@@ -473,8 +482,9 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
               </NativeSelect>
             )}
           </Field>
-          <div className="flex items-end pb-2">
-            <NonStandardTermsBadge show={nonstandard} />
+          <div className="grid content-end gap-1 pb-2">
+            <NonStandardTermsBadge show={nonstandard} code={form.termsPaymentTermsCode} />
+            {nonstandard && <NonStandardTermsDocumentLine code={form.termsPaymentTermsCode} />}
           </div>
           {freeText && (
             <Field
@@ -656,8 +666,8 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
       {/* Funding is Engineering's on the quote; the label is shown for context when it is not. */}
       {!c.terms.canEditEngineering && !c.terms.capital.canFinalize && (
         <p className="text-muted-foreground -mt-4 text-xs">
-          Funding model: {listLabel(fundingModels, c.terms.toolingFundingModel) ?? 'Not set'}{' '}
-          (Engineering confirms MOQ and funding; the approver finalizes the capital terms).
+          Funding model: {fundingLabel ?? 'Not set'} (Engineering confirms MOQ and funding; the
+          approver finalizes the capital terms).
         </p>
       )}
     </div>
@@ -670,7 +680,9 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
  */
 function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
   const t = quote.commercial.terms;
-  const fundingModels = useValueList('tooling_funding_model');
+  // FB-31 (N19-08): the active options plus the quote's own retired one ($0 CER, Shared).
+  const fundingModels = useFundingOptions(t.toolingFundingModel);
+  const storedFundingLabel = useFundingLabel(t.toolingFundingModel);
   const apply = useApplyQuote(quote);
   const [funding, setFunding] = useState(t.toolingFundingModel ?? '');
   const [moq, setMoq] = useState(t.termsMoq ?? '');
@@ -693,9 +705,7 @@ function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
-  const fundingName = t.toolingFundingModel
-    ? (fundingModels.find((m) => m.code === t.toolingFundingModel)?.label ?? t.toolingFundingModel)
-    : null;
+  const fundingName = storedFundingLabel;
   // FB-15 (W13-09): the customer's share from intake, while funding is still Shared.
   const share = customerShareText(
     { tooling_funding_model: fundingModels },
@@ -741,6 +751,7 @@ function EngineeringTerms({ quote }: { quote: QuoteDetail }) {
           )}
         </Field>
         <FundingHelp options={fundingModels} />
+        <FinanceReviewLine code={funding} options={fundingModels} className="sm:col-span-2" />
         {share && (
           <p className="text-muted-foreground text-xs sm:col-span-2" data-testid="customer-share">
             Customer share from intake: {share}.

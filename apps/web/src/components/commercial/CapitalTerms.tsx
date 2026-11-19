@@ -2,6 +2,7 @@ import type { CapitalTermsBody, CapitalTermsView, QuoteDetail, TermsBody } from 
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
+
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { useValueList } from '@/config/public-config';
@@ -9,6 +10,7 @@ import { api } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
+import { FinanceReviewLine, FundingHelp, useFundingLabel, useFundingOptions } from './FundingHelp';
 import {
   Field,
   FormErrors,
@@ -21,7 +23,6 @@ import {
   type ServerError,
 } from '../forms';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
-import { FundingHelp } from './FundingHelp';
 
 /**
  * FB-08 (F-068, V-054, T-031): the capital terms (funding model, mold ownership, amortization, minimum
@@ -70,7 +71,8 @@ export const capitalTermFieldId = (term: string) => `capital-term-${term}`;
  * `markRequired`, the terms `capital_terms_required` names carry the red required marker.
  */
 export function useCapitalTermItems(v: CapitalTermsView, markRequired = false): KeyValueItem[] {
-  const funding = useValueList('tooling_funding_model');
+  // FB-31 (N19-08): a retired funding code ($0 CER, Shared) still shows its label.
+  const fundingLabel = useFundingLabel(v.toolingFundingModel);
   const mold = useValueList('mold_ownership');
   const label = (list: { code: string; label: string }[], code: string | null) =>
     code ? (list.find((e) => e.code === code)?.label ?? code) : null;
@@ -81,7 +83,7 @@ export function useCapitalTermItems(v: CapitalTermsView, markRequired = false): 
     {
       id: 'cap-funding',
       label: named('funding_model', 'Funding model'),
-      value: label(funding, v.toolingFundingModel),
+      value: fundingLabel,
     },
     {
       id: 'cap-mold',
@@ -197,7 +199,8 @@ function CapitalTermsForm({
   markRequired: boolean;
 }) {
   const req = (term: string) => markRequired && view.required.includes(term);
-  const funding = useValueList('tooling_funding_model');
+  // FB-31 (N19-08): the active options plus the quote's own retired one, so the select shows it.
+  const funding = useFundingOptions(view.toolingFundingModel);
   const mold = useValueList('mold_ownership');
   const stored = formFrom(view);
   const [form, setForm] = useState<Form>(stored);
@@ -309,6 +312,11 @@ function CapitalTermsForm({
               </Field>
             </div>
             <FundingHelp options={funding} />
+            <FinanceReviewLine
+              code={form.toolingFundingModel}
+              options={funding}
+              className="sm:col-span-2"
+            />
           </>
         )}
         <div id={capitalTermFieldId('mold_ownership')} className="grid">

@@ -9,6 +9,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 
+
 import { AttachmentDownloadLink } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import { holdEndedSummary, holdSummary } from '@/lib/hold-text';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { valueListLabel } from '@/lib/value-label';
 
 import { CommentBody } from './CommentBody';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -155,6 +157,25 @@ export function describeEvent(
         detail: note(str(p.note)),
         kind: 'gate',
       };
+    // FB-31 (N19-07): a payment-terms exception names who decides it (its tier of terms_exception_routes).
+    case 'terms_exception_requested': {
+      const terms = valueListLabel(config, 'requested_payment_terms', str(p.paymentTermsCode));
+      return {
+        title: `Payment-terms exception${terms ? ` (${terms})` : ''}${str(p.approver) ? `: waiting for ${str(p.approver)}` : ''}`,
+        ...(p.documentRequired === true
+          ? { detail: note('A supporting document is needed before it can be approved.') }
+          : {}),
+        kind: 'gate',
+      };
+    }
+    case 'terms_exception_decided': {
+      const terms = valueListLabel(config, 'requested_payment_terms', str(p.paymentTermsCode));
+      return {
+        title: `Payment-terms exception ${p.decision === 'approved' ? 'approved' : 'rejected'}${terms ? ` (${terms})` : ''}${str(p.approver) ? ` by ${str(p.approver)}` : ''}`,
+        detail: note(str(p.rationale)),
+        kind: 'gate',
+      };
+    }
     case 'payback_request_withdrawn':
       return {
         title: `Payback request withdrawn${str(p.reason) ? `: ${str(p.reason)}` : ''}`,

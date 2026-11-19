@@ -111,26 +111,28 @@ async function fillCustomerAndProduct(
 
 /**
  * FB-11 (D-032): the commercial inputs on step 3: payment terms (non-standard flag), customer funding
- * (defaults to "Not discussed", sales-tax hint), returnable dunnage, delivered or FOB with the freight
+ * (defaults to "To be determined", sales-tax hint), returnable dunnage, delivered or FOB with the freight
  * (cleared when the price goes back to FOB) and the bid / program reference. All optional.
  */
 async function fillCommercialInputs(page: Page) {
   await page.locator('#intake-bid-reference').fill('RFP-2026-114');
   await page.getByTestId('returnable-dunnage').check();
 
-  // Payment terms: a standard term shows no flag; Net 60 is non-standard and Pricing will review.
+  // Payment terms: a standard term shows no flag; Net 60 is non-standard and (FB-31, N19-07: the
+  // provisional terms_exception_routes) needs Leadership's approval and a supporting document.
   await page.locator('#intake-requested-payment-terms').selectOption({ label: 'Net 30' });
   await expect(page.getByTestId('payment-terms-nonstandard')).toHaveCount(0);
   await page.locator('#intake-requested-payment-terms').selectOption({ label: 'Net 60' });
-  await expect(page.getByTestId('payment-terms-nonstandard')).toHaveText(
-    'Non-standard: Pricing will review',
+  await expect(page.getByTestId('payment-terms-nonstandard')).toContainText(
+    'Non-standard: needs approval by Leadership',
   );
+  await expect(page.getByTestId('payment-terms-document-required')).toBeVisible();
 
-  // Customer funding starts at "Not discussed"; a customer-funded answer shows the sales-tax hint.
+  // Customer funding starts at "To be determined"; a customer-funded answer shows the sales-tax hint.
   const funding = page.locator('#intake-tooling-funding-model');
-  await expect(funding.locator('option:checked')).toHaveText('Not discussed');
+  await expect(funding.locator('option:checked')).toHaveText('To be determined');
   await expect(page.getByTestId('funding-tax-hint')).toHaveCount(0);
-  await funding.selectOption({ label: 'Customer-funded' });
+  await funding.selectOption({ label: 'Customer funded (lump sum)' });
   await expect(page.getByTestId('funding-tax-hint')).toContainText('sales tax');
 
   // Delivered reveals the freight fields; going back to FOB hides and clears them.
@@ -217,9 +219,9 @@ test.describe('KAM intake', () => {
     await expect(page.getByTestId('fact-bid-reference')).toHaveText('RFP-2026-114');
     await expect(page.getByTestId('fact-payment-terms')).toContainText('Net 60');
     await expect(page.getByTestId('fact-payment-terms')).toContainText(
-      'Non-standard: Pricing will review',
+      'Non-standard: needs approval by Leadership',
     );
-    await expect(page.getByTestId('fact-funding')).toHaveText('Customer-funded');
+    await expect(page.getByTestId('fact-funding')).toHaveText('Customer funded (lump sum)');
     await expect(page.getByTestId('fact-dunnage')).toHaveText('Returnable (multi-trip)');
     await expect(page.getByTestId('fact-price-basis')).toHaveText('Delivered');
     await expect(page.getByTestId('fact-freight-type')).toHaveText('Drop trailer');
