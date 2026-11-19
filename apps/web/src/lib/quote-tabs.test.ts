@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
+  engineeringPartFor,
   engineeringTabFor,
   isQuoteTab,
   leadWaitingPart,
@@ -308,5 +309,56 @@ describe('the tabs opened so far', () => {
       quoteNumber: 'CCQ-2026-00002',
       tabs: ['quoting'],
     });
+  });
+});
+
+/** FB-30 (N19-28): the part of the engineering review waiting for the reader (the tab a quote opens on). */
+describe('engineeringPartFor', () => {
+  const both = { engineer: { in: false }, scheduler: { in: true } };
+  const lead = permissionsForRoles(['EngLead']);
+  const scheduler = permissionsForRoles(['ProductionScheduler']);
+  const engineer = permissionsForRoles(['Engineer']);
+
+  it('is capacity when the next step says the capacity part is the reader’s move', () => {
+    expect(
+      engineeringPartFor({
+        nextStep: { yourMove: true, part: 'capacity' },
+        parts: null,
+        permissions: scheduler,
+      }),
+    ).toBe('capacity');
+    // Not their move: the next step's part says nothing.
+    expect(
+      engineeringPartFor({
+        nextStep: { yourMove: false, part: 'capacity' },
+        parts: null,
+        permissions: scheduler,
+      }),
+    ).toBeNull();
+  });
+
+  it('is the part submitted to a lead (who may decide G2), and nothing for anyone else', () => {
+    expect(engineeringPartFor({ nextStep: null, parts: both, permissions: lead })).toBe('capacity');
+    expect(
+      engineeringPartFor({
+        nextStep: undefined,
+        parts: { engineer: { in: true }, scheduler: { in: true } },
+        permissions: lead,
+      }),
+    ).toBe('engineering');
+    expect(engineeringPartFor({ nextStep: null, parts: null, permissions: lead })).toBeNull();
+    // The submitted parts mean nothing to a reader who does not decide G2.
+    expect(engineeringPartFor({ nextStep: null, parts: both, permissions: engineer })).toBeNull();
+    expect(engineeringPartFor({ nextStep: null, parts: both, permissions: scheduler })).toBeNull();
+  });
+
+  it('a lead’s own decision (part "decide") is not the capacity part', () => {
+    expect(
+      engineeringPartFor({
+        nextStep: { yourMove: true, part: 'decide' },
+        parts: { engineer: { in: true }, scheduler: null },
+        permissions: lead,
+      }),
+    ).toBe('engineering');
   });
 });

@@ -40,6 +40,9 @@ export const ENGINEERING_WORK_PERMISSIONS = [
  */
 export const SOLUTION_WORK_PERMISSION = 'engReview.edit' satisfies Permission;
 
+/** FB-30: the permission that makes a reader the engineering lead who decides G2. */
+export const LEAD_DECIDE_PERMISSION = 'gate.G2.decide' satisfies Permission;
+
 /** FB-30: the permissions that mean "this reader works capacity" (the rows, or the sign-off). */
 export const CAPACITY_WORK_PERMISSIONS = [
   'capacity.edit',
@@ -125,6 +128,20 @@ export function leadWaitingPart(
   if (!parts) return null;
   if (parts.engineer.in) return 'engineering';
   return parts.scheduler?.in ? 'capacity' : null;
+}
+
+/**
+ * FB-30 (N19-28): the part of the engineering review waiting for the reader, for the tab a quote opens
+ * on. The server's next step names the production scheduler's capacity part; for a lead (who may decide
+ * G2) it is the part submitted to them (`leadWaitingPart`). Null for everyone else.
+ */
+export function engineeringPartFor(input: {
+  nextStep?: { yourMove: boolean; part?: string | undefined } | null | undefined;
+  parts: Parameters<typeof leadWaitingPart>[0];
+  permissions: readonly string[];
+}): EngineeringPart | null {
+  if (input.nextStep?.yourMove && input.nextStep.part === 'capacity') return 'capacity';
+  return input.permissions.includes(LEAD_DECIDE_PERMISSION) ? leadWaitingPart(input.parts) : null;
 }
 
 /**

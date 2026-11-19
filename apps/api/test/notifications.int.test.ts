@@ -302,6 +302,21 @@ describe('quote assigned or reassigned', () => {
     // The engineer's own email still opens the Engineering tab.
     const [e] = sentTo(await emailOf(engineer), `${qn} is assigned to you`);
     expect(e!.html).toContain(`/quotes/${qn}?tab=engineering`);
+
+    // The engineer saves the plant and the machine type: "capacity can start" opens Capacity too.
+    expect((await as('Engineer').post(`/api/v1/quotes/${qn}/eng-review/accept`)).statusCode).toBe(
+      200,
+    );
+    const saved = await as('Engineer').put(`/api/v1/quotes/${qn}/eng-review`, {
+      plantCode: 'AURORA',
+      machineType: 'EBM',
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    await dispatch();
+    const [ready] = sentTo(await emailOf(scheduler), `${qn} capacity can start`);
+    expect(ready, 'the capacity-ready email').toBeDefined();
+    expect(ready!.html).toContain(`/quotes/${qn}?tab=capacity`);
+    expect(ready!.text).toContain(`/quotes/${qn}?tab=capacity`);
   });
 });
 

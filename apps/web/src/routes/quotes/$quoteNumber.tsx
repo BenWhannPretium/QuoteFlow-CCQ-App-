@@ -63,8 +63,8 @@ import { STALE_QUOTE_TEXT, quoteLoadFailure } from '@/lib/quote-page-error';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
+  engineeringPartFor,
   isQuoteTab,
-  leadWaitingPart,
   tabForHash,
   tabsWithWork,
   termsWorkWaiting,
@@ -116,18 +116,6 @@ function termsWorkFor(quote: QuoteDetail): boolean {
 }
 
 /**
- * FB-30 (N19-28): the part of the engineering review waiting for the reader, for the tab a quote opens
- * on. The server's next step names the production scheduler's capacity part; for a lead (who may decide
- * G2) it is the part submitted to them (`leadWaitingPart`).
- */
-function engineeringPartFor(quote: QuoteDetail, permissions: readonly string[]) {
-  if (quote.nextStep?.yourMove && quote.nextStep.part === 'capacity') return 'capacity';
-  return permissions.includes('gate.G2.decide')
-    ? leadWaitingPart(quote.engineering.leadReview.parts)
-    : null;
-}
-
-/**
  * UX-012: the tab on screen, and how it is kept in the address.
  *
  * An address that names a tab (`?tab=`) always wins. One that names none opens on the tab of the
@@ -157,7 +145,12 @@ function useQuoteTab(quote: QuoteDetail | undefined): {
         inQuoting: quote.quoting.inQuoting,
         inIntake: quote.stageKey === 'INTAKE' && quote.status !== 'closed',
         termsWork: termsWorkFor(quote),
-        part: engineeringPartFor(quote, permissions),
+        // FB-30: the scheduler's capacity part, or the part submitted to a lead.
+        part: engineeringPartFor({
+          nextStep: quote.nextStep,
+          parts: quote.engineering.leadReview.parts,
+          permissions,
+        }),
         permissions,
       }));
   const wanted = anchored ?? named;
@@ -421,102 +414,102 @@ function QuotePage() {
       <GuardrailNote text={q.intakeFacts.guardrailWarning} />
       <StageTimeBar quoteNumber={q.quoteNumber} />
 
-      {/* FB-30: the Engineering and Capacity tabs show the same item of a multi-item quote. */}
-      <EngineeringItemProvider key={q.quoteNumber} quoteNumber={q.quoteNumber}>
-        <Tabs.Root
-          value={tab}
-          onValueChange={(next) => selectTab(next as QuoteTab)}
-          className="grid gap-6"
+      <Tabs.Root
+        value={tab}
+        onValueChange={(next) => selectTab(next as QuoteTab)}
+        className="grid gap-6"
+      >
+        <UnsavedChangesGuard quoteNumber={q.quoteNumber} />
+        {/* FB-25 (N17-18, N18-18): the tab bar is hard to miss. Larger labels, a filled selected tab, and
+          it stays under the page header while the page scrolls (index.css keeps focus clear of it). */}
+        <Tabs.List
+          aria-label="Quote sections"
+          className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-16 z-20 -mx-4 flex gap-1 overflow-x-auto border-b px-4 backdrop-blur sm:mx-0 sm:px-0"
+          data-sticky-top=""
+          data-testid="quote-tabs"
         >
-          <UnsavedChangesGuard quoteNumber={q.quoteNumber} />
-          {/* FB-25 (N17-18, N18-18): the tab bar is hard to miss. Larger labels, a filled selected tab, and
-            it stays under the page header while the page scrolls (index.css keeps focus clear of it). */}
-          <Tabs.List
-            aria-label="Quote sections"
-            className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-16 z-20 -mx-4 flex gap-1 overflow-x-auto border-b px-4 backdrop-blur sm:mx-0 sm:px-0"
-            data-sticky-top=""
-            data-testid="quote-tabs"
-          >
-            {QUOTE_TABS.map((t) => (
-              <Tabs.Trigger
-                key={t}
-                value={t}
-                data-testid={`quote-tab-${t}`}
-                data-work={working.includes(t) || undefined}
-                aria-describedby={working.includes(t) ? workNoteId : undefined}
-                className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground data-[state=active]:bg-accent hover:text-foreground hover:bg-accent/60 -mb-px inline-flex min-h-12 shrink-0 items-center gap-2 rounded-t-md border-b-[3px] border-transparent px-3 text-base font-medium transition-colors data-[state=active]:font-semibold sm:px-4"
-              >
-                {TAB_LABELS[t]}
-                {working.includes(t) && (
-                  <span
-                    aria-hidden="true"
-                    className="bg-destructive size-2 shrink-0 rounded-full"
-                    data-testid="tab-work-dot"
-                  />
-                )}
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
-          <span id={workNoteId} hidden>
-            Work is waiting for you on this tab.
-          </span>
-          <Tabs.Content value="overview" className="grid gap-6" data-testid="overview">
-            {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
-            {canReadOfferLetter && <OfferLetterCard quote={q} />}
-            <HandoffCard quote={q} autoFocus={handoffFocus} />
-            <ClosureCard closure={q.customerDecision.closure} />
-            {/* FB-25 (N18-18): the read-only summary of everything filled in so far. */}
-            <section
-              id="at-a-glance"
-              aria-labelledby="at-a-glance-heading"
-              className="grid gap-6"
-              data-testid="at-a-glance"
+          {QUOTE_TABS.map((t) => (
+            <Tabs.Trigger
+              key={t}
+              value={t}
+              data-testid={`quote-tab-${t}`}
+              data-work={working.includes(t) || undefined}
+              aria-describedby={working.includes(t) ? workNoteId : undefined}
+              className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground data-[state=active]:bg-accent hover:text-foreground hover:bg-accent/60 -mb-px inline-flex min-h-12 shrink-0 items-center gap-2 rounded-t-md border-b-[3px] border-transparent px-3 text-base font-medium transition-colors data-[state=active]:font-semibold sm:px-4"
             >
-              <h2 id="at-a-glance-heading" className="font-display text-lg font-semibold">
-                At a glance
-              </h2>
-              <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-                <IntakeCard quote={q} />
-                <div className="grid content-start gap-6">
-                  <EngineeringGlance quote={q} />
-                  {/* FB-30 (N19-28): capacity in its own card, apart from engineering. */}
-                  <CapacityGlance quote={q} />
-                  <PricingGlance quote={q} />
-                </div>
+              {TAB_LABELS[t]}
+              {working.includes(t) && (
+                <span
+                  aria-hidden="true"
+                  className="bg-destructive size-2 shrink-0 rounded-full"
+                  data-testid="tab-work-dot"
+                />
+              )}
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+        <span id={workNoteId} hidden>
+          Work is waiting for you on this tab.
+        </span>
+        <Tabs.Content value="overview" className="grid gap-6" data-testid="overview">
+          {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
+          {canReadOfferLetter && <OfferLetterCard quote={q} />}
+          <HandoffCard quote={q} autoFocus={handoffFocus} />
+          <ClosureCard closure={q.customerDecision.closure} />
+          {/* FB-25 (N18-18): the read-only summary of everything filled in so far. */}
+          <section
+            id="at-a-glance"
+            aria-labelledby="at-a-glance-heading"
+            className="grid gap-6"
+            data-testid="at-a-glance"
+          >
+            <h2 id="at-a-glance-heading" className="font-display text-lg font-semibold">
+              At a glance
+            </h2>
+            <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+              <IntakeCard quote={q} />
+              <div className="grid content-start gap-6">
+                <EngineeringGlance quote={q} />
+                {/* FB-30 (N19-28): capacity in its own card, apart from engineering. */}
+                <CapacityGlance quote={q} />
+                <PricingGlance quote={q} />
               </div>
-              <TermsGlance quote={q} />
-              <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      <h3 className="text-base font-semibold">Why this priority?</h3>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ScoreBreakdownTable
-                      priority={q.priority}
-                      market={{ market: q.market, subMarket: q.subMarket }}
-                    />
-                    {/* FB-04 (F-065, T-024): the sales leader's justification, visible to Engineering. */}
-                    {tierOverride && (
-                      <p className="mt-3 text-xs" data-testid="priority-override-note">
-                        <span className="font-semibold">Tier overridden by </span>
-                        {tierOverride.requestedByName ?? 'a sales leader'}:{' '}
-                        {tierOverride.justification}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-                <DecisionsCard quote={q} />
-              </div>
-            </section>
+            </div>
+            <TermsGlance quote={q} />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    <h3 className="text-base font-semibold">Why this priority?</h3>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScoreBreakdownTable
+                    priority={q.priority}
+                    market={{ market: q.market, subMarket: q.subMarket }}
+                  />
+                  {/* FB-04 (F-065, T-024): the sales leader's justification, visible to Engineering. */}
+                  {tierOverride && (
+                    <p className="mt-3 text-xs" data-testid="priority-override-note">
+                      <span className="font-semibold">Tier overridden by </span>
+                      {tierOverride.requestedByName ?? 'a sales leader'}:{' '}
+                      {tierOverride.justification}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+              <DecisionsCard quote={q} />
+            </div>
+          </section>
 
-            <Card>
-              <CardContent className="pt-6">
-                <QuoteTimeline quoteNumber={q.quoteNumber} />
-              </CardContent>
-            </Card>
-          </Tabs.Content>
+          <Card>
+            <CardContent className="pt-6">
+              <QuoteTimeline quoteNumber={q.quoteNumber} />
+            </CardContent>
+          </Card>
+        </Tabs.Content>
+        {/* FB-30: the Engineering and Capacity tabs show the same item of a multi-item quote. */}
+        <EngineeringItemProvider key={q.quoteNumber} quoteNumber={q.quoteNumber}>
           <Tabs.Content value="engineering" {...kept('engineering')}>
             {/* FB-26 (N17-30): on a linked re-quote, the expired quote's solution (read only). */}
             <RequoteSourcePanel quote={q} className="mb-4" />
@@ -541,32 +534,32 @@ function QuotePage() {
               }}
             />
           </Tabs.Content>
-          {/* FB-25 (N18-18): the Commercial terms panel, unchanged in behaviour, on its own tab. */}
-          <Tabs.Content value="commercial" {...kept('commercial')}>
-            <CommercialPanel quote={q} />
-          </Tabs.Content>
-          <Tabs.Content value="attachments">
-            <Card>
-              <CardContent className="pt-6">
-                <AttachmentsPanel target={{ quoteNumber: q.quoteNumber }} />
-              </CardContent>
-            </Card>
-          </Tabs.Content>
-          <Tabs.Content value="quoting" {...kept('quoting')}>
-            <RequoteSourcePanel quote={q} className="mb-4" />
-            <QuotingTab
-              quote={q}
-              onDecide={(outcome, scope) =>
-                setDeciding({
-                  gate: 'G3',
-                  ...(outcome ? { outcome } : {}),
-                  ...(scope ? { scope } : {}),
-                })
-              }
-            />
-          </Tabs.Content>
-        </Tabs.Root>
-      </EngineeringItemProvider>
+        </EngineeringItemProvider>
+        {/* FB-25 (N18-18): the Commercial terms panel, unchanged in behaviour, on its own tab. */}
+        <Tabs.Content value="commercial" {...kept('commercial')}>
+          <CommercialPanel quote={q} />
+        </Tabs.Content>
+        <Tabs.Content value="attachments">
+          <Card>
+            <CardContent className="pt-6">
+              <AttachmentsPanel target={{ quoteNumber: q.quoteNumber }} />
+            </CardContent>
+          </Card>
+        </Tabs.Content>
+        <Tabs.Content value="quoting" {...kept('quoting')}>
+          <RequoteSourcePanel quote={q} className="mb-4" />
+          <QuotingTab
+            quote={q}
+            onDecide={(outcome, scope) =>
+              setDeciding({
+                gate: 'G3',
+                ...(outcome ? { outcome } : {}),
+                ...(scope ? { scope } : {}),
+              })
+            }
+          />
+        </Tabs.Content>
+      </Tabs.Root>
 
       {deciding && (
         <GateDecisionDialog

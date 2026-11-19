@@ -47,6 +47,45 @@ const ENGINEERING_TYPES = new Set([
  */
 const CAPACITY_TYPES = new Set(['quote.capacity_assigned', 'quote.capacity_ready']);
 
+/** Where a quote's email deep link goes (the path after `APP_BASE_URL`), by notification type. */
+export function quoteEmailPath(
+  type: string,
+  quoteNumber: string,
+  payload: Record<string, string> = {},
+): string {
+  const n = encodeURIComponent(quoteNumber);
+  if (type === 'quote.ready_for_final_review') return `/quotes/${n}/review`;
+  // FB-15 (W13-05): a send-back opens the KAM's rework at the review step, at the field to fix.
+  if (type === 'quote.reworked') return `/intake/new?rework=${n}`;
+  // Lead review and pricing assignment: the tab of the work in question.
+  if (
+    type === 'quote.pricing_assigned' ||
+    type === 'quote.ready_for_quoting' ||
+    type === 'quote.ready_for_roi' ||
+    type === 'quote.roi_uploaded' ||
+    type === 'quote.payback_request_withdrawn'
+  ) {
+    return `/quotes/${n}?tab=quoting`;
+  }
+  if (type === 'quote.submitted_to_lead' || type === 'quote.returned_by_lead') {
+    return `/quotes/${n}?tab=${payload.kind === 'pricing' ? 'quoting' : 'engineering'}`;
+  }
+  // UX-012: a payment-terms exception is on the Commercial terms tab (FB-25); the bare quote opens on
+  // the reader's own work tab.
+  if (type === 'quote.terms_exception_requested' || type === 'quote.terms_exception_decided') {
+    return `/quotes/${n}?tab=commercial#commercial`;
+  }
+  // FB-25 (N18-17): a quote to qualify opens To qualify with its card expanded.
+  if (type === 'quote.to_qualify') return toQualifyPath(quoteNumber);
+  if (CAPACITY_TYPES.has(type)) return `/quotes/${n}?tab=capacity`;
+  // FB-22 (N17-14), FB-30: the other part of an engineering review was submitted: the tab of that part
+  // (the step's rule). The type is in-app only today, so no email carries this link yet.
+  if (type === 'quote.part_submitted') {
+    return `/quotes/${n}?tab=${payload.part === 'scheduler' ? 'capacity' : 'engineering'}`;
+  }
+  return ENGINEERING_TYPES.has(type) ? `/quotes/${n}?tab=engineering` : `/quotes/${n}`;
+}
+
 const stringsOnly = (value: unknown): Record<string, string> =>
   Object.fromEntries(
     Object.entries((value ?? {}) as Record<string, unknown>).filter(
@@ -72,40 +111,7 @@ export class EmailContentBuilder {
   }
 
   private quoteUrl(type: string, quoteNumber: string, payload: Record<string, string>): string {
-    const n = encodeURIComponent(quoteNumber);
-    if (type === 'quote.ready_for_final_review') return this.url(`/quotes/${n}/review`);
-    // FB-15 (W13-05): a send-back opens the KAM's rework at the review step, at the field to fix.
-    if (type === 'quote.reworked') return this.url(`/intake/new?rework=${n}`);
-    // Lead review and pricing assignment: the tab of the work in question.
-    if (
-      type === 'quote.pricing_assigned' ||
-      type === 'quote.ready_for_quoting' ||
-      type === 'quote.ready_for_roi' ||
-      type === 'quote.roi_uploaded' ||
-      type === 'quote.payback_request_withdrawn'
-    ) {
-      return this.url(`/quotes/${n}?tab=quoting`);
-    }
-    if (type === 'quote.submitted_to_lead' || type === 'quote.returned_by_lead') {
-      return this.url(`/quotes/${n}?tab=${payload.kind === 'pricing' ? 'quoting' : 'engineering'}`);
-    }
-    // UX-012: a payment-terms exception is on the Commercial terms tab (FB-25); the bare quote opens on
-    // the reader's own work tab.
-    if (type === 'quote.terms_exception_requested' || type === 'quote.terms_exception_decided') {
-      return this.url(`/quotes/${n}?tab=commercial#commercial`);
-    }
-    // FB-25 (N18-17): a quote to qualify opens To qualify with its card expanded.
-    if (type === 'quote.to_qualify') return this.url(toQualifyPath(quoteNumber));
-    if (CAPACITY_TYPES.has(type)) return this.url(`/quotes/${n}?tab=capacity`);
-    // FB-22 (N17-14), FB-30: the other part of an engineering review was submitted: the tab of that part.
-    if (type === 'quote.part_submitted') {
-      return this.url(
-        `/quotes/${n}?tab=${payload.part === 'scheduler' ? 'capacity' : 'engineering'}`,
-      );
-    }
-    return ENGINEERING_TYPES.has(type)
-      ? this.url(`/quotes/${n}?tab=engineering`)
-      : this.url(`/quotes/${n}`);
+    return this.url(quoteEmailPath(type, quoteNumber, payload));
   }
 
   private actorFor(userId: string): Promise<Actor> {
