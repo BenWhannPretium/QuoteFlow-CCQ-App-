@@ -259,6 +259,22 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
 | 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
 
+**Provisional values FB-24 seeded (built 2026-11-19; all `provisional: true`, changed by config, not code; migration 0051). Decided by Ben on 2026-11-18 (D4): the stocking agreement is an optional KAM input at intake.**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `value_list` `request_class` `CONCEPT` "Concept / innovation" | New class; in `intake_allowed_request_classes` (now `["CCQ","CONCEPT"]`) | Whether concept work is CCQ work in every case | Bailey Schmitt |
+| `app_setting.intake_min_spec_exempt_classes` | `["CONCEPT"]`: no-drawing minimum spec optional; a drawing or a sample photo / render (`sample_photo`) and "Assumptions for this concept" (≤ 1,000, code) required | Which classes are exempt; whether a render must be a file of its own kind | Bailey Schmitt; Jim Zweifel |
+| Offer letter concept sentence (`offer_letter_template`, `templateVersion` `fb24-2026-11-19`) | "This is a concept quote. It assumes: {{conceptAssumptions}}" (drops itself on any other quote) | Legal's wording, with the rest of FB-20's letter | Legal (via Bailey Schmitt) |
+| `app_setting.ship_to_sources` | `["product_spec","account"]`: the opportunity's first product spec (`Ship_To_City__c`, `Ship_To_State__c`, `Shipping_Country__c`, confirmed by describe 2026-11-19), then the Account's shipping address; the free-text `Ship_to_Locations__c` is shown, not parsed | Which source wins when they disagree; whether the free text should ever be parsed | Zachary Cairns |
+| `value_list` `packaging_type` `SOLDIER_PACK` "Soldier pack" | New entry (Operations uses the same name, Kal Kaliszewski) | — | Kal Kaliszewski; Bailey Schmitt |
+| `value_list` `component` `DECORATION` `meta.followUps` | `["decoration_types","decoration_print_colors"]` (several decoration types at once; Other keeps one description) | — | Bailey Schmitt |
+| `value_list` `meta.keepOrder` | On `drawing_status` and `tooling_payment_terms` only; every other list reads A to Z (numeric-aware, Other / Custom last) | Which lists keep their own order; whether "None" should lead the additive list | Bailey Schmitt |
+| `app_setting.attachment_kinds_by_place` | intake and quote: bottle drawing, sample photo / render, bid file, project brief, competitor drawing, other (Specification nowhere; the server refuses any other kind on a draft) | Where Specification belongs, if anywhere | Bailey Schmitt |
+| Item name limit | 120 characters (was 60; contract, DB check, form) | Which box Jordan was typing in | Bailey Schmitt |
+| Stocking agreement | Optional at intake (Commercial inputs): Yes / No / Not known yet, weeks (whole number 1 to 520) on a yes, note ≤ 300 | Placement (D4 "best guess") | Faron Ipox; Gemma Cebolla |
+| Tooling commitment at intake | Optional Yes / No / Not known yet, writes `terms_tooling_commitment` (the Commercial terms panel's field); Yes is a Legal review trigger as before | FB-25 makes it required at Final Review | Bailey Schmitt |
+
 **Provisional values FB-21 seeded (built 2026-11-18; all `provisional: true`, changed by config, not code; migrations 0049 and 0050). Decided by Ben on 2026-11-18: pending capital never blocks; payback only on request; a pricing lead may approve their own work.**
 
 | Value | Seed | Waits on | Who signs off |
