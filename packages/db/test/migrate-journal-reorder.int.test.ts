@@ -97,9 +97,14 @@ const expected = {
 
 describe('runMigrations after 0054/0055 were moved after 0053', () => {
   it('applies them on a database that has 0053 but not 0054/0055 (the test environment)', async () => {
+    // The build the test environment ran: everything up to 0053. A migration added after 0055 must not
+    // be in it, or it would be applied first and drizzle would then (rightly) skip 0054/0055.
     await migrateWith(
       migrationsAsShipped((j) => ({
-        entries: j.entries.filter((e) => !(e.tag in OLD_WHEN)),
+        entries: j.entries.slice(
+          0,
+          j.entries.findIndex((e) => e.tag in OLD_WHEN),
+        ),
       })),
     );
     expect((await state()).requotedColumn).toBe(0);
