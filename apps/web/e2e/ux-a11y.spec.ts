@@ -560,9 +560,10 @@ const STOPS: Stop[] = [
       {
         name: 'decision dialog',
         go: async (page) => {
+          // FB-25 (N17-25): one "Decide final review" opens the dialog.
           await page
             .getByTestId('decision-bar')
-            .getByRole('button', { name: 'Hold', exact: true })
+            .getByRole('button', { name: 'Decide final review' })
             .click();
           await expect(page.getByRole('dialog')).toBeVisible();
         },
@@ -853,6 +854,9 @@ test('a hidden tab panel is out of the tab order, and a hidden file input shows 
   await page.getByRole('tab', { name: 'Engineering' }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Quoting' })).toBeFocused();
+  // FB-25 (N18-18): Commercial terms sits between Quoting and Attachments.
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Commercial terms' })).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Attachments' })).toBeFocused();
   await expect(page.getByTestId('drop-zone')).toBeVisible();
@@ -985,7 +989,7 @@ test('menus, popovers, the hold tooltip and dialogs open from the keyboard, clos
   await expect(page.getByTestId('review-screen')).toBeVisible();
   await opensAndGivesFocusBack(
     page,
-    page.getByTestId('decision-bar').getByRole('button', { name: 'Hold', exact: true }),
+    page.getByTestId('decision-bar').getByRole('button', { name: 'Decide final review' }),
     page.getByRole('dialog'),
   );
 });

@@ -5,6 +5,7 @@ import {
   LEGAL_REVIEW_TRIGGERS_SEED,
   PROCESS_OWNER_SEED,
   derivedDecisionFields,
+  isStandardTerms,
   legalReviewReasons,
   parseCapitalNotice,
   parseEscalationRoutes,
@@ -114,6 +115,7 @@ describe('derived decision fields', () => {
       g4_legal_review_check_required: true,
       g4_terms_exception_check_required: false,
       g4_terms_finalized_check_required: false,
+      g4_tooling_commitment_check_required: false,
       terms_exception_open: false,
       roi_required: false,
       roi_required_reasons: [],
@@ -326,6 +328,50 @@ describe('terms (B-26, FB-08)', () => {
     // No change to the terms: nothing happens to the request.
     const notes = plan({ termsNotes: 'x' }, values(net60), { exceptionStatus: 'pending' });
     expect(notes.ok && notes.exception).toBeNull();
+  });
+
+  it('FB-25 (N17-28): a standard code is never non-standard; with no code the box is the user’s', () => {
+    // A tick sent with a standard code is normalized away (the box is hidden on screen).
+    const ticked = plan({ termsPaymentTermsCode: 'NET_30', termsNonstandard: true });
+    expect(ticked.ok && [ticked.values.termsNonstandard, ticked.exception]).toEqual([false, null]);
+    // A stored tick at a standard code is cleared by the next save.
+    const stored = { ...empty, termsPaymentTermsCode: 'NET_15', termsNonstandard: true };
+    const next = plan({ termsNotes: 'x' }, stored);
+    expect(next.ok && next.values.termsNonstandard).toBe(false);
+    expect(next.ok && next.changed).toContain('termsNonstandard');
+    expect(
+      plan({ termsNonstandard: true }, { ...empty, termsPaymentTermsCode: 'NET_30' }),
+    ).toMatchObject({
+      ok: true,
+      values: { termsNonstandard: false },
+    });
+    // No code chosen: the box stays available.
+    const blank = plan({ termsNonstandard: true });
+    expect(blank.ok && blank.values.termsNonstandard).toBe(true);
+    // A non-standard code keeps it ticked (as before).
+    expect(values(plan({ termsPaymentTermsCode: 'NET_60' })).termsNonstandard).toBe(true);
+  });
+
+  it('FB-25 (N17-28): the non-standard Legal trigger cannot fire from a standard code', () => {
+    const v = values(plan({ termsPaymentTermsCode: 'NET_30', termsNonstandard: true }));
+    expect(
+      legalReviewReasons(LEGAL_REVIEW_TRIGGERS_SEED, {
+        customerStatus: 'existing',
+        termsNonstandard: v.termsNonstandard,
+        termsToolingCommitment: null,
+      }),
+    ).toEqual([]);
+    const n = values(plan({ termsPaymentTermsCode: 'NET_60' }));
+    expect(
+      legalReviewReasons(LEGAL_REVIEW_TRIGGERS_SEED, {
+        customerStatus: 'existing',
+        termsNonstandard: n.termsNonstandard,
+        termsToolingCommitment: null,
+      }),
+    ).toEqual(['nonstandard_terms']);
+    expect(isStandardTerms('NET_30', ['NET_15', 'NET_30'])).toBe(true);
+    expect(isStandardTerms(null, ['NET_15', 'NET_30'])).toBe(false);
+    expect(isStandardTerms('NET_60', ['NET_15', 'NET_30'])).toBe(false);
   });
 
   it('"Other" needs the detail; picking a listed term clears it; an unknown code is refused', () => {

@@ -96,6 +96,13 @@
     scroll-padding-top: 4.75rem;
   }
   /*
+   * FB-25 (N17-18): the quote page's tab bar stays under the header (3 rem more), so a field reached
+   * with the keyboard stops clear of both.
+   */
+  html:has([data-sticky-top]) {
+    scroll-padding-top: 8rem;
+  }
+  /*
    * The same at the bottom. On a phone (which is also a desktop at 400% zoom): the tab bar (3.5 rem),
    * and on a page with a bar stuck above it (the Final Review decision), that bar as well. The two
    * rules are told apart by specificity, never by their order.

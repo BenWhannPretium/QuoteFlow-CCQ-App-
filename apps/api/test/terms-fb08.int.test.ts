@@ -13,7 +13,7 @@ import type { Role } from '@ccq/domain';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { confirmCapitalTerms, prepareModels } from './model-helpers';
+import { answerToolingCommitment, confirmCapitalTerms, prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -241,7 +241,7 @@ describe('seeded config (provisional)', () => {
       );
     const by = Object.fromEntries(rows.map((r) => [r.key, r]));
     expect(by.g4_required_checks).toMatchObject({
-      value: ['terms_exception', 'terms_finalized'],
+      value: ['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
       provisional: true,
     });
     expect(
@@ -450,7 +450,7 @@ describe('F-068 / T-031: the approver confirms the capital terms; required and l
       (await as('Approver').get(`/api/v1/quotes/${qn}/review-summary`)).json(),
     );
     expect(review.termsAndLegal).toMatchObject({
-      requiredChecks: ['terms_exception', 'terms_finalized'],
+      requiredChecks: ['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
       termsPaymentTermsLabel: 'Net 60',
       capital: { moldOwnership: 'CUSTOMER', amortizationMonths: 36, canFinalize: true },
       exception: { status: 'pending' },
@@ -461,7 +461,10 @@ describe('F-068 / T-031: the approver confirms the capital terms; required and l
     expect(errorPaths(blocked)).toEqual([
       '/g4_terms_exception_check_required,terms_exception_open',
       '/g4_terms_finalized_check_required,terms_finalized_at',
+      // FB-25 (N17-26): the customer tooling commitment, not answered yet.
+      '/g4_tooling_commitment_check_required,terms_tooling_commitment',
     ]);
+    await answerToolingCommitment(app, qn);
 
     const confirmed = await as('Approver').put(`/api/v1/quotes/${qn}/terms/capital`, {
       toolingFundingModel: 'ZERO_CER',
@@ -577,6 +580,8 @@ describe('F-082: extra Final Review sign-offs (seeded off; on only after A-035)'
           finalized: true,
         }),
       );
+      // FB-25 (N17-26): the customer tooling commitment is answered (G4 needs it).
+      await answerToolingCommitment(app, qn);
       const refused = await decide(qn, 'G4', { outcomeKey: 'approve' }, 'Approver');
       expect(refused.statusCode).toBe(422);
       expect(errorCodes(refused)).toEqual(['ADDITIONAL_APPROVAL_REQUIRED']);
@@ -690,5 +695,141 @@ describe('DR-approver-leadership-admin-01: capital-terms segregation', () => {
     // multi-role is an approver here (not the KAM, not the price approver): allowed.
     const ok2 = await byKey('multi-role').put(`/api/v1/quotes/${qn}/terms/capital`, capital);
     expect(ok2.statusCode, ok2.body).toBe(200);
+  });
+});
+
+// ── FB-25 ───────────────────────────────────────────────────────────────────────────────────────
+
+describe('FB-25 (N17-28): standard payment terms are never non-standard', () => {
+  it('normalizes the box to false at Net 15 / Net 30; with no code it is the user’s; Legal does not fire', async () => {
+    const qn = await submitted();
+    // A tick sent with a standard code is stored as false, and no Legal trigger applies.
+    const std = await as('KAM').put(`/api/v1/quotes/${qn}/terms`, {
+      termsPaymentTermsCode: 'NET_30',
+      termsNonstandard: true,
+    });
+    ok(std);
+    expect(detail(std).commercial.terms.termsNonstandard).toBe(false);
+    expect(detail(std).commercial.legal.reasons.map((r) => r.code)).not.toContain(
+      'nonstandard_terms',
+    );
+    expect((await quoteRow(qn)).termsNonstandard).toBe(false);
+    // No code chosen: the box stays available (and fires the trigger).
+    const blank = await as('KAM').put(`/api/v1/quotes/${qn}/terms`, {
+      termsPaymentTermsCode: null,
+      termsNonstandard: true,
+    });
+    ok(blank);
+    expect(detail(blank).commercial.terms.termsNonstandard).toBe(true);
+    expect(detail(blank).commercial.legal.reasons.map((r) => r.code)).toContain(
+      'nonstandard_terms',
+    );
+    // Back to a standard code: cleared without being asked.
+    const back = await as('KAM').put(`/api/v1/quotes/${qn}/terms`, {
+      termsPaymentTermsCode: 'NET_15',
+    });
+    ok(back);
+    expect(detail(back).commercial.terms.termsNonstandard).toBe(false);
+    // A non-standard code keeps today's behaviour: ticked, and an exception opens.
+    const net60 = await as('KAM').put(`/api/v1/quotes/${qn}/terms`, {
+      termsPaymentTermsCode: 'NET_60',
+    });
+    ok(net60);
+    expect(detail(net60).commercial.terms).toMatchObject({
+      termsNonstandard: true,
+      exception: { status: 'pending' },
+    });
+  });
+});
+
+describe('FB-25 (N17-26, N18-02): the customer tooling commitment is required to release the offer', () => {
+  const TOOLING = '/g4_tooling_commitment_check_required,terms_tooling_commitment';
+  const SEED = ['terms_exception', 'terms_finalized', 'tooling_commitment_answered'];
+
+  async function confirmedNotAnswered(): Promise<string> {
+    const qn = await inFinalReview();
+    ok(
+      await as('Approver').put(`/api/v1/quotes/${qn}/terms/capital`, {
+        toolingFundingModel: 'COMPANY_FUNDED',
+        termsMoldOwnership: 'PRETIUM',
+        termsAmortized: false,
+        termsMinSupply: 'None',
+        termsAgreementInPlace: false,
+        finalized: true,
+      }),
+    );
+    expect((await quoteRow(qn)).termsToolingCommitment).toBeNull();
+    return qn;
+  }
+
+  it('is seeded on; G4 Advance waits for a yes or no; the answer comes from terms.edit', async () => {
+    const qn = await confirmedNotAnswered();
+    const review = ReviewSummary.parse(
+      (await as('Approver').get(`/api/v1/quotes/${qn}/review-summary`)).json(),
+    );
+    expect(review.termsAndLegal).toMatchObject({
+      requiredChecks: SEED,
+      termsToolingCommitment: null,
+    });
+    const approve = review.availableActions.find((a) => a.outcomeKey === 'approve');
+    expect(approve?.missing.map((m) => m.field)).toEqual([TOOLING.slice(1)]);
+    // Required, so not a warning.
+    expect(review.warnings.map((w) => w.code)).not.toContain('TOOLING_COMMITMENT_NOT_ANSWERED');
+    const blocked = await decide(qn, 'G4', { outcomeKey: 'approve' }, 'Approver');
+    expect(blocked.statusCode).toBe(422);
+    expect(errorPaths(blocked)).toEqual([TOOLING]);
+    // The approver does not answer it (it is the terms owner's); the KAM does. "No" fires no Legal trigger.
+    expect(
+      (await as('Approver').put(`/api/v1/quotes/${qn}/terms`, { termsToolingCommitment: false }))
+        .statusCode,
+    ).toBe(403);
+    ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsToolingCommitment: false }));
+    ok(await decide(qn, 'G4', { outcomeKey: 'approve' }, 'Approver'), 201);
+  });
+
+  it('switched off by an Admin: an unanswered commitment is a warning the approver sees', async () => {
+    await setSetting('g4_required_checks', ['terms_exception', 'terms_finalized']);
+    try {
+      const qn = await confirmedNotAnswered();
+      const review = ReviewSummary.parse(
+        (await as('Approver').get(`/api/v1/quotes/${qn}/review-summary`)).json(),
+      );
+      expect(review.warnings).toContainEqual(
+        expect.objectContaining({
+          code: 'TOOLING_COMMITMENT_NOT_ANSWERED',
+          severity: 'risk',
+          link: 'commercial',
+        }),
+      );
+      expect(
+        review.availableActions.find((a) => a.outcomeKey === 'approve')?.missing ?? [],
+      ).toEqual([]);
+      const seen = review.warnings.filter((w) => w.link).map((w) => w.code);
+      ok(
+        await decide(qn, 'G4', { outcomeKey: 'approve', acknowledgedWarnings: seen }, 'Approver'),
+        201,
+      );
+    } finally {
+      await setSetting('g4_required_checks', SEED);
+    }
+  });
+});
+
+describe('FB-25 (N18-17): To qualify reads what the KAM entered through the quote route', () => {
+  it('a sales leader reads a quote waiting at Intake; a KAM with owner scope only their own', async () => {
+    const qn = await submitted();
+    const row = await quoteRow(qn);
+    expect(row.stageKey).toBe('INTAKE');
+    const leader = await as('SalesLeader').get(`/api/v1/quotes/${qn}`);
+    ok(leader);
+    expect(detail(leader)).toMatchObject({ quoteNumber: qn, stageKey: 'INTAKE' });
+    // The submitting KAM persona has all-scope; an owner-scoped KAM does not own it: not found.
+    expect((await asRole(app, 'KAM', 'owner').get(`/api/v1/quotes/${qn}`)).statusCode).toBe(404);
+    // Each read is a view, audited.
+    const views = await db.db
+      .select()
+      .from(schema.auditEvent)
+      .where(and(eq(schema.auditEvent.quoteId, row.id), eq(schema.auditEvent.action, 'view')));
+    expect(views.length).toBeGreaterThan(0);
   });
 });

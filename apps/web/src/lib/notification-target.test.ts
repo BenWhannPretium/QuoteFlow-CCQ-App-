@@ -38,6 +38,10 @@ describe('notificationTarget', () => {
     expect(notificationTarget('quote.terms_exception_decided')).toBe('commercial');
   });
 
+  it('FB-25 (N18-17): a quote to qualify opens To qualify, not the quote', () => {
+    expect(notificationTarget('quote.to_qualify')).toBe('qualify');
+  });
+
   it('opens the quote for everything else', () => {
     for (const type of [
       'quote.progress',
@@ -45,7 +49,6 @@ describe('notificationTarget', () => {
       'quote.closed',
       'quote.lead_review_update',
       'comment.posted',
-      'quote.to_qualify',
       'quote.approved_for_customer',
       'quote.declined',
       'comment.mention',

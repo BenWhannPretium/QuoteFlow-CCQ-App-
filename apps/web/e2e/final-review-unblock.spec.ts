@@ -106,9 +106,9 @@ test('T-026: the approver releases the offer with open terms and Legal checks (p
   for (const code of ['TERMS_NOT_CHECKED', 'LEGAL_REVIEW_NOT_RECORDED']) {
     const item = warnings.locator(`li[data-code="${code}"]`);
     await expect(item).toBeVisible();
-    await expect(item.getByRole('link', { name: 'Open the Commercial panel' })).toHaveAttribute(
+    await expect(item.getByRole('link', { name: 'Open the Commercial terms tab' })).toHaveAttribute(
       'href',
-      `/quotes/${qn}#commercial`,
+      `/quotes/${qn}?tab=commercial#commercial`,
     );
   }
   // Terms and Legal, read-only.
@@ -129,9 +129,11 @@ test('T-026: the approver releases the offer with open terms and Legal checks (p
   expect(await seriousViolations(page)).toEqual([]);
 
   // Approve: nothing owned by another role blocks it.
+  // FB-25 (N17-25): one "Decide final review"; Advance is chosen in the dialog.
   const bar = page.getByTestId('decision-bar');
-  await bar.getByRole('button', { name: 'Advance (release the offer)', exact: true }).click();
+  await bar.getByRole('button', { name: 'Decide final review' }).click();
   const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'Advance (release the offer)', exact: true }).check();
   await expect(dialog.getByText('Say why this decision was made.')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Record decision' }).click();
   await expect(page).toHaveURL(/\/approvals/);

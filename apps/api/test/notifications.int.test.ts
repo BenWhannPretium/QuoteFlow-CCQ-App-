@@ -376,6 +376,9 @@ describe('to qualify (G1)', () => {
         `[QuoteFlow] ${queue.items.length} quote${queue.items.length === 1 ? '' : 's'} waiting to qualify: Daily summary`,
       );
       expect(d.text).toContain(qn);
+      // FB-25 (N18-17): each row opens To qualify with that quote's card expanded.
+      expect(d.text).toContain(`http://localhost:5173/approvals?tab=to-qualify&quote=${qn}`);
+      expect(d.text).not.toContain(`http://localhost:5173/quotes/${qn}`);
       expect(d.text).toContain('http://localhost:5173/approvals?gate=G1');
     }
 

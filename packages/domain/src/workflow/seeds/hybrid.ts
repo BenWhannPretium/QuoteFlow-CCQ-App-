@@ -205,6 +205,14 @@ const OFFER_READY: RequiredRule[] = [
       present('terms_finalized_at'),
     ],
   },
+  // FB-25 (N17-26, N18-02): the customer tooling commitment is answered (yes or no; the KAM's intake
+  // answer counts). Migration 0053 extends the seeded rule in existing environments.
+  {
+    anyOf: [
+      { field: 'g4_tooling_commitment_check_required', op: 'equals', value: false },
+      present('terms_tooling_commitment'),
+    ],
+  },
 ];
 
 /**

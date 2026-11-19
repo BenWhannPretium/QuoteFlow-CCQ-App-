@@ -12,7 +12,6 @@ import {
   GateDecisionDialog,
   GateRail,
   GuardrailNote,
-  KeyValueGrid,
   PageHeader,
   PriorityBadge,
   QualificationWarnings,
@@ -26,9 +25,6 @@ import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { CommercialPanel } from '@/components/commercial/CommercialPanel';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
-import { standardTermsFrom } from '@/components/intake/CommercialInputs';
-import { ConceptBadge, conceptClassesFrom } from '@/components/intake/ConceptBadge';
-import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import {
   ClosureCard,
   CustomerDecisionHeader,
@@ -37,13 +33,18 @@ import {
 } from '@/components/outcome/CustomerDecision';
 import { OfferLetterCard } from '@/components/outcome/OfferLetterCard';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
-import { QuoteItemsList } from '@/components/QuoteItems';
+import {
+  EngineeringGlance,
+  IntakeCard,
+  PricingGlance,
+  TermsGlance,
+} from '@/components/quote/AtAGlance';
 import { QuoteNextStepLine } from '@/components/QuoteNextStepLine';
 import { SalesforceLink } from '@/components/SalesforceLink';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard';
-import { stageLabel, usePublicConfig } from '@/config/public-config';
+import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError, type ApiError } from '@/lib/api';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
@@ -59,6 +60,9 @@ import {
   QUOTE_TABS,
   defaultQuoteTab,
   isQuoteTab,
+  tabForHash,
+  tabsWithWork,
+  termsWorkWaiting,
   useOpenedTabs,
   type QuoteTab,
 } from '@/lib/quote-tabs';
@@ -66,21 +70,22 @@ import { decisionReasonLabel } from '@/lib/reason-label';
 import { absoluteTime } from '@/lib/time';
 import { SAVE_FIRST_TEXT, useHasUnsavedChanges } from '@/lib/unsaved-changes';
 import { cn } from '@/lib/utils';
-import { marketText, valueListLabel } from '@/lib/value-label';
 import { useDocumentTitle } from '@/shell/useDocumentTitle';
 
 const TAB_LABELS: Record<QuoteTab, string> = {
   overview: 'Overview',
   engineering: 'Engineering',
   quoting: 'Quoting',
+  commercial: 'Commercial terms',
   attachments: 'Attachments',
 };
 
 interface QuoteSearch {
   /**
    * `?tab=engineering` opens the Engineering tab (B-10), `?tab=quoting` the Quoting tab (B-11),
-   * `?tab=attachments` the files (B-16), `?tab=overview` the Overview. A named tab is exact, for every
-   * reader. With none, the quote opens on the reader's own work (UX-012, `useQuoteTab`).
+   * `?tab=attachments` the files (B-16), `?tab=commercial` the commercial terms (FB-25), `?tab=overview`
+   * the Overview. A named tab is exact, for every reader. With none, the quote opens on the reader's own
+   * work (UX-012, `useQuoteTab`).
    */
   tab?: QuoteTab;
 }
@@ -91,6 +96,18 @@ export const Route = createFileRoute('/quotes/$quoteNumber')({
   component: QuotePage,
 });
 
+/** FB-25: the terms wait on the reader (the dot on the tab, and the tab a quote opens on). */
+function termsWorkFor(quote: QuoteDetail): boolean {
+  const t = quote.commercial.terms;
+  return termsWorkWaiting({
+    stageKey: quote.stageKey,
+    closed: quote.status === 'closed',
+    canEditTerms: t.canEdit,
+    exceptionCanDecide: t.exception?.canDecide === true,
+    toolingCommitmentAnswered: t.termsToolingCommitment !== null,
+  });
+}
+
 /**
  * UX-012: the tab on screen, and how it is kept in the address.
  *
@@ -98,6 +115,11 @@ export const Route = createFileRoute('/quotes/$quoteNumber')({
  * quote's current stage when the reader works that stage (by the permissions in `/me`), otherwise on
  * Overview. That tab is then written into the address, so a copied link opens on exactly the same tab
  * for whoever follows it.
+ *
+ * FB-25: a link to a place on the page opens the tab that place is on (`tabForHash`): `#commercial`
+ * from Final Review, a notice or an older email (`?tab=overview#commercial`) opens Commercial terms, and
+ * `#offer-letter` the Overview. Such a hash wins over `?tab=`, so links made before the tab existed keep
+ * working.
  */
 function useQuoteTab(quote: QuoteDetail | undefined): {
   tab: QuoteTab;
@@ -106,23 +128,37 @@ function useQuoteTab(quote: QuoteDetail | undefined): {
   const { tab: named } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const { permissions } = useCurrentUser();
-  // A link to a place on the page (#offer-letter from My proposals, #commercial from Final Review) is a
-  // link to the Overview, where those places are.
-  const toAnchor = useLocation({ select: (l) => l.hash !== '' });
+  const hash = useLocation({ select: (l) => l.hash });
+  const anchored = tabForHash(hash);
   const own: QuoteTab | undefined = !quote
     ? undefined
-    : toAnchor
-      ? 'overview'
-      : defaultQuoteTab({
-          inEngineering: quote.engineering.inQueue,
-          inQuoting: quote.quoting.inQuoting,
-          permissions,
-        });
+    : (anchored ??
+      defaultQuoteTab({
+        inEngineering: quote.engineering.inQueue,
+        inQuoting: quote.quoting.inQuoting,
+        inIntake: quote.stageKey === 'INTAKE' && quote.status !== 'closed',
+        termsWork: termsWorkFor(quote),
+        permissions,
+      }));
+  const wanted = anchored ?? named;
+  const loaded = quote !== undefined;
   useEffect(() => {
-    if (!named && own) void navigate({ search: { tab: own }, hash: true, replace: true });
-  }, [named, own, navigate]);
+    if (own && (!named || (anchored && named !== anchored))) {
+      void navigate({ search: { tab: anchored ?? own }, hash: true, replace: true });
+    }
+  }, [named, own, anchored, navigate]);
+  const tab = wanted ?? own ?? 'overview';
+  // The place a hash names is on a tab that mounts with this render: bring it into view once it is there.
+  useEffect(() => {
+    const id = hash.replace(/^#/, '');
+    if (!id || !anchored || tab !== anchored) return;
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(id)?.scrollIntoView({ block: 'start' }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [hash, anchored, tab, loaded]);
   return {
-    tab: named ?? own ?? 'overview',
+    tab,
     selectTab: (next) => void navigate({ search: { tab: next }, replace: true }),
   };
 }
@@ -155,6 +191,7 @@ function QuotePage() {
   // UX-001: a decision is recorded on what is saved, so the header's decision buttons wait for a save.
   const unsaved = useHasUnsavedChanges(quoteNumber);
   const saveFirstId = useId();
+  const workNoteId = useId();
 
   if (quote.isPending) {
     return (
@@ -201,6 +238,8 @@ function QuotePage() {
   );
   const canDecideFinalReview = q.availableActions.some((a) => a.gateKey === 'G4');
   const tierOverride = q.overridableFields.find((f) => f.field === 'priority_tier')?.applied;
+  // FB-25 (N17-18): a dot on a tab where the reader has work waiting.
+  const working = tabsWithWork({ nextStep: q.nextStep, termsWork: termsWorkFor(q) });
 
   return (
     <div className="grid gap-6" data-testid="quote-detail" data-stage={q.stageKey}>
@@ -331,30 +370,65 @@ function QuotePage() {
         className="grid gap-6"
       >
         <UnsavedChangesGuard quoteNumber={q.quoteNumber} />
-        <Tabs.List aria-label="Quote sections" className="flex gap-1 overflow-x-auto border-b">
+        {/* FB-25 (N17-18, N18-18): the tab bar is hard to miss. Larger labels, a filled selected tab, and
+            it stays under the page header while the page scrolls (index.css keeps focus clear of it). */}
+        <Tabs.List
+          aria-label="Quote sections"
+          className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-16 z-20 -mx-4 flex gap-1 overflow-x-auto border-b px-4 backdrop-blur sm:mx-0 sm:px-0"
+          data-sticky-top=""
+          data-testid="quote-tabs"
+        >
           {QUOTE_TABS.map((t) => (
             <Tabs.Trigger
               key={t}
               value={t}
-              className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground hover:text-foreground -mb-px min-h-11 shrink-0 border-b-2 border-transparent px-3 text-sm font-medium transition-colors sm:px-4"
+              data-testid={`quote-tab-${t}`}
+              data-work={working.includes(t) || undefined}
+              aria-describedby={working.includes(t) ? workNoteId : undefined}
+              className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground data-[state=active]:bg-accent hover:text-foreground hover:bg-accent/60 -mb-px inline-flex min-h-12 shrink-0 items-center gap-2 rounded-t-md border-b-[3px] border-transparent px-3 text-base font-medium transition-colors data-[state=active]:font-semibold sm:px-4"
             >
               {TAB_LABELS[t]}
+              {working.includes(t) && (
+                <span
+                  aria-hidden="true"
+                  className="bg-destructive size-2 shrink-0 rounded-full"
+                  data-testid="tab-work-dot"
+                />
+              )}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
-        <Tabs.Content value="overview" className="grid gap-6">
+        <span id={workNoteId} hidden>
+          Work is waiting for you on this tab.
+        </span>
+        <Tabs.Content value="overview" className="grid gap-6" data-testid="overview">
           {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
           {canReadOfferLetter && <OfferLetterCard quote={q} />}
           <HandoffCard quote={q} autoFocus={handoffFocus} />
           <ClosureCard closure={q.customerDecision.closure} />
-          <CommercialPanel quote={q} />
-          <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-            <IntakeCard quote={q} />
-            <div className="grid content-start gap-6">
+          {/* FB-25 (N18-18): the read-only summary of everything filled in so far. */}
+          <section
+            id="at-a-glance"
+            aria-labelledby="at-a-glance-heading"
+            className="grid gap-6"
+            data-testid="at-a-glance"
+          >
+            <h2 id="at-a-glance-heading" className="font-display text-lg font-semibold">
+              At a glance
+            </h2>
+            <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+              <IntakeCard quote={q} />
+              <div className="grid content-start gap-6">
+                <EngineeringGlance quote={q} />
+                <PricingGlance quote={q} />
+              </div>
+            </div>
+            <TermsGlance quote={q} />
+            <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>
-                    <h2 className="text-base font-semibold">Why this priority?</h2>
+                    <h3 className="text-base font-semibold">Why this priority?</h3>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -374,7 +448,7 @@ function QuotePage() {
               </Card>
               <DecisionsCard quote={q} />
             </div>
-          </div>
+          </section>
 
           <Card>
             <CardContent className="pt-6">
@@ -393,6 +467,10 @@ function QuotePage() {
               })
             }
           />
+        </Tabs.Content>
+        {/* FB-25 (N18-18): the Commercial terms panel, unchanged in behaviour, on its own tab. */}
+        <Tabs.Content value="commercial" {...kept('commercial')}>
+          <CommercialPanel quote={q} />
         </Tabs.Content>
         <Tabs.Content value="attachments">
           <Card>
@@ -499,130 +577,6 @@ function ReworkBanner({ quote }: { quote: QuoteDetail }) {
   );
 }
 
-function IntakeCard({ quote }: { quote: QuoteDetail }) {
-  const { data: config } = usePublicConfig();
-  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
-  const ship = quote.shipTo;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2 className="text-base font-semibold">Intake</h2>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <KeyValueGrid
-          items={[
-            { label: 'Customer', value: quote.customerName },
-            {
-              label: 'Customer status',
-              value:
-                quote.customerStatus === 'not_yet_established'
-                  ? 'Not yet a Pretium customer (no ERP account)'
-                  : 'Pretium customer',
-            },
-            { label: 'Opportunity', value: quote.opportunityName },
-            // B-23: testers tie quotes out against Salesforce (U5) by this id.
-            // FB-18 (W13-31): the id is the link once the Salesforce URL is set (the header says how).
-            {
-              label: 'SF opportunity ID',
-              value: (
-                <SalesforceLink
-                  quote={quote}
-                  hint={false}
-                  label={
-                    <span className="font-mono" data-testid="sf-opportunity-id">
-                      {quote.sfOpportunityId}
-                    </span>
-                  }
-                />
-              ),
-            },
-            { label: 'KAM', value: quote.kamName },
-            {
-              label: 'Request class',
-              // FB-24 (N17-03): a concept / innovation request is marked Concept.
-              value: (
-                <>
-                  {label('request_class', quote.requestClass)}
-                  {quote.requestClass &&
-                    conceptClassesFrom(config?.settings).includes(quote.requestClass) && (
-                      <ConceptBadge className="ml-2" />
-                    )}
-                </>
-              ),
-            },
-            // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
-            { label: 'Market', value: marketText(config, quote.market, quote.subMarket) },
-            { label: 'Product family', value: label('product_family', quote.productFamily) },
-            { label: 'Resin', value: label('resin', quote.resin) },
-            {
-              label: 'Components',
-              value: quote.components.map((c) => label('component', c)).join(', '),
-            },
-            // FB-02: the product facts (neck, resin grade, PCR, color, follow-ups, need-by dates…).
-            ...intakeFactItems(
-              config?.valueLists,
-              quote.intakeFacts,
-              quote.neckFinish,
-              standardTermsFrom(config),
-            ),
-            {
-              label: 'Annual volume',
-              value: quote.estAnnualVolume?.toLocaleString('en-US'),
-            },
-            {
-              label: 'Annual revenue',
-              value:
-                quote.estAnnualRevenue != null
-                  ? `$${quote.estAnnualRevenue.toLocaleString('en-US')}`
-                  : null,
-            },
-            // FB-02 (T-009): Salesforce's close date (latest sync), and the KAM's need-by dates.
-            { label: 'Salesforce close date', value: quote.expectedCloseDate },
-            { label: 'Drawing', value: label('drawing_status', quote.drawingStatus) },
-            { label: 'Packaging', value: label('packaging_type', quote.packagingType) },
-            {
-              id: 'ship-to',
-              label: 'Ship / fill destination',
-              value: (
-                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span data-testid="ship-to-value">
-                    {ship
-                      ? [ship.line1, ship.city, ship.state, ship.postal]
-                          .filter(Boolean)
-                          .join(', ') || '–'
-                      : '–'}
-                  </span>
-                  <FieldOverride quote={quote} field="ship_to" />
-                </span>
-              ),
-            },
-            {
-              id: 'desc',
-              label: 'Description',
-              value: quote.standardDescription ?? quote.description,
-            },
-            { label: 'Comments for Engineering', value: quote.commentsForEngineering },
-            {
-              label: 'Submitted',
-              value: quote.submittedAt ? absoluteTime(quote.submittedAt) : 'Not submitted',
-            },
-            { label: 'Stage', value: stageLabel(config, quote.stageKey) },
-            // The proposal dates and validity countdown are in the Customer decision header (B-13).
-          ]}
-        />
-        {/* FB-19 (W13-32): every item, quoted together. */}
-        {quote.items.length > 1 && (
-          <div className="mt-4">
-            <QuoteItemsList items={quote.items} />
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function DecisionsCard({ quote }: { quote: QuoteDetail }) {
   const { data: config } = usePublicConfig();
   const outcomeLabel = (gate: string, key: string) =>
@@ -633,7 +587,7 @@ function DecisionsCard({ quote }: { quote: QuoteDetail }) {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 className="text-base font-semibold">Gate decisions</h2>
+          <h3 className="text-base font-semibold">Gate decisions</h3>
         </CardTitle>
       </CardHeader>
       <CardContent>

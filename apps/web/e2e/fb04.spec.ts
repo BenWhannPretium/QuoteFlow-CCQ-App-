@@ -34,7 +34,8 @@ test('the funding options: $0 CER is explained and Shared is offered', async ({
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
   // FB-08 (F-021): on the quote, tooling funding is Engineering's (the KAM answers it at intake).
   await signInAs(page, 'eng-lead');
-  await page.goto(`/quotes/${quoteNumber}`);
+  // FB-25 (N18-18): the terms have their own tab.
+  await page.goto(`/quotes/${quoteNumber}?tab=commercial`);
   const select = page.getByLabel('Tooling funding model');
   await expect(
     select.locator('option', { hasText: '$0 CER (customer-reimbursed capital)' }),

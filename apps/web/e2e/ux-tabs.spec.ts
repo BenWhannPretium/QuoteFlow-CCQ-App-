@@ -454,10 +454,15 @@ test("UX-012: a quote in Engineering opens on the reader's own work, and ?tab= i
   await expect(eng).toHaveURL(address('attachments'));
   await eng.getByRole('tab', { name: 'Overview' }).click();
   await expect(eng).toHaveURL(address('overview'));
-  // A link to a place on the Overview (the Commercial panel, the offer letter) opens the Overview.
+  // FB-25 (N18-18): a link to the commercial terms opens their own tab, and so does an older link
+  // that named the Overview (emails sent before the tab existed).
   await eng.goto(`${bare}#commercial`);
-  await expect(selectedTab(eng)).toHaveText('Overview');
-  await expect(eng).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=overview#commercial$`));
+  await expect(selectedTab(eng)).toHaveText('Commercial terms');
+  await expect(eng.getByTestId('commercial-panel')).toBeVisible();
+  await expect(eng).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=commercial#commercial$`));
+  await eng.goto(`${bare}?tab=overview#commercial`);
+  await expect(selectedTab(eng)).toHaveText('Commercial terms');
+  await expect(eng).toHaveURL(new RegExp(`/quotes/${quoteNumber}\\?tab=commercial#commercial$`));
 
   // ── The engineering lead and the production scheduler work it too ──
   for (const persona of ['eng-lead', 'production-scheduler']) {

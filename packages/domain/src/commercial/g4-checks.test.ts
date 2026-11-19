@@ -38,8 +38,12 @@ const approve = (checks: G4Check[], fields: Record<string, unknown>) =>
 const NEW_CUSTOMER = { customer_status: 'not_yet_established' };
 
 describe('parseG4RequiredChecks', () => {
-  it('seeds the FB-08 checks (provisional, D-003): the exception and the capital-terms confirmation', () => {
-    expect(G4_REQUIRED_CHECKS_SEED).toEqual(['terms_exception', 'terms_finalized']);
+  it('seeds the FB-08 checks and FB-25 tooling commitment (provisional, D-003)', () => {
+    expect(G4_REQUIRED_CHECKS_SEED).toEqual([
+      'terms_exception',
+      'terms_finalized',
+      'tooling_commitment_answered',
+    ]);
     expect(parseG4RequiredChecks(undefined)).toEqual(G4_REQUIRED_CHECKS_SEED);
     expect(parseG4RequiredChecks(null)).toEqual(G4_REQUIRED_CHECKS_SEED);
     expect(parseG4RequiredChecks([])).toEqual([]);
@@ -98,6 +102,7 @@ describe('G4 Advance with the setting off and on', () => {
       g4_legal_review_check_required: false,
       g4_terms_exception_check_required: false,
       g4_terms_finalized_check_required: false,
+      g4_tooling_commitment_check_required: false,
     });
     expect(g4CheckFields(['terms_checked', 'legal_review'])).toMatchObject({
       g4_terms_check_required: true,
@@ -134,6 +139,7 @@ describe('FB-08: the payment-terms exception and the capital-terms confirmation 
       approve(G4_REQUIRED_CHECKS_SEED, {
         terms_exception_status: 'approved',
         terms_finalized_at: NOW,
+        terms_tooling_commitment: false,
       }).ok,
     ).toBe(true);
   });
@@ -154,6 +160,52 @@ describe('FB-08: the payment-terms exception and the capital-terms confirmation 
         termsFinalizedAt: NOW,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('FB-25 (N17-26, N18-02): the customer tooling commitment answered', () => {
+  it("['tooling_commitment_answered']: unanswered blocks; yes or no (the KAM's intake answer too) passes", () => {
+    const r = approve(['tooling_commitment_answered'], {});
+    expect(!r.ok && r.errors.map((e) => e.field)).toEqual([
+      'g4_tooling_commitment_check_required,terms_tooling_commitment',
+    ]);
+    expect(approve(['tooling_commitment_answered'], { terms_tooling_commitment: null }).ok).toBe(
+      false,
+    );
+    expect(approve(['tooling_commitment_answered'], { terms_tooling_commitment: false }).ok).toBe(
+      true,
+    );
+    expect(approve(['tooling_commitment_answered'], { terms_tooling_commitment: true }).ok).toBe(
+      true,
+    );
+    expect(approve([], {}).ok).toBe(true);
+  });
+
+  it('the seed blocks until it is answered', () => {
+    const done = { terms_exception_status: null, terms_finalized_at: NOW };
+    const r = approve(G4_REQUIRED_CHECKS_SEED, done);
+    expect(!r.ok && r.errors.map((e) => e.field)).toEqual([
+      'g4_tooling_commitment_check_required,terms_tooling_commitment',
+    ]);
+    expect(approve(G4_REQUIRED_CHECKS_SEED, { ...done, terms_tooling_commitment: true }).ok).toBe(
+      true,
+    );
+  });
+
+  it('is a warning when not required, and only when the answer is known to be missing', () => {
+    const base = { termsCheckedAt: NOW, legalReviewRequired: false, legalReviewedOn: null };
+    expect(
+      g4CheckWarnings({ ...base, checks: [], termsToolingCommitment: null }).map((w) => w.code),
+    ).toEqual(['TOOLING_COMMITMENT_NOT_ANSWERED']);
+    expect(
+      g4CheckWarnings({
+        ...base,
+        checks: ['tooling_commitment_answered'],
+        termsToolingCommitment: null,
+      }),
+    ).toEqual([]);
+    expect(g4CheckWarnings({ ...base, checks: [], termsToolingCommitment: false })).toEqual([]);
+    expect(g4CheckWarnings({ ...base, checks: [] })).toEqual([]);
   });
 });
 

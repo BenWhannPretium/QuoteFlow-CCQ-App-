@@ -10,7 +10,7 @@
 
 1. **Open the queue.** **Approvals** → **Final Review**. Each card shows price approval, capital readiness, the engineering decision, the KAM and the pricing approver.
 2. **Review.** Click **Review & decide**: the request, the priority, the engineering solution and capacity evidence, the price approval, capital readiness, files and decisions so far.
-3. **Decide.** Use the bar at the bottom: **Advance (release the offer)**, **Hold**, **Send back to Quoting or Engineering** or **Stop (withdraw)**. Stop needs a reason and a note. A send-back needs a reason, a note and where it goes (**Send to**). Hold needs a reason, a note and a review date. A quote that is already on hold is not offered **Hold** again: any other decision ends the hold.
+3. **Decide.** Tap **Decide final review** (in the bar at the bottom, or again under **Terms and Legal**) and choose **Advance (release the offer)**, **Send back to…**, **Hold** or **Stop (withdraw)**. Beside the bar it says what still blocks the release; a red asterisk marks what Final Review needs (the customer tooling commitment and the capital terms). Stop needs a reason and a note. A send-back needs a reason, a note and where it goes (**Send to**). Hold needs a reason, a note and a review date. A quote that is already on hold is not offered **Hold** again: any other decision ends the hold.
 4. **Check the validity.** Advance sets the proposal issue date (now by default) and the valid-until date.
 
 ## What changed from the ERF

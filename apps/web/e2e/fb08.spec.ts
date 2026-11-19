@@ -91,6 +91,8 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   // ... and agrees Net 60.
   await panel.getByLabel('Payment terms', { exact: true }).selectOption({ label: 'Net 60' });
   await expect(panel.getByTestId('payment-terms-nonstandard').first()).toBeVisible();
+  // FB-25 (N17-26): the customer tooling commitment is answered (Final Review needs it).
+  await panel.getByLabel('Customer tooling commitment').selectOption('no');
   await panel.getByRole('button', { name: 'Save terms' }).click();
   await expect(panel.getByTestId('terms-exception-status')).toHaveText(
     'Waiting for the pricing lead',
@@ -128,7 +130,10 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   await capital
     .getByLabel('Funding model')
     .selectOption({ label: '$0 CER (customer-reimbursed capital)' });
-  await capital.getByLabel('Amortized', { exact: true }).selectOption('no');
+  // FB-25 (N17-26): the required capital terms carry the required marker ("(required)" for readers).
+  await capital
+    .getByRole('combobox', { name: 'Amortized (required)', exact: true })
+    .selectOption('no');
   await capital.getByLabel('Agreement in place').selectOption('yes');
   await capital.getByLabel('Agreement duration (months)').fill('60');
   await capital
@@ -137,10 +142,15 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   await capital.getByTestId('confirm-capital-terms').click();
   await expect(terms.getByTestId('capital-terms-confirmed')).toContainText('Confirmed by');
 
+  // FB-25 (N17-25): one "Decide final review"; Advance is chosen in the dialog.
   await page
     .getByTestId('decision-bar')
-    .getByRole('button', { name: 'Advance (release the offer)', exact: true })
+    .getByRole('button', { name: 'Decide final review' })
     .click();
+  await page
+    .getByRole('dialog')
+    .getByRole('radio', { name: 'Advance (release the offer)', exact: true })
+    .check();
   await page.getByRole('dialog').getByRole('button', { name: 'Record decision' }).click();
   await expect(page).toHaveURL(/\/approvals/);
   await approverContext.close();

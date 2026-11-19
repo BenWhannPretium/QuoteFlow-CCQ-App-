@@ -275,6 +275,9 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
   const option = paymentTerms.find((p) => p.code === form.termsPaymentTermsCode);
   const freeText = option?.meta.freeText === true;
   const nonstandard = isNonStandardPaymentTerms(form.termsPaymentTermsCode, standard);
+  // FB-25 (N17-28): at a standard code (Net 15, Net 30) the box is hidden and the server keeps it false.
+  const standardCode =
+    form.termsPaymentTermsCode !== '' && standard.includes(form.termsPaymentTermsCode);
   // FB-18 (W13-30): kept outside the editor, which is re-keyed by its own save.
   const status = useSaved(`terms:${quote.quoteNumber}`);
 
@@ -288,7 +291,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
         body.termsPaymentTermsCode = text(form.termsPaymentTermsCode);
       if (changed('termsPaymentTerms') || (freeText && changed('termsPaymentTermsCode')))
         body.termsPaymentTerms = freeText ? text(form.termsPaymentTerms) : null;
-      if (changed('termsNonstandard') && !nonstandard)
+      if (changed('termsNonstandard') && !nonstandard && !standardCode)
         body.termsNonstandard = form.termsNonstandard;
       if (changed('termsToolingPayment')) body.termsToolingPayment = text(form.termsToolingPayment);
       if (changed('termsMilestoneNote')) body.termsMilestoneNote = text(form.termsMilestoneNote);
@@ -399,11 +402,16 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
               label: 'Tooling commitment',
               value: yesNo(c.terms.termsToolingCommitment),
             },
-            {
-              id: 'nonstandard',
-              label: 'Non-standard terms',
-              value: yesNo(c.terms.termsNonstandard),
-            },
+            // FB-25 (N17-28): not shown at a standard code (it is always "No" there).
+            ...(c.terms.termsPaymentTermsCode && standard.includes(c.terms.termsPaymentTermsCode)
+              ? []
+              : [
+                  {
+                    id: 'nonstandard',
+                    label: 'Non-standard terms',
+                    value: yesNo(c.terms.termsNonstandard),
+                  },
+                ]),
             { id: 'notes', label: 'Terms notes', value: c.terms.termsNotes },
             {
               id: 'checked',
@@ -508,27 +516,30 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
               </NativeSelect>
             )}
           </Field>
-          <Field
-            label="Customer tooling commitment"
-            hint="Does the customer commit to fund or pay for tooling?"
-            error={errorFor(errors, 'termsToolingCommitment')}
-          >
-            {(id) => (
-              <NativeSelect
-                id={id}
-                value={form.termsToolingCommitment}
-                onChange={(e) =>
-                  set('termsToolingCommitment')(
-                    e.target.value as TermsForm['termsToolingCommitment'],
-                  )
-                }
-              >
-                <option value="">Not answered</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </NativeSelect>
-            )}
-          </Field>
+          {/* FB-25 (N17-26): Final Review links here when it is not answered (`#terms-tooling-commitment`). */}
+          <div id="terms-tooling-commitment" className="grid">
+            <Field
+              label="Customer tooling commitment"
+              hint="Does the customer commit to fund or pay for tooling? Needed before Final Review can release the offer."
+              error={errorFor(errors, 'termsToolingCommitment')}
+            >
+              {(id) => (
+                <NativeSelect
+                  id={id}
+                  value={form.termsToolingCommitment}
+                  onChange={(e) =>
+                    set('termsToolingCommitment')(
+                      e.target.value as TermsForm['termsToolingCommitment'],
+                    )
+                  }
+                >
+                  <option value="">Not answered</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </NativeSelect>
+              )}
+            </Field>
+          </div>
         </div>
         {!c.terms.termsPaymentTermsCode && c.terms.termsPaymentTerms && (
           <p className="text-muted-foreground -mt-2 text-xs" data-testid="legacy-payment-terms">
@@ -549,19 +560,23 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
             />
           )}
         </Field>
-        <label className="flex min-h-11 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="size-4 accent-[var(--primary)]"
-            checked={nonstandard || form.termsNonstandard}
-            disabled={nonstandard}
-            onChange={(e) => set('termsNonstandard')(e.target.checked)}
-          />
-          Non-standard terms
-          {nonstandard && (
-            <span className="text-muted-foreground text-xs">(set by the payment terms)</span>
-          )}
-        </label>
+        {/* FB-25 (N17-28): hidden at a standard code; ticked and fixed at a non-standard one; free with no
+            code chosen. */}
+        {!standardCode && (
+          <label className="flex min-h-11 items-center gap-2 text-sm" data-testid="nonstandard-box">
+            <input
+              type="checkbox"
+              className="size-4 accent-[var(--primary)]"
+              checked={nonstandard || form.termsNonstandard}
+              disabled={nonstandard}
+              onChange={(e) => set('termsNonstandard')(e.target.checked)}
+            />
+            Non-standard terms
+            {nonstandard && (
+              <span className="text-muted-foreground text-xs">(set by the payment terms)</span>
+            )}
+          </label>
+        )}
         <Field label="Terms notes" error={errorFor(errors, 'termsNotes')}>
           {(id) => (
             <Textarea

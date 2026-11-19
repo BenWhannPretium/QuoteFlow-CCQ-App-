@@ -251,6 +251,15 @@ Data: `<SF-OPP-6 chosen by Bailey>`, an open opportunity you own; a PNG or JPG "
 | 110 | Submit. Open the quote. | The **Request class** shows the **Concept** badge; the facts start with **Concept assumptions**. Engineering, Pricing and Final Review testers see the same. The offer letter (once approved) says "This is a concept quote. It assumes: …". | | |
 | 111 | Is "Concept / innovation" the right name? Is anything else needed for a concept (a design brief, a target weight)? Which dropdowns should keep their own order? Was the item name you typed in the demo the **Item name** (now 120) or the **Standard description** (500)? | Write the answers in Notes. | | |
 
+## FB-25: the quote page (2026-11-19)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 112 | Open one of your quotes. Read the tab bar, then scroll down. | The tabs read **Overview · Engineering · Quoting · Commercial terms · Attachments**, in larger type, and the bar stays under the page header while you scroll. A small red dot marks a tab where something waits for you. | | |
+| 113 | On **Overview**, read **At a glance**. | Read-only: the **Intake**, **Engineering** (per item: plant, process and machine, cavitation, cycle time, budgetary capital, the engineer's and the capacity notes, who decided feasibility), **Pricing** (costing, payback, price approval, capital readiness) and **Commercial terms**, with **Edit on the Commercial terms tab**. Rows with nothing in them are left out. No boxes to type in. | | |
+| 114 | Open **Commercial terms**. Pick **Net 30**, then **Net 60**, then nothing. | At Net 30 (and Net 15) there is no **Non-standard terms** box. At Net 60 it is ticked and greyed out. With nothing picked it can be ticked by hand. | | |
+| 115 | On a quote in Final Review, answer **Customer tooling commitment** and **Save terms**. | It saves. Final Review needs it (yes or no) before the offer can be released; you may also have answered it at intake. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

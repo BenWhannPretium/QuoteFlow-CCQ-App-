@@ -65,6 +65,8 @@ export default defineConfig({
         'fb22.spec.ts',
         'fb24.spec.ts',
         'offer-letter.spec.ts',
+        // FB-25 (Nov 17 and 18 feedback): the quote page, To qualify and Final Review.
+        'fb25.spec.ts',
         // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), one spec per area.
         'ux-tabs.spec.ts',
         'ux-quote-header.spec.ts',

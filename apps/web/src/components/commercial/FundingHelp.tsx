@@ -24,10 +24,17 @@ export function FundingHelp({
           <InfoIcon className="size-3.5" aria-hidden="true" />
           What do the funding options mean?
         </PopoverTrigger>
+        {/* FB-25 (N17-29): it ran off the screen on a laptop. It now stays within the viewport (Radix
+            gives the room left on the chosen side), scrolls on its own and flips side when there is
+            no room below, as the pipeline's column chooser does. */}
         <PopoverContent
-          className="w-[min(28rem,calc(100vw-2rem))]"
+          className="max-h-[min(70dvh,var(--radix-popover-content-available-height))] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain"
           align="start"
+          side="bottom"
+          avoidCollisions
+          tabIndex={0}
           aria-label="Funding options"
+          data-testid="funding-help-content"
         >
           <dl className="grid gap-2 text-xs">
             {withHelp.map((o) => (

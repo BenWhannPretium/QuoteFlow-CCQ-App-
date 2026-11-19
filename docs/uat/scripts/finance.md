@@ -52,7 +52,7 @@ Added 2026-11-10. Engineering now enters the tooling funding model on the quote,
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 10 | On `<CCQ-QT-4>` open **Overview** → **Commercial terms**. Read **Tooling funding model**, **MOQ** and **Capital terms**. | You can read them. There is no **Save terms**, **Save MOQ and funding** or **Save capital terms** button for you. | | |
+| 10 | On `<CCQ-QT-4>` open the **Commercial terms** tab. Read **Tooling funding model**, **MOQ** and **Capital terms**. | You can read them. There is no **Save terms**, **Save MOQ and funding** or **Save capital terms** button for you. | | |
 | 11 | Ask Engineering to set **Tooling funding model** to **$0 CER (customer-reimbursed capital)** on `<CCQ-QT-2>` (engineering.md step 69). Then open `<CCQ-QT-2>` → **Quoting** → **2. Payback**. | FB-21: if nobody has asked for a payback model on it, **2. Payback** adds the hint "Finance’s payback model may be useful here: Tooling funding: $0 CER (customer-reimbursed capital)". It is a suggestion to the pricer and the pricing lead; you are not told. You can upload a payback model. | | |
 | 12 | Ask Engineering to set the same quote back to **Not discussed**. Open **2. Payback** again. | The hint is gone (no capital, not flagged likely, and the funding model does not call for one). The step reads "Not requested" as before, or **Done** if you uploaded in step 6a. | | |
 

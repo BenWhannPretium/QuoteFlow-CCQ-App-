@@ -96,7 +96,7 @@ Added 2026-11-10. Skipped on Nov 9, because FB-08 was not built yet.
 
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
-| 34 | Open a quote that has not been released at Final Review → **Overview** → **Commercial terms**. | You can edit the payment terms, the tooling payment, the terms check and the **Capital terms** pre-fill (the KAM and Pricing can too). **Tooling funding model** and **MOQ** are Engineering's: you read them. You cannot confirm the capital terms (the approver does) or approve a payment-terms exception (the pricing lead does). | | |
+| 34 | Open a quote that has not been released at Final Review → the **Commercial terms** tab. | You can edit the payment terms, the tooling payment, the terms check and the **Capital terms** pre-fill (the KAM and Pricing can too). **Tooling funding model** and **MOQ** are Engineering's: you read them. You cannot confirm the capital terms (the approver does) or approve a payment-terms exception (the pricing lead does). | | |
 | 35 | Click **Approvals**. | You see the override requests (step 26). There is no Final Review queue for you: only the approver, leadership and Admin read it. Write in Notes what the page shows you. | | |
 | 36 | **Optional.** Only if Bailey runs `approver.md` Part G (the extra customer-funded approval, switched on for the test): sign off as the **sales leader**. | See `approver.md` step 39. You sign first, on the quote's **Commercial terms**. Leadership signs after you. | | |
 
@@ -111,6 +111,15 @@ Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`). 
 | 39 | Open a quote that waits at G1 (for example `<CCQ-G1-E>`). Then open the quote you advanced in step 8. Read the line under the stage tracker on each. | At G1: "Waiting on you. Next: qualify quote." The line has no button: **Qualify quote** is in the header. In Engineering & Capacity, until an engineer is assigned: "Waiting on: the engineering lead. Next: assign an engineer." | | |
 | 40 | Open the KAM's Part C quote while it is back with the KAM (after step 9, before the KAM resubmits). Read the banner and the **Gate decisions** card. | The banner reads "Returned by <you> at Qualify & prioritize", then "Reason: Missing information", "What to fix: <your note>" and the time in US Central (for example "Nov 17, 2026, 12:18 PM CST"). **Gate decisions** shows "Reason: Missing information" (the reason's label, not a code in brackets). You have no **Fix and resubmit** button: that is the KAM's. | | |
 | 41 | Open `<CCQ-G1-B>` (on hold since step 11). Click **Qualify quote** (or **Decide** on its row in **To qualify**) and read the choices. Cancel. | **Hold** is not offered on a quote that is already on hold. **Advance**, **Send back to…**, **Stop: not CCQ work (send elsewhere)** and **Stop** remain; recording any of them ends the hold. (If a second hold is sent from another tab, it is refused: "This quote is already on hold. Record a decision to end the hold.") | | |
+
+## FB-25: To qualify opens from the notice (2026-11-19)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 42 | After a KAM submits a quote, click the bell and open "<CCQ-…> is waiting to qualify". (The daily email's rows do the same.) | **To qualify** opens, not the quote's Overview. The quote's card is open and on screen, showing what the KAM entered: the request, the commercial inputs, the items with their product facts and volumes, and the files. Nothing on it can be edited. | | |
+| 43 | Click **Show details** on another card, then **Expand all** and **Collapse all** at the top. Try it with the keyboard (Tab to **Show details**, Enter). | Each card opens and closes on its own; **Expand all** opens every card and **Collapse all** closes them. The keyboard works, and a screen reader says whether a card is open. | | |
+| 44 | On the card from step 42 click **Decide**, choose **Advance** and **Record decision**. | The card leaves the list; the quote goes to Engineering & Capacity. | | |
+| 45 | Open a quote that waits at G1 (not from the notice). | It opens on the **Commercial terms** tab. The tabs read **Overview · Engineering · Quoting · Commercial terms · Attachments**; the tab bar stays under the page header when you scroll. **Overview** is a read-only summary ("At a glance": Intake, Engineering, Pricing, Commercial terms, Why this priority?, Gate decisions, the timeline). | | |
 
 ## Sign-off
 
