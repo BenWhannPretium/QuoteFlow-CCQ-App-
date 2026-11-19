@@ -224,21 +224,27 @@ test('an Approver approves one quote and declines another from a phone', async (
   expect(clipped).toEqual([]);
   await page.mouse.wheel(0, 4000);
   await expect(bar).toBeInViewport({ ratio: 1 });
+  // FB-25 (N17-25): one "Decide final review" (the dialog offers Advance, Send back to…, Hold, Stop),
+  // with what blocks the release beside it.
+  const decide = bar.getByRole('button', { name: 'Decide final review' });
+  const box = (await decide.boundingBox())!;
+  expect(box.height, 'Decide final review tap target height').toBeGreaterThanOrEqual(44);
+  expect(box.width, 'Decide final review tap target width').toBeGreaterThanOrEqual(44);
+  await expect(bar.getByRole('button', { name: 'Hold', exact: true })).toHaveCount(0);
+
+  // ── Approve ──
+  await decide.click();
+  const dialog = page.getByRole('dialog');
   for (const name of [
     'Advance (release the offer)',
     'Hold',
     'Stop (withdraw)',
-    // FB-17 (W13-23): the send-back says where the quote can go.
-    'Send back to Quoting or Engineering',
+    // FB-17 (W13-23): one "Send back to…" choice (the dialog then asks where to).
+    'Send back to…',
   ]) {
-    const box = (await bar.getByRole('button', { name, exact: true }).boundingBox())!;
-    expect(box.height, `${name} tap target height`).toBeGreaterThanOrEqual(44);
-    expect(box.width, `${name} tap target width`).toBeGreaterThanOrEqual(44);
+    await expect(dialog.getByRole('radio', { name, exact: true }), name).toBeVisible();
   }
-
-  // ── Approve ──
-  await bar.getByRole('button', { name: 'Advance (release the offer)', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'Advance (release the offer)', exact: true }).check();
   await expect(dialog.getByTestId('release-dates')).toContainText('does not award the quote');
   await expect(dialog.getByTestId('validity-preview')).toContainText(
     // DR-kam-sales-leader-13: the one date style ("Dec 11, 2026"), not ISO.
@@ -284,12 +290,14 @@ test('an Approver approves one quote and declines another from a phone', async (
   await expect(page.getByTestId('review-warnings')).toContainText(
     'Capital is needed: preliminary capital $420,000',
   );
+  // FB-25 (N17-25): the same button under the terms opens the same dialog, nothing chosen yet.
   await page
-    .getByTestId('decision-bar')
-    .getByRole('button', { name: 'Stop (withdraw)', exact: true })
+    .getByTestId('decide-below-terms')
+    .getByRole('button', { name: 'Decide final review' })
     .click();
   const decline = page.getByRole('dialog');
-  await expect(decline.getByRole('radio', { name: 'Stop (withdraw)' })).toBeChecked();
+  await expect(decline.getByRole('radio', { name: 'Stop (withdraw)' })).not.toBeChecked();
+  await decline.getByRole('radio', { name: 'Stop (withdraw)' }).check();
   // Declining closes the quote: say so, and no release dates are offered.
   await expect(decline.getByText('Closes the quote')).toBeVisible();
   await expect(decline.getByTestId('release-dates')).toHaveCount(0);
@@ -320,9 +328,7 @@ test('an Approver approves one quote and declines another from a phone', async (
   await page.goto(`/quotes/${declineMe}/review`);
   await expect(page.getByTestId('not-in-final-review')).toBeVisible();
   await expect(page.getByTestId('decision-unavailable')).toContainText('No decision is waiting');
-  await expect(
-    page.getByRole('button', { name: 'Advance (release the offer)', exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Decide final review' })).toHaveCount(0);
 });
 
 test('a KAM cannot reach the approvals queue, and a reader of the review cannot decide', async ({

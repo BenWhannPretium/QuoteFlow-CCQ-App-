@@ -191,6 +191,7 @@ function QuotePage() {
   // UX-001: a decision is recorded on what is saved, so the header's decision buttons wait for a save.
   const unsaved = useHasUnsavedChanges(quoteNumber);
   const saveFirstId = useId();
+  const workNoteId = useId();
 
   if (quote.isPending) {
     return (
@@ -383,22 +384,23 @@ function QuotePage() {
               value={t}
               data-testid={`quote-tab-${t}`}
               data-work={working.includes(t) || undefined}
+              aria-describedby={working.includes(t) ? workNoteId : undefined}
               className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground data-[state=active]:bg-accent hover:text-foreground hover:bg-accent/60 -mb-px inline-flex min-h-12 shrink-0 items-center gap-2 rounded-t-md border-b-[3px] border-transparent px-3 text-base font-medium transition-colors data-[state=active]:font-semibold sm:px-4"
             >
               {TAB_LABELS[t]}
               {working.includes(t) && (
-                <>
-                  <span
-                    aria-hidden="true"
-                    className="bg-destructive size-2 shrink-0 rounded-full"
-                    data-testid="tab-work-dot"
-                  />
-                  <span className="sr-only"> (work waiting for you)</span>
-                </>
+                <span
+                  aria-hidden="true"
+                  className="bg-destructive size-2 shrink-0 rounded-full"
+                  data-testid="tab-work-dot"
+                />
               )}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
+        <span id={workNoteId} hidden>
+          Work is waiting for you on this tab.
+        </span>
         <Tabs.Content value="overview" className="grid gap-6" data-testid="overview">
           {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
           {canReadOfferLetter && <OfferLetterCard quote={q} />}

@@ -104,9 +104,9 @@ const REQUIRED_CHECKS: readonly {
 export const CAPITAL_TERM_NAMES: Readonly<Record<string, string>> = {
   funding_model: 'Tooling funding model',
   mold_ownership: 'Mold ownership',
-  amortization: 'Amortized (yes or no)',
+  amortization: 'Whether it is amortized',
   min_supply: 'Minimum supply / shortfall terms',
-  agreement: 'Agreement in place (yes or no)',
+  agreement: 'Whether an agreement is in place',
 };
 
 /**

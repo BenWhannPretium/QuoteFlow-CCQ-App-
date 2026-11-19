@@ -246,9 +246,13 @@ test('UX-010: the Final Review warnings footer names what blocks the release, an
   await expect(warnings.locator('li[data-code="TERMS_NOT_CHECKED"]')).toBeVisible();
   const blockers = warnings.getByTestId('review-blockers');
   await expect(blockers).toContainText('The offer cannot be released yet. This blocks it:');
-  await expect(blockers.getByRole('listitem')).toHaveCount(1);
-  await expect(blockers.getByRole('listitem')).toContainText(
+  // FB-25 (N17-26, N17-27): the confirmation, then each required capital term still unanswered.
+  await expect(blockers.getByRole('listitem')).toHaveCount(6);
+  await expect(blockers.getByRole('listitem').first()).toContainText(
     "The approver's confirmation of the capital terms",
+  );
+  await expect(blockers.getByRole('listitem').nth(2)).toContainText(
+    'Mold ownership (needed to confirm the capital terms)',
   );
   // The old footer is gone while something blocks.
   await expect(warnings.getByTestId('review-warnings-footer')).toHaveCount(0);
@@ -263,12 +267,17 @@ test('UX-010: the Final Review warnings footer names what blocks the release, an
   await blockers.getByRole('button', { name: 'Go to Terms and Legal on this page' }).click();
   await expect(termsHeading).toBeFocused();
   await expect(termsHeading).toBeInViewport();
+  // FB-25 (N17-25): the decision bar says so too, beside the one "Decide final review".
+  await expect(page.getByTestId('decision-bar-blockers')).toContainText(
+    "The approver's confirmation of the capital terms",
+  );
   // The decision dialog agrees: the same item is what is missing for Advance.
   await page
     .getByTestId('decision-bar')
-    .getByRole('button', { name: 'Advance (release the offer)', exact: true })
+    .getByRole('button', { name: 'Decide final review' })
     .click();
   const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'Advance (release the offer)', exact: true }).check();
   await expect(dialog.getByTestId('completeness')).toContainText(
     "The approver's confirmation of the capital terms",
   );
@@ -295,16 +304,21 @@ test('UX-010: the Final Review warnings footer names what blocks the release, an
     'Warnings inform the decision; none of them blocks it.',
   );
   await expect(warnings.getByTestId('review-blockers')).toHaveCount(0);
-  // The open checks that do not block keep their link to the Commercial panel.
+  await expect(page.getByTestId('decision-bar-ready')).toHaveText('Nothing blocks the release.');
+  // The open checks that do not block keep their link to the commercial terms (FB-25: their tab).
   await expect(
     warnings
       .locator('li[data-code="TERMS_NOT_CHECKED"]')
-      .getByRole('link', { name: 'Open the Commercial panel' }),
-  ).toHaveAttribute('href', `/quotes/${qn}#commercial`);
+      .getByRole('link', { name: 'Open the Commercial terms tab' }),
+  ).toHaveAttribute('href', `/quotes/${qn}?tab=commercial#commercial`);
 
-  // ── UX-004 at Final Review: on hold, the decision bar offers every choice but Hold ──
+  // ── UX-004 at Final Review: on hold, the decision offers every choice but Hold ──
   const bar = page.getByTestId('decision-bar');
-  await expect(bar.getByRole('button', { name: 'Hold', exact: true })).toBeVisible();
+  const choices = page.getByRole('dialog');
+  await bar.getByRole('button', { name: 'Decide final review' }).click();
+  await expect(choices.getByRole('radio', { name: 'Hold', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(choices).toHaveCount(0);
   await ok(
     request.post(`/api/v1/quotes/${qn}/gates/G4/decisions`, {
       headers: as('approver'),
@@ -320,12 +334,11 @@ test('UX-010: the Final Review warnings footer names what blocks the release, an
   );
   await page.reload();
   await expect(page.getByTestId('review-on-hold')).toBeVisible();
+  await bar.getByRole('button', { name: 'Decide final review' }).click();
   await expect(
-    bar.getByRole('button', { name: 'Advance (release the offer)', exact: true }),
+    choices.getByRole('radio', { name: 'Advance (release the offer)', exact: true }),
   ).toBeVisible();
-  await expect(bar.getByRole('button', { name: 'Stop (withdraw)', exact: true })).toBeVisible();
-  await expect(
-    bar.getByRole('button', { name: 'Send back to Quoting or Engineering', exact: true }),
-  ).toBeVisible();
-  await expect(bar.getByRole('button', { name: 'Hold', exact: true })).toHaveCount(0);
+  await expect(choices.getByRole('radio', { name: 'Stop (withdraw)', exact: true })).toBeVisible();
+  await expect(choices.getByRole('radio', { name: 'Send back to…', exact: true })).toBeVisible();
+  await expect(choices.getByRole('radio', { name: 'Hold', exact: true })).toHaveCount(0);
 });
