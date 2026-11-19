@@ -53,6 +53,9 @@ const round2 = (v: number | null) => (v === null ? null : Math.round(v * 100) / 
 
 const isDrawing = (kind: string) => (DRAWING_ATTACHMENT_KINDS as readonly string[]).includes(kind);
 
+/** FB-24 (N17-03): the file kinds that count as a concept's render or photo. */
+export const RENDER_ATTACHMENT_KINDS = ['sample_photo'] as const;
+
 /** An intake problem the route turns into problem+json (the shape `IntakeError` takes). */
 export interface ItemsProblem {
   status: 422;
@@ -69,14 +72,21 @@ export interface ItemsProblem {
 export async function drawingCheck(
   db: DbOrTx,
   draft: Pick<QuoteDraftRow, 'id' | 'reworkOfQuoteId'>,
-): Promise<{ has: (item: IntakeItemData, index: number) => boolean; ids: Set<string> }> {
-  const files = [
+): Promise<{
+  has: (item: IntakeItemData, index: number) => boolean;
+  ids: Set<string>;
+  /** FB-24 (N17-03): a sample photo / render is on file (any item: a concept's render is the request's). */
+  hasRender: boolean;
+}> {
+  const all = [
     ...(await listDraftAttachments(db, draft.id)),
     ...(draft.reworkOfQuoteId ? await listAttachments(db, draft.reworkOfQuoteId) : []),
-  ].filter((f) => isDrawing(f.kind));
+  ];
+  const files = all.filter((f) => isDrawing(f.kind));
   const ids = new Set(files.map((f) => f.id));
   return {
     ids,
+    hasRender: all.some((f) => (RENDER_ATTACHMENT_KINDS as readonly string[]).includes(f.kind)),
     has: (item, index) =>
       files.some((f) => f.quoteItemId === item.key || (f.quoteItemId === null && index === 0)) ||
       (item.linkedDrawingIds ?? []).some((id) => ids.has(id)),
@@ -219,7 +229,7 @@ function itemToDraft(i: QuoteItem, linked: string[]): IntakeItemData {
     componentOther: i.componentOther,
     linerSpec: i.linerSpec,
     labelsPurchasedBy: i.labelsPurchasedBy,
-    decorationType: i.decorationType,
+    decorationTypes: i.decorationTypes,
     decorationTypeOther: i.decorationTypeOther,
     decorationPrintColors: i.decorationPrintColors,
     resin: i.resin,
@@ -276,7 +286,8 @@ export function storedItemColumns(
     componentOther: keep('component_other', v.component_other),
     linerSpec: keep('liner_spec', v.liner_spec),
     labelsPurchasedBy: keep('labels_purchased_by', v.labels_purchased_by),
-    decorationType: keep('decoration_type', v.decoration_type),
+    // FB-24 (N17-02): several at once; the deprecated single code is no longer written.
+    decorationTypes: keep('decoration_types', v.decoration_types) ?? [],
     decorationTypeOther: keep('decoration_type_other', v.decoration_type_other),
     decorationPrintColors: keep('decoration_print_colors', v.decoration_print_colors),
     resin: v.resin,
@@ -354,7 +365,7 @@ export function quoteMirrorColumns(rows: readonly StoredItem[]) {
     additives: first.additives ?? null,
     linerSpec: first.linerSpec ?? null,
     labelsPurchasedBy: first.labelsPurchasedBy ?? null,
-    decorationType: first.decorationType ?? null,
+    decorationTypes: first.decorationTypes ?? [],
     decorationTypeOther: first.decorationTypeOther ?? null,
     decorationPrintColors: first.decorationPrintColors ?? null,
     heightMm: first.heightMm ?? null,

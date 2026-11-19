@@ -45,7 +45,12 @@ export function Field({
   );
 }
 
-/** Amber = "Engineering may ask"; blocking = needed before submit. Neither uses red text on red. */
+/**
+ * Amber = "Engineering may ask" (worth checking; you can still go on); blocking = needed before submit.
+ * FB-24 (N17-09, Bailey Schmitt): blocking is "that transparent red": a light red fill (the destructive
+ * token at low opacity) with a red border and its icon, so it no longer reads like a warning. Body text
+ * stays the foreground colour (never red text on red); the icon is red. `FlagKey` explains the two.
+ */
 export function Notice({
   tone,
   children,
@@ -65,12 +70,17 @@ export function Notice({
       className={cn(
         'flex items-start gap-2 rounded-md px-3 py-2 text-sm',
         tone === 'warning' && 'bg-warning text-warning-foreground',
-        tone === 'blocking' && 'border-destructive bg-card border-2',
+        tone === 'blocking' && 'border-destructive bg-destructive/10 text-foreground border-2',
         tone === 'info' && 'bg-muted text-foreground',
         className,
       )}
     >
-      {tone !== 'info' && <Icon aria-hidden className="mt-0.5 size-4 shrink-0" />}
+      {tone !== 'info' && (
+        <Icon
+          aria-hidden
+          className={cn('mt-0.5 size-4 shrink-0', tone === 'blocking' && 'text-destructive')}
+        />
+      )}
       <div className="min-w-0">{children}</div>
     </div>
   );

@@ -78,9 +78,11 @@ async function fillCustomerAndProduct(
   await page.locator('#intake-color-type').selectOption({ label: 'Custom color' });
   await page.locator('#intake-color-description').fill('Pantone 286 C blue');
   await page.locator('#intake-additives').fill('UV inhibitor');
-  // F-013: Decoration reveals its type and print colors.
+  // F-013: Decoration reveals its type and print colors. FB-24 (N17-02): several types at once.
   await page.getByLabel('Decoration', { exact: true }).check();
-  await page.locator('#intake-decoration-type').selectOption({ label: 'Silk screen' });
+  const decorations = page.getByTestId('decoration-types');
+  await decorations.getByLabel('Silk screen').check();
+  await decorations.getByLabel('Shrink sleeve').check();
   await page.locator('#intake-decoration-print-colors').fill('2');
   // F-016: dimensions and gram weight (the minimum spec without a drawing).
   await page.locator('#intake-height-mm').fill('180');
@@ -182,6 +184,10 @@ test.describe('KAM intake', () => {
     await expect(page.getByText('Pantone 286 C blue')).toBeVisible();
     // FB-12: the review shows "Market › Sub-market".
     await expect(page.getByText('Food › Snacks & Confections')).toBeVisible();
+    // FB-24 (N17-02, N17-10): both decorations (list order, A to Z), and the dunnage answer unmistakably.
+    await expect(page.getByText('Shrink sleeve, Silk screen')).toBeVisible();
+    const dunnage = page.locator('dt', { hasText: /^Returnable dunnage$/ });
+    await expect(dunnage.locator('xpath=following-sibling::dd[1]')).toHaveText('Yes');
 
     // No drawing, but the full minimum spec: the quote can advance (F-016); amber only.
     await page

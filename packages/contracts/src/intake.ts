@@ -97,8 +97,13 @@ const productShapeOf = (kinds: FieldKinds) => ({
   linerSpec: text(120),
   /** labels_purchased_by code (Customer / Pretium). */
   labelsPurchasedBy: text(60),
-  /** decoration_type code. */
+  /**
+   * Deprecated by FB-24 (N17-02): one decoration_type code. Still read (a draft or client from before
+   * FB-24) as `decorationTypes: [code]` when `decorationTypes` is absent; never written by the wizard.
+   */
   decorationType: text(60),
+  /** FB-24 (N17-02): decoration_type codes, several at once (checkboxes). "Other" has one description. */
+  decorationTypes: z.array(z.string().max(60)).max(20).optional(),
   /** FB-15 (W13-03): what an "Other" decoration is. */
   decorationTypeOther: text(500),
   /** Whole number 1–12 (checked by the domain). */
@@ -167,6 +172,13 @@ const productShape = productShapeOf(SENT);
 /** The camelCase product fields of an item (the draft keys of `productShape`). */
 export const INTAKE_ITEM_FIELDS = Object.keys(productShape) as (keyof typeof productShape)[];
 
+/** FB-24 (N17-05): the longest item name (characters); was 60. As `quote_item_label_length_check`. */
+export const ITEM_LABEL_MAX = 120;
+
+/** FB-24 (N17-01): where the intake's ship-to was pre-filled from (`app_setting.ship_to_sources`). */
+export const SHIP_TO_SOURCE_VALUES = ['product_spec', 'account'] as const;
+export type ShipToSource = (typeof SHIP_TO_SOURCE_VALUES)[number];
+
 const ITEM_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -178,8 +190,8 @@ const ITEM_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 const itemDataOf = (kinds: FieldKinds) =>
   z.object({
     key: z.string().regex(ITEM_KEY, 'Not an item key'),
-    /** The KAM's short name for the item, e.g. "16 oz bottle" (≤ 60). */
-    label: text(60),
+    /** The KAM's short name for the item, e.g. "16 oz bottle" (≤ 120; FB-24, N17-05). */
+    label: text(ITEM_LABEL_MAX),
     /** The Salesforce product specification the item was added from. */
     sfProductSpecId: text(40),
     linkedDrawingIds: z.array(z.string().regex(ITEM_KEY)).max(50).optional(),
@@ -228,9 +240,24 @@ const draftDataOf = (kinds: FieldKinds) =>
     shipToDefault: IntakeAddress.nullable().optional(),
     /** Required when shipTo differs from shipToDefault (a governed override once B-09 lands). */
     shipToOverrideReason: text(1000),
+    /**
+     * FB-24 (N17-01): where `shipToDefault` came from (`ship_to_sources`): the opportunity's product
+     * specification or the Account. Null when nothing had a city and a state (the KAM types it).
+     */
+    shipToSource: z.enum(SHIP_TO_SOURCE_VALUES).nullable().optional(),
+    /**
+     * FB-24 (N17-01): the opportunity's free-text "Ship to Locations" (Ship_to_Locations__c), shown
+     * read-only above the ship-to so the KAM can copy from it. Never parsed into the address.
+     */
+    sfShipToLocations: text(1000),
 
     // Step 3: the request (entered once per quote)
     requestClass: text(60),
+    /**
+     * FB-24 (N17-03): what a concept / innovation quote assumes (a class in `intake_min_spec_exempt_classes`;
+     * required then, ≤ 1,000 checked by the domain). Cleared for any other class at submit.
+     */
+    conceptAssumptions: text(4000),
     market: text(60),
     /**
      * FB-12 (F-073): a `sub_market` code that belongs to `market` (the server checks it and clears it when the
@@ -262,6 +289,18 @@ const draftDataOf = (kinds: FieldKinds) =>
     customerSharePct: z.number().nullable().optional(),
     /** Customer wants returnable (multi-trip) dunnage; false = single-trip (F-063, dunnage only). */
     returnableDunnage: z.boolean().optional(),
+    /**
+     * FB-24 (N18-02): "Will the customer commit to the tooling?" true / false; null = not known yet. The
+     * same quote column the Commercial terms panel edits (`terms_tooling_commitment`). Optional.
+     */
+    toolingCommitment: z.boolean().nullable().optional(),
+    /**
+     * FB-24 (Ben's decision D4): the customer wants Pretium to hold stock for it. true / false; null = not
+     * known yet. Optional. The weeks (a whole number, 1–520) and the note (≤ 300) apply only to a yes.
+     */
+    stockHoldRequested: z.boolean().nullable().optional(),
+    stockHoldWeeks: z.number().nullable().optional(),
+    stockHoldNote: text(2000),
     /** `price_basis` code (FOB Pretium plant / Delivered). */
     priceBasis: text(60),
     /** `freight_type` code, only while the price basis is delivered (cleared otherwise). */
@@ -592,6 +631,17 @@ export function normalizeDraftData(data: IntakeDraftData, newKey: () => string):
   return out;
 }
 
+/**
+ * FB-24 (N17-02): an item's decoration types. `decorationTypes` when the item has it; otherwise the
+ * deprecated single `decorationType` as a one-code list (a draft or client from before FB-24).
+ */
+export function itemDecorationTypes(
+  item: Pick<IntakeItemData, 'decorationType' | 'decorationTypes'>,
+) {
+  if (item.decorationTypes !== undefined) return [...item.decorationTypes];
+  return item.decorationType ? [item.decorationType] : [];
+}
+
 /** One item's product fields in the domain's snake_case shape (an entry of `intakeValues(...).items`). */
 export function intakeItemValues(item: IntakeItemData, hasDrawingAttachment?: boolean) {
   return {
@@ -618,7 +668,7 @@ export function intakeItemValues(item: IntakeItemData, hasDrawingAttachment?: bo
     additives: blank(item.additives),
     liner_spec: blank(item.linerSpec),
     labels_purchased_by: item.labelsPurchasedBy ?? null,
-    decoration_type: item.decorationType ?? null,
+    decoration_types: itemDecorationTypes(item),
     decoration_type_other: blank(item.decorationTypeOther),
     decoration_print_colors: item.decorationPrintColors ?? null,
     height_mm: item.heightMm ?? null,
@@ -645,15 +695,18 @@ export type IntakeItemValues = ReturnType<typeof intakeItemValues>;
  * The draft's fields in the domain's snake_case shape (`evaluateIntake` input): the request fields, and
  * FB-19 `items` (one entry per item, `draftItems`). `hasDrawingAttachment` (FB-02, F-016) says whether a
  * bottle or competitor drawing is attached; FB-19: per item (the caller knows its files and which item
- * each belongs to), or one answer for every item.
+ * each belongs to), or one answer for every item. FB-24: `hasRenderAttachment`, a sample photo / render.
  */
 export function intakeValues(
   data: IntakeDraftData,
   hasDrawingAttachment?: boolean | ((item: IntakeItemData, index: number) => boolean),
+  /** FB-24 (N17-03): a sample photo / render is on file (request level); omitted when not known. */
+  hasRenderAttachment?: boolean,
 ) {
   const c = data.customer;
   return {
     sf_opportunity_id: data.sfOpportunityId ?? null,
+    ...(hasRenderAttachment === undefined ? {} : { has_render_attachment: hasRenderAttachment }),
     customer: c
       ? { status: c.status, sf_account_id: c.sfAccountId ?? null, name: c.name ?? null }
       : null,
@@ -661,6 +714,7 @@ export function intakeValues(
     ship_to_default: intakeAddress(data.shipToDefault),
     ship_to_override_reason: data.shipToOverrideReason ?? null,
     request_class: data.requestClass ?? null,
+    concept_assumptions: blank(data.conceptAssumptions),
     market: data.market ?? null,
     sub_market: data.subMarket ?? null,
     quote_variants_note: blank(data.quoteVariantsNote),
@@ -670,6 +724,10 @@ export function intakeValues(
     tooling_funding_model: data.toolingFundingModel ?? null,
     customer_share_pct: data.customerSharePct ?? null,
     returnable_dunnage: data.returnableDunnage ?? false,
+    tooling_commitment: data.toolingCommitment ?? null,
+    stock_hold_requested: data.stockHoldRequested ?? null,
+    stock_hold_weeks: data.stockHoldWeeks ?? null,
+    stock_hold_note: blank(data.stockHoldNote),
     price_basis: data.priceBasis ?? null,
     freight_type: data.freightType ?? null,
     freight_special_arrangements: blank(data.freightSpecialArrangements),

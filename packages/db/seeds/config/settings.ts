@@ -82,8 +82,51 @@ export const CAPITAL_READINESS_DEFAULT_DESCRIPTION =
 export const CUSTOMER_MASTER_DATA_NOTICE =
   'This customer has no ERP account yet. Request master-data setup (help-desk ticket) as part of commercial activation.';
 
-/** FB-02 (F-067): only CCQ is submitted here for MVP (provisional). */
-export const INTAKE_ALLOWED_REQUEST_CLASSES = ['CCQ'];
+/**
+ * FB-02 (F-067): only CCQ is submitted here for MVP (provisional). FB-24 (N17-03): a concept / innovation
+ * request is CCQ work too (provisional; migration 0051 adds it in existing environments).
+ */
+export const INTAKE_ALLOWED_REQUEST_CLASSES = ['CCQ', 'CONCEPT'];
+
+/**
+ * FB-24 (N17-03, Bailey Schmitt, Jordan): request classes for which the no-drawing minimum spec does not
+ * block (the fields stay on screen, optional). Such a request needs a drawing or a sample photo / render
+ * on file, and its assumptions. Provisional.
+ */
+export const INTAKE_MIN_SPEC_EXEMPT_CLASSES = ['CONCEPT'];
+
+/**
+ * FB-24 (N17-01, D-18): where the ship-to is pre-filled from, in order; the first with a city and a state
+ * wins. product_spec = Ship_To_City__c / Ship_To_State__c / Shipping_Country__c on the opportunity's first
+ * product specification (item 1); account = the Account's shipping address. Field names confirmed by a
+ * read-only describe on 2026-11-19. Provisional (Zachary Cairns confirms which wins).
+ */
+export const SHIP_TO_SOURCES = ['product_spec', 'account'];
+
+/**
+ * FB-24 (N17-06, N17-07, Bailey Schmitt): the file types each place offers, in order. "intake" is enforced
+ * by the server; "quote" is the quote's Attachments tab (the same list: capacity analysis lives on
+ * Engineering's capacity rows, the equipment BOM in Engineering, the models in Quoting, the offer letter is
+ * generated). Specification is offered nowhere for now (old files keep their label). Provisional.
+ */
+export const ATTACHMENT_KINDS_BY_PLACE = {
+  intake: [
+    'bottle_drawing',
+    'sample_photo',
+    'bid_file',
+    'project_brief',
+    'competitor_drawing',
+    'other',
+  ],
+  quote: [
+    'bottle_drawing',
+    'sample_photo',
+    'bid_file',
+    'project_brief',
+    'competitor_drawing',
+    'other',
+  ],
+};
 export const INTAKE_REDIRECT_MESSAGE =
   'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
 
@@ -129,7 +172,18 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   ship_to_override_reason:
     'A ship-to that differs from the account default changes the quote, so we record why.',
   request_class:
-    'CCQ is new business that needs engineering or capital. Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application.',
+    'CCQ is new business that needs engineering or capital. Concept / innovation is CCQ work that starts from a render or a photo instead of a drawing. Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application.',
+  // FB-24 (N17-03): the concept's assumptions (provisional wording).
+  concept_assumptions:
+    'What the quote assumes about a product that is not designed yet (size, weight, resin, decoration). Engineering, Pricing and Final Review see it, and the offer letter states it.',
+  // FB-24 (N17-02): several decoration types at once.
+  decoration_types: 'Tick every decoration the item has. Other asks what it is.',
+  // FB-24 (N18-02): the KAM's answer; Final Review sees it. "Yes" asks for a Legal review.
+  tooling_commitment:
+    'Whether the customer will commit to paying for the tooling. Final Review sees your answer. Yes asks for a Legal review before the offer goes out.',
+  // FB-24 (Ben's decision D4, Faron Ipox): holding stock is an extra cost Pricing needs to know.
+  stock_hold_requested:
+    'Holding bottles for a customer for a long time costs Pretium money, so Pricing needs to know. Say for how long if you know.',
   product_family: 'Tells Engineering which product line and tooling family to look at.',
   // FB-15 (W13-03): what an "Other" product family, component or decoration is.
   product_family_other: 'Required when the product family is Other: say what the product is.',
@@ -345,7 +399,26 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'intake_allowed_request_classes',
     value: INTAKE_ALLOWED_REQUEST_CLASSES,
     description:
-      'FB-02 (F-067): the request_class codes that can be submitted to CCQ. Any other class shows intake_redirect_message and Submit is disabled; the API answers 422 REQUEST_CLASS_NOT_ALLOWED. Provisional (Matthew Graden, Tania Nazario).',
+      'FB-02 (F-067): the request_class codes that can be submitted to CCQ. Any other class shows intake_redirect_message and Submit is disabled; the API answers 422 REQUEST_CLASS_NOT_ALLOWED. FB-24 (N17-03): CONCEPT added. Provisional (Matthew Graden, Tania Nazario).',
+  },
+  // ── FB-24 (N17-03, N17-01, N17-06/07). All provisional; existing environments get them from migration 0051.
+  {
+    key: 'intake_min_spec_exempt_classes',
+    value: INTAKE_MIN_SPEC_EXEMPT_CLASSES,
+    description:
+      'FB-24 (N17-03, Bailey Schmitt): request_class codes for which the no-drawing minimum spec (intake_min_spec_fields) does not block; the fields stay on screen, optional. Such a request needs a drawing or a sample photo / render on file and "Assumptions for this concept", which the offer letter states. Seed: CONCEPT. Provisional.',
+  },
+  {
+    key: 'ship_to_sources',
+    value: SHIP_TO_SOURCES,
+    description:
+      "FB-24 (N17-01, D-18): where the intake pre-fills the ship-to from, in order; the first source with a city and a state wins and the screen says which. product_spec: the opportunity's first product specification (Ship_To_City__c, Ship_To_State__c, Shipping_Country__c); account: the Account's shipping address. The opportunity's free-text Ship_to_Locations__c is shown to the KAM, never parsed. Provisional until Zachary Cairns confirms which wins.",
+  },
+  {
+    key: 'attachment_kinds_by_place',
+    value: ATTACHMENT_KINDS_BY_PLACE,
+    description:
+      "FB-24 (N17-06, N17-07, Bailey Schmitt): the file types each place offers, in order. intake: the intake's files (the server refuses any other type on a draft, 422). quote: the quote's Attachments tab. Capacity analysis is uploaded on Engineering's capacity rows, the equipment BOM in Engineering, the models in Quoting; the offer letter is generated. Specification is offered nowhere until Bailey says where it belongs (old files keep their label). Provisional.",
   },
   {
     key: 'intake_variants_note_max_length',
@@ -561,7 +634,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'offer_letter_template',
     value: OFFER_LETTER_TEMPLATE_SEED,
     description:
-      "FB-20 (F-070): the offer letter's wording and layout. Every business sentence on the letter (title, introduction, pricing assumptions, closing, sign-off, footer), the price row labels and when each is required (piece price always; molds when the quote's tooling funding is one of customerFundedToolingModels; change parts never), and the Specifications rows. Tokens: {{quoteNumber}}, {{customerName}}, {{validUntil}}, {{paymentTerms}}, {{priceBasis}}, {{freight}}, {{toolingFunding}}, {{moldOwnership}}; a sentence whose token has no value on the quote is left out. Seeded from the old Standard Quote Template (feedback/inputs/offer-letter-template-structure.md). Provisional, not approved by Legal; legalEntity and address are blank until Legal gives them.",
+      "FB-20 (F-070): the offer letter's wording and layout. Every business sentence on the letter (title, introduction, pricing assumptions, closing, sign-off, footer), the price row labels and when each is required (piece price always; molds when the quote's tooling funding is one of customerFundedToolingModels; change parts never), and the Specifications rows. Tokens: {{quoteNumber}}, {{customerName}}, {{validUntil}}, {{paymentTerms}}, {{priceBasis}}, {{freight}}, {{toolingFunding}}, {{moldOwnership}}, {{conceptAssumptions}} (FB-24: a concept quote's assumptions, blank on any other quote); a sentence whose token has no value on the quote is left out. Seeded from the old Standard Quote Template (feedback/inputs/offer-letter-template-structure.md). Provisional, not approved by Legal; legalEntity and address are blank until Legal gives them.",
   },
   {
     key: 'offer_letter_wording_approved',

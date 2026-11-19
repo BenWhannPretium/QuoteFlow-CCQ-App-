@@ -1,4 +1,10 @@
-import type { IntakeAddress, IntakeDraftData, IntakeItemData } from '@ccq/contracts';
+import {
+  ITEM_LABEL_MAX,
+  itemDecorationTypes,
+  type IntakeAddress,
+  type IntakeDraftData,
+  type IntakeItemData,
+} from '@ccq/contracts';
 import {
   activeFollowUps,
   COMPONENT_FOLLOW_UP_FIELDS,
@@ -26,7 +32,12 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { FundingHelp } from '@/components/commercial/FundingHelp';
 import { RequiredKey } from '@/components/forms';
-import { NON_STANDARD_TERMS_TEXT } from '@/components/intake/CommercialInputs';
+import {
+  answerText,
+  NON_STANDARD_TERMS_TEXT,
+  stockHoldText,
+} from '@/components/intake/CommercialInputs';
+import { ConceptBadge } from '@/components/intake/ConceptBadge';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
@@ -48,6 +59,7 @@ import {
   valueLabel,
   type WizardConfig,
 } from './model';
+import { ShipToSourceNote } from './ShipToSource';
 import { Field, Notice, ReadOnlyValue, Reveal, Section, SfTag } from './ui';
 
 export interface StepProps {
@@ -59,6 +71,8 @@ export interface StepProps {
   sfCloseDate?: string | null | undefined;
   /** FB-02 (F-016): a bottle or competitor drawing is attached. */
   hasDrawing?: boolean;
+  /** FB-24 (N17-03): a sample photo / render is attached (a concept's file rule). */
+  hasRender?: boolean;
 }
 
 const fid = (field: string) => `intake-${field.replace(/[._]/g, '-')}`;
@@ -95,6 +109,9 @@ function meta(cfg: WizardConfig, field: string) {
 }
 
 const nullIfBlank = (v: string) => (v.trim() === '' ? null : v);
+
+/** FB-24 (N17-05): the standard description's limit, as the contract's `standardDescription: text(500)`. */
+const STANDARD_DESCRIPTION_MAX = 500;
 
 /** YYYY-MM-DD of the day after `iso` (for the date pickers' `min`). */
 const isoDayAfter = (iso: string) =>
@@ -230,7 +247,7 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
             </p>
           </div>
         )}
-        <label className="flex min-h-11 items-center gap-3 text-sm">
+        <label className="flex min-h-11 w-fit items-center gap-3 text-sm">
           <input
             type="checkbox"
             className="size-5"
@@ -267,14 +284,16 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
         }
       >
         {cfg.help.ship_to && <p className="text-muted-foreground text-xs">{cfg.help.ship_to}</p>}
+        {/* FB-24 (N17-01): where the address came from, and the opportunity's own free-text ship-to. */}
+        <ShipToSourceNote
+          source={data.shipToSource ?? (hasDefault ? 'account' : null)}
+          sfShipToLocations={data.sfShipToLocations ?? null}
+        />
         {!editingShipTo ? (
           <div className="grid gap-4">
             <p data-testid="ship-to" className="flex flex-wrap items-center gap-2 text-sm">
               <span>{formatAddress(data.shipTo)}</span>
               <SfTag />
-              <span className="text-muted-foreground block w-full text-xs">
-                The Salesforce Account&apos;s shipping address.
-              </span>
             </p>
             {blankRequiredParts.length > 0 && (
               <div className="grid gap-4 sm:grid-cols-2" data-testid="ship-to-missing-parts">
@@ -554,7 +573,7 @@ function ResinFields({
           />
         </Field>
       </div>
-      <label className="flex min-h-11 items-center gap-3 text-sm">
+      <label className="flex min-h-11 w-fit items-center gap-3 text-sm">
         <input
           id={fid('resin_customer_specified')}
           type="checkbox"
@@ -755,9 +774,13 @@ function ColorFields({ data, update, cfg, evaluation }: StepProps) {
 const FOLLOW_UP_KEYS = {
   liner_spec: 'linerSpec',
   labels_purchased_by: 'labelsPurchasedBy',
-  decoration_type: 'decorationType',
+  // FB-24 (N17-02): several decoration types at once.
+  decoration_types: 'decorationTypes',
   decoration_print_colors: 'decorationPrintColors',
 } as const satisfies Record<ComponentFollowUpField, keyof IntakeDraftData>;
+
+/** FB-24 (N17-02): the item's decoration types (an older draft's single code reads as one). */
+const decorationTypesOf = (data: IntakeDraftData): string[] => itemDecorationTypes(data);
 
 /** F-013: the picked components' follow-ups, required while shown. */
 function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
@@ -788,25 +811,15 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
           />
         </Field>
       </Reveal>
-      <Reveal when={on('decoration_type') || on('decoration_print_colors')}>
+      <Reveal when={on('decoration_types') || on('decoration_print_colors')}>
         <div className="grid gap-4 sm:grid-cols-2">
-          {on('decoration_type') && (
-            <Field {...meta(cfg, 'decoration_type')} required>
-              <Select
-                id={fid('decoration_type')}
-                listKey="decoration_type"
-                value={data.decorationType}
-                onChange={(v) =>
-                  update({
-                    decorationType: v,
-                    // FB-15 (W13-03): unpicking Other clears its description.
-                    ...(isCustom(cfg, 'decoration_type', v) ? {} : { decorationTypeOther: null }),
-                  })
-                }
-                cfg={cfg}
-                invalid={Boolean(issue('decoration_type'))}
-              />
-            </Field>
+          {on('decoration_types') && (
+            <DecorationTypesField
+              data={data}
+              update={update}
+              cfg={cfg}
+              invalid={Boolean(issue('decoration_types'))}
+            />
           )}
           {on('decoration_print_colors') && (
             <Field {...meta(cfg, 'decoration_print_colors')} required>
@@ -834,7 +847,10 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
         </div>
       </Reveal>
       <ConditionalText
-        when={on('decoration_type') && isCustom(cfg, 'decoration_type', data.decorationType)}
+        when={
+          on('decoration_types') &&
+          decorationTypesOf(data).some((c) => isCustom(cfg, 'decoration_type', c))
+        }
         field="decoration_type_other"
         label="Describe the decoration"
         value={data.decorationTypeOther}
@@ -844,6 +860,181 @@ function ComponentFollowUps({ data, update, cfg, evaluation }: StepProps) {
         max={cfg.intake.otherDescriptionMaxLength}
         placeholder="e.g. in-mold label"
       />
+    </div>
+  );
+}
+
+/**
+ * FB-24 (N17-02): the decoration types as checkboxes (an item can be silk screened and shrink sleeved).
+ * "Other" keeps its one description; unticking the last Other clears it. The old single code is dropped.
+ */
+function DecorationTypesField({
+  data,
+  update,
+  cfg,
+  invalid,
+}: Pick<StepProps, 'data' | 'update' | 'cfg'> & { invalid: boolean }) {
+  const picked = decorationTypesOf(data);
+  const toggle = (code: string, on: boolean) => {
+    const set = new Set(picked);
+    if (on) set.add(code);
+    else set.delete(code);
+    const next = (cfg.lists.decoration_type ?? []).map((e) => e.code).filter((c) => set.has(c));
+    update({
+      decorationTypes: next,
+      decorationType: undefined,
+      ...(next.some((c) => isCustom(cfg, 'decoration_type', c))
+        ? {}
+        : { decorationTypeOther: null }),
+    });
+  };
+  const m = meta(cfg, 'decoration_types');
+  return (
+    <fieldset
+      className="grid gap-1.5"
+      data-field={fid('decoration_types')}
+      aria-describedby={cfg.help.decoration_types ? `${fid('decoration_types')}-help` : undefined}
+      aria-invalid={invalid || undefined}
+    >
+      <legend className="mb-1.5 text-sm font-medium">
+        {m.label}{' '}
+        <span className="text-destructive" aria-hidden>
+          *
+        </span>
+        <span className="sr-only"> (required)</span>
+      </legend>
+      <div className="flex flex-wrap gap-2" data-testid="decoration-types">
+        {(cfg.lists.decoration_type ?? []).map((e) => (
+          <label
+            key={e.code}
+            className="border-line-strong has-[:checked]:bg-primary has-[:checked]:text-primary-foreground rounded-pill flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-sm sm:min-h-9"
+          >
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={picked.includes(e.code)}
+              onChange={(ev) => toggle(e.code, ev.target.checked)}
+            />
+            {e.label}
+          </label>
+        ))}
+      </div>
+      {cfg.help.decoration_types && (
+        <p id={`${fid('decoration_types')}-help`} className="text-muted-foreground text-xs">
+          {cfg.help.decoration_types}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+/**
+ * FB-24 (N18-02, D4): a Yes / No / Not known yet answer as radios (null = not known yet). A fieldset with
+ * a legend, so a screen reader reads the question with each choice.
+ */
+function AnswerRadios({
+  field,
+  legend,
+  value,
+  onChange,
+  help,
+}: {
+  field: string;
+  legend: string;
+  value: boolean | null | undefined;
+  onChange: (v: boolean | null) => void;
+  help?: string | undefined;
+}) {
+  const name = useId();
+  const choices: [boolean | null, string][] = [
+    [true, 'Yes'],
+    [false, 'No'],
+    [null, 'Not known yet'],
+  ];
+  return (
+    <fieldset
+      className="grid gap-1.5"
+      data-field={fid(field)}
+      data-testid={`answer-${field}`}
+      aria-describedby={help ? `${fid(field)}-help` : undefined}
+    >
+      <legend className="mb-1 text-sm font-medium">{legend}</legend>
+      <div className="flex flex-wrap gap-x-5 gap-y-1">
+        {choices.map(([v, text]) => (
+          <label key={text} className="flex min-h-11 w-fit items-center gap-2 text-sm sm:min-h-9">
+            <input
+              type="radio"
+              name={name}
+              className="size-4 accent-[var(--primary)]"
+              checked={(value ?? null) === v}
+              onChange={() => onChange(v)}
+            />
+            {text}
+          </label>
+        ))}
+      </div>
+      {help && (
+        <p id={`${fid(field)}-help`} className="text-muted-foreground text-xs">
+          {help}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+/**
+ * FB-24 (Ben's decision D4, provisional placement; Faron Ipox): holding bottles for a customer is an extra
+ * cost Pricing needs to know. The customer's ask, so the KAM records it. All optional.
+ */
+function StockHoldFields({ data, update, cfg, evaluation }: StepProps) {
+  const yes = data.stockHoldRequested === true;
+  const weeksIssue = evaluation.blocking.find((b) => b.field === 'stock_hold_weeks');
+  const noteIssue = evaluation.blocking.find((b) => b.field === 'stock_hold_note');
+  const max = INTAKE_TEXT_LIMITS.stock_hold_note;
+  return (
+    <div className="grid gap-4" data-testid="stock-hold">
+      <AnswerRadios
+        field="stock_hold_requested"
+        legend="Does the customer want us to hold stock for them?"
+        value={data.stockHoldRequested}
+        help={cfg.help.stock_hold_requested}
+        onChange={(v) =>
+          update({
+            stockHoldRequested: v,
+            // How long and the note apply only to a yes.
+            ...(v === true ? {} : { stockHoldWeeks: null, stockHoldNote: null }),
+          })
+        }
+      />
+      <Reveal when={yes}>
+        <div className="grid gap-4 sm:grid-cols-[12rem_1fr]">
+          <Field id={fid('stock_hold_weeks')} label="For how long (weeks)">
+            <NumberInput
+              id={fid('stock_hold_weeks')}
+              value={data.stockHoldWeeks}
+              invalid={Boolean(weeksIssue)}
+              onChange={(v) => update({ stockHoldWeeks: v })}
+            />
+            <FieldError issue={weeksIssue} />
+          </Field>
+          <Field id={fid('stock_hold_note')} label={`Note (optional, up to ${max} characters)`}>
+            <Textarea
+              id={fid('stock_hold_note')}
+              aria-describedby={`${fid('stock_hold_note')}-count`}
+              aria-invalid={noteIssue ? true : undefined}
+              maxLength={max}
+              placeholder="e.g. hold two months of safety stock at the plant"
+              value={data.stockHoldNote ?? ''}
+              onChange={(e) => update({ stockHoldNote: nullIfBlank(e.target.value) })}
+              className="min-h-16"
+            />
+            <p id={`${fid('stock_hold_note')}-count`} className="text-muted-foreground text-xs">
+              {(data.stockHoldNote ?? '').length} / {max}
+            </p>
+            <FieldError issue={noteIssue} />
+          </Field>
+        </div>
+      </Reveal>
     </div>
   );
 }
@@ -871,7 +1062,7 @@ function BidReferenceField({ data, update, cfg, evaluation }: StepProps) {
 function DunnageField({ data, update, cfg }: StepProps) {
   return (
     <div className="grid gap-1.5">
-      <label className="flex min-h-11 items-center gap-3 text-sm">
+      <label className="flex min-h-11 w-fit items-center gap-3 text-sm">
         <input
           id={fid('returnable_dunnage')}
           type="checkbox"
@@ -999,6 +1190,15 @@ function CommercialInputsFields({ data, update, cfg, evaluation }: StepProps) {
           {cfg.help.tooling_funding_tax_hint}
         </Notice>
       )}
+      {/* FB-24 (N18-02): the KAM's answer is written to the field the Commercial terms panel edits, so
+          Final Review sees it. Optional here; FB-25 makes it required at Final Review. */}
+      <AnswerRadios
+        field="tooling_commitment"
+        legend="Will the customer commit to the tooling?"
+        value={data.toolingCommitment}
+        help={cfg.help.tooling_commitment}
+        onChange={(v) => update({ toolingCommitment: v })}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field {...meta(cfg, 'price_basis')}>
           <Select
@@ -1063,7 +1263,7 @@ function MoldFields({ data, update, cfg, evaluation }: StepProps) {
   const issue = (f: string) => evaluation.blocking.find((b) => b.field === f);
   return (
     <div className="grid gap-4">
-      <label className="flex min-h-11 items-center gap-3 text-sm">
+      <label className="flex min-h-11 w-fit items-center gap-3 text-sm">
         <input
           id={fid('modify_existing_mold')}
           type="checkbox"
@@ -1240,8 +1440,48 @@ function ItemsPanel({ cfg, ...p }: ItemsProps & { cfg: WizardConfig }) {
     >
       <p className="text-muted-foreground text-xs">
         Everything quoted together goes in one quote: add an item for each product (or each variant,
-        such as another PCR % or another plant). Each item has its own product fields below.
+        such as another PCR % or another plant). Each item has its own product fields above. Fill
+        one in completely, then duplicate it and change only what differs.
       </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={full}
+          onClick={() => p.onDuplicate(p.selected)}
+          data-testid="duplicate-item"
+        >
+          <CopyIcon aria-hidden /> Duplicate this item
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={full}
+          onClick={p.onAdd}
+          data-testid="add-item"
+        >
+          <PlusIcon aria-hidden /> Add another item
+        </Button>
+        {p.unusedSfSpecs > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={full}
+            onClick={p.onAddFromSalesforce}
+            data-testid="add-from-salesforce"
+          >
+            <PlusIcon aria-hidden /> Add from Salesforce products ({p.unusedSfSpecs})
+          </Button>
+        )}
+        {full && (
+          <span className="text-muted-foreground text-xs" role="status">
+            A quote can hold up to {p.itemsMax} items. Put the rest in a separate quote.
+          </span>
+        )}
+      </div>
       <ol className="grid gap-2" data-testid="items-list" aria-label="Items">
         {p.items.map((item, i) => {
           const open = i === p.selected;
@@ -1268,6 +1508,7 @@ function ItemsPanel({ cfg, ...p }: ItemsProps & { cfg: WizardConfig }) {
                 <span className="text-sm font-semibold break-words">
                   Item {i + 1}
                   {item.label ? `: ${item.label}` : ''}
+                  {open && <span className="text-primary ml-2 text-xs">(open above)</span>}
                 </span>
                 <span className="text-muted-foreground text-xs break-words">
                   {facts.length > 0 ? facts.join(' · ') : 'Nothing entered yet'}
@@ -1308,16 +1549,6 @@ function ItemsPanel({ cfg, ...p }: ItemsProps & { cfg: WizardConfig }) {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={full}
-                  onClick={() => p.onDuplicate(i)}
-                  aria-label={`Duplicate item ${i + 1}`}
-                >
-                  <CopyIcon aria-hidden /> <span className="hidden sm:inline">Duplicate</span>
-                </Button>
-                <Button
-                  type="button"
                   variant="ghost"
                   size="sm"
                   disabled={p.items.length <= 1}
@@ -1331,28 +1562,6 @@ function ItemsPanel({ cfg, ...p }: ItemsProps & { cfg: WizardConfig }) {
           );
         })}
       </ol>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" size="sm" disabled={full} onClick={p.onAdd}>
-          <PlusIcon aria-hidden /> Add item
-        </Button>
-        {p.unusedSfSpecs > 0 && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={full}
-            onClick={p.onAddFromSalesforce}
-            data-testid="add-from-salesforce"
-          >
-            <PlusIcon aria-hidden /> Add from Salesforce products ({p.unusedSfSpecs})
-          </Button>
-        )}
-        {full && (
-          <span className="text-muted-foreground text-xs" role="status">
-            A quote can hold up to {p.itemsMax} items. Put the rest in a separate quote.
-          </span>
-        )}
-      </div>
     </Section>
   );
 }
@@ -1410,28 +1619,39 @@ function ItemFields({
     );
     // FB-15 (W13-03): an unpicked "Other" (or Decoration) takes its description with it.
     if (!components.some((c) => isCustom(cfg, 'component', c))) cleared.componentOther = null;
-    if (!active.includes('decoration_type')) cleared.decorationTypeOther = null;
+    if (!active.includes('decoration_types')) cleared.decorationTypeOther = null;
     update({ components, ...cleared });
   };
 
   return (
     <div className="grid gap-4" data-testid="item-fields" data-item={itemNo}>
-      <h3 className="font-display text-lg" id="item-fields-heading">
-        Item {itemNo}
-        {itemCount > 1 ? ` of ${itemCount}` : ''}
-        {label ? `: ${label}` : ''}
-      </h3>
+      {/* FB-24 (N18-01): the KAM's "you are here": which item these fields belong to. */}
+      <div
+        className="border-primary bg-accent/40 rounded-md border-l-4 px-4 py-3"
+        data-testid="item-heading"
+      >
+        <h3 className="font-display text-lg font-semibold break-words" id="item-fields-heading">
+          Item {itemNo}
+          {itemCount > 1 ? ` of ${itemCount}` : ''}
+          {label ? `: ${label}` : ''}
+        </h3>
+        <p className="text-muted-foreground text-xs">
+          {itemCount > 1
+            ? 'You are filling in this item. Switch items in the Items box below.'
+            : 'Fill in this item completely, then duplicate it or add another below.'}
+        </p>
+      </div>
       <Section title="Item">
         <Field
           id={fid('label')}
           label="Item name (optional, e.g. 16 oz bottle)"
-          help="A short name everyone sees in the item lists. Up to 60 characters."
+          help={`A short name everyone sees in the item lists. Up to ${ITEM_LABEL_MAX} characters.`}
           required={false}
         >
           <Input
             id={fid('label')}
             aria-describedby={`${fid('label')}-help`}
-            maxLength={60}
+            maxLength={ITEM_LABEL_MAX}
             placeholder="e.g. 16 oz bottle"
             value={label ?? ''}
             onChange={(e) =>
@@ -1672,10 +1892,15 @@ function ItemFields({
         <Field {...meta(cfg, 'standard_description')}>
           <Input
             id={fid('standard_description')}
-            aria-describedby={`${fid('standard_description')}-help`}
+            aria-describedby={`${fid('standard_description')}-help ${fid('standard_description')}-count`}
+            maxLength={STANDARD_DESCRIPTION_MAX}
             value={data.standardDescription ?? ''}
             onChange={(e) => update({ standardDescription: nullIfBlank(e.target.value) })}
           />
+          {/* FB-24 (N17-05): the limit the server holds, counted as the KAM types. */}
+          <p id={`${fid('standard_description')}-count`} className="text-muted-foreground text-xs">
+            {(data.standardDescription ?? '').length} / {STANDARD_DESCRIPTION_MAX}
+          </p>
           {suggestion && suggestion !== data.standardDescription && (
             <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
               Suggested: {suggestion}
@@ -1724,6 +1949,11 @@ export function ProductStep({
   const variantsMax = cfg.intake.variantsNoteMaxLength;
   // F-067: a class other than CCQ shows where it goes instead, and Submit stays disabled.
   const notAllowed = evaluation.blocking.find((b) => b.code === 'REQUEST_CLASS_NOT_ALLOWED');
+  // FB-24 (N17-03): a concept / innovation request (a class exempt from the minimum spec).
+  const concept = Boolean(
+    data.requestClass && cfg.intake.minSpecExemptClasses.includes(data.requestClass),
+  );
+  const conceptIssue = evaluation.blocking.find((b) => b.field === 'concept_assumptions');
   const revenueChanged =
     data.estAnnualRevenueSf != null && data.estAnnualRevenue !== data.estAnnualRevenueSf;
   const open = items.items[items.selected];
@@ -1745,13 +1975,21 @@ export function ProductStep({
         </Notice>
       )}
       {/* FB-19 (decision 2): the request is entered once for every item. */}
-      <Section title="Request">
+      <Section title="Request" action={concept ? <ConceptBadge /> : undefined}>
         <Field {...meta(cfg, 'request_class')}>
           <Select
             id={fid('request_class')}
             listKey="request_class"
             value={data.requestClass}
-            onChange={(v) => update({ requestClass: v })}
+            onChange={(v) =>
+              update({
+                requestClass: v,
+                // FB-24 (N17-03): the assumptions belong to a concept request only.
+                ...(v && cfg.intake.minSpecExemptClasses.includes(v)
+                  ? {}
+                  : { conceptAssumptions: null }),
+              })
+            }
             cfg={cfg}
             invalid={Boolean(notAllowed)}
           />
@@ -1763,6 +2001,37 @@ export function ProductStep({
             </div>
           )}
         </Field>
+        {/* FB-24 (N17-03, Bailey Schmitt, Jordan): a concept starts from a render, not a drawing. The
+            dimensions stay on screen, optional; the quote states what it assumes. */}
+        <Reveal when={concept}>
+          <div className="grid gap-3" data-testid="concept-fields">
+            <Notice tone="info" testId="concept-note">
+              Concept request: the dimensions and the rest of the minimum spec are optional. Add the
+              customer&apos;s render or photo (or a drawing) on the last step, and say what the
+              quote assumes. Engineering may take a best estimate.
+            </Notice>
+            <Field {...meta(cfg, 'concept_assumptions')} required>
+              <Textarea
+                id={fid('concept_assumptions')}
+                aria-describedby={`${fid('concept_assumptions')}-help ${fid('concept_assumptions')}-count`}
+                aria-invalid={conceptIssue ? true : undefined}
+                maxLength={INTAKE_TEXT_LIMITS.concept_assumptions}
+                placeholder="e.g. 16 oz round, about 30 g, HDPE natural, one-colour silk screen; pack-out and cycle estimated"
+                value={data.conceptAssumptions ?? ''}
+                onChange={(e) => update({ conceptAssumptions: nullIfBlank(e.target.value) })}
+                className="min-h-24"
+              />
+              <p
+                id={`${fid('concept_assumptions')}-count`}
+                className="text-muted-foreground text-xs"
+              >
+                {(data.conceptAssumptions ?? '').length} /{' '}
+                {INTAKE_TEXT_LIMITS.concept_assumptions.toLocaleString('en-US')}
+              </p>
+              {conceptIssue?.code === 'INVALID_VALUE' && <FieldError issue={conceptIssue} />}
+            </Field>
+          </div>
+        </Reveal>
         <BidReferenceField data={data} update={update} cfg={cfg} evaluation={evaluation} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field {...meta(cfg, 'market')}>
@@ -1807,6 +2076,7 @@ export function ProductStep({
       <Section title="Commercial inputs for Pricing">
         <CommercialInputsFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
         <DunnageField data={data} update={update} cfg={cfg} evaluation={evaluation} />
+        <StockHoldFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>
 
       <Section title="Value and timing">
@@ -1885,7 +2155,8 @@ export function ProductStep({
         </Field>
       </Section>
 
-      <ItemsPanel {...items} cfg={cfg} />
+      {/* FB-24 (N18-01, Bailey Schmitt): fill one item completely, then duplicate it or add another. The
+          item's fields come first, the Items box after them. */}
       {open && (
         <ItemFields
           key={open.key}
@@ -1897,6 +2168,7 @@ export function ProductStep({
           itemCount={items.items.length}
         />
       )}
+      <ItemsPanel {...items} cfg={cfg} />
     </div>
   );
 }
@@ -1912,14 +2184,50 @@ function DrawingOrSpec({
   cfg,
   hasDrawing,
   goTo,
+  concept = false,
+  hasRender = false,
 }: {
   evaluation: IntakeEvaluation;
   cfg: WizardConfig;
   hasDrawing: boolean;
   goTo: (step: number, field?: string) => void;
+  /** FB-24 (N17-03): a concept request needs a render, a photo or a drawing; the spec is optional. */
+  concept?: boolean;
+  hasRender?: boolean;
 }) {
   const blocked = evaluation.blocking.find((b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED');
   const missing = blocked?.missing ?? [];
+  if (concept) {
+    const needed = evaluation.blocking.find((b) => b.code === 'RENDER_OR_DRAWING_REQUIRED');
+    return (
+      <div
+        aria-live="polite"
+        data-testid="drawing-or-spec"
+        id={fid('drawing_or_render')}
+        tabIndex={-1}
+        data-state={needed ? 'render-missing' : 'render'}
+      >
+        {needed ? (
+          <Notice tone="blocking">
+            <p className="font-semibold">{needed.message}</p>
+            <p className="text-sm">
+              A concept quote starts from the customer&apos;s render or photo. Add it below as
+              &ldquo;Sample photo / render&rdquo;, or attach a drawing. The minimum spec is
+              optional.
+            </p>
+          </Notice>
+        ) : (
+          <Notice tone="info">
+            <span className="inline-flex items-center gap-2 font-semibold">
+              <CheckCircle2Icon aria-hidden className="text-primary size-4" />
+              {hasDrawing ? 'Drawing attached' : hasRender ? 'Render or photo attached' : 'On file'}
+            </span>{' '}
+            The minimum spec is optional for a concept request.
+          </Notice>
+        )}
+      </div>
+    );
+  }
   return (
     <div
       aria-live="polite"
@@ -2002,13 +2310,17 @@ function itemReviewRows(data: IntakeDraftData, cfg: WizardConfig, drawing: strin
     ...(active.includes('labels_purchased_by')
       ? [['Labels purchased by', label('labels_purchased_by', data.labelsPurchasedBy)] as ReviewRow]
       : []),
-    ...(active.includes('decoration_type')
+    ...(active.includes('decoration_types')
       ? [
           [
             'Decoration',
-            isCustom(cfg, 'decoration_type', data.decorationType)
-              ? (data.decorationTypeOther ?? 'Other')
-              : label('decoration_type', data.decorationType),
+            decorationTypesOf(data)
+              .map((c) =>
+                isCustom(cfg, 'decoration_type', c)
+                  ? (data.decorationTypeOther ?? 'Other')
+                  : label('decoration_type', c),
+              )
+              .join(', ') || null,
           ] as ReviewRow,
         ]
       : []),
@@ -2103,6 +2415,7 @@ export function ReviewStep({
   cfg,
   evaluation,
   sfCloseDate,
+  hasRender,
   goTo,
   draftId,
   items,
@@ -2129,11 +2442,15 @@ export function ReviewStep({
   const drawingText = (item: IntakeItemData, index: number) =>
     items.hasDrawingFor(item, index)
       ? 'Drawing attached'
-      : evaluation.blocking.some(
-            (b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED' && (b.item ?? 1) === index + 1,
-          )
-        ? 'Missing: attach a drawing or complete the minimum spec'
-        : 'Minimum spec complete (no drawing)';
+      : data.requestClass && cfg.intake.minSpecExemptClasses.includes(data.requestClass)
+        ? hasRender
+          ? 'Render or photo attached (concept: the minimum spec is optional)'
+          : "Missing: add the customer's render or photo, or a drawing"
+        : evaluation.blocking.some(
+              (b) => b.code === 'DRAWING_OR_MIN_SPEC_REQUIRED' && (b.item ?? 1) === index + 1,
+            )
+          ? 'Missing: attach a drawing or complete the minimum spec'
+          : 'Minimum spec complete (no drawing)';
 
   const rows: { step: number; title: string; item?: number; items: ReviewRow[] }[] = [
     {
@@ -2162,8 +2479,21 @@ export function ReviewStep({
       title: 'Request',
       items: [
         ['Request class', label('request_class', data.requestClass)],
+        // FB-24 (N17-03): a concept states what it assumes.
+        ...(data.requestClass && cfg.intake.minSpecExemptClasses.includes(data.requestClass)
+          ? ([['Concept assumptions', data.conceptAssumptions]] as ReviewRow[])
+          : []),
         ['Market', marketLabel(cfg, data) ?? '—'],
-        ['Dunnage', data.returnableDunnage ? 'Returnable (multi-trip)' : 'Single-trip'],
+        // FB-24 (N17-10): the answer, unmistakably.
+        ['Returnable dunnage', data.returnableDunnage === true ? 'Yes' : 'No'],
+        // FB-24 (N18-02, D4).
+        ['Customer commits to the tooling', answerText(data.toolingCommitment)],
+        [
+          'Hold stock for the customer',
+          [stockHoldText(data), data.stockHoldRequested === true ? data.stockHoldNote : null]
+            .filter(Boolean)
+            .join(' · '),
+        ],
         [
           'Payment terms requested',
           isCustom(cfg, 'requested_payment_terms', data.requestedPaymentTerms)
@@ -2248,6 +2578,10 @@ export function ReviewStep({
           cfg={cfg}
           hasDrawing={hasDrawing}
           goTo={(step, field) => goTo(step, field, many ? selectedNo : undefined)}
+          concept={Boolean(
+            data.requestClass && cfg.intake.minSpecExemptClasses.includes(data.requestClass),
+          )}
+          hasRender={hasRender ?? false}
         />
         <Field
           {...meta(cfg, 'drawing_status')}

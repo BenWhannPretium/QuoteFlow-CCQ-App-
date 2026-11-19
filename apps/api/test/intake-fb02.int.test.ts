@@ -126,6 +126,7 @@ describe('product facts (FB-02 §3–4: F-010, F-011, F-055, F-023, F-075, F-013
       quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
       components: ['CONTAINER', 'LINER', 'DECORATION'],
       linerSpec: 'Induction seal',
+      // FB-24 (N17-02): an older client's single code is still read, as a one-code list.
       decorationType: 'SILK_SCREEN',
       decorationPrintColors: 2,
     };
@@ -151,7 +152,9 @@ describe('product facts (FB-02 §3–4: F-010, F-011, F-055, F-023, F-075, F-013
       quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
       linerSpec: 'Induction seal',
       labelsPurchasedBy: null,
-      decorationType: 'SILK_SCREEN',
+      // FB-24 (N17-02): stored as decoration_types; the deprecated single column is no longer written.
+      decorationType: null,
+      decorationTypes: ['SILK_SCREEN'],
       decorationPrintColors: 2,
     });
     for (const role of ['Engineer', 'EngLead', 'Pricing', 'PricingLead'] as const) {
@@ -182,7 +185,7 @@ describe('product facts (FB-02 §3–4: F-010, F-011, F-055, F-023, F-075, F-013
       'MISSING_FIELD:color_description',
       'MISSING_FIELD:resin_grade',
       'MISSING_FIELD:labels_purchased_by',
-      'MISSING_FIELD:decoration_type',
+      'MISSING_FIELD:decoration_types',
       'INVALID_VALUE:decoration_print_colors',
     ]);
     expect((await submit(draft.id)).statusCode).toBe(422);

@@ -149,14 +149,14 @@ describe('F-022 / V-055: the funding options', () => {
   it('serves $0 CER with its definition and the provisional Shared option', async () => {
     const cfg = PublicConfigResponse.parse((await as('KAM').get('/api/v1/config/public')).json());
     const list = cfg.valueLists.tooling_funding_model!;
+    // FB-24 (N17-08): offered A to Z ("$0 CER" first). FB-11 (D-032): the intake default "Not discussed".
     expect(list.map((v) => v.code)).toEqual([
-      'COMPANY_FUNDED',
-      'CUSTOMER_FUNDED',
       'ZERO_CER',
       'AMORTIZED',
-      'SHARED',
-      // FB-11 (D-032): the intake default "Not discussed".
+      'COMPANY_FUNDED',
+      'CUSTOMER_FUNDED',
       'NOT_DISCUSSED',
+      'SHARED',
     ]);
     const zero = list.find((v) => v.code === 'ZERO_CER')!;
     expect(zero.label).toBe('$0 CER (customer-reimbursed capital)');

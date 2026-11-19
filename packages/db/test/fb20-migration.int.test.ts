@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs';
 import {
   ERF_COSTING_TEMPLATE_SEED,
   MODEL_SUMMARY_TEMPLATES_SEED,
-  OFFER_LETTER_TEMPLATE_SEED,
   PERMISSION_MATRIX,
 } from '@ccq/domain';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { raw, testDb } from './helpers';
+import { OFFER_LETTER_TEMPLATE_0048 } from './offer-letter-history';
 import type { Tx } from '../src/client';
 
 /**
@@ -109,7 +109,8 @@ describe('0048 FB-20 data migration', () => {
         { key: 'offer_letter_block_if_costing_changed', value: true, provisional: true },
         {
           key: 'offer_letter_template',
-          value: json(OFFER_LETTER_TEMPLATE_SEED),
+          // What 0048 writes; FB-24's 0051 later adds the concept sentence (fb24-migration test).
+          value: OFFER_LETTER_TEMPLATE_0048,
           provisional: true,
         },
         { key: 'offer_letter_wording_approved', value: false, provisional: true },

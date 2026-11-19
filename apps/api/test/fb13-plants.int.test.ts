@@ -128,7 +128,7 @@ afterAll(async () => {
 });
 
 describe('FB-13: what the pickers offer', () => {
-  it('the plant picker offers Jim’s 22 locations as sent; the placeholders are not offered', async () => {
+  it('the plant picker offers Jim’s 22 locations (A to Z, FB-24); the placeholders are not offered', async () => {
     const cfg = await publicConfig();
     const plants = cfg.valueLists.plant ?? [];
     expect(plants).toHaveLength(22);
@@ -139,13 +139,14 @@ describe('FB-13: what the pickers offer', () => {
       'Carrollton',
       'Cleveland, OH',
       'Cleveland, TN',
-      'Lerma, Ediplast',
-      'Lerma, Ediprint',
       'Etten.Leur',
       'Greensboro',
       'Hazleton',
       'Hillsborough',
       'Leipsic',
+      // FB-24 (N17-08): every list reads A to Z (Jim's order put the two Lerma sites after Cleveland).
+      'Lerma, Ediplast',
+      'Lerma, Ediprint',
       'Manchester',
       'Peru',
       'Salt Lake City',
@@ -161,20 +162,21 @@ describe('FB-13: what the pickers offer', () => {
 
   it('the machine-type picker offers Jim’s 14 types; the placeholders are not offered', async () => {
     const cfg = await publicConfig();
+    // FB-24 (N17-08): A to Z by label, numeric-aware (was Jim's order).
     expect((cfg.valueLists.machine_type ?? []).map((m) => m.code)).toEqual([
+      '12B',
+      'DECO',
+      'DIE CUTTING',
       'EBM',
       'IBM',
-      'ISBM',
-      'RHB',
       'INJ-CAP',
-      'INJ-PREFORM',
       'INJ-OTHER',
-      'DECO',
-      'PAD PRINTING',
-      '12B',
-      'DIE CUTTING',
+      'INJ-PREFORM',
+      'ISBM',
       'LAMINATION',
+      'PAD PRINTING',
       'PRINTING',
+      'RHB',
       'STAMPING',
     ]);
     expect(cfg.retiredValues?.machine_type?.EBM_SHUTTLE).toBe('EBM shuttle');

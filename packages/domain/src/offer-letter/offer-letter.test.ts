@@ -150,6 +150,24 @@ describe('config', () => {
       parseOfferLetterTemplate({ ...OFFER_LETTER_TEMPLATE_SEED, title: 'Offer {{quoteNumber}}' }),
     ).toThrow(/labels take no tokens/);
   });
+  it('FB-24: accepts the {{conceptAssumptions}} token, and the seed carries the concept sentence', () => {
+    const concept = OFFER_LETTER_TEMPLATE_SEED.assumptions.find((a) =>
+      a.text.includes('{{conceptAssumptions}}'),
+    );
+    expect(concept?.text).toBe('This is a concept quote. It assumes: {{conceptAssumptions}}');
+    expect(() =>
+      parseOfferLetterTemplate({
+        ...OFFER_LETTER_TEMPLATE_SEED,
+        closing: 'We assumed {{ conceptAssumptions }}.',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      parseOfferLetterTemplate({
+        ...OFFER_LETTER_TEMPLATE_SEED,
+        assumptions: [{ text: 'It assumes: {{conceptAssumption}}', points: [] }],
+      }),
+    ).toThrow(/unknown token \{\{conceptAssumption\}\}/);
+  });
   it('rejects a duplicate specification row', () => {
     expect(() =>
       parseOfferLetterTemplate({
@@ -377,6 +395,24 @@ describe('buildOfferLetterModel', () => {
     expect(texts.some((t) => t.startsWith('Mold ownership'))).toBe(false);
     const tooling = m.assumptions.items.find((a) => a.text === 'Tooling payment terms:');
     expect(tooling?.points).toHaveLength(2);
+  });
+
+  it("FB-24: states a concept quote's assumptions, and leaves the sentence out of any other quote", () => {
+    const sentence = (m: ReturnType<typeof buildOfferLetterModel>) =>
+      m.assumptions.items.find((a) => a.text.startsWith('This is a concept quote'));
+    const concept = facts({
+      termLabels: {
+        ...facts().termLabels,
+        conceptAssumptions: '  16 oz, about 28 g, PET, one-color silk screen.  ',
+      },
+    });
+    expect(sentence(buildOfferLetterModel(concept, inputs, settings()))?.text).toBe(
+      'This is a concept quote. It assumes: 16 oz, about 28 g, PET, one-color silk screen.',
+    );
+    // A standard quote has no assumptions: the sentence drops itself (FB-20's rule).
+    expect(sentence(buildOfferLetterModel(facts(), inputs, settings()))).toBeUndefined();
+    const blank = facts({ termLabels: { ...facts().termLabels, conceptAssumptions: '   ' } });
+    expect(sentence(buildOfferLetterModel(blank, inputs, settings()))).toBeUndefined();
   });
 
   it('hides the validity line and date when showValidity is off', () => {

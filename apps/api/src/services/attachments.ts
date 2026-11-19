@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { Readable } from 'node:stream';
 
 import {
+  ATTACHMENT_KIND_LABELS,
   ATTACHMENT_PROBLEM_CODES,
   AttachmentUploadFields,
   type Attachment,
@@ -46,6 +47,7 @@ import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_SNIFF_BYTES,
   asUserId,
+  attachmentKindAllowedAt,
   attachmentRemoval,
   can,
   canUploadAttachment,
@@ -58,6 +60,7 @@ import {
   isGeneratedKind,
   isQuotingModelKind,
   isVersionedKind,
+  parseAttachmentKindsByPlace,
   planEquipmentBomUpload,
   paybackFromFields,
   paybackNeeded,
@@ -540,6 +543,23 @@ export class AttachmentService {
           'The equipment BOM is uploaded on the Engineering tab, not at intake',
           {
             errors: [{ path: '/kind', message: 'Not an intake file kind', code: 'INVALID_VALUE' }],
+          },
+        );
+      }
+      // FB-24 (N17-06, N17-07): the intake offers only `attachment_kinds_by_place.intake` (provisional);
+      // the server is the control, not the dropdown. Specification, capacity analysis and the rest are
+      // added elsewhere (or nowhere for now).
+      const kindsByPlace = await getSetting(tx, 'attachment_kinds_by_place');
+      if (!attachmentKindAllowedAt('intake', kind, kindsByPlace)) {
+        const offered = parseAttachmentKindsByPlace(kindsByPlace)
+          .intake.map((k) => ATTACHMENT_KIND_LABELS[k])
+          .join(', ');
+        throw new ServiceProblem(
+          422,
+          P.rejected,
+          `This file type can't be added at intake. Pick one of: ${offered}`,
+          {
+            errors: [{ path: '/kind', message: 'Not an intake file type', code: 'INVALID_VALUE' }],
           },
         );
       }

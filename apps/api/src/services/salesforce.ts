@@ -23,7 +23,10 @@ import {
 } from '@ccq/db/repos';
 import {
   DEFAULT_SUSPECT_AMOUNT_BELOW,
+  OPPORTUNITY_FIELDS,
   opportunityQualityFlags,
+  readPath,
+  str,
   searchTerms,
   sfErrorCode,
   type SalesforceReader,
@@ -90,6 +93,9 @@ export function opportunityFromSnapshot(
     isWon: row.isWon,
     erfNumber: row.erfNumberSf,
     quoteSource: row.quoteSourceSf,
+    // FB-24 (N17-01): the free-text "Ship to Locations" has no snapshot column; it is read from the raw
+    // record the sync keeps (null for a snapshot written before the field was mapped).
+    shipToLocations: str(readPath(row.raw, OPPORTUNITY_FIELDS.shipToLocations.path)),
     systemModstamp: iso(row.systemModstamp),
   };
   return { ...base, dataQuality: opportunityQualityFlags(base, { suspectAmountBelow: threshold }) };

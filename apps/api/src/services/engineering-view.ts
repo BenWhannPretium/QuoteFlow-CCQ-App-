@@ -229,6 +229,14 @@ async function equipmentBomView(
 async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
   const facts: ProductFact[] = [];
   const f = intakeFactsDto(q);
+  // FB-24 (N17-03): a concept quote states what it assumes; Engineering reads it first.
+  if (f.conceptAssumptions) {
+    facts.push({
+      key: 'concept_assumptions',
+      label: 'Concept assumptions',
+      value: f.conceptAssumptions,
+    });
+  }
   const label = async (
     list: Parameters<typeof listValueList>[1],
     code: string | null,
@@ -286,6 +294,15 @@ async function productFacts(db: DbOrTx, q: Quote): Promise<ProductFact[]> {
   }
   if (f.componentOther) {
     facts.push({ key: 'component_other', label: 'Other component', value: f.componentOther });
+  }
+  // FB-24 (N17-02): every decoration type picked ("Other" shows its description).
+  const decorations = (
+    await Promise.all(
+      f.decorationTypes.map((c) => label('decoration_type', c, f.decorationTypeOther)),
+    )
+  ).filter(Boolean);
+  if (decorations.length > 0) {
+    facts.push({ key: 'decoration_types', label: 'Decoration', value: decorations.join(', ') });
   }
   if (f.decorationTypeOther) {
     facts.push({

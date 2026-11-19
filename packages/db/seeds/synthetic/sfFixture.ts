@@ -88,6 +88,28 @@ export function buildSfFixture({
   const accounts = customers.filter((c) => c.sfAccountId).map(accountRaw);
   const accountById = new Map(accounts.map((a) => [a.Id as string, a]));
 
+  // FB-24 (N17-01): the ship-to fields come from their own stream, so every other value stays identical.
+  // Synthetic places only (faker); Ship_To_State__c and Shipping_Country__c hold full names, as in the org.
+  const ship = createRng(seed + 24);
+  const place = () => ({
+    city: ship.faker.location.city(),
+    state: ship.faker.location.state(),
+    abbr: ship.faker.location.state({ abbreviated: true }),
+  });
+  /** "Ship to Locations" as KAMs type it: "City, ST", "TBD", several places, or blank (~45 %). */
+  const shipToLocations = (): string | null => {
+    const roll = ship.int(1, 20);
+    if (roll <= 9) return null;
+    if (roll <= 11) return 'TBD';
+    if (roll <= 13) {
+      const a = place();
+      const b = place();
+      return `${a.city}, ${a.abbr}\n${b.city}, ${b.abbr}`;
+    }
+    const p = place();
+    return `${p.city}, ${p.abbr}`;
+  };
+
   const erfFormats = [
     (n: number) => `ERF-2026-${String(n).padStart(5, '0')}`,
     (n: number) => `ERF ${n}`,
@@ -138,6 +160,7 @@ export function buildSfFixture({
         : null,
     );
     const modified = new Date(anchor.getTime() - extra.int(1, 60 * 24 * 21) * 60_000);
+    setPath(raw, f.shipToLocations.path, shipToLocations());
     setPath(raw, f.systemModstamp.path, sfTimestamp(modified));
     return { raw, o };
   });
@@ -158,6 +181,11 @@ export function buildSfFixture({
       setPath(raw, s.neckFinish.path, o.spec.neck);
       setPath(raw, s.color.path, extra.pick(['Natural', 'White', 'Amber', 'Clear', null]));
       setPath(raw, s.annualVolume.path, extra.chance(0.7) ? extra.int(50, 4_000) * 1_000 : null);
+      // FB-24 (N17-01): about half the specifications name where the product ships.
+      const where = ship.chance(0.5) ? place() : null;
+      setPath(raw, s.shipToCity.path, where?.city ?? null);
+      setPath(raw, s.shipToState.path, where?.state ?? null);
+      setPath(raw, s.shipToCountry.path, where ? 'United States of America' : null);
       productSpecs.push(raw);
     }
   }

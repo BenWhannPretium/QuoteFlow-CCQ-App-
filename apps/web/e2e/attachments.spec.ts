@@ -63,6 +63,16 @@ async function readyDraft(request: APIRequestContext): Promise<string> {
   throw new Error('no free Salesforce opportunity for the attachments spec');
 }
 
+/** FB-24 (N17-07): the seeded `attachment_kinds_by_place` lists (intake and quote are the same). */
+const SEED_KINDS = [
+  'Bottle drawing',
+  'Sample photo / render',
+  'Bid file',
+  'Project brief',
+  'Competitor / incumbent drawing',
+  'Other',
+];
+
 test.describe('Attachments', () => {
   test('quote page: upload a drawing (status set), refuse a wrong type, download, remove', async ({
     page,
@@ -75,6 +85,11 @@ test.describe('Attachments', () => {
     await page.goto(`/quotes/${quoteNumber}?tab=attachments`);
     const panel = page.getByTestId('attachments');
     await expect(panel.getByText('No files yet')).toBeVisible();
+    // FB-24 (N17-06/07): one "Add file" control; the file types are the quote's (no Specification,
+    // no capacity analysis or equipment BOM: those are added elsewhere).
+    await expect(panel.getByText('Add file')).toBeVisible();
+    await expect(panel.getByText('Add photo')).toHaveCount(0);
+    await expect(panel.getByLabel('File type').locator('option')).toHaveText(SEED_KINDS);
 
     await panel.getByLabel('Note (optional)').fill('Rev C from the customer');
     await panel.getByTestId('attachment-input').setInputFiles({
@@ -153,6 +168,10 @@ test.describe('Attachments', () => {
     await page.goto(`/intake/new?draft=${draftId}`);
     await expect(page.getByTestId('intake-wizard')).toHaveAttribute('data-step', '4');
     await expect(page.locator('#intake-drawing-status')).toHaveValue('COMING');
+    // FB-24 (N17-07): the intake offers Bailey's list, in her order.
+    await expect(
+      page.getByTestId('attachments').getByLabel('File type').locator('option'),
+    ).toHaveText(SEED_KINDS);
 
     await page.getByTestId('attachment-input').setInputFiles({
       name: 'drawing.pdf',
@@ -175,18 +194,23 @@ test.describe('Attachments', () => {
 test.describe('Attachments at 390 × 844', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test('a phone can add a photo of the sample and upload it', async ({ page, request }) => {
+  test('a phone adds a photo of the sample through the one "Add file" control', async ({
+    page,
+    request,
+  }) => {
     const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
     await signInAs(page, 'kam');
     await page.goto(`/quotes/${quoteNumber}?tab=attachments`);
-    const camera = page.getByTestId('attachment-camera');
-    await expect(camera).toHaveAttribute('capture', 'environment');
-    await expect(camera).toHaveAttribute('accept', 'image/*');
-    await expect(page.getByText('Add photo')).toBeVisible();
-    await camera.setInputFiles({ name: 'IMG_0042.jpg', mimeType: 'image/jpeg', buffer: JPEG });
+    // FB-24 (N17-06): no separate camera control; the phone's normal file picker offers the camera.
+    await expect(page.getByTestId('attachment-camera')).toHaveCount(0);
+    await expect(page.getByText('Add file')).toBeVisible();
+    await page.getByLabel('File type').selectOption({ label: 'Sample photo / render' });
+    await page
+      .getByTestId('attachment-input')
+      .setInputFiles({ name: 'IMG_0042.jpg', mimeType: 'image/jpeg', buffer: JPEG });
     const row = page.getByTestId('attachment-row');
     await expect(row).toContainText('IMG_0042.jpg');
-    await expect(row).toContainText('Sample photo');
+    await expect(row).toContainText('Sample photo / render');
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

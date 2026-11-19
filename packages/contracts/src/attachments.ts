@@ -27,7 +27,8 @@ export type AttachmentKindValue = z.infer<typeof AttachmentKindSchema>;
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   bottle_drawing: 'Bottle drawing',
   spec: 'Specification',
-  sample_photo: 'Sample photo',
+  // FB-24 (N17-03): a concept request starts from the customer's render or photo.
+  sample_photo: 'Sample photo / render',
   capacity_analysis: 'Capacity analysis',
   other: 'Other',
   bid_file: 'Bid file',
