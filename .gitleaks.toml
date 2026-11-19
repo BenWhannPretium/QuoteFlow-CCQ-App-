@@ -11,3 +11,16 @@ condition = "AND"
 paths = ['''^infra/.+\.bicep$''']
 regexTarget = "line"
 regexes = ['''\b[A-Za-z]+:\s*'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'\s*$''']
+
+# Config keys in data migrations and their tests are snake_case names, not secrets: generic-api-key
+# flags `where "key" = 'g4_additional_approvals'` and `{"key":"amortized_finance_review"}` (FB-31,
+# migration 0057). Scoped to migration SQL and migration tests AND to a whole match that starts at
+# `key` and whose value is a lowercase snake_case name. A real secret still fails: one with capitals
+# or symbols (`key = 'Ab3...'`), or under another name (`api_key`, `secret_key`, `password`, whose
+# match starts before `key`), does not match.
+[[allowlists]]
+description = "Config keys (lowercase snake_case) in data migrations and migration tests"
+condition = "AND"
+paths = ['''^packages/db/migrations/[^/]+\.sql$''', '''^packages/db/test/[^/]*migration\.int\.test\.ts$''']
+regexTarget = "match"
+regexes = ['''^key"?\s*[:=]\s*["']?[a-z][a-z0-9]*(?:_[a-z0-9]+)+["']?$''']
