@@ -1646,7 +1646,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 
 ---
 
-### FB-21: Quoting: capital pending, payback decision, the lead hand-off · **Built 2026-11-18 (in PR PRLINK)** · Ben (Opus 5.5 · high)
+### FB-21: Quoting: capital pending, payback decision, the lead hand-off · **Built 2026-11-18 (in PR [#109](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/109))** · Ben (Opus 5.5 · high)
 - **Why:** every capital quote had to be marked "pre-approved" to leave Quoting, and every one needed a payback model, though no CER exists before award and payback is not always needed (N17-19 to N17-21).
 - **Done when:**
   - [x] capital readiness defaults to pending / not required; pending advances with no note; not approved stops; nothing later blocks on pending
