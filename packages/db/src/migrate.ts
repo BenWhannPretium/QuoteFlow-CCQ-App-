@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -84,6 +85,7 @@ export async function runMigrations(
     // `max: 1`: every statement below runs on the one session that holds the lock.
     await sql`select pg_advisory_lock(${ADVISORY_LOCKS.migrations.toString()}::bigint)`;
     await ensureRoleMembership(sql);
+    await alignAppliedMigrationTimestamps(sql, migrationsDir);
     await migrate(drizzle(sql), { migrationsFolder: migrationsDir });
     await applyChangedComments(sql);
     // One transaction: a bad view file leaves the previous definitions in place.
@@ -93,6 +95,43 @@ export async function runMigrations(
   } finally {
     await sql.end({ timeout: 5 });
   }
+}
+
+/**
+ * Keep drizzle's bookkeeping in step with the journal when a migration's `when` is changed after it
+ * has been applied somewhere. Drizzle's migrator reads only the applied row with the newest
+ * `created_at` and runs every journal entry whose `when` is later. So if an applied migration's `when`
+ * moves forward, it counts as pending again and its DDL fails (2026-11-19: 0054/0055 were moved after
+ * 0053's hand-set `when`; a database migrated from empty since #113 had them stored at the old values).
+ *
+ * Each applied row is matched to its journal entry by drizzle's own hash of the SQL file, and its
+ * `created_at` is set to that entry's `when`. A database missing a migration has no row to match, so it
+ * still gets the migration. Rows whose SQL is not in the journal, or whose hash several entries share,
+ * are left alone. Returns how many rows were changed.
+ */
+export async function alignAppliedMigrationTimestamps(
+  sql: postgres.Sql,
+  migrationsDir: string = MIGRATIONS_DIR,
+): Promise<number> {
+  const [table] = await sql<{ exists: boolean }[]>`
+    select to_regclass('drizzle.__drizzle_migrations') is not null as exists`;
+  if (!table?.exists) return 0;
+
+  const byHash = new Map<string, number | null>();
+  for (const m of readMigrationFiles({ migrationsFolder: migrationsDir })) {
+    byHash.set(m.hash, byHash.has(m.hash) ? null : m.folderMillis);
+  }
+  let changed = 0;
+  await sql.begin(async (tx) => {
+    for (const [hash, when] of byHash) {
+      if (when === null) continue;
+      const result = await tx`
+        update drizzle.__drizzle_migrations set created_at = ${when}
+        where hash = ${hash} and created_at is distinct from ${when}`;
+      changed += result.count;
+    }
+  });
+  return changed;
 }
 
 /**
