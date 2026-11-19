@@ -23,7 +23,8 @@ import {
 } from '@/components';
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { CommercialPanel } from '@/components/commercial/CommercialPanel';
-import { EngineeringTab } from '@/components/engineering/EngineeringTab';
+import { CapacityTab, EngineeringTab } from '@/components/engineering/EngineeringTab';
+import { EngineeringItemProvider } from '@/components/engineering/item-context';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
 import { focusDecision } from '@/components/LeadReviewPanel';
 import {
@@ -36,6 +37,7 @@ import { OfferLetterCard } from '@/components/outcome/OfferLetterCard';
 import { RequoteLinks, RequoteSourcePanel } from '@/components/outcome/Requote';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
 import {
+  CapacityGlance,
   EngineeringGlance,
   IntakeCard,
   PricingGlance,
@@ -62,6 +64,7 @@ import {
   QUOTE_TABS,
   defaultQuoteTab,
   isQuoteTab,
+  leadWaitingPart,
   tabForHash,
   tabsWithWork,
   termsWorkWaiting,
@@ -77,6 +80,7 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 const TAB_LABELS: Record<QuoteTab, string> = {
   overview: 'Overview',
   engineering: 'Engineering',
+  capacity: 'Capacity',
   quoting: 'Quoting',
   commercial: 'Commercial terms',
   attachments: 'Attachments',
@@ -84,7 +88,8 @@ const TAB_LABELS: Record<QuoteTab, string> = {
 
 interface QuoteSearch {
   /**
-   * `?tab=engineering` opens the Engineering tab (B-10), `?tab=quoting` the Quoting tab (B-11),
+   * `?tab=engineering` opens the Engineering tab (B-10), `?tab=capacity` the Capacity tab (FB-30),
+   * `?tab=quoting` the Quoting tab (B-11),
    * `?tab=attachments` the files (B-16), `?tab=commercial` the commercial terms (FB-25), `?tab=overview`
    * the Overview. A named tab is exact, for every reader. With none, the quote opens on the reader's own
    * work (UX-012, `useQuoteTab`).
@@ -108,6 +113,18 @@ function termsWorkFor(quote: QuoteDetail): boolean {
     exceptionCanDecide: t.exception?.canDecide === true,
     toolingCommitmentAnswered: t.termsToolingCommitment !== null,
   });
+}
+
+/**
+ * FB-30 (N19-28): the part of the engineering review waiting for the reader, for the tab a quote opens
+ * on. The server's next step names the production scheduler's capacity part; for a lead (who may decide
+ * G2) it is the part submitted to them (`leadWaitingPart`).
+ */
+function engineeringPartFor(quote: QuoteDetail, permissions: readonly string[]) {
+  if (quote.nextStep?.yourMove && quote.nextStep.part === 'capacity') return 'capacity';
+  return permissions.includes('gate.G2.decide')
+    ? leadWaitingPart(quote.engineering.leadReview.parts)
+    : null;
 }
 
 /**
@@ -140,6 +157,7 @@ function useQuoteTab(quote: QuoteDetail | undefined): {
         inQuoting: quote.quoting.inQuoting,
         inIntake: quote.stageKey === 'INTAKE' && quote.status !== 'closed',
         termsWork: termsWorkFor(quote),
+        part: engineeringPartFor(quote, permissions),
         permissions,
       }));
   const wanted = anchored ?? named;
@@ -263,7 +281,12 @@ function QuotePage() {
   const canDecideFinalReview = q.availableActions.some((a) => a.gateKey === 'G4');
   const tierOverride = q.overridableFields.find((f) => f.field === 'priority_tier')?.applied;
   // FB-25 (N17-18): a dot on a tab where the reader has work waiting.
-  const working = tabsWithWork({ nextStep: q.nextStep, termsWork: termsWorkFor(q) });
+  // FB-30: the engineering stage's dot is on Capacity when the reader's work is the capacity part.
+  const working = tabsWithWork({
+    nextStep: q.nextStep,
+    termsWork: termsWorkFor(q),
+    capacityWork: q.engineering.leadReview.canSubmitCapacity === true,
+  });
 
   return (
     <div className="grid gap-6" data-testid="quote-detail" data-stage={q.stageKey}>
@@ -398,137 +421,152 @@ function QuotePage() {
       <GuardrailNote text={q.intakeFacts.guardrailWarning} />
       <StageTimeBar quoteNumber={q.quoteNumber} />
 
-      <Tabs.Root
-        value={tab}
-        onValueChange={(next) => selectTab(next as QuoteTab)}
-        className="grid gap-6"
-      >
-        <UnsavedChangesGuard quoteNumber={q.quoteNumber} />
-        {/* FB-25 (N17-18, N18-18): the tab bar is hard to miss. Larger labels, a filled selected tab, and
-            it stays under the page header while the page scrolls (index.css keeps focus clear of it). */}
-        <Tabs.List
-          aria-label="Quote sections"
-          className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-16 z-20 -mx-4 flex gap-1 overflow-x-auto border-b px-4 backdrop-blur sm:mx-0 sm:px-0"
-          data-sticky-top=""
-          data-testid="quote-tabs"
+      {/* FB-30: the Engineering and Capacity tabs show the same item of a multi-item quote. */}
+      <EngineeringItemProvider key={q.quoteNumber} quoteNumber={q.quoteNumber}>
+        <Tabs.Root
+          value={tab}
+          onValueChange={(next) => selectTab(next as QuoteTab)}
+          className="grid gap-6"
         >
-          {QUOTE_TABS.map((t) => (
-            <Tabs.Trigger
-              key={t}
-              value={t}
-              data-testid={`quote-tab-${t}`}
-              data-work={working.includes(t) || undefined}
-              aria-describedby={working.includes(t) ? workNoteId : undefined}
-              className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground data-[state=active]:bg-accent hover:text-foreground hover:bg-accent/60 -mb-px inline-flex min-h-12 shrink-0 items-center gap-2 rounded-t-md border-b-[3px] border-transparent px-3 text-base font-medium transition-colors data-[state=active]:font-semibold sm:px-4"
-            >
-              {TAB_LABELS[t]}
-              {working.includes(t) && (
-                <span
-                  aria-hidden="true"
-                  className="bg-destructive size-2 shrink-0 rounded-full"
-                  data-testid="tab-work-dot"
-                />
-              )}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-        <span id={workNoteId} hidden>
-          Work is waiting for you on this tab.
-        </span>
-        <Tabs.Content value="overview" className="grid gap-6" data-testid="overview">
-          {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
-          {canReadOfferLetter && <OfferLetterCard quote={q} />}
-          <HandoffCard quote={q} autoFocus={handoffFocus} />
-          <ClosureCard closure={q.customerDecision.closure} />
-          {/* FB-25 (N18-18): the read-only summary of everything filled in so far. */}
-          <section
-            id="at-a-glance"
-            aria-labelledby="at-a-glance-heading"
-            className="grid gap-6"
-            data-testid="at-a-glance"
+          <UnsavedChangesGuard quoteNumber={q.quoteNumber} />
+          {/* FB-25 (N17-18, N18-18): the tab bar is hard to miss. Larger labels, a filled selected tab, and
+            it stays under the page header while the page scrolls (index.css keeps focus clear of it). */}
+          <Tabs.List
+            aria-label="Quote sections"
+            className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-16 z-20 -mx-4 flex gap-1 overflow-x-auto border-b px-4 backdrop-blur sm:mx-0 sm:px-0"
+            data-sticky-top=""
+            data-testid="quote-tabs"
           >
-            <h2 id="at-a-glance-heading" className="font-display text-lg font-semibold">
-              At a glance
-            </h2>
-            <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-              <IntakeCard quote={q} />
-              <div className="grid content-start gap-6">
-                <EngineeringGlance quote={q} />
-                <PricingGlance quote={q} />
-              </div>
-            </div>
-            <TermsGlance quote={q} />
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    <h3 className="text-base font-semibold">Why this priority?</h3>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScoreBreakdownTable
-                    priority={q.priority}
-                    market={{ market: q.market, subMarket: q.subMarket }}
+            {QUOTE_TABS.map((t) => (
+              <Tabs.Trigger
+                key={t}
+                value={t}
+                data-testid={`quote-tab-${t}`}
+                data-work={working.includes(t) || undefined}
+                aria-describedby={working.includes(t) ? workNoteId : undefined}
+                className="text-foreground-2 data-[state=active]:border-action data-[state=active]:text-foreground data-[state=active]:bg-accent hover:text-foreground hover:bg-accent/60 -mb-px inline-flex min-h-12 shrink-0 items-center gap-2 rounded-t-md border-b-[3px] border-transparent px-3 text-base font-medium transition-colors data-[state=active]:font-semibold sm:px-4"
+              >
+                {TAB_LABELS[t]}
+                {working.includes(t) && (
+                  <span
+                    aria-hidden="true"
+                    className="bg-destructive size-2 shrink-0 rounded-full"
+                    data-testid="tab-work-dot"
                   />
-                  {/* FB-04 (F-065, T-024): the sales leader's justification, visible to Engineering. */}
-                  {tierOverride && (
-                    <p className="mt-3 text-xs" data-testid="priority-override-note">
-                      <span className="font-semibold">Tier overridden by </span>
-                      {tierOverride.requestedByName ?? 'a sales leader'}:{' '}
-                      {tierOverride.justification}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-              <DecisionsCard quote={q} />
-            </div>
-          </section>
+                )}
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+          <span id={workNoteId} hidden>
+            Work is waiting for you on this tab.
+          </span>
+          <Tabs.Content value="overview" className="grid gap-6" data-testid="overview">
+            {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
+            {canReadOfferLetter && <OfferLetterCard quote={q} />}
+            <HandoffCard quote={q} autoFocus={handoffFocus} />
+            <ClosureCard closure={q.customerDecision.closure} />
+            {/* FB-25 (N18-18): the read-only summary of everything filled in so far. */}
+            <section
+              id="at-a-glance"
+              aria-labelledby="at-a-glance-heading"
+              className="grid gap-6"
+              data-testid="at-a-glance"
+            >
+              <h2 id="at-a-glance-heading" className="font-display text-lg font-semibold">
+                At a glance
+              </h2>
+              <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+                <IntakeCard quote={q} />
+                <div className="grid content-start gap-6">
+                  <EngineeringGlance quote={q} />
+                  {/* FB-30 (N19-28): capacity in its own card, apart from engineering. */}
+                  <CapacityGlance quote={q} />
+                  <PricingGlance quote={q} />
+                </div>
+              </div>
+              <TermsGlance quote={q} />
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      <h3 className="text-base font-semibold">Why this priority?</h3>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScoreBreakdownTable
+                      priority={q.priority}
+                      market={{ market: q.market, subMarket: q.subMarket }}
+                    />
+                    {/* FB-04 (F-065, T-024): the sales leader's justification, visible to Engineering. */}
+                    {tierOverride && (
+                      <p className="mt-3 text-xs" data-testid="priority-override-note">
+                        <span className="font-semibold">Tier overridden by </span>
+                        {tierOverride.requestedByName ?? 'a sales leader'}:{' '}
+                        {tierOverride.justification}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+                <DecisionsCard quote={q} />
+              </div>
+            </section>
 
-          <Card>
-            <CardContent className="pt-6">
-              <QuoteTimeline quoteNumber={q.quoteNumber} />
-            </CardContent>
-          </Card>
-        </Tabs.Content>
-        <Tabs.Content value="engineering" {...kept('engineering')}>
-          {/* FB-26 (N17-30): on a linked re-quote, the expired quote's solution (read only). */}
-          <RequoteSourcePanel quote={q} className="mb-4" />
-          <EngineeringTab
-            quote={q}
-            onDecide={(outcome, scope) =>
-              setDeciding({
-                gate: 'G2',
-                ...(outcome ? { outcome } : {}),
-                ...(scope ? { scope } : {}),
-              })
-            }
-          />
-        </Tabs.Content>
-        {/* FB-25 (N18-18): the Commercial terms panel, unchanged in behaviour, on its own tab. */}
-        <Tabs.Content value="commercial" {...kept('commercial')}>
-          <CommercialPanel quote={q} />
-        </Tabs.Content>
-        <Tabs.Content value="attachments">
-          <Card>
-            <CardContent className="pt-6">
-              <AttachmentsPanel target={{ quoteNumber: q.quoteNumber }} />
-            </CardContent>
-          </Card>
-        </Tabs.Content>
-        <Tabs.Content value="quoting" {...kept('quoting')}>
-          <RequoteSourcePanel quote={q} className="mb-4" />
-          <QuotingTab
-            quote={q}
-            onDecide={(outcome, scope) =>
-              setDeciding({
-                gate: 'G3',
-                ...(outcome ? { outcome } : {}),
-                ...(scope ? { scope } : {}),
-              })
-            }
-          />
-        </Tabs.Content>
-      </Tabs.Root>
+            <Card>
+              <CardContent className="pt-6">
+                <QuoteTimeline quoteNumber={q.quoteNumber} />
+              </CardContent>
+            </Card>
+          </Tabs.Content>
+          <Tabs.Content value="engineering" {...kept('engineering')}>
+            {/* FB-26 (N17-30): on a linked re-quote, the expired quote's solution (read only). */}
+            <RequoteSourcePanel quote={q} className="mb-4" />
+            <EngineeringTab
+              quote={q}
+              onDecide={(outcome, scope) =>
+                setDeciding({
+                  gate: 'G2',
+                  ...(outcome ? { outcome } : {}),
+                  ...(scope ? { scope } : {}),
+                })
+              }
+            />
+          </Tabs.Content>
+          {/* FB-30 (N19-28): the capacity part, on its own tab; the G2 decision stays on Engineering. */}
+          <Tabs.Content value="capacity" {...kept('capacity')}>
+            <CapacityTab
+              quote={q}
+              onGoToDecision={() => {
+                if (tab !== 'engineering') selectTab('engineering');
+                setGoingToDecision('G2');
+              }}
+            />
+          </Tabs.Content>
+          {/* FB-25 (N18-18): the Commercial terms panel, unchanged in behaviour, on its own tab. */}
+          <Tabs.Content value="commercial" {...kept('commercial')}>
+            <CommercialPanel quote={q} />
+          </Tabs.Content>
+          <Tabs.Content value="attachments">
+            <Card>
+              <CardContent className="pt-6">
+                <AttachmentsPanel target={{ quoteNumber: q.quoteNumber }} />
+              </CardContent>
+            </Card>
+          </Tabs.Content>
+          <Tabs.Content value="quoting" {...kept('quoting')}>
+            <RequoteSourcePanel quote={q} className="mb-4" />
+            <QuotingTab
+              quote={q}
+              onDecide={(outcome, scope) =>
+                setDeciding({
+                  gate: 'G3',
+                  ...(outcome ? { outcome } : {}),
+                  ...(scope ? { scope } : {}),
+                })
+              }
+            />
+          </Tabs.Content>
+        </Tabs.Root>
+      </EngineeringItemProvider>
 
       {deciding && (
         <GateDecisionDialog

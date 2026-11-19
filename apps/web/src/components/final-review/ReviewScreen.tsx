@@ -20,12 +20,15 @@ import { absoluteTime, relativeTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
 
+import { releaseBlockers, type ReleaseBlocker } from './blockers';
+import { reviewSummaryKey } from './keys';
 import { AttachmentDownloadLink } from '../attachments/Attachments';
 import { CapitalTerms, capitalTermFieldId } from '../commercial/CapitalTerms';
 import { AdditionalApprovals, TermsExceptionCard } from '../commercial/TermsException';
 import { CostEstimateSummary } from '../engineering/EngineeringCostCards';
 import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringExtras';
 import { formatDuration } from '../engineering/format';
+import { CapacitySignoffSummary } from '../engineering/Recommendations';
 import { ErrorState } from '../ErrorState';
 import { RequiredKey, RequiredLabel } from '../forms';
 import { GateDecisionDialog, quoteQueryKey } from '../GateDecisionDialog';
@@ -37,7 +40,6 @@ import {
 import { intakeFactItems } from '../intake/IntakeFacts';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
-import { reviewSummaryKey } from './keys';
 import { CapitalChip } from '../pricing/CapitalChip';
 import { PricingContextPanel } from '../pricing/PricingContextPanel';
 import { QuotingSteps } from '../pricing/QuotingSteps';
@@ -46,7 +48,6 @@ import { withValues } from '../quote/AtAGlance';
 import { SalesforceLink } from '../SalesforceLink';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
-import { releaseBlockers, type ReleaseBlocker } from './blockers';
 
 /** The Terms and Legal section's id (its heading is `${id}-heading`). */
 const TERMS_LEGAL_ID = 'terms-legal';
@@ -676,96 +677,102 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
   const e = s.engineering;
   const r = e.review;
   const g2 = s.quoting.g2;
+  // FB-30 (N19-28): two sections, the engineering solution and the capacity evidence, each headed.
   return (
-    <Section
-      id="engineering"
-      title="Engineering solution and capacity evidence"
-      aside={
-        g2 ? (
-          <span className="text-muted-foreground text-xs" data-testid="review-g2">
-            Engineering’s decision: {g2.outcomeLabel}
-            {g2.decidedByName ? ` · ${g2.decidedByName}` : ''}
-          </span>
-        ) : undefined
-      }
-    >
-      {/* FB-25: rows with no value are left out (Technical concept is no longer asked, FB-22). */}
-      <KeyValueGrid
-        items={withValues([
-          { label: 'Process', value: label('process_type', r.processType) },
-          { label: 'Machine', value: label('machine_type', r.machineType) },
-          // FB-22 (N17-16): the machine the quote is on (its model or line); left out when empty.
-          { label: 'Machine platform', value: r.machinePlatform },
-          { label: 'Plant / site', value: label('plant', r.plantCode) },
-          { label: 'Cavitation', value: r.cavitation },
-          { label: 'Cycle time', value: r.cycleTimeS != null ? `${r.cycleTimeS} s` : null },
-          { label: 'Engineer', value: e.assignedEngineerName },
-          ...(e.commercialRedacted
-            ? []
-            : [{ label: BUDGETARY_CAPITAL_LABEL, value: money(r.prelimCapitalUsd) }]),
-          { label: 'Technical concept', value: r.technicalConceptNotes },
-          // FB-06 (F-058): the equipment BOM upload (file, version, uploader, date), no figures.
-          {
-            id: 'equipment-bom',
-            label: 'Equipment BOM',
-            value: <EquipmentBomLine bom={e.equipmentBom} />,
-          },
-          ...pricingInputItems(r, (code) => label('plant', code)),
-          // The pre-FB-06 free-text notes, read-only.
-          { label: 'Downstream equipment (legacy note)', value: r.downstreamEquipmentNotes },
-          { label: 'Equipment BOM (legacy note)', value: r.equipmentBomNotes },
-        ])}
-      />
-      {g2?.note && <p className="text-foreground-2 text-sm whitespace-pre-line">{g2.note}</p>}
-      {/* FB-23 (N18-03, N18-06): each item's mold lead time and cost totals. */}
-      <CostEstimateSummary engineering={e} />
+    <>
+      <Section
+        id="engineering"
+        title="Engineering solution"
+        aside={
+          g2 ? (
+            <span className="text-muted-foreground text-xs" data-testid="review-g2">
+              Engineering’s decision: {g2.outcomeLabel}
+              {g2.decidedByName ? ` · ${g2.decidedByName}` : ''}
+            </span>
+          ) : undefined
+        }
+      >
+        {/* FB-25: rows with no value are left out (Technical concept is no longer asked, FB-22). */}
+        <KeyValueGrid
+          items={withValues([
+            { label: 'Process', value: label('process_type', r.processType) },
+            { label: 'Machine', value: label('machine_type', r.machineType) },
+            // FB-22 (N17-16): the machine the quote is on (its model or line); left out when empty.
+            { label: 'Machine platform', value: r.machinePlatform },
+            { label: 'Plant / site', value: label('plant', r.plantCode) },
+            { label: 'Cavitation', value: r.cavitation },
+            { label: 'Cycle time', value: r.cycleTimeS != null ? `${r.cycleTimeS} s` : null },
+            { label: 'Engineer', value: e.assignedEngineerName },
+            ...(e.commercialRedacted
+              ? []
+              : [{ label: BUDGETARY_CAPITAL_LABEL, value: money(r.prelimCapitalUsd) }]),
+            { label: 'Technical concept', value: r.technicalConceptNotes },
+            // FB-06 (F-058): the equipment BOM upload (file, version, uploader, date), no figures.
+            {
+              id: 'equipment-bom',
+              label: 'Equipment BOM',
+              value: <EquipmentBomLine bom={e.equipmentBom} />,
+            },
+            ...pricingInputItems(r, (code) => label('plant', code)),
+            // The pre-FB-06 free-text notes, read-only.
+            { label: 'Downstream equipment (legacy note)', value: r.downstreamEquipmentNotes },
+            { label: 'Equipment BOM (legacy note)', value: r.equipmentBomNotes },
+          ])}
+        />
+        {g2?.note && <p className="text-foreground-2 text-sm whitespace-pre-line">{g2.note}</p>}
+        {/* FB-23 (N18-03, N18-06): each item's mold lead time and cost totals. */}
+        <CostEstimateSummary engineering={e} />
+      </Section>
 
-      <div className="grid gap-2">
-        <h3 className="text-sm font-semibold">Capacity evidence</h3>
-        {e.capacityEvidence.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No capacity evidence is recorded.</p>
-        ) : (
-          <ul className="grid gap-2" data-testid="review-capacity">
-            {e.capacityEvidence.map((row) => (
-              <li key={row.id} className="grid gap-2 rounded-md border p-3">
-                <p className="text-sm font-medium">
-                  {label('plant', row.site) ?? row.site}
-                  {row.lineAsset ? ` · ${row.lineAsset}` : ''}
-                </p>
-                <KeyValueGrid
-                  columns={3}
-                  items={[
-                    { label: 'Assumed effectiveness', value: pct(row.assumedEffectivenessPct) },
-                    {
-                      label: 'Cycle time',
-                      value: row.cycleTimeS != null ? `${row.cycleTimeS} s` : null,
-                    },
-                    { label: 'Utilization before', value: pct(row.utilizationBeforePct) },
-                    {
-                      label: 'Allocated volume (units / yr)',
-                      value: row.allocatedAnnualVolume?.toLocaleString('en-US') ?? null,
-                    },
-                    {
-                      label: 'Utilization after (calculated)',
-                      value:
-                        row.utilizationAfterPct != null
-                          ? `${pct(row.utilizationAfterPct)}${row.utilizationLevel === 'over' ? ' · exceeds line capacity' : ''}`
-                          : null,
-                    },
-                    { label: 'Analysis date', value: row.analysisDate },
-                    { label: 'Analyst', value: row.analystName },
-                  ]}
-                />
-                {row.notes && <p className="text-muted-foreground text-xs">{row.notes}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-        {e.commercialRedacted && e.capacityEvidence.length > 0 && (
-          <Restricted what="The capacity figures" />
-        )}
-      </div>
-    </Section>
+      <Section id="capacity" title="Capacity evidence">
+        {/* FB-30: the capacity recommendation (the sign-off), read-only, above the evidence. */}
+        <CapacitySignoffSummary signoff={e.capacitySignoff} />
+        <div className="grid gap-2">
+          {e.capacityEvidence.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No capacity evidence is recorded.</p>
+          ) : (
+            <ul className="grid gap-2" data-testid="review-capacity-rows">
+              {e.capacityEvidence.map((row) => (
+                <li key={row.id} className="grid gap-2 rounded-md border p-3">
+                  <p className="text-sm font-medium">
+                    {label('plant', row.site) ?? row.site}
+                    {row.lineAsset ? ` · ${row.lineAsset}` : ''}
+                  </p>
+                  <KeyValueGrid
+                    columns={3}
+                    items={[
+                      { label: 'Assumed effectiveness', value: pct(row.assumedEffectivenessPct) },
+                      {
+                        label: 'Cycle time',
+                        value: row.cycleTimeS != null ? `${row.cycleTimeS} s` : null,
+                      },
+                      { label: 'Utilization before', value: pct(row.utilizationBeforePct) },
+                      {
+                        label: 'Allocated volume (units / yr)',
+                        value: row.allocatedAnnualVolume?.toLocaleString('en-US') ?? null,
+                      },
+                      {
+                        label: 'Utilization after (calculated)',
+                        value:
+                          row.utilizationAfterPct != null
+                            ? `${pct(row.utilizationAfterPct)}${row.utilizationLevel === 'over' ? ' · exceeds line capacity' : ''}`
+                            : null,
+                      },
+                      { label: 'Analysis date', value: row.analysisDate },
+                      { label: 'Analyst', value: row.analystName },
+                    ]}
+                  />
+                  {row.notes && <p className="text-muted-foreground text-xs">{row.notes}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {e.commercialRedacted && e.capacityEvidence.length > 0 && (
+            <Restricted what="The capacity figures" />
+          )}
+        </div>
+      </Section>
+    </>
   );
 }
 

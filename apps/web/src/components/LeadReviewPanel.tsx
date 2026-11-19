@@ -1,6 +1,7 @@
 import type { LeadReviewView } from '@ccq/contracts';
 import { uniqueRequirements } from '@ccq/domain';
 import { useMutation } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, CornerUpLeftIcon, LockIcon, SendIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
@@ -590,14 +591,24 @@ export function PartSubmit<T>({
 /**
  * FB-22 (N17-14): where each part of an engineering review stands, for everyone on the tab, so the lead
  * sees which part is in and which is not. Shown once a part has an owner.
+ *
+ * FB-30 (N19-28): each part is worked on its own tab (Engineering, Capacity). On one tab, the other
+ * part's line links to the other tab (`otherTab`).
  */
-export function EngPartsStatus({ review }: { review: LeadReviewView }) {
+export function EngPartsStatus({
+  review,
+  otherTab,
+}: {
+  review: LeadReviewView;
+  otherTab?: { quoteNumber: string; tab: 'engineering' | 'capacity' };
+}) {
   const parts = review.parts;
   if (!parts || (!parts.engineer.ownerName && !parts.scheduler)) return null;
   const line = (
     name: string,
     p: NonNullable<LeadReviewView['parts']>['engineer'],
     testId: string,
+    tab: 'engineering' | 'capacity',
   ) => (
     <li className="flex flex-wrap items-baseline gap-x-2" data-testid={testId} data-in={p.in}>
       <span className="font-medium">{name}:</span>
@@ -608,6 +619,17 @@ export function EngPartsStatus({ review }: { review: LeadReviewView }) {
             ? `${p.ownerName ?? 'The engineer'} is an engineering lead: no submit needed`
             : `Not submitted yet${p.ownerName ? ` (${p.ownerName})` : ''}`}
       </span>
+      {otherTab?.tab === tab && (
+        <Link
+          to="/quotes/$quoteNumber"
+          params={{ quoteNumber: otherTab.quoteNumber }}
+          search={{ tab }}
+          className="text-emphasis inline-flex min-h-6 items-center underline underline-offset-4"
+          data-testid={`eng-part-link-${tab}`}
+        >
+          {tab === 'capacity' ? 'Open the Capacity tab' : 'Open the Engineering tab'}
+        </Link>
+      )}
     </li>
   );
   return (
@@ -618,8 +640,8 @@ export function EngPartsStatus({ review }: { review: LeadReviewView }) {
     >
       <h2 className="text-base font-semibold">With the engineering lead</h2>
       <ul className="grid gap-1">
-        {line('Engineer’s part', parts.engineer, 'eng-part-engineer')}
-        {parts.scheduler && line('Capacity', parts.scheduler, 'eng-part-scheduler')}
+        {line('Engineer’s part', parts.engineer, 'eng-part-engineer', 'engineering')}
+        {parts.scheduler && line('Capacity', parts.scheduler, 'eng-part-scheduler', 'capacity')}
       </ul>
     </section>
   );

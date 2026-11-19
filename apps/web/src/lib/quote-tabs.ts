@@ -3,11 +3,14 @@ import { useState } from 'react';
 
 /**
  * The quote page's tabs, in the order they are shown. FB-25 (N18-18): Commercial terms has its own tab
- * beside Engineering and Quoting; the Overview is the read-only summary.
+ * beside Engineering and Quoting; the Overview is the read-only summary. FB-30 (N19-28): Capacity has
+ * its own tab beside Engineering, so the engineering recommendation and the capacity recommendation are
+ * shown apart (one G2 decision still covers both).
  */
 export const QUOTE_TABS = [
   'overview',
   'engineering',
+  'capacity',
   'quoting',
   'commercial',
   'attachments',
@@ -29,6 +32,18 @@ export const ENGINEERING_WORK_PERMISSIONS = [
   'capacity.edit',
   'capacity.signoff',
   'gate.G2.decide',
+] as const satisfies readonly Permission[];
+
+/**
+ * FB-30: the permission that means "this reader works the solution" (the engineer, the engineering lead).
+ * A reader who works capacity without it is the production scheduler: their work is on the Capacity tab.
+ */
+export const SOLUTION_WORK_PERMISSION = 'engReview.edit' satisfies Permission;
+
+/** FB-30: the permissions that mean "this reader works capacity" (the rows, or the sign-off). */
+export const CAPACITY_WORK_PERMISSIONS = [
+  'capacity.edit',
+  'capacity.signoff',
 ] as const satisfies readonly Permission[];
 
 /** The same for the quoting stage: the pricing record, the stage's gate, or the payback (ROI) model. */
@@ -61,16 +76,55 @@ export function defaultQuoteTab(input: {
   inIntake?: boolean;
   /** FB-25: the terms wait on the reader (`termsWorkWaiting`). */
   termsWork?: boolean;
+  /**
+   * FB-30: the part of the engineering review that waits for the reader: `capacity` when the server's
+   * next step says the capacity part is the reader's move (the production scheduler), or, for a lead, the
+   * part that waits on their review (`leadWaitingPart`).
+   */
+  part?: EngineeringPart | null | undefined;
   /** The reader's permissions, as `/me` returns them. */
   permissions: readonly string[];
 }): QuoteTab {
   const holdsOneOf = (wanted: readonly string[]) =>
     wanted.some((permission) => input.permissions.includes(permission));
-  if (input.inEngineering && holdsOneOf(ENGINEERING_WORK_PERMISSIONS)) return 'engineering';
+  if (input.inEngineering && holdsOneOf(ENGINEERING_WORK_PERMISSIONS)) {
+    return engineeringTabFor(input.permissions, input.part);
+  }
   if (input.inQuoting && holdsOneOf(QUOTING_WORK_PERMISSIONS)) return 'quoting';
   if (input.inIntake && holdsOneOf([QUALIFY_PERMISSION])) return 'commercial';
   if (input.termsWork && holdsOneOf([TERMS_EDIT_PERMISSION])) return 'commercial';
   return 'overview';
+}
+
+/** FB-30: the two parts of an engineering review, named by the tab each is worked on. */
+export type EngineeringPart = 'engineering' | 'capacity';
+
+/**
+ * FB-30 (N19-28): which of the two engineering tabs is the reader's own. The production scheduler (works
+ * capacity, not the solution) has Capacity; the engineer has Engineering; a lead, who holds both, has the
+ * part waiting for them (`part`), and Engineering when nothing in particular waits.
+ */
+export function engineeringTabFor(
+  permissions: readonly string[],
+  part?: EngineeringPart | null,
+): 'engineering' | 'capacity' {
+  if (part === 'capacity') return 'capacity';
+  if (part === 'engineering') return 'engineering';
+  const solution = permissions.includes(SOLUTION_WORK_PERMISSION);
+  const capacity = CAPACITY_WORK_PERMISSIONS.some((p) => permissions.includes(p));
+  return capacity && !solution ? 'capacity' : 'engineering';
+}
+
+/**
+ * FB-30: the part of an engineering review that waits on the lead: a submitted part first, and the
+ * engineer's when both are in (the decision is on the Engineering tab). Null when no part is in.
+ */
+export function leadWaitingPart(
+  parts: { engineer: { in: boolean }; scheduler: { in: boolean } | null } | null | undefined,
+): EngineeringPart | null {
+  if (!parts) return null;
+  if (parts.engineer.in) return 'engineering';
+  return parts.scheduler?.in ? 'capacity' : null;
 }
 
 /**
@@ -98,13 +152,14 @@ export function termsWorkWaiting(input: {
 /**
  * FB-25: the tab a link to a place on the page opens. `#commercial` (and its fields, `#terms-…`) is the
  * Commercial terms tab, so links made before the tab existed keep working; `#offer-letter` and the other
- * Overview cards are the Overview. A hash no tab claims (e.g. FB-22's `#decision` on the Engineering tab)
- * opens the reader's own tab, as a link without one does.
+ * Overview cards are the Overview. FB-30: `#capacity` is the Capacity tab. A hash no tab claims (e.g.
+ * FB-22's `#decision` on the Engineering tab) opens the tab the address names, or the reader's own.
  */
 export function tabForHash(hash: string): QuoteTab | null {
   const h = hash.replace(/^#/, '');
   if (h === '') return null;
   if (h === 'commercial' || h.startsWith('terms-') || h === 'capital-terms') return 'commercial';
+  if (h === 'capacity') return 'capacity';
   if (h === 'offer-letter' || h === 'handoff' || h === 'closure' || h === 'at-a-glance') {
     return 'overview';
   }
@@ -114,14 +169,24 @@ export function tabForHash(hash: string): QuoteTab | null {
 /**
  * FB-25 (N18-18): the tabs with work waiting on the reader, for the small dot on the tab bar. From the
  * server's next step (UX-002: `yourMove` at a work tab) and the terms.
+ *
+ * FB-30: in the engineering stage the dot is on Capacity when the reader's move is the capacity part
+ * (the next step's `part`), or when their capacity part is open for them to submit (`capacityWork`: after
+ * a send-back to them, or a sign-off not yet submitted); otherwise on Engineering (the engineer's part,
+ * or the lead's decision).
  */
 export function tabsWithWork(input: {
-  nextStep?: { yourMove: boolean; place: string | null } | undefined;
+  nextStep?: { yourMove: boolean; place: string | null; part?: string | undefined } | undefined;
   termsWork: boolean;
+  /** FB-30: the reader may submit the capacity part now (`leadReview.canSubmitCapacity`). */
+  capacityWork?: boolean | undefined;
 }): QuoteTab[] {
   const out: QuoteTab[] = [];
   const step = input.nextStep;
-  if (step?.yourMove && step.place === 'engineering') out.push('engineering');
+  const engineeringMove = step?.yourMove === true && step.place === 'engineering';
+  const capacityMove = engineeringMove && step.part === 'capacity';
+  if (engineeringMove && !capacityMove) out.push('engineering');
+  if (capacityMove || input.capacityWork === true) out.push('capacity');
   if (step?.yourMove && step.place === 'quoting') out.push('quoting');
   if (input.termsWork) out.push('commercial');
   return out;
@@ -142,8 +207,8 @@ export function withOpenedTab(opened: OpenedTabs, quoteNumber: string, tab: Quot
 }
 
 /**
- * UX-001: the tabs opened so far on this quote, the one on screen included. The Engineering and
- * Quoting tabs stay on the page (hidden) once opened, so values typed and not yet saved are still
+ * UX-001: the tabs opened so far on this quote, the one on screen included. The Engineering,
+ * Capacity and Quoting tabs stay on the page (hidden) once opened, so values typed and not yet saved are still
  * there after a look at another tab. A tab that was never opened is not loaded.
  */
 export function useOpenedTabs(quoteNumber: string, tab: QuoteTab): readonly QuoteTab[] {

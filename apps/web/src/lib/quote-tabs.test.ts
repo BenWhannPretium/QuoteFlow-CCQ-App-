@@ -4,11 +4,14 @@ import { describe, expect, it } from 'vitest';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
+  engineeringTabFor,
   isQuoteTab,
+  leadWaitingPart,
   tabForHash,
   tabsWithWork,
   termsWorkWaiting,
   withOpenedTab,
+  type EngineeringPart,
   type OpenedTabs,
   type QuoteTab,
 } from './quote-tabs';
@@ -27,12 +30,14 @@ describe('the tab a quote opens on', () => {
   const rolesOpeningOn = (tab: QuoteTab, stage: 'engineering' | 'quoting' | 'other') =>
     ROLES.filter((role) => opensOn(role, stage) === tab);
 
-  it('is Engineering, in the engineering stage, for the roles that work it', () => {
-    expect(rolesOpeningOn('engineering', 'engineering')).toEqual([
-      'EngLead',
-      'Engineer',
-      'ProductionScheduler',
-    ]);
+  it('is Engineering, in the engineering stage, for the engineer and the lead', () => {
+    // FB-30 (N19-28): the production scheduler's work is on the Capacity tab now (it was Engineering).
+    expect(rolesOpeningOn('engineering', 'engineering')).toEqual(['EngLead', 'Engineer']);
+  });
+
+  it('FB-30: is Capacity, in the engineering stage, for the production scheduler', () => {
+    expect(rolesOpeningOn('capacity', 'engineering')).toEqual(['ProductionScheduler']);
+    expect(opensOn('ProductionScheduler', 'quoting')).toBe('overview');
   });
 
   it('is Quoting, in the quoting stage, for the roles that work it', () => {
@@ -76,10 +81,68 @@ describe('the tab a quote opens on', () => {
   });
 });
 
+/** FB-30 (N19-28): Capacity gets its own tab, beside Engineering. */
+describe('the Capacity tab', () => {
+  it('sits between Engineering and Quoting', () => {
+    expect(QUOTE_TABS).toEqual([
+      'overview',
+      'engineering',
+      'capacity',
+      'quoting',
+      'commercial',
+      'attachments',
+    ]);
+    expect(isQuoteTab('capacity')).toBe(true);
+  });
+
+  const lead = permissionsForRoles(['EngLead']);
+  const inEngineering = (part?: EngineeringPart | null, permissions = lead) =>
+    defaultQuoteTab({ inEngineering: true, inQuoting: false, part, permissions });
+  const parts = (engineer: boolean, scheduler: boolean | null) => ({
+    engineer: { in: engineer },
+    scheduler: scheduler === null ? null : { in: scheduler },
+  });
+
+  it('opens a lead on the part waiting for them: a submitted part first, the engineer’s if both', () => {
+    // Only capacity is in: the lead opens Capacity.
+    expect(leadWaitingPart(parts(false, true))).toBe('capacity');
+    expect(inEngineering(leadWaitingPart(parts(false, true)))).toBe('capacity');
+    // Only the engineer's part, or both: Engineering (the decision is there).
+    expect(inEngineering(leadWaitingPart(parts(true, false)))).toBe('engineering');
+    expect(inEngineering(leadWaitingPart(parts(true, true)))).toBe('engineering');
+    // Nothing in yet, or no scheduler assigned: Engineering.
+    expect(leadWaitingPart(parts(false, false))).toBeNull();
+    expect(leadWaitingPart(parts(false, null))).toBeNull();
+    expect(leadWaitingPart(undefined)).toBeNull();
+    expect(inEngineering(null)).toBe('engineering');
+  });
+
+  it('opens the reader whose move is the capacity part on Capacity (the next step’s part)', () => {
+    expect(inEngineering('capacity', permissionsForRoles(['Engineer']))).toBe('capacity');
+    expect(engineeringTabFor(permissionsForRoles(['ProductionScheduler']))).toBe('capacity');
+    expect(engineeringTabFor(permissionsForRoles(['Engineer']))).toBe('engineering');
+    expect(engineeringTabFor(permissionsForRoles(['EngLead']))).toBe('engineering');
+  });
+
+  it('never opens Capacity outside the engineering stage or without a permission', () => {
+    expect(
+      defaultQuoteTab({
+        inEngineering: false,
+        inQuoting: false,
+        part: 'capacity',
+        permissions: lead,
+      }),
+    ).toBe('overview');
+    expect(
+      defaultQuoteTab({ inEngineering: true, inQuoting: false, part: 'capacity', permissions: [] }),
+    ).toBe('overview');
+  });
+});
+
 /** FB-25 (N18-18): Commercial terms gets its own tab, and opens for the people whose work it is. */
 describe('the Commercial terms tab', () => {
   it('sits between Quoting and Attachments', () => {
-    expect(QUOTE_TABS).toEqual(['overview', 'engineering', 'quoting', 'commercial', 'attachments']);
+    expect(QUOTE_TABS.slice(-3)).toEqual(['quoting', 'commercial', 'attachments']);
   });
 
   const at = (role: Role, input: { inIntake?: boolean; termsWork?: boolean }) =>
@@ -151,6 +214,14 @@ describe('links to a place on the page (FB-25)', () => {
     expect(tabForHash('#decision')).toBeNull();
     expect(tabForHash('')).toBeNull();
   });
+
+  it('FB-30: #capacity opens the Capacity tab; #decision stays with the tab the address names', () => {
+    expect(tabForHash('#capacity')).toBe('capacity');
+    // `?tab=engineering#decision` (FB-22, in emails already sent) still opens Engineering: the hash
+    // claims no tab, so `?tab=engineering` decides.
+    expect(tabForHash('#decision')).toBeNull();
+    expect(isQuoteTab('engineering')).toBe(true);
+  });
 });
 
 describe('the dot on a tab with work waiting (FB-25)', () => {
@@ -165,6 +236,37 @@ describe('the dot on a tab with work waiting (FB-25)', () => {
       tabsWithWork({ nextStep: { yourMove: true, place: 'decision' }, termsWork: false }),
     ).toEqual([]);
     expect(tabsWithWork({ nextStep: undefined, termsWork: false })).toEqual([]);
+  });
+
+  it('FB-30: is on Capacity for the capacity part, on Engineering for the engineer’s part and the lead', () => {
+    expect(
+      tabsWithWork({
+        nextStep: { yourMove: true, place: 'engineering', part: 'capacity' },
+        termsWork: false,
+      }),
+    ).toEqual(['capacity']);
+    // The lead's decision, and a lead who is the assignee: Engineering.
+    expect(
+      tabsWithWork({
+        nextStep: { yourMove: true, place: 'engineering', part: 'decide' },
+        termsWork: false,
+      }),
+    ).toEqual(['engineering']);
+    // A capacity part sent back to the scheduler (or signed off, not yet submitted).
+    expect(
+      tabsWithWork({
+        nextStep: { yourMove: false, place: 'engineering' },
+        termsWork: false,
+        capacityWork: true,
+      }),
+    ).toEqual(['capacity']);
+    expect(
+      tabsWithWork({
+        nextStep: { yourMove: true, place: 'engineering', part: 'capacity' },
+        termsWork: false,
+        capacityWork: true,
+      }),
+    ).toEqual(['capacity']);
   });
 });
 
@@ -191,6 +293,9 @@ describe('the tabs opened so far', () => {
     // Looking at Attachments does not drop Engineering: its typed values stay on the page.
     const afterAttachments = withOpenedTab(afterEngineering, 'CCQ-2026-00001', 'attachments');
     expect(afterAttachments.tabs).toEqual(['overview', 'engineering', 'attachments']);
+    // FB-30: so does Capacity, beside Engineering: what is typed on either stays.
+    const afterCapacity = withOpenedTab(afterAttachments, 'CCQ-2026-00001', 'capacity');
+    expect(afterCapacity.tabs).toEqual(['overview', 'engineering', 'attachments', 'capacity']);
   });
 
   it('returns the same object when the tab was already opened', () => {
