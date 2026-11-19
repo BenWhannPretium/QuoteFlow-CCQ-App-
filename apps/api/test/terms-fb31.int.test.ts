@@ -408,6 +408,29 @@ describe('N19-07: a Net 60 exception goes to Leadership, with a document', () =>
     });
   });
 
+  it('a document uploaded for an earlier request does not approve a new one', async () => {
+    const qn = await inEngineering();
+    ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsPaymentTermsCode: 'NET_60' }));
+    ok(await uploadDocument(qn), 201);
+    ok(await decideException(qn, 'Leadership', 'reject', 'Not on these terms'));
+    tick();
+    // The KAM tries Net 90: a new request, opened after the earlier document.
+    ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsPaymentTermsCode: 'NET_90' }));
+    const view = detail(await as('Leadership').get(`/api/v1/quotes/${qn}`)).commercial.terms
+      .exception!;
+    expect(view).toMatchObject({ status: 'pending', document: null });
+    const stale = await decideException(qn, 'Leadership', 'approve', 'Old memo');
+    expect(stale.statusCode).toBe(422);
+    expect(errorPaths(stale)).toEqual(['/document']);
+    tick();
+    ok(await uploadDocument(qn), 201);
+    expect(
+      detail(await as('Leadership').get(`/api/v1/quotes/${qn}`)).commercial.terms.exception
+        ?.document,
+    ).toMatchObject({ version: 2 });
+    ok(await decideException(qn, 'Leadership', 'approve', 'New memo for Net 90'));
+  });
+
   it('rejecting needs no document', async () => {
     const qn = await inEngineering();
     ok(await as('KAM').put(`/api/v1/quotes/${qn}/terms`, { termsPaymentTermsCode: 'NET_120' }));

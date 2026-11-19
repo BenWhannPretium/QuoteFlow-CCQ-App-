@@ -395,11 +395,15 @@ function capitalTermsView(
   };
 }
 
-/** FB-31 (N19-07): the current `payment_terms_approval` document on the quote, if any. */
-async function paymentTermsDocument(db: DbOrTx, quoteId: string) {
+/**
+ * FB-31 (N19-07): the current `payment_terms_approval` document on the quote that supports this request:
+ * uploaded at or after the request was opened. A document uploaded for an earlier request (one rejected
+ * or superseded) does not approve a new one.
+ */
+async function paymentTermsDocument(db: DbOrTx, quoteId: string, requestedAt: Date) {
   return (
     (await listCurrentModelVersions(db, [quoteId])).find(
-      (f) => f.kind === 'payment_terms_approval',
+      (f) => f.kind === 'payment_terms_approval' && f.createdAt.getTime() >= requestedAt.getTime(),
     ) ?? null
   );
 }
@@ -420,7 +424,7 @@ async function termsExceptionView(
   if (!q.termsExceptionStatus) return null;
   const request = await getLatestTermsException(db, q.id);
   if (!request) return null;
-  const doc = await paymentTermsDocument(db, q.id);
+  const doc = await paymentTermsDocument(db, q.id, request.requestedAt);
   const name = await termsPeople(db, q, [request.requestedBy, request.decidedBy, doc?.uploadedBy]);
   const status = q.termsExceptionStatus as 'pending' | 'approved' | 'rejected';
   const routing = termsExceptionRouting(settings.termsExceptionRoutes, request);
@@ -1099,7 +1103,7 @@ export class CommercialService {
         isRequester: pending?.requestedBy === actor.userId,
         documentOnFile:
           routing.documentRequired && body.decision === 'approve'
-            ? !!(await paymentTermsDocument(tx, q.id))
+            ? !!pending && !!(await paymentTermsDocument(tx, q.id, pending.requestedAt))
             : false,
       });
       if (!plan.ok) fail(plan.errors);
