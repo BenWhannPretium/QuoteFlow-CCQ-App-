@@ -8,7 +8,7 @@ import type {
   QuoteSummary,
   ReworkRequest,
 } from '@ccq/contracts';
-import type { DbOrTx } from '@ccq/db';
+import type { DbOrTx, Tx } from '@ccq/db';
 import {
   getQuoteSummaryByNumber,
   listGateDecisionsWithNames,
@@ -57,6 +57,7 @@ import { loadOverrideSettings, quoteOverridableFields } from './overrides-view';
 import { quotingView } from './pricing-view';
 import { quoteItemSummaries } from './quote-items-view';
 import { quoteNextStep } from './quote-next-step';
+import { requoteLinks } from './requote-links';
 import type { ScoringService } from './scoring';
 
 /** Request-scoped inputs for building quote DTOs (loaded once per request). */
@@ -380,7 +381,14 @@ export function reworkRequestFor(
 }
 
 export class QuoteReadService {
-  constructor(private readonly scoring: ScoringService) {}
+  constructor(
+    private readonly scoring: ScoringService,
+    /**
+     * FB-26 (N17-30): a read in system context, used ONLY for a linked re-quote's other quote (its number
+     * and date) when the caller cannot read it. Without it the read runs under the caller's RLS.
+     */
+    private readonly systemTx?: <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>,
+  ) {}
 
   async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
     const [
@@ -491,6 +499,11 @@ export class QuoteReadService {
       commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!, workflow),
     };
     // UX-002: whose move it is, read from the detail itself so it agrees with everything above.
-    return { ...dto, nextStep: quoteNextStep(workflow, ctx.actor, dto) };
+    return {
+      ...dto,
+      nextStep: quoteNextStep(workflow, ctx.actor, dto),
+      // FB-26 (N17-30): the linked re-quote, both ends.
+      requote: await requoteLinks(db, this.systemTx, ctx.actor, q, ctx.now),
+    };
   }
 }

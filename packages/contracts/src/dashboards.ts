@@ -142,6 +142,18 @@ export type KamDashboard = z.infer<typeof KamDashboard>;
 export const SalesLeaderDashboard = z.object({
   role: z.literal('SalesLeader'),
   toQualify: z.object({ info: MetricInfo, count: z.number(), items: z.array(DashQuote) }),
+  /**
+   * FB-26 (N17-31): proposals whose validity ends within `validity_warning_days` or has passed, soonest
+   * first. `scope`: `qualified` (the quotes this sales leader qualified at G1) or `all` (they have never
+   * decided G1, so every such quote they can read).
+   */
+  expiring: z.object({
+    info: MetricInfo,
+    withinDays: z.number(),
+    scope: z.enum(['qualified', 'all']),
+    count: z.number(),
+    items: z.array(ExpiringProposal),
+  }),
   pendingOverrides: z.object({
     info: MetricInfo,
     count: z.number(),

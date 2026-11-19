@@ -13,7 +13,7 @@ export const XLSX = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer
 
 export type ModelKind = 'cost_model' | 'roi_model' | 'price_table';
 
-function multipart(fields: Record<string, string>, file: { name: string; content: Buffer }) {
+export function multipart(fields: Record<string, string>, file: { name: string; content: Buffer }) {
   const boundary = `----ccq${Math.random().toString(16).slice(2)}`;
   const parts: Buffer[] = [];
   for (const [k, v] of Object.entries(fields)) {

@@ -30,6 +30,9 @@ export const TIMELINE_CATEGORY_TYPES: Readonly<
     // FB-21 (N17-21): a payback model asked of Finance, or the request withdrawn.
     'payback_requested',
     'payback_request_withdrawn',
+    // FB-26 (N17-30): a linked re-quote started from this quote, and the new quote it became.
+    'requote_started',
+    'requoted_as',
   ],
   override: [
     'override_requested',

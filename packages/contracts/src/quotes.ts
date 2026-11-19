@@ -6,6 +6,7 @@ import { IntakeAddress } from './intake';
 import { CustomerDecisionDetail } from './outcome';
 import { QuoteOverridableField } from './overrides';
 import { QuotingDetail } from './pricing';
+import { QuoteRequoteLinks } from './requote-links';
 
 // ── Priority (B-08, advisory) ────────────────────────────────────────────────────────────────────
 
@@ -428,6 +429,8 @@ export const QuoteDetail = QuoteSummary.extend({
   commercial: CommercialDetail,
   /** UX-002: who the quote is waiting on and whether it is the caller's move. Read-only. */
   nextStep: QuoteNextStep.optional(),
+  /** FB-26 (N17-30): the linked re-quote, both ends, and whether the caller may start one. */
+  requote: QuoteRequoteLinks.optional(),
 });
 export type QuoteDetail = z.infer<typeof QuoteDetail>;
 

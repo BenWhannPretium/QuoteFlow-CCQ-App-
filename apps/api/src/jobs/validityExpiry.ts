@@ -2,14 +2,19 @@ import { ADVISORY_LOCKS, withAdvisoryLock, withSystemContext, type Database } fr
 import {
   getSetting,
   insertActivityEvent,
+  latestG1AdvanceDeciders,
   listUnflaggedValidityQuotes,
   updateQuote,
 } from '@ccq/db/repos';
 import {
   CUSTOMER_DECISION_STAGE_KEY,
+  parseValidityNoticeRecipients,
   parseValidityWarningDays,
   quotesToFlagExpired,
   quotesToWarnExpiring,
+  validityNoticeUserIds,
+  VALIDITY_NOTICE_RECIPIENTS_SEED,
+  type ValidityNoticeRecipient,
 } from '@ccq/domain';
 import type { Sql } from 'postgres';
 
@@ -31,6 +36,10 @@ import { createNotifications } from '../services/notificationService';
  * the seed) and tells them by email as well as in-app. Both are once per state: the notification's
  * dedupe key carries the quote and the validity date, so a re-run, a restart or a second instance
  * writes nothing twice, and a new validity date (a revalidation) starts the states over.
+ *
+ * FB-26 (N17-31): both notices go to `validity_notice_recipients` (provisional, seed `kam` and
+ * `g1_decider`: the sales leader who made the quote's latest G1 Advance). The dedupe key is per user, so
+ * each person is told once per state; a KAM who also qualified the quote is told once.
  */
 
 export interface ValidityExpiryLogger {
@@ -64,6 +73,26 @@ async function expireLocked(deps: ValidityExpiryDeps): Promise<ValidityExpiryRes
   const at = (deps.now ?? (() => new Date()))();
   return withSystemContext(deps.database, async (tx) => {
     const candidates = await listUnflaggedValidityQuotes(tx, CUSTOMER_DECISION_STAGE_KEY);
+    // FB-26 (N17-31): who hears about it. A malformed setting falls back to the seed (never to no one).
+    let recipients: ValidityNoticeRecipient[] = [...VALIDITY_NOTICE_RECIPIENTS_SEED];
+    try {
+      recipients = parseValidityNoticeRecipients(
+        await getSetting(tx, 'validity_notice_recipients'),
+      );
+    } catch {
+      // keep the seed
+    }
+    const deciders = recipients.includes('g1_decider')
+      ? await latestG1AdvanceDeciders(
+          tx,
+          candidates.map((c) => c.id),
+        )
+      : new Map<string, string>();
+    const toldAbout = (q: { id: string; kamUserId: string }) =>
+      validityNoticeUserIds(
+        { kamUserId: q.kamUserId, g1DeciderId: deciders.get(q.id) ?? null },
+        recipients,
+      );
 
     // B-18: the pre-expiry warning, once per validity date (the dedupe key skips a repeat).
     const warningDays = parseValidityWarningDays(await getSetting(tx, 'validity_warning_days'));
@@ -72,18 +101,16 @@ async function expireLocked(deps: ValidityExpiryDeps): Promise<ValidityExpiryRes
     for (const q of expiring) {
       const created = await createNotifications(
         tx,
-        [
-          {
-            userId: q.kamUserId,
-            type: 'quote.validity_expiring',
-            quoteId: q.id,
-            title: `${q.quoteNumber}: the proposal validity is running out`,
-            body: `Valid until ${q.validityUntil} (${daysPhrase(q.daysLeft)}). Revalidate it or record the outcome.`,
-            payload: { validityUntil: q.validityUntil!, daysLeft: String(q.daysLeft) },
-            dedupeKey: `quote.validity_expiring:${q.id}:${q.validityUntil}`,
-            at,
-          },
-        ],
+        toldAbout(q).map((userId) => ({
+          userId,
+          type: 'quote.validity_expiring' as const,
+          quoteId: q.id,
+          title: `${q.quoteNumber}: the proposal validity is running out`,
+          body: `Valid until ${q.validityUntil} (${daysPhrase(q.daysLeft)}). Revalidate it or record the outcome.`,
+          payload: { validityUntil: q.validityUntil!, daysLeft: String(q.daysLeft) },
+          dedupeKey: `quote.validity_expiring:${q.id}:${q.validityUntil}`,
+          at,
+        })),
         undefined,
         { counted: true },
       );
@@ -100,18 +127,19 @@ async function expireLocked(deps: ValidityExpiryDeps): Promise<ValidityExpiryRes
         at,
         payload: { validityUntil: q.validityUntil },
       });
-      await createNotifications(tx, [
-        {
-          userId: q.kamUserId,
-          type: 'quote.validity_expired',
+      await createNotifications(
+        tx,
+        toldAbout(q).map((userId) => ({
+          userId,
+          type: 'quote.validity_expired' as const,
           quoteId: q.id,
           title: `${q.quoteNumber}: the proposal validity has passed`,
           body: `It was valid until ${q.validityUntil}. Revalidate or record the outcome.`,
           payload: { validityUntil: q.validityUntil! },
           dedupeKey: `quote.validity_expired:${q.id}:${q.validityUntil}`,
           at,
-        },
-      ]);
+        })),
+      );
     }
     return {
       outcome: 'succeeded' as const,

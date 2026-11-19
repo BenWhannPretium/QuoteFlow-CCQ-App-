@@ -47,6 +47,7 @@ import type { OverrideService } from '../../services/overrideService';
 import type { PipelineService } from '../../services/pipeline';
 import type { PricingService } from '../../services/pricing';
 import type { PricingHistoryService } from '../../services/pricing-history';
+import type { RequoteService } from '../../services/requote';
 import type { SalesforceService } from '../../services/salesforce';
 import type { TimelineService } from '../../services/timeline';
 
@@ -68,6 +69,7 @@ export interface V1Options {
   pricingHistoryService: PricingHistoryService;
   finalReviewService: FinalReviewService;
   outcomeService: OutcomeService;
+  requoteService: RequoteService;
   offerLetterService: OfferLetterService;
   commercialService: CommercialService;
   pipelineService: PipelineService;
@@ -104,6 +106,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     pricingHistoryService,
     finalReviewService,
     outcomeService,
+    requoteService,
     offerLetterService,
     commercialService,
     pipelineService,
@@ -134,7 +137,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(pricingRoutes, { service: pricingService });
   await app.register(pricingHistoryRoutes, { service: pricingHistoryService });
   await app.register(finalReviewRoutes, { service: finalReviewService });
-  await app.register(outcomeRoutes, { service: outcomeService });
+  await app.register(outcomeRoutes, { service: outcomeService, requote: requoteService });
   // FB-20 (F-070): the customer offer letter.
   await app.register(offerLetterRoutes, { service: offerLetterService });
   await app.register(commercialRoutes, { service: commercialService });

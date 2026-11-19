@@ -20,7 +20,7 @@ import {
 } from '@ccq/domain';
 import { FakeMailTransport, MailError, type MailMessage } from '@ccq/integrations';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vitest';
 
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
@@ -526,6 +526,16 @@ describe('proposal validity', () => {
 
   it('warns the KAM once when the date is within 7 days, and once more when it has passed', async () => {
     await drain();
+    // FB-26 (N17-31): the sales leader who qualified the quote is told too by default
+    // (validity_notice_recipients, covered in fb26-requote.int.test.ts); this test follows the KAM's notices.
+    await db.db.execute(
+      sql`update app_setting set value = '["kam"]'::jsonb where key = 'validity_notice_recipients'`,
+    );
+    onTestFinished(async () => {
+      await db.db.execute(
+        sql`update app_setting set value = '["kam","g1_decider"]'::jsonb where key = 'validity_notice_recipients'`,
+      );
+    });
     const open = await db.db.execute<{ id: string; quote_number: string; kam_user_id: string }>(sql`
       select q.id, q.quote_number, q.kam_user_id from quote q
       join app_user k on k.id = q.kam_user_id and k.active

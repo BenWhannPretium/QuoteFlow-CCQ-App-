@@ -48,6 +48,9 @@ import {
   BoardResponse,
   QuoteListResponse,
   HandoffResponse,
+  RequoteResponse,
+  RequoteSourceResponse,
+  type RequoteBody,
   GenerateOfferLetterResponse,
   OfferLetterResponse,
   type GenerateOfferLetterBody,
@@ -461,6 +464,11 @@ export const api = {
   updateHandoff: (quoteNumber: string, body: HandoffBody) =>
     getJson(`${quotePath(quoteNumber)}/handoff`, HandoffResponse, { method: 'PUT', body }),
   outcomesReport: () => getJson('/api/v1/admin/reports/outcomes', OutcomesReport),
+  // FB-26 (N17-30): the linked re-quote of an expired quote, and its "From the expired quote" panel.
+  startRequote: (quoteNumber: string, body: RequoteBody) =>
+    getJson(`${quotePath(quoteNumber)}/requote`, RequoteResponse, { method: 'POST', body }),
+  requoteSource: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/requote-source`, RequoteSourceResponse),
 
   // FB-20 (F-070): the customer offer letter (Word), made after Final Review approves the quote.
   offerLetter: (quoteNumber: string) =>

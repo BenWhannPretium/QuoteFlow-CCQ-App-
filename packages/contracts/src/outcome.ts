@@ -107,6 +107,30 @@ export const CustomerDecisionDetail = z.object({
   /** FB-04 (F-076): outcome key → the Salesforce stage named in the "update the opportunity" reminder. */
   sfStageByOutcome: z.record(z.string(), z.string()),
   acceptanceEvidenceOptions: z.array(CodeLabel),
+  /**
+   * FB-26 (N17-32): the CER at hand-off. The links are `cer_tool_url` / `cer_template_url` (null while not
+   * set); `setLinksHint` is true for an Admin while either is empty. `proof`: the current CER proof file
+   * (versioned; null when none). `proofRequired`: `handoff_cer_proof_required` (G6 needs a proof while the
+   * CER is Approved). `canUploadProof`: the caller may upload one now (the hand-off is editable).
+   */
+  cer: z
+    .object({
+      toolUrl: z.string().nullable(),
+      templateUrl: z.string().nullable(),
+      setLinksHint: z.boolean(),
+      proof: z
+        .object({
+          id: z.string(),
+          fileName: z.string(),
+          version: z.number().int().nullable(),
+          uploadedAt: z.string(),
+          uploadedByName: z.string().nullable(),
+        })
+        .nullable(),
+      proofRequired: z.boolean(),
+      canUploadProof: z.boolean(),
+    })
+    .optional(),
 });
 export type CustomerDecisionDetail = z.infer<typeof CustomerDecisionDetail>;
 

@@ -810,8 +810,9 @@ export async function generateQuotes(ctx: QuoteGenContext): Promise<QuoteGenResu
             await updateQuote(db, quoteId, { submittedAt: at });
             state!.fields = { ...state!.fields, submitted_at: at };
           }
-          // FB-07: the G3 rules read the derived ROI requirement. No draws.
-          if (step.gate === 'G3') {
+          // FB-07: the G3 rules read the derived ROI requirement. FB-26: G6 Advance reads the derived
+          // cer_proof_ok (the proof is optional in the seed). No draws.
+          if (step.gate === 'G3' || step.gate === 'G6') {
             state!.fields = withDerivedFields(state!, SEED_DERIVED_SETTINGS).fields;
           }
           // B-26: G4 Advance needs the terms check (and the Legal review for a new customer). FB-08: the

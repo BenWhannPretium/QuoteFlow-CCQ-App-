@@ -26,6 +26,8 @@ import {
   getOpenReworkDraft,
   getQuoteById,
   getQuoteByNumber,
+  getQuoteLinkInfo,
+  getRequoteOf,
   getQuoteDraft,
   getQuoteDraftForUpdate,
   getSetting,
@@ -68,6 +70,7 @@ import {
   isSharedFunding,
   planResubmitRoute,
   PRICING_QUEUE_STAGE_KEY,
+  requoteBanner,
   INTAKE_LIST_FIELDS,
   INTAKE_SETTING_KEYS,
   intakeConfigFromSources,
@@ -291,7 +294,11 @@ export class IntakeService {
       this.now(),
       kept,
     );
-    const opp = !row.reworkOfQuoteId && !row.submittedQuoteId ? row.sfOpportunityId : null;
+    // FB-26 (N17-30): a linked re-quote shows no one-active-quote warning (its old quote is closed).
+    const opp =
+      !row.reworkOfQuoteId && !row.submittedQuoteId && !row.requoteOfQuoteId
+        ? row.sfOpportunityId
+        : null;
     const active = opp ? await getActiveQuoteForOpportunity(tx, opp) : undefined;
     // FB-19 (W13-33): every active quote on the opportunity (number and KAM only) and the warning.
     const openQuotes = opp ? await this.openQuotes(tx, opp) : [];
@@ -312,6 +319,7 @@ export class IntakeService {
       openQuoteWarning: activeQuoteWarning(openSettings.template, openQuotes),
       openQuotesMode: openSettings.mode,
       rework: row.reworkOfQuoteId ? await this.reworkInfo(tx, row.reworkOfQuoteId) : null,
+      requote: row.requoteOfQuoteId ? await this.requoteInfo(tx, row.requoteOfQuoteId) : null,
       keptListValues: keptListCodes(kept),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -426,6 +434,22 @@ export class IntakeService {
       }
       return { items, returned };
     });
+  }
+
+  /**
+   * FB-26 (N17-30): the expired quote a linked re-quote draft comes from (number and validity date only,
+   * read in system context when the caller cannot read it).
+   */
+  private async requoteInfo(tx: DbOrTx, oldQuoteId: string): Promise<IntakeDraft['requote']> {
+    const read = (db: DbOrTx) => getQuoteLinkInfo(db, oldQuoteId);
+    const old =
+      (await read(tx)) ?? (this.opts.systemTx ? await this.opts.systemTx(read) : undefined);
+    if (!old) return null;
+    return {
+      quoteNumber: old.quoteNumber,
+      expiredOn: old.validityUntil,
+      banner: requoteBanner(old.quoteNumber, old.validityUntil),
+    };
   }
 
   /** The gate decision that returned a quote to its KAM (the latest one that targeted INTAKE). */
@@ -734,6 +758,30 @@ export class IntakeService {
 
     // A rework draft goes back into its own quote (same number); anything else creates a quote.
     const reworkOf = draft.reworkOfQuoteId ? await getQuoteById(tx, draft.reworkOfQuoteId) : null;
+    // FB-26 (N17-30): a linked re-quote creates a NEW quote linked to the expired one, for its KAM.
+    const requoteOf = draft.requoteOfQuoteId
+      ? await getQuoteById(tx, draft.requoteOfQuoteId)
+      : null;
+    if (draft.requoteOfQuoteId) {
+      if (!requoteOf) throw notFound();
+      const existing = await getRequoteOf(tx, requoteOf.id);
+      if (existing) {
+        throw new IntakeError(
+          409,
+          'already_requoted',
+          `${requoteOf.quoteNumber} was already re-quoted as ${existing.quoteNumber}`,
+          { quoteNumber: existing.quoteNumber },
+        );
+      }
+      if (requoteOf.sfOpportunityId !== sfOpportunityId) {
+        throw new IntakeError(
+          422,
+          INTAKE_PROBLEM_CODES.incomplete,
+          'A linked re-quote stays on its Salesforce opportunity',
+          { errors: [{ path: '/data/sfOpportunityId', message: 'Keep the original opportunity' }] },
+        );
+      }
+    }
     const workflow = parseWorkflowConfig(await loadWorkflowConfigInput(tx));
     // FB-01 (F-030): a rework that resumes at its origin (G3 "Rework (back to KAM)") goes straight back
     // there unless the KAM says the scope changed. The domain decides; the answer is required.
@@ -768,7 +816,8 @@ export class IntakeService {
       const decision = decideActiveQuotes(
         settings.mode,
         open.length,
-        data.separateQuoteConfirmed === true,
+        // FB-26 (N17-30): a linked re-quote is not asked to confirm (no warning); `one` still refuses.
+        data.separateQuoteConfirmed === true || requoteOf !== null,
       );
       if (!decision.ok) {
         throw new IntakeError(
@@ -795,7 +844,9 @@ export class IntakeService {
       audit,
       reworkOf?.id ?? null,
     );
-    const kam = await findUserById(tx, actor.userId);
+    // FB-26 (N17-30): a linked re-quote keeps the old quote's KAM, whoever submits it.
+    const kamUserId = requoteOf ? requoteOf.kamUserId : actor.userId;
+    const kam = await findUserById(tx, kamUserId);
     const shipToOverridden =
       Boolean(blankToNull(data.shipToOverrideReason)) && values.ship_to !== null;
     // The request-level fields that no longer apply (freight without a delivered price, …).
@@ -924,12 +975,13 @@ export class IntakeService {
     } else {
       quote = await insertQuote(tx, {
         sfOpportunityId,
-        kamUserId: actor.userId,
+        kamUserId,
         region: kam?.region ?? null,
         stageKey: 'INTAKE',
         status: 'active',
         version: 1,
         ...fields,
+        requotedFromQuoteId: requoteOf?.id ?? null,
         createdAt: now,
         createdBy: actor.userId,
       });
@@ -946,7 +998,13 @@ export class IntakeService {
         type: 'quote_created',
         actorId: actor.userId,
         at: now,
-        payload: { sfOpportunityId, draftId: draft.id, warnings: warningCodes },
+        payload: {
+          sfOpportunityId,
+          draftId: draft.id,
+          warnings: warningCodes,
+          // FB-26 (N17-30): "Re-quote of CCQ-…" on the new quote's timeline.
+          ...(requoteOf ? { requoteOf: requoteOf.quoteNumber } : {}),
+        },
         createdBy: actor.userId,
       });
       await insertAuditEvent(tx, {
@@ -970,10 +1028,38 @@ export class IntakeService {
           items: itemsData.length,
           // FB-19 (W13-33): started beside these open quotes after the KAM confirmed the warning.
           ...(separateFrom.length > 0 ? { separateFrom } : {}),
+          // FB-26 (N17-30): the expired quote it re-quotes, and its KAM (kept).
+          ...(requoteOf
+            ? { requoteOf: requoteOf.quoteNumber, requotedFromQuoteId: requoteOf.id, kamUserId }
+            : {}),
         },
         ...audit,
         createdBy: actor.userId,
       });
+      if (requoteOf) {
+        // FB-26 (N17-30): "Re-quoted as CCQ-… on <date>" on the old quote (timeline and audit).
+        await insertActivityEvent(tx, {
+          quoteId: requoteOf.id,
+          type: 'requoted_as',
+          actorId: actor.userId,
+          at: now,
+          payload: { quoteNumber: quote.quoteNumber, draftId: draft.id },
+          createdBy: actor.userId,
+        });
+        await insertAuditEvent(tx, {
+          at: now,
+          actorId: actor.userId,
+          actorRoles: [...actor.roles],
+          action: 'update',
+          entity: 'quote',
+          entityId: requoteOf.id,
+          quoteId: requoteOf.id,
+          before: null,
+          after: { event: 'quote.requoted_as', requotedAs: quote.quoteNumber },
+          ...audit,
+          createdBy: actor.userId,
+        });
+      }
     }
     if (shipToOverridden) {
       // B-09: a ship-to that differs from the account default is a self-applied, logged override.
@@ -998,6 +1084,7 @@ export class IntakeService {
       items: itemsData,
       rows: itemRows,
       now,
+      linkedFromQuoteId: requoteOf?.id ?? null,
     });
 
     // Priority score (B-08): advisory; orders the G1 and engineering queues.
@@ -1328,7 +1415,7 @@ function reasonLabel(
  * Intake request fields as stored on the quote, for a rework draft of a quote with no draft of its own.
  * FB-19: the items come from `quote_item` (`draftItemsFromQuote`).
  */
-function dataFromQuote(q: Quote): IntakeDraftData {
+export function dataFromQuote(q: Quote): IntakeDraftData {
   return {
     sfOpportunityId: q.sfOpportunityId,
     market: q.market,
@@ -1361,7 +1448,7 @@ function dataFromQuote(q: Quote): IntakeDraftData {
   };
 }
 
-async function customerForDraft(
+export async function customerForDraft(
   tx: DbOrTx,
   customerId: string | null,
 ): Promise<IntakeDraftData['customer']> {

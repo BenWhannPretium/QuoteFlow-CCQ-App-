@@ -69,7 +69,7 @@ export const OUTCOME_HELP: Record<string, string> = {
     'The validity date passed with no answer. Silence is not a loss: it closes as Expired, separately from Lost.',
   'G5/on_hold': HOLD_HELP,
   'G5/requote':
-    'Something changed (scope, volume, resin, terms). It goes back to the affected gate as a new version; nothing is edited silently.',
+    'Something changed (scope, volume, resin, terms). It goes back to the affected gate as a new version; nothing is edited silently. Use while the offer is still valid. After it has expired, start a linked re-quote from the closed quote.',
   // G6 Commit & hand off (B-26)
   'G6/advance':
     'The CER is approved (or not required) and the receiving team accepted the hand-off. The quote closes Won with its linked IDs.',
