@@ -36,7 +36,8 @@ const PG_OBJECT_FIELDS = [
 export function describeStartupError(err: unknown): string {
   const name = err instanceof Error ? err.name : typeof err;
   // @ccq/db's MigrationsNotAppliedError: its message names migration tags only, never row data.
-  if (err instanceof Error && name === 'MigrationsNotAppliedError') return `${name}: ${err.message}`;
+  if (err instanceof Error && name === 'MigrationsNotAppliedError')
+    return `${name}: ${err.message}`;
   let cursor: unknown = err;
   for (let depth = 0; depth < 6 && cursor && typeof cursor === 'object'; depth++) {
     const e = cursor as Record<string, unknown>;
