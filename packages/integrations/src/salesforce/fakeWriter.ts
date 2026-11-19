@@ -12,8 +12,7 @@ export interface FakeWriteCall {
 
 /** An injected failure: `timeout` reaches "Salesforce" (the value is stored) yet reports a retryable error. */
 export type FakeWriteFailure =
-  | { kind: 'error'; retryable: boolean; code?: string; message?: string }
-  | { kind: 'timeout' };
+  { kind: 'error'; retryable: boolean; code?: string; message?: string } | { kind: 'timeout' };
 
 /**
  * FB-29: the fake writer for tests, local dev and the dry runs on the test site (SF_WRITE_MODE=fake).
@@ -63,11 +62,21 @@ export class FakeSalesforceWriter implements SalesforceWriter {
     options: { dedupeKey: string },
   ): Promise<SfWriteResult> {
     const record = (result: SfWriteResult) => {
-      this.calls.push({ sfOpportunityId, fields: { ...fields }, dedupeKey: options.dedupeKey, result });
+      this.calls.push({
+        sfOpportunityId,
+        fields: { ...fields },
+        dedupeKey: options.dedupeKey,
+        result,
+      });
       return Promise.resolve(result);
     };
     if (!SF_ID.test(sfOpportunityId)) {
-      return record({ ok: false, retryable: false, code: 'INVALID_ID', message: 'not a Salesforce id' });
+      return record({
+        ok: false,
+        retryable: false,
+        code: 'INVALID_ID',
+        message: 'not a Salesforce id',
+      });
     }
     const refused = Object.keys(fields).filter((f) => !isWritableSfField('Opportunity', f));
     if (refused.length > 0 || Object.keys(fields).length === 0) {
@@ -101,7 +110,9 @@ export class FakeSalesforceWriter implements SalesforceWriter {
       return record({
         ok: false,
         retryable: failure.retryable,
-        code: failure.code ?? (failure.retryable ? 'SERVER_UNAVAILABLE' : 'FIELD_CUSTOM_VALIDATION_EXCEPTION'),
+        code:
+          failure.code ??
+          (failure.retryable ? 'SERVER_UNAVAILABLE' : 'FIELD_CUSTOM_VALIDATION_EXCEPTION'),
         message: failure.message ?? 'injected failure',
       });
     }

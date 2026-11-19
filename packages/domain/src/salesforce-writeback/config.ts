@@ -64,7 +64,8 @@ export const SF_STAGE_FIELD = 'StageName';
  * Figures are never written (fieldMap.test.ts bans mapping one; CLAUDE.md rule 5). This is checked on top
  * of the writer's allow-list, so a price field is refused even if someone added it there.
  */
-export const SF_WRITEBACK_SENSITIVE_FIELD = /price|cost|margin|revenue|discount|capital|subtotal|amount/i;
+export const SF_WRITEBACK_SENSITIVE_FIELD =
+  /price|cost|margin|revenue|discount|capital|subtotal|amount/i;
 
 /** Where an entry's value comes from. */
 export const SfWritebackValueSource = z.discriminatedUnion('source', [
@@ -72,7 +73,10 @@ export const SfWritebackValueSource = z.discriminatedUnion('source', [
    * `sf_outcome_stage_names` (FB-04): the decided outcome's stage, or the fixed `key` (the reopen uses
    * `requote`).
    */
-  z.object({ source: z.literal('sf_outcome_stage_names'), key: z.string().trim().min(1).optional() }),
+  z.object({
+    source: z.literal('sf_outcome_stage_names'),
+    key: z.string().trim().min(1).optional(),
+  }),
   /** `stageMap` below: the QuoteFlow stage entered. */
   z.object({ source: z.literal('stage_map') }),
   /** The CCQ quote number (CCQ-YYYY-NNNNN). */

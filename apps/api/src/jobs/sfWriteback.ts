@@ -1,4 +1,10 @@
-import { ADVISORY_LOCKS, withAdvisoryLock, withSystemContext, type Database, type Tx } from '@ccq/db';
+import {
+  ADVISORY_LOCKS,
+  withAdvisoryLock,
+  withSystemContext,
+  type Database,
+  type Tx,
+} from '@ccq/db';
 import { listActiveUserIdsWithRole } from '@ccq/db/repos';
 import {
   SF_STAGE_FIELD,
@@ -105,7 +111,12 @@ async function processRow(
       entityId: row.id,
       quoteId: row.quoteId,
       before: { status: row.status, attempts: row.attempts },
-      after: { sfField: row.sfField, value: row.value, sfOpportunityId: row.sfOpportunityId, ...after },
+      after: {
+        sfField: row.sfField,
+        value: row.value,
+        sfOpportunityId: row.sfOpportunityId,
+        ...after,
+      },
       at,
     });
   const skip = async (reason: SfWritebackSkipReason, response?: Record<string, unknown>) => {
@@ -146,7 +157,12 @@ async function processRow(
     });
     if (delay === null) {
       result.failed++;
-      failures.push({ id: row.id, quoteId: row.quoteId, sfOpportunityId: row.sfOpportunityId, code: err.code });
+      failures.push({
+        id: row.id,
+        quoteId: row.quoteId,
+        sfOpportunityId: row.sfOpportunityId,
+        code: err.code,
+      });
     } else {
       result.retrying++;
     }
@@ -244,7 +260,12 @@ async function processNextOpportunity(
         entityId: old.id,
         quoteId: old.quoteId,
         before: { status: old.status },
-        after: { status: 'skipped', skippedReason: 'superseded', sfField: old.sfField, value: old.value },
+        after: {
+          status: 'skipped',
+          skippedReason: 'superseded',
+          sfField: old.sfField,
+          value: old.value,
+        },
         at,
       });
       result.skipped++;
@@ -294,7 +315,10 @@ async function runLocked(deps: SfWritebackDeps): Promise<SfWritebackRunResult> {
   );
   if (!loaded.enabled) return { ...result, outcome: 'idle' };
   if (!loaded.settings || loaded.error) {
-    deps.logger.error({ code: 'INVALID_CONFIG' }, 'salesforce write-back: settings invalid; nothing sent');
+    deps.logger.error(
+      { code: 'INVALID_CONFIG' },
+      'salesforce write-back: settings invalid; nothing sent',
+    );
     return { ...result, outcome: 'failed' };
   }
   // A dry run records rows as `dry_run` and never sends; a row queued while live waits for live again.
@@ -314,7 +338,10 @@ async function runLocked(deps: SfWritebackDeps): Promise<SfWritebackRunResult> {
     try {
       await alertAdmins(deps, failures, clock());
     } catch {
-      deps.logger.error({ count: failures.length }, 'salesforce write-back: could not alert the Admins');
+      deps.logger.error(
+        { count: failures.length },
+        'salesforce write-back: could not alert the Admins',
+      );
     }
   }
   return result;
@@ -323,12 +350,20 @@ async function runLocked(deps: SfWritebackDeps): Promise<SfWritebackRunResult> {
 /** One run, if no other instance is running one. Never throws. */
 export async function runSfWriteback(deps: SfWritebackDeps): Promise<SfWritebackRunResult> {
   try {
-    const lock = await withAdvisoryLock(deps.sql, ADVISORY_LOCKS.sfWriteback, () => runLocked(deps));
+    const lock = await withAdvisoryLock(deps.sql, ADVISORY_LOCKS.sfWriteback, () =>
+      runLocked(deps),
+    );
     if (!lock.acquired) return { ...EMPTY, outcome: 'skipped' };
     const r = lock.result;
     if (r.sent + r.confirmed + r.skipped + r.retrying + r.failed > 0) {
       deps.logger.info(
-        { sent: r.sent, confirmed: r.confirmed, skipped: r.skipped, retrying: r.retrying, failed: r.failed },
+        {
+          sent: r.sent,
+          confirmed: r.confirmed,
+          skipped: r.skipped,
+          retrying: r.retrying,
+          failed: r.failed,
+        },
         'salesforce write-back finished',
       );
     }

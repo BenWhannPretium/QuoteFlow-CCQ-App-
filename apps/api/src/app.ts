@@ -434,7 +434,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   const sfWritebackService = new SfWritebackService({
     allowList: SF_WRITE_ALLOW_LIST,
     writerMode: sfWriter ? sfWriter.mode : 'off',
-    liveBlockedReason: sfWriter ? null : sfWriteEnv.liveBlockedReason ?? 'No write connection',
+    liveBlockedReason: sfWriter ? null : (sfWriteEnv.liveBlockedReason ?? 'No write connection'),
     appBaseUrl: config.APP_BASE_URL,
     log: sfWriteLog,
     ...(deps.db.db

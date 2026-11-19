@@ -1,5 +1,3 @@
-import { CUSTOMER_DECISION_STAGE_KEY } from '../final-review/release';
-import { sfStageForOutcome } from '../outcome/sf-stage';
 import {
   SF_STAGE_FIELD,
   type SfWritebackEvent,
@@ -8,6 +6,8 @@ import {
   type SfWritebackRegressionMode,
   type SfWritebackSkipReason,
 } from './config';
+import { CUSTOMER_DECISION_STAGE_KEY } from '../final-review/release';
+import { sfStageForOutcome } from '../outcome/sf-stage';
 
 /**
  * FB-29: what a QuoteFlow event would write to Salesforce, worked out from the map alone. Pure: the API
@@ -219,7 +219,13 @@ export function decideSend(input: {
  * Rows are compared by `createdAt`, then `id` (UUID v7, so time-ordered).
  */
 export function latestPerField<
-  T extends { id: string; sfOpportunityId: string; sfObject: string; sfField: string; createdAt: Date },
+  T extends {
+    id: string;
+    sfOpportunityId: string;
+    sfObject: string;
+    sfField: string;
+    createdAt: Date;
+  },
 >(rows: readonly T[]): { send: T[]; superseded: T[] } {
   const latest = new Map<string, T>();
   const keyOf = (r: T) => `${r.sfOpportunityId}|${r.sfObject}|${r.sfField}`;

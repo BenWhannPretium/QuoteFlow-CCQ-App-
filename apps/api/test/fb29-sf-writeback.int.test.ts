@@ -90,7 +90,13 @@ const ok = (res: { statusCode: number; body: string }, status = 201) =>
   expect(res.statusCode, res.body).toBe(status);
 const today = () => proposalCalendarDate(clock);
 
-const SHIP_TO = { line1: '1 Test St', city: 'Testville', state: 'MO', postal: '63101', country: 'US' };
+const SHIP_TO = {
+  line1: '1 Test St',
+  city: 'Testville',
+  state: 'MO',
+  postal: '63101',
+  country: 'US',
+};
 
 async function request(sfOpportunityId: string): Promise<IntakeDraftData> {
   const sf = SfOpportunityDetail.parse(
@@ -436,7 +442,9 @@ describe('failures', () => {
     expect(await notices()).toHaveLength([...new Set([...admins].map((a) => a.id))].length);
 
     // Admin: retry (audited), it is sent; a second failure is skipped by the Admin (audited).
-    const retry = await persona('admin').post(`/api/v1/admin/salesforce/writeback/${row!.id}/retry`);
+    const retry = await persona('admin').post(
+      `/api/v1/admin/salesforce/writeback/${row!.id}/retry`,
+    );
     ok(retry, 200);
     expect(SfWritebackRow.parse(retry.json())).toMatchObject({ status: 'pending', attempts: 0 });
     await run();
@@ -447,7 +455,9 @@ describe('failures', () => {
       await userId('admin'),
     );
     // Only a failed (or pending) row can be retried or skipped.
-    const again = await persona('admin').post(`/api/v1/admin/salesforce/writeback/${row!.id}/retry`);
+    const again = await persona('admin').post(
+      `/api/v1/admin/salesforce/writeback/${row!.id}/retry`,
+    );
     expect(again.statusCode, again.body).toBe(409);
   });
 
@@ -540,7 +550,12 @@ describe('the decision’s transaction', () => {
         payload: {},
       });
       await service().onGateDecision(tx, ctx);
-      expect(await tx.select().from(schema.sfWritebackOutbox).where(eq(schema.sfWritebackOutbox.quoteId, q.id))).toHaveLength(2);
+      expect(
+        await tx
+          .select()
+          .from(schema.sfWritebackOutbox)
+          .where(eq(schema.sfWritebackOutbox.quoteId, q.id)),
+      ).toHaveLength(2);
       throw new Rollback();
     }).catch((err: unknown) => {
       if (!(err instanceof Rollback)) throw err;
@@ -587,9 +602,7 @@ describe('never close an opportunity another quote needs; reopen what QuoteFlow 
     await lapse(qn);
     ok(await requote(qn, { note: 'Customer still wants it', reasonCode: 'validity_lapsed' }), 200);
     expect((await quoteRow(qn)).status).toBe('closed');
-    expect(
-      (await outbox(qn)).map((r) => [r.event, r.status, r.skippedReason]),
-    ).toEqual([
+    expect((await outbox(qn)).map((r) => [r.event, r.status, r.skippedReason])).toEqual([
       ['outcome_recorded', 'skipped', 'other_active_quote'],
       ['requote_started', 'skipped', 'nothing_to_reopen'],
     ]);
@@ -623,7 +636,12 @@ describe('never close an opportunity another quote needs; reopen what QuoteFlow 
     expect(writer.stageOf(opp)).toBe('Closed Lost');
     ok(await requote(qn, { note: 'Customer came back' }), 200);
     const reopen = (await outbox(qn)).at(-1)!;
-    expect(reopen).toMatchObject({ event: 'requote_started', value: 'Quoting', reopens: true, status: 'pending' });
+    expect(reopen).toMatchObject({
+      event: 'requote_started',
+      value: 'Quoting',
+      reopens: true,
+      status: 'pending',
+    });
     await run();
     expect(writer.stageOf(opp)).toBe('Quoting');
     expect((await outbox(qn)).at(-1)).toMatchObject({ status: 'sent' });
@@ -645,9 +663,9 @@ describe('never close an opportunity another quote needs; reopen what QuoteFlow 
     expect(closing).toMatchObject({ status: 'sent', skippedReason: null });
     expect(JSON.parse(closing!.response!)).toMatchObject({ confirmedExisting: true });
     const audit = await writebackAudits(qn);
-    expect(audit.some((a) => (a.after as { confirmed_existing?: boolean }).confirmed_existing)).toBe(
-      true,
-    );
+    expect(
+      audit.some((a) => (a.after as { confirmed_existing?: boolean }).confirmed_existing),
+    ).toBe(true);
     expect(callsFor(opp)).toHaveLength(1);
 
     // The reopen: its own first attempt times out too, and its retry finds "Quoting": sent.
@@ -711,7 +729,13 @@ describe('Admin → Integrations', () => {
     let res = await persona('admin').get('/api/v1/admin/salesforce/writeback');
     ok(res, 200);
     let s = SfWritebackSummary.parse(res.json());
-    expect(s).toMatchObject({ enabled: false, mode: 'dry_run', writerMode: 'fake', sending: false, canManage: true });
+    expect(s).toMatchObject({
+      enabled: false,
+      mode: 'dry_run',
+      writerMode: 'fake',
+      sending: false,
+      canManage: true,
+    });
     expect(s.statusText).toMatch(/switched off/);
 
     res = await persona('admin').put('/api/v1/admin/salesforce/writeback', {
@@ -729,7 +753,12 @@ describe('Admin → Integrations', () => {
     const changes = await db.db
       .select()
       .from(schema.auditEvent)
-      .where(and(eq(schema.auditEvent.entity, 'sf_writeback'), eq(schema.auditEvent.action, 'config_change')));
+      .where(
+        and(
+          eq(schema.auditEvent.entity, 'sf_writeback'),
+          eq(schema.auditEvent.action, 'config_change'),
+        ),
+      );
     // The switch on, then live (the mode was already dry_run: no change, no row).
     expect(changes.map((c) => (c.after as { key: string }).key)).toEqual([
       'sf_writeback_enabled',
@@ -740,14 +769,19 @@ describe('Admin → Integrations', () => {
     res = await persona('leadership').get('/api/v1/admin/salesforce/writeback');
     ok(res, 200);
     expect(SfWritebackSummary.parse(res.json()).canManage).toBe(false);
-    expect((await persona('leadership').put('/api/v1/admin/salesforce/writeback', { enabled: false })).statusCode).toBe(403);
+    expect(
+      (await persona('leadership').put('/api/v1/admin/salesforce/writeback', { enabled: false }))
+        .statusCode,
+    ).toBe(403);
   });
 
   it('previews a quote without queuing anything', async () => {
     await switchTo(false);
     const qn = await inCustomerDecision();
     ok(await lost(qn));
-    const res = await persona('admin').get(`/api/v1/admin/salesforce/writeback/preview?quoteNumber=${qn}`);
+    const res = await persona('admin').get(
+      `/api/v1/admin/salesforce/writeback/preview?quoteNumber=${qn}`,
+    );
     ok(res, 200);
     const p = SfWritebackPreview.parse(res.json());
     expect(p.writes).toMatchObject([
@@ -755,7 +789,9 @@ describe('Admin → Integrations', () => {
     ]);
     expect(p.notes.join(' ')).toMatch(/switched off/);
     expect(await outbox(qn)).toEqual([]);
-    const missing = await persona('admin').get('/api/v1/admin/salesforce/writeback/preview?quoteNumber=CCQ-2099-99999');
+    const missing = await persona('admin').get(
+      '/api/v1/admin/salesforce/writeback/preview?quoteNumber=CCQ-2099-99999',
+    );
     expect(missing.statusCode).toBe(404);
   });
 
@@ -777,9 +813,15 @@ describe('Admin → Integrations', () => {
       });
       expect(res.statusCode, res.body).toBe(422);
       expect(res.json()).toMatchObject({ code: 'live_not_allowed' });
-      expect((res.json() as { detail: string }).detail).toMatch(/no Salesforce write connection/);
+      expect(res.json<{ detail: string }>().detail).toMatch(/no Salesforce write connection/);
       const summary = SfWritebackSummary.parse(
-        (await noWriter.inject({ method: 'GET', url: '/api/v1/admin/salesforce/writeback', headers: as })).json(),
+        (
+          await noWriter.inject({
+            method: 'GET',
+            url: '/api/v1/admin/salesforce/writeback',
+            headers: as,
+          })
+        ).json(),
       );
       expect(summary).toMatchObject({ liveAllowed: false, writerMode: 'off' });
       const [setting] = await db.db

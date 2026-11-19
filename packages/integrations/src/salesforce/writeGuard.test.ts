@@ -35,7 +35,10 @@ const hasWriteCall = (file: string) =>
     .some((line) => SF_WRITE_CALL.test(line) || SF_WRITE_PROPERTY.test(line));
 
 describe('Salesforce write calls live only in the writer files', () => {
-  const files = sourceFiles(dir).map((f) => ({ name: f.slice(dir.length).split(sep).join('/'), f }));
+  const files = sourceFiles(dir).map((f) => ({
+    name: f.slice(dir.length).split(sep).join('/'),
+    f,
+  }));
 
   it('finds a write call in exactly the writer files', () => {
     const withWrites = files.filter(({ f }) => hasWriteCall(f)).map(({ name }) => name);
@@ -44,7 +47,14 @@ describe('Salesforce write calls live only in the writer files', () => {
 
   it('keeps the reader side, its factory and the fakes in the scan', () => {
     expect(files.map((x) => x.name)).toEqual(
-      expect.arrayContaining(['create.ts', 'reader.ts', 'jsforce.ts', 'fake.ts', 'fakeWriter.ts', 'createWriter.ts']),
+      expect.arrayContaining([
+        'create.ts',
+        'reader.ts',
+        'jsforce.ts',
+        'fake.ts',
+        'fakeWriter.ts',
+        'createWriter.ts',
+      ]),
     );
   });
 

@@ -1,5 +1,9 @@
 import { FakeSalesforceWriter } from './fakeWriter';
-import { JsforceSalesforceWriter, writeApiFactory, type JsforceWriterConfig } from './jsforceWriter';
+import {
+  JsforceSalesforceWriter,
+  writeApiFactory,
+  type JsforceWriterConfig,
+} from './jsforceWriter';
 import type { SfLogger } from './reader';
 import type { SalesforceWriter } from './writer';
 
@@ -20,7 +24,9 @@ export function createSalesforceWriter(
 ): SalesforceWriter | null {
   if (config.mode === 'off') return null;
   if (config.mode === 'fake') {
-    return new FakeSalesforceWriter({ failFirstPerOpportunity: config.failFirstPerOpportunity ?? false });
+    return new FakeSalesforceWriter({
+      failFirstPerOpportunity: config.failFirstPerOpportunity ?? false,
+    });
   }
   const { appEnvironment, ...login } = config;
   return new JsforceSalesforceWriter(writeApiFactory(login), {

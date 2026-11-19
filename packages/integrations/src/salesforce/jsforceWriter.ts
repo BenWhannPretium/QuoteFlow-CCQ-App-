@@ -83,19 +83,28 @@ export const writeApiFactory =
 
 /** A save-result error's code (e.g. FIELD_CUSTOM_VALIDATION_EXCEPTION) and its message. */
 function saveError(errors: unknown[]): { code: string; message: string } {
-  const first = (errors[0] ?? {}) as { errorCode?: unknown; statusCode?: unknown; message?: unknown };
+  const first = (errors[0] ?? {}) as {
+    errorCode?: unknown;
+    statusCode?: unknown;
+    message?: unknown;
+  };
   const code =
     typeof first.errorCode === 'string'
       ? first.errorCode
       : typeof first.statusCode === 'string'
         ? first.statusCode
         : 'UPDATE_FAILED';
-  const message = typeof first.message === 'string' ? first.message : 'Salesforce refused the update';
+  const message =
+    typeof first.message === 'string' ? first.message : 'Salesforce refused the update';
   return { code, message };
 }
 
 /** Save-result codes worth another try (a locked row, a busy org); everything else needs a person. */
-const RETRYABLE_SAVE_CODES = new Set(['UNABLE_TO_LOCK_ROW', 'REQUEST_LIMIT_EXCEEDED', 'SERVER_UNAVAILABLE']);
+const RETRYABLE_SAVE_CODES = new Set([
+  'UNABLE_TO_LOCK_ROW',
+  'REQUEST_LIMIT_EXCEEDED',
+  'SERVER_UNAVAILABLE',
+]);
 
 export class JsforceSalesforceWriter implements SalesforceWriter {
   readonly mode = 'live' as const;
@@ -140,7 +149,10 @@ export class JsforceSalesforceWriter implements SalesforceWriter {
     }
   }
 
-  private failure(op: string, err: unknown): { ok: false; retryable: boolean; code: string; message: string } {
+  private failure(
+    op: string,
+    err: unknown,
+  ): { ok: false; retryable: boolean; code: string; message: string } {
     const code = sfErrorCode(err);
     const refused = code === 'INSTANCE_REFUSED';
     this.logger.warn({ op, code }, 'salesforce write call failed');
@@ -183,7 +195,10 @@ export class JsforceSalesforceWriter implements SalesforceWriter {
         return { ok: true };
       }
       const { code, message } = saveError(result.errors);
-      this.logger.warn({ op: 'update', sfOpportunityId, fields: names, code }, 'salesforce refused the update');
+      this.logger.warn(
+        { op: 'update', sfOpportunityId, fields: names, code },
+        'salesforce refused the update',
+      );
       return { ok: false, retryable: RETRYABLE_SAVE_CODES.has(code), code, message };
     } catch (err) {
       return this.failure('update', err);

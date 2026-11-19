@@ -42,7 +42,12 @@ describe('sf_writeback_map validation', () => {
   });
 
   it('rejects a price, cost, margin or capital field even when it is allow-listed', () => {
-    for (const field of ['Piece_Part_Price__c', 'Amount', 'Capital_Estimate__c', 'Gross_Margin__c']) {
+    for (const field of [
+      'Piece_Part_Price__c',
+      'Amount',
+      'Capital_Estimate__c',
+      'Gross_Margin__c',
+    ]) {
       const map = clone();
       entry(map, 'quote_link').sfField = field;
       expect(() => parseSfWritebackMap(map, { Opportunity: ['StageName', field] }), field).toThrow(
@@ -89,7 +94,10 @@ describe('sf_writeback_map validation', () => {
       maxAttempts: undefined,
       retryMinutes: undefined,
     });
-    expect(ok).toMatchObject({ ok: true, settings: { enabled: false, mode: 'dry_run', maxAttempts: 5 } });
+    expect(ok).toMatchObject({
+      ok: true,
+      settings: { enabled: false, mode: 'dry_run', maxAttempts: 5 },
+    });
     const bad = parseSfWritebackSettings({
       enabled: true,
       mode: 'turbo',
@@ -134,8 +142,14 @@ describe('planning a decision’s writes', () => {
         }),
       },
     ]);
-    expect(plan({ outcomeKey: 'expired' })[0]).toMatchObject({ value: 'Closed Lost', closing: true });
-    expect(plan({ outcomeKey: 'awarded' })[0]).toMatchObject({ value: 'Verbal Award', closing: false });
+    expect(plan({ outcomeKey: 'expired' })[0]).toMatchObject({
+      value: 'Closed Lost',
+      closing: true,
+    });
+    expect(plan({ outcomeKey: 'awarded' })[0]).toMatchObject({
+      value: 'Verbal Award',
+      closing: false,
+    });
   });
 
   it('writes nothing outside Customer Decision: G6 has a requote outcome too', () => {
@@ -221,14 +235,18 @@ describe('the worker’s decisions', () => {
 
   it('a reopen goes only over the close QuoteFlow wrote, and is exempt from the regression skip', () => {
     const reopen = { sfField: 'StageName', value: 'Quoting', reopens: true };
-    expect(send({ row: reopen, current: 'Closed Lost', lastClosingWritten: 'Closed Lost' })).toEqual({
+    expect(
+      send({ row: reopen, current: 'Closed Lost', lastClosingWritten: 'Closed Lost' }),
+    ).toEqual({
       action: 'send',
     });
     expect(send({ row: reopen, current: 'Closed Lost', lastClosingWritten: null })).toEqual({
       action: 'skip',
       reason: 'nothing_to_reopen',
     });
-    expect(send({ row: reopen, current: 'Negotiating', lastClosingWritten: 'Closed Lost' })).toEqual({
+    expect(
+      send({ row: reopen, current: 'Negotiating', lastClosingWritten: 'Closed Lost' }),
+    ).toEqual({
       action: 'skip',
       reason: 'moved_in_salesforce',
     });

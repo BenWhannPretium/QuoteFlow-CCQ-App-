@@ -402,7 +402,12 @@ describe('Salesforce write-back config (FB-29)', () => {
     expect(c.SF_WRITE_MODE).toBe('live');
     expect(sfWriteAvailability(c).liveBlockedReason).toBeNull();
     expect(() =>
-      loadConfig({ ...testSite, ...write, SF_WRITE_LOGIN_URL: sandbox, SF_WRITE_CLIENT_SECRET: '' }),
+      loadConfig({
+        ...testSite,
+        ...write,
+        SF_WRITE_LOGIN_URL: sandbox,
+        SF_WRITE_CLIENT_SECRET: '',
+      }),
     ).toThrow(/SF_WRITE_CLIENT_SECRET is required/);
     expect(() =>
       loadConfig({

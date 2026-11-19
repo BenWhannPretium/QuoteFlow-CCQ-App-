@@ -658,9 +658,13 @@ export const api = {
     setSfWriteback: (body: SfWritebackSwitchBody) =>
       getJson('/api/v1/admin/salesforce/writeback', SfWritebackSummary, { method: 'PUT', body }),
     retrySfWrite: (id: string) =>
-      getJson(`/api/v1/admin/salesforce/writeback/${encodeURIComponent(id)}/retry`, SfWritebackRow, {
-        method: 'POST',
-      }),
+      getJson(
+        `/api/v1/admin/salesforce/writeback/${encodeURIComponent(id)}/retry`,
+        SfWritebackRow,
+        {
+          method: 'POST',
+        },
+      ),
     skipSfWrite: (id: string) =>
       getJson(`/api/v1/admin/salesforce/writeback/${encodeURIComponent(id)}/skip`, SfWritebackRow, {
         method: 'POST',

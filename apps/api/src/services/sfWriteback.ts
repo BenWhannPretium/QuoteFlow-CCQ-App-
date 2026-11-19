@@ -183,7 +183,11 @@ export class SfWritebackService {
     } catch (err) {
       const code = (err as { code?: unknown }).code;
       this.opts.log?.error(
-        { quoteId: ctx.quoteId, event: ctx.event, code: typeof code === 'string' ? code : 'unknown' },
+        {
+          quoteId: ctx.quoteId,
+          event: ctx.event,
+          code: typeof code === 'string' ? code : 'unknown',
+        },
         'salesforce write-back: could not queue the write (the change itself is saved)',
       );
       await this.skipAudit(tx, ctx, 'error', 'could not queue the write; see the application log');
@@ -209,7 +213,12 @@ export class SfWritebackService {
   /** Insert one planned write as pending, dry_run or skipped (other_active_quote), and audit it. */
   private async enqueue(
     tx: Tx,
-    ctx: { quote: { id: string; sfOpportunityId: string }; actor: Actor; meta: AuditMeta; at: Date },
+    ctx: {
+      quote: { id: string; sfOpportunityId: string };
+      actor: Actor;
+      meta: AuditMeta;
+      at: Date;
+    },
     write: PlannedSfWrite,
     mode: SfWritebackMode,
     skippedReason: SfWritebackSkipReason | null,
@@ -302,7 +311,13 @@ export class SfWritebackService {
         // Never close an opportunity another quote (or an open re-quote) still needs.
         const blocked =
           write.closing && (await this.otherActive(sp, ctx.quote.sfOpportunityId, ctx.quote.id));
-        await this.enqueue(sp, ctx, write, loaded.settings.mode, blocked ? 'other_active_quote' : null);
+        await this.enqueue(
+          sp,
+          ctx,
+          write,
+          loaded.settings.mode,
+          blocked ? 'other_active_quote' : null,
+        );
       }
     });
   }
@@ -440,7 +455,8 @@ export class SfWritebackService {
     const at = this.now();
     await withTx(async (tx) => {
       const changes: [key: string, value: unknown][] = [];
-      if (body.enabled !== undefined) changes.push([SF_WRITEBACK_SETTING_KEYS.enabled, body.enabled]);
+      if (body.enabled !== undefined)
+        changes.push([SF_WRITEBACK_SETTING_KEYS.enabled, body.enabled]);
       if (body.mode !== undefined) changes.push([SF_WRITEBACK_SETTING_KEYS.mode, body.mode]);
       for (const [key, value] of changes) {
         const before = await findSettingByKey(tx, key);
@@ -550,10 +566,7 @@ export class SfWritebackService {
    * What the current map would send for a quote as it stands (its latest customer outcome and its stage),
    * without queuing anything. Works whether the switch is on or off.
    */
-  async preview(
-    withTx: SfWritebackWithTx,
-    quoteNumber: string,
-  ): Promise<SfWritebackPreview> {
+  async preview(withTx: SfWritebackWithTx, quoteNumber: string): Promise<SfWritebackPreview> {
     return withTx(async (tx) => {
       const q = await getQuoteByNumber(tx, quoteNumber);
       if (!q) throw new ServiceProblem(404, 'not_found', `No quote ${quoteNumber}`);

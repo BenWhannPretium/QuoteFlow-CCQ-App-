@@ -5,7 +5,16 @@ import {
   SF_WRITEBACK_STATUSES,
 } from '@ccq/domain';
 import { sql } from 'drizzle-orm';
-import { boolean, check, index, integer, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { c, documented, inList } from './_doc';
 import { baseColumns, timestamptz } from './identity';

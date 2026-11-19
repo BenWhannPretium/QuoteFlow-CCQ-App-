@@ -40,10 +40,12 @@ describe('sfWriteHostProblem', () => {
 describe('JsforceSalesforceWriter', () => {
   it('writes an allow-listed field through its own session', async () => {
     const { api, save } = stub(SANDBOX);
-    const writer = new JsforceSalesforceWriter(() => Promise.resolve(api), { appEnvironment: 'test' });
-    expect(await writer.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'k' })).toEqual(
-      { ok: true },
-    );
+    const writer = new JsforceSalesforceWriter(() => Promise.resolve(api), {
+      appEnvironment: 'test',
+    });
+    expect(
+      await writer.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'k' }),
+    ).toEqual({ ok: true });
     expect(save).toHaveBeenCalledWith('Opportunity', { Id: OPP, StageName: 'Closed Lost' });
     expect(await writer.getCurrentStage(OPP)).toEqual({ ok: true, stage: 'Negotiating' });
   });
@@ -59,18 +61,28 @@ describe('JsforceSalesforceWriter', () => {
         code: 'FIELD_NOT_ALLOWED',
       });
     }
-    expect(await writer.updateOpportunity("x' OR Id != '", { StageName: 'Quoting' }, { dedupeKey: 'k' }))
-      .toMatchObject({ ok: false, code: 'INVALID_ID' });
+    expect(
+      await writer.updateOpportunity("x' OR Id != '", { StageName: 'Quoting' }, { dedupeKey: 'k' }),
+    ).toMatchObject({ ok: false, code: 'INVALID_ID' });
     expect(connect).not.toHaveBeenCalled();
   });
 
   it('never writes to a production instance from outside prod, even if the login URL said sandbox', async () => {
     const { api, save } = stub(PROD);
-    const writer = new JsforceSalesforceWriter(() => Promise.resolve(api), { appEnvironment: 'test' });
-    const result = await writer.updateOpportunity(OPP, { StageName: 'Quoting' }, { dedupeKey: 'k' });
+    const writer = new JsforceSalesforceWriter(() => Promise.resolve(api), {
+      appEnvironment: 'test',
+    });
+    const result = await writer.updateOpportunity(
+      OPP,
+      { StageName: 'Quoting' },
+      { dedupeKey: 'k' },
+    );
     expect(result).toMatchObject({ ok: false, retryable: false, code: 'INSTANCE_REFUSED' });
     expect(save).not.toHaveBeenCalled();
-    expect(await writer.getCurrentStage(OPP)).toMatchObject({ ok: false, code: 'INSTANCE_REFUSED' });
+    expect(await writer.getCurrentStage(OPP)).toMatchObject({
+      ok: false,
+      code: 'INSTANCE_REFUSED',
+    });
   });
 
   it('reports a refused save (not retryable) and a busy org (retryable)', async () => {
@@ -78,21 +90,33 @@ describe('JsforceSalesforceWriter', () => {
       update: () =>
         Promise.resolve({
           success: false,
-          errors: [{ errorCode: 'FIELD_CUSTOM_VALIDATION_EXCEPTION', message: 'A loss reason is required' }],
+          errors: [
+            {
+              errorCode: 'FIELD_CUSTOM_VALIDATION_EXCEPTION',
+              message: 'A loss reason is required',
+            },
+          ],
         }),
     });
-    const w1 = new JsforceSalesforceWriter(() => Promise.resolve(refused), { appEnvironment: 'test' });
-    expect(await w1.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'k' })).toEqual({
+    const w1 = new JsforceSalesforceWriter(() => Promise.resolve(refused), {
+      appEnvironment: 'test',
+    });
+    expect(
+      await w1.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'k' }),
+    ).toEqual({
       ok: false,
       retryable: false,
       code: 'FIELD_CUSTOM_VALIDATION_EXCEPTION',
       message: 'A loss reason is required',
     });
     const { api: busy } = stub(SANDBOX, {
-      update: () => Promise.reject(Object.assign(new Error('x'), { errorCode: 'SERVER_UNAVAILABLE' })),
+      update: () =>
+        Promise.reject(Object.assign(new Error('x'), { errorCode: 'SERVER_UNAVAILABLE' })),
     });
     const w2 = new JsforceSalesforceWriter(() => Promise.resolve(busy), { appEnvironment: 'test' });
-    expect(await w2.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'k' })).toMatchObject({
+    expect(
+      await w2.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'k' }),
+    ).toMatchObject({
       ok: false,
       retryable: true,
       code: 'SERVER_UNAVAILABLE',
@@ -103,7 +127,9 @@ describe('JsforceSalesforceWriter', () => {
     const { api } = stub(SANDBOX, {
       stageOf: () => Promise.resolve({ found: false, stage: null }),
     });
-    const writer = new JsforceSalesforceWriter(() => Promise.resolve(api), { appEnvironment: 'test' });
+    const writer = new JsforceSalesforceWriter(() => Promise.resolve(api), {
+      appEnvironment: 'test',
+    });
     expect(await writer.getCurrentStage(OPP)).toMatchObject({ ok: false, code: 'NOT_FOUND' });
   });
 });
@@ -112,12 +138,16 @@ describe('FakeSalesforceWriter', () => {
   it('records calls, keeps the stage, and injects failures and a timeout that still reaches it', async () => {
     const fake = new FakeSalesforceWriter();
     fake.failNext({ kind: 'error', retryable: true }, { kind: 'timeout' });
-    expect(await fake.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'a' })).toMatchObject({
+    expect(
+      await fake.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'a' }),
+    ).toMatchObject({
       ok: false,
       retryable: true,
     });
     expect(fake.stageOf(OPP)).toBeUndefined();
-    expect(await fake.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'a' })).toMatchObject({
+    expect(
+      await fake.updateOpportunity(OPP, { StageName: 'Closed Lost' }, { dedupeKey: 'a' }),
+    ).toMatchObject({
       ok: false,
       code: 'TIMEOUT',
     });

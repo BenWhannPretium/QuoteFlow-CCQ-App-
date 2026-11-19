@@ -314,7 +314,13 @@ export function SfWritebackCard() {
             )}
             data-testid="sf-writeback-state"
           >
-            {!s.enabled ? 'Off' : s.mode === 'dry_run' ? 'Dry run' : s.sending ? 'Live' : 'Not sending'}
+            {!s.enabled
+              ? 'Off'
+              : s.mode === 'dry_run'
+                ? 'Dry run'
+                : s.sending
+                  ? 'Live'
+                  : 'Not sending'}
           </span>
         )}
       </div>
@@ -331,7 +337,10 @@ export function SfWritebackCard() {
           )}
           {s.canManage && (
             <div className="flex flex-wrap items-end gap-4">
-              <label htmlFor={switchId} className="flex min-h-11 items-center gap-2 text-sm font-medium">
+              <label
+                htmlFor={switchId}
+                className="flex min-h-11 items-center gap-2 text-sm font-medium"
+              >
                 <input
                   id={switchId}
                   type="checkbox"
