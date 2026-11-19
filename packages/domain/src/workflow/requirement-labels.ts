@@ -83,7 +83,8 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   'g4_terms_check_required,terms_checked_at':
     'The terms check by Sales or Pricing (tooling commitment, MOQ, payment terms)',
   'g4_terms_exception_check_required,terms_exception_open':
-    "The pricing lead's approval of the payment-terms exception (it is waiting or was rejected: see Commercial terms)",
+    // FB-31 (N19-07): who approves depends on the payment terms (terms_exception_routes).
+    'The approval of the payment-terms exception (it is waiting or was rejected: see Commercial terms)',
   'g4_terms_finalized_check_required,terms_finalized_at':
     "The approver's confirmation of the capital terms",
   // FB-25 (N17-26): yes or no, on the Commercial terms tab (the KAM may answer it at intake).

@@ -14,8 +14,8 @@ import { DomainError } from '../errors';
  * records that they saw it.
  *
  * FB-08 adds two (seeded on, provisional):
- * - `terms_exception` (T-007): non-standard payment terms need the PricingLead's approved exception. A
- *   pending or rejected one blocks.
+ * - `terms_exception` (T-007): non-standard payment terms need an approved exception (FB-31: decided by
+ *   the tier `terms_exception_routes` names). A pending or rejected one blocks.
  * - `terms_finalized` (F-068, T-031): the approver has confirmed the capital terms. It is the approver's
  *   own field, so it does not repeat the F-069 problem.
  *
@@ -93,6 +93,8 @@ export interface G4CheckInput {
   legalReviewedOn: string | null;
   /** FB-08: `quote.terms_exception_status`. */
   termsExceptionStatus?: string | null;
+  /** FB-31: who decides the current request ("Leadership"), from its tier. */
+  termsExceptionApproverLabel?: string | null;
   /** FB-08: `quote.terms_finalized_at`. */
   termsFinalizedAt?: Date | string | null;
   /** FB-25: `quote.terms_tooling_commitment` (null = not answered). Omitted = not checked. */
@@ -104,6 +106,8 @@ export interface G4CheckInput {
  * warnings, with a link to the quote's Commercial panel, and may still approve. A required check that is
  * open blocks G4 Advance through the workflow rules instead, so it is not repeated here.
  */
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 export function g4CheckWarnings(input: G4CheckInput): G4CheckWarning[] {
   const out: G4CheckWarning[] = [];
   if (!input.termsCheckedAt && !input.checks.includes('terms_checked')) {
@@ -128,10 +132,11 @@ export function g4CheckWarnings(input: G4CheckInput): G4CheckWarning[] {
     out.push({
       code: 'TERMS_EXCEPTION_OPEN',
       severity: 'risk',
+      // FB-31 (N19-07): who decides comes from the request's tier (terms_exception_routes).
       message:
         input.termsExceptionStatus === 'rejected'
-          ? 'The pricing lead rejected the non-standard payment terms'
-          : 'The non-standard payment terms are waiting for the pricing lead',
+          ? `${capitalize(input.termsExceptionApproverLabel ?? 'the approver')} rejected the non-standard payment terms`
+          : `The non-standard payment terms are waiting for ${input.termsExceptionApproverLabel ?? 'the approver'}`,
     });
   }
   if (

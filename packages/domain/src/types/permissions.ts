@@ -36,6 +36,9 @@ export const PERMISSIONS = [
   'terms.finalize',
   // FB-08 (T-007): approve or reject a non-standard payment-terms exception.
   'terms.exception.decide',
+  // FB-31 (N19-07): the senior tier of terms_exception_routes (Net 60 and above in the provisional seed).
+  // "CFO" is the approver Sarah Brennan named; Leadership holds it as a stand-in until a CFO role exists.
+  'terms.exception.decide.senior',
   'capitalFlag.edit',
   // FB-16 (W13-15): the capacity evidence rows, separate from the engineer's solution (`engReview.edit`).
   'capacity.edit',

@@ -1,3 +1,4 @@
+import type { TermsExceptionApproverPermission } from '../commercial/terms-routes';
 import { ENG_QUEUE_STAGE_KEY } from '../engineering/queue';
 import {
   CUSTOMER_DECISION_STAGE_KEY,
@@ -532,9 +533,15 @@ export function planRoiUploaded(requesterId: UserId | null = null): PlannedHando
 
 // ── Payment-terms exceptions (FB-08, T-007) ────────────────────────────────────────────────────────
 
-/** Non-standard payment terms were entered: whoever decides the exception (the pricing lead) is told. */
-export function planTermsExceptionRequested(): PlannedHandoff[] {
-  return rolesWithPermission('terms.exception.decide').map((r): PlannedHandoff => ({
+/**
+ * Non-standard payment terms were entered: whoever decides the exception is told. FB-31 (N19-07): the
+ * holders of the permission the request's tier names (`terms_exception_routes`): the pricing lead for
+ * Net 45, Leadership for Net 60 and above in the provisional seed.
+ */
+export function planTermsExceptionRequested(
+  approverPermission: TermsExceptionApproverPermission = 'terms.exception.decide',
+): PlannedHandoff[] {
+  return rolesWithPermission(approverPermission).map((r): PlannedHandoff => ({
     type: HANDOFF_TYPES.termsExceptionRequested,
     recipient: role(r),
     reason: 'next_owner',

@@ -116,6 +116,8 @@ export const PUBLIC_SETTING_KEYS = [
   'customer_master_data_notice',
   // FB-11 intake commercial inputs (provisional)
   'standard_payment_terms',
+  // FB-31 (N19-07): who approves which non-standard terms, for the intake and Commercial tab line.
+  'terms_exception_routes',
   // FB-08 (F-021): the payment terms pre-selected on the quote.
   'default_payment_terms',
   // FB-10 (F-066): the platform-minimum warning (seeded off, provisional)

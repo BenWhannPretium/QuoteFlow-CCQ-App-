@@ -161,6 +161,11 @@ export const PERMISSION_MATRIX: Readonly<
   // FB-08 (T-007, D-003 provisional): the pricing lead (Gemma Cebolla, or the designee given the
   // PricingLead role) approves or rejects a non-standard payment-terms exception, with a rationale.
   'terms.exception.decide': { PricingLead: true },
+  // FB-31 (N19-07, provisional): the senior tier of app_setting terms_exception_routes. Sarah Brennan said
+  // the CFO approves Net 60 and above, with formal documentation. There is no CFO role (roles come from
+  // Entra groups: adding one is IT's work and Ben's call), so Leadership, the closest existing role, is
+  // the stand-in. Replacing it is this line plus the role_permission row once the right role exists.
+  'terms.exception.decide.senior': { Leadership: true },
   // B-26: the early "capital likely" flag (slide 9 "Aware"): Sales or upfront Engineering sets it.
   'capitalFlag.edit': {
     KAM: own,

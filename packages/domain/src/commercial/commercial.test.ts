@@ -538,6 +538,15 @@ describe('the payment-terms exception decision (T-007)', () => {
       decision: 'approve',
       rationale: ' strategic account ',
       closed: false,
+      // FB-31: the pricing lead's tier (no document), decided by its holder, who did not request it.
+      routing: {
+        approverPermission: 'terms.exception.decide',
+        approverLabel: 'the pricing lead',
+        documentRequired: false,
+      },
+      holdsApprover: true,
+      isRequester: false,
+      documentOnFile: false,
       ...over,
     });
 

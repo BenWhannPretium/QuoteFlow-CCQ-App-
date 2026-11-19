@@ -11,6 +11,7 @@ import {
   parseMarketDevNotice,
   parsePassThrough,
   parseProcessOwner,
+  parseTermsExceptionRoutes,
 } from '../commercial';
 import { parseAssignmentRules } from '../engineering/assignment-rules';
 import { parseCapacityBasis } from '../engineering/capacity';
@@ -431,6 +432,15 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Payment terms that count as standard (requested_payment_terms codes)',
     'json',
     z_('standard_payment_terms', intakeConfigSchema.shape.standardPaymentTerms),
+  ),
+  // FB-31 (N19-07, provisional): who approves which non-standard payment terms. The Admin console also
+  // refuses a code that is not on requested_payment_terms (adminConfig.ts).
+  spec(
+    'terms_exception_routes',
+    'pricing',
+    'Who approves non-standard payment terms, by code, in order (a code no tier lists goes to the first tier). Provisional: thresholds not yet set by Sarah Brennan and Oleg Yarovinski',
+    'json',
+    notNull('terms_exception_routes', parseTermsExceptionRoutes),
   ),
   // FB-08 (F-021): the payment terms the Commercial panel offers when the customer asked for none.
   spec(

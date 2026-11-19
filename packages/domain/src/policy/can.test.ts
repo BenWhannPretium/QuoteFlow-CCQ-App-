@@ -94,6 +94,8 @@ const EXPECTED: Record<string, Role[]> = {
   'terms.engineering.edit': ['EngLead'],
   'terms.finalize': [],
   'terms.exception.decide': ['PricingLead'],
+  // FB-31 (N19-07): Leadership stands in for the CFO on the senior payment-terms tier.
+  'terms.exception.decide.senior': ['Leadership'],
   'capitalFlag.edit': ['SalesLeader', 'EngLead', 'Pricing', 'PricingLead'],
   // FB-16: the Engineer (assigned) and the ProductionScheduler (assigned as scheduler) hold qualified
   // grants, which are not in this role-level view.

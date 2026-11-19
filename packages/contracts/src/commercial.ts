@@ -139,8 +139,33 @@ export const TermsExceptionView = z
     decidedByName: z.string().nullable(),
     decidedAt: z.string().nullable(),
     rationale: z.string().nullable(),
-    /** The viewer may decide it (terms.exception.decide, pending, quote open). */
+    /**
+     * The viewer may decide it: they hold the permission of the request's tier (FB-31,
+     * terms_exception_routes), it is pending, the quote is open and the terms are not locked, and they
+     * are not the requester where the requester bar applies.
+     */
     canDecide: z.boolean(),
+    /** FB-31 (N19-07): who decides it, from its tier ("the pricing lead", "Leadership"). */
+    approverLabel: z.string(),
+    /** FB-31: approving needs a current Payment-terms approval document on the quote. */
+    documentRequired: z.boolean(),
+    /** FB-31: the current `payment_terms_approval` file on the quote, if any. */
+    document: z
+      .object({
+        id: z.uuid(),
+        fileName: z.string(),
+        version: z.number().int().nullable(),
+        uploadedByName: z.string().nullable(),
+        uploadedAt: z.string(),
+      })
+      .nullable(),
+    /** FB-31: the viewer may upload the document here (attachment.upload on the quote, pending). */
+    canUploadDocument: z.boolean(),
+    /**
+     * FB-31: why a holder of the tier's permission cannot decide now (they requested it; the document is
+     * missing for an approval). Null otherwise.
+     */
+    decideNote: z.string().nullable(),
   })
   .nullable();
 export type TermsExceptionView = z.infer<typeof TermsExceptionView>;

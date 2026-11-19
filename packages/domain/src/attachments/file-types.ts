@@ -30,6 +30,10 @@ export const ATTACHMENT_KINDS = [
   // FB-26 (N17-32, Bailey Schmitt): proof of the CER (a screenshot of the CER tool, or a PDF), uploaded on
   // the hand-off card by whoever edits the hand-off. Versioned like the models.
   'cer_proof',
+  // FB-31 (N19-07, Sarah Brennan): the formal documentation behind a payment-terms exception whose tier
+  // needs a document (terms_exception_routes documentRequired), uploaded on the Commercial terms tab.
+  // Approving such an exception needs a current one. Versioned like the CER proof.
+  'payment_terms_approval',
 ] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
@@ -46,6 +50,8 @@ export const VERSIONED_ATTACHMENT_KINDS: readonly AttachmentKind[] = [
   'equipment_bom',
   // FB-26 (N17-32): one current CER proof per quote; earlier versions stay downloadable.
   'cer_proof',
+  // FB-31 (N19-07): one current payment-terms approval document per quote.
+  'payment_terms_approval',
 ];
 
 export const isVersionedKind = (kind: string): boolean =>
@@ -70,6 +76,8 @@ export const KIND_FORMATS: Partial<Readonly<Record<AttachmentKind, readonly File
   offer_letter: ['docx'],
   // FB-26 (N17-32): a screenshot or a PDF.
   cer_proof: ['pdf', 'png', 'jpeg', 'heic'],
+  // FB-31 (N19-07): a memo, a signed form or the approval e-mail.
+  payment_terms_approval: ['pdf', 'docx', 'msg', 'eml', 'png', 'jpeg'],
 };
 
 /** FB-20: kinds QuoteFlow generates itself; no one uploads them. */
