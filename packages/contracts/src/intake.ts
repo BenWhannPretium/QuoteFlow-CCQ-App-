@@ -647,11 +647,15 @@ export function normalizeDraftData(data: IntakeDraftData, newKey: () => string):
 /**
  * FB-24 (N17-02): an item's decoration types. `decorationTypes` when the item has it; otherwise the
  * deprecated single `decorationType` as a one-code list (a draft or client from before FB-24).
+ * A `null` list (a wizard build before the 2026-11-19 fix cleared it that way) reads as none rather
+ * than crashing every evaluation of the draft.
  */
 export function itemDecorationTypes(
   item: Pick<IntakeItemData, 'decorationType' | 'decorationTypes'>,
-) {
-  if (item.decorationTypes !== undefined) return [...item.decorationTypes];
+): string[] {
+  const types: unknown = item.decorationTypes;
+  if (Array.isArray(types)) return [...(types as string[])];
+  if (types === null) return [];
   return item.decorationType ? [item.decorationType] : [];
 }
 

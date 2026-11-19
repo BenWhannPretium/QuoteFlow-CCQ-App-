@@ -1,9 +1,11 @@
-import { intakeValues, ITEM_LABEL_MAX, type IntakeDraftData } from '@ccq/contracts';
+import { IntakeDraftData, intakeValues, ITEM_LABEL_MAX } from '@ccq/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
+  componentTogglePatch,
   duplicateItem,
   evaluateDraft,
+  itemView,
   requiredFieldsNow,
   routeItemPatch,
   wizardConfig,
@@ -112,5 +114,50 @@ describe('N17-02: decoration types', () => {
     expect(fields(decorated([]))).toEqual(['decoration_types']);
     expect(fields(decorated(['SILK_SCREEN', 'OTHER']))).toEqual(['decoration_type_other']);
     expect(fields(decorated(['SILK_SCREEN', 'OTHER'], 'Embossed logo'))).toEqual([]);
+  });
+});
+
+describe('component clicks clear the follow-ups to values the draft accepts (2026-11-19)', () => {
+  /** Applies a component click the way the wizard does: on the open item, then evaluated and saved. */
+  const click = (d: IntakeDraftData, code: string, on: boolean) => {
+    const patch = componentTogglePatch(itemView(d, 0), code, on, cfg);
+    return { patch, next: { ...d, ...routeItemPatch(d, 0, patch) } };
+  };
+
+  it('ticking a component on a fresh item clears the decoration types to [] and does not crash', () => {
+    const { patch, next } = click(draft({}), 'CONTAINER', true);
+    expect(patch).toMatchObject({ components: ['CONTAINER'], decorationTypes: [] });
+    expect(() => evaluateDraft(next, cfg, false, {}, NOW)).not.toThrow();
+    // The autosave sends the whole draft; a `null` list here was refused with 400.
+    expect(IntakeDraftData.safeParse(next).success).toBe(true);
+  });
+
+  it('unticking Decoration clears its types, print colours and description', () => {
+    const d = draft({
+      items: [
+        {
+          key: KEY_1,
+          components: ['CONTAINER', 'DECORATION'],
+          decorationTypes: ['SILK_SCREEN', 'OTHER'],
+          decorationTypeOther: 'Embossed logo',
+          decorationPrintColors: 2,
+        },
+      ],
+    });
+    const { patch, next } = click(d, 'DECORATION', false);
+    expect(patch).toMatchObject({
+      components: ['CONTAINER'],
+      decorationTypes: [],
+      decorationPrintColors: null,
+      decorationTypeOther: null,
+    });
+    expect(intakeValues(next).items[0]!.decoration_types).toEqual([]);
+    expect(IntakeDraftData.safeParse(next).success).toBe(true);
+  });
+
+  it('a draft already holding a null list reads as no types instead of crashing', () => {
+    const held = draft({ items: [{ key: KEY_1, decorationTypes: null as never }] });
+    expect(intakeValues(held).items[0]!.decoration_types).toEqual([]);
+    expect(() => evaluateDraft(held, cfg, false, {}, NOW)).not.toThrow();
   });
 });
