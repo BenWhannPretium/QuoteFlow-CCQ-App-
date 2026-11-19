@@ -5,7 +5,7 @@
 > `routeMatrix.test.ts` fails if this file is stale, and `test/permissions/matrix.int.test.ts` sends
 > every route below as every role (allowed: not 401/403; denied: 403 problem+json) and anonymously (401).
 
-134 routes: 3 public, 6 for any signed-in role, 125 gated by a matrix permission.
+139 routes: 3 public, 6 for any signed-in role, 130 gated by a matrix permission.
 
 Qualified grants (own, assigned, fields, stages) pass the route gate; the service then checks the
 quote with `assertCan`, and Postgres RLS enforces the data scope as the second layer.
@@ -49,6 +49,11 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | GET | `/api/v1/admin/reports/outcomes` | `analytics.read` | SalesLeader, EngLead, Pricing, PricingLead, Approver, Leadership, Admin |  |
 | GET | `/api/v1/admin/reports/usage` | `audit.read` | Leadership, Admin |  |
 | POST | `/api/v1/admin/salesforce/sync` | `config.manage` | Admin |  |
+| GET | `/api/v1/admin/salesforce/writeback` | `config.read` | Leadership, Admin |  |
+| PUT | `/api/v1/admin/salesforce/writeback` | `config.manage` | Admin |  |
+| POST | `/api/v1/admin/salesforce/writeback/:id/retry` | `config.manage` | Admin |  |
+| POST | `/api/v1/admin/salesforce/writeback/:id/skip` | `config.manage` | Admin |  |
+| GET | `/api/v1/admin/salesforce/writeback/preview` | `config.read` | Leadership, Admin |  |
 | GET | `/api/v1/admin/users` | `config.read` | Leadership, Admin |  |
 | PUT | `/api/v1/admin/users/:id/scope` | `config.manage` | Admin |  |
 | GET | `/api/v1/analytics/adoption` | `audit.read` | Leadership, Admin |  |

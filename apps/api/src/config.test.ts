@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { appEnvironment, ConfigError, loadConfig } from './config';
+import { appEnvironment, ConfigError, loadConfig, sfWriteAvailability } from './config';
 
 const base = {
   DATABASE_URL: 'postgres://ccq:ccq@localhost:5432/ccq',
@@ -352,5 +352,99 @@ describe('Notification email config (B-18)', () => {
     expect(() => loadConfig(prod)).toThrow(/MAIL_MODE=fake is forbidden when NODE_ENV=production/);
     expect(() => loadConfig({ ...prod, MAIL_MODE: 'smtp' })).toThrow(/MAIL_MODE=smtp is forbidden/);
     expect(loadConfig({ ...prod, MAIL_MODE: 'graph' }).MAIL_MODE).toBe('graph');
+  });
+});
+
+describe('Salesforce write-back config (FB-29)', () => {
+  // Placeholders only: no real org URL or credential.
+  const sandbox = 'https://example--uat.sandbox.my.salesforce.com';
+  const production = 'https://example.my.salesforce.com';
+  const testSite = {
+    ...base,
+    AUTH_MODE: 'dev',
+    APP_ENVIRONMENT: 'test',
+    SF_MODE: 'live',
+    SF_AUTH_FLOW: 'client_credentials',
+    SF_LOGIN_URL: production,
+    SF_CLIENT_ID: 'read-client',
+    SF_CLIENT_SECRET: 'placeholder',
+  };
+  const write = {
+    SF_WRITE_MODE: 'live',
+    SF_WRITE_CLIENT_ID: 'write-client',
+    SF_WRITE_CLIENT_SECRET: 'placeholder',
+  };
+
+  it('is off by default, with no writer and the reason live is unavailable', () => {
+    const c = loadConfig({ ...base, AUTH_MODE: 'dev' });
+    expect(c.SF_WRITE_MODE).toBe('off');
+    expect(sfWriteAvailability(c)).toEqual({
+      writerMode: 'off',
+      liveBlockedReason: expect.stringMatching(/no Salesforce write connection/) as string,
+    });
+  });
+
+  it('refuses live from the test site against a production org (the test site reads production)', () => {
+    expect(() => loadConfig({ ...testSite, ...write, SF_WRITE_LOGIN_URL: production })).toThrow(
+      /only write to a Salesforce sandbox/,
+    );
+  });
+
+  it('refuses test.salesforce.com, which would otherwise look like a sandbox, and has no default URL', () => {
+    expect(() =>
+      loadConfig({ ...testSite, ...write, SF_WRITE_LOGIN_URL: 'https://test.salesforce.com' }),
+    ).toThrow(/test\.salesforce\.com cannot be used/);
+    expect(() => loadConfig({ ...testSite, ...write })).toThrow(/SF_WRITE_LOGIN_URL is required/);
+  });
+
+  it('allows live outside prod only against a sandbox, with its own credentials', () => {
+    const c = loadConfig({ ...testSite, ...write, SF_WRITE_LOGIN_URL: sandbox });
+    expect(c.SF_WRITE_MODE).toBe('live');
+    expect(sfWriteAvailability(c).liveBlockedReason).toBeNull();
+    expect(() =>
+      loadConfig({ ...testSite, ...write, SF_WRITE_LOGIN_URL: sandbox, SF_WRITE_CLIENT_SECRET: '' }),
+    ).toThrow(/SF_WRITE_CLIENT_SECRET is required/);
+    expect(() =>
+      loadConfig({
+        ...testSite,
+        ...write,
+        SF_WRITE_LOGIN_URL: sandbox,
+        SF_WRITE_CLIENT_ID: 'read-client',
+      }),
+    ).toThrow(/never the read-only one/);
+  });
+
+  it('refuses live while SF_MODE=fake, and fake in prod', () => {
+    expect(() =>
+      loadConfig({ ...base, AUTH_MODE: 'dev', ...write, SF_WRITE_LOGIN_URL: sandbox }),
+    ).toThrow(/SF_WRITE_MODE=live is refused while SF_MODE=fake/);
+    const prod = {
+      ...base,
+      NODE_ENV: 'production',
+      APP_ENVIRONMENT: 'prod',
+      AUTH_MODE: 'entra',
+      ENTRA_TENANT_ID: '00000000-0000-0000-0000-000000000000',
+      ENTRA_API_AUDIENCE: 'api://quoteflow',
+      ENTRA_SPA_CLIENT_ID: '11111111-1111-1111-1111-111111111111',
+      FILESTORE_MODE: 'blob',
+      BLOB_ACCOUNT_URL: 'https://x.blob.core.windows.net',
+      BLOB_CONTAINER: 'c',
+      MAIL_MODE: 'graph',
+      SF_MODE: 'live',
+      SF_AUTH_FLOW: 'client_credentials',
+      SF_LOGIN_URL: production,
+      SF_CLIENT_ID: 'read-client',
+      SF_CLIENT_SECRET: 'placeholder',
+    };
+    expect(() => loadConfig({ ...prod, SF_WRITE_MODE: 'fake' })).toThrow(
+      /SF_WRITE_MODE=fake is forbidden when APP_ENVIRONMENT=prod/,
+    );
+    // Production may write to the production org.
+    expect(loadConfig({ ...prod, ...write, SF_WRITE_LOGIN_URL: production }).SF_WRITE_MODE).toBe(
+      'live',
+    );
+    expect(loadConfig({ ...base, AUTH_MODE: 'dev', SF_WRITE_MODE: 'fake' }).SF_WRITE_MODE).toBe(
+      'fake',
+    );
   });
 });
