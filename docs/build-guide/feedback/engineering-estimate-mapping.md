@@ -122,11 +122,39 @@ fields.
 | Equipment list and capital cost (C, E or P per line) | The equipment BOM upload (F-058, FB-06): a file, no extracted figures |
 | Utilization before and after, capacity basis | Capacity evidence (F-059) |
 | Two-step process: preform plant, blow plant, preform number, freight between plants | FB-06 (F-024), provisional |
-| Units per bag, tray, case and pallet | FB-06 (F-025), provisional |
+| Units per bag, tray, case and pallet | FB-06 (F-025), provisional; FB-23 adds the pack-out method, layers, pallet and trailer (below) |
 | Resin, grade, PCR %, color, additives, variants note, neck | The intake (FB-02, FB-09), shown on the Engineering tab |
 | Tooling notes, technical concept, Supply Chain view | Free-text notes on the Engineering Review |
 
 The workbook carries **no pack-out and no two-step details**. Those stay as the FB-06 fields (A-014, D-007).
+
+## FB-23 (2026-11-19): Jim's ECE Summary now has fields
+
+Jim Zweifel (Engineering sync, 2026-11-18; N18-03 to N18-10, N18-14) showed a second worksheet his group fills in
+after reading the ERF: the **ECE Summary** (engineering cost estimate), one column per size, alongside the legacy
+**ERF** and the **PTF Form** (the old offer letter). It is not in the repo (it holds a real project). FB-23 gave
+every ECE Summary line a home, per quote item (one column per size = one item, FB-19):
+
+| ECE Summary | QuoteFlow (FB-23) | Notes |
+|---|---|---|
+| Estimated mold lead time | `eng_review.mold_lead_time` (free text) | Printed on the offer letter as "Equipment / tool lead time" |
+| Molds, Unit mold, Perso parts, Head tooling, Freight, Start-up assistance (3 days), Other | `eng_cost_line` rows, lines from `engineering_cost_lines` (provisional) | Perso parts shown for RHB, head tooling for EBM; unit mold for every process until Jim says which |
+| Tariffs / duties (not on the sheet; D4) | `eng_cost_line` `tariffs`, customer funded | Jim raised tariffs with mold and freight costs |
+| Freight $1,500 complete mold / $750 per lower blow mold; start-up $5,500 | `engineering_cost_defaults` (pre-fill, then editable) | |
+| Customer Funded (Molds + Freight + Start-up), Project Total, Net Cost to Pretium | Calculated (`customerFunded` per line in config) | Never stored; shown on Engineering, Quoting, Final Review |
+| PTF Form mold cost = customer funded × 1.15 | Customer tooling price = customer funded × (1 + noted markup); default 0 % (D5) | The offer letter's Molds row uses it when the costing workbook has no mold charge |
+| New-line capital equipment (Blow molders, Resin handling, Packaging & inspection, Support, Misc.) | `eng_cost_line` `new_line` group (Operations fills; collapsed card) | Split and owner open (Paul Slomkowski, Kal Kaliszewski) |
+| Packers and operators per line | `eng_review.packers_per_line`, `operators_per_line` (fractional) | |
+| Pack-out: method, item number and description, pieces per bag / carton, per layer, layers, build height, pallet or floor loaded, pallets per 53-ft trailer | `eng_review` pack-out columns; pieces per bag / carton / tray reuse `units_per_bag` / `units_per_case` / `units_per_tray` | Calculated: bags or cartons per pallet, pieces per pallet (written to `units_per_pallet`), pieces per trailer |
+| Run-rate block (efficiency, output per hour, OEE 85 %) | **Not added**: covered by the capacity evidence (Faron's capacity page; D-08, no OEE default) | |
+| Downstream inspection flags, standard comments | Not added (N18-11, N18-12: Wait) | |
+| Pack-out from a reference item via Apex | Not added (N18-13: Later) | |
+
+**Still only in the equipment BOM upload:** the per-line equipment list with C / E / P flags and the CER BOM roll-up
+(lead time, total capital, total expense, total customer paid per section). The ECE Summary's new-line lines are a
+budgetary summary beside it, not a replacement. The budgetary capital estimate is still typed by Engineering; the
+"Use the project total" button fills it from the cost lines (whether it should be the project total or the net
+cost is open decision 18, for Bailey Schmitt).
 
 ## Template defects (for Kal)
 

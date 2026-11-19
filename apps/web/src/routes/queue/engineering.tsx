@@ -533,7 +533,8 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
           const q = row.original;
           return (
             <span className="grid gap-1">
-              <span className="inline-flex items-center gap-1.5">
+              {/* The items badge wraps under the number on a narrow screen (320 px, 400% zoom). */}
+              <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
                 {q.pinned && (
                   <PinIcon
                     className="text-emphasis size-3.5"

@@ -201,22 +201,26 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await inputs.getByLabel('Blow plant').selectOption({ index: 2 });
   await inputs.getByLabel('Preform number').fill('PF-2210');
   await inputs.getByLabel('Freight between the plants').fill('Preforms ship by truck, weekly.');
-  // FB-16 (W13-14): bag, tray and case read as one choice; bag and case are not filled in together.
-  await expect(inputs.getByTestId('pack-out-units')).toContainText(
-    'Units per pack (fill in one: bag, tray or case)',
-  );
-  await inputs.getByTestId('pack-out-unitsPerBag').fill('50');
-  await inputs.getByTestId('pack-out-unitsPerCase').fill('600');
-  await expect(inputs.getByTestId('pack-out-units').getByRole('alert')).toContainText(
-    'Fill in units per bag or units per case, not both',
-  );
-  await expect(inputs.getByRole('button', { name: 'Save process and pack-out' })).toBeDisabled();
-  await inputs.getByTestId('pack-out-unitsPerBag').fill('');
-  await inputs.getByTestId('pack-out-unitsPerPallet').fill('14400');
-  await inputs.getByRole('button', { name: 'Save process and pack-out' }).click();
+  await inputs.getByRole('button', { name: 'Save two-step process' }).click();
   // FB-18 (W13-30): "Progress saved" beside the button (it read "Saved").
   await expect(inputs.getByTestId('save-progress')).toHaveText('Progress saved');
   await expect(inputs.getByLabel('Preform number')).toHaveValue('PF-2210');
+  // FB-23 (N18-10): the pack-out has its own card. With no method chosen, bag, tray and case still read as
+  // one choice (FB-16, W13-14); bag and case are not filled in together.
+  const pack = eng.getByTestId('pack-out-form');
+  await expect(pack.getByTestId('pack-out-units')).toContainText(
+    'Units per pack (fill in one: bag, tray or case)',
+  );
+  await pack.getByTestId('pack-out-unitsPerBag').fill('50');
+  await pack.getByTestId('pack-out-unitsPerCase').fill('600');
+  await expect(pack.getByTestId('pack-out-units').getByRole('alert')).toContainText(
+    'Fill in units per bag or units per case, not both',
+  );
+  await expect(pack.getByRole('button', { name: 'Save pack-out' })).toBeDisabled();
+  await pack.getByTestId('pack-out-unitsPerBag').fill('');
+  await pack.getByTestId('pack-out-unitsPerPallet').fill('14400');
+  await pack.getByRole('button', { name: 'Save pack-out' }).click();
+  await expect(pack.getByTestId('save-progress')).toHaveText('Progress saved');
 
   const capacity = eng.getByTestId('capacity-form');
   await capacity.getByRole('button', { name: 'Add capacity row' }).click();

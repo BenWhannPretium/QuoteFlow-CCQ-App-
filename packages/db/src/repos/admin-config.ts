@@ -178,6 +178,11 @@ function usageCondition(listKey: ValueListKey, code: string): SQL {
       return eq(quote.termsToolingPayment, code);
     case 'mold_ownership':
       return eq(quote.termsMoldOwnership, code);
+    // FB-23 (N18-10): the pack-out method and pallet type, on any item's engineering review.
+    case 'pack_method':
+      return onAnyReview(sql`${engReview.packMethod} = ${code}`);
+    case 'pallet_type':
+      return onAnyReview(sql`${engReview.palletType} = ${code}`);
   }
 }
 

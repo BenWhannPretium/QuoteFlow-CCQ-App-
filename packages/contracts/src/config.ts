@@ -128,6 +128,11 @@ export const PUBLIC_SETTING_KEYS = [
   'machine_type_process_map',
   'two_step_plant_machine_types',
   'pack_out_rule',
+  // FB-23 (N18-04 to N18-07, N18-14; provisional): the cost lines, their pre-fill figures and the default
+  // tooling markup, so the Engineering tab shows the lines for the process and totals as the server does.
+  'engineering_cost_lines',
+  'engineering_cost_defaults',
+  'tooling_markup_default_pct',
   // FB-17 (W13-22, W13-25; provisional): when capital is needed (the Engineering tab says when the
   // equipment BOM is required) and who the hold-owner picker starts on.
   'capital_needed_above_usd',

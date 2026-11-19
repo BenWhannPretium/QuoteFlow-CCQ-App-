@@ -14,6 +14,8 @@ import {
   getQuoteSummaryByNumber,
   getSetting,
   insertActivityEvent,
+  listEngCostLines,
+  listEngReviews,
   insertAttachment,
   insertOfferLetter,
   listAttachments,
@@ -30,6 +32,7 @@ import {
 import {
   CUSTOMER_DECISION_STAGE_KEY,
   OFFER_LETTER_TEMPLATE_SEED,
+  OFFER_MOLD_CHARGE_SOURCE_SEED,
   RELEASE_GATE_KEY,
   buildOfferLetterModel,
   can,
@@ -41,6 +44,7 @@ import {
   parseOfferLetterBlockIfCostingChanged,
   parseOfferLetterTemplate,
   parseOfferLetterWordingApproved,
+  parseOfferMoldChargeSource,
   proposalCalendarDate,
   renderFolderTemplate,
   sanitizeFileName,
@@ -57,6 +61,7 @@ import {
 import type { FileStore, StoredFile } from '@ccq/integrations';
 import type { FastifyBaseLogger } from 'fastify';
 
+import { costEstimateView, loadCostEstimateContext } from './engineering-view';
 import { fieldsOf, loadModelSummarySettings } from './model-summary';
 import { ServiceProblem } from './problem';
 import { quoteItemSummaries } from './quote-items-view';
@@ -126,6 +131,10 @@ export class OfferLetterService {
       rawTemplate,
       rawApproved,
       rawBlock,
+      rawMoldSource,
+      reviews,
+      costRows,
+      costCtx,
     ] = await Promise.all([
       quoteItemSummaries(tx, actor, q),
       listQuoteItems(tx, q.id),
@@ -152,6 +161,11 @@ export class OfferLetterService {
       getSetting(tx, 'offer_letter_template'),
       getSetting(tx, 'offer_letter_wording_approved'),
       getSetting(tx, 'offer_letter_block_if_costing_changed'),
+      // FB-23 (N18-03, N18-14, D5): the lead time and the customer tooling price, per item.
+      getSetting(tx, 'offer_mold_charge_source'),
+      listEngReviews(tx, q.id),
+      listEngCostLines(tx, q.id),
+      loadCostEstimateContext(tx),
     ]);
     const valueLists = new Map<string, { code: string; label: string; meta: unknown }[]>(lists);
     const labelOf = (list: string, code: string | null | undefined) =>
@@ -199,6 +213,10 @@ export class OfferLetterService {
       template: safe(() => parseOfferLetterTemplate(rawTemplate), OFFER_LETTER_TEMPLATE_SEED),
       wordingApproved: safe(() => parseOfferLetterWordingApproved(rawApproved), false),
       blockIfCostingChanged: safe(() => parseOfferLetterBlockIfCostingChanged(rawBlock), true),
+      moldChargeSource: safe(
+        () => parseOfferMoldChargeSource(rawMoldSource),
+        OFFER_MOLD_CHARGE_SOURCE_SEED,
+      ),
     };
 
     // Items, with the facts the Specifications table shows (the item row; else the quote's mirror).
@@ -220,6 +238,15 @@ export class OfferLetterService {
         decoration: decorationText(src),
         packaging: labelOf('packaging_type', src.packagingType),
       };
+      // FB-23: Engineering's figures for the item (a quote with no item rows reads item 1's review).
+      const review = s.id ? reviews.find((x) => x.quoteItemId === s.id) : reviews[0];
+      specs.toolLeadTime = review?.moldLeadTime ?? null;
+      const cost = costEstimateView(
+        review,
+        costRows.filter((c) => c.quoteItemId === (s.id ?? review?.quoteItemId)),
+        costCtx,
+      );
+      const toolingPrice = cost.costTotals?.customerToolingPriceUsd ?? 0;
       return {
         id: s.id,
         itemNo: s.itemNo,
@@ -229,6 +256,7 @@ export class OfferLetterService {
         plantLabel: s.plantLabel,
         annualVolume: s.estAnnualVolume ?? null,
         specs,
+        engineeringMoldCharge: toolingPrice > 0 ? toolingPrice.toFixed(2) : null,
       };
     });
 
@@ -372,7 +400,7 @@ export class OfferLetterService {
       let preview: OfferLetterResponse['preview'] = null;
       if (available) {
         const m = buildOfferLetterModel(facts, { attention: null, partNumbers: {} }, settings);
-        const prices = offerItemPrices(facts);
+        const prices = offerItemPrices(facts, settings);
         preview = {
           to: m.header.to,
           date: m.header.dateText,
@@ -529,7 +557,7 @@ export class OfferLetterService {
           createdBy: actor.userId,
         });
         const costing = facts.costing!;
-        const prices = offerItemPrices(facts);
+        const prices = offerItemPrices(facts, settings);
         const letter = await insertOfferLetter(
           tx,
           {
@@ -560,6 +588,8 @@ export class OfferLetterService {
               annualVolume: line.annualVolume,
               piecePricePer1000: p.piecePricePer1000,
               moldCharge: p.moldCharge,
+              // FB-23 (D5): workbook or engineering (the customer tooling price).
+              moldChargeSource: p.moldChargeSource,
               changePartsCharge: p.changePartsCharge,
             };
           }),

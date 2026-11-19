@@ -313,6 +313,13 @@ export const QUOTE_ITEM_EXPORT_COLUMNS = [
   'Item product needed by',
   'Item plant',
   'Item machine type',
+  // FB-23 (N18-03, N18-06, N18-10): Engineering's cost estimate and pack-out, per item.
+  'Item mold lead time',
+  'Item customer funded (USD)',
+  'Item net cost to Pretium (USD)',
+  'Item project total (USD)',
+  'Item pieces per pallet',
+  'Item pieces per trailer',
 ] as const;
 export type QuoteExportQuery = z.input<typeof QuoteExportQuery>;
 export type QuoteExportParams = z.output<typeof QuoteExportQuery>;
