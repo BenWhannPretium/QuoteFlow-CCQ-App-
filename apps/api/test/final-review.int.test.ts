@@ -1249,7 +1249,13 @@ describe('B-26: the offer is ready before it is released (deck slide 13)', () =>
       ...['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
     ]),
   );
-  afterAll(() => setSetting('g4_required_checks', ['terms_exception', 'terms_finalized', 'tooling_commitment_answered']));
+  afterAll(() =>
+    setSetting('g4_required_checks', [
+      'terms_exception',
+      'terms_finalized',
+      'tooling_commitment_answered',
+    ]),
+  );
 
   it('G4 Advance needs the terms check; a new customer also needs the Legal review', async () => {
     const qn = await inFinalReview({ terms: false });

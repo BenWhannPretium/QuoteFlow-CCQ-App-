@@ -47,7 +47,7 @@ const runMigration = async (tx: Tx) => {
 /** Today's seeded G4 Advance rule (hybrid.ts) and the one FB-08 (0038) left. */
 const G4_RULE_NOW = hybridConfig.outcomes.find(
   (o) => o.gateKey === 'G4' && o.key === 'approve',
-)!.requiredFields!;
+)!.requiredFields;
 const G4_RULE_0038 = G4_RULE_NOW.slice(0, 4);
 
 const setting = async (tx: Tx) =>
