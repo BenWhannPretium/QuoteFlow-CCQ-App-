@@ -275,7 +275,10 @@ test('an Approver approves one quote and declines another from a phone', async (
   // ── Decline the other one: a note and a reason are required ──
   // Pending capital is an open warning on the review of the quote that has it.
   await page.goto(`/quotes/${pendingMe}/review`);
-  await expect(page.getByTestId('review-warnings')).toContainText('Capital is still pending');
+  // FB-21 (N17-19): pending is normal before award, a warning only.
+  await expect(page.getByTestId('review-warnings')).toContainText(
+    'Capital is pending (normal before award',
+  );
   await page.goto(`/quotes/${declineMe}/review`);
   // FB-17 (W13-22): the capital warning comes from the preliminary capital figure.
   await expect(page.getByTestId('review-warnings')).toContainText(

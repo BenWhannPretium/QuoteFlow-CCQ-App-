@@ -325,10 +325,11 @@ test('UX-001: a difference the server ignores is not an unsaved change on the Qu
   await expect(page.getByText('Capital readiness saved')).toBeVisible();
   await expect.poll(() => asksBeforeUnload(page)).toBe(false);
 
-  // Pick Pending, say why, pick Pre-approved again: the justification is hidden and the server would
-  // drop it. Counting it as unsaved held Submit back with nothing on screen to save.
+  // Pick Pending, add a note, pick Pre-approved again: the note is hidden and the server would drop
+  // it. Counting it as unsaved held Submit back with nothing on screen to save. (FB-21: the note is
+  // optional now.)
   await capital.getByLabel('Status').selectOption('pending');
-  await capital.getByLabel('Pending-capital justification').fill('Waiting for the CER number');
+  await capital.getByLabel('Note on pending capital (optional)').fill('Waiting for the CER number');
   expect(await asksBeforeUnload(page)).toBe(true);
   await capital.getByLabel('Status').selectOption('pre_approved');
   expect(await asksBeforeUnload(page)).toBe(false);
