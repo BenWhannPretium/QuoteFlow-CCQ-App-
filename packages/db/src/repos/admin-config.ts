@@ -68,7 +68,10 @@ export const findById = async <T extends VersionedTable>(db: DbOrTx, table: T, i
 export type ValueListRow = typeof valueList.$inferSelect;
 export type ReasonCodeRow = typeof reasonCode.$inferSelect;
 
-/** Every entry, active or not, in list then display order. */
+/**
+ * Every entry, active or not, in list then STORED order (`sort`): Admin's list editor shows and edits the
+ * stored order; FB-24 (N17-08) sorts lists A to Z only where they are read for use (`listValueList`).
+ */
 export const listAllValueLists = (db: DbOrTx) =>
   db
     .select()
