@@ -1726,6 +1726,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Waiting on:** Zachary Cairns (which ship-to source wins; whether the free text should ever be parsed); Bailey Schmitt (which box Jordan was typing in; where Specification belongs; which lists keep their order and whether "None" leads the additive list; the concept class name and what else a concept needs); Legal (the concept sentence, with the rest of the letter).
   - **Left for FB-26:** `attachment_kinds_by_place` (read with `parseAttachmentKindsByPlace`) and the item-first intake are as named in the prompt.
   - **Left for FB-27:** `FlagKey` on the gate, lead-review and Final Review panels; Engineering's duplicate sort.
+  - **Follow-up 2026-11-19 (e2e):** `intake.spec.ts` "a changed ship-to needs a reason" failed about 1 run in 7 (6 of 40 locally) when the picked opportunity had a product spec: that ship-to has no street, and filling a part Salesforce left blank is rightly not a change (FB-15). The test now changes every part of the address, so it differs from whichever source pre-filled it (40 of 40 and 20 of 20 with `--repeat-each`). No app change.
 
 ### FB-25: Quote page and Final Review · **Built 2026-11-19 (in PR [#112](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/112))** · Ben (Opus 5.5 · high)
 - **Why:** a sales leader's notice opened a page of empty fields; people missed the tab bar; Final Review had a row of buttons that all open the same panel; standard terms could trigger Legal (N17-18, N17-25 to N17-29, N18-17, N18-18).
