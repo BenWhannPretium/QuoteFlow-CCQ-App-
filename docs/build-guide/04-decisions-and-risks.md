@@ -259,6 +259,18 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
 | 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
 
+**Provisional values FB-27 seeded (built 2026-11-19; no config rows and no migration: these are screen words and two small rules in code, changed by a small code change).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| Analytics tile label and hint (`AnalyticsPage.tsx`) | "Awarded, hand-off not done": "The customer awarded it; the CER and hand-off are still open. Counted as won." The figure is unchanged | Question 1 to Bailey: is it clear? | Bailey Schmitt |
+| Plant column and filter (N17-17) | A quote's plants are the distinct `eng_review.plant_code` of its items, in item order, as labels; the filter matches any item. A two-step part's preform / blow plants are **not** counted | Whether preform and blow plants should count | Faron Ipox; Gemma Cebolla |
+| Saved views (N17-17) | Per person, per browser (`localStorage`); they keep the filters, the sort and (the list) the columns and their order. They do not follow a person to another device | Question 2 to Bailey: server storage? | Bailey Schmitt; Ben Whann |
+| Score-change event (N17-15) | One `priority_score_changed` event for every recalculation that moves the score (0.01) or the computed tier, with the tiers before and after and the trigger; the tier-only event is no longer written | Whether Pricing wants a threshold (ignore small moves) | Bailey Schmitt |
+| Timeline file link (N17-34) | The name opens the audited download for anyone who may read the quote; a removed file's name is plain text | — | Bailey Schmitt |
+| Red and yellow (N17-09, panels) | Red: gate "Missing before it can move on", the capacity-blocked note, lead-review "Still needed", Final Review's release blockers. Yellow: warnings. The key shows only while a flag is on screen | Bailey's view of the shades on the gate panels | Bailey Schmitt; Ben Whann |
+| Report an issue (N17-35) | Send needs 5 characters (the API's rule); Cancel, Esc and clicking outside clear the form | — | Bailey Schmitt |
+
 **Provisional values FB-25 seeded (built 2026-11-19; all `provisional: true`, changed by config, not code; migration 0053).**
 
 | Value | Seed | Waits on | Who signs off |

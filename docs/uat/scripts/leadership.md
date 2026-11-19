@@ -85,6 +85,12 @@ Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`).
 | 30 | On the **Command Center** read **Pipeline by stage**. | A stage total reads "<amount> Salesforce opportunity amount" (it was "SF amount"). | | |
 | 31 | Open `<CCQ-ANY-1>`. Read the line under the stage tracker, the priority and the times on the page. | The quote opens on **Overview**. The line says whose move it is (for example "Waiting on: Pricing (<name>). Next: complete the costing and the pricing record, then submit to the pricing lead.") and has no button for you. The priority is labelled, for example "Priority 62 HIGH". Every time on the page is US Central in one format, for example "Nov 17, 2026, 12:18 PM CST". | | |
 
+## FB-27: the analytics tile (2026-11-19)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 32 | **Command Center** → **Analytics** → the outcomes report. | The tile that was "Awarded, commitment pending" reads **Awarded, hand-off not done**: "The customer awarded it; the CER and hand-off are still open. Counted as won." The number is unchanged. Is it clear? (Note your answer.) | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |
