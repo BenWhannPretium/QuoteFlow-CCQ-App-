@@ -1,9 +1,9 @@
 import type { QuoteSummary } from '@ccq/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { InboxIcon } from 'lucide-react';
+import { ChevronDownIcon, FileIcon, InboxIcon } from 'lucide-react';
 import { Tabs } from 'radix-ui';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { ForbiddenPage, useCan } from '@/auth';
 import {
@@ -14,14 +14,18 @@ import {
   PageHeader,
   PriorityBadge,
   QualificationWarnings,
+  quoteQueryKey,
+  SkeletonCard,
   SkeletonRows,
 } from '@/components';
+import { AttachmentDownloadLink, attachmentsQueryKey } from '@/components/attachments/Attachments';
 import {
   FINAL_REVIEW_SORTS,
   FinalReviewQueue,
   type FinalReviewSearch,
   type FinalReviewSort,
 } from '@/components/final-review/FinalReviewQueue';
+import { IntakeSummary } from '@/components/quote/AtAGlance';
 import { SalesforceLink, SalesforceUrlHint } from '@/components/SalesforceLink';
 import { Button } from '@/components/ui/button';
 import { usePublicConfig } from '@/config/public-config';
@@ -41,12 +45,22 @@ interface ApprovalsSearch extends FinalReviewSearch {
    * B-08 and the nav use); any other gate shows its generic queue (B-08).
    */
   gate?: string;
+  /**
+   * FB-25 (N18-17): a quote number on To qualify: its card opens expanded and is scrolled into view (the
+   * `quote.to_qualify` notice and the daily digest link here).
+   */
+  quote?: string;
 }
+
+const QUOTE_NUMBER = /^CCQ-\d{4}-\d{5}$/;
 
 export const Route = createFileRoute('/approvals')({
   validateSearch: (search: Record<string, unknown>): ApprovalsSearch => ({
     ...(TABS.includes(search.tab as ApprovalsTab) ? { tab: search.tab as ApprovalsTab } : {}),
     ...(typeof search.gate === 'string' && search.gate.trim() ? { gate: search.gate.trim() } : {}),
+    ...(typeof search.quote === 'string' && QUOTE_NUMBER.test(search.quote)
+      ? { quote: search.quote }
+      : {}),
     // B-14: the Final Review tab's filters and sort, in the URL like the pipeline views.
     ...Object.fromEntries(
       (['q', 'tier', 'g2', 'capital'] as const)
@@ -119,6 +133,7 @@ const TAB_INFO: Record<ApprovalsTab, { label: string; title: string; description
  */
 function ApprovalsHome({ tab }: { tab: ApprovalsTab | undefined }) {
   const { data: config } = usePublicConfig();
+  const { quote: focusQuote } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const canReadFinal = useCan('finalReview.read');
   const canDecideFinal = useCan('gate.G4.decide');
@@ -169,7 +184,7 @@ function ApprovalsHome({ tab }: { tab: ApprovalsTab | undefined }) {
           <FinalReviewTab />
         </Tabs.Content>
         <Tabs.Content value="to-qualify">
-          <GateQueue gateKey="G1" />
+          <GateQueue gateKey="G1" focusQuote={focusQuote} />
         </Tabs.Content>
         <Tabs.Content value="overrides">
           <OverrideInbox />
@@ -203,11 +218,17 @@ function useGateQueue(gateKey: string) {
 }
 
 /** The "To qualify" (G1) tab body. */
-function GateQueue({ gateKey }: { gateKey: string }) {
+function GateQueue({ gateKey, focusQuote }: { gateKey: string; focusQuote?: string | undefined }) {
   const queue = useGateQueue(gateKey);
   return (
     <div data-testid="gate-queue" data-gate={gateKey}>
-      <GateQueueBody gateKey={gateKey} queue={queue} />
+      <GateQueueBody
+        key={focusQuote ?? ''}
+        gateKey={gateKey}
+        queue={queue}
+        expandable
+        focusQuote={focusQuote}
+      />
     </div>
   );
 }
@@ -215,11 +236,38 @@ function GateQueue({ gateKey }: { gateKey: string }) {
 function GateQueueBody({
   gateKey,
   queue,
+  expandable = false,
+  focusQuote,
 }: {
   gateKey: string;
   queue: ReturnType<typeof useGateQueue>;
+  /** FB-25 (N18-17): the cards expand to show what the KAM entered (To qualify). */
+  expandable?: boolean;
+  /** FB-25: this quote's card starts expanded and is scrolled into view. */
+  focusQuote?: string | undefined;
 }) {
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+    () => new Set(focusQuote ? [focusQuote] : []),
+  );
+  const items = queue.data?.items ?? [];
+  const focused = !!focusQuote && items.some((q) => q.quoteNumber === focusQuote);
+  // The notice's quote starts open (above; another notice re-keys the body) and is brought into view
+  // once it is listed.
+  useEffect(() => {
+    if (!focusQuote || !focused) return;
+    const card = document.querySelector<HTMLElement>(`[data-quote="${focusQuote}"]`);
+    card?.scrollIntoView({ block: 'start' });
+    card?.querySelector<HTMLElement>('[data-details-toggle]')?.focus({ preventScroll: true });
+  }, [focusQuote, focused]);
+  const toggle = (qn: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(qn)) next.delete(qn);
+      else next.add(qn);
+      return next;
+    });
+  const allOpen = items.length > 0 && items.every((q) => expanded.has(q.quoteNumber));
   return (
     <>
       {queue.isPending && <SkeletonRows rows={4} />}
@@ -241,6 +289,21 @@ function GateQueueBody({
       {queue.data?.gate.enabled && queue.data.items.length > 0 && (
         <>
           <SalesforceUrlHint quotes={queue.data.items} className="mb-2" />
+          {expandable && (
+            <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+              {/* FB-25 (N18-17): open or close every card's details at once. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setExpanded(allOpen ? new Set() : new Set(items.map((q) => q.quoteNumber)))
+                }
+                data-testid={allOpen ? 'collapse-all' : 'expand-all'}
+              >
+                {allOpen ? 'Collapse all' : 'Expand all'}
+              </Button>
+            </div>
+          )}
           <ol className="grid gap-3" aria-label={queue.data.gate.label}>
             {queue.data.items.map((q, i) => (
               <QueueCard
@@ -249,6 +312,12 @@ function GateQueueBody({
                 rank={i + 1}
                 canDecide={queue.data.canDecide}
                 onDecide={() => setDeciding(q.quoteNumber)}
+                {...(expandable
+                  ? {
+                      expanded: expanded.has(q.quoteNumber),
+                      onToggle: () => toggle(q.quoteNumber),
+                    }
+                  : {})}
               />
             ))}
           </ol>
@@ -273,12 +342,18 @@ function QueueCard({
   rank,
   canDecide,
   onDecide,
+  expanded,
+  onToggle,
 }: {
   quote: QuoteSummary;
   rank: number;
   canDecide: boolean;
   onDecide: () => void;
+  /** FB-25 (N18-17): set on To qualify, where the card expands. */
+  expanded?: boolean;
+  onToggle?: () => void;
 }) {
+  const detailsId = `queue-details-${quote.quoteNumber}`;
   const { data: config } = usePublicConfig();
   const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   const defaultClass = config?.settings.intake_default_request_class;
@@ -347,12 +422,84 @@ function QueueCard({
           )}
         </p>
         <QualificationWarnings warnings={quote.warnings} />
+        {onToggle && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-emphasis -ml-2 min-h-11 sm:min-h-8"
+              aria-expanded={!!expanded}
+              aria-controls={detailsId}
+              onClick={onToggle}
+              data-details-toggle=""
+              data-testid="queue-details-toggle"
+            >
+              <ChevronDownIcon
+                aria-hidden="true"
+                className={expanded ? 'rotate-180 transition-transform' : 'transition-transform'}
+              />
+              {expanded ? 'Hide details' : 'Show details'}
+              <span className="sr-only"> of {quote.quoteNumber}</span>
+            </Button>
+          </div>
+        )}
       </div>
       {canDecide && (
         <Button size="sm" onClick={onDecide} aria-label={`Decide ${quote.quoteNumber}`}>
           Decide
         </Button>
       )}
+      {onToggle && expanded && (
+        <div id={detailsId} className="sm:col-span-3" data-testid="queue-details">
+          <QueueCardDetails quoteNumber={quote.quoteNumber} />
+        </div>
+      )}
     </li>
+  );
+}
+
+/**
+ * FB-25 (N18-17): what the KAM entered (the request, the commercial inputs, the items with their product
+ * facts and volumes, and the files), read-only, loaded when the card is opened. The quote's own route
+ * reads it, so `quote.read`, the row-level scope and the view audit apply as on the quote page.
+ */
+function QueueCardDetails({ quoteNumber }: { quoteNumber: string }) {
+  const quote = useQuery({
+    queryKey: quoteQueryKey(quoteNumber),
+    queryFn: () => api.quote(quoteNumber),
+  });
+  const files = useQuery({
+    queryKey: attachmentsQueryKey({ quoteNumber }),
+    queryFn: () => api.quoteAttachments(quoteNumber),
+  });
+  if (quote.isPending) return <SkeletonCard />;
+  if (quote.error) return <ErrorState error={quote.error} onRetry={() => void quote.refetch()} />;
+  return (
+    <div className="bg-muted/40 grid gap-4 rounded-md border p-3 sm:p-4">
+      <IntakeSummary quote={quote.data} readOnly />
+      <section aria-label="Files" className="grid gap-2" data-testid="queue-details-files">
+        <h3 className="text-sm font-semibold">Files</h3>
+        {files.isPending ? (
+          <p className="text-muted-foreground text-sm">Loading the files…</p>
+        ) : files.error ? (
+          <p className="text-muted-foreground text-sm">The files could not be loaded.</p>
+        ) : files.data.items.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No files are attached.</p>
+        ) : (
+          <ul className="grid gap-1.5">
+            {files.data.items.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <FileIcon className="size-4 shrink-0" aria-hidden="true" />
+                {a.available ? (
+                  <AttachmentDownloadLink id={a.id} fileName={a.fileName} />
+                ) : (
+                  <span>{a.fileName}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 import type { AvailableGateAction, ReviewSummary } from '@ccq/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { releaseBlockers } from './blockers';
+import { capitalTermsUnanswered, releaseBlockers } from './blockers';
 
 type Input = Parameters<typeof releaseBlockers>[0];
 type Terms = ReviewSummary['termsAndLegal'];
@@ -14,13 +14,29 @@ const terms = (over: {
   legalReviewedOn?: string | null;
   exceptionStatus?: 'pending' | 'approved' | 'rejected' | null;
   finalizedAt?: string | null;
+  /** FB-25: the customer tooling commitment (answered unless a test says otherwise). */
+  toolingCommitment?: boolean | null;
+  /** FB-25: the capital terms; every one answered and none required unless a test says otherwise. */
+  capital?: Partial<Terms['capital']>;
 }): Terms =>
   ({
     requiredChecks: over.requiredChecks ?? [],
     checkedAt: over.checkedAt ?? null,
     legal: { required: over.legalRequired ?? false, reviewedOn: over.legalReviewedOn ?? null },
     exception: over.exceptionStatus ? { status: over.exceptionStatus } : null,
-    capital: { finalizedAt: over.finalizedAt ?? null },
+    termsToolingCommitment: over.toolingCommitment === undefined ? true : over.toolingCommitment,
+    capital: {
+      finalizedAt: over.finalizedAt ?? null,
+      required: [],
+      toolingFundingModel: 'COMPANY_FUNDED',
+      moldOwnership: 'PRETIUM',
+      amortized: false,
+      amortizationMonths: null,
+      minSupply: 'None',
+      agreementInPlace: false,
+      agreementMonths: null,
+      ...over.capital,
+    },
   }) as Terms;
 
 const action = (
@@ -211,6 +227,70 @@ describe('releaseBlockers (UX-010)', () => {
           review({
             availableActions: [action('approve', { releasesProposal: true })],
             requirement: { tierKey: 't2', tierLabel: 'Tier 2', satisfied: true },
+          }),
+        ),
+      ).toEqual([]);
+    });
+  });
+
+  describe('FB-25 (N17-26, N17-27): the tooling commitment and each required capital term', () => {
+    const TOOLING_KEY = 'g4_tooling_commitment_check_required,terms_tooling_commitment';
+
+    it('the tooling commitment from the missing list goes to the Commercial terms tab', () => {
+      const blockers = releaseBlockers(
+        review({
+          availableActions: [
+            action('approve', {
+              releasesProposal: true,
+              missing: [{ field: TOOLING_KEY, message: 'x' }],
+            }),
+          ],
+        }),
+      );
+      expect(blockers.map((b) => [b.key, b.fixAt])).toEqual([[TOOLING_KEY, 'tooling-commitment']]);
+      expect(blockers[0]!.message).toMatch(/customer tooling commitment/);
+    });
+
+    it('a reader sees it as a required check while unanswered', () => {
+      const t = terms({ requiredChecks: ['tooling_commitment_answered'], toolingCommitment: null });
+      expect(releaseBlockers(review({ termsAndLegal: t })).map((b) => b.key)).toEqual([
+        TOOLING_KEY,
+      ]);
+      const answered = terms({
+        requiredChecks: ['tooling_commitment_answered'],
+        toolingCommitment: false,
+      });
+      expect(releaseBlockers(review({ termsAndLegal: answered }))).toEqual([]);
+    });
+
+    it('lists each unanswered required capital term after the confirmation, with its field', () => {
+      const t = terms({
+        requiredChecks: ['terms_finalized'],
+        capital: {
+          required: ['funding_model', 'mold_ownership', 'amortization', 'min_supply', 'agreement'],
+          toolingFundingModel: 'NOT_DISCUSSED',
+          moldOwnership: null,
+          amortized: true,
+          amortizationMonths: null,
+        },
+      });
+      const blockers = releaseBlockers(review({ termsAndLegal: t }), ['NOT_DISCUSSED']);
+      expect(blockers.map((b) => [b.key, b.fixAt, b.field])).toEqual([
+        [FINALIZED_KEY, 'terms-legal', undefined],
+        ['capital_term:funding_model', 'capital-term', 'funding_model'],
+        ['capital_term:mold_ownership', 'capital-term', 'mold_ownership'],
+        ['capital_term:amortization', 'capital-term', 'amortization'],
+      ]);
+      expect(blockers[2]!.message).toBe('Mold ownership (needed to confirm the capital terms)');
+      // A term not in capital_terms_required is never listed.
+      expect(
+        capitalTermsUnanswered({ capital: { ...t.capital, required: ['min_supply'] } }),
+      ).toEqual([]);
+      // Once confirmed, nothing more is listed.
+      expect(
+        releaseBlockers(
+          review({
+            termsAndLegal: { ...t, capital: { ...t.capital, finalizedAt: '2026-11-03T10:00:00Z' } },
           }),
         ),
       ).toEqual([]);

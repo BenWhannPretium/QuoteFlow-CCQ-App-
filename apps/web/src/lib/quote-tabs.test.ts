@@ -2,8 +2,12 @@ import { ROLES, permissionsForRoles, type Role } from '@ccq/domain';
 import { describe, expect, it } from 'vitest';
 
 import {
+  QUOTE_TABS,
   defaultQuoteTab,
   isQuoteTab,
+  tabForHash,
+  tabsWithWork,
+  termsWorkWaiting,
   withOpenedTab,
   type OpenedTabs,
   type QuoteTab,
@@ -72,12 +76,105 @@ describe('the tab a quote opens on', () => {
   });
 });
 
+/** FB-25 (N18-18): Commercial terms gets its own tab, and opens for the people whose work it is. */
+describe('the Commercial terms tab', () => {
+  it('sits between Quoting and Attachments', () => {
+    expect(QUOTE_TABS).toEqual(['overview', 'engineering', 'quoting', 'commercial', 'attachments']);
+  });
+
+  const at = (role: Role, input: { inIntake?: boolean; termsWork?: boolean }) =>
+    defaultQuoteTab({
+      inEngineering: false,
+      inQuoting: false,
+      ...input,
+      permissions: permissionsForRoles([role]),
+    });
+
+  it('opens for a sales leader while the quote is at Intake; others keep the Overview', () => {
+    expect(ROLES.filter((r) => at(r, { inIntake: true }) === 'commercial')).toEqual([
+      'SalesLeader',
+    ]);
+    expect(at('SalesLeader', {})).toBe('overview');
+  });
+
+  it('opens for those with terms.edit when the terms wait on them', () => {
+    expect(ROLES.filter((r) => at(r, { termsWork: true }) === 'commercial')).toEqual([
+      'KAM',
+      'SalesLeader',
+      'Pricing',
+      'PricingLead',
+    ]);
+    expect(at('Pricing', { termsWork: false })).toBe('overview');
+  });
+
+  it('comes after the stage’s own work tab', () => {
+    const permissions = permissionsForRoles(['Pricing']);
+    expect(
+      defaultQuoteTab({ inEngineering: false, inQuoting: true, termsWork: true, permissions }),
+    ).toBe('quoting');
+  });
+
+  it('knows when the terms wait on the reader', () => {
+    const base = {
+      stageKey: 'FINAL_REVIEW',
+      closed: false,
+      canEditTerms: true,
+      exceptionCanDecide: false,
+      toolingCommitmentAnswered: false,
+    };
+    expect(termsWorkWaiting(base)).toBe(true);
+    expect(termsWorkWaiting({ ...base, toolingCommitmentAnswered: true })).toBe(false);
+    expect(termsWorkWaiting({ ...base, canEditTerms: false })).toBe(false);
+    expect(termsWorkWaiting({ ...base, stageKey: 'QUOTING' })).toBe(false);
+    expect(termsWorkWaiting({ ...base, closed: true })).toBe(false);
+    // A payment-terms exception to decide, at any open stage.
+    expect(
+      termsWorkWaiting({
+        ...base,
+        stageKey: 'QUOTING',
+        canEditTerms: false,
+        exceptionCanDecide: true,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('links to a place on the page (FB-25)', () => {
+  it('opens Commercial terms for #commercial and its fields, so old links keep working', () => {
+    expect(tabForHash('#commercial')).toBe('commercial');
+    expect(tabForHash('commercial')).toBe('commercial');
+    expect(tabForHash('#terms-tooling-commitment')).toBe('commercial');
+  });
+
+  it('opens the Overview for its cards, and leaves any other hash to the tab rules', () => {
+    expect(tabForHash('#offer-letter')).toBe('overview');
+    expect(tabForHash('#decision')).toBeNull();
+    expect(tabForHash('')).toBeNull();
+  });
+});
+
+describe('the dot on a tab with work waiting (FB-25)', () => {
+  it('follows the next step when it is the reader’s move, and the terms', () => {
+    expect(
+      tabsWithWork({ nextStep: { yourMove: true, place: 'engineering' }, termsWork: false }),
+    ).toEqual(['engineering']);
+    expect(
+      tabsWithWork({ nextStep: { yourMove: false, place: 'quoting' }, termsWork: true }),
+    ).toEqual(['commercial']);
+    expect(
+      tabsWithWork({ nextStep: { yourMove: true, place: 'decision' }, termsWork: false }),
+    ).toEqual([]);
+    expect(tabsWithWork({ nextStep: undefined, termsWork: false })).toEqual([]);
+  });
+});
+
 describe('the quote tabs', () => {
   it('knows its own names and nothing else', () => {
     expect(isQuoteTab('overview')).toBe(true);
     expect(isQuoteTab('engineering')).toBe(true);
     expect(isQuoteTab('quoting')).toBe(true);
     expect(isQuoteTab('attachments')).toBe(true);
+    expect(isQuoteTab('commercial')).toBe(true);
     expect(isQuoteTab('Engineering')).toBe(false);
     expect(isQuoteTab('timeline')).toBe(false);
     expect(isQuoteTab(undefined)).toBe(false);

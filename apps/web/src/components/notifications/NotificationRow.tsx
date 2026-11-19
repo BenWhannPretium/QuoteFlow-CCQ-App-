@@ -90,8 +90,18 @@ export function NotificationRow({
         <Link
           to="/quotes/$quoteNumber"
           params={params}
-          search={{ tab: 'overview' }}
+          search={{ tab: 'commercial' }}
           hash="commercial"
+          onClick={open}
+          className={rowClass}
+        >
+          {content}
+        </Link>
+      ) : kind === 'qualify' ? (
+        // FB-25 (N18-17): To qualify, with this quote's card expanded and scrolled into view.
+        <Link
+          to="/approvals"
+          search={{ tab: 'to-qualify', quote: item.quoteNumber }}
           onClick={open}
           className={rowClass}
         >

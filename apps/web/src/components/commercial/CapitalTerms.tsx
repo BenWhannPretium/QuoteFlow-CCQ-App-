@@ -12,6 +12,7 @@ import { toast } from '@/lib/toast';
 import {
   Field,
   FormErrors,
+  RequiredLabel,
   SaveStatus,
   errorFor,
   problemErrors,
@@ -61,26 +62,47 @@ function formFrom(v: CapitalTermsView): Form {
   };
 }
 
-/** Read-only rows for the capital terms (the review screen and the Commercial panel). */
-export function useCapitalTermItems(v: CapitalTermsView): KeyValueItem[] {
+/** FB-25: the DOM id of a capital term's field on the review screen (release blockers link to it). */
+export const capitalTermFieldId = (term: string) => `capital-term-${term}`;
+
+/**
+ * Read-only rows for the capital terms (the review screen and the Commercial panel). FB-25: with
+ * `markRequired`, the terms `capital_terms_required` names carry the red required marker.
+ */
+export function useCapitalTermItems(v: CapitalTermsView, markRequired = false): KeyValueItem[] {
   const funding = useValueList('tooling_funding_model');
   const mold = useValueList('mold_ownership');
   const label = (list: { code: string; label: string }[], code: string | null) =>
     code ? (list.find((e) => e.code === code)?.label ?? code) : null;
+  const named = (term: string, text: string) => (
+    <RequiredLabel required={markRequired && v.required.includes(term)}>{text}</RequiredLabel>
+  );
   return [
-    { id: 'cap-funding', label: 'Funding model', value: label(funding, v.toolingFundingModel) },
-    { id: 'cap-mold', label: 'Mold ownership', value: label(mold, v.moldOwnership) },
+    {
+      id: 'cap-funding',
+      label: named('funding_model', 'Funding model'),
+      value: label(funding, v.toolingFundingModel),
+    },
+    {
+      id: 'cap-mold',
+      label: named('mold_ownership', 'Mold ownership'),
+      value: label(mold, v.moldOwnership),
+    },
     {
       id: 'cap-amortized',
-      label: 'Amortized',
+      label: named('amortization', 'Amortized'),
       value: v.amortized
         ? `Yes, ${months(v.amortizationMonths) ?? 'months not given'}`
         : yesNo(v.amortized),
     },
-    { id: 'cap-min-supply', label: 'Minimum supply / shortfall', value: v.minSupply },
+    {
+      id: 'cap-min-supply',
+      label: named('min_supply', 'Minimum supply / shortfall'),
+      value: v.minSupply,
+    },
     {
       id: 'cap-agreement',
-      label: 'Agreement in place',
+      label: named('agreement', 'Agreement in place'),
       value: v.agreementInPlace
         ? `Yes, ${months(v.agreementMonths) ?? 'duration not given'}`
         : yesNo(v.agreementInPlace),
@@ -101,6 +123,7 @@ export function CapitalTerms({
   mode,
   onSaved,
   termsCheckedAt = null,
+  markRequired = false,
 }: {
   quoteNumber: string;
   view: CapitalTermsView;
@@ -108,8 +131,13 @@ export function CapitalTerms({
   onSaved: (next: QuoteDetail) => Promise<void> | void;
   /** DR-approver-leadership-admin-09: whether the terms were checked, to say when a change clears it. */
   termsCheckedAt?: string | null;
+  /**
+   * FB-25 (N17-26, N17-27): mark the terms `capital_terms_required` names as required (Final Review only;
+   * nothing new is required earlier).
+   */
+  markRequired?: boolean;
 }) {
-  const items = useCapitalTermItems(view);
+  const items = useCapitalTermItems(view, markRequired);
   // DR-approver-leadership-admin-01: say why an approver cannot confirm them on this quote.
   const blocked = view.finalizeBlockedReason ? (
     <p className="text-muted-foreground text-sm" data-testid="capital-terms-blocked">
@@ -135,6 +163,7 @@ export function CapitalTerms({
         mode={mode}
         onSaved={onSaved}
         termsCheckedAt={termsCheckedAt}
+        markRequired={markRequired}
       />
     </>
   );
@@ -158,13 +187,16 @@ function CapitalTermsForm({
   mode,
   onSaved,
   termsCheckedAt,
+  markRequired,
 }: {
   quoteNumber: string;
   view: CapitalTermsView;
   mode: 'prefill' | 'finalize';
   onSaved: (next: QuoteDetail) => Promise<void> | void;
   termsCheckedAt: string | null;
+  markRequired: boolean;
 }) {
+  const req = (term: string) => markRequired && view.required.includes(term);
   const funding = useValueList('tooling_funding_model');
   const mold = useValueList('mold_ownership');
   const stored = formFrom(view);
@@ -253,58 +285,73 @@ function CapitalTermsForm({
       <div className="grid gap-4 sm:grid-cols-2">
         {finalize && (
           <>
-            <Field
-              label="Funding model"
-              hint="Changing it clears the Sales or Pricing terms check: the terms are checked again."
-              error={errorFor(errors, 'toolingFundingModel')}
-            >
-              {(id) => (
-                <NativeSelect
-                  id={id}
-                  value={form.toolingFundingModel}
-                  onChange={(e) => set('toolingFundingModel')(e.target.value)}
-                >
-                  <option value="">Not set</option>
-                  {funding.map((m) => (
-                    <option key={m.code} value={m.code}>
-                      {m.label}
-                    </option>
-                  ))}
-                </NativeSelect>
-              )}
-            </Field>
+            <div id={capitalTermFieldId('funding_model')} className="grid">
+              <Field
+                label="Funding model"
+                required={req('funding_model')}
+                hint="Changing it clears the Sales or Pricing terms check: the terms are checked again."
+                error={errorFor(errors, 'toolingFundingModel')}
+              >
+                {(id) => (
+                  <NativeSelect
+                    id={id}
+                    value={form.toolingFundingModel}
+                    onChange={(e) => set('toolingFundingModel')(e.target.value)}
+                  >
+                    <option value="">Not set</option>
+                    {funding.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
+              </Field>
+            </div>
             <FundingHelp options={funding} />
           </>
         )}
-        <Field label="Mold ownership" error={errorFor(errors, 'termsMoldOwnership')}>
-          {(id) => (
-            <NativeSelect
-              id={id}
-              value={form.termsMoldOwnership}
-              onChange={(e) => set('termsMoldOwnership')(e.target.value)}
-            >
-              <option value="">Not set</option>
-              {mold.map((m) => (
-                <option key={m.code} value={m.code}>
-                  {m.label}
-                </option>
-              ))}
-            </NativeSelect>
-          )}
-        </Field>
-        <Field label="Amortized" error={errorFor(errors, 'termsAmortized')}>
-          {(id) => (
-            <NativeSelect
-              id={id}
-              value={form.termsAmortized}
-              onChange={(e) => set('termsAmortized')(e.target.value as Form['termsAmortized'])}
-            >
-              <option value="">Not answered</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </NativeSelect>
-          )}
-        </Field>
+        <div id={capitalTermFieldId('mold_ownership')} className="grid">
+          <Field
+            label="Mold ownership"
+            required={req('mold_ownership')}
+            error={errorFor(errors, 'termsMoldOwnership')}
+          >
+            {(id) => (
+              <NativeSelect
+                id={id}
+                value={form.termsMoldOwnership}
+                onChange={(e) => set('termsMoldOwnership')(e.target.value)}
+              >
+                <option value="">Not set</option>
+                {mold.map((m) => (
+                  <option key={m.code} value={m.code}>
+                    {m.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </Field>
+        </div>
+        <div id={capitalTermFieldId('amortization')} className="grid">
+          <Field
+            label="Amortized"
+            required={req('amortization')}
+            error={errorFor(errors, 'termsAmortized')}
+          >
+            {(id) => (
+              <NativeSelect
+                id={id}
+                value={form.termsAmortized}
+                onChange={(e) => set('termsAmortized')(e.target.value as Form['termsAmortized'])}
+              >
+                <option value="">Not answered</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </NativeSelect>
+            )}
+          </Field>
+        </div>
         {form.termsAmortized === 'yes' && (
           <Field
             label="Amortized over (months)"
@@ -323,21 +370,27 @@ function CapitalTermsForm({
             )}
           </Field>
         )}
-        <Field label="Agreement in place" error={errorFor(errors, 'termsAgreementInPlace')}>
-          {(id) => (
-            <NativeSelect
-              id={id}
-              value={form.termsAgreementInPlace}
-              onChange={(e) =>
-                set('termsAgreementInPlace')(e.target.value as Form['termsAgreementInPlace'])
-              }
-            >
-              <option value="">Not answered</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </NativeSelect>
-          )}
-        </Field>
+        <div id={capitalTermFieldId('agreement')} className="grid">
+          <Field
+            label="Agreement in place"
+            required={req('agreement')}
+            error={errorFor(errors, 'termsAgreementInPlace')}
+          >
+            {(id) => (
+              <NativeSelect
+                id={id}
+                value={form.termsAgreementInPlace}
+                onChange={(e) =>
+                  set('termsAgreementInPlace')(e.target.value as Form['termsAgreementInPlace'])
+                }
+              >
+                <option value="">Not answered</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </NativeSelect>
+            )}
+          </Field>
+        </div>
         {form.termsAgreementInPlace === 'yes' && (
           <Field
             label="Agreement duration (months)"
@@ -357,20 +410,23 @@ function CapitalTermsForm({
           </Field>
         )}
       </div>
-      <Field
-        label="Minimum supply / shortfall terms"
-        hint="Up to 300 characters. Write “None” if there are none."
-        error={errorFor(errors, 'termsMinSupply')}
-      >
-        {(id) => (
-          <Textarea
-            id={id}
-            maxLength={300}
-            value={form.termsMinSupply}
-            onChange={(e) => set('termsMinSupply')(e.target.value)}
-          />
-        )}
-      </Field>
+      <div id={capitalTermFieldId('min_supply')} className="grid">
+        <Field
+          label="Minimum supply / shortfall terms"
+          required={req('min_supply')}
+          hint="Up to 300 characters. Write “None” if there are none."
+          error={errorFor(errors, 'termsMinSupply')}
+        >
+          {(id) => (
+            <Textarea
+              id={id}
+              maxLength={300}
+              value={form.termsMinSupply}
+              onChange={(e) => set('termsMinSupply')(e.target.value)}
+            />
+          )}
+        </Field>
+      </div>
       <p className="text-muted-foreground text-xs" data-testid="capital-terms-confirmed">
         {view.finalizedAt
           ? `Confirmed by ${view.finalizedByName ?? 'the approver'} on ${absoluteTime(view.finalizedAt)}.`

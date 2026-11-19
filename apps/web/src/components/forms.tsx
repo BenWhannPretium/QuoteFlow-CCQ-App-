@@ -44,11 +44,14 @@ export function Field({
   label,
   hint,
   error,
+  required = false,
   children,
 }: {
   label: string;
   hint?: string | undefined;
   error?: string | undefined;
+  /** FB-25: the FB-15 red asterisk before the label (and "required" for screen readers). */
+  required?: boolean;
   children: (id: string) => ReactNode;
 }) {
   const id = useId();
@@ -66,7 +69,7 @@ export function Field({
   return (
     <div className={cn('grid content-start gap-1.5', error && 'text-destructive')}>
       <label htmlFor={id} className="text-sm font-medium">
-        {label}
+        <RequiredLabel required={required}>{label}</RequiredLabel>
       </label>
       {wired}
       {hint && (

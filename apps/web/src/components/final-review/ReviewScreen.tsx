@@ -13,18 +13,19 @@ import { useState, type ReactNode } from 'react';
 
 import { QuoteItemsList } from '@/components/QuoteItems';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { stageLabel, usePublicConfig } from '@/config/public-config';
+import { stageLabel, usePublicConfig, useValueList } from '@/config/public-config';
 import { api } from '@/lib/api';
 import { absoluteTime, relativeTime } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import { marketText, valueListLabel } from '@/lib/value-label';
 
 import { AttachmentDownloadLink } from '../attachments/Attachments';
-import { CapitalTerms } from '../commercial/CapitalTerms';
+import { CapitalTerms, capitalTermFieldId } from '../commercial/CapitalTerms';
 import { AdditionalApprovals, TermsExceptionCard } from '../commercial/TermsException';
 import { EquipmentBomLine, pricingInputItems } from '../engineering/EngineeringExtras';
 import { formatDuration } from '../engineering/format';
 import { ErrorState } from '../ErrorState';
+import { RequiredKey, RequiredLabel } from '../forms';
 import { GateDecisionDialog, quoteQueryKey } from '../GateDecisionDialog';
 import {
   customerShareText,
@@ -34,15 +35,16 @@ import {
 import { intakeFactItems } from '../intake/IntakeFacts';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { PageHeader } from '../PageHeader';
+import { reviewSummaryKey } from './keys';
 import { CapitalChip } from '../pricing/CapitalChip';
 import { PricingContextPanel } from '../pricing/PricingContextPanel';
 import { QuotingSteps } from '../pricing/QuotingSteps';
 import { PriorityBadge, ScoreBreakdownTable } from '../Priority';
+import { withValues } from '../quote/AtAGlance';
 import { SalesforceLink } from '../SalesforceLink';
 import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
-import { releaseBlockers } from './blockers';
-import { reviewSummaryKey } from './keys';
+import { releaseBlockers, type ReleaseBlocker } from './blockers';
 
 /** The Terms and Legal section's id (its heading is `${id}-heading`). */
 const TERMS_LEGAL_ID = 'terms-legal';
@@ -126,8 +128,10 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
     queryKey: reviewSummaryKey(quoteNumber),
     queryFn: () => api.reviewSummary(quoteNumber),
   });
-  const [deciding, setDeciding] = useState<string | null>(null);
+  // FB-25 (N17-25): one "Decide final review"; the dialog's groups offer the outcomes.
+  const [deciding, setDeciding] = useState(false);
   const navigate = useNavigate();
+  const fundingNotAnswered = useFundingNotAnswered();
 
   if (summary.isPending) {
     return (
@@ -170,27 +174,33 @@ export function ReviewScreen({ quoteNumber }: { quoteNumber: string }) {
       <Header s={s} now={summary.dataUpdatedAt} />
       {q.status === 'on_hold' && <OnHoldBanner reviewDate={q.reviewDate} />}
       {!s.inFinalReview && <NotInFinalReview s={s} />}
-      <Warnings s={s} quoteNumber={quoteNumber} />
+      <Warnings s={s} quoteNumber={quoteNumber} fundingNotAnswered={fundingNotAnswered} />
       <RequestSection s={s} />
       <PrioritySection s={s} />
       <EngineeringSection s={s} />
       <PricingSection s={s} />
       <TermsLegalSection s={s} quoteNumber={quoteNumber} />
+      {/* FB-25 (N17-25; Ben Whann, Bailey Schmitt): the same button under the terms, so the approver who
+          has just confirmed them need not scroll back up. */}
+      <DecideButton s={s} onDecide={() => setDeciding(true)} placement="terms" />
       {/* B-15: read-only pricing history (imported export); renders nothing for roles without commercial access. */}
       <PricingContextPanel quoteNumber={quoteNumber} />
       <AttachmentsSection s={s} />
       <DecisionsSection s={s} />
 
-      <DecisionBar s={s} onDecide={setDeciding} />
+      <DecisionBar
+        s={s}
+        onDecide={() => setDeciding(true)}
+        blockers={releaseBlockers(s, fundingNotAnswered)}
+      />
       {deciding && (
         <GateDecisionDialog
           open
           onOpenChange={(open) => {
-            if (!open) setDeciding(null);
+            if (!open) setDeciding(false);
           }}
           gateKey="G4"
           quoteNumber={quoteNumber}
-          initialOutcomeKey={deciding}
           // FB-01 (F-069): the decision records the warnings this screen showed.
           acknowledgedWarnings={s.warnings.filter((w) => w.link).map((w) => w.code)}
           onDecided={() => void navigate({ to: '/approvals', search: { tab: 'final-review' } })}
@@ -252,19 +262,39 @@ function NotInFinalReview({ s }: { s: ReviewSummary }) {
   );
 }
 
-function Warnings({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string }) {
-  if (s.warnings.length === 0) return null;
+/** FB-25: funding codes that are not an answer (list meta `defaultAtIntake`, "Not discussed"). */
+function useFundingNotAnswered(): string[] {
+  const funding = useValueList('tooling_funding_model');
+  return funding.filter((f) => f.meta.defaultAtIntake === true).map((f) => f.code);
+}
+
+function Warnings({
+  s,
+  quoteNumber,
+  fundingNotAnswered,
+}: {
+  s: ReviewSummary;
+  quoteNumber: string;
+  fundingNotAnswered: readonly string[];
+}) {
   // UX-010: the footer said "none of them blocks it" even when the release was blocked.
-  const blockers = releaseBlockers(s);
+  const blockers = releaseBlockers(s, fundingNotAnswered);
+  // FB-25: a missing required term blocks without a warning of its own, so the list shows for it too.
+  if (s.warnings.length === 0 && blockers.length === 0) return null;
   return (
     <section
+      id="review-warnings"
       className="border-warning bg-warning/20 grid gap-2 rounded-md border px-4 py-3"
       aria-labelledby="open-warnings-heading"
       data-testid="review-warnings"
     >
-      <h2 id="open-warnings-heading" className="flex items-center gap-2 text-sm font-semibold">
+      <h2
+        id="open-warnings-heading"
+        tabIndex={-1}
+        className="flex items-center gap-2 text-sm font-semibold"
+      >
         <TriangleAlertIcon className="size-4" aria-hidden="true" />
-        Open warnings ({s.warnings.length})
+        {s.warnings.length > 0 ? `Open warnings (${s.warnings.length})` : 'What blocks the release'}
       </h2>
       <ul className="grid gap-1 text-sm">
         {s.warnings.map((w) => (
@@ -288,17 +318,7 @@ function Warnings({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string })
           <p className="font-semibold">The offer cannot be released yet. This blocks it:</p>
           <ul className="grid list-disc gap-1 pl-5">
             {blockers.map((b) => (
-              <li key={b.key} data-fix-at={b.fixAt}>
-                {b.message}
-                {b.fixAt !== 'none' && ' · '}
-                {b.fixAt === 'commercial' && <CommercialLink quoteNumber={quoteNumber} />}
-                {b.fixAt === 'terms-legal' && <TermsLegalJump />}
-                {b.fixAt === 'quote' && (
-                  <Link to="/quotes/$quoteNumber" params={{ quoteNumber }} className={FIX_LINK}>
-                    Open the full quote
-                  </Link>
-                )}
-              </li>
+              <BlockerItem key={b.key} b={b} quoteNumber={quoteNumber} />
             ))}
           </ul>
         </div>
@@ -307,32 +327,75 @@ function Warnings({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: string })
   );
 }
 
+/** One release blocker, with the way to where it is fixed (UX-010, FB-25). */
+function BlockerItem({ b, quoteNumber }: { b: ReleaseBlocker; quoteNumber: string }) {
+  return (
+    <li data-fix-at={b.fixAt} data-blocker={b.key}>
+      {b.message}
+      {b.fixAt !== 'none' && ' · '}
+      {b.fixAt === 'commercial' && <CommercialLink quoteNumber={quoteNumber} />}
+      {b.fixAt === 'tooling-commitment' && (
+        <CommercialLink quoteNumber={quoteNumber} hash="terms-tooling-commitment">
+          Answer it on the Commercial terms tab
+        </CommercialLink>
+      )}
+      {b.fixAt === 'terms-legal' && <TermsLegalJump />}
+      {b.fixAt === 'capital-term' && b.field && <TermsLegalJump field={b.field} />}
+      {b.fixAt === 'quote' && (
+        <Link to="/quotes/$quoteNumber" params={{ quoteNumber }} className={FIX_LINK}>
+          Open the full quote
+        </Link>
+      )}
+    </li>
+  );
+}
+
 // Inherits the surrounding text colour (contrast on the warning background), underlined.
 const FIX_LINK =
   'inline-flex min-h-11 items-center font-medium underline underline-offset-2 sm:min-h-0';
 
-/** FB-01 (F-069): Sales or Pricing records these on the quote's Commercial panel. */
-function CommercialLink({ quoteNumber }: { quoteNumber: string }) {
+/** FB-01 (F-069): Sales or Pricing records these on the quote's Commercial terms tab (FB-25). */
+function CommercialLink({
+  quoteNumber,
+  hash = 'commercial',
+  children = 'Open the Commercial terms tab',
+}: {
+  quoteNumber: string;
+  hash?: string;
+  children?: ReactNode;
+}) {
   return (
-    <Link to="/quotes/$quoteNumber" params={{ quoteNumber }} hash="commercial" className={FIX_LINK}>
-      Open the Commercial panel
+    <Link
+      to="/quotes/$quoteNumber"
+      params={{ quoteNumber }}
+      search={{ tab: 'commercial' }}
+      hash={hash}
+      className={FIX_LINK}
+    >
+      {children}
     </Link>
   );
 }
 
-/** UX-010: the approver confirms the capital terms further down this page; this goes there. */
-function TermsLegalJump() {
+/**
+ * UX-010: the approver confirms the capital terms further down this page; this goes there. FB-25: with
+ * `field`, to that capital term's field (focused), when the approver may edit it.
+ */
+function TermsLegalJump({ field }: { field?: string }) {
   return (
     <button
       type="button"
       className={cn(FIX_LINK, 'cursor-pointer')}
       onClick={() => {
+        const target = field ? document.getElementById(capitalTermFieldId(field)) : null;
+        const control = target?.querySelector<HTMLElement>('select, input, textarea');
         const heading = document.getElementById(`${TERMS_LEGAL_ID}-heading`);
-        heading?.scrollIntoView({ block: 'center' });
-        heading?.focus({ preventScroll: true });
+        const to = control ?? heading;
+        to?.scrollIntoView({ block: 'center' });
+        to?.focus({ preventScroll: true });
       }}
     >
-      Go to Terms and Legal on this page
+      {field ? 'Go to the field' : 'Go to Terms and Legal on this page'}
     </button>
   );
 }
@@ -367,6 +430,8 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
       title="Terms and Legal"
       aside={<CommercialLink quoteNumber={quoteNumber} />}
     >
+      {/* FB-25 (N17-26, N17-27): what releasing the offer needs, marked as FB-15 marks required fields. */}
+      <RequiredKey className="-mt-2" />
       <KeyValueGrid
         items={[
           {
@@ -384,7 +449,23 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
               .filter(Boolean)
               .join(' · '),
           },
-          { id: 'tooling', label: 'Tooling commitment', value: yesNo(t.termsToolingCommitment) },
+          // FB-25 (N17-26, N18-02): required to release the offer (the KAM may answer it at intake).
+          {
+            id: 'tooling',
+            label: (
+              <RequiredLabel required={required('tooling_commitment_answered')}>
+                Customer tooling commitment
+              </RequiredLabel>
+            ),
+            value: yesNo(t.termsToolingCommitment) ?? (
+              <span data-testid="review-tooling-unanswered">
+                Not answered ·{' '}
+                <CommercialLink quoteNumber={quoteNumber} hash="terms-tooling-commitment">
+                  Answer it on the Commercial terms tab
+                </CommercialLink>
+              </span>
+            ),
+          },
           { id: 'moq', label: 'MOQ', value: t.termsMoq },
           {
             id: 'payment',
@@ -452,6 +533,7 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
           mode={t.capital.canFinalize ? 'finalize' : 'readonly'}
           onSaved={refresh}
           termsCheckedAt={t.checkedAt}
+          markRequired={required('terms_finalized')}
         />
       </div>
       <AdditionalApprovals
@@ -570,8 +652,9 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
         ) : undefined
       }
     >
+      {/* FB-25: rows with no value are left out (Technical concept is no longer asked, FB-22). */}
       <KeyValueGrid
-        items={[
+        items={withValues([
           { label: 'Process', value: label('process_type', r.processType) },
           { label: 'Machine', value: label('machine_type', r.machineType) },
           { label: 'Plant / site', value: label('plant', r.plantCode) },
@@ -592,7 +675,7 @@ function EngineeringSection({ s }: { s: ReviewSummary }) {
           // The pre-FB-06 free-text notes, read-only.
           { label: 'Downstream equipment (legacy note)', value: r.downstreamEquipmentNotes },
           { label: 'Equipment BOM (legacy note)', value: r.equipmentBomNotes },
-        ]}
+        ])}
       />
       {g2?.note && <p className="text-foreground-2 text-sm whitespace-pre-line">{g2.note}</p>}
 
@@ -692,7 +775,7 @@ function PricingSection({ s }: { s: ReviewSummary }) {
             items={[
               ...(r.cerReference ? [{ label: 'Legacy CER reference', value: r.cerReference }] : []),
               { label: 'Capital notes', value: r.capitalNotes },
-              { label: 'Pending justification', value: r.capitalPendingJustification },
+              { label: 'Note on pending capital', value: r.capitalPendingJustification },
               ...(s.engineering.commercialRedacted
                 ? []
                 : [
@@ -779,21 +862,58 @@ function DecisionsSection({ s }: { s: ReviewSummary }) {
   );
 }
 
+/** FB-25 (N17-25): "Decide final review", the one way into the G4 decision; shown twice. */
+function DecideButton({
+  s,
+  onDecide,
+  placement,
+}: {
+  s: ReviewSummary;
+  onDecide: () => void;
+  placement: 'bar' | 'terms';
+}) {
+  if (!s.canDecide || s.availableActions.length === 0) return null;
+  const button = (
+    <Button
+      size="lg"
+      onClick={onDecide}
+      data-testid={placement === 'bar' ? 'decide-final-review' : 'decide-final-review-terms'}
+      className="max-sm:w-full"
+    >
+      Decide final review
+    </Button>
+  );
+  if (placement === 'bar') return button;
+  return (
+    <div
+      className="bg-card rounded-card flex flex-wrap items-center justify-between gap-3 border p-4 sm:p-5"
+      data-testid="decide-below-terms"
+    >
+      <p className="text-muted-foreground text-sm">
+        Terms checked? Record the decision: release the offer, send it back, hold or stop.
+      </p>
+      {button}
+    </div>
+  );
+}
+
 /**
- * The sticky decision bar: Stop, Hold (B-26), Rework and Advance as large touch targets, pinned above the
- * mobile tab bar. The buttons are the server's availableActions for G4 (so segregation and the
- * approver tier have already been applied); when there are none it says why.
+ * The sticky decision bar, pinned above the mobile tab bar. FB-25 (N17-25): one "Decide final review"
+ * opens the decision dialog, whose groups offer the outcomes the server allows (Advance, Send back to…,
+ * Hold, Stop: `availableActions`, so segregation and the approver tier are already applied). Beside it,
+ * what still blocks the release (UX-010), with a way to the full list. With no decision to take it says
+ * why.
  */
 function DecisionBar({
   s,
   onDecide,
+  blockers,
 }: {
   s: ReviewSummary;
-  onDecide: (outcomeKey: string) => void;
+  onDecide: () => void;
+  blockers: ReleaseBlocker[];
 }) {
   const has = (key: string) => s.availableActions.some((a) => a.outcomeKey === key);
-  const label = (key: string, fallback: string) =>
-    s.availableActions.find((a) => a.outcomeKey === key)?.outcomeLabel ?? fallback;
   return (
     <div
       className="bg-card sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 -mx-4 border-t px-4 py-3 shadow-[0_-4px_12px_rgb(0_0_0/0.08)] sm:bottom-0 sm:mx-0 sm:rounded-card sm:border"
@@ -804,36 +924,42 @@ function DecisionBar({
       data-sticky-bottom=""
     >
       {s.canDecide && s.availableActions.length > 0 ? (
-        <div className="grid gap-2">
-          {s.requirement && !has('approve') && (
-            <p className="text-muted-foreground text-xs" data-testid="tier-note">
-              Approving this quote needs the “{s.requirement.tierLabel}” approver tier. You can
-              still decline or return it.
-            </p>
-          )}
-          {/* DR-approver-leadership-admin-02: at 360-414 px the long labels wrap instead of being clipped. */}
-          <div className="grid grid-cols-2 gap-2 max-sm:*:py-2 max-sm:*:leading-tight max-sm:*:whitespace-normal sm:flex sm:justify-end">
-            {has('decline') && (
-              <Button variant="outline" size="lg" onClick={() => onDecide('decline')}>
-                {label('decline', 'Decline')}
-              </Button>
+        <div className="grid gap-2 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div className="grid min-w-0 gap-1">
+            {s.requirement && !has('approve') && (
+              <p className="text-muted-foreground text-xs" data-testid="tier-note">
+                Approving this quote needs the “{s.requirement.tierLabel}” approver tier. You can
+                still decline or return it.
+              </p>
             )}
-            {has('hold') && (
-              <Button variant="outline" size="lg" onClick={() => onDecide('hold')}>
-                {label('hold', 'Hold')}
-              </Button>
-            )}
-            {has('return') && (
-              <Button variant="outline" size="lg" onClick={() => onDecide('return')}>
-                {label('return', 'Return')}
-              </Button>
-            )}
-            {has('approve') && (
-              <Button size="lg" onClick={() => onDecide('approve')}>
-                {label('approve', 'Approve')}
-              </Button>
+            {/* UX-010: what blocks the release, next to the decision. */}
+            {blockers.length > 0 ? (
+              <p className="text-sm" data-testid="decision-bar-blockers">
+                <TriangleAlertIcon
+                  className="mr-1 inline size-4 align-text-bottom"
+                  aria-hidden="true"
+                />
+                The offer cannot be released yet: {blockers[0]!.message}
+                {blockers.length > 1 ? ` and ${blockers.length - 1} more` : ''}.{' '}
+                <button
+                  type="button"
+                  className={cn(FIX_LINK, 'cursor-pointer')}
+                  onClick={() => {
+                    const heading = document.getElementById('open-warnings-heading');
+                    heading?.scrollIntoView({ block: 'start' });
+                    heading?.focus({ preventScroll: true });
+                  }}
+                >
+                  See what blocks it
+                </button>
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm" data-testid="decision-bar-ready">
+                Nothing blocks the release.
+              </p>
             )}
           </div>
+          <DecideButton s={s} onDecide={onDecide} placement="bar" />
         </div>
       ) : (
         <p className="text-sm" data-testid="decision-unavailable">

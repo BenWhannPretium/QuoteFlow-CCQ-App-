@@ -3,12 +3,15 @@ import { REQUIREMENT_LABELS, termsExceptionOpen, uniqueRequirements } from '@ccq
 
 /**
  * Where an item that blocks the release is fixed:
- * - `commercial`: the quote's Commercial panel (Sales, Pricing and the pricing lead record it there);
+ * - `commercial`: the quote's Commercial terms tab (Sales, Pricing and the pricing lead record it there);
+ * - `tooling-commitment`: the customer tooling commitment on that tab (FB-25);
  * - `terms-legal`: the Terms and Legal section of the review screen (the approver's own confirmation);
+ * - `capital-term`: one capital term in that section (FB-25: `field` names it);
  * - `quote`: somewhere else on the full quote;
  * - `none`: nothing to fill in (another approver has to decide).
  */
-export type FixAt = 'commercial' | 'terms-legal' | 'quote' | 'none';
+export type FixAt =
+  'commercial' | 'tooling-commitment' | 'terms-legal' | 'capital-term' | 'quote' | 'none';
 
 export interface ReleaseBlocker {
   /** The rule's field key (`missing[].field`), or `approver_tier`. */
@@ -16,6 +19,8 @@ export interface ReleaseBlocker {
   /** What is open, in the server's plain words (`REQUIREMENT_LABELS`). */
   message: string;
   fixAt: FixAt;
+  /** FB-25: for `capital-term`, the capital term (`capital_terms_required` key) to go to. */
+  field?: string;
 }
 
 /**
@@ -27,6 +32,8 @@ const CHECK_FIELDS: Readonly<Record<string, FixAt>> = {
   legal_reviewed_on: 'commercial',
   terms_exception_open: 'commercial',
   terms_finalized_at: 'terms-legal',
+  // FB-25 (N17-26): answered on the Commercial terms tab (or by the KAM at intake).
+  terms_tooling_commitment: 'tooling-commitment',
 };
 
 /** A rule key is its fields joined by commas (`requirementKey`); the first check field it names decides. */
@@ -82,7 +89,55 @@ const REQUIRED_CHECKS: readonly {
     fallback: 'The approver’s confirmation of the capital terms',
     open: (t) => !t.capital.finalizedAt,
   },
+  {
+    check: 'tooling_commitment_answered',
+    key: 'g4_tooling_commitment_check_required,terms_tooling_commitment',
+    fallback: 'The customer tooling commitment answered',
+    open: (t) => t.termsToolingCommitment === null,
+  },
 ];
+
+/**
+ * FB-25 (N17-26, N17-27): the capital terms `capital_terms_required` names, in the words of the review
+ * screen. Mold ownership and the tooling funding model are needed here, at Final Review, not earlier.
+ */
+export const CAPITAL_TERM_NAMES: Readonly<Record<string, string>> = {
+  funding_model: 'Tooling funding model',
+  mold_ownership: 'Mold ownership',
+  amortization: 'Amortized (yes or no)',
+  min_supply: 'Minimum supply / shortfall terms',
+  agreement: 'Agreement in place (yes or no)',
+};
+
+/**
+ * FB-25: the required capital terms still unanswered (the approver cannot confirm the capital terms
+ * until they are). `fundingNotAnswered`: funding codes that are not an answer ("Not discussed").
+ */
+export function capitalTermsUnanswered(
+  t: Pick<Terms, 'capital'>,
+  fundingNotAnswered: readonly string[] = [],
+): string[] {
+  const c = t.capital;
+  const value: Record<string, unknown> = {
+    funding_model:
+      c.toolingFundingModel && !fundingNotAnswered.includes(c.toolingFundingModel)
+        ? c.toolingFundingModel
+        : null,
+    mold_ownership: c.moldOwnership,
+    amortization:
+      c.amortized === null ? null : c.amortized && c.amortizationMonths === null ? null : true,
+    min_supply: c.minSupply,
+    agreement:
+      c.agreementInPlace === null
+        ? null
+        : c.agreementInPlace && c.agreementMonths === null
+          ? null
+          : true,
+  };
+  return c.required.filter(
+    (term) => value[term] === null || value[term] === '' || value[term] === undefined,
+  );
+}
 
 /**
  * UX-010: what stops the offer being released right now, from what the review summary already says.
@@ -97,11 +152,16 @@ const REQUIRED_CHECKS: readonly {
  */
 export function releaseBlockers(
   s: Pick<ReviewSummary, 'inFinalReview' | 'availableActions' | 'requirement' | 'termsAndLegal'>,
+  fundingNotAnswered: readonly string[] = [],
 ): ReleaseBlocker[] {
   if (!s.inFinalReview) return [];
   const release = s.availableActions.find((a) => a.releasesProposal);
   if (release) {
-    return uniqueRequirements(release.missing).map((m) => blocker(m.field, m.message));
+    return withCapitalTerms(
+      uniqueRequirements(release.missing).map((m) => blocker(m.field, m.message)),
+      s.termsAndLegal,
+      fundingNotAnswered,
+    );
   }
   const out: ReleaseBlocker[] = [];
   if (s.requirement && !s.requirement.satisfied) {
@@ -117,5 +177,25 @@ export function releaseBlockers(
       out.push(blocker(c.key, c.fallback));
     }
   }
-  return out;
+  return withCapitalTerms(out, t, fundingNotAnswered);
+}
+
+/**
+ * FB-25 (N17-26, N17-27): when the capital-terms confirmation blocks, each required capital term still
+ * unanswered is listed after it, with a way to that field.
+ */
+function withCapitalTerms(
+  list: ReleaseBlocker[],
+  t: Terms,
+  fundingNotAnswered: readonly string[],
+): ReleaseBlocker[] {
+  const at = list.findIndex((b) => b.fixAt === 'terms-legal');
+  if (at < 0 || t.capital.finalizedAt) return list;
+  const terms = capitalTermsUnanswered(t, fundingNotAnswered).map((term): ReleaseBlocker => ({
+    key: `capital_term:${term}`,
+    message: `${CAPITAL_TERM_NAMES[term] ?? term} (needed to confirm the capital terms)`,
+    fixAt: 'capital-term',
+    field: term,
+  }));
+  return [...list.slice(0, at + 1), ...terms, ...list.slice(at + 1)];
 }
