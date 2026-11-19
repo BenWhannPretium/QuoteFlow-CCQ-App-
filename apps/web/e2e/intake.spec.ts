@@ -393,7 +393,15 @@ test.describe('KAM intake', () => {
     test.skip(!(await change.isVisible()), 'this opportunity has no default ship-to');
     await change.click();
     await expect(page.getByTestId('ship-to-original')).toContainText('From Salesforce:');
+    // FB-24 (N17-01): the default comes from the opportunity's product spec (city, state, country; no
+    // street) or from the account, whichever `ship_to_sources` picks first. Filling a part Salesforce
+    // left blank is not a change (FB-15, W13-01 d), so change every part: whichever parts the default
+    // has, the destination now differs from it.
     await page.locator('#intake-ship-to-line1').fill('99 Co-packer Way');
+    await page.locator('#intake-ship-to-city').fill('Co-packer City');
+    await page.locator('#intake-ship-to-state').fill('ZZ');
+    await page.locator('#intake-ship-to-postal').fill('00000');
+    await page.locator('#intake-ship-to-country').fill('Testland');
     await page.getByRole('button', { name: /^Next/ }).click();
     await page.getByRole('button', { name: /^Next/ }).click();
     await expect(page.getByTestId('blocking-list')).toContainText(
