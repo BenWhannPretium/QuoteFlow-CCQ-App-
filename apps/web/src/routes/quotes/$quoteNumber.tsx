@@ -27,6 +27,7 @@ import { CommercialPanel } from '@/components/commercial/CommercialPanel';
 import { EngineeringTab } from '@/components/engineering/EngineeringTab';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
 import { standardTermsFrom } from '@/components/intake/CommercialInputs';
+import { ConceptBadge, conceptClassesFrom } from '@/components/intake/ConceptBadge';
 import { intakeFactItems } from '@/components/intake/IntakeFacts';
 import {
   ClosureCard,
@@ -538,7 +539,19 @@ function IntakeCard({ quote }: { quote: QuoteDetail }) {
               ),
             },
             { label: 'KAM', value: quote.kamName },
-            { label: 'Request class', value: label('request_class', quote.requestClass) },
+            {
+              label: 'Request class',
+              // FB-24 (N17-03): a concept / innovation request is marked Concept.
+              value: (
+                <>
+                  {label('request_class', quote.requestClass)}
+                  {quote.requestClass &&
+                    conceptClassesFrom(config?.settings).includes(quote.requestClass) && (
+                      <ConceptBadge className="ml-2" />
+                    )}
+                </>
+              ),
+            },
             // FB-12 (F-073): the market and the sub-market that sets the strategic-fit score.
             { label: 'Market', value: marketText(config, quote.market, quote.subMarket) },
             { label: 'Product family', value: label('product_family', quote.productFamily) },

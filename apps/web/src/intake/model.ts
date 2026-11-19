@@ -5,6 +5,7 @@ import {
   type IntakeDraftData,
   type IntakeIssue,
   type IntakeItemData,
+  ITEM_LABEL_MAX,
   type PublicConfigResponse,
   type PublicValueListEntry,
   type SfOpportunityDetail,
@@ -19,10 +20,13 @@ import {
   MIN_SPEC_FIELDS,
   neckSummary,
   parseNeckText,
+  parseShipToSources,
+  pickShipTo,
   renderDescriptionTemplate,
   type IntakeConfig,
   type IntakeEvaluation,
   type ListEntry,
+  type ShipToSourceKey,
 } from '@ccq/domain';
 
 import { calendarDate } from '@/lib/time';
@@ -55,6 +59,9 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   'ship_to.state': { label: 'Destination state', step: 2 },
   ship_to_override_reason: { label: 'Reason for changing the destination', step: 2 },
   request_class: { label: 'Request class', step: 3 },
+  // FB-24 (N17-03): a concept's assumptions, and its render, photo or drawing (attached on step 4).
+  concept_assumptions: { label: 'Assumptions for this concept', step: 3 },
+  drawing_or_render: { label: "Customer's render or photo, or a drawing", step: 4 },
   product_family: { label: 'Product family', step: 3 },
   // FB-15 (W13-03): the field itself is labelled "Describe the …"; these are the review-list names.
   product_family_other: { label: 'Product family description', step: 3 },
@@ -80,7 +87,8 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   quote_variants_note: { label: 'Quote variants requested', step: 3 },
   liner_spec: { label: 'Liner spec', step: 3 },
   labels_purchased_by: { label: 'Labels purchased by', step: 3 },
-  decoration_type: { label: 'Decoration type', step: 3 },
+  // FB-24 (N17-02): several at once.
+  decoration_types: { label: 'Decoration types', step: 3 },
   decoration_type_other: { label: 'Decoration description', step: 3 },
   decoration_print_colors: { label: 'Number of print colors', step: 3 },
   height_mm: { label: 'Height (mm)', step: 3 },
@@ -97,6 +105,11 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   tooling_funding_model: { label: 'Does the customer fund any of the tooling?', step: 3 },
   customer_share_pct: { label: 'Customer share %', step: 3 },
   returnable_dunnage: { label: 'Returnable (multi-trip) dunnage', step: 3 },
+  // FB-24 (N18-02, D4).
+  tooling_commitment: { label: 'Will the customer commit to the tooling?', step: 3 },
+  stock_hold_requested: { label: 'Hold stock for the customer', step: 3 },
+  stock_hold_weeks: { label: 'Weeks of stock held', step: 3 },
+  stock_hold_note: { label: 'Stocking note', step: 3 },
   price_basis: { label: 'Delivered or FOB', step: 3 },
   freight_type: { label: 'Freight type', step: 3 },
   freight_special_arrangements: { label: 'Special freight arrangements', step: 3 },
@@ -140,6 +153,8 @@ export interface WizardConfig {
   lists: Record<string, PublicValueListEntry[]>;
   /** FB-12: labels of inactive entries by list and code (a rework of a quote on a retired market). */
   retired: Record<string, Record<string, string>>;
+  /** FB-24 (N17-01): where the ship-to is pre-filled from, in order (`ship_to_sources`, provisional). */
+  shipToSources: ShipToSourceKey[];
 }
 
 /**
@@ -171,6 +186,7 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
           : null,
       lists,
       retired: config.retiredValues ?? {},
+      shipToSources: parseShipToSources(s.ship_to_sources),
     };
   } catch {
     return null;
@@ -182,8 +198,13 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
  * while no drawing is attached, the minimum-spec fields (`intake_min_spec_fields`). The conditional
  * follow-ups ("Describe…", a component's liner spec…) mark themselves while they are shown.
  */
-export function requiredFieldsNow(cfg: WizardConfig, hasDrawing: boolean): Set<string> {
-  if (hasDrawing) return cfg.requiredFields;
+export function requiredFieldsNow(
+  cfg: WizardConfig,
+  hasDrawing: boolean,
+  /** FB-24 (N17-03): a concept request: the minimum spec is optional, so no asterisks on it. */
+  concept = false,
+): Set<string> {
+  if (hasDrawing || concept) return cfg.requiredFields;
   const out = new Set(cfg.requiredFields);
   for (const key of cfg.intake.minSpecFields) for (const f of MIN_SPEC_FIELDS[key]) out.add(f);
   return out;
@@ -202,7 +223,10 @@ export const evaluateDraft = (
   hasDrawing: boolean | ((item: IntakeItemData, index: number) => boolean),
   kept: Record<string, string[]> = {},
   now: Date = new Date(),
-): IntakeEvaluation => evaluateIntake(intakeValues(data, hasDrawing), cfg.intake, now, kept);
+  /** FB-24 (N17-03): a sample photo / render is on file (a concept's file rule); omitted = not known. */
+  hasRender?: boolean,
+): IntakeEvaluation =>
+  evaluateIntake(intakeValues(data, hasDrawing, hasRender), cfg.intake, now, kept);
 
 /**
  * FB-15 (W13-01): a problem's field path as the intake's snake_case field. The server sends snake_case
@@ -380,7 +404,7 @@ export function duplicateItem(
   return {
     ...item,
     key: newItemKey(),
-    label: label ? `${label} (copy)`.slice(0, 60) : null,
+    label: label ? `${label} (copy)`.slice(0, ITEM_LABEL_MAX) : null,
     duplicatedFrom: item.key,
     sfProductSpecId: null,
     linkedDrawingIds: [...new Set([...(item.linkedDrawingIds ?? []), ...ownDrawingIds])],
@@ -506,7 +530,12 @@ export function prefillFromOpportunity(
   const account = detail.account;
   // FB-15 (W13-04): the pre-fill still uses the first specification; every one is kept for FB-19.
   const spec = detail.productSpecs[0];
-  const shipTo = account?.shipTo ?? null;
+  // FB-24 (N17-01): the ship-to from the first source in `ship_to_sources` with a city and a state (the
+  // first product specification is item 1's), and where it came from. The opportunity's free-text
+  // "Ship to Locations" is kept to show beside it, never parsed.
+  const picked = pickShipTo(cfg.shipToSources, { productSpec: spec, account: account?.shipTo });
+  const shipTo = picked?.address ?? null;
+  const sfShipToLocations = o.shipToLocations?.trim() ? o.shipToLocations.trim() : null;
   const usableAmount =
     o.amount !== null && !o.dataQuality.includes('amount_suspect') ? o.amount : null;
   const sfAccountId = account?.id ?? o.accountId ?? null;
@@ -558,6 +587,8 @@ export function prefillFromOpportunity(
     shipTo,
     shipToDefault: shipTo,
     shipToOverrideReason: null,
+    shipToSource: picked?.source ?? null,
+    sfShipToLocations,
     requestClass: current.requestClass ?? cfg.intake.defaultRequestClass,
     estAnnualRevenue: usableAmount,
     estAnnualRevenueSf: o.amount,
@@ -578,7 +609,7 @@ export function itemFromSpec(spec: SfProductSpec, cfg: WizardConfig): IntakeItem
   const volume = spec.annualVolume ?? null;
   return {
     key: newItemKey(),
-    label: (spec.name?.trim() || size)?.slice(0, 60) ?? null,
+    label: (spec.name?.trim() || size)?.slice(0, ITEM_LABEL_MAX) ?? null,
     sfProductSpecId: spec.id,
     resin,
     ...(neck ?? {}),

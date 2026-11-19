@@ -5,6 +5,7 @@ import type { KeyValueItem } from '@/components/KeyValueGrid';
 import { calendarDate } from '@/lib/time';
 
 import { commercialFactItems } from './CommercialInputs';
+import { ConceptBadge } from './ConceptBadge';
 import { factLabel, type Lists } from './factLabel';
 
 export { factLabel };
@@ -36,6 +37,21 @@ export function intakeFactItems(
   standardPaymentTerms: readonly string[] = [],
 ): KeyValueItem[] {
   const items: KeyValueItem[] = [
+    // FB-24 (N17-03): a concept quote's assumptions come first, marked Concept.
+    ...(f.conceptAssumptions
+      ? [
+          {
+            id: 'concept-assumptions',
+            label: 'Concept assumptions',
+            value: (
+              <span className="whitespace-pre-line" data-testid="fact-concept-assumptions">
+                <ConceptBadge className="mr-2" />
+                {f.conceptAssumptions}
+              </span>
+            ),
+          },
+        ]
+      : []),
     {
       id: 'neck',
       label: 'Neck',
@@ -98,12 +114,15 @@ export function intakeFactItems(
       value: factLabel(lists, 'labels_purchased_by', f.labelsPurchasedBy),
     });
   }
-  if (f.decorationType) {
+  // FB-24 (N17-02): every decoration type picked ("Other" shows its description).
+  if (f.decorationTypes.length > 0) {
     items.push({
       id: 'decoration',
       label: 'Decoration',
       value: [
-        factLabel(lists, 'decoration_type', f.decorationType, f.decorationTypeOther),
+        ...f.decorationTypes.map((code) =>
+          factLabel(lists, 'decoration_type', code, f.decorationTypeOther),
+        ),
         f.decorationPrintColors != null
           ? `${f.decorationPrintColors} color${f.decorationPrintColors === 1 ? '' : 's'}`
           : null,

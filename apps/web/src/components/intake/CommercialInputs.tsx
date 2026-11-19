@@ -53,6 +53,21 @@ export const requestedTermsText = (lists: Lists, f: QuoteIntakeFacts): string | 
     f.requestedPaymentTermsOther,
   );
 
+/** FB-24 (N18-02, D4): a Yes / No / Not known yet answer. */
+export const answerText = (v: boolean | null | undefined): string =>
+  v === true ? 'Yes' : v === false ? 'No' : 'Not known yet';
+
+/** FB-24 (D4): "Yes, for 12 weeks", "No", "Not known yet". */
+export function stockHoldText(f: {
+  stockHoldRequested?: boolean | null | undefined;
+  stockHoldWeeks?: number | null | undefined;
+}): string {
+  if (f.stockHoldRequested !== true) return answerText(f.stockHoldRequested);
+  return f.stockHoldWeeks != null
+    ? `Yes, for ${f.stockHoldWeeks} week${f.stockHoldWeeks === 1 ? '' : 's'}`
+    : 'Yes';
+}
+
 /**
  * FB-11 (D-032): the commercial inputs the KAM gave at intake as label/value rows, for every role that
  * reads the quote (rule 2). The payment terms carry the non-standard flag, judged from the
@@ -111,6 +126,31 @@ export function commercialFactItems(
         </span>
       ),
     },
+    // FB-24 (N18-02): the KAM's answer; Final Review makes it required (FB-25).
+    {
+      id: 'tooling-commitment',
+      label: 'Customer commits to the tooling',
+      value: <span data-testid="fact-tooling-commitment">{answerText(f.toolingCommitment)}</span>,
+    },
+    // FB-24 (D4): holding stock for the customer is an extra cost Pricing needs to know.
+    {
+      id: 'stock-hold',
+      label: 'Hold stock for the customer',
+      value: <span data-testid="fact-stock-hold">{stockHoldText(f)}</span>,
+    },
+    ...(f.stockHoldRequested === true && f.stockHoldNote
+      ? [
+          {
+            id: 'stock-hold-note',
+            label: 'Stocking note',
+            value: (
+              <span className="whitespace-pre-line" data-testid="fact-stock-hold-note">
+                {f.stockHoldNote}
+              </span>
+            ),
+          },
+        ]
+      : []),
     {
       id: 'price-basis',
       label: 'Delivered or FOB',

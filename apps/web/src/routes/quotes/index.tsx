@@ -346,6 +346,16 @@ function QuoteTable({
             return { ...base, cell: ({ row }) => label('freight_type', row.original[key]) };
           case 'returnableDunnage':
             return { ...base, cell: ({ row }) => (row.original.returnableDunnage ? 'Yes' : 'No') };
+          // FB-24 (N18-02, D4): the KAM's tooling-commitment answer and the stocking agreement.
+          case 'toolingCommitment':
+          case 'stockHoldRequested':
+            return {
+              ...base,
+              cell: ({ row }) => {
+                const v = row.original[key];
+                return v === true ? 'Yes' : v === false ? 'No' : 'Not known yet';
+              },
+            };
           case 'estAnnualVolume':
             return {
               ...base,

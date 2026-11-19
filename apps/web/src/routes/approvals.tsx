@@ -281,8 +281,12 @@ function QueueCard({
 }) {
   const { data: config } = usePublicConfig();
   const label = (list: string, code: string | null) => valueListLabel(config, list, code);
-  const defaultClass = config?.settings.intake_default_request_class;
-  const otherClass = quote.requestClass && quote.requestClass !== defaultClass;
+  // FB-24 (N17-03): only a class that can't be submitted to CCQ may be a redirect (a concept is CCQ work).
+  const allowed = config?.settings.intake_allowed_request_classes;
+  const allowedClasses = Array.isArray(allowed)
+    ? allowed
+    : [config?.settings.intake_default_request_class];
+  const otherClass = Boolean(quote.requestClass) && !allowedClasses.includes(quote.requestClass);
   const product = [label('product_family', quote.productFamily), label('resin', quote.resin)]
     .filter(Boolean)
     .join(' · ');
