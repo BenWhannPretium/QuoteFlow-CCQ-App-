@@ -112,6 +112,8 @@ export const HANDOFF_TYPES = {
   capacityAssigned: 'quote.capacity_assigned',
   capacityReady: 'quote.capacity_ready',
   capacityBlocked: 'quote.capacity_blocked',
+  // FB-22 (N17-14): the engineer or the production scheduler submitted their part; the other is told.
+  partSubmitted: 'quote.part_submitted',
 } as const;
 
 /** Declared types the seeded workflow uses that are not catalogue types of their own: the arrival alert says it. */
@@ -413,6 +415,16 @@ export function planLeadReturned(assigneeId: UserId | null, quote: HandoffQuote)
       : []),
     { type: HANDOFF_TYPES.leadReviewUpdate, recipient: user(quote.kamUserId), reason: 'kam' },
   ];
+}
+
+/**
+ * FB-22 (N17-14): one part of an engineering review was submitted to the lead: the person who owns the other
+ * part is told (in-app). Nobody when there is no other person.
+ */
+export function planPartSubmitted(otherId: UserId | null): PlannedHandoff[] {
+  return otherId
+    ? [{ type: HANDOFF_TYPES.partSubmitted, recipient: user(otherId), reason: 'next_owner' }]
+    : [];
 }
 
 // ── The production scheduler and capacity (FB-16, W13-15, W13-17) ──────────────────────────────

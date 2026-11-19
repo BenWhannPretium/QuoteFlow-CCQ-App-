@@ -35,6 +35,7 @@ import {
 } from '../intake/items';
 import { MIN_SPEC_KEYS } from '../intake/product-facts';
 import { shipToSourcesSchema } from '../intake/ship-to';
+import { ENG_LEAD_NOTIFY_WHEN } from '../lead-review/parts';
 import {
   parseModelSummaryLimits,
   parseModelSummaryTemplates,
@@ -480,6 +481,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Capital readiness a quote starts on when it enters Quoting: whenNeeded (Engineering says capital is needed) and whenNotNeeded',
     'json',
     notNull('capital_readiness_default', parseCapitalReadinessDefault),
+  ),
+  // FB-22 (N17-14, provisional): when the engineering lead is told about the two parts.
+  spec(
+    'eng_lead_notify_when',
+    'engineering',
+    'When the engineering lead is told a quote is ready for review: both_parts (once the engineer and the production scheduler have both submitted) or each_part',
+    'text',
+    z_('eng_lead_notify_when', z.enum(ENG_LEAD_NOTIFY_WHEN)),
   ),
   // FB-17 (W13-22, provisional): capital is needed when the preliminary capital is above this.
   spec(
