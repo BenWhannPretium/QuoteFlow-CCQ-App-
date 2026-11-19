@@ -381,6 +381,21 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     // FB-15 (W13-03, Bailey Schmitt): "Other" makes "Special freight arrangements" required.
     ['OTHER', 'Other', { freeText: true }],
   ],
+  // FB-23 (N18-10; Jim Zweifel, 2026-11-18; provisional): how the parts are packed. `countField` names the
+  // eng_review count the method uses (pieces per bag / carton / tray); none: pieces per pallet is typed.
+  pack_method: [
+    ['BAGGED', 'Bagged', { countField: 'unitsPerBag', container: 'bag' }],
+    ['CARTON', 'Carton', { countField: 'unitsPerCase', container: 'carton' }],
+    ['TRAY', 'Tray', { countField: 'unitsPerTray', container: 'tray' }],
+    ['BULK', 'Bulk'],
+    ['OTHER', 'Other'],
+  ],
+  // FB-23 (N18-10, D4; provisional): floor loaded means no pallet cost.
+  pallet_type: [
+    ['PALLET_40X48', '40×48 pallet'],
+    ['FLOOR_LOADED', 'Floor loaded (no pallet)', { noPallet: true }],
+    ['OTHER', 'Other'],
+  ],
 };
 
 /** Lists kept only for history: their rows are seeded inactive (nobody can pick them). */

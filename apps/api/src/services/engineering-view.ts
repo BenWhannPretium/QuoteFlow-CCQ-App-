@@ -10,6 +10,7 @@ import type { DbOrTx } from '@ccq/db';
 import {
   getEngReview,
   getSetting,
+  listEngCostLines,
   listEngReviews,
   listQuoteItems,
   listAssignableEngineers,
@@ -48,6 +49,14 @@ import {
   parseMachineTypeProcessMap,
   parsePackOutRule,
   parseTwoStepPlantMachineTypes,
+  costTotals,
+  laborTotalPerLine,
+  packMethodCountField,
+  packOutFigures,
+  parseEngineeringCostLines,
+  parseToolingMarkupDefaultPct,
+  sumCostTotals,
+  type CostLineDef,
   planAccept,
   planEquipmentBomUpload,
   suggestEngineer,
@@ -124,6 +133,96 @@ export async function loadTwoStepPlantMachineTypes(db: DbOrTx): Promise<TwoStepP
   } catch {
     return parseTwoStepPlantMachineTypes(null);
   }
+}
+
+/** FB-23 (N18-04): `app_setting.engineering_cost_lines` (provisional), or the seed when unset or malformed. */
+export async function loadEngineeringCostLines(db: DbOrTx): Promise<CostLineDef[]> {
+  try {
+    return parseEngineeringCostLines(await getSetting(db, 'engineering_cost_lines'));
+  } catch {
+    return parseEngineeringCostLines(null);
+  }
+}
+
+/** FB-23 (D5): `app_setting.tooling_markup_default_pct` (provisional, seed 0), or 0. */
+export async function loadToolingMarkupDefaultPct(db: DbOrTx): Promise<number> {
+  try {
+    return parseToolingMarkupDefaultPct(await getSetting(db, 'tooling_markup_default_pct'));
+  } catch {
+    return parseToolingMarkupDefaultPct(null);
+  }
+}
+
+/** FB-23: what the cost lines and pack-out calculation need, loaded once per view. */
+export interface CostEstimateContext {
+  defs: readonly CostLineDef[];
+  defaultMarkupPct: number;
+  /** pack_method code → its meta (countField), every entry, retired included. */
+  packMethodMeta: ReadonlyMap<string, unknown>;
+}
+
+export async function loadCostEstimateContext(db: DbOrTx): Promise<CostEstimateContext> {
+  const [defs, defaultMarkupPct, methods] = await Promise.all([
+    loadEngineeringCostLines(db),
+    loadToolingMarkupDefaultPct(db),
+    listValueList(db, 'pack_method', { activeOnly: false }),
+  ]);
+  return { defs, defaultMarkupPct, packMethodMeta: new Map(methods.map((m) => [m.code, m.meta])) };
+}
+
+type CostLineRow = Awaited<ReturnType<typeof listEngCostLines>>[number];
+
+/**
+ * FB-23: an item's cost lines (in config order; a line no longer in the config last, under its key), its
+ * totals, the pack-out figures and the labor total.
+ */
+export function costEstimateView(
+  eng: ReviewRow | undefined,
+  rows: readonly CostLineRow[],
+  ctx: CostEstimateContext,
+) {
+  const order = (key: string) => {
+    const i = ctx.defs.findIndex((d) => d.key === key);
+    return i === -1 ? ctx.defs.length : i;
+  };
+  const costLines = [...rows]
+    .sort((a, b) => order(a.lineKey) - order(b.lineKey))
+    .map((r) => {
+      const def = ctx.defs.find((d) => d.key === r.lineKey);
+      return {
+        lineKey: r.lineKey,
+        label: def?.label ?? r.lineKey,
+        group: def?.group ?? ('tooling' as const),
+        customerFunded: def?.customerFunded ?? false,
+        amountUsd: r.amountUsd,
+        description: r.description,
+        quantity: r.quantity,
+      };
+    });
+  const totals = costTotals(
+    rows.map((r) => ({ lineKey: r.lineKey, amountUsd: r.amountUsd })),
+    ctx.defs,
+    { notedPct: eng?.toolingMarkupPct ?? null, defaultPct: ctx.defaultMarkupPct },
+  );
+  const countField = eng?.packMethod
+    ? packMethodCountField(ctx.packMethodMeta.get(eng.packMethod) ?? null)
+    : null;
+  const packOut = packOutFigures({
+    countField,
+    unitsPerBag: eng?.unitsPerBag ?? null,
+    unitsPerTray: eng?.unitsPerTray ?? null,
+    unitsPerCase: eng?.unitsPerCase ?? null,
+    containersPerLayer: eng?.containersPerLayer ?? null,
+    layersPerPallet: eng?.layersPerPallet ?? null,
+    palletsPerTrailer: eng?.palletsPerTrailer ?? null,
+    unitsPerPallet: eng?.unitsPerPallet ?? null,
+  });
+  return {
+    costLines,
+    costTotals: totals,
+    packOut,
+    laborTotalPerLine: laborTotalPerLine(eng?.packersPerLine ?? null, eng?.operatorsPerLine ?? null),
+  };
 }
 
 /** FB-16 (W13-14): `app_setting.pack_out_rule` (provisional), or the seed. */
@@ -346,6 +445,8 @@ function visibleReview(
   eng: ReviewRow | undefined,
   capacity: readonly CapacityRowWithName[],
   basis: CapacityBasis,
+  /** FB-23: the item's cost lines and what the calculations need. */
+  cost: { rows: readonly CostLineRow[]; ctx: CostEstimateContext },
 ): {
   review: EngineeringDetail['review'];
   capacityEvidence: EngineeringDetail['capacityEvidence'];
@@ -374,6 +475,23 @@ function visibleReview(
         unitsPerTray: eng?.unitsPerTray ?? null,
         unitsPerCase: eng?.unitsPerCase ?? null,
         unitsPerPallet: eng?.unitsPerPallet ?? null,
+        // FB-23 (N18-03 to N18-10, D4, D5)
+        moldLeadTime: eng?.moldLeadTime ?? null,
+        packersPerLine: eng?.packersPerLine ?? null,
+        operatorsPerLine: eng?.operatorsPerLine ?? null,
+        packMethod: eng?.packMethod ?? null,
+        packContainerItemNo: eng?.packContainerItemNo ?? null,
+        packContainerDescription: eng?.packContainerDescription ?? null,
+        containersPerLayer: eng?.containersPerLayer ?? null,
+        layersPerPallet: eng?.layersPerPallet ?? null,
+        palletBuildHeight: eng?.palletBuildHeight ?? null,
+        palletType: eng?.palletType ?? null,
+        palletsPerTrailer: eng?.palletsPerTrailer ?? null,
+        specialPackagingNote: eng?.specialPackagingNote ?? null,
+        returnableDunnageDescription: eng?.returnableDunnageDescription ?? null,
+        returnableDunnageCostUsd: eng?.returnableDunnageCostUsd ?? null,
+        toolingMarkupPct: eng?.toolingMarkupPct ?? null,
+        ...costEstimateView(eng, cost.rows, cost.ctx),
         updatedAt: iso(eng?.updatedAt),
       },
       capacityEvidence: capacity.map(({ row, analystName }) => ({
@@ -453,15 +571,18 @@ export async function engineeringView(
   /** FB-01 (F-001): the workflow config the section lock reads. */
   workflow: LockConfig,
 ): Promise<EngineeringDetail> {
-  const [eng, items, reviews, capacity, basis, processMap, aboveUsd] = await Promise.all([
-    getEngReview(db, q.id),
-    listQuoteItems(db, q.id),
-    listEngReviews(db, q.id),
-    listCapacityEvidenceWithNames(db, q.id),
-    loadCapacityBasis(db),
-    loadMachineTypeProcessMap(db),
-    loadCapitalNeededAboveUsd(db),
-  ]);
+  const [eng, items, reviews, capacity, basis, processMap, aboveUsd, costRows, costCtx] =
+    await Promise.all([
+      getEngReview(db, q.id),
+      listQuoteItems(db, q.id),
+      listEngReviews(db, q.id),
+      listCapacityEvidenceWithNames(db, q.id),
+      loadCapacityBasis(db),
+      loadMachineTypeProcessMap(db),
+      loadCapitalNeededAboveUsd(db),
+      listEngCostLines(db, q.id),
+      loadCostEstimateContext(db),
+    ]);
   const people = await listUsersByIds(
     db,
     [q.assignedEngineerId, q.assignedSchedulerId, eng?.acceptedBy, eng?.capacitySignoffBy].filter(
@@ -476,7 +597,10 @@ export async function engineeringView(
     items.map(async (item) => {
       const review = reviews.find((r) => r.quoteItemId === item.id);
       const rows = capacity.filter(({ row }) => row.quoteItemId === item.id);
-      const visible = visibleReview(actor, review, rows, basis);
+      const visible = visibleReview(actor, review, rows, basis, {
+        rows: costRows.filter((r) => r.quoteItemId === item.id),
+        ctx: costCtx,
+      });
       const single = items.length === 1;
       const volume = (single ? q.estAnnualVolume : item.estAnnualVolume) ?? null;
       return {
@@ -509,7 +633,7 @@ export async function engineeringView(
   const legacy = first
     ? null
     : {
-        visible: visibleReview(actor, eng, capacity, basis),
+        visible: visibleReview(actor, eng, capacity, basis, { rows: [], ctx: costCtx }),
         labels: await selectedLabels(db, eng),
         facts: await productFacts(db, q),
       };
@@ -575,5 +699,13 @@ export async function engineeringView(
     equipmentBom: await equipmentBomView(db, actor, q, state, workflow),
     suggestedEngineer,
     items: itemViews,
+    // FB-23: the quote's totals (the sum over items); the redaction strips nothing for any role (rule 2).
+    ...redact(
+      {
+        costTotals: sumCostTotals(itemViews.map((v) => v.review.costTotals ?? null)),
+      },
+      actor,
+    ),
+    returnableDunnage: q.returnableDunnage,
   };
 }

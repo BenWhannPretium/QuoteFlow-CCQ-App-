@@ -91,6 +91,8 @@ export const OFFER_SPEC_FACTS = [
   'neckFinish',
   'decoration',
   'packaging',
+  // FB-23 (N18-03): Engineering's estimated mold lead time (`eng_review.mold_lead_time`, free text).
+  'toolLeadTime',
 ] as const;
 export type OfferSpecFact = (typeof OFFER_SPEC_FACTS)[number];
 
@@ -192,6 +194,29 @@ export const parseOfferLetterBlockIfCostingChanged = booleanSetting(
 );
 
 export const OFFER_LETTER_WORDING_APPROVED_SEED = false;
+
+/**
+ * FB-23 (N18-14, D5; provisional): where the letter's Molds row comes from for an item.
+ * - `workbook_then_engineering` (seed): the costing workbook's mold charge when the item has one, otherwise
+ *   the item's customer tooling price from Engineering's cost lines (customer funded × (1 + noted markup)),
+ *   otherwise nothing.
+ * - `workbook_only`: FB-20's rule, the workbook alone.
+ */
+export const OFFER_MOLD_CHARGE_SOURCES = ['workbook_then_engineering', 'workbook_only'] as const;
+export type OfferMoldChargeSource = (typeof OFFER_MOLD_CHARGE_SOURCES)[number];
+export const OFFER_MOLD_CHARGE_SOURCE_SEED: OfferMoldChargeSource = 'workbook_then_engineering';
+
+/** `offer_mold_charge_source`: null / undefined → the seed. */
+export function parseOfferMoldChargeSource(input: unknown): OfferMoldChargeSource {
+  if (input === null || input === undefined) return OFFER_MOLD_CHARGE_SOURCE_SEED;
+  if (!(OFFER_MOLD_CHARGE_SOURCES as readonly unknown[]).includes(input)) {
+    throw new DomainError(
+      'INVALID_CONFIG',
+      `offer_mold_charge_source must be one of ${OFFER_MOLD_CHARGE_SOURCES.join(', ')}`,
+    );
+  }
+  return input as OfferMoldChargeSource;
+}
 export const OFFER_LETTER_BLOCK_IF_COSTING_CHANGED_SEED = true;
 
 /**
@@ -201,7 +226,8 @@ export const OFFER_LETTER_BLOCK_IF_COSTING_CHANGED_SEED = true;
  */
 export const OFFER_LETTER_TEMPLATE_SEED: OfferLetterTemplate = {
   // FB-24: the concept sentence added (migration 0051 makes the same change where FB-20's seed is unedited).
-  templateVersion: 'fb24-2026-11-19',
+  // FB-23: the "Equipment / tool lead time" Specifications row (migration 0053, same guard).
+  templateVersion: 'fb23-2026-11-19',
   provisional: true,
   legalApproved: false,
   eyebrow: 'Customer offer',
@@ -225,6 +251,8 @@ export const OFFER_LETTER_TEMPLATE_SEED: OfferLetterTemplate = {
     { fact: 'neckFinish', label: 'Neck finish' },
     { fact: 'decoration', label: 'Decoration' },
     { fact: 'packaging', label: 'Packaging' },
+    // FB-23 (N18-03): the old offer letter prints Equipment/Tool Lead Time. Omitted when no item has one.
+    { fact: 'toolLeadTime', label: 'Equipment / tool lead time' },
   ],
   assumptionsHeading: 'Pricing assumptions',
   assumptions: [

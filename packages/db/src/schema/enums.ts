@@ -105,6 +105,9 @@ export const VALUE_LIST_KEYS = [
   // FB-08 (D-029, F-068): tooling payment milestones and mold ownership.
   'tooling_payment_terms',
   'mold_ownership',
+  // FB-23 (N18-10): the pack-out method and the pallet type.
+  'pack_method',
+  'pallet_type',
 ] as const;
 
 /** FB-01 (F-030): where a KAM's resubmission resumes after a rework (`gate_outcome_definition.resume_at`). */

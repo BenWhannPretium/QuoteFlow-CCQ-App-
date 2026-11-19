@@ -15,6 +15,11 @@ import {
 import { parseAssignmentRules } from '../engineering/assignment-rules';
 import { parseCapacityBasis } from '../engineering/capacity';
 import { parseCapitalNeededAboveUsd } from '../engineering/capital-needed';
+import {
+  parseEngineeringCostDefaults,
+  parseEngineeringCostLines,
+  parseToolingMarkupDefaultPct,
+} from '../engineering/cost-estimate';
 import { parsePackOutRule } from '../engineering/pack-out';
 import {
   parseMachineTypeProcessMap,
@@ -43,6 +48,8 @@ import {
 } from '../model-summary';
 import { COMMENT_EMAIL_COLLAPSE_MINUTES_MAX } from '../notifications/events';
 import {
+  OFFER_MOLD_CHARGE_SOURCES,
+  parseOfferMoldChargeSource,
   parseOfferLetterBlockIfCostingChanged,
   parseOfferLetterTemplate,
   parseOfferLetterWordingApproved,
@@ -467,6 +474,28 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'json',
     notNull('pack_out_rule', parsePackOutRule),
   ),
+  // FB-23 (N18-04 to N18-07, N18-14, D4, D5; provisional): the engineering cost estimate.
+  spec(
+    'engineering_cost_lines',
+    'engineering',
+    'Engineering cost lines (tooling and new-line equipment): label, which processes show each, and which are customer funded',
+    'json',
+    notNull('engineering_cost_lines', parseEngineeringCostLines),
+  ),
+  spec(
+    'engineering_cost_defaults',
+    'engineering',
+    'Standard figures the cost lines pre-fill: freight for a complete mold, freight per lower blow mold, start-up assistance (3 days)',
+    'json',
+    notNull('engineering_cost_defaults', parseEngineeringCostDefaults),
+  ),
+  spec(
+    'tooling_markup_default_pct',
+    'engineering',
+    'Markup on customer-funded tooling when none is noted on the item (%; 0 = no markup unless noted)',
+    'number',
+    notNull('tooling_markup_default_pct', parseToolingMarkupDefaultPct),
+  ),
   spec(
     'capital_readiness_on_outcome',
     'engineering',
@@ -558,6 +587,15 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Legal has approved the offer letter\'s wording (off: every letter carries "DRAFT: wording not yet approved by Legal")',
     'boolean',
     notNull('offer_letter_wording_approved', parseOfferLetterWordingApproved),
+  ),
+  // FB-23 (N18-14, D5; provisional): the Molds row's source.
+  spec(
+    'offer_mold_charge_source',
+    'pricing',
+    "Offer letter Molds row: the costing workbook's mold charge, else the item's customer tooling price from Engineering (workbook_then_engineering), or the workbook only (workbook_only)",
+    'select',
+    notNull('offer_mold_charge_source', parseOfferMoldChargeSource),
+    { options: [...OFFER_MOLD_CHARGE_SOURCES] },
   ),
   spec(
     'offer_letter_block_if_costing_changed',

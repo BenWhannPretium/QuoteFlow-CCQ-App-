@@ -1,4 +1,8 @@
 import {
+  ENGINEERING_COST_DEFAULTS_SEED,
+  ENGINEERING_COST_LINES_SEED,
+  OFFER_MOLD_CHARGE_SOURCE_SEED,
+  TOOLING_MARKUP_DEFAULT_PCT_SEED,
   ENG_LEAD_NOTIFY_WHEN_SEED,
   OPPORTUNITY_ACTIVE_QUOTE_MESSAGE_SEED,
   OPPORTUNITY_ACTIVE_QUOTES_SEED,
@@ -49,6 +53,18 @@ import { scoringModelRow } from '../../src/repos/config';
 import { appSetting, scoringModel, sfStageMap } from '../../src/schema/index';
 
 const present = (field: string) => ({ field, op: 'present' });
+
+/** FB-23: the four settings' descriptions (migration 0053 inserts the same text). */
+export const FB23_SETTING_DESCRIPTIONS = {
+  engineering_cost_lines:
+    'FB-23 (N18-04, N18-06, N18-07, D4): the engineering cost estimate lines (Jim Zweifel\'s ECE Summary), in order. Each: key (stored on eng_cost_line), label, group (tooling: Engineering; new_line: new-line capital equipment, Operations), processes (process-type codes that show the line, or "all"), customerFunded (counted in "customer funded"), needsDescription (Other), prefill (freight or start_up, from engineering_cost_defaults). Seed: Molds, Unit mold, Perso parts (RHB), Head tooling (EBM), Freight, Start-up assistance (3 days), Tariffs / duties (D4), Other; Blow molders, Resin handling, Packaging & inspection, Support, Misc. equipment. Customer funded: Molds, Freight, Start-up (as the sheet) and Tariffs / duties (D4). A line that holds a value always shows. Provisional until Jim confirms the process mapping and Operations the new-line split.',
+  engineering_cost_defaults:
+    'FB-23 (N18-05): the standard figures the cost lines pre-fill (then editable): freightCompleteMoldUsd (1500), freightLowerBlowMoldUsd (750 per lower blow mold), startUpAssistanceUsd (5500 for 3 days). Freight stays editable (air freight from Japan was about $40,000). Provisional.',
+  tooling_markup_default_pct:
+    'FB-23 (N18-14, D5): the markup on customer-funded tooling when none is noted on the item, in %. Customer tooling price = customer funded × (1 + markup / 100). Seed 0: no markup unless one is noted on the quote (Ben, 2026-11-18). Provisional until Bailey Schmitt confirms.',
+  offer_mold_charge_source:
+    'FB-23 (N18-14, D5): where the offer letter\'s Molds row comes from. workbook_then_engineering (seed): the costing workbook\'s mold charge for the item when it has one, otherwise the item\'s customer tooling price from Engineering\'s cost lines, otherwise nothing. workbook_only: the workbook alone (FB-20). The source is recorded on each letter. Provisional until Gemma Cebolla confirms.',
+} as const;
 
 /**
  * Seed blocking set (D-05 recommended direction): SF opportunity, customer, ship/fill destination city
@@ -570,6 +586,28 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'eng_lead_notify_when',
     value: ENG_LEAD_NOTIFY_WHEN_SEED,
     description: ENG_LEAD_NOTIFY_WHEN_DESCRIPTION,
+  },
+  // ── FB-23 (N18-04 to N18-07, N18-14, D4, D5): the engineering cost estimate. Provisional. Existing
+  // environments get the same rows from migration 0053.
+  {
+    key: 'engineering_cost_lines',
+    value: ENGINEERING_COST_LINES_SEED,
+    description: FB23_SETTING_DESCRIPTIONS.engineering_cost_lines,
+  },
+  {
+    key: 'engineering_cost_defaults',
+    value: ENGINEERING_COST_DEFAULTS_SEED,
+    description: FB23_SETTING_DESCRIPTIONS.engineering_cost_defaults,
+  },
+  {
+    key: 'tooling_markup_default_pct',
+    value: TOOLING_MARKUP_DEFAULT_PCT_SEED,
+    description: FB23_SETTING_DESCRIPTIONS.tooling_markup_default_pct,
+  },
+  {
+    key: 'offer_mold_charge_source',
+    value: OFFER_MOLD_CHARGE_SOURCE_SEED,
+    description: FB23_SETTING_DESCRIPTIONS.offer_mold_charge_source,
   },
   // ── FB-17 (W13-22): capital needed follows the preliminary capital figure. Provisional.
   // Existing environments get the same row from migration 0046.

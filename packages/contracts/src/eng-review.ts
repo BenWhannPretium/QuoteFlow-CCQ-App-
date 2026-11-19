@@ -22,6 +22,27 @@ const text = (max: number) => z.string().trim().max(max).nullable();
 /** A pack-out count: a whole number from 1 to 9,999,999 (the domain's PACK_OUT_MAX). */
 const PackOutCount = wholeNumber(1, 9_999_999).nullable();
 
+// ── FB-23: the engineering cost estimate (the numbers are the domain's cost-estimate limits) ─────
+/** A USD amount from 0 to 999,999,999.99, in cents (COST_AMOUNT_MAX_USD). */
+const usdAmount = numberFrom(0, 999_999_999.99, 'USD').multipleOf(0.01, 'Enter the amount in cents');
+/** Packers / operators per line: 0 to 99.99, fractional (LABOR_PER_LINE_MAX). */
+const perLine = numberFrom(0, 99.99).multipleOf(0.01, 'Use at most two decimals');
+
+/**
+ * FB-23 (N18-04 to N18-07, D4): one cost line sent on a save. Lines sent are added or changed; a null
+ * amount removes the line (blank = not used); lines not sent are left as they are. `quantity` is the
+ * number of lower blow molds the freight was pre-filled for (freight only).
+ */
+export const CostLineBody = z
+  .object({
+    lineKey: z.string().trim().min(1).max(40),
+    amountUsd: usdAmount.nullable(),
+    description: z.string().trim().max(120).nullable().optional(),
+    quantity: wholeNumber(1, 99).nullable().optional(),
+  })
+  .strict();
+export type CostLineBody = z.infer<typeof CostLineBody>;
+
 /**
  * PUT /api/v1/quotes/:quoteNumber/eng-review. Only the keys sent change; null clears a field.
  * `prelimCapitalUsd` is the **budgetary capital estimate** (F-064): preliminary, includes contingency, refined
@@ -64,6 +85,33 @@ export const EngReviewBody = z
     unitsPerTray: PackOutCount,
     unitsPerCase: PackOutCount,
     unitsPerPallet: PackOutCount,
+    // ── FB-23 (N18-03 to N18-10, D4, D5, D6; provisional): Jim's ECE Summary, per item ──
+    /** Estimated mold lead time, free text ("16-18 weeks"). */
+    moldLeadTime: text(40),
+    packersPerLine: perLine.nullable(),
+    operatorsPerLine: perLine.nullable(),
+    /** A `pack_method` value-list code. With a method, only its count is kept (the others are cleared). */
+    packMethod: z.string().max(40).nullable(),
+    /** What the parts are packed in or on: item number (free text, D6) and description. */
+    packContainerItemNo: text(40),
+    packContainerDescription: text(120),
+    containersPerLayer: wholeNumber(1, 9_999).nullable(),
+    layersPerPallet: wholeNumber(1, 999).nullable(),
+    /** With its unit, as typed ("96 in"). */
+    palletBuildHeight: text(20),
+    /** A `pallet_type` value-list code. */
+    palletType: z.string().max(40).nullable(),
+    /** Pallets per 53-ft trailer. */
+    palletsPerTrailer: wholeNumber(1, 999).nullable(),
+    specialPackagingNote: text(300),
+    returnableDunnageDescription: text(200),
+    returnableDunnageCostUsd: usdAmount.nullable(),
+    /** D5: the markup noted on customer-funded tooling, 0 to 100 %; null = none noted (the default, 0). */
+    toolingMarkupPct: numberFrom(0, 100, '%')
+      .multipleOf(0.01, 'Use at most two decimals')
+      .nullable(),
+    /** Cost lines to add, change (an amount) or remove (null). */
+    costLines: z.array(CostLineBody).max(40),
     /**
      * FB-19 (W13-34): the item this solution is for (a `quote_item` id). Omitted: item 1, as a one-item
      * quote has always written.
@@ -136,6 +184,41 @@ export const CapacityEvidenceBody = z
   .strict();
 export type CapacityEvidenceBody = z.infer<typeof CapacityEvidenceBody>;
 
+/** FB-23: one stored cost line, with its label and group from config. */
+export const CostLineView = z.object({
+  lineKey: z.string(),
+  /** From `engineering_cost_lines`; the key itself when the line is no longer in the config. */
+  label: z.string(),
+  group: z.enum(['tooling', 'new_line']),
+  customerFunded: z.boolean(),
+  amountUsd: z.number().optional(),
+  description: z.string().nullable(),
+  quantity: z.number().nullable(),
+});
+export type CostLineView = z.infer<typeof CostLineView>;
+
+/** FB-23 (D5): an item's (or the quote's) totals. Markup fields are the item's only. */
+export const CostTotalsView = z.object({
+  projectTotalUsd: z.number(),
+  customerFundedUsd: z.number(),
+  netCostUsd: z.number(),
+  customerToolingPriceUsd: z.number(),
+  /** The markup applied (the noted one, else the default). Absent on the quote's sum. */
+  markupPct: z.number().optional(),
+  markupNoted: z.boolean().optional(),
+});
+export type CostTotalsView = z.infer<typeof CostTotalsView>;
+
+/** FB-23 (N18-10): the pack-out calculation. */
+export const PackOutFiguresView = z.object({
+  piecesPerContainer: z.number().nullable(),
+  containersPerPallet: z.number().nullable(),
+  piecesPerPallet: z.number().nullable(),
+  piecesPerPalletCalculated: z.boolean(),
+  piecesPerTrailer: z.number().nullable(),
+});
+export type PackOutFiguresView = z.infer<typeof PackOutFiguresView>;
+
 export const EngReviewFields = z.object({
   processType: z.string().nullable(),
   machineType: z.string().nullable(),
@@ -169,6 +252,30 @@ export const EngReviewFields = z.object({
   unitsPerTray: z.number().nullable(),
   unitsPerCase: z.number().nullable(),
   unitsPerPallet: z.number().nullable(),
+  // ── FB-23 (N18-03 to N18-10, D4, D5): the cost estimate and pack-out ──
+  moldLeadTime: z.string().nullable(),
+  packersPerLine: z.number().nullable(),
+  operatorsPerLine: z.number().nullable(),
+  packMethod: z.string().nullable(),
+  packContainerItemNo: z.string().nullable(),
+  packContainerDescription: z.string().nullable(),
+  containersPerLayer: z.number().nullable(),
+  layersPerPallet: z.number().nullable(),
+  palletBuildHeight: z.string().nullable(),
+  palletType: z.string().nullable(),
+  palletsPerTrailer: z.number().nullable(),
+  specialPackagingNote: z.string().nullable(),
+  returnableDunnageDescription: z.string().nullable(),
+  returnableDunnageCostUsd: z.number().nullable().optional(),
+  toolingMarkupPct: z.number().nullable().optional(),
+  /** The item's cost lines (only lines with a row; blank lines have none), in config order. */
+  costLines: z.array(CostLineView).default([]),
+  /** Calculated from the lines; null when no line has an amount. */
+  costTotals: CostTotalsView.nullable().default(null),
+  /** Calculated pack-out figures (blank when an input is missing, never 0). */
+  packOut: PackOutFiguresView.nullable().default(null),
+  /** Packers + operators per line; null when both are blank. */
+  laborTotalPerLine: z.number().nullable().default(null),
   updatedAt: z.string().nullable(),
 });
 export type EngReviewFields = z.infer<typeof EngReviewFields>;
@@ -360,6 +467,13 @@ export const EngineeringDetail = z.object({
    * item 1's (what a one-item quote has always shown).
    */
   items: z.array(EngItemView).default([]),
+  /** FB-23: the quote's cost totals, the sum over items (null when no item has a cost line). */
+  costTotals: CostTotalsView.nullable().default(null),
+  /**
+   * FB-23 (D4): the KAM ticked returnable dunnage at intake, so the pack-out asks for the dunnage
+   * description and estimated cost.
+   */
+  returnableDunnage: z.boolean().default(false),
 });
 export type EngineeringDetail = z.infer<typeof EngineeringDetail>;
 
@@ -409,6 +523,15 @@ export const ENG_INPUT_RULES = {
   unitsPerTray: EngReviewBody.shape.unitsPerTray,
   unitsPerCase: EngReviewBody.shape.unitsPerCase,
   unitsPerPallet: EngReviewBody.shape.unitsPerPallet,
+  // FB-23
+  packersPerLine: EngReviewBody.shape.packersPerLine,
+  operatorsPerLine: EngReviewBody.shape.operatorsPerLine,
+  containersPerLayer: EngReviewBody.shape.containersPerLayer,
+  layersPerPallet: EngReviewBody.shape.layersPerPallet,
+  palletsPerTrailer: EngReviewBody.shape.palletsPerTrailer,
+  returnableDunnageCostUsd: EngReviewBody.shape.returnableDunnageCostUsd,
+  toolingMarkupPct: EngReviewBody.shape.toolingMarkupPct,
+  costAmountUsd: CostLineBody.shape.amountUsd,
   assumedEffectivenessPct: CapacityEvidenceRowBody.shape.assumedEffectivenessPct,
   rowCycleTimeS: CapacityEvidenceRowBody.shape.cycleTimeS,
   utilizationBeforePct: CapacityEvidenceRowBody.shape.utilizationBeforePct,

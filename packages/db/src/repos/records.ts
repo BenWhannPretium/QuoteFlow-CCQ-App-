@@ -7,6 +7,7 @@ import {
   attachment,
   capacityEvidence,
   comment,
+  engCostLine,
   engReview,
   gateDecision,
   handoffRecord,
@@ -96,6 +97,22 @@ const ENG_REVIEW_FIELDS = [
   'unitsPerTray',
   'unitsPerCase',
   'unitsPerPallet',
+  // FB-23 (N18-03 to N18-10, D4, D5)
+  'moldLeadTime',
+  'packersPerLine',
+  'operatorsPerLine',
+  'packMethod',
+  'packContainerItemNo',
+  'packContainerDescription',
+  'containersPerLayer',
+  'layersPerPallet',
+  'palletBuildHeight',
+  'palletType',
+  'palletsPerTrailer',
+  'specialPackagingNote',
+  'returnableDunnageDescription',
+  'returnableDunnageCostUsd',
+  'toolingMarkupPct',
 ] as const;
 
 /**
@@ -119,6 +136,51 @@ export async function upsertEngReview(
     .returning();
   return row!;
 }
+
+/** FB-23: the quote's engineering cost lines (every item's), or one item's when `quoteItemId` is given. */
+export const listEngCostLines = (db: DbOrTx, quoteId: string, quoteItemId?: string) =>
+  db
+    .select()
+    .from(engCostLine)
+    .where(
+      and(
+        eq(engCostLine.quoteId, quoteId),
+        quoteItemId ? eq(engCostLine.quoteItemId, quoteItemId) : undefined,
+      ),
+    )
+    .orderBy(asc(engCostLine.createdAt));
+
+/** FB-23: add or change one item's line (one row per item and line key). */
+export async function upsertEngCostLine(
+  db: DbOrTx,
+  values: Pick<
+    typeof engCostLine.$inferInsert,
+    'quoteId' | 'quoteItemId' | 'lineKey' | 'amountUsd' | 'description' | 'quantity'
+  > & { actorId: string },
+) {
+  const { actorId, ...rest } = values;
+  const [row] = await db
+    .insert(engCostLine)
+    .values({ ...rest, createdBy: actorId, updatedBy: actorId })
+    .onConflictDoUpdate({
+      target: [engCostLine.quoteItemId, engCostLine.lineKey],
+      set: {
+        amountUsd: rest.amountUsd,
+        description: rest.description ?? null,
+        quantity: rest.quantity ?? null,
+        updatedBy: actorId,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  return row!;
+}
+
+/** FB-23: a line left blank has no row. */
+export const deleteEngCostLine = (db: DbOrTx, quoteItemId: string, lineKey: string) =>
+  db
+    .delete(engCostLine)
+    .where(and(eq(engCostLine.quoteItemId, quoteItemId), eq(engCostLine.lineKey, lineKey)));
 
 /** The quote's capacity rows (every item's), or FB-19 one item's when `quoteItemId` is given. */
 export const listCapacityEvidence = (db: DbOrTx, quoteId: string, quoteItemId?: string) =>

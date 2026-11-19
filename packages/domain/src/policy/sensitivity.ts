@@ -14,6 +14,10 @@ export const COMMERCIAL_FIELDS = {
     'est_net_capital_usd',
     'current_price',
     'target_price',
+    // FB-23 (D4, D5): the estimated dunnage cost and the noted tooling markup. Stripped for no role today
+    // (CLAUDE.md rule 2).
+    'returnable_dunnage_cost_usd',
+    'tooling_markup_pct',
   ],
   /** Any key starting with one of these (price_approved_by, priceRange, margin_pct, …). */
   keyPrefixes: ['price', 'margin'],
@@ -40,9 +44,13 @@ export const COMMERCIAL_FIELDS = {
     'pricing_context',
     'customer_erfs',
     'history_records',
+    // FB-23: the engineering cost totals (project total, customer funded, net cost, customer tooling price).
+    'cost_totals',
   ],
   /** Keys that are commercial only beneath an ancestor: the capacity-evidence numbers. */
   scopedKeys: {
+    // FB-23: each engineering cost line's amount.
+    cost_lines: ['amount_usd'],
     capacity_evidence: [
       'assumed_effectiveness_pct',
       'cycle_time_s',

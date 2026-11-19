@@ -1487,7 +1487,67 @@ export const engReview = documented(
       ),
       unitsPerPallet: c(
         integer('units_per_pallet'),
-        'FB-06 (F-025): units per pallet (whole number, optional).',
+        'FB-06 (F-025): units per pallet (whole number, optional). FB-23: pieces per pallet; written by the server from the pack-out calculation (pieces per container × per layer × layers) when per layer and layers are both given, otherwise as typed.',
+      ),
+      // FB-23 (N18-03 to N18-10, D4, D5; Jim Zweifel's ECE Summary, one column per item; provisional).
+      moldLeadTime: c(
+        text('mold_lead_time'),
+        'FB-23 (N18-03): estimated mold lead time, free text up to 40 ("16-18 weeks"). Printed on the offer letter as Equipment / tool lead time.',
+      ),
+      packersPerLine: c(
+        numeric('packers_per_line', { precision: 6, scale: 2, mode: 'number' }),
+        'FB-23 (N18-09): direct labor, packers per line (0 to 99.99; fractional: 0.68 means one packer covers more than one line).',
+      ),
+      operatorsPerLine: c(
+        numeric('operators_per_line', { precision: 6, scale: 2, mode: 'number' }),
+        'FB-23 (N18-09): direct labor, operators per line (0 to 99.99).',
+      ),
+      packMethod: c(
+        text('pack_method'),
+        'FB-23 (N18-10): value_list pack_method code (Bagged, Carton, Tray, Bulk, Other). Its meta.countField names the count it uses: Bagged units_per_bag, Carton units_per_case, Tray units_per_tray; the others none.',
+      ),
+      packContainerItemNo: c(
+        text('pack_container_item_no'),
+        'FB-23 (N18-10, D6): item number of what the parts are packed in or on (bag, carton, tray, slip sheet), free text up to 40.',
+      ),
+      packContainerDescription: c(
+        text('pack_container_description'),
+        'FB-23 (N18-10): description of what the parts are packed in or on, up to 120 (a carton has a liner).',
+      ),
+      containersPerLayer: c(
+        integer('containers_per_layer'),
+        'FB-23 (N18-10): bags, cartons or trays per layer (1 to 9,999).',
+      ),
+      layersPerPallet: c(integer('layers_per_pallet'), 'FB-23 (N18-10): layers per pallet (1 to 999).'),
+      palletBuildHeight: c(
+        text('pallet_build_height'),
+        'FB-23 (N18-10): pallet build height as typed, with its unit ("96 in"), up to 20. The worksheet\'s unit is unconfirmed.',
+      ),
+      palletType: c(
+        text('pallet_type'),
+        'FB-23 (N18-10): value_list pallet_type code (40×48 pallet, Floor loaded (no pallet), Other). Floor loaded = no pallet cost.',
+      ),
+      palletsPerTrailer: c(
+        integer('pallets_per_trailer'),
+        'FB-23 (N18-10): pallets per 53-ft trailer (1 to 999).',
+      ),
+      specialPackagingNote: c(
+        text('special_packaging_note'),
+        'FB-23 (D4): special packaging (for example needing floor loading), up to 300.',
+      ),
+      returnableDunnageDescription: c(
+        text('returnable_dunnage_description'),
+        'FB-23 (D4): the returnable dunnage, up to 200. Asked when the KAM ticked returnable dunnage at intake.',
+      ),
+      returnableDunnageCostUsd: c(
+        numeric('returnable_dunnage_cost_usd', { precision: 18, scale: 2, mode: 'number' }),
+        'FB-23 (D4): estimated dunnage cost (USD). Whether it is per trip or one-time is unconfirmed (Gemma Cebolla).' +
+          COMMERCIAL,
+      ),
+      toolingMarkupPct: c(
+        numeric('tooling_markup_pct', { precision: 5, scale: 2, mode: 'number' }),
+        'FB-23 (N18-14, D5): markup on customer-funded tooling noted for this item, 0 to 100 %. Blank = tooling_markup_default_pct (0: no markup unless noted). Customer tooling price = customer funded × (1 + markup / 100).' +
+          COMMERCIAL,
       ),
     },
     (t) => [
@@ -1508,9 +1568,75 @@ export const engReview = documented(
         'eng_review_capacity_signoff_status_check',
         sql`${t.capacitySignoffStatus} is null or ${inList(t.capacitySignoffStatus, CAPACITY_SIGNOFF_STATUSES)}`,
       ),
+      // FB-23: the cost estimate and pack-out fields (the domain's cost-estimate limits).
+      check(
+        'eng_review_cost_estimate_check',
+        sql`(${t.moldLeadTime} is null or char_length(${t.moldLeadTime}) <= 40) and (${t.packersPerLine} is null or ${t.packersPerLine} between 0 and 99.99) and (${t.operatorsPerLine} is null or ${t.operatorsPerLine} between 0 and 99.99) and (${t.toolingMarkupPct} is null or ${t.toolingMarkupPct} between 0 and 100) and (${t.returnableDunnageCostUsd} is null or ${t.returnableDunnageCostUsd} between 0 and 999999999.99)`,
+      ),
+      check(
+        'eng_review_pack_out_detail_check',
+        sql`(${t.packContainerItemNo} is null or char_length(${t.packContainerItemNo}) <= 40) and (${t.packContainerDescription} is null or char_length(${t.packContainerDescription}) <= 120) and (${t.containersPerLayer} is null or ${t.containersPerLayer} between 1 and 9999) and (${t.layersPerPallet} is null or ${t.layersPerPallet} between 1 and 999) and (${t.palletBuildHeight} is null or char_length(${t.palletBuildHeight}) <= 20) and (${t.palletsPerTrailer} is null or ${t.palletsPerTrailer} between 1 and 999) and (${t.specialPackagingNote} is null or char_length(${t.specialPackagingNote}) <= 300) and (${t.returnableDunnageDescription} is null or char_length(${t.returnableDunnageDescription}) <= 200)`,
+      ),
     ],
   ),
   { area: 'workflow', owner: ENG, description: 'Engineering Review fields (stage 2).' },
+);
+
+/**
+ * FB-23 (N18-04 to N18-07, D4): one engineering cost line of a quote item (Jim Zweifel's ECE Summary):
+ * tooling, start-up and new-line equipment. Which lines exist, their labels and which are customer funded
+ * are config (`app_setting.engineering_cost_lines`). Blank = no row.
+ */
+export const engCostLine = documented(
+  pgTable(
+    'eng_cost_line',
+    {
+      ...baseColumns(),
+      quoteId: c(quoteRef(), 'Quote (for row-level security).'),
+      quoteItemId: c(
+        uuid('quote_item_id')
+          .notNull()
+          .references(() => quoteItem.id, { onDelete: 'restrict' }),
+        'The item the line is for (one column per size on the ECE Summary).',
+      ),
+      lineKey: c(
+        text('line_key').notNull(),
+        'The line (a key in app_setting.engineering_cost_lines: molds, unit_mold, perso_parts, head_tooling, freight, start_up, tariffs, other, blow_molders, resin_handling, packaging_inspection, support_equipment, misc_equipment in the seed).',
+      ),
+      amountUsd: c(
+        numeric('amount_usd', { precision: 18, scale: 2, mode: 'number' }).notNull(),
+        'The amount (USD, 0 to 999,999,999.99). $0 = not used.' + COMMERCIAL,
+      ),
+      description: c(
+        text('description'),
+        'What the cost is for, up to 120 (required for a line with needsDescription, "Other").',
+      ),
+      quantity: c(
+        smallint('quantity'),
+        'Freight only: the number of lower blow molds the freight was pre-filled for (1 to 99); null = a complete mold or typed.',
+      ),
+      updatedBy: c(userRef('updated_by'), 'Who last changed the line.'),
+    },
+    (t) => [
+      uniqueIndex('eng_cost_line_item_key_uq').on(t.quoteItemId, t.lineKey),
+      index('eng_cost_line_quote_idx').on(t.quoteId),
+      check('eng_cost_line_amount_check', sql`${t.amountUsd} between 0 and 999999999.99`),
+      check(
+        'eng_cost_line_description_check',
+        sql`${t.description} is null or char_length(${t.description}) <= 120`,
+      ),
+      check(
+        'eng_cost_line_quantity_check',
+        sql`${t.quantity} is null or ${t.quantity} between 1 and 99`,
+      ),
+    ],
+  ),
+  {
+    area: 'workflow',
+    owner: ENG,
+    description:
+      'FB-23: engineering cost estimate lines per quote item (tooling, start-up, new-line equipment). Totals (project total, customer funded, net cost to Pretium, customer tooling price) are calculated, not stored.',
+  },
 );
 
 export const capacityEvidence = documented(
@@ -2149,6 +2275,12 @@ export const offerLetterItem = documented(
         'Molds (USD), snapshotted; null when not on the letter.' + COMMERCIAL,
         'Costing workbook',
       ),
+      // FB-23 (N18-14, D5): where the Molds figure came from.
+      moldChargeSource: c(
+        text('mold_charge_source'),
+        "FB-23: where mold_charge came from: workbook (the costing workbook's mold charge) or engineering (the item's customer tooling price from Engineering's cost lines: customer funded × (1 + noted markup)). Null when no Molds row.",
+        SYSTEM,
+      ),
       changePartsCharge: c(
         numeric('change_parts_charge', { precision: 18, scale: 4, mode: 'string' }),
         'Change parts (USD), snapshotted; null when not on the letter.' + COMMERCIAL,
@@ -2162,6 +2294,10 @@ export const offerLetterItem = documented(
       check(
         'offer_letter_item_part_number_check',
         sql`${t.partNumber} is null or char_length(${t.partNumber}) <= 60`,
+      ),
+      check(
+        'offer_letter_item_mold_charge_source_check',
+        sql`${t.moldChargeSource} is null or ${t.moldChargeSource} in ('workbook', 'engineering')`,
       ),
     ],
   ),

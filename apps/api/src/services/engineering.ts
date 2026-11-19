@@ -17,6 +17,9 @@ import {
 import type { Tx } from '@ccq/db';
 import {
   deleteCapacityEvidence,
+  deleteEngCostLine,
+  listEngCostLines,
+  upsertEngCostLine,
   ensurePrimaryItem,
   getEngReview,
   getEngReviewForItem,
@@ -75,6 +78,15 @@ import {
   normalizeSolutionExtras,
   validateSolutionExtras,
   packOutRuleErrors,
+  DomainError,
+  PACK_OUT_MAX,
+  normalizeCostEstimate,
+  normalizeCostLines,
+  normalizePackOutCounts,
+  packMethodCountField,
+  packOutFigures,
+  validateCostEstimate,
+  validateCostLines,
   parseWorkflowConfig,
   planAccept,
   planAssignment,
@@ -93,7 +105,6 @@ import {
   summarizeStageTimes,
   type Actor,
   type CapacitySignoffStatus,
-  type DomainError,
   type EngQueueEntry,
   type EngQueueSettings,
   type IntakeConfig,
@@ -113,6 +124,7 @@ import {
   loadEngQueueSettings,
   loadMachineTypeProcessMap,
   loadPackOutRule,
+  loadEngineeringCostLines,
   engineeringView,
   suggestedEngineerFor,
 } from './engineering-view';
@@ -958,7 +970,7 @@ export class EngineeringService {
   private async checkCodes(
     tx: Tx,
     checks: {
-      listKey: 'process_type' | 'machine_type' | 'plant';
+      listKey: 'process_type' | 'machine_type' | 'plant' | 'pack_method' | 'pallet_type';
       code: string | null | undefined;
       path: string;
     }[],
@@ -1030,6 +1042,9 @@ export class EngineeringService {
         { listKey: 'plant', code: body.plantCode, path: '/plantCode' },
         { listKey: 'plant', code: body.preformPlantCode, path: '/preformPlantCode' },
         { listKey: 'plant', code: body.blowPlantCode, path: '/blowPlantCode' },
+        // FB-23 (N18-10)
+        { listKey: 'pack_method', code: body.packMethod, path: '/packMethod' },
+        { listKey: 'pallet_type', code: body.palletType, path: '/palletType' },
       ]);
       if (invalid.length > 0) {
         throw new EngineeringError(
@@ -1046,7 +1061,7 @@ export class EngineeringService {
       const eng = await getEngReviewForItem(tx, item.id);
       const current = reviewColumns(eng);
       const sent = (Object.keys(body) as (keyof EngReviewBody)[]).filter(
-        (k) => k !== 'itemId' && body[k] !== undefined,
+        (k) => k !== 'itemId' && k !== 'costLines' && body[k] !== undefined,
       );
       const next = { ...current };
       for (const k of sent) (next as Record<string, unknown>)[k] = body[k] ?? null;
@@ -1078,21 +1093,115 @@ export class EngineeringService {
       // FB-06 (F-024): unticking "Two-step process" clears its four details, so a hidden value never
       // reaches Pricing; text is trimmed. Then the length and whole-number checks (F-024, F-025).
       Object.assign(next, normalizeSolutionExtras(next));
+      // FB-23 (N18-10, provisional): with a pack method chosen only its count is kept, and when per layer and
+      // layers are both given the server writes pieces per pallet from the calculation.
+      Object.assign(next, normalizeCostEstimate(next));
+      const packMethods = await listValueList(tx, 'pack_method', { activeOnly: false });
+      const countField = packMethodCountField(
+        packMethods.find((m) => m.code === next.packMethod)?.meta ?? null,
+      );
+      Object.assign(next, normalizePackOutCounts(next, next.packMethod, countField));
+      const figures = packOutFigures({ ...next, countField });
+      if (figures.piecesPerPalletCalculated) next.unitsPerPallet = figures.piecesPerPallet;
       // FB-16 (W13-14): bag and case are never filled in together (`pack_out_rule`, provisional).
       const extrasErrors = [
         ...validateSolutionExtras(next),
+        ...validateCostEstimate(next),
         ...packOutRuleErrors(next, await loadPackOutRule(tx)),
       ];
+      if (figures.piecesPerPalletCalculated && (figures.piecesPerPallet ?? 0) > PACK_OUT_MAX) {
+        extrasErrors.push(
+          new DomainError(
+            'INVALID_VALUE',
+            `Pieces per pallet comes to ${figures.piecesPerPallet!.toLocaleString('en-US')}, more than ${PACK_OUT_MAX.toLocaleString('en-US')}: check the counts`,
+            'unitsPerPallet',
+          ),
+        );
+      }
+      // FB-23 (N18-04 to N18-07, D4): the cost lines sent (added, changed or removed).
+      const costDefs = await loadEngineeringCostLines(tx);
+      const linesSent = normalizeCostLines(body.costLines ?? [], costDefs);
+      extrasErrors.push(...validateCostLines(linesSent, costDefs));
       if (extrasErrors.length > 0) fail(extrasErrors);
+      const storedLines = await listEngCostLines(tx, q.id, item.id);
+      const lineChanges = linesSent.flatMap((l) => {
+        const before = storedLines.find((r) => r.lineKey === l.lineKey) ?? null;
+        const same =
+          before !== null &&
+          l.amountUsd !== null &&
+          before.amountUsd === l.amountUsd &&
+          (before.description ?? null) === l.description &&
+          (before.quantity ?? null) === l.quantity;
+        if (same || (before === null && l.amountUsd === null)) return [];
+        return [{ line: l, before }];
+      });
       // What actually moved, including details cleared by the checkbox.
       const changed = (Object.keys(EngReviewBodySchema.shape) as (keyof EngReviewBody)[]).filter(
         (k) =>
           k !== 'itemId' &&
+          k !== 'costLines' &&
           (next as Record<string, unknown>)[k] !== undefined &&
           ((next as Record<string, unknown>)[k] ?? null) !==
             ((current as Record<string, unknown>)[k] ?? null),
       );
-      if (changed.length === 0) return this.detail(tx, actor, quoteNumber);
+      if (changed.length === 0 && lineChanges.length === 0) {
+        return this.detail(tx, actor, quoteNumber);
+      }
+
+      for (const { line, before } of lineChanges) {
+        const lineValues = (r: {
+          amountUsd: number | null;
+          description: string | null;
+          quantity: number | null;
+        }) => ({
+          lineKey: line.lineKey,
+          amountUsd: r.amountUsd,
+          description: r.description,
+          quantity: r.quantity,
+        });
+        let entityId = before?.id ?? null;
+        if (line.amountUsd === null) {
+          await deleteEngCostLine(tx, item.id, line.lineKey);
+        } else {
+          const row = await upsertEngCostLine(tx, {
+            quoteId: q.id,
+            quoteItemId: item.id,
+            lineKey: line.lineKey,
+            amountUsd: line.amountUsd,
+            description: line.description,
+            quantity: line.quantity,
+            actorId: actor.userId,
+          });
+          entityId = row.id;
+        }
+        await recordAudit(tx, actor, meta, {
+          // A blank line is removed: an update whose `after` has no amount (`removed: true`).
+          action: before === null ? 'create' : 'update',
+          entity: 'eng_cost_line',
+          entityId,
+          quoteId: q.id,
+          before: before ? lineValues(before) : null,
+          after: {
+            ...(line.amountUsd === null
+              ? { lineKey: line.lineKey, amountUsd: null, removed: true }
+              : lineValues(line)),
+            quoteItemId: item.id,
+          },
+          at: now,
+        });
+      }
+      const timelineFields = lineChanges.length > 0 ? [...changed, 'costLines'] : changed;
+      if (changed.length === 0) {
+        await insertActivityEvent(tx, {
+          quoteId: q.id,
+          type: 'eng_review_updated',
+          actorId: actor.userId,
+          at: now,
+          payload: { fields: timelineFields, ...(item.count > 1 ? { itemNo: item.itemNo } : {}) },
+          createdBy: actor.userId,
+        });
+        return this.detail(tx, actor, quoteNumber);
+      }
 
       await upsertEngReview(tx, {
         ...next,
@@ -1106,7 +1215,7 @@ export class EngineeringService {
         type: 'eng_review_updated',
         actorId: actor.userId,
         at: now,
-        payload: { fields: changed, ...(item.count > 1 ? { itemNo: item.itemNo } : {}) },
+        payload: { fields: timelineFields, ...(item.count > 1 ? { itemNo: item.itemNo } : {}) },
         createdBy: actor.userId,
       });
       const value = (o: object, k: string) => (o as Record<string, unknown>)[k] ?? null;
