@@ -108,7 +108,9 @@ test('an Admin dry-runs the write-back, previews a quote, goes live and retries 
   await expect(kam.getByTestId('sf-update-reminder')).toContainText('Sent.');
   await kam.close();
 
-  // Switched off, the card says plainly why nothing is written.
+  // Switched off, the card says plainly why nothing is written. (The tabs share one sign-in: back to Admin.)
+  await signInAs(page, 'admin');
+  await page.goto('/admin/integrations');
   await card.getByLabel('Write back to Salesforce').uncheck();
   await expect(card.getByTestId('sf-writeback-status')).toContainText(
     'writes nothing to Salesforce',

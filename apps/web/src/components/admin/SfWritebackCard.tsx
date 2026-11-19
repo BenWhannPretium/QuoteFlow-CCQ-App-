@@ -193,7 +193,13 @@ function Rows({
     return <p className="text-muted-foreground text-sm">Nothing has been queued yet.</p>;
   }
   return (
-    <div className="overflow-x-auto">
+    // A keyboard user can scroll the rows sideways on a phone (focusable region, axe).
+    <div
+      className="relative min-w-0 overflow-x-auto"
+      tabIndex={0}
+      role="region"
+      aria-label="Latest Salesforce writes"
+    >
       <table className="w-full text-left text-sm" data-testid="sf-writeback-rows">
         <caption className="sr-only">Latest Salesforce writes, newest first</caption>
         <thead className="text-muted-foreground text-xs">
@@ -259,9 +265,16 @@ export function SfWritebackCard() {
   const switchId = useId();
   const modeId = useId();
   const summary = useQuery({ queryKey: sfWritebackKey, queryFn: api.admin.sfWriteback });
+  const [pending, setPending] = useState<{ enabled?: boolean; mode?: 'dry_run' | 'live' } | null>(
+    null,
+  );
   const refresh = () => queryClient.invalidateQueries({ queryKey: sfWritebackKey });
   const save = useMutation({
     mutationFn: api.admin.setSfWriteback,
+    onSettled: (_data, err) => {
+      setPending(null);
+      if (err) void refresh();
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(sfWritebackKey, data);
       toast.success({ title: 'Salesforce write-back saved', description: data.statusText });
@@ -272,14 +285,20 @@ export function SfWritebackCard() {
     },
   });
 
+  /** Show the new switch or mode at once (a controlled input would snap back while the save runs). */
+  const change = (body: { enabled?: boolean; mode?: 'dry_run' | 'live' }) => {
+    setPending((p) => ({ ...p, ...body }));
+    save.mutate(body);
+  };
+
   if (summary.isError) {
     return <ErrorState error={summary.error} onRetry={() => void summary.refetch()} />;
   }
-  const s = summary.data;
+  const s = summary.data ? { ...summary.data, ...pending } : undefined;
   return (
     <section
       aria-labelledby="sf-writeback-heading"
-      className="bg-card rounded-card mb-6 grid gap-3 border p-4"
+      className="bg-card rounded-card mb-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 border p-4"
       data-testid="sf-writeback-card"
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -319,7 +338,7 @@ export function SfWritebackCard() {
                   className="size-4 accent-[var(--primary)]"
                   checked={s.enabled}
                   disabled={save.isPending}
-                  onChange={(e) => save.mutate({ enabled: e.target.checked })}
+                  onChange={(e) => change({ enabled: e.target.checked })}
                 />
                 Write back to Salesforce
               </label>
@@ -329,7 +348,7 @@ export function SfWritebackCard() {
                   id={modeId}
                   value={s.mode}
                   disabled={save.isPending}
-                  onChange={(e) => save.mutate({ mode: e.target.value as 'dry_run' | 'live' })}
+                  onChange={(e) => change({ mode: e.target.value as 'dry_run' | 'live' })}
                   aria-describedby={s.liveAllowed ? undefined : `${modeId}-why`}
                 >
                   <option value="dry_run">Dry run (record only, send nothing)</option>
