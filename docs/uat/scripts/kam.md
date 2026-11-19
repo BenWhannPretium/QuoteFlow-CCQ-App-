@@ -260,6 +260,22 @@ Data: `<SF-OPP-6 chosen by Bailey>`, an open opportunity you own; a PNG or JPG "
 | 114 | Open **Commercial terms**. Pick **Net 30**, then **Net 60**, then nothing. | At Net 30 (and Net 15) there is no **Non-standard terms** box. At Net 60 it is ticked and greyed out. With nothing picked it can be ticked by hand. | | |
 | 115 | On a quote in Final Review, answer **Customer tooling commitment** and **Save terms**. | It saves. Final Review needs it (yes or no) before the offer can be released; you may also have answered it at intake. | | |
 
+## Part N: FB-26 checks (linked re-quote, CER at hand-off)
+
+Added 2026-11-19 (FB-26, N17-30, N17-32). Bailey prepares `<CCQ-EXPIRED-1>`: one of your quotes released by Final Review more than 30 days ago and still open at Customer Decision (its offer has expired), with at least two items.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 116 | Open `<CCQ-EXPIRED-1>`. Read the **Customer decision** box. | A red chip "Expired N days ago", the note to revalidate or record the outcome, and a **Start a linked re-quote** button with "The offer has expired. If the customer now says yes, start a linked re-quote …". | | |
+| 117 | Click **Record customer decision** and read the help under **Re-quote**. Cancel. | "… Use while the offer is still valid. After it has expired, start a linked re-quote from the closed quote." | | |
+| 118 | Click **Start a linked re-quote**. Pick **Why did the offer expire?** **Proposal validity lapsed**, type why it is re-quoted, click **Start the re-quote**. | The quote is closed as **No response / Expired** with your note, and an intake draft opens at step 2 with "Re-quote of `<CCQ-EXPIRED-1>` (expired <date>). Check every value; Engineering and Pricing will review it again." The opportunity cannot be changed. | | |
+| 119 | Walk through the steps. | The request fields and every item are filled from the old quote, each item with its drawings (they show as linked). **Quote needed by** is empty. No "this opportunity already has an active quote" warning. | | |
+| 120 | Fill **Quote needed by**, change the volume of one item and submit. Open the new quote. | Under the stage tracker: "Re-quote of `<CCQ-EXPIRED-1>`" (a link). It waits for qualification (G1) as a new quote. The timeline starts "Quote created as a re-quote of …". | | |
+| 121 | Click the link to the old quote. | "Re-quoted as CCQ-… on <date>". The old quote keeps its decisions, prices and files; **Start a linked re-quote** is gone. Its timeline shows "Linked re-quote started" and "Re-quoted as CCQ-…". | | |
+| 122 | Ask an engineering tester to open the new quote's **Engineering** tab and expand **From the expired quote**. | The old quote's plant, process and machine, cavitation, cycle time, budgetary capital and tooling notes per item, and its price approval and capital readiness, read only. | | |
+| 123 | On a quote of yours in **Commit & Hand Off**, read the hand-off card. Click **Upload the CER proof** and choose a PNG screenshot. | "CER proof · Optional". After the upload: "v1 · <file> · <you> · <time>". A second upload shows v2. If an Admin has set the CER links, **Open the CER tool ↗** and **CER template ↗** open in a new tab; otherwise there are no links. | | |
+| 124 | Should a **Lost** quote be re-quotable too? Should the old engineering solution be copied as a starting point? Is "CER request number" the Apex CER ID? Should the proof be required? | Write the answers in Notes for Bailey. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |
