@@ -25,9 +25,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import { readMigrationFiles } from 'drizzle-orm/migrator';
 import postgres from 'postgres';
 
 import {
@@ -58,7 +58,9 @@ export class UsageError extends Error {
 }
 
 export function readJournal(migrationsDir: string): JournalEntry[] {
-  const journal = JSON.parse(readFileSync(join(migrationsDir, 'meta', '_journal.json'), 'utf8')) as {
+  const journal = JSON.parse(
+    readFileSync(join(migrationsDir, 'meta', '_journal.json'), 'utf8'),
+  ) as {
     entries: JournalEntry[];
   };
   return journal.entries;
@@ -251,7 +253,8 @@ export function largestWhenEverMerged(repoRoot: string, ref: string): number {
     if (!blob) continue; // the commit that deleted the file, if any
     let entries: { when?: unknown }[] = [];
     try {
-      entries = (JSON.parse(blob.toString('utf8')) as { entries?: { when?: unknown }[] }).entries ?? [];
+      entries =
+        (JSON.parse(blob.toString('utf8')) as { entries?: { when?: unknown }[] }).entries ?? [];
     } catch {
       // A historical journal that did not parse (a conflict marker): read its `when`s as text.
       entries = [...blob.toString('utf8').matchAll(/"when"\s*:\s*(\d+)/g)].map((m) => ({
@@ -413,11 +416,20 @@ const LOG_TAIL_LINES = 30;
 export async function startApiAndCheckHealth(
   databaseUrl: string,
   { entry, timeoutMs = 60_000 }: ApiOptions,
-): Promise<{ failure?: string; port: number }> {
+): Promise<{ failure: string | undefined; port: number }> {
   const port = await freePort();
   const workDir = mkdtempSync(join(tmpdir(), 'ccq-upgrade-api-'));
   // A clean environment: a developer's .env (SF_MODE=live, real mail) must not reach this process.
-  const passthrough = ['PATH', 'Path', 'SYSTEMROOT', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE'];
+  const passthrough = [
+    'PATH',
+    'Path',
+    'SYSTEMROOT',
+    'SystemRoot',
+    'TEMP',
+    'TMP',
+    'HOME',
+    'USERPROFILE',
+  ];
   const env: NodeJS.ProcessEnv = {};
   for (const key of passthrough) if (process.env[key] !== undefined) env[key] = process.env[key];
   Object.assign(env, {
@@ -545,7 +557,9 @@ export async function runUpgradeCheck({
   const journal = checkJournal(baseEntries, branchEntries, base.floor, base.label);
   failures.push(...journal.failures);
   const addedText =
-    journal.added.length === 0 ? 'none' : journal.added.map((e) => `${e.tag} (when ${e.when})`).join(', ');
+    journal.added.length === 0
+      ? 'none'
+      : journal.added.map((e) => `${e.tag} (when ${e.when})`).join(', ');
   if (journal.failures.length === 0) {
     proved.push(
       `journal: new entries ${addedText} follow ${base.label}'s ${baseEntries.length} in number and are above ${base.floor}, the largest \`when\` ever merged there.`,
@@ -694,10 +708,12 @@ export function parseArgs(argv: string[]): CliArgs {
     const arg = argv[i]!;
     const value = () => {
       const v = argv[++i];
-      if (v === undefined || v.startsWith('--')) throw new UsageError(`${arg} needs a value.\n${USAGE}`);
+      if (v === undefined || v.startsWith('--'))
+        throw new UsageError(`${arg} needs a value.\n${USAGE}`);
       return v;
     };
-    if (arg === '--') continue; // pnpm passes it through
+    if (arg === '--')
+      continue; // pnpm passes it through
     else if (arg === '--base') args.base = value();
     else if (arg.startsWith('--base=')) args.base = arg.slice('--base='.length);
     else if (arg === '--no-api') args.api = false;
@@ -726,7 +742,9 @@ async function main(): Promise<number> {
   const sha = resolveRef(repoRoot, args.base);
   const entry = resolve(repoRoot, API_ENTRY_PATH);
   if (args.api && !existsSync(entry)) {
-    throw new UsageError(`${API_ENTRY_PATH} not found: run \`pnpm build\` first (or pass --no-api).`);
+    throw new UsageError(
+      `${API_ENTRY_PATH} not found: run \`pnpm build\` first (or pass --no-api).`,
+    );
   }
 
   const scratch = mkdtempSync(join(tmpdir(), 'ccq-upgrade-base-'));
@@ -740,15 +758,17 @@ async function main(): Promise<number> {
         analyticsSqlDir: join(scratch, ANALYTICS_PATH),
         floor: largestWhenEverMerged(repoRoot, sha),
       },
-      api: args.api ? { entry, label: API_ENTRY_PATH, timeoutMs: args.timeoutSeconds * 1000 } : null,
+      api: args.api
+        ? { entry, label: API_ENTRY_PATH, timeoutMs: args.timeoutSeconds * 1000 }
+        : null,
     });
-    for (const note of result.notes) console.log(`note: ${note}`);
+    for (const note of result.notes) console.warn(`note: ${note}`);
     if (!result.ok) {
       console.error(`release:upgrade-check FAILED against ${args.base} (${sha.slice(0, 7)}):`);
       for (const failure of result.failures) console.error(`- ${failure}`);
       return 1;
     }
-    for (const line of result.proved) console.log(`ok ${line}`);
+    for (const line of result.proved) console.warn(`ok ${line}`);
     return 0;
   } finally {
     rmSync(scratch, { recursive: true, force: true });
