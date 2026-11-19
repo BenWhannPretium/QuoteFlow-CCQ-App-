@@ -87,6 +87,7 @@ export async function runMigrations(
     await ensureRoleMembership(sql);
     await alignAppliedMigrationTimestamps(sql, migrationsDir);
     await migrate(drizzle(sql), { migrationsFolder: migrationsDir });
+    await assertAllMigrationsApplied(sql, migrationsDir);
     await applyChangedComments(sql);
     // One transaction: a bad view file leaves the previous definitions in place.
     await sql.begin(async (tx) => {
@@ -132,6 +133,55 @@ export async function alignAppliedMigrationTimestamps(
     }
   });
   return changed;
+}
+
+/**
+ * Thrown when drizzle's migrator finished but left journal migrations unapplied. The message names
+ * migration tags only (no row data), so start-up may log it in full.
+ */
+export class MigrationsNotAppliedError extends Error {
+  override name = 'MigrationsNotAppliedError';
+  constructor(readonly tags: string[]) {
+    super(
+      `${tags.join(', ')} not applied: drizzle skips a migration whose journal \`when\` is not later ` +
+        'than the newest applied migration. Give it a later `when` (see migrationJournal.test.ts).',
+    );
+  }
+}
+
+/**
+ * 2026-11-19 test outage: drizzle skipped 0054/0055 without an error, and start-up then failed later on
+ * a `COMMENT ON COLUMN` for a column 0054 should have added (Postgres 42703, with no hint why). Check
+ * every journal entry is now recorded as applied and fail with the skipped tags instead.
+ *
+ * An entry counts as applied if a row has its hash, or if a row whose hash matches no journal entry
+ * has its `when` as `created_at`: that keeps a migration file edited after it was applied (new hash,
+ * same `when`) from tripping this. Extra rows (a newer build ran here before a rollback) are ignored.
+ */
+export async function assertAllMigrationsApplied(
+  sql: postgres.Sql,
+  migrationsDir: string = MIGRATIONS_DIR,
+): Promise<void> {
+  const rows = await sql<{ hash: string; created_at: string }[]>`
+    select hash, created_at::text as created_at from drizzle.__drizzle_migrations`;
+  const journal = JSON.parse(readFileSync(`${migrationsDir}/meta/_journal.json`, 'utf8')) as {
+    entries: { tag: string }[];
+  };
+  // readMigrationFiles returns one item per journal entry, in journal order.
+  const files = readMigrationFiles({ migrationsFolder: migrationsDir });
+  const journalHashes = new Set(files.map((m) => m.hash));
+  const hashes = new Set(rows.map((r) => r.hash));
+  // Only rows whose SQL is no longer in the journal (an edited file) may match by `when`: a row that
+  // already matches an entry by hash must not also vouch for another entry that shares its `when`.
+  const editedWhens = new Set(
+    rows.filter((r) => !journalHashes.has(r.hash)).map((r) => r.created_at),
+  );
+  const missing = files.flatMap((m, i) =>
+    hashes.has(m.hash) || editedWhens.has(String(m.folderMillis))
+      ? []
+      : [journal.entries[i]?.tag ?? `entry ${i}`],
+  );
+  if (missing.length > 0) throw new MigrationsNotAppliedError(missing);
 }
 
 /**
