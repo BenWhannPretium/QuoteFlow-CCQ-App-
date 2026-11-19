@@ -1,4 +1,5 @@
 import {
+  ENG_LEAD_NOTIFY_WHEN_SEED,
   OPPORTUNITY_ACTIVE_QUOTE_MESSAGE_SEED,
   OPPORTUNITY_ACTIVE_QUOTES_SEED,
   QUOTE_ITEMS_MAX_SEED,
@@ -77,6 +78,10 @@ export const ROI_REQUIRED_WHEN_DESCRIPTION =
 /** FB-21 (N17-19): migration 0049 inserts the same description. */
 export const CAPITAL_READINESS_DEFAULT_DESCRIPTION =
   'FB-21 (N17-19): the capital readiness a quote starts on when it enters Quoting with none. whenNeeded: Engineering says capital is needed (a preliminary capital figure is above capital_needed_above_usd or blank). whenNotNeeded: every figure is entered and none is above it. whenNeeded cannot be not_required. The pricer can change it. Seed: pending / not_required. Provisional.';
+
+/** FB-22 (N17-14): migration 0051 inserts the same description. */
+export const ENG_LEAD_NOTIFY_WHEN_DESCRIPTION =
+  'FB-22 (N17-14): when the engineering lead is told a quote is ready for review. both_parts: once the engineer and the production scheduler have both submitted their parts (or the engineer alone, when no scheduler is assigned; or the scheduler alone, when the engineer is an engineering lead). each_part: on each submission. Either way the quote reads "Ready for lead review" only once every part is in, and the lead may decide at any time. Seed: both_parts. Provisional.';
 
 /** FB-15 (W13-10): the master-data reminder for a customer with no ERP account (provisional wording). */
 export const CUSTOMER_MASTER_DATA_NOTICE =
@@ -558,6 +563,13 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     key: 'capital_readiness_default',
     value: CAPITAL_READINESS_DEFAULT_SEED,
     description: CAPITAL_READINESS_DEFAULT_DESCRIPTION,
+  },
+  // ── FB-22 (N17-14): when the engineering lead is told about the two parts. Provisional. Existing
+  // environments get the same row from migration 0051.
+  {
+    key: 'eng_lead_notify_when',
+    value: ENG_LEAD_NOTIFY_WHEN_SEED,
+    description: ENG_LEAD_NOTIFY_WHEN_DESCRIPTION,
   },
   // ── FB-17 (W13-22): capital needed follows the preliminary capital figure. Provisional.
   // Existing environments get the same row from migration 0046.

@@ -74,6 +74,8 @@ const ENG_REVIEW_FIELDS = [
   'cavitation',
   'cycleTimeS',
   'toolingNotes',
+  // FB-22 (N17-13)
+  'machinePlatform',
   'prelimCapitalUsd',
   'downstreamEquipmentNotes',
   'technicalConceptNotes',

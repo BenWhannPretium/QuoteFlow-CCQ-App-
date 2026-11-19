@@ -666,6 +666,19 @@ export const quote = documented(
         'FB-16: who the latest send-back went to: the engineer, or the production scheduler (W13-19). A capacity block returns the work to the engineer the same way. Null before FB-16.',
         ENG,
       ),
+      // FB-22 (N17-14, provisional): the production scheduler's part (the capacity rows) is submitted to
+      // the engineering lead on its own. The latest round only; cleared with the engineer's round (a new
+      // stay, a capacity block) and by a send-back to the scheduler.
+      capacitySubmittedAt: c(
+        timestamptz('capacity_submitted_at'),
+        'FB-22: when the production scheduler submitted the capacity part to the engineering lead (null: not submitted). The lead is told once both parts are in (app_setting eng_lead_notify_when).',
+        ENG,
+      ),
+      capacitySubmittedBy: c(
+        userRef('capacity_submitted_by'),
+        'FB-22: who submitted the capacity part (null on rounds carried over by migration 0051).',
+        ENG,
+      ),
       // Lead review (2026-10-30): the assigned pricer submits their part to the lead; the lead may send
       // it back. The latest round only (the timeline and audit keep every one); cleared on a new stay
       // in the stage and on reassignment.
@@ -1388,7 +1401,16 @@ export const engReview = documented(
         numeric('cycle_time_s', { precision: 8, scale: 2, mode: 'number' }),
         'Cycle time (seconds).',
       ),
-      toolingNotes: c(text('tooling_notes'), 'Tooling notes (mold, hot runner).'),
+      toolingNotes: c(
+        text('tooling_notes'),
+        'Tooling notes. FB-22 (N17-13): the form asks whether the mold has a hot runner here (no field of its own). Charter / Scope text from the estimate workbook goes here too.',
+      ),
+      // FB-22 (N17-13, provisional): the machine platform the item is quoted on. Free text, not a list:
+      // platforms differ by plant and machines move (Jim Zweifel, Nov 17).
+      machinePlatform: c(
+        text('machine_platform'),
+        'FB-22 (N17-13): the machine platform the item is quoted on (its model or line), free text, up to 80 characters. Optional.',
+      ),
       prelimCapitalUsd: c(
         money('prelim_capital_usd'),
         'Budgetary capital estimate (USD): preliminary, includes contingency; refined after award, before any CER (FB-03, F-064).' +
@@ -1400,7 +1422,7 @@ export const engReview = documented(
       ),
       technicalConceptNotes: c(
         text('technical_concept_notes'),
-        'Technical concept: how Engineering proposes to make it.',
+        'Deprecated (FB-22, N17-12): no longer asked or written; old values are shown read-only under "Legacy notes" and the G2 evidence snapshot still copies it. Technical concept: how Engineering proposes to make it.',
       ),
       // B-26 (deck slide 11): joint validation inputs and the capacity owner's sign-off
       equipmentBomNotes: c(
@@ -1409,7 +1431,7 @@ export const engReview = documented(
       ),
       supplyChainNotes: c(
         text('supply_chain_notes'),
-        'B-26: Supply Chain network and freight view.',
+        'Deprecated (FB-22, N17-12): no longer asked or written; old values are shown read-only under "Legacy notes". B-26: Supply Chain network and freight view.',
       ),
       capacitySignoffStatus: c(
         text('capacity_signoff_status'),
@@ -1477,6 +1499,11 @@ export const engReview = documented(
       // FB-03 (F-057): whole numbers 1-99. Added NOT VALID in migration 0027 so existing rows over 99
       // are not rejected (new writes are still checked).
       check('eng_review_cavitation_check', sql`${t.cavitation} between 1 and 99`),
+      // FB-22 (N17-13): a short free-text field.
+      check(
+        'eng_review_machine_platform_check',
+        sql`${t.machinePlatform} is null or char_length(${t.machinePlatform}) <= 80`,
+      ),
       check(
         'eng_review_capacity_signoff_status_check',
         sql`${t.capacitySignoffStatus} is null or ${inList(t.capacitySignoffStatus, CAPACITY_SIGNOFF_STATUSES)}`,

@@ -17,6 +17,9 @@ const columns = (kind: LeadReviewKindRow) =>
         returnedBy: quote.engReturnedBy,
         returnNote: quote.engReturnNote,
         returnedTo: quote.engReturnedTo,
+        // FB-22: the production scheduler's part.
+        capacitySubmittedAt: quote.capacitySubmittedAt,
+        capacitySubmittedBy: quote.capacitySubmittedBy,
       }
     : {
         submittedAt: quote.pricingSubmittedAt,
@@ -26,6 +29,8 @@ const columns = (kind: LeadReviewKindRow) =>
         returnNote: quote.pricingReturnNote,
         // FB-16: pricing has one assignee, so no "sent back to" column; always null.
         returnedTo: sql<string | null>`null`,
+        capacitySubmittedAt: sql<Date | null>`null`,
+        capacitySubmittedBy: sql<string | null>`null`,
       };
 
 const keys = (kind: LeadReviewKindRow) =>
@@ -37,6 +42,8 @@ const keys = (kind: LeadReviewKindRow) =>
         returnedBy: 'engReturnedBy',
         returnNote: 'engReturnNote',
         returnedTo: 'engReturnedTo',
+        capacitySubmittedAt: 'capacitySubmittedAt',
+        capacitySubmittedBy: 'capacitySubmittedBy',
       } as const)
     : ({
         submittedAt: 'pricingSubmittedAt',
@@ -45,6 +52,8 @@ const keys = (kind: LeadReviewKindRow) =>
         returnedBy: 'pricingReturnedBy',
         returnNote: 'pricingReturnNote',
         returnedTo: null,
+        capacitySubmittedAt: null,
+        capacitySubmittedBy: null,
       } as const);
 
 export interface LeadReviewRow {
@@ -55,6 +64,9 @@ export interface LeadReviewRow {
   returnNote: string | null;
   /** FB-16 (W13-19): who the latest engineering send-back went to. Always null for pricing. */
   returnedTo: string | null;
+  /** FB-22 (N17-14): the production scheduler's part. Always null for pricing. */
+  capacitySubmittedAt: Date | null;
+  capacitySubmittedBy: string | null;
 }
 
 /** The current round of one kind on a quote. */
@@ -72,6 +84,8 @@ export async function getLeadReview(
       returnedBy: null,
       returnNote: null,
       returnedTo: null,
+      capacitySubmittedAt: null,
+      capacitySubmittedBy: null,
     }
   );
 }
@@ -102,5 +116,7 @@ export function clearLeadReview(db: DbOrTx, quoteId: string, kind: LeadReviewKin
     returnedBy: null,
     returnNote: null,
     returnedTo: null,
+    capacitySubmittedAt: null,
+    capacitySubmittedBy: null,
   });
 }
