@@ -111,6 +111,8 @@ export function mapOpportunity(record: Raw, options: MapOptions = {}): SfOpportu
     isWon: bool(get(record, f.isWon)),
     erfNumber: str(get(record, f.erfNumber)),
     quoteSource: str(get(record, f.quoteSource)),
+    // FB-24 (N17-01): free text, kept as typed (line breaks too); never parsed into an address.
+    shipToLocations: str(get(record, f.shipToLocations)),
     systemModstamp: timestamp(get(record, f.systemModstamp)),
   };
   return { ...base, dataQuality: opportunityQualityFlags(base, options) };
@@ -166,6 +168,9 @@ export function mapProductSpec(record: Raw): SfProductSpec | null {
     neckFinish: str(get(record, f.neckFinish)),
     color: str(get(record, f.color)),
     annualVolume: num(get(record, f.annualVolume)),
+    shipToCity: str(get(record, f.shipToCity)),
+    shipToState: str(get(record, f.shipToState)),
+    shipToCountry: str(get(record, f.shipToCountry)),
   };
 }
 

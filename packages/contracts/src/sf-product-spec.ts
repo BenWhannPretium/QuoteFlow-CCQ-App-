@@ -13,6 +13,13 @@ export const SfProductSpec = z.object({
   neckFinish: z.string().nullable(),
   color: z.string().nullable(),
   annualVolume: z.number().nullable(),
+  /**
+   * FB-24 (N17-01): the product's ship-to (Ship_To_City__c text, Ship_To_State__c and Shipping_Country__c
+   * picklists of full names, e.g. "Texas"). Optional: a specification stored on a draft before FB-24 has none.
+   */
+  shipToCity: z.string().nullable().optional(),
+  shipToState: z.string().nullable().optional(),
+  shipToCountry: z.string().nullable().optional(),
 });
 export type SfProductSpec = z.infer<typeof SfProductSpec>;
 
