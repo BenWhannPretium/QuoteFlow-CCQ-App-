@@ -23,6 +23,28 @@ export const CUSTOMER_FUNDED_HELP = 'The customer pays for the tooling up front.
 export const AMORTIZED_HELP =
   'The customer pays for the tooling over time: its cost is spread across an agreed volume and added to the piece price, instead of being paid up front.';
 
+/**
+ * FB-31 (N19-08; Sarah Brennan, Darren Miller, Oleg Yarovinski, 2026-11-19): four plain choices. The
+ * wording is the builder's draft for Bailey Schmitt and Sarah Brennan to approve; it says what each option
+ * means and states no payment policy the meeting did not state. Migration 0057 writes the same text where
+ * the earlier text is unedited. The constants above are the earlier text (older migration tests read them).
+ */
+export const FB31_FUNDING_LABELS = {
+  CUSTOMER_FUNDED: 'Customer funded (lump sum)',
+  AMORTIZED: 'Customer funded (amortized)',
+  COMPANY_FUNDED: 'Pretium funded',
+  NOT_DISCUSSED: 'To be determined',
+} as const;
+export const FB31_FUNDING_HELP = {
+  CUSTOMER_FUNDED: 'The customer pays the tooling cost as a lump sum.',
+  AMORTIZED:
+    'Pretium pays for the tooling and recovers it in the piece price over time. This is an exception: finance reviews it before the offer goes out.',
+  COMPANY_FUNDED: 'Pretium pays for the tooling and carries the cost.',
+  NOT_DISCUSSED: 'Not agreed yet. This must be answered before Final Review.',
+} as const;
+/** FB-31 (N19-08): retired for new choices (kept for old quotes); an Admin can reactivate them. */
+export const RETIRED_FUNDING_MODELS = ['ZERO_CER', 'SHARED'] as const;
+
 /** FB-11 (F-080, Gemma Cebolla): the sales-tax and contract note shown when the customer funds tooling. */
 export const NOT_DISCUSSED_HELP =
   'The customer has not said whether it will pay for any of the tooling or capital. Leave this if it has not come up; you can change it later on the Commercial panel.';
@@ -304,16 +326,30 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['OTHER', 'Other', { freeText: true }],
   ],
   // B-26 (future-state deck slide 12): how the tooling / capital is funded. Provisional.
+  // FB-31 (N19-08): four plain choices (relabelled); $0 CER and Shared retired for new choices
+  // (`RETIRED_FUNDING_MODELS`), amortized flagged for a finance review (`requiresFinanceReview`).
   tooling_funding_model: [
-    ['COMPANY_FUNDED', 'Company-funded', { helpText: COMPANY_FUNDED_HELP }],
-    ['CUSTOMER_FUNDED', 'Customer-funded', { helpText: CUSTOMER_FUNDED_HELP, taxHint: true }],
+    [
+      'COMPANY_FUNDED',
+      FB31_FUNDING_LABELS.COMPANY_FUNDED,
+      { helpText: FB31_FUNDING_HELP.COMPANY_FUNDED },
+    ],
+    [
+      'CUSTOMER_FUNDED',
+      FB31_FUNDING_LABELS.CUSTOMER_FUNDED,
+      { helpText: FB31_FUNDING_HELP.CUSTOMER_FUNDED, taxHint: true },
+    ],
     // FB-04 (F-022, D-023): Oleg Yarovinski's definition. meta.helpText shows as an (i) next to the option.
     [
       'ZERO_CER',
       '$0 CER (customer-reimbursed capital)',
       { helpText: ZERO_CER_HELP, taxHint: true },
     ],
-    ['AMORTIZED', 'Amortized', { helpText: AMORTIZED_HELP, taxHint: true }],
+    [
+      'AMORTIZED',
+      FB31_FUNDING_LABELS.AMORTIZED,
+      { helpText: FB31_FUNDING_HELP.AMORTIZED, taxHint: true, requiresFinanceReview: true },
+    ],
     // FB-04 (V-055, D-003 open): provisional until the terms structure is decided.
     // FB-15 (W13-09): `customerShare` asks for the optional "Customer share %" (provisional).
     [
@@ -323,7 +359,11 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ],
     // FB-11 (F-080, D-032): intake only asks WHETHER the customer funds any tooling (not how much or how).
     // `defaultAtIntake`: preselected in the wizard and stored when the KAM doesn't change it.
-    ['NOT_DISCUSSED', 'Not discussed', { helpText: NOT_DISCUSSED_HELP, defaultAtIntake: true }],
+    [
+      'NOT_DISCUSSED',
+      FB31_FUNDING_LABELS.NOT_DISCUSSED,
+      { helpText: FB31_FUNDING_HELP.NOT_DISCUSSED, defaultAtIntake: true },
+    ],
   ],
   // FB-11 (F-080, Gemma Cebolla, D-032): the payment terms the customer asks for. Provisional (A-012).
   requested_payment_terms: [
@@ -411,6 +451,8 @@ const INACTIVE_VALUES: ReadonlySet<string> = new Set([
   ...RETIRED_PLANTS.map((code) => `plant:${code}`),
   // FB-12 (F-020): the retired market codes. Migration 0037 deactivates them in existing environments.
   ...RETIRED_MARKETS.map((code) => `market:${code}`),
+  // FB-31 (N19-08): $0 CER and Shared. Migration 0057 deactivates them in existing environments.
+  ...RETIRED_FUNDING_MODELS.map((code) => `tooling_funding_model:${code}`),
 ]);
 
 /**

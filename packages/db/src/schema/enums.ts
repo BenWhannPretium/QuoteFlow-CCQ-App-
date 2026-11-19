@@ -132,3 +132,6 @@ export const REASON_CONTEXTS = [
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type ValueListKey = (typeof VALUE_LIST_KEYS)[number];
 export type ReasonContext = (typeof REASON_CONTEXTS)[number];
+
+/** FB-31 (N19-07): the permissions a payment-terms exception tier may name. */
+export { TERMS_EXCEPTION_APPROVER_PERMISSIONS } from '@ccq/domain';
