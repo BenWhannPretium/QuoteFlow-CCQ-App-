@@ -187,7 +187,7 @@ export const DEFAULT_PAYMENT_TERMS_DESCRIPTION =
 
 /**
  * FB-31 (N19-07, N19-08, N19-10): the texts FB-31 changes. The constants above keep the earlier text,
- * which migration 0057 replaces only where it is still unedited (older migration tests read them).
+ * which migration 0056 replaces only where it is still unedited (older migration tests read them).
  */
 export const STANDARD_PAYMENT_TERMS_DESCRIPTION_FB31 =
   'FB-11 (F-080, D-032, A-012 decided Nov 9): the requested_payment_terms codes that count as standard. Any other request is flagged non-standard on the intake and the quote, with who must approve it (terms_exception_routes, FB-31). Net 15 and Net 30 are both standard (Gemma Cebolla, Nov 9); still marked provisional until an Admin approves it.';
@@ -813,7 +813,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description:
       'FB-19 (W13-33): the warning a KAM sees when starting an intake on an opportunity that already has an active quote ({quoteNumber} and {kamName} are filled in; several open quotes are listed). Provisional wording.',
   },
-  // ── FB-31 (N19-07): who approves non-standard payment terms. Provisional guess; migration 0057.
+  // ── FB-31 (N19-07): who approves non-standard payment terms. Provisional guess; migration 0056.
   {
     key: 'terms_exception_routes',
     value: TERMS_EXCEPTION_ROUTES_SEED,

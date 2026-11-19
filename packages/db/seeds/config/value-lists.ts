@@ -26,7 +26,7 @@ export const AMORTIZED_HELP =
 /**
  * FB-31 (N19-08; Sarah Brennan, Darren Miller, Oleg Yarovinski, 2026-11-19): four plain choices. The
  * wording is the builder's draft for Bailey Schmitt and Sarah Brennan to approve; it says what each option
- * means and states no payment policy the meeting did not state. Migration 0057 writes the same text where
+ * means and states no payment policy the meeting did not state. Migration 0056 writes the same text where
  * the earlier text is unedited. The constants above are the earlier text (older migration tests read them).
  */
 export const FB31_FUNDING_LABELS = {
@@ -451,7 +451,7 @@ const INACTIVE_VALUES: ReadonlySet<string> = new Set([
   ...RETIRED_PLANTS.map((code) => `plant:${code}`),
   // FB-12 (F-020): the retired market codes. Migration 0037 deactivates them in existing environments.
   ...RETIRED_MARKETS.map((code) => `market:${code}`),
-  // FB-31 (N19-08): $0 CER and Shared. Migration 0057 deactivates them in existing environments.
+  // FB-31 (N19-08): $0 CER and Shared. Migration 0056 deactivates them in existing environments.
   ...RETIRED_FUNDING_MODELS.map((code) => `tooling_funding_model:${code}`),
 ]);
 

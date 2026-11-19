@@ -30,7 +30,7 @@ import {
 import type { Tx } from '../src/client';
 
 /**
- * FB-31 (N19-07, N19-08, N19-10): migration 0057 in existing environments.
+ * FB-31 (N19-07, N19-08, N19-10): migration 0056 in existing environments.
  *
  * - The senior payment-terms grant (Leadership), terms_exception_routes (a provisional guess), and the
  *   routing of the requests pending now.

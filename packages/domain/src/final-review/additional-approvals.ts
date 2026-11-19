@@ -103,7 +103,7 @@ export const G4_ADDITIONAL_APPROVALS_SEED: AdditionalApprovals = {
   ],
 };
 
-/** The seed as FB-08 wrote it (migration 0057 replaces only this exact value). */
+/** The seed as FB-08 wrote it (migration 0056 replaces only this exact value). */
 export const G4_ADDITIONAL_APPROVALS_SEED_FB08: AdditionalApprovals = {
   rules: [G4_ADDITIONAL_APPROVALS_SEED.rules[0]!],
 };
