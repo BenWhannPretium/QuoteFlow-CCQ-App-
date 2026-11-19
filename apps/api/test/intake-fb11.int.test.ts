@@ -264,8 +264,9 @@ describe('commercial inputs at intake (D-032)', () => {
     expect(codes('requested_payment_terms')).toEqual(
       expect.arrayContaining(['NET_15', 'NET_30', 'NET_60', 'NET_120', 'OTHER']),
     );
-    expect(codes('price_basis')).toEqual(['FOB_PLANT', 'DELIVERED']);
-    expect(codes('freight_type')).toEqual(['FLATBED', 'VAN', 'DROP_TRAILER', 'T_BAR', 'OTHER']);
+    // FB-24 (N17-08): every list is offered A to Z, Other last.
+    expect(codes('price_basis')).toEqual(['DELIVERED', 'FOB_PLANT']);
+    expect(codes('freight_type')).toEqual(['DROP_TRAILER', 'FLATBED', 'T_BAR', 'VAN', 'OTHER']);
     expect(codes('tooling_funding_model')).toContain('NOT_DISCUSSED');
   });
 
