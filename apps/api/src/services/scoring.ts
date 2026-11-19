@@ -19,7 +19,7 @@ import {
   withItemsNote,
 } from '@ccq/domain';
 
-/** What triggered a recalculation; recorded on the tier-change activity event. */
+/** What triggered a recalculation; recorded on the score-change activity event. */
 export type ScoringTrigger =
   | 'intake_submit'
   | 'intake_resubmit'
@@ -60,9 +60,9 @@ export class ScoringService {
   }
 
   /**
-   * Scores the quote and stores the result. Writes a `priority_tier_changed` activity event when the
-   * computed tier moves (an override keeps the displayed tier; the score and computed tier still update),
-   * and says so in `tierChanged`.
+   * Scores the quote and stores the result. Writes one `priority_score_changed` activity event when the
+   * score or the computed tier moves (an override keeps the displayed tier; the score and computed tier
+   * still update), and says so in `tierChanged`.
    */
   async recalculate(
     db: DbOrTx,
@@ -94,17 +94,23 @@ export class ScoringService {
       (before.priorityBreakdown as { computedTier?: string } | null)?.computedTier ??
       (before.priorityTierOverridden ? null : before.priorityTier);
     const tierChanged = !!previous && previous !== result.tier;
-    if (tierChanged) {
+    // FB-27 (N17-15): one `priority_score_changed` event per recalculation that moves the score (or the
+    // computed tier, e.g. a new model's bands), with the tier before and after. It replaces the tier-only
+    // event; older `priority_tier_changed` rows are still read. The first score of a quote has no "from".
+    const previousScore = before.priorityScore;
+    const scoreChanged = previousScore !== null && !sameScore(previousScore, result.total);
+    if (scoreChanged || tierChanged) {
       await insertActivityEvent(db, {
         quoteId,
-        type: 'priority_tier_changed',
+        type: 'priority_score_changed',
         actorId,
         at,
         payload: {
-          from: previous,
-          to: result.tier,
-          score: result.total,
-          previousScore: before.priorityScore,
+          from: previousScore,
+          to: result.total,
+          tierFrom: previous,
+          tierTo: result.tier,
+          tierChanged,
           modelVersion: result.modelVersion,
           trigger,
           overridden: before.priorityTierOverridden,
@@ -115,3 +121,6 @@ export class ScoringService {
     return { ...result, tierChanged };
   }
 }
+
+/** Scores are stored to two decimals; compare at that precision so a rounding wobble is not a change. */
+const sameScore = (a: number, b: number) => Math.round(a * 100) === Math.round(b * 100);

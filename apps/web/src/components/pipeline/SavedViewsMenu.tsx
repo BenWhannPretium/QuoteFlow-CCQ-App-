@@ -10,16 +10,20 @@ import { toast } from '@/lib/toast';
 
 /**
  * Saved views (B-14): name the current filters and come back to them. Kept in this browser only
- * (per user, per view); the URL itself is the shareable form.
+ * (per user, per view); the URL itself is the shareable form. FB-27 (N17-17): the list also saves its
+ * columns and their order; a view saved before that applies the filters and leaves the columns alone.
  */
 export function SavedViewsMenu({
   view,
   search,
+  columns,
   onApply,
 }: {
   view: string;
   search: Record<string, unknown>;
-  onApply: (search: Record<string, unknown>) => void;
+  /** The list's visible columns, in order (undefined for views without columns). */
+  columns?: readonly string[] | undefined;
+  onApply: (search: Record<string, unknown>, columns?: string[]) => void;
 }) {
   const { user } = useCurrentUser();
   const [open, setOpen] = useState(false);
@@ -41,7 +45,8 @@ export function SavedViewsMenu({
         <p className="text-sm font-semibold">Saved views</p>
         {views.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            None yet. Saved views stay in this browser; share the page link instead.
+            None yet. Saved views stay in this browser (they don’t follow you to another device);
+            share the page link instead.
           </p>
         ) : (
           <ul className="grid gap-1">
@@ -51,7 +56,7 @@ export function SavedViewsMenu({
                   type="button"
                   className="hover:bg-accent min-h-11 flex-1 truncate rounded-md px-2 text-left text-sm sm:min-h-9"
                   onClick={() => {
-                    onApply(v.search);
+                    onApply(v.search, v.columns);
                     setOpen(false);
                   }}
                 >
@@ -77,7 +82,7 @@ export function SavedViewsMenu({
           className="grid gap-2 border-t pt-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (saveView(user.id, view, name, search)) {
+            if (saveView(user.id, view, name, search, { columns })) {
               toast.success({ title: 'View saved', description: `“${name.trim()}”` });
               setName('');
               refresh();
@@ -92,7 +97,7 @@ export function SavedViewsMenu({
           }}
         >
           <label htmlFor={nameId} className="text-sm">
-            Save the current filters as
+            {columns ? 'Save the current filters and columns as' : 'Save the current filters as'}
           </label>
           <div className="flex gap-2">
             <Input

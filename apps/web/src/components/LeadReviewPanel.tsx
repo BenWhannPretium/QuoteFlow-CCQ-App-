@@ -1,7 +1,7 @@
 import type { LeadReviewView } from '@ccq/contracts';
 import { uniqueRequirements } from '@ccq/domain';
 import { useMutation } from '@tanstack/react-query';
-import { CornerUpLeftIcon, LockIcon, SendIcon } from 'lucide-react';
+import { CircleAlertIcon, CornerUpLeftIcon, LockIcon, SendIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { BLOCKING_BOX, FlagKey } from '@/components/ui/flag-key';
 import { Textarea } from '@/components/ui/input';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { SAVE_FIRST_TEXT, useHasUnsavedChanges } from '@/lib/unsaved-changes';
+import { cn } from '@/lib/utils';
 
 import { problemErrors, type ServerError } from './forms';
 import { MISSING_LABELS } from './GateDecisionDialog';
@@ -84,6 +86,7 @@ export function LeadReviewStatus({
           role="status"
           className="bg-warning text-warning-foreground grid gap-1 rounded-md px-3 py-2"
           data-testid="lead-review-returned"
+          data-tone="warning"
         >
           <p className="flex items-start gap-2 font-semibold">
             <CornerUpLeftIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -148,6 +151,7 @@ export function LeadReviewActions<T>({
   const [missing, setMissing] = useState<ServerError[]>([]);
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
+  const panelRef = useRef<HTMLElement>(null);
   // UX-001: submitting sends what is saved, then locks it, and a decision is recorded on what is saved.
   // Typed values that are not saved yet would be left behind, so Submit and the decisions wait for the
   // save.
@@ -175,6 +179,7 @@ export function LeadReviewActions<T>({
   }
   return (
     <section
+      ref={panelRef}
       // FB-22 (N17-11): "Go to the decision" and `?tab=engineering#decision` land here.
       id={decide ? 'decision' : undefined}
       tabIndex={decide ? -1 : undefined}
@@ -210,14 +215,24 @@ export function LeadReviewActions<T>({
           testId="decide-needed"
         />
       )}
+      {/* FB-27 (N17-09): the key shows only while a red or yellow box is on this panel. */}
+      <FlagKey scope={panelRef} />
       {blockedReason && (
         <p className="text-muted-foreground" data-testid="lead-review-blocked">
           {blockedReason}
         </p>
       )}
       {missing.length > 0 && (
-        <div role="alert" className="text-destructive grid gap-1" data-testid="lead-review-missing">
-          <p className="font-semibold">Fill these in before you submit:</p>
+        <div
+          role="alert"
+          className={cn('grid gap-1 px-3 py-2', BLOCKING_BOX)}
+          data-testid="lead-review-missing"
+          data-tone="blocking"
+        >
+          <p className="flex items-center gap-2 font-semibold">
+            <CircleAlertIcon className="text-destructive size-4 shrink-0" aria-hidden="true" />
+            Fill these in before you submit:
+          </p>
           <ul className="list-disc pl-5">
             {uniqueRequirements(
               missing.map((m) => ({ ...m, field: m.path.replace(/^\//, '') })),
@@ -310,10 +325,18 @@ function StillNeeded({
   items: readonly { field: string; message: string }[];
   testId: string;
 }) {
+  // FB-27 (N17-09): what stops the next step is red (the intake's blocking tone), with its icon.
   return (
-    <div className="grid gap-1" data-testid={testId}>
-      <p className="font-medium">{intro}</p>
-      <ul className="text-muted-foreground list-disc pl-5">
+    <div
+      className={cn('grid gap-1 px-3 py-2', BLOCKING_BOX)}
+      data-testid={testId}
+      data-tone="blocking"
+    >
+      <p className="flex items-center gap-2 font-medium">
+        <CircleAlertIcon className="text-destructive size-4 shrink-0" aria-hidden="true" />
+        {intro}
+      </p>
+      <ul className="list-disc pl-5">
         {/* FB-16 (W13-12): "Process & machine type" is two rules and one pick: listed once. */}
         {uniqueRequirements(items).map((m) => (
           <li key={m.field + m.message}>{MISSING_LABELS[m.field] ?? m.message}</li>
@@ -487,6 +510,7 @@ export function PartSubmit<T>({
     },
     onError: (err) => setErrors(problemErrors(err)),
   });
+  const partRef = useRef<HTMLElement>(null);
   if (!canSubmit) {
     return blockedReason ? (
       <p className="text-muted-foreground text-sm" data-testid="lead-review-blocked">
@@ -497,10 +521,12 @@ export function PartSubmit<T>({
   const ready = missing?.length === 0;
   return (
     <section
+      ref={partRef}
       aria-label={label}
       className="bg-card rounded-card grid gap-3 border p-4 text-sm"
       data-testid={testId}
     >
+      <FlagKey scope={partRef} />
       {ready ? (
         <p className="text-muted-foreground">
           Everything needed is filled in. Submit it and the engineering lead reviews it.
@@ -516,8 +542,11 @@ export function PartSubmit<T>({
         )
       )}
       {errors.length > 0 && (
-        <div role="alert" className="text-destructive grid gap-1">
-          <p className="font-semibold">Fill these in before you submit:</p>
+        <div role="alert" className={cn('grid gap-1 px-3 py-2', BLOCKING_BOX)} data-tone="blocking">
+          <p className="flex items-center gap-2 font-semibold">
+            <CircleAlertIcon className="text-destructive size-4 shrink-0" aria-hidden="true" />
+            Fill these in before you submit:
+          </p>
           <ul className="list-disc pl-5">
             {uniqueRequirements(
               errors.map((m) => ({ ...m, field: m.path.replace(/^\//, '') })),

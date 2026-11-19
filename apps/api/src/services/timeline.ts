@@ -20,6 +20,7 @@ import {
   listCommentAuthorIds,
   listOverridesWithContext,
   listTimeline,
+  listRemovedAttachmentIds,
   listUsersByIds,
   loadQuoteState,
   searchUsers,
@@ -55,7 +56,7 @@ import { recordAudit, type AuditMeta } from '../plugins/audit';
 export type TimelineWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
 /** Event types that reveal the priority score or tier (hidden by `kam_can_see_peer_scores`). */
-const PRIORITY_TYPES = new Set(['priority_tier_changed']);
+const PRIORITY_TYPES = new Set(['priority_tier_changed', 'priority_score_changed']);
 const OVERRIDE_TYPES = new Set([
   'override_requested',
   'override_applied',
@@ -139,6 +140,18 @@ export class TimelineService {
         : [],
     );
 
+    // FB-27 (N17-34): a file event's name links to the download unless the file has since been removed.
+    const fileIds = [
+      ...new Set(
+        visible
+          .filter(
+            (r) => r.type === 'attachment_uploaded' && typeof r.payload.attachmentId === 'string',
+          )
+          .map((r) => r.payload.attachmentId as string),
+      ),
+    ];
+    const removedFiles = new Set(await listRemovedAttachmentIds(tx, fileIds));
+
     return visible.map((r): TimelineItem => {
       const mentions: CommentMention[] = asMentionIds(r.payload.mentions)
         .filter((id) => names.has(id))
@@ -153,7 +166,14 @@ export class TimelineService {
         actorId: r.actorId,
         actorName: r.actorName,
         at: r.at.toISOString(),
-        payload: r.kind === 'comment' ? {} : r.payload,
+        payload:
+          r.kind === 'comment'
+            ? {}
+            : r.type === 'attachment_uploaded' &&
+                typeof r.payload.attachmentId === 'string' &&
+                removedFiles.has(r.payload.attachmentId)
+              ? { ...r.payload, fileRemoved: true }
+              : r.payload,
         comment:
           r.kind === 'comment'
             ? { body: typeof r.payload.body === 'string' ? r.payload.body : '', mentions }

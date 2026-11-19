@@ -1,7 +1,6 @@
 import { ATTACHMENT_KIND_LABELS, type Attachment, type AttachmentKindValue } from '@ccq/contracts';
 import {
-  ATTACHMENT_EXTENSIONS,
-  ATTACHMENT_MAX_BYTES,
+  acceptedFormats,
   checkUploadRequest,
   DRAWING_ATTACHMENT_KINDS,
   parseAttachmentKindsByPlace,
@@ -39,8 +38,10 @@ import { toast } from '@/lib/toast';
 import { openFileLink } from '@/lib/unsaved-changes';
 import { cn } from '@/lib/utils';
 
-const ACCEPT = ATTACHMENT_EXTENSIONS.map((e) => `.${e}`).join(',');
-const MAX_MB = ATTACHMENT_MAX_BYTES / (1024 * 1024);
+// FB-27 (N17-24): the general panel says what the server accepts, from the same lists (the helper).
+const GENERAL_FORMATS = acceptedFormats('other');
+const ACCEPT = GENERAL_FORMATS.accept;
+const MAX_MB = GENERAL_FORMATS.maxMb;
 
 export const attachmentsQueryKey = (target: AttachmentTarget) =>
   'quoteNumber' in target
@@ -295,8 +296,7 @@ export function AttachmentsPanel({
             <UploadCloudIcon className="text-muted-foreground size-6" aria-hidden="true" />
             <p className="text-sm">Or drag files here.</p>
             <p id={`${ids}-rules`} className="text-muted-foreground text-xs">
-              PDF, images (PNG, JPG, HEIC), CAD (DWG, DXF, STEP, IGS), Excel, Word or email (MSG,
-              EML). Up to {MAX_MB} MB each.
+              {GENERAL_FORMATS.formatsText}. Up to {MAX_MB} MB each.
             </p>
           </div>
         </div>
@@ -509,7 +509,16 @@ function AttachmentList({
 }
 
 /** A file name that downloads through the audited route (Final Review and other read-only lists). */
-export function AttachmentDownloadLink({ id, fileName }: { id: string; fileName: string }) {
+export function AttachmentDownloadLink({
+  id,
+  fileName,
+  className,
+}: {
+  id: string;
+  fileName: string;
+  /** Replaces the default block-style sizing (the timeline sets the name inline in a sentence). */
+  className?: string;
+}) {
   const download = useMutation({
     mutationFn: () => api.attachmentLink(id),
     onSuccess: (link) => openFileLink(link.url),
@@ -522,7 +531,10 @@ export function AttachmentDownloadLink({ id, fileName }: { id: string; fileName:
   return (
     <button
       type="button"
-      className="text-foreground min-h-11 text-left underline underline-offset-4 sm:min-h-0"
+      className={cn(
+        'text-foreground text-left underline underline-offset-4',
+        className ?? 'min-h-11 sm:min-h-0',
+      )}
       disabled={download.isPending}
       onClick={() => download.mutate()}
     >

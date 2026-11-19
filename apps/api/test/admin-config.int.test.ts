@@ -749,17 +749,21 @@ describe('scoring model versions', () => {
         .from(schema.gateDecision),
     ).toEqual(evidenceBefore);
 
-    // One activity event per changed tier, and a summary row in the decision log.
-    const events = (
-      await db.db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(schema.activityEvent)
-        .where(sql`${schema.activityEvent.payload}->>'trigger' = 'model_change'`)
-    )[0]!.n;
+    // FB-27 (N17-15): one `priority_score_changed` event per quote whose score or tier moved; those that
+    // moved a tier are what the summary row counts as tier changes (the rest moved a score inside a tier).
+    const [counts] = await db.db.execute<{ all: number; tiers: number; old: number }>(sql`
+      select count(*)::int as "all",
+             count(*) filter (where payload->>'tierChanged' = 'true')::int as tiers,
+             (select count(*)::int from activity_event where type = 'priority_tier_changed') as old
+      from activity_event
+      where type = 'priority_score_changed' and payload->>'trigger' = 'model_change'`);
     const [summary] = await decisionLog('?entity=scoring_model');
     expect(summary!.subject).toBe(`Scoring model: v${draft.modelVersion} rescore`);
     const tierChanges = summary!.changes.find((c) => c.path === 'tierChanges')!.after as number;
-    expect(events).toBe(tierChanges);
+    expect(counts!.tiers).toBe(tierChanges);
+    expect(counts!.all).toBeGreaterThanOrEqual(tierChanges);
+    // The tier-only event is no longer written by a rescore.
+    expect(counts!.old).toBe(0);
     expect(tierChanges).toBeGreaterThan(0);
     expect(summary!.changes.find((c) => c.path === 'failed')!.after).toBe(0);
 

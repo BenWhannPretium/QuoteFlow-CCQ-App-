@@ -6,12 +6,13 @@ import {
 import { isCommercialKey } from '@ccq/domain';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Columns3Icon, DownloadIcon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, Columns3Icon, DownloadIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { api, downloadBlob, isApiError } from '@/lib/api';
+import { moveColumn, toggleColumn } from '@/lib/pipeline-columns';
 import { clearPipelineFilters, pipelineApiQuery, type PipelineSearch } from '@/lib/pipeline-search';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -142,7 +143,11 @@ export function ExportButton({
   );
 }
 
-/** The list's column chooser. Commercial columns are offered only to roles that see them. */
+/**
+ * The list's column chooser. Commercial columns are offered only to roles that see them. FB-27
+ * (N17-17): the shown columns are an ordered list with Move up / Move down (buttons, so the keyboard
+ * and a screen reader can reorder), then the columns not shown. A newly ticked column joins the end.
+ */
 export function ColumnChooser({
   value,
   onChange,
@@ -153,8 +158,35 @@ export function ColumnChooser({
   commercialVisible: boolean;
 }) {
   const baseId = useId();
-  const keys = (Object.keys(QUOTE_LIST_COLUMNS) as QuoteListColumnKey[]).filter(
+  const [status, setStatus] = useState('');
+  const offered = (Object.keys(QUOTE_LIST_COLUMNS) as QuoteListColumnKey[]).filter(
     (k) => commercialVisible || !isCommercialKey(k, []),
+  );
+  const shown = value.filter((k) => offered.includes(k));
+  const hidden = offered.filter((k) => !shown.includes(k));
+  const move = (k: QuoteListColumnKey, delta: -1 | 1) => {
+    const next = moveColumn(shown, k, delta);
+    onChange(next);
+    setStatus(`${QUOTE_LIST_COLUMNS[k]} is now column ${next.indexOf(k) + 1} of ${next.length}.`);
+  };
+  const tick = (k: QuoteListColumnKey, on: boolean) => onChange(toggleColumn(shown, k, on));
+  const row = 'hover:bg-accent flex min-h-11 items-center gap-1 rounded-md px-2 text-sm sm:min-h-9';
+  const checkbox = (k: QuoteListColumnKey, checked: boolean) => (
+    <label
+      htmlFor={`${baseId}-${k}`}
+      className="flex min-h-11 flex-1 cursor-pointer items-center gap-3 sm:min-h-9"
+    >
+      <input
+        id={`${baseId}-${k}`}
+        type="checkbox"
+        className="size-4 cursor-pointer accent-[var(--primary)]"
+        checked={checked}
+        // The list always keeps one column: the quote number is the way into a quote.
+        disabled={k === 'quoteNumber' || (checked && shown.length === 1)}
+        onChange={(e) => tick(k, e.target.checked)}
+      />
+      {QUOTE_LIST_COLUMNS[k]}
+    </label>
   );
   return (
     <Popover>
@@ -165,40 +197,53 @@ export function ColumnChooser({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="grid max-h-[70dvh] w-64 gap-1 overflow-y-auto"
+        className="grid max-h-[min(70dvh,var(--radix-popover-content-available-height))] w-72 gap-1 overflow-y-auto overscroll-contain"
         align="end"
         aria-label="Columns"
       >
         <fieldset className="grid gap-1">
-          <legend className="mb-1 text-sm font-semibold">Show columns</legend>
-          {keys.map((k) => {
-            const id = `${baseId}-${k}`;
-            const checked = value.includes(k);
-            return (
-              <label
-                key={k}
-                htmlFor={id}
-                className="hover:bg-accent flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-sm sm:min-h-9"
-              >
-                <input
-                  id={id}
-                  type="checkbox"
-                  className="size-4 accent-[var(--primary)]"
-                  checked={checked}
-                  disabled={k === 'quoteNumber'}
-                  onChange={(e) =>
-                    onChange(
-                      e.target.checked
-                        ? keys.filter((c) => c === k || value.includes(c))
-                        : value.filter((c) => c !== k),
-                    )
-                  }
-                />
-                {QUOTE_LIST_COLUMNS[k]}
-              </label>
-            );
-          })}
+          <legend className="mb-1 text-sm font-semibold">Shown, in order</legend>
+          <ol className="grid gap-1" data-testid="columns-shown">
+            {shown.map((k, i) => (
+              <li key={k} className={row} data-testid={`column-row-${k}`}>
+                {checkbox(k, true)}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-9 sm:size-8"
+                  aria-label={`Move ${QUOTE_LIST_COLUMNS[k]} up`}
+                  disabled={i === 0}
+                  onClick={() => move(k, -1)}
+                >
+                  <ArrowUpIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-9 sm:size-8"
+                  aria-label={`Move ${QUOTE_LIST_COLUMNS[k]} down`}
+                  disabled={i === shown.length - 1}
+                  onClick={() => move(k, 1)}
+                >
+                  <ArrowDownIcon aria-hidden="true" />
+                </Button>
+              </li>
+            ))}
+          </ol>
         </fieldset>
+        {hidden.length > 0 && (
+          <fieldset className="mt-2 grid gap-1">
+            <legend className="mb-1 text-sm font-semibold">Not shown</legend>
+            {hidden.map((k) => (
+              <div key={k} className={row}>
+                {checkbox(k, false)}
+              </div>
+            ))}
+          </fieldset>
+        )}
+        <p className="sr-only" role="status" aria-live="polite">
+          {status}
+        </p>
         <Button
           variant="ghost"
           size="sm"

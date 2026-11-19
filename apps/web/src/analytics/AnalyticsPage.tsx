@@ -623,9 +623,9 @@ function OutcomesSection({ search }: { search: AnalyticsSearch }) {
           />
           <Stat
             testId="stat-commitment-pending"
-            label="Awarded, commitment pending"
+            label="Awarded, hand-off not done"
             value={fmtCount(o.commitmentPending.count)}
-            hint="Awarded by the customer and waiting in Commit & Hand Off (CER and hand-off). Already in the awarded count and win rate."
+            hint="The customer awarded it; the CER and hand-off are still open. Counted as won."
             info={o.commitmentPending.info}
           />
           <p className="text-muted-foreground text-xs">

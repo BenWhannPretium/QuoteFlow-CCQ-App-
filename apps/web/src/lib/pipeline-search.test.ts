@@ -61,6 +61,17 @@ describe('pipeline URL search', () => {
     expect(clearPipelineFilters(s)).toEqual({ q: 'x', sort: 'amount' });
   });
 
+  // FB-27 (N17-17): the Plant filter is a multi-value key like the others, and reaches the API query.
+  it('carries the plant filter through the URL, the popover value and the API query', () => {
+    const s = parsePipelineSearch({ plant: 'AURORA,CARROLLTON,AURORA', stage: 'QUOTING' });
+    expect(s.plant).toBe('AURORA,CARROLLTON');
+    expect(filterValueFromSearch(s).plant).toEqual(['AURORA', 'CARROLLTON']);
+    expect(activePipelineFilterCount(s)).toBe(3);
+    expect(pipelineApiQuery(s).plant).toBe('AURORA,CARROLLTON');
+    expect(searchWithFilterValue(s, { plant: ['ST_LOUIS'] }).plant).toBe('ST_LOUIS');
+    expect(clearPipelineFilters(s).plant).toBeUndefined();
+  });
+
   it('builds the API query and the sort defaults', () => {
     const s = parsePipelineSearch({ stage: 'A,B', hasWarnings: 'true' });
     expect(pipelineApiQuery(s, { sort: 'score', pageSize: 50, includeClosed: undefined })).toEqual({
@@ -119,6 +130,51 @@ describe('saved views (localStorage, per user and view)', () => {
     expect(() => writeColumns('u1', ['quoteNumber'])).not.toThrow();
     vi.stubGlobal('window', { localStorage: { ...storage, getItem: () => '{not json' } });
     expect(listSavedViews('u1', 'quotes')).toEqual([]);
+  });
+
+  // FB-27 (N17-17): a view keeps the columns and their order; one saved before that keeps the current
+  // columns (no `columns` on it).
+  it('saves the columns in their order and gives them back', () => {
+    vi.stubGlobal('window', { localStorage: storage });
+    const cols = ['plant', 'quoteNumber', 'stage'];
+    expect(saveView('u1', 'quotes', 'Faron', { plant: 'AURORA' }, { columns: cols })).toBe(true);
+    expect(listSavedViews('u1', 'quotes')[0]).toMatchObject({
+      name: 'Faron',
+      search: { plant: 'AURORA' },
+      columns: ['plant', 'quoteNumber', 'stage'],
+    });
+    // Saving again under the name replaces the columns too.
+    saveView('u1', 'quotes', 'Faron', {}, { columns: ['stage'] });
+    expect(listSavedViews('u1', 'quotes')[0]!.columns).toEqual(['stage']);
+  });
+
+  it('an older view without columns still loads and has none', () => {
+    vi.stubGlobal('window', { localStorage: storage });
+    store.set(
+      'ccq.savedViews.u1.quotes',
+      JSON.stringify([
+        { name: 'Old', search: { stage: 'QUOTING' }, savedAt: '2026-10-01T00:00:00Z' },
+      ]),
+    );
+    const [view] = listSavedViews('u1', 'quotes');
+    expect(view).toEqual({
+      name: 'Old',
+      search: { stage: 'QUOTING' },
+      savedAt: '2026-10-01T00:00:00Z',
+    });
+    expect(view!.columns).toBeUndefined();
+    // Columns that are not a list of strings are dropped, not trusted.
+    store.set(
+      'ccq.savedViews.u1.quotes',
+      JSON.stringify([{ name: 'Odd', search: {}, columns: [1, 2], savedAt: 'x' }]),
+    );
+    expect(listSavedViews('u1', 'quotes')[0]!.columns).toBeUndefined();
+  });
+
+  it('a view saved without columns (the board) stays without', () => {
+    vi.stubGlobal('window', { localStorage: storage });
+    saveView('u1', 'board', 'Mine', { kam: 'me' });
+    expect(listSavedViews('u1', 'board')[0]!.columns).toBeUndefined();
   });
 
   it('remembers the column choice', () => {

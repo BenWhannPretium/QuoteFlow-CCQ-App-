@@ -276,6 +276,18 @@ Added 2026-11-19 (FB-26, N17-30, N17-32). Bailey prepares `<CCQ-EXPIRED-1>`: one
 | 123 | On a quote of yours in **Commit & Hand Off**, read the hand-off card. Click **Upload the CER proof** and choose a PNG screenshot. | "CER proof · Optional". After the upload: "v1 · <file> · <you> · <time>". A second upload shows v2. If an Admin has set the CER links, **Open the CER tool ↗** and **CER template ↗** open in a new tab; otherwise there are no links. | | |
 | 124 | Should a **Lost** quote be re-quotable too? Should the old engineering solution be copied as a starting point? Is "CER request number" the Apex CER ID? Should the proof be required? | Write the answers in Notes for Bailey. | | |
 
+## FB-27: lists, timeline and polish (2026-11-19)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 125 | **Pipeline** → **Filters**. Under **Plant** tick one plant that has quotes in Engineering. Then **Columns**. | The list shows only quotes with an item at that plant (the link carries `plant=…`). **Columns** lists **Shown, in order** with **Move up** / **Move down** on each, then **Not shown**. A quote whose items have no plant yet never appears under a plant filter. | | |
+| 126 | In **Columns** tick **Plant**, then press **Move up** until **Plant** is first. Close it and read the table. | **Plant** is the first column and shows the plant names of each quote's items ("Aurora · Carrollton"; blank before Engineering picks one). The order is still there after you reload. | | |
+| 127 | **Views** → type a name → **Save**. Choose **Reset to default** in **Columns**, then open the view from **Views**. | The filter **and** the columns come back in your order. A view you saved before this release brings back its filters and leaves your columns alone. The menu says views stay in this browser and do not follow you to another device. | | |
+| 128 | Open a quote that has an uploaded file. On **Overview** read the **Timeline** and click the file name in "File uploaded: …". | The name is a link; the file opens through the same download as the **Attachments** tab. A file that was removed afterwards stays plain text, and so does "File removed: …". | | |
+| 129 | Move the mouse over the **Pipeline** filter button, a tab, the equipment BOM button (Engineering tab) and a file name. Then over a button that is switched off. | A pointing hand over each; the "not allowed" sign over the one that is switched off. | | |
+| 130 | On the Engineering tab (as someone who may edit it) and on **Attachments**, read the line beside each upload button. | The BOM and the capacity analysis say which file types and "up to 100 MB"; **Attachments** lists the accepted types. The file picker offers only those types. | | |
+| 131 | **Report an issue**. Type "abc". Read under the box. Type more, pick another type and severity, then **Cancel**. Open it again. Repeat with **Esc**. | Under the box: "Describe the issue in at least 5 characters." until there are 5. After Cancel or Esc the form is empty again (type "Bug", severity "Minor"). After a real send: "Thanks: your report was sent", and the next time the form is empty. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

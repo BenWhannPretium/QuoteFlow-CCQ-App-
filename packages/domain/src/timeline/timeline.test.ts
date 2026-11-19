@@ -14,6 +14,8 @@ describe('timeline categories', () => {
     ['capital_needed', 'decision'],
     ['sf_status_changed', 'other'],
     ['priority_tier_changed', 'other'],
+    // FB-27 (N17-15): a score change is a system note, shown under All.
+    ['priority_score_changed', 'other'],
   ])('%s → %s', (type, category) => {
     expect(timelineCategory(type)).toBe(category);
   });

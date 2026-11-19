@@ -32,7 +32,7 @@ function DropdownMenuContent({
 }
 
 const itemClass =
-  'focus:bg-accent relative flex min-h-11 cursor-default items-center gap-2 rounded-md px-3 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 sm:min-h-9 [&_svg]:size-4 [&_svg]:shrink-0';
+  'focus:bg-accent relative flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-3 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 sm:min-h-9 [&_svg]:size-4 [&_svg]:shrink-0';
 
 function DropdownMenuItem({
   className,

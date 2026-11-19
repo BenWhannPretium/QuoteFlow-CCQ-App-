@@ -25,6 +25,12 @@ import {
 } from '@/components/ui/dialog';
 import { NativeSelect, Textarea } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import {
+  BLANK_REPORT,
+  REPORT_SENT_TITLE,
+  isDescriptionTooShort,
+  sendDisabledReason,
+} from '@/lib/report-issue';
 import { toast } from '@/lib/toast';
 
 /** The user menu opens the dialog through this event (the menu closes before a dialog can open). */
@@ -97,9 +103,9 @@ export function ReportIssueDialog() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const health = useQuery({ queryKey: ['health'], queryFn: api.health, staleTime: 300_000 });
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState<FeedbackType>('bug');
-  const [severity, setSeverity] = useState(3);
-  const [description, setDescription] = useState('');
+  const [type, setType] = useState<FeedbackType>(BLANK_REPORT.type);
+  const [severity, setSeverity] = useState(BLANK_REPORT.severity);
+  const [description, setDescription] = useState(BLANK_REPORT.description);
   const [screenshot, setScreenshot] = useState<Screenshot | null>(null);
   const [shotError, setShotError] = useState<string | null>(null);
   const [errors, setErrors] = useState<ServerError[]>([]);
@@ -116,9 +122,9 @@ export function ReportIssueDialog() {
   };
   const reset = () => {
     clearShot();
-    setType('bug');
-    setSeverity(3);
-    setDescription('');
+    setType(BLANK_REPORT.type);
+    setSeverity(BLANK_REPORT.severity);
+    setDescription(BLANK_REPORT.description);
     setShotError(null);
     setErrors([]);
   };
@@ -127,7 +133,7 @@ export function ReportIssueDialog() {
     mutationFn: (body: CreateFeedbackBody) => api.reportIssue(body),
     onSuccess: () => {
       toast.success({
-        title: 'Thanks, your report was sent',
+        title: REPORT_SENT_TITLE,
         description: 'The QuoteFlow team reviews reports every working day during UAT.',
       });
       reset();
@@ -151,14 +157,20 @@ export function ReportIssueDialog() {
 
   if (!allowed) return null;
   const quoteNumber = quoteNumberFromPath(pathname);
-  const tooShort = description.trim().length < 5;
+  const tooShort = isDescriptionTooShort(description);
+  // FB-27 (N17-35): Cancel, Esc and clicking outside all clear the form, as a successful send does.
+  const close = () => {
+    if (submit.isPending) return;
+    reset();
+    setOpen(false);
+  };
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (submit.isPending) return;
-        setOpen(next);
+        if (next) setOpen(true);
+        else close();
       }}
     >
       <DialogContent
@@ -241,6 +253,15 @@ export function ReportIssueDialog() {
               />
             )}
           </Field>
+          {tooShort && (
+            <p
+              className="text-muted-foreground -mt-2 text-xs"
+              data-testid="feedback-send-reason"
+              id="feedback-send-reason"
+            >
+              {sendDisabledReason(description)}
+            </p>
+          )}
           <div className="grid gap-2">
             <span className="text-sm font-medium">Screenshot (optional)</span>
             {screenshot ? (
@@ -299,7 +320,8 @@ export function ReportIssueDialog() {
               type="button"
               variant="outline"
               disabled={submit.isPending}
-              onClick={() => setOpen(false)}
+              onClick={close}
+              data-testid="feedback-cancel"
             >
               Cancel
             </Button>

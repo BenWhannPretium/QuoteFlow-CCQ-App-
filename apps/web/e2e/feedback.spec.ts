@@ -16,7 +16,7 @@ test('report an issue, then triage it', async ({ page }) => {
   await dialog.getByTestId('feedback-severity').selectOption('3');
   await dialog.getByTestId('feedback-description').fill(text);
   await dialog.getByTestId('feedback-submit').click();
-  await expect(page.getByText('Thanks, your report was sent')).toBeVisible();
+  await expect(page.getByText('Thanks: your report was sent')).toBeVisible();
   await expect(dialog).toBeHidden();
 
   // The KAM can't open the triage page.
