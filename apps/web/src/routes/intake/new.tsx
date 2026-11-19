@@ -384,7 +384,8 @@ function Wizard({
     queryKey: attachmentsQueryKey({ draftId: draft.id }),
     queryFn: () => api.draftAttachments(draft.id),
   });
-  const reworkNumber = initial.rework?.quoteNumber ?? '';
+  // FB-26 (N17-30): a linked re-quote links to the expired quote's drawings (FB-19's way).
+  const reworkNumber = initial.rework?.quoteNumber ?? initial.requote?.quoteNumber ?? '';
   const quoteFiles = useQuery({
     queryKey: attachmentsQueryKey({ quoteNumber: reworkNumber }),
     queryFn: () => api.quoteAttachments(reworkNumber),
@@ -717,6 +718,21 @@ function Wizard({
         </Notice>
       )}
 
+      {/* FB-26 (N17-30): a linked re-quote of an expired quote: a new quote, reviewed again. */}
+      {initial.requote && (
+        <Notice tone="warning" testId="requote-notice">
+          <strong>{initial.requote.banner}</strong> Submitting creates a new quote linked to{' '}
+          <Link
+            to="/quotes/$quoteNumber"
+            params={{ quoteNumber: initial.requote.quoteNumber }}
+            className="font-medium underline"
+          >
+            {initial.requote.quoteNumber}
+          </Link>
+          ; that quote keeps what was quoted.
+        </Notice>
+      )}
+
       {/* FB-19 (W13-33): another active quote on the opportunity. With `one`, there is one quote per
           opportunity; with `warn`, the KAM may start a separate quote after confirming. */}
       {draft.openQuotes.quotes.length > 0 && !initial.rework && (
@@ -765,8 +781,8 @@ function Wizard({
           <Section
             title="Opportunity"
             action={
-              // A reworked quote stays on its opportunity.
-              initial.rework ? undefined : (
+              // A reworked quote, and a linked re-quote (FB-26), stays on its opportunity.
+              initial.rework || initial.requote ? undefined : (
                 <Button variant="outline" size="sm" onClick={() => setChangingOpp(true)}>
                   Change
                 </Button>

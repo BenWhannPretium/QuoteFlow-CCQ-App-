@@ -23,6 +23,7 @@ import { Stat, fmtCount, fmtDays, fmtPct, fmtUsd, fmtUsdCompact } from '@/compon
 import { InfoTip } from '@/components/charts/InfoTip';
 import { ErrorState } from '@/components/ErrorState';
 import { HoldChip } from '@/components/HoldChip';
+import { ValidityChip } from '@/components/outcome/CustomerDecision';
 import { SkeletonCard } from '@/components/Skeletons';
 import { TierChip } from '@/components/TierChip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -135,7 +136,7 @@ function QuoteList({ items, ageLabel = 'in stage' }: { items: DashQuote[]; ageLa
   );
 }
 
-function Expiring({ items }: { items: ExpiringProposal[] }) {
+function Expiring({ items, withinDays }: { items: ExpiringProposal[]; withinDays: number }) {
   return (
     <ul className="divide-y">
       {items.map((p) => (
@@ -153,18 +154,17 @@ function Expiring({ items }: { items: ExpiringProposal[] }) {
               {p.kamName ? ` · ${p.kamName}` : ''}
             </span>
           </span>
-          <span
-            className={cn(
-              'text-xs tabular-nums',
-              p.lapsed ? 'text-emphasis font-semibold' : 'text-muted-foreground',
-            )}
-          >
-            {p.lapsed
-              ? `Lapsed ${Math.abs(p.daysLeft)} d ago`
-              : p.daysLeft === 0
-                ? 'Ends today'
-                : `${p.daysLeft} d left`}{' '}
-            · {calendarDate(p.validityUntil)}
+          {/* FB-26 (N17-31): the same countdown chip as the quote and My proposals. */}
+          <span className="flex items-center gap-2 text-xs tabular-nums">
+            <ValidityChip
+              validity={{
+                validityUntil: p.validityUntil,
+                daysLeft: p.daysLeft,
+                state: p.lapsed ? 'expired' : 'expiring',
+                warningDays: withinDays,
+              }}
+            />
+            <span className="text-muted-foreground">{calendarDate(p.validityUntil)}</span>
           </span>
         </li>
       ))}
@@ -416,7 +416,7 @@ function Kam({ d }: { d: KamDashboard }) {
         {d.expiring.items.length === 0 ? (
           <Empty>No proposals end within {d.expiring.withinDays} days.</Empty>
         ) : (
-          <Expiring items={d.expiring.items} />
+          <Expiring items={d.expiring.items} withinDays={d.expiring.withinDays} />
         )}
       </Block>
       <Block title="My outcome capture rate" info={d.capture.info} testId="dash-capture">
@@ -455,6 +455,27 @@ function SalesLeader({ d }: { d: SalesLeaderDashboard }) {
           <Empty>No intakes are waiting for qualification.</Empty>
         ) : (
           <QuoteList items={d.toQualify.items} ageLabel="waiting" />
+        )}
+      </Block>
+      {/* FB-26 (N17-31): proposals the sales leader qualified that are about to expire, or have. */}
+      <Block
+        title="Expiring soon"
+        info={d.expiring.info}
+        testId="dash-sl-expiring"
+      >
+        <Stat
+          label={
+            d.expiring.scope === 'qualified'
+              ? 'Quotes you qualified, ending or ended'
+              : 'Proposals ending or ended'
+          }
+          value={fmtCount(d.expiring.count)}
+          tone={d.expiring.count > 0 ? 'alert' : 'default'}
+        />
+        {d.expiring.items.length === 0 ? (
+          <Empty>No proposals end within {d.expiring.withinDays} days.</Empty>
+        ) : (
+          <Expiring items={d.expiring.items} withinDays={d.expiring.withinDays} />
         )}
       </Block>
       <Block
@@ -512,7 +533,7 @@ function SalesLeader({ d }: { d: SalesLeaderDashboard }) {
         {d.lackingOutcomes.items.length === 0 ? (
           <Empty>Every proposal past its validity date has an outcome.</Empty>
         ) : (
-          <Expiring items={d.lackingOutcomes.items} />
+          <Expiring items={d.lackingOutcomes.items} withinDays={0} />
         )}
       </Block>
     </>

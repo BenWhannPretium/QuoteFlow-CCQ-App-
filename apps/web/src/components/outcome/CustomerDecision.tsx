@@ -35,6 +35,8 @@ import { quoteQueryKey, sfReminderKey } from '../GateDecisionDialog';
 import { KeyValueGrid } from '../KeyValueGrid';
 import { timelineQueryKey } from '../Overrides';
 import { SalesforceLink } from '../SalesforceLink';
+import { HandoffCer } from './HandoffCer';
+import { StartRequote } from './Requote';
 
 // B-13: the Customer Decision header (validity countdown, SF stage side by side), the closure record
 // and the hand-off record. B-26: the hand-off belongs to Stage 6 (Commit & Hand Off), where the CER is
@@ -157,6 +159,8 @@ export function CustomerDecisionHeader({ quote }: { quote: QuoteDetail }) {
       {cd.sf.mismatch && cd.sf.reason && (
         <p className="text-muted-foreground text-xs">{cd.sf.reason}.</p>
       )}
+      {/* FB-26 (N17-30): once the offer has expired, the late "yes" is a linked re-quote. */}
+      <StartRequote quote={quote} />
     </section>
   );
 }
@@ -400,6 +404,8 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
           capital request (CER) from Apex (its status, ID and approval date), and name the team that
           accepted the hand-off. The CER must be approved or not required.
         </p>
+        {/* FB-26 (N17-32): the CER tool and template links, and the CER proof. */}
+        <HandoffCer quote={quote} />
         {!editable ? (
           <KeyValueGrid
             items={[
