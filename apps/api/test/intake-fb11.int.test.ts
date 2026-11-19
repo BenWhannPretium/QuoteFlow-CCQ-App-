@@ -320,7 +320,8 @@ describe('search and the pipeline CSV (F-085)', () => {
     const { quoteNumber } = await submitQuote({
       bidReference: 'CSV-BID-9',
       requestedPaymentTerms: 'NET_90',
-      toolingFundingModel: 'SHARED',
+      // FB-31 (N19-08): Shared is no longer offered; a current choice with its new label.
+      toolingFundingModel: 'CUSTOMER_FUNDED',
       returnableDunnage: true,
       priceBasis: 'DELIVERED',
       freightType: 'FLATBED',
@@ -339,7 +340,7 @@ describe('search and the pipeline CSV (F-085)', () => {
     );
     // DR-pricing-finance-15 / DR-approver-leadership-admin-15: labels, not the stored codes.
     expect(lines[1]).toBe(
-      `${quoteNumber},CSV-BID-9,Net 90,Shared (company and customer),Delivered,Flatbed,Yes`,
+      `${quoteNumber},CSV-BID-9,Net 90,Customer funded (lump sum),Delivered,Flatbed,Yes`,
     );
 
     const plain = await asRole(app, 'KAM').get('/api/v1/quotes/export.csv?q=CSV-BID-9');

@@ -67,7 +67,7 @@ export const commercialRoutes: FastifyPluginAsyncZod<{ service: CommercialServic
       schema: {
         tags: ['commercial'],
         summary:
-          'B-26 / FB-08: the Sales and Pricing terms: payment terms (a list; non-standard opens an exception for the pricing lead), tooling payment milestones, the tooling commitment, the terms check, the Legal review, and the capital terms as a pre-fill. Only the keys sent change; changing a term clears the check. MOQ and tooling funding are /terms/engineering',
+          'B-26 / FB-08: the Sales and Pricing terms: payment terms (a list; non-standard opens an exception for the approver terms_exception_routes names, FB-31), tooling payment milestones, the tooling commitment, the terms check, the Legal review, and the capital terms as a pre-fill. Only the keys sent change; changing a term clears the check. MOQ and tooling funding are /terms/engineering',
         security,
         params: QuoteNumberParams,
         body: TermsBody,
@@ -142,15 +142,17 @@ export const commercialRoutes: FastifyPluginAsyncZod<{ service: CommercialServic
       ),
   );
 
-  // FB-08 (T-007): the pricing lead decides a non-standard payment-terms exception.
+  // FB-08 (T-007): the exception's approver decides a non-standard payment-terms exception. FB-31 (N19-07):
+  // who that is depends on the record (the tier of terms_exception_routes recorded on the request), so
+  // the route declares the quote.read floor, as the gate decisions do, and the service enforces the tier.
   app.post(
     '/quotes/:quoteNumber/terms/exception/decision',
     {
-      config: { permission: 'terms.exception.decide' },
+      config: { permission: 'quote.read' },
       schema: {
         tags: ['commercial'],
         summary:
-          'FB-08 (T-007): approve or reject the pending payment-terms exception, with a rationale. Whoever entered the terms and the KAM are told. G4 Advance waits while it is pending or rejected (g4_required_checks terms_exception)',
+          'FB-08 (T-007), FB-31 (N19-07): approve or reject the pending payment-terms exception, with a rationale. Decided by the holders of the permission its tier of app_setting terms_exception_routes names (terms.exception.decide: the pricing lead; terms.exception.decide.senior: Leadership), recorded on the request when it opened; 403 for anyone else, naming who decides, and for the requester where the approver is not a role that enters terms. Approving a request whose tier needs a document needs a current payment_terms_approval file on the quote (422). Whoever entered the terms and the KAM are told. G4 Advance waits while it is pending or rejected (g4_required_checks terms_exception)',
         security,
         params: QuoteNumberParams,
         body: TermsExceptionDecisionBody,

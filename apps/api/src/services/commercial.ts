@@ -27,6 +27,7 @@ import {
   insertG4Signoff,
   insertTermsException,
   listG4Signoffs,
+  listCurrentModelVersions,
   listHolds,
   listUsersByIds,
   listValueList,
@@ -41,8 +42,17 @@ import {
   ESCALATION_ROUTES_SEED,
   FINAL_REVIEW_STAGE_KEY,
   G4_ADDITIONAL_APPROVALS_SEED,
+  TERMS_DOCUMENT_MISSING_TEXT,
+  TERMS_EXCEPTION_APPROVER_PERMISSIONS,
+  TERMS_EXCEPTION_ROUTES_SEED,
   TERMS_SCOPE_PERMISSION,
   asUserId,
+  canUploadAttachment,
+  parseTermsExceptionRoutes,
+  requesterBarApplies,
+  termsExceptionRouting,
+  termsExceptionTier,
+  type TermsExceptionRoutes,
   canSign,
   isNonStandardTerms,
   parseAdditionalApprovals,
@@ -159,6 +169,20 @@ export interface CommercialSettings {
    */
   additionalApprovals: AdditionalApprovals | null;
   additionalApprovalsError: string | null;
+  /** FB-31 (N19-07): `terms_exception_routes`, who approves which non-standard payment terms. */
+  termsExceptionRoutes: TermsExceptionRoutes;
+}
+
+/**
+ * FB-31: `terms_exception_routes`. The Admin console validates it, so a malformed value only comes from a
+ * hand edit: it falls back to the seed rather than leaving a request without an approver.
+ */
+function termsExceptionRoutes(input: unknown): TermsExceptionRoutes {
+  try {
+    return parseTermsExceptionRoutes(input);
+  } catch {
+    return structuredClone(TERMS_EXCEPTION_ROUTES_SEED);
+  }
 }
 
 /** FB-11's setting, read the same way: a list of codes, [] when malformed (everything non-standard). */
@@ -224,6 +248,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
     extraApprovals,
     capitalAbove,
     cerProofRequired,
+    exceptionRoutes,
   ] = await Promise.all([
     getSetting(db, 'legal_review_triggers'),
     getSetting(db, 'pricing_pass_through'),
@@ -238,6 +263,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
     getSetting(db, 'g4_additional_approvals'),
     getSetting(db, 'capital_needed_above_usd'),
     getSetting(db, 'handoff_cer_proof_required'),
+    getSetting(db, 'terms_exception_routes'),
   ]);
   let additionalApprovals: AdditionalApprovals | null = null;
   let additionalApprovalsError: string | null = null;
@@ -266,6 +292,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
     },
     additionalApprovals,
     additionalApprovalsError,
+    termsExceptionRoutes: termsExceptionRoutes(exceptionRoutes),
   };
 }
 
@@ -368,19 +395,39 @@ function capitalTermsView(
   };
 }
 
-/** FB-08 (T-007): the current payment-terms exception, and whether the viewer may decide it. */
+/** FB-31 (N19-07): the current `payment_terms_approval` document on the quote, if any. */
+async function paymentTermsDocument(db: DbOrTx, quoteId: string) {
+  return (
+    (await listCurrentModelVersions(db, [quoteId])).find(
+      (f) => f.kind === 'payment_terms_approval',
+    ) ?? null
+  );
+}
+
+/**
+ * FB-08 (T-007): the current payment-terms exception, and whether the viewer may decide it. FB-31
+ * (N19-07): who decides it (the tier recorded on the request), whether a document is needed and the one
+ * on file, and why a holder of the tier's permission cannot decide it now.
+ */
 async function termsExceptionView(
   db: DbOrTx,
   actor: Actor,
   q: Quote,
   state: QuoteState,
   locked: boolean,
+  settings: CommercialSettings,
 ): Promise<TermsExceptionView> {
   if (!q.termsExceptionStatus) return null;
   const request = await getLatestTermsException(db, q.id);
   if (!request) return null;
-  const name = await termsPeople(db, q, [request.requestedBy, request.decidedBy]);
+  const doc = await paymentTermsDocument(db, q.id);
+  const name = await termsPeople(db, q, [request.requestedBy, request.decidedBy, doc?.uploadedBy]);
   const status = q.termsExceptionStatus as 'pending' | 'approved' | 'rejected';
+  const routing = termsExceptionRouting(settings.termsExceptionRoutes, request);
+  const open = status === 'pending' && q.status !== 'closed' && !locked;
+  const holds = can(actor, routing.approverPermission, state);
+  const barred =
+    request.requestedBy === actor.userId && requesterBarApplies(routing.approverPermission);
   return {
     status,
     paymentTermsCode: request.paymentTermsCode,
@@ -390,11 +437,25 @@ async function termsExceptionView(
     decidedByName: name(request.decidedBy),
     decidedAt: iso(request.decidedAt),
     rationale: request.rationale,
-    canDecide:
-      status === 'pending' &&
-      q.status !== 'closed' &&
-      !locked &&
-      can(actor, 'terms.exception.decide', state),
+    canDecide: open && holds && !barred,
+    approverLabel: routing.approverLabel,
+    documentRequired: routing.documentRequired,
+    document: doc && {
+      id: doc.id,
+      fileName: doc.fileName,
+      version: doc.version,
+      uploadedByName: name(doc.uploadedBy),
+      uploadedAt: doc.createdAt.toISOString(),
+    },
+    canUploadDocument: open && canUploadAttachment(actor, state),
+    decideNote:
+      open && holds
+        ? barred
+          ? `You entered these payment terms, so someone else (${routing.approverLabel}) decides the exception.`
+          : routing.documentRequired && !doc
+            ? `${TERMS_DOCUMENT_MISSING_TEXT}. You can still reject it.`
+            : null
+        : null,
   };
 }
 
@@ -468,10 +529,11 @@ export async function finalReviewChecks(
       labelOf(db, 'tooling_funding_model', q.toolingFundingModel),
       labelOf(db, 'requested_payment_terms', q.termsPaymentTermsCode),
       labelOf(db, 'tooling_payment_terms', q.termsToolingPayment),
-      termsExceptionView(db, actor, q, state, locked),
+      termsExceptionView(db, actor, q, state, locked, settings),
       additionalApprovalsView(db, actor, settings, q, state),
     ]);
   const warnings = g4CheckWarnings({
+    termsExceptionApproverLabel: exception?.approverLabel ?? null,
     checks,
     termsCheckedAt: q.termsCheckedAt,
     legalReviewRequired: derived.legal_review_required,
@@ -559,7 +621,7 @@ export async function commercialView(
   const capitalLock = sectionLock('capitalFlag', workflow, state);
   const termsLock = sectionLock('commercialTerms', workflow, state);
   const [exception, additionalApprovals] = await Promise.all([
-    termsExceptionView(db, actor, q, state, termsLock.locked),
+    termsExceptionView(db, actor, q, state, termsLock.locked, settings),
     additionalApprovalsView(db, actor, settings, q, state),
   ]);
   return {
@@ -868,7 +930,17 @@ export class CommercialService {
         });
       }
       if (plan.exception) {
-        await this.applyException(tx, actor, q, plan.exception, plan.values, lists, meta, now);
+        await this.applyException(
+          tx,
+          actor,
+          q,
+          plan.exception,
+          plan.values,
+          lists,
+          settings.termsExceptionRoutes,
+          meta,
+          now,
+        );
       }
       return this.detail(tx, actor, quoteNumber, now);
     });
@@ -876,7 +948,9 @@ export class CommercialService {
 
   /**
    * FB-08 (T-007): non-standard payment terms open a new exception request (an open one is superseded)
-   * and the pricing lead is told; standard terms withdraw the open one. Audited and on the timeline.
+   * and its approver is told; standard terms withdraw the open one. Audited and on the timeline. FB-31
+   * (N19-07): the request records the tier of `terms_exception_routes` it opens with (the approver's
+   * permission and whether a document is needed), and only that permission's holders are told.
    */
   private async applyException(
     tx: Tx,
@@ -885,6 +959,7 @@ export class CommercialService {
     action: 'open' | 'withdraw',
     values: TermsValues,
     lists: TermsLists,
+    routes: TermsExceptionRoutes,
     meta: AuditMeta,
     now: Date,
   ) {
@@ -916,6 +991,7 @@ export class CommercialService {
       return;
     }
     const code = values.termsPaymentTermsCode!;
+    const tier = termsExceptionTier(routes, code);
     const request = await insertTermsException(tx, {
       quoteId: q.id,
       quoteVersion: q.version,
@@ -924,6 +1000,8 @@ export class CommercialService {
       status: 'pending',
       requestedBy: actor.userId,
       requestedAt: now,
+      approverPermission: tier.approverPermission,
+      documentRequired: tier.documentRequired,
       createdBy: actor.userId,
     });
     await updateQuote(tx, q.id, { termsExceptionStatus: 'pending' });
@@ -932,7 +1010,13 @@ export class CommercialService {
       type: 'terms_exception_requested',
       actorId: actor.userId,
       at: now,
-      payload: { paymentTermsCode: code, supersededPending: closed },
+      // FB-31: who decides, in the tier's words, for the timeline.
+      payload: {
+        paymentTermsCode: code,
+        supersededPending: closed,
+        approver: tier.approverLabel,
+        documentRequired: tier.documentRequired,
+      },
       createdBy: actor.userId,
     });
     await recordAudit(tx, actor, meta, {
@@ -944,6 +1028,8 @@ export class CommercialService {
         paymentTermsCode: code,
         paymentTermsDetail: values.termsPaymentTerms,
         status: 'pending',
+        approverPermission: tier.approverPermission,
+        documentRequired: tier.documentRequired,
       },
       at: now,
     });
@@ -954,14 +1040,20 @@ export class CommercialService {
       code;
     const [me] = await listUsersByIds(tx, [actor.userId]);
     const who = me?.displayName ?? null;
+    const needs = tier.documentRequired ? ' and a supporting document' : '';
     await deliverPlanned(
       tx,
-      planTermsExceptionRequested(),
+      planTermsExceptionRequested(tier.approverPermission),
       actor.userId,
       () => ({
         title: `${q.quoteNumber}: non-standard payment terms (${label})`,
-        body: `${who ?? 'Someone'} entered ${label}, outside the standard payment terms. Approve or reject the exception on the quote's Commercial panel, with a rationale.`,
-        payload: { terms: label, ...(who ? { actor: who } : {}) },
+        body: `${who ?? 'Someone'} entered ${label}, outside the standard payment terms. Waiting for ${tier.approverLabel}: approve or reject the exception on the quote's Commercial terms tab, with a rationale${needs}.`,
+        payload: {
+          terms: label,
+          approver: tier.approverLabel,
+          ...(tier.documentRequired ? { documentRequired: 'yes' } : {}),
+          ...(who ? { actor: who } : {}),
+        },
       }),
       q.id,
       { log: this.opts.log, at: now },
@@ -969,8 +1061,12 @@ export class CommercialService {
   }
 
   /**
-   * POST /quotes/:qn/terms/exception/decision (T-007): the pricing lead approves or rejects the pending
-   * request, with a rationale. Whoever entered the terms and the KAM are told.
+   * POST /quotes/:qn/terms/exception/decision (T-007): the request's approver approves or rejects the
+   * pending request, with a rationale. Whoever entered the terms and the KAM are told. FB-31 (N19-07):
+   * the route declares `quote.read` because who decides depends on the record: here, the holders of the
+   * permission recorded on the request (`terms_exception_routes`); the requester may not decide their
+   * own where the bar applies; and approving a request whose tier needs a document needs a current
+   * Payment-terms approval file on the quote.
    */
   async decideTermsException(
     withTx: CommercialWithTx,
@@ -983,19 +1079,30 @@ export class CommercialService {
     return withTx(async (tx) => {
       const { q, state } = await this.load(tx, quoteNumber);
       await assertSectionUnlocked(tx, 'commercialTerms', state, await lockConfig(tx));
-      if (!can(actor, 'terms.exception.decide', state)) {
-        fail([
-          { code: 'NOT_PERMITTED', message: 'Requires terms.exception.decide' } as DomainError,
-        ]);
-      }
+      const settings = await loadCommercialSettings(tx);
+      const pending = await getLatestTermsException(tx, q.id);
+      const routing = termsExceptionRouting(
+        settings.termsExceptionRoutes,
+        pending ?? { approverPermission: null, documentRequired: null },
+      );
+      const isPending = q.termsExceptionStatus === 'pending' && pending?.status === 'pending';
       const plan = planTermsExceptionDecision({
         status: q.termsExceptionStatus,
         decision: body.decision,
         rationale: body.rationale,
         closed: q.status === 'closed',
+        routing,
+        // Nothing pending: an approver of any tier is told there is nothing to decide (409), not 403.
+        holdsApprover: isPending
+          ? can(actor, routing.approverPermission, state)
+          : TERMS_EXCEPTION_APPROVER_PERMISSIONS.some((p) => can(actor, p, state)),
+        isRequester: pending?.requestedBy === actor.userId,
+        documentOnFile:
+          routing.documentRequired && body.decision === 'approve'
+            ? !!(await paymentTermsDocument(tx, q.id))
+            : false,
       });
       if (!plan.ok) fail(plan.errors);
-      const pending = await getLatestTermsException(tx, q.id);
       const decided =
         pending &&
         (await decideTermsException(tx, pending.id, {
@@ -1022,6 +1129,7 @@ export class CommercialService {
           decision: plan.status,
           paymentTermsCode: decided.paymentTermsCode,
           rationale: plan.rationale,
+          approver: routing.approverLabel,
         },
         createdBy: actor.userId,
       });
@@ -1031,7 +1139,11 @@ export class CommercialService {
         entityId: decided.id,
         quoteId: q.id,
         before: { status: 'pending' },
-        after: { status: plan.status, rationale: plan.rationale },
+        after: {
+          status: plan.status,
+          rationale: plan.rationale,
+          approverPermission: routing.approverPermission,
+        },
         at: now,
       });
       const label =
@@ -1049,8 +1161,13 @@ export class CommercialService {
         actor.userId,
         () => ({
           title: `${q.quoteNumber}: payment terms ${verb} (${label})`,
-          body: `${who ?? 'The pricing lead'} ${verb} the non-standard payment terms (${label}). Rationale: ${plan.rationale}`,
-          payload: { terms: label, decision: verb, ...(who ? { actor: who } : {}) },
+          body: `${who ?? routing.approverLabel} ${verb} the non-standard payment terms (${label}). Rationale: ${plan.rationale}`,
+          payload: {
+            terms: label,
+            decision: verb,
+            approver: routing.approverLabel,
+            ...(who ? { actor: who } : {}),
+          },
         }),
         q.id,
         { log: this.opts.log, at: now },

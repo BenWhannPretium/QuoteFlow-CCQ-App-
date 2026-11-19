@@ -97,9 +97,11 @@ import {
   requiredRuleSchema,
   SETTING_GROUPS,
   settingSpec,
+  termsExceptionRouteErrors,
   twoStepPlantMachineTypeErrors,
   type Actor,
   type MachineTypeProcessMap,
+  type TermsExceptionRoutes,
   type RequiredRule,
   type ScoringModel,
   type TwoStepPlantMachineTypes,
@@ -913,6 +915,16 @@ export class AdminConfigService {
                 processTypes: await active('process_type'),
               })
             : twoStepPlantMachineTypeErrors(value as TwoStepPlantMachineTypes, machineTypes);
+        if (errors.length > 0) {
+          throw new ServiceProblem(422, CODES.invalid, errors.map((e) => e.message).join('; '));
+        }
+      }
+      // FB-31 (N19-07): every code a payment-terms tier names must be on requested_payment_terms.
+      if (value !== undefined && key === 'terms_exception_routes') {
+        const codes = (
+          await listValueList(tx, 'requested_payment_terms', { activeOnly: false })
+        ).map((v) => v.code);
+        const errors = termsExceptionRouteErrors(value as TermsExceptionRoutes, codes);
         if (errors.length > 0) {
           throw new ServiceProblem(422, CODES.invalid, errors.map((e) => e.message).join('; '));
         }
