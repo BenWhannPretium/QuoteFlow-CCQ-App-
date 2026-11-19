@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
-import { SYNTHETIC_XLSX, uploadBom, uploadModel } from './models';
+import { SYNTHETIC_XLSX, uploadBom } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -159,7 +159,8 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   // ── FB-07 (D-001) step 1: the pricer uploads the costing model before attesting costing ──
   const steps = tab.getByTestId('quoting-steps');
   await expect(steps.getByTestId('step-costing')).toHaveAttribute('data-status', 'waiting');
-  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'blocked');
+  // FB-21 (N17-21): a payback model only when someone asks Finance for one.
+  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'not_requested');
   await steps.getByTestId('upload-cost_model').setInputFiles({
     name: 'Costing model.synthetic.xlsx',
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -252,15 +253,20 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
 
   // ── Lead review (2026-10-30): the pricer submits to the pricing lead; only the lead decides G3 ──
   await expect(tab.getByTestId('decide-gate')).toHaveCount(0);
-  await tab.getByRole('button', { name: 'Submit to pricing lead' }).click();
+  // FB-21 Part C (N17-23): the same submit is offered at the top of the tab and at the bottom.
+  const top = tab.getByTestId('pricer-submit-top');
+  await expect(top).toHaveAttribute('data-ready', 'true');
+  await expect(top).toContainText('Your part is done?');
+  await expect(tab.getByRole('button', { name: 'Submit to pricing lead' })).toHaveCount(2);
+  await top.getByTestId('pricer-submit-top-button').click();
   await expect(tab.getByTestId('lead-review-submitted')).toContainText(
     'Submitted to the pricing lead',
   );
   await expect(tab.getByTestId('capital-form')).toHaveCount(0); // locked for the pricer
+  await expect(tab.getByTestId('pricer-submit-top')).toHaveCount(0);
 
-  // FB-07 step 2: capital is needed, so Finance uploads the ROI model (its own spec drives the UI).
-  await request.get('/api/v1/me', { headers: as('finance') });
-  await uploadModel(request, quoteNumber, 'roi_model', 'finance');
+  // FB-21 (N17-21): nobody asked Finance for a payback model, so the lead decides without one
+  // (quoting-steps.spec.ts drives a request).
 
   const lead = await open('pricing-lead');
   await lead.goto('/queue/pricing');
