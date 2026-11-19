@@ -9,7 +9,6 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 
-
 import { AttachmentDownloadLink } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';

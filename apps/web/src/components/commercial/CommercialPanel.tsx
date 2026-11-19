@@ -50,7 +50,6 @@ import { CapitalTerms } from './CapitalTerms';
 import { FinanceReviewLine, FundingHelp, useFundingLabel, useFundingOptions } from './FundingHelp';
 import { AdditionalApprovals, TermsExceptionCard } from './TermsException';
 
-
 // B-26 (CCQ demo and the future-state process deck): the quote's commercial controls. The early
 // "capital likely" flag (Capital Management awareness, not approval), the terms check and Legal review
 // that G4 Advance needs, the pass-through indicator, the hold owner and escalations. None of it is a

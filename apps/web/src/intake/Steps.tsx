@@ -29,7 +29,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
-
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { FinanceReviewLine, FundingHelp } from '@/components/commercial/FundingHelp';
 import { RequiredKey } from '@/components/forms';

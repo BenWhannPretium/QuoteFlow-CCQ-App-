@@ -15,7 +15,6 @@ import { factLabel, type Lists } from './factLabel';
 import { KeyValueGrid, type KeyValueItem } from '../KeyValueGrid';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
-
 /**
  * The copy shown for a non-standard request (FB-11, F-080, D-032) when no code is known. FB-31 (N19-07):
  * with a code, it names who must approve it, from `terms_exception_routes` ("Non-standard: needs approval

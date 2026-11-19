@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { UploadIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
-
 import { AttachmentDownloadLink, attachmentsQueryKey } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';

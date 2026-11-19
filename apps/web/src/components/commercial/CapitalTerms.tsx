@@ -2,7 +2,6 @@ import type { CapitalTermsBody, CapitalTermsView, QuoteDetail, TermsBody } from 
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { useValueList } from '@/config/public-config';

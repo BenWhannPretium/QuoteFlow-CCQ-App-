@@ -48,7 +48,6 @@ import { SkeletonCard } from '../Skeletons';
 import { StageBadge } from '../StageBadge';
 import { releaseBlockers, type ReleaseBlocker } from './blockers';
 
-
 /** The Terms and Legal section's id (its heading is `${id}-heading`). */
 const TERMS_LEGAL_ID = 'terms-legal';
 
