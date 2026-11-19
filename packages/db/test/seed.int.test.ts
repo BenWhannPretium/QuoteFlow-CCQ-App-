@@ -98,7 +98,9 @@ describe('config seeds', () => {
     const [decoration] = await q<{ meta: unknown }>(
       sql`select meta from value_list where list_key = 'component' and code = 'DECORATION'`,
     );
-    expect(decoration!.meta).toEqual({ followUps: ['decoration_types', 'decoration_print_colors'] });
+    expect(decoration!.meta).toEqual({
+      followUps: ['decoration_types', 'decoration_print_colors'],
+    });
   });
 
   it('settings, scoring v1 and sf_stage_map are seeded', async () => {
