@@ -1,3 +1,4 @@
+import { sfWriteHostProblem } from '@ccq/integrations';
 import { z } from 'zod';
 
 const nonEmpty = z.string().trim().min(1);
@@ -77,6 +78,25 @@ const EnvSchema = z
       .string()
       .regex(/^\d{2,3}\.0$/)
       .default('62.0'),
+    /**
+     * FB-29 (N19-01): the Salesforce write connection. off (default): no writer, nothing can be sent, whatever
+     * the app settings say. fake: the in-memory writer (tests, local, dry runs; refused in prod). live: the
+     * jsforce writer with its OWN identity below (a separate External Client App and "Run As" user with edit
+     * access on the approved fields only; never the read-only user). Live is refused unless the write
+     * credentials are set and either APP_ENVIRONMENT=prod or the login URL is a Salesforce sandbox.
+     */
+    SF_WRITE_MODE: z.enum(['off', 'fake', 'live']).default('off'),
+    /** The write user's External Client App consumer key. Not a secret. */
+    SF_WRITE_CLIENT_ID: nonEmpty.optional(),
+    /** The write app's consumer secret. In Azure: a Key Vault reference. Never logged. */
+    SF_WRITE_CLIENT_SECRET: nonEmpty.optional(),
+    /**
+     * The org's My Domain URL for the write user. No default on purpose: SF_LOGIN_URL defaults to
+     * test.salesforce.com, which must never pass for a sandbox here.
+     */
+    SF_WRITE_LOGIN_URL: z.url({ protocol: /^https$/ }).optional(),
+    /** Seconds between write-back worker runs; 0 disables the schedule (tests run it by hand). */
+    SF_WRITE_INTERVAL_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
     /** Delta sync interval in minutes; 0 disables the in-process schedule (manual trigger still works). */
     SF_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(1440).default(15),
     /**
@@ -193,6 +213,56 @@ const EnvSchema = z
             'SF_AUTH_FLOW=client_credentials needs the org My Domain URL (e.g. https://pretiumpkg.my.salesforce.com), not login/test.salesforce.com',
         });
       }
+    }
+    // FB-29: the write connection. Every refusal says why in plain words.
+    if (env.SF_WRITE_MODE === 'live') {
+      for (const key of [
+        'SF_WRITE_CLIENT_ID',
+        'SF_WRITE_CLIENT_SECRET',
+        'SF_WRITE_LOGIN_URL',
+      ] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is required when SF_WRITE_MODE=live: the write-back logs in as its own Salesforce user`,
+          });
+        }
+      }
+      if (env.SF_MODE === 'fake') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SF_WRITE_MODE'],
+          message:
+            'SF_WRITE_MODE=live is refused while SF_MODE=fake: the quotes are linked to synthetic opportunities that do not exist in any Salesforce org.',
+        });
+      }
+      if (env.SF_WRITE_CLIENT_ID && env.SF_WRITE_CLIENT_ID === env.SF_CLIENT_ID) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SF_WRITE_CLIENT_ID'],
+          message:
+            'SF_WRITE_CLIENT_ID is the same app as the read connection: the write-back needs its own External Client App and user, never the read-only one.',
+        });
+      }
+      if (env.SF_WRITE_LOGIN_URL) {
+        const problem = sfWriteHostProblem(env.SF_WRITE_LOGIN_URL, env.APP_ENVIRONMENT ?? 'local');
+        if (problem) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['SF_WRITE_LOGIN_URL'],
+            message: `SF_WRITE_MODE=live is refused: ${problem}.`,
+          });
+        }
+      }
+    }
+    if (env.SF_WRITE_MODE === 'fake' && env.APP_ENVIRONMENT === 'prod') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SF_WRITE_MODE'],
+        message:
+          'SF_WRITE_MODE=fake is forbidden when APP_ENVIRONMENT=prod: the fake writer pretends to update Salesforce. Use off or live.',
+      });
     }
     const storeRequired =
       env.FILESTORE_MODE === 'sharepoint'
@@ -323,4 +393,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     );
   }
   return result.data;
+}
+
+/**
+ * FB-29: whether this environment can send a write, and if not, why (shown on the Admin card and given when
+ * an Admin tries to switch the write-back to live). The boot-time guards above already refused a live
+ * connection this environment may not use, so a configured writer is an allowed one.
+ */
+export function sfWriteAvailability(config: AppConfig): {
+  writerMode: 'off' | 'fake' | 'live';
+  liveBlockedReason: string | null;
+} {
+  return {
+    writerMode: config.SF_WRITE_MODE,
+    liveBlockedReason:
+      config.SF_WRITE_MODE === 'off'
+        ? 'This environment has no Salesforce write connection (SF_WRITE_MODE is off). IT must first set up a separate Salesforce write user and the app settings for it; see the write-back runbook.'
+        : null,
+  };
 }

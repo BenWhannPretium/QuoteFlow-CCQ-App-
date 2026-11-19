@@ -5,15 +5,19 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * CCQ never writes to Salesforce (CLAUDE.md rule 5; the integration user is read-only by permission
+ * The read side never writes to Salesforce (CLAUDE.md rule 5; the integration user is read-only by permission
  * set, Rachel Dew). This is the second check after the ESLint rule in packages/integrations/eslint.config.js:
- * no jsforce write call may appear anywhere in the connector's source.
+ * no jsforce write call may appear anywhere in the connector's source except the FB-29 writer files
+ * (`SF_WRITER_FILES`), which writeGuard.test.ts checks are the only ones that have one.
  */
 const SF_WRITE_CALL =
   /\.\s*(create|insert|update|upsert|destroy|del|delete|bulk2?|apex|request(Post|Put|Patch|Delete)|(insert|update|upsert|destroy|delete|deleteHard)Bulk)\s*\(/;
 const SF_WRITE_PROPERTY = /\.\s*(bulk2?|apex)\b/;
 
 const dir = fileURLToPath(new URL('.', import.meta.url));
+
+/** FB-29: the writer files, relative to this folder (eslint.config.js `SF_WRITER_FILES`). */
+const WRITER_FILES = ['jsforceWriter.ts'];
 
 function sourceFiles(root: string): string[] {
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -24,7 +28,7 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('Salesforce connector is read-only', () => {
-  const files = sourceFiles(dir);
+  const files = sourceFiles(dir).filter((f) => !WRITER_FILES.includes(f.slice(dir.length)));
 
   it('scans the connector source', () => {
     expect(files.map((f) => f.slice(dir.length))).toEqual(

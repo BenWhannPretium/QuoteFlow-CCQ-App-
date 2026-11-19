@@ -39,7 +39,8 @@ export interface SfQueryResult {
 
 /**
  * The read-only slice of the Salesforce API the reader uses: SOQL query + queryMore, describe and
- * getDeleted. Nothing else is reachable through it. A stub implements it in unit tests.
+ * getDeleted. Nothing else is reachable through it. A stub implements it in unit tests. (The FB-29 write
+ * goes through its own slice, `SfWriteApi` in jsforceWriter.ts, with its own credentials.)
  */
 export interface SfApi {
   query(soql: string): Promise<SfQueryResult>;

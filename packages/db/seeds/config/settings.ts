@@ -46,6 +46,9 @@ import {
   SCORING_MODEL_V3_INPUT,
   INTAKE_GUARDRAILS_SEED,
   VOLUME_ROUTING_SEED,
+  SF_WRITEBACK_MAP_SEED,
+  SF_WRITEBACK_MAX_ATTEMPTS_SEED,
+  SF_WRITEBACK_RETRY_MINUTES_SEED,
 } from '@ccq/domain';
 
 import { upsertConfig } from './_upsert';
@@ -301,6 +304,49 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   bid_reference: "Most customers don't send one. Leave it blank if not.",
   comments_for_engineering: 'Context only you know: the customer, competitors, history, deadlines.',
 };
+
+/**
+ * FB-29 (N19-01, N19-02; D-16w): the Salesforce write-back settings, switched off and provisional. Migration
+ * 0057 inserts the same values and words in existing environments (only where the key is absent).
+ */
+export const FB29_SETTINGS: readonly { key: string; value: unknown; description: string }[] = [
+  {
+    key: 'sf_writeback_enabled',
+    value: false,
+    description:
+      'FB-29 (N19-01): the master switch for writing to Salesforce. Off: nothing is queued or written, and the KAM is reminded to update the opportunity by hand. Stays off until IT grants a write identity and the Salesforce owner approves sf_writeback_map (docs/build-guide/10-salesforce-writeback.md). Provisional.',
+  },
+  {
+    key: 'sf_writeback_mode',
+    value: 'dry_run',
+    description:
+      'FB-29: dry_run records in the outbox what would be sent and sends nothing; live sends through the write connection. Live is refused unless this environment has one (SF_WRITE_MODE, with its guards). Provisional.',
+  },
+  {
+    key: 'sf_writeback_map',
+    value: SF_WRITEBACK_MAP_SEED,
+    description:
+      'FB-29 (F-035): what is written, and where. entries: one per event (outcome_recorded: the stage for the G5 outcome from sf_outcome_stage_names, closing for lost and expired; requote_started: reopens to the requote stage, only over a close QuoteFlow wrote; stage_changed: through stageMap, empty so off; quote_link: no field named, so off). Each field must be on the writer allow-list (writeMap.ts); figures are never written. stageRank orders Salesforce stages for the regression check. Provisional until the Salesforce owner approves the fields and stages.',
+  },
+  {
+    key: 'sf_writeback_stage_regression',
+    value: 'skip',
+    description:
+      'FB-29: skip = never move an opportunity to an earlier stage (by stageRank) than the one Salesforce holds, since a sales person may have moved it further; allow = write anyway. A reopen after a re-quote is exempt. Provisional.',
+  },
+  {
+    key: 'sf_writeback_max_attempts',
+    value: SF_WRITEBACK_MAX_ATTEMPTS_SEED,
+    description:
+      'FB-29: tries before a write is marked failed and every Admin is told once. Provisional.',
+  },
+  {
+    key: 'sf_writeback_retry_minutes',
+    value: [...SF_WRITEBACK_RETRY_MINUTES_SEED],
+    description:
+      'FB-29: minutes to wait after the 1st, 2nd, ... failed try (the last repeats): 1, 5, 30, 120, 360. Provisional.',
+  },
+];
 
 /** Settings for open decisions. Values are provisional seeds; the descriptions name the decision. */
 export const APP_SETTINGS: { key: string; value: unknown; description: string }[] = [
@@ -819,6 +865,8 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: TERMS_EXCEPTION_ROUTES_SEED,
     description: TERMS_EXCEPTION_ROUTES_DESCRIPTION,
   },
+  // FB-29: the Salesforce write-back (see FB29_SETTINGS).
+  ...FB29_SETTINGS,
 ];
 
 export const seedAppSettings = (db: DbOrTx) =>

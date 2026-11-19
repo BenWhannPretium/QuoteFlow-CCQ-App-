@@ -29,4 +29,5 @@ export * from './proposals';
 export * from './quotes';
 export * from './requote';
 export * from './salesforce';
+export * from './sf-writeback';
 export * from './timeline';

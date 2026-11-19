@@ -153,6 +153,8 @@ export interface AdminConfigServiceOptions {
   onScopeChange?: () => void;
   /** Connector modes for the health panel (SF_MODE, pricing = import, FILESTORE_MODE, MAIL_MODE). */
   connectorModes: Record<string, string>;
+  /** FB-29: an extra check a setting must pass (the write-back's live guard and allow-list); a reason refuses it. */
+  settingCheck?: (key: string, value: unknown) => string | null;
 }
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -867,6 +869,8 @@ export class AdminConfigService {
         AdminConfigService.invalid(err);
       }
     }
+    const refused = value !== undefined ? (this.opts.settingCheck?.(key, value) ?? null) : null;
+    if (refused) throw new ServiceProblem(422, CODES.invalid, refused);
     return this.write(withTx, async (tx) => {
       const before = await findSettingByKey(tx, key);
       AdminConfigService.checkVersion(before, body.version, `Setting ${key}`);

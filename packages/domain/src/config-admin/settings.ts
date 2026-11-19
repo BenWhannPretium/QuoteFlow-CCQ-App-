@@ -70,6 +70,16 @@ import {
   parsePricingRefFormats,
 } from '../pricing/record';
 import { parseRoiRequiredWhen } from '../quoting-steps';
+import {
+  SF_WRITEBACK_MODES,
+  SF_WRITEBACK_REGRESSION_MODES,
+  parseSfWritebackEnabled,
+  parseSfWritebackMap,
+  parseSfWritebackMaxAttempts,
+  parseSfWritebackMode,
+  parseSfWritebackRegression,
+  parseSfWritebackRetryMinutes,
+} from '../salesforce-writeback/config';
 import { volumeRoutingSchema } from '../scoring/volume-routing';
 import { requiredRuleSchema } from '../types/workflow-config';
 import { HOLD_OWNER_DEFAULTS, parseHoldOwnerDefault } from '../workflow/hold-owner';
@@ -821,6 +831,52 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'select',
     z_('default_scope_type', z.enum(['all', 'owner'])),
     { options: ['all', 'owner'] },
+  ),
+  // FB-29 (N19-01, D-16w): the Salesforce write-back, switched off and provisional. Switching the mode to
+  // live is also refused by the API unless this environment has a write connection (SF_WRITE_MODE).
+  spec(
+    'sf_writeback_enabled',
+    'integrations',
+    'Salesforce write-back: on',
+    'boolean',
+    notNull('sf_writeback_enabled', parseSfWritebackEnabled),
+  ),
+  spec(
+    'sf_writeback_mode',
+    'integrations',
+    'Salesforce write-back: dry run (records only) or live (sends)',
+    'select',
+    notNull('sf_writeback_mode', parseSfWritebackMode),
+    { options: [...SF_WRITEBACK_MODES] },
+  ),
+  spec(
+    'sf_writeback_map',
+    'integrations',
+    'Salesforce write-back: what is written, and where',
+    'json',
+    notNull('sf_writeback_map', (v) => parseSfWritebackMap(v)),
+  ),
+  spec(
+    'sf_writeback_stage_regression',
+    'integrations',
+    'Salesforce write-back: never move an opportunity to an earlier stage',
+    'select',
+    notNull('sf_writeback_stage_regression', parseSfWritebackRegression),
+    { options: [...SF_WRITEBACK_REGRESSION_MODES] },
+  ),
+  spec(
+    'sf_writeback_max_attempts',
+    'integrations',
+    'Salesforce write-back: tries before a write fails',
+    'integer',
+    notNull('sf_writeback_max_attempts', parseSfWritebackMaxAttempts),
+  ),
+  spec(
+    'sf_writeback_retry_minutes',
+    'integrations',
+    'Salesforce write-back: minutes to wait between tries',
+    'json',
+    notNull('sf_writeback_retry_minutes', parseSfWritebackRetryMinutes),
   ),
 ];
 

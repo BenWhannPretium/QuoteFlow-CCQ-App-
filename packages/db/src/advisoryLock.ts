@@ -15,6 +15,8 @@ export const ADVISORY_LOCKS = {
   fabricMirrorCheck: 2_701_001n,
   /** B-20: start-up migrations, comments and analytics views (`runMigrations`); waits, never skips. */
   migrations: 2_001_001n,
+  /** FB-29: the Salesforce write-back worker (sends the outbox; off unless switched on). */
+  sfWriteback: 2_901_001n,
 } as const;
 
 /**

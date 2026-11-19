@@ -1,9 +1,11 @@
 import type { SfAccount, SfOpportunity, SfProductSpec } from '@ccq/contracts';
 
 /**
- * Read-only access to Salesforce (DEC-12). There are deliberately no write methods: CCQ never writes
- * to Salesforce in MVP (CLAUDE.md rule 5). `readonly.test.ts` and an ESLint rule fail the build if
- * any SF write call (`create`, `update`, `upsert`, `destroy`, …) appears in this folder.
+ * Read-only access to Salesforce (DEC-12). There are deliberately no write methods: the reader never
+ * writes (CLAUDE.md rule 5). The one governed write is a separate interface, `SalesforceWriter`
+ * (writer.ts, FB-29), off by default. `readonly.test.ts` and an ESLint rule fail the build if any SF write
+ * call (`create`, `update`, `upsert`, `destroy`, …) appears in this folder outside the writer files, and
+ * `writeGuard.test.ts` checks the writer files are the only ones with one.
  */
 export interface SalesforceReader {
   readonly mode: 'fake' | 'live';

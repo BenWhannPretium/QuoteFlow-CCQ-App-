@@ -71,6 +71,7 @@ import { onCustomerOutcome } from './outcome';
 import { onPricingArrival, recordColumns, recordValues } from './pricing-view';
 import { summaryDto, type QuoteReadService, type QuoteViewContext } from './quotes';
 import type { ScoringService } from './scoring';
+import type { SfWritebackService } from './sfWriteback';
 import { recordAudit } from '../plugins/audit';
 
 export type GateWithTx = <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>;
@@ -102,6 +103,8 @@ export interface GateServiceOptions {
   scoring: ScoringService;
   quotes: QuoteReadService;
   notify?: NotificationHook;
+  /** FB-29: queues the Salesforce write-back in the decision's transaction (never blocks it). */
+  sfWriteback?: SfWritebackService;
   now?: () => Date;
 }
 
@@ -656,6 +659,18 @@ export class GateService {
         },
         undefined,
       );
+      // FB-29 (N19-01): queue the Salesforce write-back (switched off by default). In this transaction, so
+      // a rolled-back decision leaves no row; it never throws, so it never blocks the decision.
+      await this.opts.sfWriteback?.onGateDecision(tx, {
+        quote: { id: row.quote.id, quoteNumber, sfOpportunityId: row.quote.sfOpportunityId },
+        gateKey,
+        gateStageKey: gate.stageKey,
+        outcomeKey: body.outcomeKey,
+        enteredStageKey: effects.stageHistory.enter?.stageKey ?? null,
+        actor,
+        meta,
+        at: now,
+      });
       // FB-17 (W13-22): capital is no longer a choice at G2. When a decision moves the quote on out of
       // Engineering and the preliminary capital says capital is needed (`eng_capital_needed`, from
       // app_setting `capital_needed_above_usd`), the quote is flagged "capital likely" (so G3 asks for

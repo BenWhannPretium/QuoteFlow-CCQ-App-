@@ -50,3 +50,4 @@ app.sfSync?.start();
 app.validityExpiry?.start();
 app.notificationDispatch?.start();
 app.fabricMirrorCheck?.start();
+app.sfWriteback?.start();
