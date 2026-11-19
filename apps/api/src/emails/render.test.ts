@@ -56,7 +56,9 @@ const FIXTURES: Record<string, Record<string, string>> = {
   'quote.closed': { outcome: 'Declined', reason: 'Not strategic' },
   'comment.posted': { actor: 'Dana Whitfield', count: '3' },
   // FB-07 (D-001)
-  'quote.ready_for_roi': { actor: 'Kyle Arnold', version: '2' },
+  // FB-21 (N17-21): sent when the pricer or the pricing lead asks Finance.
+  'quote.ready_for_roi': { actor: 'Kyle Arnold', note: 'Board pack on Friday (synthetic)' },
+  'quote.payback_request_withdrawn': { actor: 'Kyle Arnold', reason: 'Not needed after all' },
   'quote.roi_uploaded': { actor: 'Stacy Slocum', version: '1' },
   // FB-08 (T-007)
   'quote.terms_exception_requested': { actor: 'Kyle Arnold', terms: 'Net 60' },
@@ -102,7 +104,11 @@ describe('subjects', () => {
     ['quote.on_hold', '[QuoteFlow] CCQ-2026-00042 is on hold: Hold'],
     ['quote.closed', '[QuoteFlow] CCQ-2026-00042 was closed: Outcome recorded'],
     ['comment.posted', '[QuoteFlow] CCQ-2026-00042 has 3 new comments: Comments'],
-    ['quote.ready_for_roi', '[QuoteFlow] CCQ-2026-00042 is ready for its payback model: Quoting'],
+    ['quote.ready_for_roi', '[QuoteFlow] CCQ-2026-00042 needs a payback model: Quoting'],
+    [
+      'quote.payback_request_withdrawn',
+      '[QuoteFlow] CCQ-2026-00042 no longer needs a payback model: Quoting',
+    ],
     ['quote.roi_uploaded', '[QuoteFlow] CCQ-2026-00042 has its payback model: Quoting'],
     [
       'quote.terms_exception_requested',
