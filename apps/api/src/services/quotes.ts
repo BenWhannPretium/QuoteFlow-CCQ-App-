@@ -388,6 +388,8 @@ export class QuoteReadService {
      * and date) when the caller cannot read it. Without it the read runs under the caller's RLS.
      */
     private readonly systemTx?: <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>,
+    /** FB-29: a live Salesforce writer is connected (SF_WRITE_MODE=live), so the reminder may say so. */
+    private readonly sfWriterLive: () => boolean = () => false,
   ) {}
 
   async context(db: DbOrTx, actor: Actor, now: Date): Promise<QuoteViewContext> {
@@ -495,6 +497,7 @@ export class QuoteReadService {
         state: state!,
         sfStage: row.sfStage,
         decisions: raw,
+        sfWriterLive: this.sfWriterLive(),
       }),
       commercial: await commercialView(db, ctx.actor, ctx.commercial, q, state!, workflow),
     };

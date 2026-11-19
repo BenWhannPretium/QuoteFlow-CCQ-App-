@@ -292,6 +292,8 @@ export async function customerDecisionView(
     state: QuoteState;
     sfStage: string | null | undefined;
     decisions: RawDecisions;
+    /** FB-29: a live Salesforce writer is connected (not the fake, not off). */
+    sfWriterLive?: boolean;
   },
 ): Promise<CustomerDecisionDetail> {
   const { actor, workflow, settings, now, quote: q, state } = input;
@@ -338,7 +340,7 @@ export async function customerDecisionView(
     canAssignClosureOwner: can(actor, 'outcome.assignOwner', state),
     receivingRoles: settings.receivingRoles,
     sfStageByOutcome: settings.sfOutcomeStageNames,
-    sfWriteback: await quoteSfWriteback(db, q.id),
+    sfWriteback: await quoteSfWriteback(db, q.id, input.sfWriterLive === true),
     acceptanceEvidenceOptions: acceptanceEvidenceOptions(workflow),
     cer: {
       toolUrl: settings.cerToolUrl || null,
@@ -361,18 +363,23 @@ export async function customerDecisionView(
 }
 
 /**
- * FB-29: whether QuoteFlow updates Salesforce for this quote (the write-back switched on and live; live can
- * only be set where this environment has a write connection) and its latest stage write. The KAM's
- * reminder keeps asking for a manual update while this is off, in a dry run included.
+ * FB-29: whether QuoteFlow updates Salesforce for this quote, and its latest stage write. `on` needs all
+ * three: the switch on, the mode live, and a LIVE writer connected (`SF_WRITE_MODE=live`). With the fake
+ * writer, or no writer (the runbook's "remove the connection" path, mode left at live), nothing reaches
+ * Salesforce, so the KAM keeps the manual reminder; a dry run too.
  */
-async function quoteSfWriteback(db: DbOrTx, quoteId: string): Promise<QuoteSfWriteback> {
+async function quoteSfWriteback(
+  db: DbOrTx,
+  quoteId: string,
+  writerLive: boolean,
+): Promise<QuoteSfWriteback> {
   const [enabled, mode, latest] = await Promise.all([
     getSetting(db, SF_WRITEBACK_SETTING_KEYS.enabled),
     getSetting(db, SF_WRITEBACK_SETTING_KEYS.mode),
     latestStageRowForQuote(db, quoteId),
   ]);
   return {
-    on: enabled === true && mode === 'live',
+    on: writerLive && enabled === true && mode === 'live',
     latest: latest
       ? {
           status: latest.status as SfWritebackStatus,

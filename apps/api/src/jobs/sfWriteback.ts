@@ -21,6 +21,7 @@ import type { Sql } from 'postgres';
 
 import { createNotifications } from '../services/notificationService';
 import {
+  closingPossiblyWritten,
   insertSystemAudit,
   lastClosingWritten,
   loadWritebackSettings,
@@ -67,6 +68,8 @@ export interface SfWritebackDeps {
   now?: () => Date;
   /** Opportunities per run. */
   batchSize?: number;
+  /** Shutting down: finish the opportunity in hand, start no other. */
+  shouldStop?: () => boolean;
 }
 
 export interface SfWritebackRunResult {
@@ -180,17 +183,31 @@ async function processRow(
     if (!stage.ok) return fail(stage);
     current = stage.stage;
   }
+  // A reopen goes over the close QuoteFlow wrote; failing that, over a close a re-quote superseded after
+  // an attempt that may have reached Salesforce (the stage read above shows whether it did).
+  const written = row.reopens
+    ? await lastClosingWritten(tx, row.sfOpportunityId, ['sent'], row.id)
+    : null;
+  const possible =
+    row.reopens && written === null
+      ? await closingPossiblyWritten(tx, row.sfOpportunityId, row.id)
+      : null;
   const decision = decideSend({
     row: { sfField: row.sfField, value: row.value, reopens: row.reopens },
     current,
     regression: settings.regression,
     stageRank: settings.map.stageRank,
-    lastClosingWritten: row.reopens
-      ? await lastClosingWritten(tx, row.sfOpportunityId, ['sent'], row.id)
-      : null,
+    lastClosingWritten: written ?? possible,
   });
   const held = current === undefined ? {} : { salesforceStage: current };
-  if (decision.action === 'skip') return skip(decision.reason, held);
+  if (decision.action === 'skip') {
+    // The uncertain close never reached Salesforce: there is nothing of QuoteFlow's to reopen.
+    const reason =
+      decision.reason === 'moved_in_salesforce' && written === null
+        ? 'nothing_to_reopen'
+        : decision.reason;
+    return skip(reason, held);
+  }
   if (decision.action === 'confirmed_existing') {
     await updateOutboxRow(
       tx,
@@ -325,6 +342,7 @@ async function runLocked(deps: SfWritebackDeps): Promise<SfWritebackRunResult> {
   if (loaded.settings.mode !== 'live') return { ...result, outcome: 'idle' };
   const failures: FinalFailure[] = [];
   for (let i = 0; i < (deps.batchSize ?? DEFAULT_BATCH); i++) {
+    if (deps.shouldStop?.()) break;
     const more = await processNextOpportunity(
       { ...deps, writer },
       loaded.settings,
@@ -390,8 +408,9 @@ export function createSfWritebackScheduler(
 ): SfWritebackScheduler {
   let timer: NodeJS.Timeout | undefined;
   let inFlight: Promise<SfWritebackRunResult> | null = null;
+  let stopping = false;
   const runNow = () => {
-    inFlight ??= runSfWriteback(deps).finally(() => {
+    inFlight ??= runSfWriteback({ ...deps, shouldStop: () => stopping }).finally(() => {
       inFlight = null;
     });
     return inFlight;
@@ -404,6 +423,8 @@ export function createSfWritebackScheduler(
       timer.unref();
     },
     async stop() {
+      // A run mid-batch finishes the opportunity in hand (its rows' locks) and starts no other.
+      stopping = true;
       clearInterval(timer);
       timer = undefined;
       await inFlight?.catch(() => undefined);

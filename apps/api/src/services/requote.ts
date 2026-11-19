@@ -261,6 +261,7 @@ export class RequoteService {
         await this.opts.sfWriteback?.onRequoteStarted(tx, {
           quote: { id: q.id, quoteNumber, sfOpportunityId: q.sfOpportunityId },
           draftId: draft.id,
+          recordedExpired,
           actor,
           meta,
           at: now,

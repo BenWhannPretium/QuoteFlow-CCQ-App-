@@ -20,7 +20,11 @@ import {
   proposalCalendarDate,
   type Actor,
 } from '@ccq/domain';
-import { FakeSalesforceWriter, SF_WRITE_ALLOW_LIST } from '@ccq/integrations';
+import {
+  FakeSalesforceWriter,
+  SF_WRITE_ALLOW_LIST,
+  type SalesforceWriter,
+} from '@ccq/integrations';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -40,6 +44,15 @@ let db: DbClient;
 let url: string;
 let app: Awaited<ReturnType<typeof buildApp>>;
 const writer = new FakeSalesforceWriter();
+/**
+ * The fake, reporting itself as a LIVE writer: only a live writer makes the KAM's reminder say QuoteFlow
+ * updates Salesforce. Nothing leaves the process.
+ */
+const liveLabelled: SalesforceWriter = {
+  mode: 'live',
+  updateOpportunity: (id, fields, opts) => writer.updateOpportunity(id, fields, opts),
+  getCurrentStage: (id) => writer.getCurrentStage(id),
+};
 let clock = new Date('2026-11-02T15:00:00Z');
 const HOUR = 3_600_000;
 const MINUTE = 60_000;
@@ -275,7 +288,7 @@ beforeAll(async () => {
   app = await buildApp(testConfig({ DATABASE_URL: fresh.url, RATE_LIMIT_MAX: '100000' }), {
     db,
     now: () => clock,
-    salesforceWriter: writer,
+    salesforceWriter: liveLabelled,
   });
   await app.ready();
   for (const key of ['kam', 'sales-leader', 'eng-lead', 'engineer', 'pricing', 'admin']) {
@@ -565,6 +578,67 @@ describe('the decision’s transaction', () => {
 });
 
 describe('never close an opportunity another quote needs; reopen what QuoteFlow closed', () => {
+  it('a re-quote after a closing attempt timed out but reached Salesforce still reopens it', async () => {
+    await switchTo(true, 'live');
+    const qn = await inCustomerDecision();
+    const opp = (await quoteRow(qn)).sfOpportunityId;
+    writer.setStage(opp, 'Negotiating');
+    await lapse(qn);
+    ok(await expired(qn));
+    writer.failNext({ kind: 'timeout' });
+    expect(await run()).toMatchObject({ retrying: 1 });
+    expect(writer.stageOf(opp)).toBe('Closed Lost');
+    // The re-quote starts before the retry: the tried close is superseded, the reopen is still queued.
+    ok(await requote(qn, { note: 'Back on' }), 200);
+    expect((await outbox(qn)).map((r) => [r.event, r.status, r.skippedReason, r.attempts])).toEqual(
+      [
+        ['outcome_recorded', 'skipped', 'other_active_quote', 1],
+        ['requote_started', 'pending', null, 0],
+      ],
+    );
+    const queued = (await writebackAudits(qn)).at(-1)!;
+    expect(queued.after).toMatchObject({ event: 'requote_started', closingMayHaveReached: true });
+    await run();
+    expect(writer.stageOf(opp)).toBe('Quoting');
+    expect((await outbox(qn)).at(-1)).toMatchObject({ status: 'sent' });
+  });
+
+  it('a re-quote after a closing attempt that never reached Salesforce writes nothing', async () => {
+    await switchTo(true, 'live');
+    const qn = await inCustomerDecision();
+    const opp = (await quoteRow(qn)).sfOpportunityId;
+    writer.setStage(opp, 'Negotiating');
+    await lapse(qn);
+    ok(await expired(qn));
+    writer.failNext({
+      kind: 'error',
+      retryable: true,
+      code: 'SERVER_UNAVAILABLE',
+      message: 'busy',
+    });
+    expect(await run()).toMatchObject({ retrying: 1 });
+    ok(await requote(qn, { note: 'Back on' }), 200);
+    await run();
+    expect((await outbox(qn)).at(-1)).toMatchObject({
+      event: 'requote_started',
+      status: 'skipped',
+      skippedReason: 'nothing_to_reopen',
+    });
+    expect(writer.stageOf(opp)).toBe('Negotiating');
+    expect(callsFor(opp)).toHaveLength(1);
+  });
+
+  it('dry run records exactly what live would for a linked re-quote of a still-open expired quote', async () => {
+    await switchTo(true, 'dry_run');
+    const qn = await inCustomerDecision();
+    await lapse(qn);
+    ok(await requote(qn, { note: 'Customer still wants it', reasonCode: 'validity_lapsed' }), 200);
+    expect((await outbox(qn)).map((r) => [r.event, r.status, r.skippedReason])).toEqual([
+      ['outcome_recorded', 'skipped', 'other_active_quote'],
+      ['requote_started', 'skipped', 'nothing_to_reopen'],
+    ]);
+  });
+
   it('an expiry with no other quote on the opportunity queues the closing write', async () => {
     await switchTo(true, 'live');
     const qn = await inCustomerDecision();
@@ -725,6 +799,8 @@ describe('the Salesforce status flag', () => {
 });
 
 describe('Admin → Integrations', () => {
+  /** A quote with a customer outcome, for the reminder checks (set by the preview test). */
+  let reminderQuote = '';
   it('shows the switch, why nothing is written, counts and rows; switches to dry run and live', async () => {
     let res = await persona('admin').get('/api/v1/admin/salesforce/writeback');
     ok(res, 200);
@@ -732,7 +808,7 @@ describe('Admin → Integrations', () => {
     expect(s).toMatchObject({
       enabled: false,
       mode: 'dry_run',
-      writerMode: 'fake',
+      writerMode: 'live',
       sending: false,
       canManage: true,
     });
@@ -779,6 +855,7 @@ describe('Admin → Integrations', () => {
     await switchTo(false);
     const qn = await inCustomerDecision();
     ok(await lost(qn));
+    reminderQuote = qn;
     const res = await persona('admin').get(
       `/api/v1/admin/salesforce/writeback/preview?quoteNumber=${qn}`,
     );
@@ -835,8 +912,51 @@ describe('Admin → Integrations', () => {
         payload: { value: 'live', version: setting!.version, changeReason: 'Trying live on test' },
       });
       expect(console.statusCode, console.body).toBe(422);
+
+      // The mode left at live with no write connection: the KAM keeps the manual reminder.
+      await switchTo(true, 'live');
+      const detail = QuoteDetail.parse(
+        (
+          await noWriter.inject({
+            method: 'GET',
+            url: `/api/v1/quotes/${reminderQuote}`,
+            headers: { [DEV_USER_HEADER]: 'kam' },
+          })
+        ).json(),
+      );
+      expect(detail.customerDecision.sfWriteback?.on).toBe(false);
     } finally {
       await noWriter.close();
+    }
+  });
+
+  it('with the fake writer, the KAM keeps the manual reminder even when switched on and live', async () => {
+    await switchTo(true, 'live');
+    const other = createDb(url);
+    const fakeApp = await buildApp(testConfig({ DATABASE_URL: url, RATE_LIMIT_MAX: '100000' }), {
+      db: other,
+      now: () => clock,
+      salesforceWriter: new FakeSalesforceWriter(),
+    });
+    await fakeApp.ready();
+    try {
+      const detail = QuoteDetail.parse(
+        (
+          await fakeApp.inject({
+            method: 'GET',
+            url: `/api/v1/quotes/${reminderQuote}`,
+            headers: { [DEV_USER_HEADER]: 'kam' },
+          })
+        ).json(),
+      );
+      expect(detail.customerDecision.sfWriteback?.on).toBe(false);
+      // The live-connected app says it does.
+      const live = QuoteDetail.parse(
+        (await persona('kam').get(`/api/v1/quotes/${reminderQuote}`)).json(),
+      );
+      expect(live.customerDecision.sfWriteback?.on).toBe(true);
+    } finally {
+      await fakeApp.close();
     }
   });
 });

@@ -174,6 +174,56 @@ export async function lastClosingWritten(
   return row?.closing ? row.value : null;
 }
 
+/**
+ * A closing value that may have reached Salesforce although QuoteFlow did not record it as sent: the latest
+ * stage row of the opportunity is a closing write a re-quote superseded after at least one attempt (a
+ * timed-out try can have reached Salesforce). Null otherwise. The worker's stage pre-read decides.
+ */
+export async function closingPossiblyWritten(
+  db: DbOrTx,
+  sfOpportunityId: string,
+  exceptId?: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({
+      value: outbox.value,
+      status: outbox.status,
+      closing: outbox.closing,
+      attempts: outbox.attempts,
+      reason: outbox.skippedReason,
+    })
+    .from(outbox)
+    .where(
+      and(
+        eq(outbox.sfOpportunityId, sfOpportunityId),
+        eq(outbox.sfField, SF_STAGE_FIELD),
+        inArray(outbox.status, ['sent', 'skipped']),
+        ...(exceptId ? [ne(outbox.id, exceptId)] : []),
+      ),
+    )
+    .orderBy(desc(outbox.createdAt), desc(outbox.id))
+    .limit(1);
+  return row &&
+    row.status === 'skipped' &&
+    row.closing &&
+    row.attempts > 0 &&
+    row.reason === 'other_active_quote'
+    ? row.value
+    : null;
+}
+
+/** The closing dry-run row a re-quote's own expiry just recorded for this quote (dry run mirrors live). */
+export async function latestDryRunClosingForQuote(db: DbOrTx, quoteId: string) {
+  const [row] = await db
+    .select()
+    .from(outbox)
+    .where(and(eq(outbox.quoteId, quoteId), eq(outbox.status, 'dry_run'), eq(outbox.closing, true)))
+    .orderBy(desc(outbox.createdAt), desc(outbox.id))
+    .limit(1)
+    .for('update');
+  return row;
+}
+
 /** The opportunity of the oldest due pending row not locked by another worker, or null. */
 export async function nextDueOpportunity(db: DbOrTx, now: Date): Promise<string | null> {
   const [row] = await db

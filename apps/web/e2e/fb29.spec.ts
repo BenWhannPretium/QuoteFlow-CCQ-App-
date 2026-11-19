@@ -96,16 +96,17 @@ test('an Admin dry-runs the write-back, previews a quote, goes live and retries 
     });
   }).toPass({ timeout: 30_000 });
 
-  // The KAM's reminder now says QuoteFlow updates Salesforce (the reminder shows after a G5 outcome).
+  // The fake writer reaches no Salesforce org, so the KAM is still asked to update the opportunity by
+  // hand: only a LIVE writer makes the reminder say QuoteFlow updates it (integration-tested).
   const kam = await page.context().newPage();
   await signInAs(kam, 'kam');
   await kam.goto(`/quotes/${second}`);
   await kam.evaluate((qn) => localStorage.setItem(`ccq.sfReminder.${qn}`, 'lost'), second);
   await kam.reload();
-  await expect(kam.getByTestId('sf-update-reminder')).toContainText(
-    'QuoteFlow updates the Salesforce opportunity',
-  );
-  await expect(kam.getByTestId('sf-update-reminder')).toContainText('Sent.');
+  const reminder = kam.getByTestId('sf-update-reminder');
+  await expect(reminder).toContainText('Update the Salesforce opportunity to match');
+  await expect(reminder).toContainText('Closed Lost');
+  await expect(reminder).not.toContainText('QuoteFlow updates');
   await kam.close();
 
   // Switched off, the card says plainly why nothing is written. (The tabs share one sign-in: back to Admin.)

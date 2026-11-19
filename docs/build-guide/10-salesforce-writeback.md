@@ -11,7 +11,7 @@ Every statement below is marked **[verified]** (checked in this repository or by
 | When | Salesforce field | Value | Notes |
 |---|---|---|---|
 | A customer outcome is recorded at Customer Decision (G5) | `Opportunity.StageName` | The outcome's stage from `sf_outcome_stage_names`: Awarded → "Verbal Award", In negotiation → "Negotiating", Lost and Expired → "Closed Lost" | **[verified]** in code and tests. The stage names are the FB-04 seed, provisional. Lost and Expired **close** the opportunity, so they are skipped while another open quote or an open re-quote draft is on the same opportunity. |
-| A linked re-quote starts after QuoteFlow closed the opportunity | `Opportunity.StageName` | The `requote` stage ("Quoting") | **[verified]** Sent only if Salesforce still shows the closed stage QuoteFlow wrote; if a sales person moved it on, it is skipped and logged. |
+| A linked re-quote starts after QuoteFlow closed the opportunity | `Opportunity.StageName` | The `requote` stage ("Quoting") | **[verified]** Sent only if Salesforce still shows the closed stage QuoteFlow wrote; if a sales person moved it on, it is skipped and logged. A closing write the re-quote overtook after a timed-out try (which may have reached Salesforce) also gets a reopen; the worker reads the stage first and sends it only if Salesforce shows that close. |
 | Any stage change | `StageName` | through `stageMap` | **Off** **[verified]**: the stage table is empty. |
 | The quote number or link | a custom field | the CCQ quote number or its QuoteFlow link | **Off** **[verified]**: no field is named, and none is on the allow-list. |
 
@@ -46,6 +46,18 @@ Never written **[verified]**: any price, cost, margin, revenue or capital field 
 3. **Production.** Only after the owner signs off steps 3 and 5: set the production app settings and switch the mode to **Live** in production.
 
 The test site reads Salesforce **production** (`SF_MODE=live` there) **[verified in `infra/main.test.bicepparam`: `sfMode = 'live'` against the production My Domain; not checked against the deployed site]**. That is why the test site may only write to a sandbox, and why the writer reads the current stage through its own session, never through the reader.
+
+## The KAM's reminder
+
+KAMs are told "QuoteFlow updates the Salesforce opportunity" only when the switch is on, the mode is **Live** and this environment has a **live** write connection (`SF_WRITE_MODE=live`) **[verified]**. With the fake writer (test site dry runs), with no connection, or in a dry run, they keep the reminder to update Salesforce by hand.
+
+## The "SF: closed lost" flag after deploy
+
+From this release the Salesforce sync no longer flags "SF: closed lost" on a quote QuoteFlow itself closed other than as won (lost, expired, declined, stopped), whether or not the write-back is on **[verified]**. The first sync after the deploy therefore **clears** the flag on every such quote that has it, and each cleared quote gets one "Salesforce status changed" entry on its timeline. That is expected, not a data problem.
+
+## Known limitation to resolve before switch-on
+
+While the worker sends to one opportunity it holds that opportunity's outbox rows locked, across the Salesforce calls (a stage read and the update: up to 20 seconds each, twice if the session has to log in again). A linked re-quote started on that same opportunity at that moment waits for the lock, so the KAM's "Start re-quote" can take up to about 80 seconds in the worst case **[verified in code; not measured]**. It cannot write anything wrong; it is only slow. The fix (claim the rows, commit, then call Salesforce) is planned before the switch is turned on in production.
 
 ## Switching it off
 

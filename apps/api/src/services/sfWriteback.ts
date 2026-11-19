@@ -38,6 +38,7 @@ import {
   loadWritebackSettings,
   otherActiveOnOpportunity,
   outboxCounts,
+  latestDryRunClosingForQuote,
   pendingClosingRows,
   updateOutboxRow,
   type LoadedWritebackSettings,
@@ -93,6 +94,8 @@ export interface DecisionWriteContext {
 export interface RequoteWriteContext {
   quote: { id: string; quoteNumber: string; sfOpportunityId: string };
   draftId: string;
+  /** The re-quote first recorded G5 "expired" in this transaction (the quote was still open). */
+  recordedExpired: boolean;
   actor: Actor;
   meta: AuditMeta;
   at: Date;
@@ -222,6 +225,7 @@ export class SfWritebackService {
     write: PlannedSfWrite,
     mode: SfWritebackMode,
     skippedReason: SfWritebackSkipReason | null,
+    auditExtra: Record<string, unknown> = {},
   ): Promise<string | null> {
     const status: SfWritebackStatus = skippedReason
       ? 'skipped'
@@ -263,6 +267,7 @@ export class SfWritebackService {
         closing: write.closing,
         reopens: write.reopens,
         ...(skippedReason ? { skippedReason } : {}),
+        ...auditExtra,
       },
       at: ctx.at,
     });
@@ -342,8 +347,17 @@ export class SfWritebackService {
         );
         return;
       }
-      // 1. A closing write still waiting is superseded: the opportunity is needed again.
-      for (const row of await pendingClosingRows(sp, ctx.quote.sfOpportunityId)) {
+      const mode = loaded.settings.mode;
+      // 1. A closing write still waiting is superseded: the opportunity is needed again. A dry run
+      // supersedes the closing row this re-quote's own expiry just recorded, so it shows what live would.
+      const superseded = await pendingClosingRows(sp, ctx.quote.sfOpportunityId);
+      if (mode === 'dry_run' && ctx.recordedExpired) {
+        const own = await latestDryRunClosingForQuote(sp, ctx.quote.id);
+        if (own) superseded.push(own);
+      }
+      // A superseded row that was already tried may have reached Salesforce (a timed-out attempt).
+      const mayHaveReached = superseded.some((r) => r.attempts > 0);
+      for (const row of superseded) {
         await updateOutboxRow(
           sp,
           row.id,
@@ -355,7 +369,7 @@ export class SfWritebackService {
           entity: 'sf_writeback',
           entityId: row.id,
           quoteId: row.quoteId,
-          before: { status: 'pending' },
+          before: { status: row.status, attempts: row.attempts },
           after: {
             status: 'skipped',
             skippedReason: 'other_active_quote',
@@ -380,13 +394,21 @@ export class SfWritebackService {
         draftId: ctx.draftId,
       });
       if (!write) return;
-      const mode = loaded.settings.mode;
       const closed = await lastClosingWritten(
         sp,
         ctx.quote.sfOpportunityId,
         mode === 'dry_run' ? ['sent', 'dry_run'] : ['sent'],
       );
-      await this.enqueue(sp, ctx, write, mode, closed === null ? 'nothing_to_reopen' : null);
+      // Nothing closing recorded as written, but a superseded close may have reached Salesforce: queue
+      // the reopen anyway; the worker reads the stage Salesforce holds and sends it only over that close.
+      await this.enqueue(
+        sp,
+        ctx,
+        write,
+        mode,
+        closed === null && !mayHaveReached ? 'nothing_to_reopen' : null,
+        closed === null && mayHaveReached ? { closingMayHaveReached: true } : {},
+      );
     });
   }
 

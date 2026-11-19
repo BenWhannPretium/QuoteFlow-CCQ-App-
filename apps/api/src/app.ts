@@ -465,6 +465,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   const quoteReads = new QuoteReadService(
     scoring,
     deps.db.db ? (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) : undefined,
+    // FB-29: the KAM's reminder says QuoteFlow updates Salesforce only with a live writer connected.
+    () => sfWriter?.mode === 'live',
   );
   const gateLog = app.log.child({ component: 'gates' });
   // B-18: the notifications a decision plans are written in the decision's own transaction (in-app +

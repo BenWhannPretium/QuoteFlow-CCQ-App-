@@ -58,9 +58,10 @@ export default [
     rules: { 'no-restricted-syntax': ['error', noWriteCalls] },
   },
   {
-    // FB-29: the writer (the one Opportunity update, behind the write allow-list and the write switch).
-    // Every other file, the reader's factory create.ts included, stays under the rule above.
+    // FB-29: the writer may make the one Opportunity update (jsforce's sobject().update), behind the write
+    // allow-list and the write switch; raw POST/PUT/PATCH/DELETE requests stay banned here too. Every other
+    // file, the reader's factory create.ts included, stays under the full rule above.
     files: SF_WRITER_FILES,
-    rules: { 'no-restricted-syntax': 'off' },
+    rules: { 'no-restricted-syntax': ['error', noWriteHttp] },
   },
 ];
