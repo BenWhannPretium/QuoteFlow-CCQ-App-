@@ -493,6 +493,8 @@ describe('FB-16 C: the Production Scheduler owns capacity (W13-15, W13-17)', () 
     ok(await putRows(qn, [await row()]));
     ok(await as('Engineer').post(`/api/v1/quotes/${qn}/eng-review/accept`));
     ok(await submit(qn));
+    // FB-22 (N17-14): with a scheduler assigned, the review is with the lead once both parts are in.
+    ok(await as('ProductionScheduler').post(`/api/v1/quotes/${qn}/eng-review/submit-capacity`));
     expect((await detail(qn)).engineering.leadReview.status).toBe('submitted');
 
     expect((await signOff(qn, { status: 'blocked' })).statusCode).toBe(422);
@@ -512,8 +514,9 @@ describe('FB-16 C: the Production Scheduler owns capacity (W13-15, W13-17)', () 
       returnNote: 'Capacity blocked: Line 4 is full until March',
     });
     expect(d.engineering.leadReview.returnedToName).toBeTruthy();
-    // Unlocked again for the engineer.
+    // Unlocked again for the engineer; FB-22: the scheduler's capacity part is reopened too.
     expect(d.engineering.canEdit).toBe(true);
+    expect(d.engineering.leadReview.parts?.scheduler?.in).toBe(false);
 
     expect(await told(qn, 'quote.capacity_blocked', engineer)).toBe(1);
     expect(await told(qn, 'quote.capacity_blocked', engineer, 'email')).toBe(1);
@@ -563,9 +566,9 @@ describe('FB-16 D: the lead sends back to either person (W13-19)', () => {
     expect(back.returnedToName).toBe((await detail(qn)).engineering.assignedSchedulerName);
     expect(await told(qn, 'quote.returned_by_lead', scheduler)).toBe(1);
     expect(await told(qn, 'quote.returned_by_lead', engineer)).toBe(0);
-    // The scheduler works the rows; the engineer submits again.
+    // The scheduler works the rows and (FB-22) submits capacity again; the engineer's part stayed in.
     ok(await putRows(qn, [await row({ assumedEffectivenessPct: 65 })]));
-    ok(await submit(qn));
+    ok(await as('ProductionScheduler').post(`/api/v1/quotes/${qn}/eng-review/submit-capacity`));
 
     // The default is still the engineer.
     ok(await sendBack(qn, { note: 'Check the cavitation' }));

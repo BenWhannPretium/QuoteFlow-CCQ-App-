@@ -359,6 +359,7 @@ function visibleReview(
         cavitation: eng?.cavitation ?? null,
         cycleTimeS: eng?.cycleTimeS ?? null,
         toolingNotes: eng?.toolingNotes ?? null,
+        machinePlatform: eng?.machinePlatform ?? null,
         downstreamEquipmentNotes: eng?.downstreamEquipmentNotes ?? null,
         prelimCapitalUsd: eng?.prelimCapitalUsd ?? null,
         technicalConceptNotes: eng?.technicalConceptNotes ?? null,

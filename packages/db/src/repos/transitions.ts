@@ -206,6 +206,8 @@ export async function loadQuoteStates(
       assignedSchedulerId: row.assignedSchedulerId ? asUserId(row.assignedSchedulerId) : null,
       assignedPricerId: row.assignedPricerId ? asUserId(row.assignedPricerId) : null,
       engSubmittedAt: row.engSubmittedAt,
+      // FB-22: the scheduler's part (the capacity lock reads it).
+      capacitySubmittedAt: row.capacitySubmittedAt,
       pricingSubmittedAt: row.pricingSubmittedAt,
       ...(row.region ? { region: row.region } : {}),
       ...(accountId ? { accountId } : {}),

@@ -463,6 +463,8 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
             { id: 'g2-note', label: 'Engineering note', value: g2?.note },
             { label: 'Process', value: label('process_type', eng.review.processType) },
             { label: 'Machine', value: label('machine_type', eng.review.machineType) },
+            // FB-22 (N17-13): the machine platform, free text.
+            { label: 'Machine platform', value: eng.review.machinePlatform },
             { label: 'Plant / site', value: label('plant', eng.review.plantCode) },
             { label: 'Cavitation', value: eng.review.cavitation?.toString() },
             { label: 'Cycle time (s)', value: eng.review.cycleTimeS?.toString() },

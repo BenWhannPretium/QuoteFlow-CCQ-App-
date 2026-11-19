@@ -188,12 +188,13 @@ test('the lead sends work back to the scheduler, then approves capacity inside "
   await expect(lead.getByTestId('lead-review-returned')).toContainText(scheduler.displayName);
   expect(await seriousViolations(lead)).toEqual([]);
 
-  // The scheduler is the one who is told; the engineer submits again once it is fixed.
+  // The scheduler is the one who is told; FB-22: they submit capacity again once it is fixed (the
+  // engineer's part stayed with the lead).
   const sched = await open('production-scheduler');
   await sched.goto('/');
   await sched.getByTestId('notification-bell').click();
   await expect(sched.getByTestId('notification-list')).toContainText(quoteNumber);
-  await call('post', 'eng-review/submit', 'engineer');
+  await call('post', 'eng-review/submit-capacity', 'production-scheduler');
 
   // ── Capacity is not signed off yet: the lead signs it off with the decision, in one step ──
   await lead.reload();

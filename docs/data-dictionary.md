@@ -504,12 +504,13 @@ Engineering Review fields (stage 2).
 | `plant_code` | text | yes |  |  | value_list plant code. Decided by Engineering + Ops + Supply Chain, never the KAM (DF-10). | Engineering (EngLead / Engineer) |
 | `cavitation` | integer | yes |  |  | Mould cavitation: a whole number, 1 to 99 (FB-03). | Engineering (EngLead / Engineer) |
 | `cycle_time_s` | numeric(8, 2) | yes |  |  | Cycle time (seconds). | Engineering (EngLead / Engineer) |
-| `tooling_notes` | text | yes |  |  | Tooling notes (mold, hot runner). | Engineering (EngLead / Engineer) |
+| `tooling_notes` | text | yes |  |  | Tooling notes. FB-22 (N17-13): the form asks whether the mold has a hot runner here (no field of its own). Charter / Scope text from the estimate workbook goes here too. | Engineering (EngLead / Engineer) |
+| `machine_platform` | text | yes |  |  | FB-22 (N17-13): the machine platform the item is quoted on (its model or line), free text, up to 80 characters. Optional. | Engineering (EngLead / Engineer) |
 | `prelim_capital_usd` | numeric(14, 2) | yes |  |  | Budgetary capital estimate (USD): preliminary, includes contingency; refined after award, before any CER (FB-03, F-064). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
 | `downstream_equipment_notes` | text | yes |  |  | Deprecated (FB-06, F-058): replaced by the equipment BOM upload (attachment kind equipment_bom). Kept for history and Fabric; no longer written. Shown read-only as "Legacy notes". Downstream equipment: air, water, electric, inspection / leak detection (DF-37). | Engineering (EngLead / Engineer) |
-| `technical_concept_notes` | text | yes |  |  | Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
+| `technical_concept_notes` | text | yes |  |  | Deprecated (FB-22, N17-12): no longer asked or written; old values are shown read-only under "Legacy notes" and the G2 evidence snapshot still copies it. Technical concept: how Engineering proposes to make it. | Engineering (EngLead / Engineer) |
 | `equipment_bom_notes` | text | yes |  |  | Deprecated (FB-06, F-058): replaced by the equipment BOM upload (attachment kind equipment_bom). Kept for history and Fabric; no longer written. Shown read-only as "Legacy notes". B-26: Operations Engineering equipment BOM (air, water, electrical, inspection / leak detection). | Engineering (EngLead / Engineer) |
-| `supply_chain_notes` | text | yes |  |  | B-26: Supply Chain network and freight view. | Engineering (EngLead / Engineer) |
+| `supply_chain_notes` | text | yes |  |  | Deprecated (FB-22, N17-12): no longer asked or written; old values are shown read-only under "Legacy notes". B-26: Supply Chain network and freight view. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_status` | text | yes |  |  | B-26: approved \| blocked. The capacity owner signs off at G2 and can block (G2 Advance needs approved). FB-19: one sign-off per quote covering every item, on item 1's row (capacity_signoff_by / _at / _note too). | Engineering (EngLead / Engineer) |
 | `capacity_signoff_by` | uuid | yes |  | app_user.id | B-26: who signed off capacity. | Engineering (EngLead / Engineer) |
 | `capacity_signoff_at` | timestamp with time zone | yes |  |  | B-26: when capacity was signed off. | Engineering (EngLead / Engineer) |
@@ -525,7 +526,7 @@ Engineering Review fields (stage 2).
 | `units_per_case` | integer | yes |  |  | FB-06 (F-025): units per case (whole number, optional). | Engineering (EngLead / Engineer) |
 | `units_per_pallet` | integer | yes |  |  | FB-06 (F-025): units per pallet (whole number, optional). | Engineering (EngLead / Engineer) |
 
-**Checks:** `eng_review_pack_out_check`, `eng_review_cavitation_check`, `eng_review_capacity_signoff_status_check`
+**Checks:** `eng_review_pack_out_check`, `eng_review_cavitation_check`, `eng_review_machine_platform_check`, `eng_review_capacity_signoff_status_check`
 
 **Indexes:** `eng_review_quote_idx`
 
@@ -911,6 +912,8 @@ The CCQ quote: the workflow record CCQ owns.
 | `eng_returned_by` | uuid | yes |  | app_user.id | Lead review: the lead who sent it back. | Engineering (EngLead / Engineer) |
 | `eng_return_note` | text | yes |  |  | Lead review: what the lead asked the engineer to change. | Engineering (EngLead / Engineer) |
 | `eng_returned_to` | uuid | yes |  | app_user.id | FB-16: who the latest send-back went to: the engineer, or the production scheduler (W13-19). A capacity block returns the work to the engineer the same way. Null before FB-16. | Engineering (EngLead / Engineer) |
+| `capacity_submitted_at` | timestamp with time zone | yes |  |  | FB-22: when the production scheduler submitted the capacity part to the engineering lead (null: not submitted). The lead is told once both parts are in (app_setting eng_lead_notify_when). | Engineering (EngLead / Engineer) |
+| `capacity_submitted_by` | uuid | yes |  | app_user.id | FB-22: who submitted the capacity part (null on rounds carried over by migration 0052). | Engineering (EngLead / Engineer) |
 | `pricing_submitted_at` | timestamp with time zone | yes |  |  | Lead review: when the pricer submitted their part to the lead (null: not waiting on the lead). | Pricing |
 | `pricing_submitted_by` | uuid | yes |  | app_user.id | Lead review: who submitted it. | Pricing |
 | `pricing_returned_at` | timestamp with time zone | yes |  |  | Lead review: when the lead last sent it back to the pricer. | Pricing |

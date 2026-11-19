@@ -8,7 +8,7 @@ import {
 import { DomainError } from '../errors';
 import { ENG_QUEUE_STAGE_KEY, type EngQueueSettings } from './queue';
 import { evaluateIntake, type IntakeConfig, type IntakeIssue } from '../intake/intake';
-import { lockedFor } from '../lead-review';
+import { capacityLockedFor, lockedFor } from '../lead-review';
 import { sectionLock, type LockConfig } from '../locks';
 import { can, canSeeCommercialFields, type PolicyResource } from '../policy/can';
 import type { Actor } from '../types/actor';
@@ -34,6 +34,7 @@ export type EngQuote = Pick<
   | 'assignedEngineerId'
   | 'assignedSchedulerId'
   | 'engSubmittedAt'
+  | 'capacitySubmittedAt'
   | 'region'
   | 'accountId'
   | 'decisions'
@@ -72,15 +73,16 @@ export function canEditEngReview(actor: Actor, quote: EngQuote, config: LockConf
 /**
  * FB-16 (W13-15): edit the capacity evidence rows. The EngLead, the assigned Engineer, or the production
  * scheduler assigned to the quote (`capacity.edit`), while in ENG_REVIEW and not locked after G2. The rows
- * follow the lead-review lock too: once the engineer has submitted the stage's work to the lead, only the
- * lead edits them until it is sent back (the sign-off itself is never locked by a submission).
+ * follow the lead-review lock too. FB-22: per part: once the scheduler has submitted the capacity part, only
+ * the lead edits the rows until it is sent back; the engineer's submission locks them for the engineer
+ * only (`capacityLockedFor`). The sign-off itself is never locked by a submission.
  */
 export function canEditCapacity(actor: Actor, quote: EngQuote, config: LockConfig): boolean {
   return (
     inEngReview(quote) &&
     !sectionLock('engineering', config, quote).locked &&
     can(actor, 'capacity.edit', quote) &&
-    !lockedFor('engineering', actor, quote)
+    !capacityLockedFor(actor, quote)
   );
 }
 

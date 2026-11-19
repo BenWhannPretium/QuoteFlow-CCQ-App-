@@ -61,6 +61,12 @@ import {
   canEditCapacity,
   canEditEngReview,
   lockedFor,
+  capacityLockedFor,
+  engineeringParts,
+  engineeringReviewStatus,
+  isNewToReader,
+  rolesWithPermission,
+  LEAD_REVIEW,
   computeTimeInStage,
   countByAgingBucket,
   engineeringCompleteness,
@@ -113,7 +119,12 @@ import {
 import { deliverPlanned } from './handoff-notifications';
 import { loadIntakeConfig } from './intake';
 import { quoteIntakeValues, shipCityState } from './intake-facts';
-import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
+import {
+  returnToAssignee,
+  submitCapacityToLead,
+  submitToLead,
+  type LeadReviewDeps,
+} from './lead-review';
 import { assertSectionUnlocked, lockConfig } from './locks';
 import { persistNotifications } from './notificationService';
 import { ServiceProblem } from './problem';
@@ -248,8 +259,22 @@ export class EngineeringService {
       assignedEngineerId: q.assignedEngineerId ? asUserId(q.assignedEngineerId) : null,
       assignedSchedulerId: q.assignedSchedulerId ? asUserId(q.assignedSchedulerId) : null,
       engSubmittedAt: q.engSubmittedAt,
+      capacitySubmittedAt: q.capacitySubmittedAt,
       ...(q.region ? { region: q.region } : {}),
     };
+    // FB-22 (N17-14): "Ready for lead review" once every part is in (D2: a lead's own part needs no submit).
+    const review = {
+      submittedAt: q.engSubmittedAt,
+      submittedBy: q.engSubmittedBy,
+      returnedAt: q.engReturnedAt,
+      returnedBy: q.engReturnedBy,
+      returnNote: q.engReturnNote,
+      returnedTo: q.engReturnedTo,
+      capacitySubmittedAt: q.capacitySubmittedAt,
+      capacitySubmittedBy: q.capacitySubmittedBy,
+    };
+    const parts = engineeringParts(state, review, row.assignedEngineerIsLead);
+    const leadReview = engineeringReviewStatus(state, review, parts);
     return {
       ...summary,
       enteredQueueAt: iso(entered),
@@ -265,8 +290,23 @@ export class EngineeringService {
       capacitySignoffStatus: (row.capacitySignoffStatus as CapacitySignoffStatus | null) ?? null,
       acceptedAt: iso(row.acceptedAt),
       queueStatus: !q.assignedEngineerId ? 'unassigned' : row.acceptedAt ? 'accepted' : 'assigned',
-      leadReview: q.engSubmittedAt ? 'submitted' : q.engReturnedAt ? 'returned' : 'none',
-      submittedAt: iso(q.engSubmittedAt),
+      leadReview,
+      // When the last part came in (the review is waiting on the lead since then).
+      submittedAt:
+        leadReview === 'submitted'
+          ? iso(
+              [q.engSubmittedAt, parts.scheduler ? q.capacitySubmittedAt : null]
+                .filter((d): d is Date => !!d)
+                .sort((a, b) => b.getTime() - a.getTime())[0],
+            )
+          : null,
+      // FB-22 (N17-16): "New" to the reader until they start.
+      newToMe: isNewToReader(qc.ctx.actor.userId, {
+        assignedEngineerId: q.assignedEngineerId,
+        assignedSchedulerId: q.assignedSchedulerId,
+        acceptedAt: row.acceptedAt,
+        capacityRowCount: row.capacityRowCount,
+      }),
       pinned,
       queuePosition: pinned ? q.queuePosition : null,
       drawingStatus: q.drawingStatus,
@@ -308,7 +348,11 @@ export class EngineeringService {
     const now = this.now();
     return withTx(async (tx) => {
       const qc = await this.queueContext(tx, actor, now);
-      const rows = await listEngQueueRows(tx, ENG_QUEUE_STAGE_KEY);
+      const rows = await listEngQueueRows(
+        tx,
+        ENG_QUEUE_STAGE_KEY,
+        rolesWithPermission(LEAD_REVIEW.engineering.leadPermission),
+      );
       const holds = await listHoldsForQuotes(
         tx,
         rows.map((r) => r.quote.id),
@@ -367,7 +411,9 @@ export class EngineeringService {
       })
         .map((e) => e.item)
         // Lead review: "Ready for my review" lists what waits on the lead.
-        .filter((i) => query.review !== 'ready' || i.leadReview === 'submitted');
+        .filter((i) => query.review !== 'ready' || i.leadReview === 'submitted')
+        // FB-22 (N17-16): "New to me".
+        .filter((i) => query.newToMe !== 'true' || i.newToMe);
 
       const strip = ({ entry: _e, ...item }: (typeof all)[number]): EngQueueItem => item;
       const pinField = qc.ctx.overrides.fields.find((f) => f.field === 'queue_position');
@@ -457,6 +503,9 @@ export class EngineeringService {
     await updateQuote(tx, q.id, {
       assignedSchedulerId: plan.to,
       assignedSchedulerAt: plan.to ? now : null,
+      // FB-22 (N17-14): a new (or no) scheduler starts the capacity part afresh.
+      capacitySubmittedAt: null,
+      capacitySubmittedBy: null,
     });
     await insertActivityEvent(tx, {
       quoteId: q.id,
@@ -479,10 +528,12 @@ export class EngineeringService {
       before: {
         assignedSchedulerId: plan.from,
         assignedSchedulerAt: iso(q.assignedSchedulerAt),
+        ...(q.capacitySubmittedAt ? { capacitySubmittedAt: iso(q.capacitySubmittedAt) } : {}),
       },
       after: {
         assignedSchedulerId: plan.to,
         assignedSchedulerAt: plan.to ? now.toISOString() : null,
+        ...(q.capacitySubmittedAt ? { capacitySubmittedAt: null } : {}),
       },
       at: now,
     });
@@ -787,6 +838,23 @@ export class EngineeringService {
   }
 
   /**
+   * FB-22 (N17-14): POST /quotes/:qn/eng-review/submit-capacity: the production scheduler assigned to the
+   * quote hands the capacity part to the engineering lead.
+   */
+  async submitCapacityToLead(
+    withTx: EngWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    meta: AuditMeta,
+  ): Promise<EngineeringDetail> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      await submitCapacityToLead(tx, this.leadReviewDeps(), actor, quoteNumber, meta, now);
+      return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /**
    * POST /quotes/:qn/eng-review/send-back: the engineering lead returns it with a note. FB-16 (W13-19):
    * to the engineer (the default) or to the production scheduler assigned to the quote.
    */
@@ -860,7 +928,7 @@ export class EngineeringService {
     await assertSectionUnlocked(tx, 'engineering', state, config);
     if (!canEditCapacity(actor, state, config)) {
       const holds = can(actor, 'capacity.edit', state);
-      if (holds && lockedFor('engineering', actor, state)) {
+      if (holds && capacityLockedFor(actor, state)) {
         throw new EngineeringError(
           409,
           ENGINEERING_PROBLEM_CODES.conflict,

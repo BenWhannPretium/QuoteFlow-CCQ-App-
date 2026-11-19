@@ -40,11 +40,16 @@ export const EngReviewBody = z
     /** F-057: a whole number, 1 to 99. */
     cavitation: wholeNumber(1, 99).nullable(),
     cycleTimeS: numberFrom(0, 999_999, 'seconds', true).nullable(),
+    /** FB-22 (N17-13): the form asks here whether the mold has a hot runner. */
     toolingNotes: text(4000),
+    /**
+     * FB-22 (N17-13, provisional): the machine platform the item is quoted on (its model or line). Free
+     * text, not a list: platforms differ by plant and machines move.
+     */
+    machinePlatform: text(80),
     prelimCapitalUsd: numberFrom(0, 999_999_999_999, 'USD').nullable(),
-    technicalConceptNotes: text(4000),
-    /** B-26: Supply Chain's network and freight view. */
-    supplyChainNotes: text(4000),
+    // FB-22 (N17-12): `technicalConceptNotes` and `supplyChainNotes` are no longer accepted (deprecated,
+    // read-only "Legacy notes").
     /**
      * FB-06 (F-024, D-007 open, provisional): the two-step (preform) process. The four details apply only
      * while `twoStep` is true; unticking it clears them.
@@ -138,6 +143,8 @@ export const EngReviewFields = z.object({
   cavitation: z.number().nullable(),
   cycleTimeS: z.number().nullable(),
   toolingNotes: z.string().nullable(),
+  /** FB-22 (N17-13): the machine platform (free text, up to 80). */
+  machinePlatform: z.string().nullable(),
   /**
    * Deprecated (FB-06, F-058): read-only "Legacy notes". The equipment BOM is now an upload; these two
    * free-text fields keep what was written before and accept no new writes.
@@ -145,9 +152,11 @@ export const EngReviewFields = z.object({
   downstreamEquipmentNotes: z.string().nullable(),
   /** Absent for roles without commercial access. */
   prelimCapitalUsd: z.number().nullable().optional(),
+  /** Deprecated (FB-22, N17-12): read-only "Legacy notes"; no longer accepted on writes. */
   technicalConceptNotes: z.string().nullable(),
   /** Deprecated (FB-06): read-only legacy note, see `downstreamEquipmentNotes`. */
   equipmentBomNotes: z.string().nullable(),
+  /** Deprecated (FB-22, N17-12): read-only "Legacy notes"; no longer accepted on writes. */
   supplyChainNotes: z.string().nullable(),
   /** FB-06 (F-024): the two-step (preform) process; Pricing reads it (T-008). */
   twoStep: z.boolean(),

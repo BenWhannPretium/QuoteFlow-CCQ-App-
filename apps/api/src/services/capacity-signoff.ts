@@ -39,6 +39,7 @@ export function reviewColumns(eng: Awaited<ReturnType<typeof getEngReview>>) {
     cavitation: eng?.cavitation ?? null,
     cycleTimeS: eng?.cycleTimeS ?? null,
     toolingNotes: eng?.toolingNotes ?? null,
+    machinePlatform: eng?.machinePlatform ?? null,
     downstreamEquipmentNotes: eng?.downstreamEquipmentNotes ?? null,
     prelimCapitalUsd: eng?.prelimCapitalUsd ?? null,
     technicalConceptNotes: eng?.technicalConceptNotes ?? null,
@@ -140,6 +141,9 @@ export async function returnForCapacityBlock(
   await setLeadReview(tx, q.id, 'engineering', {
     submittedAt: null,
     submittedBy: null,
+    // FB-22: the scheduler's capacity part is reworked for the new solution too.
+    capacitySubmittedAt: null,
+    capacitySubmittedBy: null,
     returnedAt: now,
     returnedBy: actor.userId,
     returnNote,
@@ -153,9 +157,11 @@ export async function returnForCapacityBlock(
     before: {
       engineeringSubmittedAt: q.engSubmittedAt ? q.engSubmittedAt.toISOString() : null,
       engineeringSubmittedBy: q.engSubmittedBy,
+      capacitySubmittedAt: q.capacitySubmittedAt ? q.capacitySubmittedAt.toISOString() : null,
     },
     after: {
       engineeringSubmittedAt: null,
+      capacitySubmittedAt: null,
       engineeringReturnedAt: now.toISOString(),
       engineeringReturnNote: returnNote,
       engineeringReturnedTo: q.assignedEngineerId,

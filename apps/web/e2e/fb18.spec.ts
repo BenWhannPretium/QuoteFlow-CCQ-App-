@@ -279,7 +279,7 @@ test('a Save says "Progress saved" beside its button until the form changes, and
   const solution = page.getByTestId('engineering-tab').getByTestId('solution-form');
   const save = solution.getByRole('button', { name: 'Save solution' });
   const status = solution.getByTestId('save-progress');
-  const notes = solution.getByLabel('Supply Chain');
+  const notes = solution.getByLabel('Tooling notes');
 
   for (const theme of ['light', 'dark'] as const) {
     await signInAs(page, 'eng-lead', theme);

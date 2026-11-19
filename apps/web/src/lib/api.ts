@@ -147,6 +147,8 @@ export interface EngQueueParams {
   q?: string;
   /** Lead review: `ready` = only what waits on the lead ("Ready for my review"). */
   review?: 'ready';
+  /** FB-22 (N17-16): only what is "New" to the caller. */
+  newToMe?: 'true';
 }
 
 /** GET /analytics/* filters: US Central days and single or comma-joined dimension values. */
@@ -372,6 +374,11 @@ export const api = {
   // Lead review (2026-10-30): the engineer submits to the engineering lead, who may send it back.
   submitEngReviewToLead: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/eng-review/submit`, EngineeringDetail, { method: 'POST' }),
+  /** FB-22 (N17-14): the production scheduler submits the capacity part to the engineering lead. */
+  submitCapacityToLead: (quoteNumber: string) =>
+    getJson(`${quotePath(quoteNumber)}/eng-review/submit-capacity`, EngineeringDetail, {
+      method: 'POST',
+    }),
   /** FB-16 (W13-19): `to` is the engineer (`assignee`, the default) or the production scheduler. */
   sendBackEngReview: (quoteNumber: string, note: string, to?: 'assignee' | 'scheduler') =>
     getJson(`${quotePath(quoteNumber)}/eng-review/send-back`, EngineeringDetail, {

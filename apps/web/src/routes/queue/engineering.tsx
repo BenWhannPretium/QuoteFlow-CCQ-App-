@@ -69,6 +69,24 @@ const statusLabel = (q: EngQueueItem) =>
       : STATUS_LABEL[q.queueStatus];
 
 /**
+ * FB-22 (N17-16, Faron Ipox; provisional): "New" for the reader: assigned to them and not started yet
+ * (the engineer has not clicked Start review; the scheduler has not saved a capacity row). Text, not only
+ * a colour.
+ */
+function NewChip({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <span
+      className="bg-action text-action-foreground w-fit rounded-full px-2 text-[11px] font-semibold"
+      data-testid="new-chip"
+      title="Assigned to you and not started yet"
+    >
+      New
+    </span>
+  );
+}
+
+/**
  * The engineering queue (F-04, DEC-26): a manual, prioritized queue the upfront engineering lead
  * works by hand. EngLead (and Admin / a backup assigner) assign, accept, return and pin; an Engineer
  * sees "My assignments" and the queue read-only; Leadership reads. The API decides who may do what.
@@ -97,8 +115,11 @@ function EngineeringQueuePage() {
   const [buckets, setBuckets] = useState<AgingBucket[]>([]);
   const [agedOver, setAgedOver] = useState('');
   const [tab, setTab] = useState<ReviewTab>('all');
+  // FB-22 (N17-16): the "New to me" quick filter.
+  const [newOnly, setNewOnly] = useState(false);
   const params: EngQueueParams = {
     ...(tab === 'ready' ? { review: 'ready' as const } : {}),
+    ...(newOnly ? { newToMe: 'true' as const } : {}),
     ...(filters.tier?.length ? { tier: filters.tier.join(',') } : {}),
     ...(filters.engineer?.length === 1 ? { engineer: filters.engineer[0] } : {}),
     ...(filters.productFamily?.length ? { productFamily: filters.productFamily.join(',') } : {}),
@@ -154,6 +175,8 @@ function EngineeringQueuePage() {
               </h2>
               <Toolbar
                 data={data}
+                newOnly={newOnly}
+                onNewOnly={setNewOnly}
                 search={search}
                 onSearch={setSearch}
                 filters={filters}
@@ -214,6 +237,8 @@ function AgingChips({
 
 function Toolbar({
   data,
+  newOnly,
+  onNewOnly,
   search,
   onSearch,
   filters,
@@ -222,6 +247,8 @@ function Toolbar({
   onAgedOver,
 }: {
   data: EngQueueResponse;
+  newOnly: boolean;
+  onNewOnly: (v: boolean) => void;
   search: string;
   onSearch: (v: string) => void;
   filters: FilterValue;
@@ -260,8 +287,25 @@ function Toolbar({
       })),
     },
   ];
+  const newCount = data.mine.filter((i) => i.newToMe).length;
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/* FB-22 (N17-16): only for someone who has work assigned. */}
+      {(data.mine.length > 0 || newOnly) && (
+        <button
+          type="button"
+          aria-pressed={newOnly}
+          onClick={() => onNewOnly(!newOnly)}
+          data-testid="new-to-me"
+          className={cn(
+            'rounded-pill inline-flex min-h-11 items-center gap-2 border px-3 text-sm sm:min-h-9',
+            newOnly ? 'border-primary ring-ring ring-2' : 'border-line-strong',
+          )}
+        >
+          New to me
+          <span className="font-semibold tabular-nums">{newCount}</span>
+        </button>
+      )}
       <div className="relative">
         <label htmlFor={ids.search} className="sr-only">
           Search the queue
@@ -363,6 +407,7 @@ function MyAssignments({
               <ItemsBadge itemCount={q.itemCount} itemsSummary={q.itemsSummary} />
               <PriorityBadge priority={q.priority} quoteNumber={q.quoteNumber} showWhy={false} />
               <span className="min-w-0 break-words">{q.customerName ?? 'Unknown customer'}</span>
+              <NewChip show={q.newToMe} />
               <span className="text-muted-foreground">
                 {scheduler ? CAPACITY_STATUS[q.capacitySignoffStatus ?? 'pending'] : statusLabel(q)}
               </span>
@@ -511,6 +556,7 @@ function QueueTable({ data }: { data: EngQueueResponse }) {
                   ? `On hold${q.reviewDate ? ` until ${calendarDate(q.reviewDate)}` : ''}`
                   : statusLabel(q)}
               </span>
+              <NewChip show={q.newToMe} />
               {/* FB-02 (F-015, T-012) */}
               <MoldModificationChip show={q.moldModification} />
               {/* FB-04 (F-065, T-024): why a sales leader changed the tier. */}

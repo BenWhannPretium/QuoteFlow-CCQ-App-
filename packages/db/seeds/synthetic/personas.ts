@@ -6,7 +6,8 @@ import { createRng, DEFAULT_SEED, type Rng } from './rng';
  * The synthetic users. B-04's dev-mode persona switcher (`x-dev-user: <key>`) uses these keys:
  * one per role, a multi-role user, an owner-scoped KAM, a region-scoped KAM and an owner-scoped Engineer.
  * Names come from faker with a fixed seed; emails use the reserved example.com domain.
- * B-26 added the pricing lead (13th), FB-07 Finance (14th), FB-16 the production scheduler (15th).
+ * B-26 added the pricing lead (13th), FB-07 Finance (14th), FB-16 the production scheduler (15th). FB-22
+ * added an engineering lead who is also an engineer (16th), not seeded.
  * Personas after the first 12 draw their names and ids from their own seeded stream, so every row
  * generated before B-26 stays identical.
  */
@@ -39,6 +40,15 @@ export const PERSONA_DEFS = [
     scope: { type: 'all' },
     region: null,
   },
+  // FB-22 (D2, Ben 2026-11-18): an engineering lead who also works as an engineer (as Jim Zweifel does), so
+  // "a lead approves their own work" can be tried and tested. Not seeded (see UNSEEDED_PERSONAS): the
+  // user is made the first time someone signs in as it, so the seeded data and every count stay as they were.
+  {
+    key: 'eng-lead-engineer',
+    roles: ['EngLead', 'Engineer'],
+    scope: { type: 'all' },
+    region: null,
+  },
 ] as const satisfies readonly {
   key: string;
   roles: readonly Role[];
@@ -67,24 +77,30 @@ export const personaOid = (index: number) =>
 /** How many personas existed before B-26 (they keep drawing from the main stream). */
 export const ORIGINAL_PERSONAS = 12;
 
+/** Dev personas the synthetic seed does not insert (the dev sign-in makes the user on first use). */
+export const UNSEEDED_PERSONAS: ReadonlySet<string> = new Set(['eng-lead-engineer']);
+
 export function buildPersonas(main: Rng, anchor: Date): Persona[] {
   const created = new Date(anchor.getTime() - 400 * 86_400_000);
   const later = createRng(DEFAULT_SEED + 26);
-  return PERSONA_DEFS.map((def, i) => {
+  return PERSONA_DEFS.flatMap((def, i): Persona[] => {
+    if (UNSEEDED_PERSONAS.has(def.key)) return [];
     const rng = i < ORIGINAL_PERSONAS ? main : later;
     const first = rng.faker.person.firstName();
     const last = rng.faker.person.lastName();
     const email = `${first}.${last}`.toLowerCase().replace(/[^a-z.]/g, '') + '@example.com';
-    return {
-      key: def.key,
-      id: rng.uuid(new Date(created.getTime() + i)),
-      entraOid: personaOid(i),
-      upn: email,
-      displayName: `${first} ${last}`,
-      email,
-      region: def.region,
-      roles: def.roles,
-      scope: def.scope,
-    };
+    return [
+      {
+        key: def.key,
+        id: rng.uuid(new Date(created.getTime() + i)),
+        entraOid: personaOid(i),
+        upn: email,
+        displayName: `${first} ${last}`,
+        email,
+        region: def.region,
+        roles: def.roles,
+        scope: def.scope,
+      },
+    ];
   });
 }

@@ -224,3 +224,22 @@ export function filterEngQueue<T extends EngQueueEntry>(
     return true;
   });
 }
+
+/**
+ * FB-22 (N17-16, Faron Ipox, Nov 17; provisional): "New" on a queue row, for the reader only. New to the
+ * assigned engineer until they (or the lead) click Start review; new to the assigned production
+ * scheduler until a capacity row is saved for the quote. It goes away by itself once they start.
+ */
+export function isNewToReader(
+  readerId: string,
+  row: {
+    assignedEngineerId: string | null;
+    assignedSchedulerId: string | null;
+    acceptedAt: Date | string | null;
+    capacityRowCount: number;
+  },
+): boolean {
+  const asEngineer = row.assignedEngineerId === readerId && row.acceptedAt === null;
+  const asScheduler = row.assignedSchedulerId === readerId && row.capacityRowCount === 0;
+  return asEngineer || asScheduler;
+}

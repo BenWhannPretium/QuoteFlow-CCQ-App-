@@ -299,7 +299,11 @@ export function describeEvent(
     // Lead review (2026-10-30): the assignee submits to the lead; the lead may send it back.
     case 'lead_review_submitted':
       return {
-        title: `${p.kind === 'pricing' ? 'Pricing work' : 'Engineering review'} submitted to the ${p.kind === 'pricing' ? 'pricing' : 'engineering'} lead`,
+        // FB-22 (N17-14): the production scheduler submits the capacity part on its own.
+        title:
+          p.part === 'capacity'
+            ? 'Capacity submitted to the engineering lead'
+            : `${p.kind === 'pricing' ? 'Pricing work' : 'Engineering review'} submitted to the ${p.kind === 'pricing' ? 'pricing' : 'engineering'} lead`,
         kind: 'system',
       };
     case 'lead_review_returned':

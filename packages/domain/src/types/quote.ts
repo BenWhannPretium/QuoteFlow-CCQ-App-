@@ -44,6 +44,8 @@ export interface QuoteState {
   assignedPricerId?: UserId | null;
   /** Lead review: when the assignee submitted their part to the lead (null: not waiting on the lead). */
   engSubmittedAt?: Date | null;
+  /** FB-22: when the production scheduler submitted the capacity part to the engineering lead. */
+  capacitySubmittedAt?: Date | null;
   pricingSubmittedAt?: Date | null;
   region?: string;
   accountId?: string;

@@ -171,9 +171,10 @@ const SOLUTION = {
   cavitation: 8,
   cycleTimeS: 14.5,
   toolingNotes: 'New 8-cavity mold, hot runner not needed',
+  // FB-22 (N17-12, N17-13): Technical concept is no longer accepted; the machine platform is asked.
+  machinePlatform: 'Shuttle EBM, line 4',
   // FB-17 (W13-22): every G2 Advance needs the preliminary capital figure; $0 says no capital is needed.
   prelimCapitalUsd: 0,
-  technicalConceptNotes: 'Shuttle EBM with in-mold labelling',
 };
 const capacityRow = async (over: Record<string, unknown> = {}) => ({
   site: 'AURORA',
@@ -1433,17 +1434,16 @@ describe('B-26: capacity sign-off (deck slide 11)', () => {
     expect((await as('EngLead').put(url, { status: null })).statusCode).toBe(409);
   });
 
-  it('the Supply Chain view is kept with the review; the two legacy equipment notes accept no new writes (FB-06)', async () => {
+  // FB-22 (N17-12): Supply chain and Technical concept joined the legacy notes: no new writes.
+  it('the legacy notes accept no new writes (FB-06: the two equipment notes; FB-22: Supply chain and Technical concept)', async () => {
     const qn = await inQueue();
-    const res = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
-      supplyChainNotes: 'Ship from BETHLEHEM saves 300 mi',
-    });
-    expect(res.statusCode, res.body).toBe(200);
-    expect(EngineeringDetail.parse(res.json()).review).toMatchObject({
-      supplyChainNotes: 'Ship from BETHLEHEM saves 300 mi',
-    });
     // The BOM is an upload now: the free-text fields are deprecated and read-only.
-    for (const key of ['equipmentBomNotes', 'downstreamEquipmentNotes']) {
+    for (const key of [
+      'equipmentBomNotes',
+      'downstreamEquipmentNotes',
+      'supplyChainNotes',
+      'technicalConceptNotes',
+    ]) {
       const refused = await as('EngLead').put(`/api/v1/quotes/${qn}/eng-review`, {
         [key]: 'Chiller + leak tester',
       });

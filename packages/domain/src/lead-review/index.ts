@@ -79,6 +79,12 @@ export interface LeadReviewState {
    * Absent or null on rounds from before FB-16 and on pricing: the assignee.
    */
   returnedTo?: string | null;
+  /**
+   * FB-22 (N17-14): engineering only, the production scheduler's part (the capacity rows), submitted on
+   * its own. Absent or null: not submitted (and always on pricing).
+   */
+  capacitySubmittedAt?: Date | null;
+  capacitySubmittedBy?: string | null;
 }
 
 export const EMPTY_LEAD_REVIEW: LeadReviewState = {
@@ -88,6 +94,8 @@ export const EMPTY_LEAD_REVIEW: LeadReviewState = {
   returnedBy: null,
   returnNote: null,
   returnedTo: null,
+  capacitySubmittedAt: null,
+  capacitySubmittedBy: null,
 };
 
 export type LeadReviewQuote = Pick<
@@ -99,6 +107,7 @@ export type LeadReviewQuote = Pick<
   | 'assignedSchedulerId'
   | 'assignedPricerId'
   | 'engSubmittedAt'
+  | 'capacitySubmittedAt'
   | 'pricingSubmittedAt'
   | 'region'
   | 'accountId'
@@ -145,6 +154,13 @@ export const isLead = (kind: LeadReviewKind, actor: Actor, quote: LeadReviewQuot
 
 /** Waiting on the lead: submitted in this stay and not sent back since. */
 export const isSubmitted = (review: LeadReviewState) => review.submittedAt !== null;
+
+/**
+ * FB-22 (N17-14): anything in this round waits on the lead: the assignee's part or, in Engineering, the
+ * production scheduler's. A lead may send work back once either is in.
+ */
+export const anyPartSubmitted = (review: LeadReviewState) =>
+  isSubmitted(review) || (review.capacitySubmittedAt ?? null) !== null;
 
 /**
  * While submitted, only a lead edits the assignee's part. Callers add this to their edit checks
@@ -218,21 +234,27 @@ export function canReturnToAssignee(
   quote: LeadReviewQuote,
   review: LeadReviewState,
 ): boolean {
-  return inStage(kind, quote) && isSubmitted(review) && isLead(kind, actor, quote);
+  return inStage(kind, quote) && anyPartSubmitted(review) && isLead(kind, actor, quote);
 }
 
 /**
  * The rules a submission is checked against: the gate's and its advance outcome's required fields,
  * minus the lead's own steps. Read from the workflow config, so they follow any admin change.
+ * FB-22: `exclude` drops the rules that read other fields too (another person's part).
  */
-export function submissionRules(kind: LeadReviewKind, config: WorkflowConfig): RequiredRule[] {
+export function submissionRules(
+  kind: LeadReviewKind,
+  config: WorkflowConfig,
+  exclude: readonly string[] = [],
+): RequiredRule[] {
   const spec = LEAD_REVIEW[kind];
   const gate = config.gates.find((g) => g.key === spec.gateKey);
   const outcome = config.outcomes.find(
     (o) => o.gateKey === spec.gateKey && o.key === spec.advanceOutcomeKey,
   );
+  const dropped = [...spec.leadOnlyFields, ...exclude];
   return [...(gate?.requiredFields ?? []), ...(outcome?.requiredFields ?? [])].filter(
-    (rule) => !fieldsReferenced(rule).some((f) => spec.leadOnlyFields.includes(f)),
+    (rule) => !fieldsReferenced(rule).some((f) => dropped.includes(f)),
   );
 }
 
@@ -248,6 +270,23 @@ function stageErrors(kind: LeadReviewKind, quote: LeadReviewQuote): DomainError[
   }
   return [];
 }
+
+/**
+ * FB-22 (N17-14): the fields that are the production scheduler's part (the capacity rows and what is
+ * calculated from them). With a scheduler assigned they are checked on the scheduler's submit, not the
+ * engineer's; with none, the engineer's submission covers them as before.
+ */
+export const SCHEDULER_PART_FIELDS: readonly string[] = [
+  'capacity_evidence',
+  'capacity_utilization_missing',
+];
+
+/** The fields the assignee's own submission leaves to someone else. */
+export const assigneeExclusions = (
+  kind: LeadReviewKind,
+  quote: Pick<LeadReviewQuote, 'assignedSchedulerId'>,
+): readonly string[] =>
+  kind === 'engineering' && quote.assignedSchedulerId ? SCHEDULER_PART_FIELDS : [];
 
 export type LeadReviewPlan = { ok: true } | { ok: false; errors: DomainError[] };
 
@@ -285,7 +324,11 @@ export function planSubmitToLead(
     };
   }
   // FB-19: the submit-to-lead check is per item, like the gate it mirrors.
-  const missing = evaluateQuoteRules(submissionRules(kind, config), fields);
+  // FB-22: with a production scheduler assigned, the capacity rows are the scheduler's part, not checked here.
+  const missing = evaluateQuoteRules(
+    submissionRules(kind, config, assigneeExclusions(kind, quote)),
+    fields,
+  );
   return missing.length > 0 ? { ok: false, errors: missing } : { ok: true };
 }
 
@@ -311,7 +354,8 @@ export function planReturnToAssignee(
       errors: [new DomainError('NOT_PERMITTED', `Only the ${noun.lead} sends work back`)],
     };
   }
-  if (!isSubmitted(review)) {
+  // FB-22: either part being in is enough; the send-back clears the chosen person's part.
+  if (!anyPartSubmitted(review)) {
     return {
       ok: false,
       errors: [new DomainError('NOT_SUBMITTED', `Nothing was submitted by the ${noun.assignee}`)],
@@ -348,3 +392,5 @@ export function leadReviewStatus(review: LeadReviewState): 'none' | 'submitted' 
   if (isSubmitted(review)) return 'submitted';
   return review.returnedAt ? 'returned' : 'none';
 }
+
+export * from './parts';

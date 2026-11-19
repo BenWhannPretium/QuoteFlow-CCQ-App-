@@ -62,6 +62,7 @@ export default defineConfig({
         'fb17.spec.ts',
         'fb18.spec.ts',
         'fb19.spec.ts',
+        'fb22.spec.ts',
         'fb24.spec.ts',
         'offer-letter.spec.ts',
         // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), one spec per area.

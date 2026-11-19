@@ -31,6 +31,8 @@ export const EngQueueQuery = z.object({
   q: z.string().max(200).optional(),
   /** Lead review: `ready` = only what waits on the lead's review ("Ready for my review"). */
   review: LeadReviewFilter.optional(),
+  /** FB-22 (N17-16): `true` = only the quotes that are "New" to the caller ("New to me"). */
+  newToMe: z.enum(['true']).optional(),
 });
 export type EngQueueQuery = z.input<typeof EngQueueQuery>;
 /** The query after parsing (what the route hands the service). */
@@ -65,6 +67,11 @@ export const EngQueueItem = QuoteSummary.extend({
   leadReview: z.enum(['none', 'submitted', 'returned']),
   /** When the assignee submitted it (null unless `submitted`). */
   submittedAt: z.string().nullable(),
+  /**
+   * FB-22 (N17-16, provisional): "New" for the caller: they are the assigned engineer and nobody has
+   * clicked Start review, or the assigned production scheduler and no capacity row is saved yet.
+   */
+  newToMe: z.boolean(),
   /** Pinned by an applied queue_position override. */
   pinned: z.boolean(),
   queuePosition: z.number().int().nullable(),
