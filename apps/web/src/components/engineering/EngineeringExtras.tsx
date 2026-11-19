@@ -8,6 +8,8 @@ import {
   parseTwoStepPlantMachineTypes,
   plantsRunning,
   type TwoStepPlantMachineTypes,
+  PACK_OUT_FIELDS,
+  PACK_OUT_LABELS,
 } from '@ccq/domain';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { UploadIcon } from 'lucide-react';
@@ -253,6 +255,11 @@ export function LegacyNotes({ review }: { review: EngineeringDetail['review'] })
 export function pricingInputItems(
   review: EngineeringDetail['review'],
   plantLabel: (code: string | null) => string | null,
+  /**
+   * FB-23: the Engineering and Quoting tabs show the pack-out in its own grid (`PackOutGrid`), so they
+   * leave the counts out here; Final Review still lists them (until its FB-23 summary is added).
+   */
+  { packOut = true }: { packOut?: boolean } = {},
 ) {
   const items: { id: string; label: string; value: string | null }[] = [
     {
@@ -269,7 +276,16 @@ export function pricingInputItems(
       { id: 'two-step-freight', label: 'Freight between plants', value: review.twoStepFreightNote },
     );
   }
-  // FB-23: the pack-out has its own card and read-only grid (`PackOutGrid`).
+  if (packOut) {
+    for (const f of PACK_OUT_FIELDS) {
+      const v = review[f];
+      items.push({
+        id: `pack-${f}`,
+        label: PACK_OUT_LABELS[f],
+        value: v === null ? null : v.toLocaleString('en-US'),
+      });
+    }
+  }
   return items.filter((i) => i.value !== null);
 }
 
@@ -277,7 +293,7 @@ export function PricingInputsReadOnly({ review }: { review: EngineeringDetail['r
   const { data: config } = usePublicConfig();
   const plantLabel = (code: string | null) =>
     code ? (config?.valueLists.plant?.find((v) => v.code === code)?.label ?? code) : null;
-  const items = pricingInputItems(review, plantLabel);
+  const items = pricingInputItems(review, plantLabel, { packOut: false });
   if (items.length === 0) {
     return <p className="text-muted-foreground text-sm">Not a two-step process.</p>;
   }

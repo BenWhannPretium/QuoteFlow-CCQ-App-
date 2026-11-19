@@ -554,7 +554,7 @@ export function normalizePackOutCounts<T extends Record<PackOutUnitField, number
 ): T {
   if (method === null) return values;
   const out = { ...values };
-  for (const f of PACK_OUT_UNIT_FIELDS) if (f !== countField) out[f] = null as T[typeof f];
+  for (const f of PACK_OUT_UNIT_FIELDS) if (f !== countField) out[f] = null;
   return out;
 }
 
@@ -609,7 +609,7 @@ export function normalizeCostEstimate<T extends CostEstimateFields>(values: T): 
     COST_ESTIMATE_TEXT_LIMITS,
   ) as (keyof typeof COST_ESTIMATE_TEXT_LIMITS)[]) {
     const t = out[k]?.trim();
-    out[k] = (t ? t : null) as T[typeof k];
+    out[k] = t ? t : null;
   }
   return out;
 }
