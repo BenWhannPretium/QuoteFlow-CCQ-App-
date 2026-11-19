@@ -259,6 +259,16 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
 | 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
 
+**Provisional values FB-25 seeded (built 2026-11-19; all `provisional: true`, changed by config, not code; migration 0051).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.g4_required_checks` | `terms_exception`, `terms_finalized` **and `tooling_commitment_answered`** (N17-26): G4 Advance needs the customer tooling commitment answered yes or no; switched off, it is a warning the approver acknowledges | Confirmation that every capital quote needs the answer before release | Bailey Schmitt |
+| G4 Advance rule (`gate_outcome_definition` G4 `approve`) | FB-08's rule plus `anyOf[g4_tooling_commitment_check_required = false, terms_tooling_commitment present]` | — (follows the setting) | Bailey Schmitt |
+| Who answers the tooling commitment | Unchanged: `terms.edit` (KAM own, SalesLeader, Pricing, PricingLead) and the KAM at intake (FB-24); not the approver | Whether the approver should answer it at Final Review | Bailey Schmitt |
+| Non-standard terms at a standard code | Never: the box is hidden at a `standard_payment_terms` code (`NET_15`, `NET_30`) and the server keeps it false; open quotes cleared by 0051 | Whether another non-standard term (not payment) should still be flagged by hand (question 2 in PR [#112](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/112)) | Bailey Schmitt |
+| The tab a quote opens on (`defaultQuoteTab`, code) | Commercial terms for a sales leader at Intake and for a terms owner whose terms wait on them | Tab order and defaults (question 1) | Bailey Schmitt |
+
 **Provisional values FB-21 seeded (built 2026-11-18; all `provisional: true`, changed by config, not code; migrations 0049 and 0050). Decided by Ben on 2026-11-18: pending capital never blocks; payback only on request; a pricing lead may approve their own work.**
 
 | Value | Seed | Waits on | Who signs off |

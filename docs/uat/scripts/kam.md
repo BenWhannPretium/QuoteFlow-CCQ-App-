@@ -236,6 +236,15 @@ Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`). 
 | 102 | In a draft, on step 3, type `9999999999999999` (16 digits) in **Estimated annual revenue (USD)** and wait a few seconds. Then type a real figure. | The save status reads "Not saved. Estimated annual revenue: enter 999,999,999,999.99 or less." The field is marked and shows the same message under it. With a real figure the message goes away and the draft saves. | | |
 | 103 | Type `/quotes/CCQ-2026-99999` (a number that does not exist) after the test URL. | "We could not find CCQ-2026-99999, or it is outside what your role can see." and "Check the number, or search from the Pipeline.", with a **Go to the Pipeline** button and, in small print, "Reference for support: <id>". The page does not say whether the quote exists. | | |
 
+## FB-25: the quote page (2026-11-19)
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 104 | Open one of your quotes. Read the tab bar, then scroll down. | The tabs read **Overview · Engineering · Quoting · Commercial terms · Attachments**, in larger type, and the bar stays under the page header while you scroll. A small red dot marks a tab where something waits for you. | | |
+| 105 | On **Overview**, read **At a glance**. | Read-only: the **Intake**, **Engineering** (per item: plant, process and machine, cavitation, cycle time, budgetary capital, the engineer's and the capacity notes, who decided feasibility), **Pricing** (costing, payback, price approval, capital readiness) and **Commercial terms**, with **Edit on the Commercial terms tab**. Rows with nothing in them are left out. No boxes to type in. | | |
+| 106 | Open **Commercial terms**. Pick **Net 30**, then **Net 60**, then nothing. | At Net 30 (and Net 15) there is no **Non-standard terms** box. At Net 60 it is ticked and greyed out. With nothing picked it can be ticked by hand. | | |
+| 107 | On a quote in Final Review, answer **Customer tooling commitment** and **Save terms**. | It saves. Final Review needs it (yes or no) before the offer can be released; you may also have answered it at intake. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

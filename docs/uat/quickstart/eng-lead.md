@@ -19,7 +19,7 @@
 
 - The queue is sorted by tier, score and age. You still assign by hand.
 - You pick the engineer and the plant. The KAM no longer does.
-- You and your engineers enter the **Tooling funding model** and **MOQ** on the quote (**Overview** → **Commercial terms**). Sales and Pricing no longer do.
+- You and your engineers enter the **Tooling funding model** and **MOQ** on the quote (the **Commercial terms** tab). Sales and Pricing no longer do.
 - Capacity evidence and your sign-off are part of the G2 record. Utilization after the new business is calculated, not typed.
 - Once you decide G2, the engineering section is locked until a send-back reopens it.
 - A hold, an advance with risk, every send-back and a stop need a note.
