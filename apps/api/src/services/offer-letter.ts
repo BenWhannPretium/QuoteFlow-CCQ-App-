@@ -153,9 +153,36 @@ export class OfferLetterService {
       getSetting(tx, 'offer_letter_wording_approved'),
       getSetting(tx, 'offer_letter_block_if_costing_changed'),
     ]);
-    const valueLists = new Map<string, { code: string; label: string }[]>(lists);
+    const valueLists = new Map<string, { code: string; label: string; meta: unknown }[]>(lists);
     const labelOf = (list: string, code: string | null | undefined) =>
       code ? (valueLists.get(list)?.find((v) => v.code === code)?.label ?? code) : null;
+    /**
+     * FB-24 (N17-02): the decorations, several at once, as "Silk screen, Hot stamp"; the "Other" entry
+     * (meta freeText) is its description. A row from before the back-fill falls back to the single code.
+     */
+    const decorationText = (src: {
+      decorationTypes: string[] | null;
+      decorationType: string | null;
+      decorationTypeOther: string | null;
+    }) => {
+      const codes = src.decorationTypes?.length
+        ? src.decorationTypes
+        : src.decorationType
+          ? [src.decorationType]
+          : [];
+      const isOther = (code: string) => {
+        const meta = valueLists.get('decoration_type')?.find((v) => v.code === code)?.meta;
+        return code === 'OTHER' || (meta as { freeText?: unknown } | null)?.freeText === true;
+      };
+      const words = codes
+        .map((code) =>
+          isOther(code) && src.decorationTypeOther?.trim()
+            ? src.decorationTypeOther.trim()
+            : labelOf('decoration_type', code),
+        )
+        .filter((w): w is string => !!w);
+      return words.length ? words.join(', ') : null;
+    };
 
     // Config: a value the console would refuse only comes from a hand edit. The letter is then
     // refused (config_invalid) rather than made from a guess.
@@ -190,7 +217,7 @@ export class OfferLetterService {
         cavities: s.cavitation === null || s.cavitation === undefined ? null : String(s.cavitation),
         gramWeight: src.gramWeightG ? `${src.gramWeightG} g` : null,
         neckFinish: neck || null,
-        decoration: src.decorationTypeOther ?? labelOf('decoration_type', src.decorationType),
+        decoration: decorationText(src),
         packaging: labelOf('packaging_type', src.packagingType),
       };
       return {
@@ -281,6 +308,8 @@ export class OfferLetterService {
             ? null
             : labelOf('tooling_funding_model', q.toolingFundingModel),
         moldOwnership: labelOf('mold_ownership', q.termsMoldOwnership),
+        // FB-24 (N17-03): stored only for a concept class, so the sentence drops itself otherwise.
+        conceptAssumptions: q.conceptAssumptions?.trim() || null,
       },
       items,
       summaryVisible: summarySettings.visible,

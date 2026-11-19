@@ -22,6 +22,9 @@ export const OFFER_LETTER_TOKENS = [
   'freight',
   'toolingFunding',
   'moldOwnership',
+  // FB-24 (N17-03): a concept / innovation quote's assumptions (`quote.concept_assumptions`); blank for
+  // any other request class, so its sentence drops itself.
+  'conceptAssumptions',
 ] as const;
 export type OfferLetterToken = (typeof OFFER_LETTER_TOKENS)[number];
 
@@ -197,7 +200,8 @@ export const OFFER_LETTER_BLOCK_IF_COSTING_CHANGED_SEED = true;
  * not approved by Legal.
  */
 export const OFFER_LETTER_TEMPLATE_SEED: OfferLetterTemplate = {
-  templateVersion: 'fb20-2026-11-16',
+  // FB-24: the concept sentence added (migration 0051 makes the same change where FB-20's seed is unedited).
+  templateVersion: 'fb24-2026-11-19',
   provisional: true,
   legalApproved: false,
   eyebrow: 'Customer offer',
@@ -224,6 +228,9 @@ export const OFFER_LETTER_TEMPLATE_SEED: OfferLetterTemplate = {
   ],
   assumptionsHeading: 'Pricing assumptions',
   assumptions: [
+    // FB-24 (N17-03, Jordan, Jim Zweifel): a concept quote states what it assumes. Provisional wording;
+    // left out of any other quote (the token is blank).
+    { text: 'This is a concept quote. It assumes: {{conceptAssumptions}}', points: [] },
     { text: 'Pricing does not include pallet costs.', points: [] },
     {
       text: 'Pricing of pallets is subject to change at the time of shipping due to market conditions.',

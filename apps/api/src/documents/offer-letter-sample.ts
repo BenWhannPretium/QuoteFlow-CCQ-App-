@@ -126,11 +126,20 @@ const SETTINGS: OfferSettings = {
 };
 
 export function syntheticOfferLetter(
-  over: { items?: 1 | 3; wordingApproved?: boolean; customerName?: string } = {},
+  over: {
+    items?: 1 | 3;
+    wordingApproved?: boolean;
+    customerName?: string;
+    /** FB-24 (N17-03): a concept quote's assumptions (the concept sentence is printed). */
+    conceptAssumptions?: string;
+  } = {},
 ): OfferLetterModel {
   const facts: OfferFacts = {
     ...SYNTHETIC,
     ...(over.customerName !== undefined ? { customerName: over.customerName } : {}),
+    ...(over.conceptAssumptions !== undefined
+      ? { termLabels: { ...SYNTHETIC.termLabels, conceptAssumptions: over.conceptAssumptions } }
+      : {}),
     items: over.items === 1 ? SYNTHETIC.items.slice(0, 1) : SYNTHETIC.items,
   };
   return buildOfferLetterModel(
@@ -157,6 +166,8 @@ export function blankOfferLetterTemplate(): OfferLetterModel {
         freight: '[Freight]',
         toolingFunding: '[Tooling funding]',
         moldOwnership: '[Mold ownership]',
+        // FB-24 (N17-03): printed only on a concept quote.
+        conceptAssumptions: '[Concept assumptions, concept quotes only]',
       },
       items: [
         item(1, {
