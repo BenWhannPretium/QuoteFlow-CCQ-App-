@@ -136,7 +136,7 @@ const config = parseIntakeConfig({
   componentFollowUps: {
     LINER: ['liner_spec'],
     LABEL: ['labels_purchased_by'],
-    DECORATION: ['decoration_type', 'decoration_print_colors'],
+    DECORATION: ['decoration_types', 'decoration_print_colors'],
   },
   variantsNoteMaxLength: 300,
 });
@@ -283,7 +283,7 @@ describe('component follow-ups (F-013)', () => {
   it('only the picked components ask, in a stable order', () => {
     expect(activeFollowUps(['DECORATION', 'LINER'], config.componentFollowUps)).toEqual([
       'liner_spec',
-      'decoration_type',
+      'decoration_types',
       'decoration_print_colors',
     ]);
     expect(activeFollowUps(['CONTAINER'], config.componentFollowUps)).toEqual([]);
@@ -294,7 +294,7 @@ describe('component follow-ups (F-013)', () => {
     expect(blocking({ components: ['LINER'] })).toEqual(['MISSING_FIELD:liner_spec']);
     expect(blocking({ components: ['LABEL'] })).toEqual(['MISSING_FIELD:labels_purchased_by']);
     expect(blocking({ components: ['DECORATION'] })).toEqual([
-      'MISSING_FIELD:decoration_type',
+      'MISSING_FIELD:decoration_types',
       'MISSING_FIELD:decoration_print_colors',
     ]);
     expect(
@@ -302,7 +302,7 @@ describe('component follow-ups (F-013)', () => {
         components: ['LINER', 'LABEL', 'DECORATION'],
         liner_spec: 'Induction seal',
         labels_purchased_by: 'CUSTOMER',
-        decoration_type: 'SILK_SCREEN',
+        decoration_types: ['SILK_SCREEN', 'HOT_STAMP'],
         decoration_print_colors: 2,
       }),
     ).toEqual([]);
@@ -312,7 +312,7 @@ describe('component follow-ups (F-013)', () => {
     expect(
       blocking({
         components: ['DECORATION'],
-        decoration_type: 'HOT_STAMP',
+        decoration_types: ['HOT_STAMP'],
         decoration_print_colors: n,
       }),
     ).toEqual(['INVALID_VALUE:decoration_print_colors']);
@@ -321,7 +321,7 @@ describe('component follow-ups (F-013)', () => {
   it('a follow-up of a component that is not picked never blocks and is cleared', () => {
     expect(blocking({ components: ['CONTAINER'], liner_spec: null })).toEqual([]);
     expect(inapplicableIntakeFields({ components: ['LABEL'] }, config)).toEqual(
-      expect.arrayContaining(['liner_spec', 'decoration_type', 'decoration_print_colors']),
+      expect.arrayContaining(['liner_spec', 'decoration_types', 'decoration_print_colors']),
     );
     expect(inapplicableIntakeFields({ components: ['LABEL'] }, config)).not.toContain(
       'labels_purchased_by',

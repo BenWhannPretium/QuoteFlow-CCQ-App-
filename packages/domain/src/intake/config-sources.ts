@@ -1,6 +1,6 @@
 import { parseIntakeGuardrails } from './guardrails';
 import { INTAKE_LIST_FIELDS, parseIntakeConfig, type IntakeConfig } from './intake';
-import { CUSTOM_LIST_FIELDS } from './product-facts';
+import { CUSTOM_LIST_FIELDS, LEGACY_FOLLOW_UP_NAMES } from './product-facts';
 
 /**
  * FB-15 (W13-01): ONE way to build the intake config, used by the API (the authority at submit) and by the
@@ -25,6 +25,8 @@ export const INTAKE_SETTING_KEYS = [
   'intake_guardrails',
   // FB-19 (W13-32, provisional): the most items one quote may hold.
   'quote_items_max',
+  // FB-24 (N17-03, provisional): the concept classes the minimum spec does not block.
+  'intake_min_spec_exempt_classes',
 ] as const;
 
 export interface IntakeListEntry {
@@ -61,6 +63,12 @@ export function intakeConfigFromSources({ settings: s, lists }: IntakeConfigSour
     ...optional('otherDescriptionMaxLength', num('intake_other_description_max_length')),
     ...optional('itemsMax', num('quote_items_max')),
     ...optional(
+      'minSpecExemptClasses',
+      Array.isArray(s.intake_min_spec_exempt_classes)
+        ? s.intake_min_spec_exempt_classes
+        : undefined,
+    ),
+    ...optional(
       'minSpecFields',
       Array.isArray(s.intake_min_spec_fields) ? s.intake_min_spec_fields : undefined,
     ),
@@ -95,7 +103,13 @@ export function intakeConfigFromSources({ settings: s, lists }: IntakeConfigSour
     componentFollowUps: Object.fromEntries(
       (lists.component ?? [])
         .filter((e) => Array.isArray(meta(e).followUps))
-        .map((e) => [e.code, meta(e).followUps as never]),
+        // FB-24 (N17-02): a follow-up named as before FB-24 is read under its new name.
+        .map((e) => [
+          e.code,
+          (meta(e).followUps as unknown[]).map((f) =>
+            typeof f === 'string' ? (LEGACY_FOLLOW_UP_NAMES[f] ?? f) : f,
+          ) as never,
+        ]),
     ),
   });
 }

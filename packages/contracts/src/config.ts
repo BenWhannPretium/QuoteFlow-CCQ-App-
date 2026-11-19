@@ -136,4 +136,9 @@ export const PUBLIC_SETTING_KEYS = [
   'quote_items_max',
   // FB-19 (W13-33, provisional): whether the opportunity picker offers a separate quote beside an open one.
   'opportunity_active_quotes',
+  // FB-24 (N17-03, N17-01, N17-06/07; provisional): the concept classes exempt from the minimum spec,
+  // the ship-to sources, and the file types each place offers.
+  'intake_min_spec_exempt_classes',
+  'ship_to_sources',
+  'attachment_kinds_by_place',
 ] as const;

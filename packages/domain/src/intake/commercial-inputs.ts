@@ -23,7 +23,28 @@ export const COMMERCIAL_INPUT_FIELDS = [
   'bid_reference',
   // FB-15 (W13-09): the customer's share when funding is Shared.
   'customer_share_pct',
+  // FB-24 (N18-02): will the customer commit to the tooling (`terms_tooling_commitment`; null = not known).
+  'tooling_commitment',
+  // FB-24 (Ben's decision D4): the stocking agreement the customer asks for.
+  'stock_hold_requested',
+  'stock_hold_weeks',
+  'stock_hold_note',
 ] as const;
+
+/** FB-24 (D4): the stocking detail that applies only when the customer wants stock held. */
+export const STOCK_HOLD_DETAIL_FIELDS = ['stock_hold_weeks', 'stock_hold_note'] as const;
+
+/** FB-24 (D4): weeks of stock held: a whole number, 1 to 520 (ten years), as `quote_stock_hold_weeks_check`. */
+export const STOCK_HOLD_WEEKS_RANGE = { min: 1, max: 520 } as const;
+
+export function isValidStockHoldWeeks(v: unknown): boolean {
+  return (
+    typeof v === 'number' &&
+    Number.isInteger(v) &&
+    v >= STOCK_HOLD_WEEKS_RANGE.min &&
+    v <= STOCK_HOLD_WEEKS_RANGE.max
+  );
+}
 
 /** The freight fields that only apply to a delivered price; cleared when the price basis is FOB. */
 export const FREIGHT_FIELDS = ['freight_type', 'freight_special_arrangements'] as const;
@@ -59,6 +80,11 @@ export function inapplicableCommercialFields(
 ): string[] {
   const priceBasis = typeof values.price_basis === 'string' ? values.price_basis : null;
   return isDeliveredPrice(priceBasis, deliveredCodes) ? [] : [...FREIGHT_FIELDS];
+}
+
+/** FB-24 (D4): how long and the note apply only when the customer wants stock held; cleared otherwise. */
+export function inapplicableStockHoldFields(values: FieldValues): string[] {
+  return values.stock_hold_requested === true ? [] : [...STOCK_HOLD_DETAIL_FIELDS];
 }
 
 /** FB-15 (W13-09): funding is "Shared" (a code whose list meta says `customerShare`). */
@@ -112,7 +138,11 @@ export function commercialInputIssues(
 ): { blocking: CommercialInputIssue[]; warnings: CommercialInputIssue[] } {
   const blocking: CommercialInputIssue[] = [];
   const warnings: CommercialInputIssue[] = [];
-  for (const field of ['bid_reference', 'freight_special_arrangements'] as const) {
+  for (const field of [
+    'bid_reference',
+    'freight_special_arrangements',
+    'stock_hold_note',
+  ] as const) {
     if (tooLong(values[field], INTAKE_TEXT_LIMITS[field])) {
       blocking.push({
         code: 'INVALID_VALUE',
@@ -146,6 +176,18 @@ export function commercialInputIssues(
       code: 'INVALID_VALUE',
       field: 'customer_share_pct',
       message: CUSTOMER_SHARE_MESSAGE,
+    });
+  }
+  // FB-24 (D4): weeks of stock held, only checked with a yes (otherwise it is cleared).
+  if (
+    values.stock_hold_requested === true &&
+    isPresent(values.stock_hold_weeks) &&
+    !isValidStockHoldWeeks(values.stock_hold_weeks)
+  ) {
+    blocking.push({
+      code: 'INVALID_VALUE',
+      field: 'stock_hold_weeks',
+      message: `Weeks must be a whole number from ${STOCK_HOLD_WEEKS_RANGE.min} to ${STOCK_HOLD_WEEKS_RANGE.max}`,
     });
   }
   if (delivered && !isPresent(values.freight_type)) {

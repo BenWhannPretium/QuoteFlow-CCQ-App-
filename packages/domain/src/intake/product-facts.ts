@@ -34,6 +34,8 @@ export const CUSTOM_LIST_FIELDS = Object.keys(CUSTOM_DESCRIPTION_FIELDS) as Cust
  */
 export const CUSTOM_LIST_VALUE_FIELD: Readonly<Partial<Record<CustomListField, string>>> = {
   component: 'components',
+  // FB-24 (N17-02): the decoration types are a multi-pick too.
+  decoration_type: 'decoration_types',
 };
 
 /**
@@ -60,6 +62,9 @@ export const INTAKE_TEXT_LIMITS = {
   // FB-11 (F-085, F-080): the bid / program reference and the freight arrangements note.
   bid_reference: 60,
   freight_special_arrangements: 200,
+  // FB-24 (N17-03): what a concept quote assumes; (D4) the stocking agreement note.
+  concept_assumptions: 1000,
+  stock_hold_note: 300,
 } as const;
 
 /**
@@ -69,9 +74,18 @@ export const INTAKE_TEXT_LIMITS = {
 export const COMPONENT_FOLLOW_UP_FIELDS = [
   'liner_spec',
   'labels_purchased_by',
-  'decoration_type',
+  // FB-24 (N17-02): several decoration types at once (was `decoration_type`, one code).
+  'decoration_types',
   'decoration_print_colors',
 ] as const;
+
+/**
+ * FB-24 (N17-02): follow-up names a `component` meta may still hold from before FB-24 (an Admin-edited
+ * entry migration 0051 left alone), read as their new name.
+ */
+export const LEGACY_FOLLOW_UP_NAMES: Readonly<Record<string, ComponentFollowUpField>> = {
+  decoration_type: 'decoration_types',
+};
 export type ComponentFollowUpField = (typeof COMPONENT_FOLLOW_UP_FIELDS)[number];
 
 /** F-013: whole number of print colors for a decoration. */

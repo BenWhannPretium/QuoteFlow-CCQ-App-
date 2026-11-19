@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   commercialInputIssues,
   inapplicableCommercialFields,
+  inapplicableStockHoldFields,
   isSharedFunding,
 } from './commercial-inputs';
 import { guardrailWarning, INTAKE_GUARDRAILS_OFF, intakeGuardrailsSchema } from './guardrails';
@@ -99,6 +100,12 @@ export const intakeConfigSchema = z
      * pricing application for now.
      */
     allowedRequestClasses: z.array(z.string().min(1)).min(1),
+    /**
+     * FB-24 (N17-03): request classes for which the no-drawing minimum spec does not block (app_setting
+     * `intake_min_spec_exempt_classes`, seeded ["CONCEPT"], provisional). Such a request needs a drawing
+     * or a sample photo / render on file, and its assumptions.
+     */
+    minSpecExemptClasses: z.array(z.string().min(1)).default([]),
     /** FB-02 (F-067): shown when another class is chosen (app_setting `intake_redirect_message`; D-030). */
     redirectMessage: z.string().min(1),
     /** drawing_status codes that mean a drawing exists (value_list meta `hasDrawing`). */
@@ -187,6 +194,8 @@ export const INTAKE_ISSUE_CODES = [
   'REQUEST_CLASS_NOT_ALLOWED',
   /** FB-02 (F-016): no bottle / competitor drawing and the minimum spec is incomplete. */
   'DRAWING_OR_MIN_SPEC_REQUIRED',
+  /** FB-24 (N17-03): a concept request has neither a drawing nor a sample photo / render on file. */
+  'RENDER_OR_DRAWING_REQUIRED',
   'VOLUME_PLACEHOLDER',
   /** FB-10 (F-066): the volume is below the platform minimum. A warning; the submit still goes. */
   'BELOW_PLATFORM_MINIMUM',
@@ -374,7 +383,8 @@ export const INTAKE_LIST_FIELDS: Readonly<Record<string, { list: string; label: 
   neck_special_feature: { list: 'neck_special_feature', label: 'neck special feature' },
   color_type: { list: 'color_type', label: 'color' },
   labels_purchased_by: { list: 'labels_purchased_by', label: '"labels purchased by" option' },
-  decoration_type: { list: 'decoration_type', label: 'decoration type' },
+  // FB-24 (N17-02): several decoration types at once (`decoration_types`, a list of codes).
+  decoration_types: { list: 'decoration_type', label: 'decoration type' },
   packaging_type: { list: 'packaging_type', label: 'packaging type' },
   drawing_status: { list: 'drawing_status', label: 'drawing status' },
   requested_payment_terms: { list: 'requested_payment_terms', label: 'payment term' },
@@ -473,15 +483,16 @@ export function customValuePicked(
 ): boolean {
   const codes = config.customCodes[list] ?? [];
   if (codes.length === 0) return false;
+  const field = CUSTOM_LIST_VALUE_FIELD[list] ?? list;
   if (
-    (COMPONENT_FOLLOW_UP_FIELDS as readonly string[]).includes(list) &&
+    (COMPONENT_FOLLOW_UP_FIELDS as readonly string[]).includes(field) &&
     !activeFollowUps(values.components, config.componentFollowUps).includes(
-      list as (typeof COMPONENT_FOLLOW_UP_FIELDS)[number],
+      field as (typeof COMPONENT_FOLLOW_UP_FIELDS)[number],
     )
   ) {
     return false;
   }
-  const value = values[CUSTOM_LIST_VALUE_FIELD[list] ?? list];
+  const value = values[field];
   if (typeof value === 'string') return codes.includes(value);
   return Array.isArray(value) && value.some((c) => typeof c === 'string' && codes.includes(c));
 }
@@ -520,6 +531,12 @@ export function productFactIssues(values: FieldValues, config: IntakeConfig): In
   }
   if (tooLong(values.packaging_notes, config.freeTextMaxLength)) {
     invalid('packaging_notes', `Keep it to ${config.freeTextMaxLength} characters`);
+  }
+  if (tooLong(values.concept_assumptions, INTAKE_TEXT_LIMITS.concept_assumptions)) {
+    invalid(
+      'concept_assumptions',
+      `Keep the assumptions to ${INTAKE_TEXT_LIMITS.concept_assumptions.toLocaleString('en-US')} characters`,
+    );
   }
   if (tooLong(values.pcr_level_other, INTAKE_TEXT_LIMITS.pcr_level_other)) {
     invalid('pcr_level_other', `Keep it to ${INTAKE_TEXT_LIMITS.pcr_level_other} characters`);
@@ -665,7 +682,58 @@ export function inapplicableIntakeFields(values: FieldValues, config: IntakeConf
   if (!isSharedFunding(values.tooling_funding_model, config.sharedFundingCodes)) {
     out.push('customer_share_pct');
   }
+  // FB-24 (N17-03): the assumptions belong to a concept request only.
+  if (!isConceptRequest(values, config)) out.push('concept_assumptions');
+  // FB-24 (D4): how long and the note apply only when the customer wants stock held.
+  out.push(...inapplicableStockHoldFields(values));
   return out;
+}
+
+/**
+ * FB-24 (N17-03): a concept / innovation request (its class is in `intake_min_spec_exempt_classes`). It is
+ * CCQ work like any other, except that the no-drawing minimum spec does not block it.
+ */
+export function isConceptRequest(
+  values: FieldValues,
+  config: Pick<IntakeConfig, 'minSpecExemptClasses'>,
+): boolean {
+  const cls = values.request_class;
+  return typeof cls === 'string' && config.minSpecExemptClasses.includes(cls);
+}
+
+/** FB-24 (N17-03): the plain words of the concept's file rule. */
+export const RENDER_OR_DRAWING_MESSAGE = "Add the customer's render or photo, or a drawing";
+
+/**
+ * FB-24 (N17-03): a concept request's own rules. Its assumptions are required (and kept short), and it
+ * needs a drawing (`has_drawing_attachment`) or a sample photo / render (`has_render_attachment`) on
+ * file. Where the files are not known (a stored quote's completeness check: neither flag is a
+ * boolean) the file rule is not judged.
+ */
+export function conceptIssues(values: FieldValues, config: IntakeConfig): IntakeIssue[] {
+  if (!isConceptRequest(values, config)) return [];
+  const issues: IntakeIssue[] = [];
+  if (!isPresent(values.concept_assumptions)) {
+    issues.push({
+      code: 'MISSING_FIELD',
+      field: 'concept_assumptions',
+      message: 'concept_assumptions is required',
+    });
+  }
+  const drawing = values.has_drawing_attachment;
+  const render = values.has_render_attachment;
+  if (
+    (typeof drawing === 'boolean' || typeof render === 'boolean') &&
+    drawing !== true &&
+    render !== true
+  ) {
+    issues.push({
+      code: 'RENDER_OR_DRAWING_REQUIRED',
+      field: 'drawing_or_render',
+      message: RENDER_OR_DRAWING_MESSAGE,
+    });
+  }
+  return issues;
 }
 
 /** True for a quote that blocks a second CCQ quote on the same SF opportunity. */
@@ -802,9 +870,12 @@ function evaluateIntakeFlat(
   blocking.push(...commercial.blocking);
   warnings.push(...commercial.warnings);
 
-  // F-016 (D-018): a drawing, or the minimum spec, to advance.
+  // F-016 (D-018): a drawing, or the minimum spec, to advance. FB-24 (N17-03): not for a concept
+  // request (the fields stay optional); it needs a render, a photo or a drawing instead.
   const drawingOrSpec = drawingOrSpecStatus(values, config);
-  if (!drawingOrSpec.satisfied) {
+  const concept = isConceptRequest(values, config);
+  blocking.push(...conceptIssues(values, config));
+  if (!drawingOrSpec.satisfied && !concept) {
     const words = drawingOrSpec.missing.map((f) => MIN_SPEC_FIELD_LABELS[f] ?? f).join(', ');
     blocking.push({
       code: 'DRAWING_OR_MIN_SPEC_REQUIRED',

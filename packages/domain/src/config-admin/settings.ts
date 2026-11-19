@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { attachmentKindsByPlaceSchema } from '../attachments/places';
 import { parseAttachmentSettings } from '../attachments/rules';
 import {
   parseCapitalNotice,
@@ -33,6 +34,7 @@ import {
   parseQuoteItemsMax,
 } from '../intake/items';
 import { MIN_SPEC_KEYS } from '../intake/product-facts';
+import { shipToSourcesSchema } from '../intake/ship-to';
 import {
   parseModelSummaryLimits,
   parseModelSummaryTemplates,
@@ -286,6 +288,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'json',
     z_('intake_allowed_request_classes', intakeConfigSchema.shape.allowedRequestClasses),
   ),
+  // FB-24 (N17-03): the concept classes the no-drawing minimum spec does not block (provisional).
+  spec(
+    'intake_min_spec_exempt_classes',
+    'intake',
+    'Request classes exempt from the no-drawing minimum spec (they need a render, photo or drawing and their assumptions)',
+    'json',
+    z_('intake_min_spec_exempt_classes', intakeConfigSchema.shape.minSpecExemptClasses),
+  ),
   spec(
     'intake_variants_note_max_length',
     'intake',
@@ -333,6 +343,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Warning when the opportunity already has an active quote ({quoteNumber}, {kamName})',
     'text',
     notNull('opportunity_active_quote_message', parseOpportunityActiveQuoteMessage),
+  ),
+  // FB-24 (N17-01, D-18; provisional): where the intake pre-fills the ship-to from, in order.
+  spec(
+    'ship_to_sources',
+    'intake',
+    'Where the ship-to is pre-filled from, in order (product_spec, account); the first with a city and a state wins',
+    'json',
+    z_('ship_to_sources', shipToSourcesSchema),
   ),
   // FB-09 (F-019, D-016 default, provisional): cap for new edits of the packaging note.
   spec(
@@ -689,6 +707,14 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Attachment folders and removal window',
     'json',
     notNull('attachment_settings', parseAttachmentSettings),
+  ),
+  // FB-24 (N17-06, N17-07; provisional): the file types the intake and the quote's Attachments tab offer.
+  spec(
+    'attachment_kinds_by_place',
+    'integrations',
+    'File types offered at intake and on the quote (the server refuses other types at intake)',
+    'json',
+    z_('attachment_kinds_by_place', attachmentKindsByPlaceSchema),
   ),
   spec(
     'default_scope_type',
