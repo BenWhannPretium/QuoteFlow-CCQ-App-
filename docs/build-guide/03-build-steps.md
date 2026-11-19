@@ -665,7 +665,7 @@ B-00 → B-01 → B-02 → B-03 → B-04 → B-05 → B-06 → B-07 → B-08 →
   - **Analytics:** a quote awarded at G5 and waiting in Stage 6 counts as **awarded** in the win and capture rates (`analytics_quote.customer_outcome`): the customer said yes. It is also shown as "Awarded, commitment pending".
   - **Not built here:** a capital-likely checkbox in the intake wizard (the flag is set on the quote after intake); Playwright specs were updated for the new labels and steps but are to be run in CI.
   - **Synthetic data:** 13 personas (the pricing lead is new, drawn from its own random stream so the other 12 and the SF fixture do not change). 19 quotes close Won through G6 and 3 wait in Stage 6.
-  - **Not built (parked, see `04` §2):** Salesforce write-back and the new-item flow / Apex, knowledge-base chat, the Ranger hand-off, governed proposal templates, tiered or same-sitting G3 + G4 approvals, and migrating legacy ERF records.
+  - **Not built (parked, see `04` §2):** Salesforce write-back (moved to P0 on 2026-11-19: FB-29) and the new-item flow / Apex, knowledge-base chat, the Ranger hand-off, governed proposal templates, tiered or same-sitting G3 + G4 approvals, and migrating legacy ERF records.
 
 ### B-27: Land QuoteFlow data in the Fabric tenant (L-8; added step) · **Thu Oct 29 (schema) → Wed Nov 4 (test mirror) → Fri Nov 6 (prod, with B-22)** · Ben + D&A + IT
 - **Why:** Oleg Yarovinski and Brennan Paul decided (L-8) that all new data QuoteFlow creates must be stored in Pretium's Fabric tenant. **Fabric mirroring** keeps a live copy of the CCQ Postgres database in a D&A-owned workspace; Postgres stays the app's store (D-FB1). Most of the work is on the Azure and Fabric side; the code side is making the schema mirror-safe and keeping mirroring alive through deploys. Design: `01-architecture.md` §6.1.
@@ -811,7 +811,7 @@ Read on 2026-11-05 against the code on `main` (`afd6597`). There are 58 Build Ba
 | **B · Build now as provisional config** | The mechanism can be built today. The open decision only sets a value, which an Admin changes later without a rebuild (CLAUDE.md rule 4) | F-005 (fix the calculation now; weights wait for D-004), F-073 (per-market strategic fit already exists as an empty map; FB-04 loads provisional points and shows them), F-075 (variant note, the recommended interim for D-017), "Shared" funding option (V-055, part of D-003), the no-drawing minimum list (D-018 decided; A-024 may add layer structure and a photo), the utilization run-days basis (D-021) |
 | **C · Wait for a decision or input** | Building now would hard-code an open business rule or guess at a missing input | F-012, F-019 (D-016) · F-021, F-068 (D-003, D-029) · F-024 (D-007) · F-025 (validation pending) · F-026 (workbook identified 2026-11-10 and mapped; sign-off by Paul and Pricing pending) · F-031, F-032, F-074 (D-001) · F-057 plant list (Jim) · F-058 (A-003, Kal's BOM template) · F-062 (D-008) · F-020 (lists from each function) |
 | **D · Not a code step** | People, IT or rollout work | F-040 (prod hosting tier and backups: IT, B-22), F-041 (pilot test access and load test: B-21, B-23), F-077 (portal link: portal owner) |
-| **P1 · after the pilot starts** | Valuable, not needed for the pilot | F-035 (SF write-back, D-014), F-056 (D-017), F-060 (D-021), F-063, F-066 (D-004), F-070 (quote template), F-071 (D-022), F-072 (D-020), F-078 (may be met by Fabric, Q-026) |
+| **P1 · after the pilot starts** | Valuable, not needed for the pilot | F-035 (SF write-back, D-014; **moved to P0 on 2026-11-19, FB-29**), F-056 (D-017), F-060 (D-021), F-063, F-066 (D-004), F-070 (quote template), F-071 (D-022), F-072 (D-020), F-078 (may be met by Fabric, Q-026) |
 
 **Bottom line:** of the 47 P0 items, **26 can be built now** (bucket A) and **3 more as provisional config** (bucket B: F-005, F-073, F-075). Three are already built and only need verifying, 13 wait on a decision or input (bucket C), and 2 are not code (bucket D). F-061 (P1) rides along with FB-03 because it touches the same code. They fit in **5 prompts** (FB-01 to FB-05). The remaining P0 work fits in **5 prompts** (FB-06 to FB-10), each held until its decision or input arrives. Each of those prompts begins with a stop check.
 
@@ -1814,6 +1814,96 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Verification (local, Linux container, Postgres 16 started by hand, no Docker):** see the PR for the run.
   - **Waiting on:** Bailey Schmitt: (1) is "Awarded, hand-off not done" clear? (2) should saved views follow a person between devices (needs server storage; not built)? Ben: confirm the Nov 17 test report shows in Admin → Feedback on the real environment; whether two-step parts' preform / blow plants should count for the Plant filter.
 
+## Nov 19 feedback (FB-28 to FB-33, added 2026-11-19)
+
+**Source:** "CCQ MVP Demo & Open Decisions + Recommendations" (Sarah Brennan, Oleg Yarovinski, Darren Miller, Zachary Cairns, Bailey Schmitt, Ben Whann; Thu 2026-11-19, 8:00 US Central), plus Darren's demo notes and the meeting chat, and Ben's own requirement after the 2026-11-19 test outage. Each item has an **N19** ID, its triage and what the code did on 2026-11-19 in [`feedback/inputs/feedback-2026-11-19.md`](feedback/inputs/feedback-2026-11-19.md). That record was written from an AI summary and Darren's notes, **not** from the transcript or recording: read it with that in mind. The prompts are in [`prompts/feedback/`](prompts/feedback/); every one follows [`FB-28-to-33-ground-rules.md`](prompts/feedback/FB-28-to-33-ground-rules.md), and [`ORCHESTRATOR-FB-28-to-33.md`](prompts/feedback/ORCHESTRATOR-FB-28-to-33.md) starts and merges them as one run.
+
+**Decided on 2026-11-19:** UAT Nov 30 to Dec 11, power users through December, all users the week of Jan 4 if there are no major issues; Sarah will accept a slip of a few weeks for a meaningfully impactful change. **Salesforce write-back moves from P1 to P0** (Darren: worth doing before launch if it is 2 to 4 weeks; Ben's estimate is 3 to 4 including IT's integration review and testing, and he asked Rachel (IT) the same day). `CLAUDE.md` rule 5 and the locked decisions were changed to match. CCQ stays, spelled out as Commercial Capital Quote. Production needs cross-functional sign-off from every department.
+
+### Steps and run order
+
+**Grouping rule** (as before): one step per area of the code, so sessions running in parallel do not edit the same files. Close-out notes go to one file per step (`feedback/closeout/FB-<n>.md`) and one docs PR consolidates them, because the shared docs conflict on every parallel merge.
+
+| Step | Scope | Items | Wave | Model / effort | Why |
+|---|---|---|---|---|---|
+| **FB-28** | Release guard: an upgrade-path check in CI (a PR's migrations applied on top of `main`'s, then the API started), `scripts/wait-for-deploy.sh`, a rollback playbook | N19-27 | **1**, merges first | Opus 5.5 · high | The 2026-11-19 outage (BR-18): CI migrated an empty database and could not see a skipped migration |
+| **FB-29** | Salesforce write-back (P0): a write interface with a fake, a durable outbox written in the gate decision's transaction, a master switch and a dry-run mode, an Admin card, a runbook. **Off by default; what is written is not approved** | N19-01, N19-02 | **1** | Opus 5.5 · high | An outward integration with its own credentials, a new queue, a change to the read-only guards, and the test site reads the production Salesforce org |
+| **FB-30** | Engineering and Capacity apart: a Capacity tab, an engineering and a capacity recommendation, two blocks on Overview, Quoting and Final Review. Presentation only | N19-28 | **1** | Opus 5.5 · high | Splits a large tab with many tests and links; no rule or permission changes |
+| **FB-31** | Commercial terms governance: payment-terms approval routes by code (a Leadership stand-in for the CFO), four plain funding choices, amortization needing a finance-style sign-off, "inventory and safety stock" wording | N19-07, N19-08, N19-10 | **1** | Opus 5.5 · high | A new permission, an approval rule, retired list entries and a data migration; thresholds and approvers are guesses until Sarah and Oleg answer |
+| **FB-32** | Less double entry: a data-driven prefill map, item 1's label from Salesforce, suggestions (off) for two mapped-but-unused fields, a candidates list for Zachary | N19-04 | **2**, after FB-28 and FB-31 | Sonnet 5.5 · high | Most of the useful fields are not mapped and wait on Zachary's API names; this builds the mechanism and the questions |
+| **FB-33** | Words on screen: Commercial Capital Quote spelled out; Stock and Stock-Plus are Salesforce; the credit-check line; the variants example | N19-20, N19-21, N19-22, N19-13 (example) | **2**, after FB-28 and FB-31 | Sonnet 5.5 · high | Config labels, help text and strings; one guarded migration |
+
+**Order:**
+1. **Wave 1 (four sessions):** FB-28, FB-29, FB-30, FB-31. **Merge FB-28 first.** Then FB-29, FB-31 and FB-30 as they are ready (so write-back never holds up Wave 2); the first migration PR to merge keeps its number and each later one renumbers. After **every** merge the orchestrator waits for CI on `main`, Deploy (test) and a health body reporting the merged commit before it merges anything else.
+2. **Wave 2 (two sessions):** FB-32 and FB-33 start when FB-28 and FB-31 have merged and the test site is healthy. Merge FB-32 before FB-33.
+3. **Migrations:** 0056 (FB-29), 0057 (FB-31), at most 0058 (FB-32), 0059 (FB-33). Each `when` is the largest on `origin/main` plus 1 (CLAUDE.md rule 12).
+4. **Never more than four builder sessions at once.** No step is allowed to write to a real Salesforce org.
+
+**Not built (open decisions in the record):** a KAM may start a quote on another KAM's opportunity today (Darren said they may not): a scope and RLS decision for Ben (N19-06); whether "Will the customer commit to the tooling?" and "Does the customer fund?" are one question (N19-09); returnable dunnage logic (N19-11); PCR options, waiting for Lisa Huett's guidance (N19-12); the site-alternatives design, who proposes them and how they become variants, needs Jim Zweifel (N19-13); "2 decimals here" in Darren's notes, field not named (N19-23); a KAM-to-sales-leader structure read from Salesforce (N19-05); AI extraction from a drawing and stock pricing (later: N19-14, N19-24); payment-terms thresholds and the real approvers (Sarah, Oleg, Fede Barreto, James); a permanent process owner by January (N19-17); who owns managed-capacity evaluations (N19-18).
+
+**Actions outside the code:**
+- **Ben:** give Rachel (IT) the write-back request details from `10-salesforce-writeback.md` (a separate write identity, a sandbox, the integration review); ask the Salesforce owner for stage names, validation rules and custom field names; add the FB-28 `upgrade` job to the required checks on `main`; wire the `SF_WRITE_*` secrets in `infra/` once approved; switch nothing on until the owner approves the mapping; tell Bailey and Sarah which questions each PR lists.
+- **Zachary Cairns:** the `OpportunityLineItem` / `Product2` field names (W13-W10), what `Product_Type__c` means, where the KAM reporting structure lives.
+- **Sarah, Oleg, Fede Barreto, James:** the financial-exposure map and the approval thresholds (payment terms, amortization, capital spend); the cross-functional production sign-off list.
+- **Bailey:** the questions each PR lists; who may decide each approval tier.
+
+### FB-28: Release guard · Not started · Ben (Opus 5.5 · high)
+- **Why:** on 2026-11-19 a hand-set future migration timestamp made the test database skip two migrations and every deploy failed for 7.5 hours; CI could not see it (BR-18).
+- **Done when:**
+  - [ ] `pnpm release:upgrade-check` applies a branch's migrations on top of `main`'s and starts the API; it fails by name on each deliberate breakage
+  - [ ] an `upgrade` job runs on every pull request beside `verify`
+  - [ ] `scripts/wait-for-deploy.sh <sha>` proves a merge reached the test site healthy (tested for every exit code and run once for real)
+  - [ ] `09-release-guards.md` and BR-18 written; `deploy.yml`, `infra/` and branch protection untouched
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-28-release-guard.md`
+
+### FB-29: Salesforce write-back · Not started · Ben (Opus 5.5 · high)
+- **Why:** write-back is P0 from 2026-11-19 so KAMs do not re-enter in Salesforce and stage, time in stage and outcome are not kept in two places (N19-01, N19-02). Waiting on IT's permission and the Salesforce owner's mapping, so the live write is off.
+- **Done when:**
+  - [ ] a write interface (fake and real), off by default, with guards that refuse a live write from the test site; the read-only guards narrowed to everything except the writer
+  - [ ] settings seeded provisional and off; migration 0056
+  - [ ] an outbox written in the decision's transaction, never blocking it, collapsing stale values, retrying, failing loudly, audited
+  - [ ] the Admin card (switch, mode, counts, rows, retry, skip, preview); permissions tested for every role
+  - [ ] the reminder tells the truth; `10-salesforce-writeback.md` and the architecture updated
+  - [ ] tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-29-salesforce-writeback.md`
+
+### FB-30: Engineering and Capacity apart · Not started · Ben (Opus 5.5 · high)
+- **Why:** Sarah wants "the engineering recommendation" and "the capacity recommendation" shown apart, before launch (N19-28).
+- **Done when:**
+  - [ ] a Capacity tab with its own recommendation, evidence, glance, sign-off and submit; Engineering keeps the solution, assignment, lead actions and decision
+  - [ ] each role opens on its own tab; hash links, old `?tab=engineering` links, notifications, emails and queue rows work
+  - [ ] Overview, Quoting and Final Review show two blocks; typed work is never lost
+  - [ ] tests, `pnpm verify`, UAT scripts, close-out
+- **Prompt:** `prompts/feedback/FB-30-engineering-capacity-split.md`
+
+### FB-31: Commercial terms governance · Not started · Ben (Opus 5.5 · high)
+- **Why:** payment terms outside Net 30 need an approval path (Net 60 needs the CFO and documentation); tooling funding is too complicated; amortization needs finance review; the stock question should use contract words (N19-07, N19-08, N19-10).
+- **Done when:**
+  - [ ] `terms_exception_routes`, the senior permission, enforcement by tier on the server, the tier recorded on the request, documentation where the tier says so
+  - [ ] four funding choices with plain help; two retired for new choices but readable; amortization needs the extra sign-off
+  - [ ] the inventory and safety-stock wording; migration 0057 tested including the upgrade path
+  - [ ] tests, `pnpm verify`, UAT scripts, close-out
+- **Prompt:** `prompts/feedback/FB-31-commercial-terms-governance.md`
+
+### FB-32: Less double entry · Not started · Ben (Sonnet 5.5 · high)
+- **Why:** Sarah and Zachary: inherit what Salesforce already holds (N19-04). Most of it is waiting on field names.
+- **Done when:**
+  - [ ] a prefill map drives the existing prefill with identical output
+  - [ ] item 1's label from Salesforce; suggestions off by default for `Product_Type__c` and `Color__c`
+  - [ ] `feedback/salesforce-prefill-candidates.md` covers every intake question
+  - [ ] nothing written to Salesforce or guessed; tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-32-salesforce-prefill.md`
+
+### FB-33: Words on screen · Not started · Ben (Sonnet 5.5 · high)
+- **Why:** Commercial Capital Quote spelled out; Stock and Stock-Plus are Salesforce, not "the pricing app"; the credit-check line; no site-selection hint in the KAM's variants note (N19-20 to N19-22, N19-13).
+- **Done when:**
+  - [ ] one stated rule for spelling out CCQ, applied everywhere; quote numbers and group names untouched
+  - [ ] Stock and Stock-Plus text says Salesforce; the other half raised as a question
+  - [ ] no credit-check text added without confirmation; the variants placeholder fixed
+  - [ ] guarded migration 0059; word-check; tests, `pnpm verify`, close-out
+- **Prompt:** `prompts/feedback/FB-33-words-on-screen.md`
+
 ## Post-MVP backlog (P1 / P2, not before Nov 13)
 
 | Item | Priority | Blocked by |
@@ -1827,14 +1917,14 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
 | Full decision log and corrections ledger | P2 | Knowledge Steward |
 | Post-award hand-off view (Nicole, Anne) | P2 | D-14 |
 | Visit-to-win analysis | P2 | — |
-| Salesforce write-back, incl. the new-item flow / Apex (future-state deck) | Decide before scale | D-16 |
+| Salesforce write-back, incl. the new-item flow / Apex (future-state deck) | **P0 from 2026-11-19 (stage and outcome: FB-29, off until IT grants the permission);** the new-item flow / Apex stays decide-before-scale | D-16w |
 | CER integration (BPR retired in B-26; the CER is a reference ID at G6) | Scale | Capital-system redesign (Jan); D-26 |
 | Knowledge-base chat over the CCQ record (future-state deck) | P2 | D-22; Knowledge Steward |
 | Ranger hand-off (ERF inputs → Ranger) | P1 | D-22; ERF restructure |
 | Governed proposal templates | P1 | Pricing + Legal; D-25. FB-20 ships the first, simple version (one config template, Legal flag) |
 | Tiered or same-sitting G3 + G4 approvals | P1 | D-10 tiers |
 | Migrating legacy ERF records into CCQ | Decide before scale | D-29 |
-| *From the Nov 2026 feedback tracker (P1):* Salesforce write-back of stage and outcome (F-035) | P1 | D-014 (after the pilot starts); FB-04 ships the link and reminder |
+| *From the Nov 2026 feedback tracker:* Salesforce write-back of stage and outcome (F-035) | **P0 from 2026-11-19** | D-16w; FB-29 builds it switched off; waiting on IT (Rachel) and the Salesforce owner. FB-04 shipped the link and reminder |
 | Structured multi-scenario quotes, e.g. PCR levels or plants (F-056) | P1 | Tracker D-017; FB-02 ships the variants note |
 | Utilization basis on capacity evidence (F-060) | P1 | Tracker D-021 |
 | Stocking program and returnable dunnage at intake (F-063) | P1 | Pricing to confirm |

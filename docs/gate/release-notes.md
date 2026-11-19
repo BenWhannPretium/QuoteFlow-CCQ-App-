@@ -129,7 +129,7 @@ Every gate's decision dialog offers four choices where they apply (FB-17): **Adv
 - SharePoint: not connected; attachments go to Azure Blob storage until M7. Files don't move when the mode changes.
 - Email: built; off until the shared mailbox and `Mail.Send` are granted (M7). In-app notifications work. 2026-11-17: dispatch is off in test and prod (`notificationDispatchIntervalSeconds = 0`).
 - Fabric mirror (L-8): code ready. A prod mirror may start in hypercare week 1 (D-FB5). 2026-11-17: a test mirror was proven on 2026-11-06 (`03` B-27); the prod mirrored database does not exist yet, and the Fabric ids are empty in both environments, so the app's mirror check and the deploy stop/start are off.
-- Ranger AI, Salesforce write-back, CER integration: not in MVP.
+- Ranger AI and CER integration: not in MVP. Salesforce write-back became P0 on 2026-11-19 and is built switched off (FB-29).
 
 **Known gaps from the UAT pack** (`docs/uat/README.md`), both closed in the code since:
 - The Analytics view now shows "Operational metrics from QuoteFlow; not yet D&A-certified." (as the role dashboards do).

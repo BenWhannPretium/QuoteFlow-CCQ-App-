@@ -50,7 +50,7 @@ Priorities are proposals for Bailey Schmitt and Darren Miller to confirm. "Owner
 | Full decision log and corrections ledger (F-21) | Minimal log built in B-19 | `03` post-MVP table | P2 | TBD (Knowledge Steward) |
 | Knowledge-base chat over the CCQ record | Future-state deck; parked | `03` post-MVP table; D-22 | P2 | TBD (Knowledge Steward) |
 | Visit-to-win analysis | — | `03` post-MVP table | P2 | TBD |
-| Salesforce write-back, incl. the new-item flow / Apex | Read-only in MVP | `03` post-MVP table; D-16w | Decide before scale | Darren + Salesforce owner |
+| Salesforce write-back, incl. the new-item flow / Apex | **Stage and outcome write-back is P0 from 2026-11-19 (FB-29, switched off until IT and the Salesforce owner approve);** the new-item flow / Apex is not built | `03` post-MVP table; D-16w | Decide before scale | Darren + Salesforce owner |
 | CER integration (CER is a reference ID at G6 today) | Capital-system redesign (Jan) | `03` post-MVP table; D-26 | Decide at scale | TBD (Finance) |
 | Migrate legacy ERF records into CCQ; plan for in-flight ERFs at cutover | 3,395 ERFs still "open" in the export | `03` post-MVP table; D-29; D-30 | Decide before scale / before switch-off | Bailey + sales leadership + Pricing |
 | Final pricing-app export at switch-off | Re-import is idempotent; nothing deleted | `04` B-15 revised | Before switch-off | Cory McGahan |

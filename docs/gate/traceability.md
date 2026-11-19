@@ -106,7 +106,7 @@ Each is shipped as provisional config unless marked. Source: `04-decisions-and-r
 | D-12 | Validity default; revalidation | `validity_days_default` (30), `validity_warning_days` (7) | Pricing + sales leadership | provisional config |
 | D-14 | Post-award hand-off view (P2) | — | **TBD** | open decision (P2) |
 | D-15 | Outcome taxonomy, reason codes, closure owner | `reason_code` rows, `transition_rule.closure_owner` | Sales leadership + Process Owner | provisional config |
-| D-16w | Salesforce write-back | none in MVP | Darren + SF owner | decided for MVP (none) |
+| D-16w | Salesforce write-back | P0 from 2026-11-19; built switched off (FB-29) | Darren + SF owner | changed 2026-11-19 (was none in MVP) |
 | D-17 | Support model | — | Darren + Oliver Kade | see `runbook.md` §8 (contradiction noted in README) |
 | D-18 | Customer / ship-to source | SF Account | Zac Cairns + Graham Parle | provisional config |
 | D-19 | Scoring attributes and weights | `scoring_model` v1 | Jim Zweifel + sales leadership | provisional config |
