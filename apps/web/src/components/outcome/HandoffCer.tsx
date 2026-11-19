@@ -54,9 +54,7 @@ export function HandoffCer({ quote }: { quote: QuoteDetail }) {
         <span className="font-medium">
           CER proof
           <span className="text-muted-foreground ml-2 text-xs font-normal">
-            {cer.proofRequired
-              ? 'Needed before closing won when the CER is approved'
-              : 'Optional'}
+            {cer.proofRequired ? 'Needed before closing won when the CER is approved' : 'Optional'}
           </span>
         </span>
         {cer.proof ? (
@@ -84,7 +82,10 @@ function CerProofUpload({ quoteNumber }: { quoteNumber: string }) {
   const pick = (file: File | undefined) => {
     if (!file) return;
     if (file.size > ATTACHMENT_MAX_BYTES) {
-      toast.error({ title: 'The file is too large', description: `The limit is ${formats.maxMb} MB.` });
+      toast.error({
+        title: 'The file is too large',
+        description: `The limit is ${formats.maxMb} MB.`,
+      });
       return;
     }
     setProgress(0);

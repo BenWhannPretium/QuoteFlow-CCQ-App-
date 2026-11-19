@@ -2,6 +2,7 @@ import { g4CheckFields, type G4Check } from './g4-checks';
 import { passThroughEligible, type PassThroughSetting } from './pass-through';
 import { legalReviewReasons, termsExceptionOpen, type LegalReviewTriggers } from './terms';
 import { CAPITAL_NEEDED_ABOVE_USD_SEED, engCapitalNeeded } from '../engineering/capital-needed';
+import { cerProofOk } from '../outcome/requote';
 import {
   paybackFromFields,
   paybackNeeded,
@@ -10,7 +11,6 @@ import {
   type RoiRequiredWhen,
 } from '../quoting-steps';
 import type { QuoteState } from '../types/quote';
-import { cerProofOk } from '../outcome/requote';
 import { quoteItemFacts } from '../workflow/item-rules';
 
 /** The settings the derived decision fields depend on. */

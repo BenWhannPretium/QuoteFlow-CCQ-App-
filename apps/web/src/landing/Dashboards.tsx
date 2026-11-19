@@ -458,11 +458,7 @@ function SalesLeader({ d }: { d: SalesLeaderDashboard }) {
         )}
       </Block>
       {/* FB-26 (N17-31): proposals the sales leader qualified that are about to expire, or have. */}
-      <Block
-        title="Expiring soon"
-        info={d.expiring.info}
-        testId="dash-sl-expiring"
-      >
+      <Block title="Expiring soon" info={d.expiring.info} testId="dash-sl-expiring">
         <Stat
           label={
             d.expiring.scope === 'qualified'

@@ -26,7 +26,6 @@ import { timelineQueryKey } from '../Overrides';
  * (`QuoteDetail.requote.canStart`); this only offers it.
  */
 
-
 /** The header line(s): "Re-quote of CCQ-…", "Re-quoted as CCQ-… on <date>", or a re-quote in progress. */
 export function RequoteLinks({ quote }: { quote: QuoteDetail }) {
   const r = quote.requote;
@@ -128,9 +127,9 @@ export function StartRequote({ quote }: { quote: QuoteDetail }) {
   return (
     <div className="grid gap-2" data-testid="start-requote">
       <p className="text-muted-foreground text-sm">
-        The offer has expired. If the customer now says yes, start a linked re-quote: a new quote with
-        its own record, pre-filled from this one, that Engineering, Pricing and Final Review review
-        again. This quote keeps what was quoted.
+        The offer has expired. If the customer now says yes, start a linked re-quote: a new quote
+        with its own record, pre-filled from this one, that Engineering, Pricing and Final Review
+        review again. This quote keeps what was quoted.
       </p>
       <div>
         <Button
@@ -243,7 +242,7 @@ export function RequoteSourcePanel({
     <details
       className={cn('bg-card rounded-card border p-4', className)}
       data-testid="requote-source"
-      onToggle={(e) => setOpened((e.currentTarget).open)}
+      onToggle={(e) => setOpened(e.currentTarget.open)}
     >
       <summary className="cursor-pointer text-sm font-semibold">
         From the expired quote {from.quoteNumber}
@@ -342,4 +341,3 @@ function SourceBody({ quote, source }: { quote: QuoteDetail; source: RequoteSour
     </>
   );
 }
-
