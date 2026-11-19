@@ -10,6 +10,7 @@ import {
   type RoiRequiredWhen,
 } from '../quoting-steps';
 import type { QuoteState } from '../types/quote';
+import { cerProofOk } from '../outcome/requote';
 import { quoteItemFacts } from '../workflow/item-rules';
 
 /** The settings the derived decision fields depend on. */
@@ -25,6 +26,11 @@ export interface DerivedFieldSettings {
    * capital is above it. Omitted = the seed (0).
    */
   capitalNeededAboveUsd?: number;
+  /**
+   * FB-26 (N17-32): `app_setting.handoff_cer_proof_required`. When true, G6 Advance needs a CER proof file
+   * while the CER is Approved. Omitted = the seed (false).
+   */
+  cerProofRequired?: boolean;
 }
 
 /**
@@ -54,6 +60,7 @@ export function derivedDecisionFields(
   payback_received: boolean;
   eng_capital_needed: boolean;
   capital_not_approved: boolean;
+  cer_proof_ok: boolean;
 } {
   const reasons = legalReviewReasons(settings.legalReviewTriggers, {
     customerStatus: (fields.customer_status as string | null | undefined) ?? null,
@@ -97,6 +104,13 @@ export function derivedDecisionFields(
     capital_not_approved:
       (fields.pricing_record as { capital_readiness?: unknown } | null | undefined)
         ?.capital_readiness === 'not_approved',
+    // FB-26 (N17-32): with `handoff_cer_proof_required` on, an Approved CER needs a CER proof file (G6).
+    cer_proof_ok: cerProofOk({
+      required: settings.cerProofRequired ?? false,
+      cerStatus: (fields.handoff_record as { cer_status?: string | null } | null | undefined)
+        ?.cer_status,
+      proofOnFile: fields.cer_proof_on_file === true,
+    }),
   };
 }
 

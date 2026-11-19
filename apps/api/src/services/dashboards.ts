@@ -28,7 +28,10 @@ import {
   openStages,
   outcomeCohort,
   pendingOverrides,
+  getSetting,
+  hasDecidedG1,
   proposalsEndingBy,
+  proposalsEndingByQualifier,
   returnedToKam,
   reworkReasons,
   medianStageTime,
@@ -44,7 +47,9 @@ import {
   holdReasonLabel,
   holdsPermission,
   onHoldFirst,
+  parseValidityWarningDays,
   parseWorkflowConfig,
+  VALIDITY_WARNING_DAYS_SEED,
   type Actor,
   type EngQueueSettings,
   type Permission,
@@ -87,6 +92,15 @@ export const WINDOWS = {
   expiringDays: 7,
 } as const;
 const LIST_LIMIT = 10;
+
+/** FB-26 (N17-31): `validity_warning_days` (a malformed value falls back to the seed, display only). */
+async function warningDays(tx: Tx): Promise<number> {
+  try {
+    return parseValidityWarningDays(await getSetting(tx, 'validity_warning_days'));
+  } catch {
+    return VALIDITY_WARNING_DAYS_SEED;
+  }
+}
 const MINI_BOARD_LIMIT = 5;
 
 const info = (definition: string, window: string): MetricInfo => ({ definition, window });
@@ -221,7 +235,7 @@ export class DashboardService {
       case 'KAM':
         return withTx((tx) => this.kam(tx, actor, now));
       case 'SalesLeader':
-        return withTx((tx) => this.salesLeader(tx, now));
+        return withTx((tx) => this.salesLeader(tx, actor, now));
       case 'EngLead':
       case 'Engineer':
         return withTx((tx) => this.engineering(tx, actor, role, now));
@@ -265,11 +279,13 @@ export class DashboardService {
   }
 
   private async kam(tx: Tx, actor: Actor, now: Date): Promise<KamDashboard> {
+    // FB-26 (N17-31): the window is `validity_warning_days` (the countdown's amber), seed 7 as before.
+    const expiringDays = await warningDays(tx);
     const [drafts, returned, open, ending, cohort] = await Promise.all([
       openDrafts(tx, actor.userId),
       returnedToKam(tx, actor.userId),
       myOpenQuotes(tx, actor.userId),
-      proposalsEndingBy(tx, now, WINDOWS.expiringDays, actor.userId),
+      proposalsEndingBy(tx, now, expiringDays, actor.userId),
       outcomeCohort(tx, trailing(now, WINDOWS.captureDays, { kam: [actor.userId] }), 'total', now),
     ]);
     const holdOf = await holdReader(tx, [...open, ...ending]);
@@ -315,10 +331,10 @@ export class DashboardService {
       pipeline,
       expiring: {
         info: info(
-          `Proposals waiting for the customer whose validity ends within ${WINDOWS.expiringDays} days, or has already passed. Record the outcome, or revalidate with a new date.`,
-          `Validity ends by ${WINDOWS.expiringDays} days from today (lapsed ones included)`,
+          `Proposals waiting for the customer whose validity ends within ${expiringDays} days, or has already passed. Record the outcome, or revalidate with a new date. Once one has expired, the customer's late "yes" is a linked re-quote.`,
+          `Validity ends by ${expiringDays} days from today (lapsed ones included)`,
         ),
-        withinDays: WINDOWS.expiringDays,
+        withinDays: expiringDays,
         items: expiring(ending, now, holdOf),
       },
       capture: {
@@ -331,14 +347,21 @@ export class DashboardService {
     };
   }
 
-  private async salesLeader(tx: Tx, now: Date): Promise<SalesLeaderDashboard> {
-    const [toQualify, overrides, open, lapsed] = await Promise.all([
+  private async salesLeader(tx: Tx, actor: Actor, now: Date): Promise<SalesLeaderDashboard> {
+    // FB-26 (N17-31): "Expiring soon": the quotes this sales leader qualified, or every one when they
+    // have never decided G1. The window is `validity_warning_days`.
+    const [expiringDays, qualifier] = await Promise.all([
+      warningDays(tx),
+      hasDecidedG1(tx, actor.userId),
+    ]);
+    const [toQualify, overrides, open, lapsed, ending] = await Promise.all([
       awaitingG1(tx),
       pendingOverrides(tx),
       openAll(tx),
       proposalsEndingBy(tx, now, -1),
+      proposalsEndingByQualifier(tx, now, expiringDays, qualifier ? actor.userId : null),
     ]);
-    const holdOf = await holdReader(tx, [...open, ...lapsed]);
+    const holdOf = await holdReader(tx, [...open, ...lapsed, ...ending]);
     return {
       role: 'SalesLeader',
       toQualify: {
@@ -348,6 +371,18 @@ export class DashboardService {
         ),
         count: toQualify.length,
         items: toQualify.map((r) => dashQuote(r, now, holdOf)).slice(0, LIST_LIMIT),
+      },
+      expiring: {
+        info: info(
+          qualifier
+            ? `Proposals you qualified (G1) that are waiting for the customer and whose validity ends within ${expiringDays} days or has passed, soonest first. Nudge the KAM to record the outcome or revalidate; once one has expired, the customer's late "yes" is a linked re-quote.`
+            : `You have not qualified a quote at G1 yet, so this lists every proposal waiting for the customer whose validity ends within ${expiringDays} days or has passed, soonest first.`,
+          `Validity ends by ${expiringDays} days from today (lapsed ones included)`,
+        ),
+        withinDays: expiringDays,
+        scope: qualifier ? 'qualified' : 'all',
+        count: ending.length,
+        items: expiring(ending, now, holdOf).slice(0, LIST_LIMIT),
       },
       pendingOverrides: {
         info: info(

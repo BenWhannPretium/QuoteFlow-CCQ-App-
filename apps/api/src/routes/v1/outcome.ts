@@ -4,6 +4,9 @@ import {
   MyProposalsResponse,
   OutcomesReport,
   QuoteNumberParams,
+  RequoteBody,
+  RequoteResponse,
+  RequoteSourceResponse,
 } from '@ccq/contracts';
 import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -12,6 +15,7 @@ import { auditMeta } from '../../plugins/audit';
 import { requireActor } from '../../plugins/auth';
 import type { OutcomeService, OutcomeWithTx } from '../../services/outcome';
 import { handleProblems } from '../../services/problem';
+import type { RequoteService } from '../../services/requote';
 
 const security = [{ bearerAuth: [] }];
 
@@ -22,10 +26,10 @@ const security = [{ bearerAuth: [] }];
  * Floors: proposals need `outcome.record` (the KAM's own quotes), the hand-off `handoff.edit` (checked
  * again on the quote), the report `analytics.read`.
  */
-export const outcomeRoutes: FastifyPluginAsyncZod<{ service: OutcomeService }> = async (
-  app,
-  { service },
-) => {
+export const outcomeRoutes: FastifyPluginAsyncZod<{
+  service: OutcomeService;
+  requote: RequoteService;
+}> = async (app, { service, requote }) => {
   const withTx =
     (req: FastifyRequest): OutcomeWithTx =>
     (fn) =>
@@ -69,6 +73,53 @@ export const outcomeRoutes: FastifyPluginAsyncZod<{ service: OutcomeService }> =
           req.body,
           auditMeta(req),
         ),
+      ),
+  );
+
+  // FB-26 (N17-30): the linked re-quote of an expired quote. quote.requote: the KAM on their own quotes
+  // (checked again on the quote), any SalesLeader.
+  app.post(
+    '/quotes/:quoteNumber/requote',
+    {
+      config: { permission: 'quote.requote' },
+      schema: {
+        tags: ['outcome'],
+        summary:
+          'Start a linked re-quote of an expired quote: a new intake draft on the same Salesforce opportunity, pre-filled from the old intake (request fields, items, drawings as links; no engineering, pricing, terms or decisions), linked to the old quote when submitted. From a quote closed "No response / Expired", or from one still open at Customer Decision whose validity has passed (then G5 "No response / Expired" is recorded first, with the reason and note, in the same transaction). Allowed states: app_setting linked_requote_allowed_from. 409 when the offer is still valid, the quote was already re-quoted, or someone else has a re-quote draft open',
+        security,
+        params: QuoteNumberParams,
+        body: RequoteBody,
+        response: { 200: RequoteResponse },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        requote.start(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  app.get(
+    '/quotes/:quoteNumber/requote-source',
+    {
+      config: { permission: 'quote.read' },
+      schema: {
+        tags: ['outcome'],
+        summary:
+          'The "From the expired quote" panel of a linked re-quote: the old quote\'s engineering solution per item and its price approval and capital readiness, read only. A caller who cannot read the old quote gets its number only (readable false). 404 when the quote is not a linked re-quote',
+        security,
+        params: QuoteNumberParams,
+        response: { 200: RequoteSourceResponse },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        requote.source(withTx(req), requireActor(req), req.params.quoteNumber),
       ),
   );
 

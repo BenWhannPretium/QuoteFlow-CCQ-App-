@@ -8,9 +8,10 @@ import { ATTACHMENT_KINDS, type AttachmentKind } from './file-types';
  * kind on a draft (422). `quote`: the quote's Attachments tab (only its dropdown; the server keeps the
  * quote's own rules). Specification is offered nowhere for now; a file already stored keeps its label.
  * Capacity analysis lives on Engineering's capacity rows, the equipment BOM in Engineering, the models in
- * Quoting, and the offer letter is generated.
+ * Quoting, and the offer letter is generated. FB-26 (N17-32): `handoff`: the hand-off card's files (the
+ * CER proof). A setting saved before FB-26 has no `handoff` list and reads the seed.
  */
-export const ATTACHMENT_PLACES = ['intake', 'quote'] as const;
+export const ATTACHMENT_PLACES = ['intake', 'quote', 'handoff'] as const;
 export type AttachmentPlace = (typeof ATTACHMENT_PLACES)[number];
 
 export type AttachmentKindsByPlace = Record<AttachmentPlace, AttachmentKind[]>;
@@ -33,6 +34,7 @@ export const ATTACHMENT_KINDS_BY_PLACE_SEED: Readonly<AttachmentKindsByPlace> = 
     'competitor_drawing',
     'other',
   ],
+  handoff: ['cer_proof'],
 };
 
 const isKind = (v: unknown): v is AttachmentKind =>
@@ -77,5 +79,6 @@ const placeKinds = z
   .refine((l) => !l.includes('offer_letter'), 'The offer letter is generated, not uploaded');
 
 export const attachmentKindsByPlaceSchema = z
-  .object({ intake: placeKinds, quote: placeKinds })
+  // FB-26: a value saved before the hand-off place existed reads the seed list for it.
+  .object({ intake: placeKinds, quote: placeKinds, handoff: placeKinds.default(['cer_proof']) })
   .strict() satisfies z.ZodType<AttachmentKindsByPlace>;

@@ -21,6 +21,8 @@ export const PERMISSIONS = [
   // FB-08 (F-082, off until A-035): an extra Final Review sign-off (g4_additional_approvals).
   'finalReview.signoff',
   'outcome.record',
+  // FB-26 (N17-30): start a linked re-quote of an expired quote (a new quote, linked to the old one).
+  'quote.requote',
   'outcome.assignOwner',
   'handoff.edit',
   // FB-20 (F-070): read a quote's offer letters, and generate one after Final Review.

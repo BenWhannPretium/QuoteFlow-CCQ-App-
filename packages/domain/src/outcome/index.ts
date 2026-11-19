@@ -4,3 +4,4 @@ export * from './proposals';
 export * from './report';
 export * from './sf-stage';
 export * from './validity';
+export * from './requote';

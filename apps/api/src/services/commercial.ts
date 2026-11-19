@@ -223,6 +223,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
     capitalRequired,
     extraApprovals,
     capitalAbove,
+    cerProofRequired,
   ] = await Promise.all([
     getSetting(db, 'legal_review_triggers'),
     getSetting(db, 'pricing_pass_through'),
@@ -236,6 +237,7 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
     getSetting(db, 'capital_terms_required'),
     getSetting(db, 'g4_additional_approvals'),
     getSetting(db, 'capital_needed_above_usd'),
+    getSetting(db, 'handoff_cer_proof_required'),
   ]);
   let additionalApprovals: AdditionalApprovals | null = null;
   let additionalApprovalsError: string | null = null;
@@ -251,6 +253,8 @@ export async function loadCommercialSettings(db: DbOrTx): Promise<CommercialSett
       g4RequiredChecks: g4RequiredChecks(g4Checks),
       roiRequiredWhen: roiRequiredWhen(roiWhen),
       capitalNeededAboveUsd: capitalNeededAboveUsd(capitalAbove),
+      // FB-26 (N17-32): seeded false (provisional); anything but true is off.
+      cerProofRequired: cerProofRequired === true,
     },
     capitalNotice: parseCapitalNotice(capital ?? CAPITAL_NOTICE_SEED),
     marketDev: parseMarketDevNotice(marketDev ?? MARKET_DEV_NOTICE_SEED),

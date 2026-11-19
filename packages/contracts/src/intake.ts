@@ -425,6 +425,19 @@ export const IntakeDraft = z.object({
     })
     .nullable(),
   /**
+   * FB-26 (N17-30): set when the draft is a linked re-quote of an expired quote: submit creates a NEW
+   * quote linked to it. `banner` is what the wizard shows at the top.
+   */
+  requote: z
+    .object({
+      quoteNumber: z.string(),
+      /** The old quote's validity date (`YYYY-MM-DD`), when it had one. */
+      expiredOn: z.string().nullable(),
+      banner: z.string(),
+    })
+    .nullable()
+    .default(null),
+  /**
    * FB-15 (W13-01): for a rework, the list codes the quote already holds (snake_case field → codes). A code
    * retired since stays acceptable on resubmit; the wizard passes these to the same check the server runs.
    */

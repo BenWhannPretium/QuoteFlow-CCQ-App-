@@ -76,6 +76,8 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   // FB-21 (N17-20): "not approved" is a recommendation to stop.
   capital_not_approved:
     'Capital is marked not approved: stop the quote, or change capital readiness',
+  // FB-26 (N17-32): only while handoff_cer_proof_required is on.
+  cer_proof_ok: 'A CER proof file (the CER is approved): upload it on the hand-off card',
   // G4 Final Review
   terms_checked_at: 'The terms check (tooling commitment, MOQ, payment terms)',
   'g4_terms_check_required,terms_checked_at':

@@ -20,6 +20,8 @@ export const ATTACHMENT_KIND_VALUES = [
   'equipment_bom',
   // FB-20 (F-070): the customer offer letter QuoteFlow generates (never uploaded).
   'offer_letter',
+  // FB-26 (N17-32): a screenshot or PDF of the CER tool showing the CER, uploaded at hand-off (versioned).
+  'cer_proof',
 ] as const;
 export const AttachmentKindSchema = z.enum(ATTACHMENT_KIND_VALUES);
 export type AttachmentKindValue = z.infer<typeof AttachmentKindSchema>;
@@ -39,6 +41,7 @@ export const ATTACHMENT_KIND_LABELS: Record<AttachmentKindValue, string> = {
   price_table: 'Updated price table',
   equipment_bom: 'Equipment BOM',
   offer_letter: 'Offer letter',
+  cer_proof: 'CER proof',
 };
 
 /** One file on a quote (or on an intake draft before submit). */
