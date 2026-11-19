@@ -1231,8 +1231,8 @@ export class AdminConfigService {
 
   /**
    * Activate the draft: `effective_from = now`, so it scores from now on. Then (after the commit) a
-   * background job rescores OPEN quotes only, one `priority_tier_changed` activity event per changed
-   * tier. Closed quotes, gate-decision evidence and old versions are never touched.
+   * background job rescores OPEN quotes only, one `priority_score_changed` activity event per quote whose
+   * score or tier changed. Closed quotes, gate-decision evidence and old versions are never touched.
    */
   async activateScoringDraft(
     withTx: AdminWithTx,
@@ -1499,7 +1499,7 @@ export class AdminConfigService {
 /**
  * Background rescore after a scoring model activation: open quotes in batches, each batch its own
  * transaction as the activating admin (RLS: Admin sees every quote). Recalculation stores the new score
- * and writes a `priority_tier_changed` activity event when the computed tier moves. A summary
+ * and writes a `priority_score_changed` activity event when the score or the computed tier moves. A summary
  * `config_change` row records how many quotes were rescored and how many tiers changed.
  */
 export class ScoringRescoreJob {

@@ -589,12 +589,17 @@ describe('Rework: back to the KAM, fixed, resubmitted', () => {
       .where(eq(schema.activityEvent.quoteId, q.quoteId))
       .orderBy(desc(schema.activityEvent.at));
     expect(events.map((e) => e.type)).toEqual(
-      expect.arrayContaining(['quote_resubmitted', 'priority_tier_changed']),
+      expect.arrayContaining(['quote_resubmitted', 'priority_score_changed']),
     );
-    const tierChange = events.find((e) => e.type === 'priority_tier_changed')!;
-    expect(tierChange.payload).toMatchObject({
-      from: q.priorityTier,
-      to: body.priorityTier,
+    // FB-27 (N17-15): one event for the recalculation (score and tier), not a second tier event.
+    expect(events.map((e) => e.type)).not.toContain('priority_tier_changed');
+    const scoreChange = events.find((e) => e.type === 'priority_score_changed')!;
+    expect(scoreChange.payload).toMatchObject({
+      from: q.priorityScore,
+      to: body.priorityScore,
+      tierFrom: q.priorityTier,
+      tierTo: body.priorityTier,
+      tierChanged: true,
       trigger: 'intake_resubmit',
     });
     // Back in the queue and decidable.

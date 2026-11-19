@@ -9,6 +9,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { MessageSquareIcon, RotateCcwIcon } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 
+import { AttachmentDownloadLink } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { stageLabel, usePublicConfig } from '@/config/public-config';
@@ -37,6 +38,22 @@ const FILTERS: { key: TimelineFilter; label: string }[] = [
 ];
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+/** 53 / 53.5 (up to one decimal; the stored score has two). */
+const formatScore = (n: number) => String(Math.round(n * 10) / 10);
+
+/**
+ * FB-27 (N17-34): a file event's name opens the file through the audited download (the same permission
+ * as the Attachments tab). A file that has been removed, or an event with no file id, is plain text.
+ */
+function fileName(p: Record<string, unknown>) {
+  const name = str(p.fileName) ?? 'file';
+  const id = str(p.attachmentId);
+  return id && p.fileRemoved !== true ? (
+    <AttachmentDownloadLink id={id} fileName={name} className="inline break-all" />
+  ) : (
+    name
+  );
+}
 const humanize = (type: string) => type.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
 /** Title, detail and marker colour for one activity event, from config labels. */
@@ -161,6 +178,39 @@ export function describeEvent(
         detail: p.overridden ? <p>The displayed tier stays overridden.</p> : undefined,
         kind: 'system',
       };
+    // FB-27 (N17-15): "Priority score up 53 → 61 (Standard)", with the tier change in the same line.
+    case 'priority_score_changed': {
+      const from = typeof p.from === 'number' ? p.from : null;
+      const to = typeof p.to === 'number' ? p.to : null;
+      const tier = (key: unknown) =>
+        typeof key === 'string' && key
+          ? (config?.tiers.find((t) => t.tier === key)?.label ?? key)
+          : null;
+      const tierFrom = tier(p.tierFrom);
+      const tierTo = tier(p.tierTo);
+      const direction =
+        from !== null && to !== null ? (to > from ? 'up' : to < from ? 'down' : null) : null;
+      const scores =
+        from !== null && to !== null ? ` ${formatScore(from)} → ${formatScore(to)}` : '';
+      const tierText =
+        p.tierChanged === true && tierFrom && tierTo
+          ? ` (tier ${tierFrom} → ${tierTo})`
+          : tierTo
+            ? ` (${tierTo})`
+            : '';
+      return {
+        title: `Priority score${direction ? ` ${direction}` : ' changed'}${scores}${tierText}`,
+        detail: (
+          <>
+            {p.trigger === 'model_change' && (
+              <p className="text-muted-foreground text-xs">A new scoring model was activated.</p>
+            )}
+            {p.overridden === true && <p>The displayed tier stays overridden.</p>}
+          </>
+        ),
+        kind: 'system',
+      };
+    }
     case 'override_requested':
       return {
         title: `${fieldLabel} override requested: ${value(p.from)} → ${value(p.to)}`,
@@ -207,7 +257,11 @@ export function describeEvent(
       const model = MODEL_STEP[str(p.kind) ?? ''];
       if (model && typeof p.version === 'number') {
         return {
-          title: `${model} v${p.version} uploaded: ${str(p.fileName) ?? 'file'}`,
+          title: (
+            <>
+              {model} v{p.version} uploaded: {fileName(p)}
+            </>
+          ),
           detail:
             p.version > 1 ? (
               <p className="text-muted-foreground text-xs">
@@ -217,8 +271,12 @@ export function describeEvent(
           kind: 'file',
         };
       }
-      return { title: `File uploaded: ${str(p.fileName) ?? 'file'}`, kind: 'file' };
+      return {
+        title: <>File uploaded: {fileName(p)}</>,
+        kind: 'file',
+      };
     }
+    // The removed file's name stays plain text (there is nothing to open).
     case 'attachment_removed':
       return { title: `File removed: ${str(p.fileName) ?? 'file'}`, kind: 'file' };
     // FB-20 (F-070): the customer offer letter. The file itself is on the Customer decision card.
