@@ -859,8 +859,8 @@ test('a hidden tab panel is out of the tab order, and a hidden file input shows 
   await expect(engineering).toBeHidden();
   expect(await engineering.locator('input, select, textarea, button').count()).toBeGreaterThan(5);
 
-  // Tab through the page once: every stop is visible, none is inside the hidden panel, and the two
-  // hidden file inputs of the drop zone draw the focus ring on their labels.
+  // Tab through the page once: every stop is visible, none is inside the hidden panel, and the hidden
+  // file input of the "Add file" control (FB-24: the only one) draws the focus ring on its label.
   const seen: string[] = [];
   for (let i = 0; i < 80; i++) {
     await page.keyboard.press('Tab');
@@ -893,16 +893,17 @@ test('a hidden tab panel is out of the tab order, and a hidden file input shows 
     });
   }
   expect(seen).toContain('attachment-input');
-  expect(seen).toContain('attachment-camera');
+  expect(seen).not.toContain('attachment-camera');
   expect(seen).not.toContain('capacity-attach-input');
 
-  // AUDIT_SCREENS=1 saves the one visible change of the pass: the ring on "choose files".
+  // AUDIT_SCREENS=1 saves the one visible change of the pass: the ring on the file control ("Add file"
+  // since FB-24).
   if (process.env.AUDIT_SCREENS === '1') {
     await page.getByRole('tab', { name: 'Attachments' }).focus();
     while (!(await page.getByTestId('attachment-input').evaluate((el) => el.matches(':focus')))) {
       await page.keyboard.press('Tab');
     }
-    await page.getByTestId('drop-zone').screenshot({
+    await page.getByTestId('attachments').screenshot({
       path: fileURLToPath(new URL('../../../docs/audit/screens/UX-018.png', import.meta.url)),
       animations: 'disabled',
     });

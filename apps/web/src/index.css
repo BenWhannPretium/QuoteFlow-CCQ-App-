@@ -148,7 +148,7 @@
     outline-color: var(--pf-copper-on-green);
   }
   /*
-   * UX-018 (WCAG 2.4.7): a file input hidden inside its label ("choose files", "Add photo", "Upload
+   * UX-018 (WCAG 2.4.7): a file input hidden inside its label ("Add file", "Upload
    * image") is a 1 px box, so its own ring cannot be seen. The label shows the ring instead.
    */
   label:has(> input[type='file']:focus-visible) {

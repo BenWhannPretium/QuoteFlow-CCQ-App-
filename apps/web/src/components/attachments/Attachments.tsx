@@ -1,19 +1,13 @@
-import {
-  ATTACHMENT_KIND_LABELS,
-  ATTACHMENT_KIND_VALUES,
-  type Attachment,
-  type AttachmentKindValue,
-} from '@ccq/contracts';
+import { ATTACHMENT_KIND_LABELS, type Attachment, type AttachmentKindValue } from '@ccq/contracts';
 import {
   ATTACHMENT_EXTENSIONS,
   ATTACHMENT_MAX_BYTES,
   checkUploadRequest,
   DRAWING_ATTACHMENT_KINDS,
-  isQuotingModelKind,
+  parseAttachmentKindsByPlace,
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CameraIcon,
   DownloadIcon,
   FileIcon,
   PaperclipIcon,
@@ -32,6 +26,7 @@ import { timelineQueryKey } from '@/components/Overrides';
 import { SkeletonRows } from '@/components/Skeletons';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect } from '@/components/ui/input';
+import { usePublicConfig } from '@/config/public-config';
 import {
   api,
   isApiError,
@@ -88,9 +83,11 @@ function errorText(err: unknown): { message: string; retryable: boolean } {
 }
 
 /**
- * Files on a quote or an intake draft (F-13, B-16): a drop zone (plus "Add photo" on phones),
- * per-file progress with retry, clear type/size errors, and the list with download and remove.
- * The server is the control: it re-checks type, size, content and permission on every upload.
+ * Files on a quote or an intake draft (F-13, B-16): the file type and ONE "Add file" control (FB-24,
+ * N17-06: on a phone the normal file picker offers the camera too), a drop zone, per-file progress with
+ * retry, clear type/size errors, and the list with download and remove. FB-24 (N17-07): the file types
+ * offered are the place's (`attachment_kinds_by_place`: intake on a draft, quote on a quote). The server is
+ * the control: it re-checks type, size, content and permission on every upload (and the intake list).
  */
 export function AttachmentsPanel({
   target,
@@ -125,7 +122,13 @@ export function AttachmentsPanel({
         : api.draftAttachments(target.draftId),
   });
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [kind, setKind] = useState<AttachmentKindValue>(defaultKind);
+  const { data: config } = usePublicConfig();
+  // FB-24 (N17-07, provisional): the place's file types, in the setting's order.
+  const kinds = parseAttachmentKindsByPlace(config?.settings.attachment_kinds_by_place)[
+    'quoteNumber' in target ? 'quote' : 'intake'
+  ];
+  const [chosenKind, setKind] = useState<AttachmentKindValue>(defaultKind);
+  const kind: AttachmentKindValue = kinds.includes(chosenKind) ? chosenKind : kinds[0]!;
   const [note, setNote] = useState('');
   const handles = useRef(new Set<UploadHandle>());
   const ids = useId();
@@ -185,10 +188,10 @@ export function AttachmentsPanel({
       .finally(() => handles.current.delete(handle));
   };
 
-  const addFiles = (files: FileList | File[] | null, forceKind?: AttachmentKindValue) => {
+  const addFiles = (files: FileList | File[] | null) => {
     if (!files) return;
     for (const file of Array.from(files)) {
-      const itemKind = forceKind ?? kind;
+      const itemKind = kind;
       // Instant feedback on type and size; the server checks again (and the content).
       const checked = checkUploadRequest({ fileName: file.name, size: file.size, kind: itemKind });
       const item: QueueItem = {
@@ -226,20 +229,43 @@ export function AttachmentsPanel({
 
       {canUpload && (
         <div className="grid gap-3">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto_minmax(0,1fr)] sm:items-end">
             <label className="grid gap-1 text-sm font-medium" htmlFor={`${ids}-kind`}>
-              Kind
+              File type
               <NativeSelect
                 id={`${ids}-kind`}
+                data-testid="attachment-kind"
                 value={kind}
                 onChange={(e) => setKind(e.target.value as AttachmentKindValue)}
               >
-                {ATTACHMENT_KIND_VALUES.filter((k) => !isQuotingModelKind(k)).map((k) => (
+                {kinds.map((k) => (
                   <option key={k} value={k}>
                     {ATTACHMENT_KIND_LABELS[k]}
                   </option>
                 ))}
               </NativeSelect>
+            </label>
+            {/* FB-24 (N17-06): the one upload control. The hidden file input sits inside its label, so
+                the label shows the focus ring while the keyboard is on the input (UX-018, index.css). A
+                phone's file picker offers the camera and the photo library too. */}
+            <label
+              htmlFor={`${ids}-file`}
+              className="border-line-strong bg-card hover:bg-accent rounded-pill inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 border px-4 text-sm font-medium sm:min-h-10"
+            >
+              <PaperclipIcon className="size-4" aria-hidden="true" /> Add file
+              <input
+                id={`${ids}-file`}
+                data-testid="attachment-input"
+                type="file"
+                multiple
+                accept={ACCEPT}
+                className="sr-only"
+                aria-describedby={`${ids}-rules`}
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
             </label>
             <label className="grid gap-1 text-sm font-medium" htmlFor={`${ids}-note`}>
               Note (optional)
@@ -262,58 +288,16 @@ export function AttachmentsPanel({
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
             className={cn(
-              'rounded-card flex flex-col items-center gap-2 border-2 border-dashed px-4 py-6 text-center',
+              'rounded-card flex flex-col items-center gap-1 border-2 border-dashed px-4 py-4 text-center',
               dragging ? 'border-primary bg-accent' : 'border-line-strong',
             )}
           >
-            <UploadCloudIcon className="text-muted-foreground size-8" aria-hidden="true" />
-            <p className="text-sm">
-              Drag files here, or{' '}
-              {/* UX-018: the hidden file input sits inside its label, so the label shows the focus
-                  ring while the keyboard is on the input (index.css). */}
-              <label
-                htmlFor={`${ids}-file`}
-                className="text-emphasis cursor-pointer rounded-sm font-semibold underline underline-offset-4"
-              >
-                choose files
-                <input
-                  id={`${ids}-file`}
-                  data-testid="attachment-input"
-                  type="file"
-                  multiple
-                  accept={ACCEPT}
-                  className="sr-only"
-                  aria-describedby={`${ids}-rules`}
-                  onChange={(e) => {
-                    addFiles(e.target.files);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-            </p>
+            <UploadCloudIcon className="text-muted-foreground size-6" aria-hidden="true" />
+            <p className="text-sm">Or drag files here.</p>
             <p id={`${ids}-rules`} className="text-muted-foreground text-xs">
               PDF, images (PNG, JPG, HEIC), CAD (DWG, DXF, STEP, IGS), Excel, Word or email (MSG,
               EML). Up to {MAX_MB} MB each.
             </p>
-            {/* Phones: straight to the camera for a photo of the sample. */}
-            <label
-              htmlFor={`${ids}-camera`}
-              className="border-line-strong bg-card hover:bg-accent rounded-pill inline-flex min-h-11 cursor-pointer items-center gap-2 border px-4 text-sm font-medium sm:min-h-10"
-            >
-              <CameraIcon className="size-4" aria-hidden="true" /> Add photo
-              <input
-                id={`${ids}-camera`}
-                data-testid="attachment-camera"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="sr-only"
-                onChange={(e) => {
-                  addFiles(e.target.files, 'sample_photo');
-                  e.target.value = '';
-                }}
-              />
-            </label>
           </div>
         </div>
       )}

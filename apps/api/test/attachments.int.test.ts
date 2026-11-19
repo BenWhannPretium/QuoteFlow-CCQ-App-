@@ -619,6 +619,54 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
       expect(audit[0]!.after).toMatchObject({ draftId, folder: `CCQ/_drafts/${draftId}` });
     });
 
+    it('FB-24 (N17-06/07): the intake takes only attachment_kinds_by_place.intake; anything else is a 422 with a plain message, nothing stored', async () => {
+      const url = `/api/v1/quotes/drafts/${draftId}/attachments`;
+      const before = AttachmentListResponse.parse((await asRole(app, 'KAM').get(url)).json()).items
+        .length;
+      for (const kind of ['spec', 'capacity_analysis']) {
+        const res = await upload(url, { name: `${kind}.pdf`, content: PDF }, { kind });
+        expect(res.statusCode, kind).toBe(422);
+        const problem = problemOf(res);
+        expect(problem.detail).toBe(
+          "This file type can't be added at intake. Pick one of: Bottle drawing, Sample photo / render, Bid file, Project brief, Competitor / incumbent drawing, Other",
+        );
+        expect(problem.errors[0]!.path).toBe('/kind');
+      }
+      // The existing refusals keep their own words.
+      const bom = await upload(url, { name: 'b.pdf', content: PDF }, { kind: 'equipment_bom' });
+      expect(bom.statusCode).toBe(422);
+      expect(problemOf(bom).detail).toContain('Engineering tab');
+      const letter = await upload(url, { name: 'l.pdf', content: PDF }, { kind: 'offer_letter' });
+      expect(letter.statusCode).toBe(422);
+      expect(problemOf(letter).detail).toContain('generated');
+
+      // Every listed kind is accepted (the setting is the control).
+      const other = await upload(url, { name: 'notes.pdf', content: PDF }, { kind: 'other' });
+      expect(other.statusCode, other.body).toBe(201);
+
+      // An Admin narrows the list: a bottle drawing is then refused at intake too.
+      await db.db.execute(sql`update app_setting
+        set value = '{"intake":["other"],"quote":["other"]}'::jsonb
+        where key = 'attachment_kinds_by_place'`);
+      try {
+        const narrowed = await upload(url, { name: 'd.pdf', content: PDF });
+        expect(narrowed.statusCode).toBe(422);
+        expect(problemOf(narrowed).detail).toBe(
+          "This file type can't be added at intake. Pick one of: Other",
+        );
+      } finally {
+        await db.db.execute(sql`update app_setting
+          set value = '{"intake":["bottle_drawing","sample_photo","bid_file","project_brief","competitor_drawing","other"],"quote":["bottle_drawing","sample_photo","bid_file","project_brief","competitor_drawing","other"]}'::jsonb
+          where key = 'attachment_kinds_by_place'`);
+      }
+      const after = AttachmentListResponse.parse((await asRole(app, 'KAM').get(url)).json()).items;
+      expect(after.length).toBe(before + 1);
+      // Leave the draft's files as the next test expects them.
+      expect(
+        (await asRole(app, 'KAM').delete(`/api/v1/attachments/${after.at(-1)!.id}`)).statusCode,
+      ).toBe(204);
+    });
+
     it('submit moves the files to /CCQ/{quote_number}/ and puts them on the timeline', async () => {
       const res = await asRole(app, 'KAM').post(`/api/v1/quotes/drafts/${draftId}/submit`);
       expect(res.statusCode, res.body).toBe(201);
@@ -686,7 +734,8 @@ describe('with the local store (FILESTORE_MODE=local)', () => {
       const up = await upload(
         `/api/v1/quotes/drafts/${created.id}/attachments`,
         { name: 'gone.pdf', content: PDF },
-        { kind: 'spec' },
+        // FB-24: Specification is no longer an intake file type.
+        { kind: 'other' },
       );
       const item = AttachmentUploadResponse.parse(up.json()).item;
       expect(
