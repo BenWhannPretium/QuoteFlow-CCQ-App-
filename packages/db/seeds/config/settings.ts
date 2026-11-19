@@ -63,7 +63,7 @@ export const FB23_SETTING_DESCRIPTIONS = {
   tooling_markup_default_pct:
     'FB-23 (N18-14, D5): the markup on customer-funded tooling when none is noted on the item, in %. Customer tooling price = customer funded × (1 + markup / 100). Seed 0: no markup unless one is noted on the quote (Ben, 2026-11-18). Provisional until Bailey Schmitt confirms.',
   offer_mold_charge_source:
-    'FB-23 (N18-14, D5): where the offer letter\'s Molds row comes from. workbook_then_engineering (seed): the costing workbook\'s mold charge for the item when it has one, otherwise the item\'s customer tooling price from Engineering\'s cost lines, otherwise nothing. workbook_only: the workbook alone (FB-20). The source is recorded on each letter. Provisional until Gemma Cebolla confirms.',
+    "FB-23 (N18-14, D5): where the offer letter's Molds row comes from. workbook_then_engineering (seed): the costing workbook's mold charge for the item when it has one, otherwise the item's customer tooling price from Engineering's cost lines, otherwise nothing. workbook_only: the workbook alone (FB-20). The source is recorded on each letter. Provisional until Gemma Cebolla confirms.",
 } as const;
 
 /**

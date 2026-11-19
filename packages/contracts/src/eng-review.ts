@@ -24,7 +24,10 @@ const PackOutCount = wholeNumber(1, 9_999_999).nullable();
 
 // ── FB-23: the engineering cost estimate (the numbers are the domain's cost-estimate limits) ─────
 /** A USD amount from 0 to 999,999,999.99, in cents (COST_AMOUNT_MAX_USD). */
-const usdAmount = numberFrom(0, 999_999_999.99, 'USD').multipleOf(0.01, 'Enter the amount in cents');
+const usdAmount = numberFrom(0, 999_999_999.99, 'USD').multipleOf(
+  0.01,
+  'Enter the amount in cents',
+);
 /** Packers / operators per line: 0 to 99.99, fractional (LABOR_PER_LINE_MAX). */
 const perLine = numberFrom(0, 99.99).multipleOf(0.01, 'Use at most two decimals');
 

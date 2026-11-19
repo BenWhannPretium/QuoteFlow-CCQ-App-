@@ -1518,7 +1518,10 @@ export const engReview = documented(
         integer('containers_per_layer'),
         'FB-23 (N18-10): bags, cartons or trays per layer (1 to 9,999).',
       ),
-      layersPerPallet: c(integer('layers_per_pallet'), 'FB-23 (N18-10): layers per pallet (1 to 999).'),
+      layersPerPallet: c(
+        integer('layers_per_pallet'),
+        'FB-23 (N18-10): layers per pallet (1 to 999).',
+      ),
       palletBuildHeight: c(
         text('pallet_build_height'),
         'FB-23 (N18-10): pallet build height as typed, with its unit ("96 in"), up to 20. The worksheet\'s unit is unconfirmed.',

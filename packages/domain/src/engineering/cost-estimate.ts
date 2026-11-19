@@ -108,7 +108,8 @@ const badConfig = (key: string, msg: string) => new DomainError('INVALID_CONFIG'
 
 /** `engineering_cost_lines`: null / undefined → the seed. Throws INVALID_CONFIG on a malformed value. */
 export function parseEngineeringCostLines(input: unknown): CostLineDef[] {
-  if (input === undefined || input === null) return ENGINEERING_COST_LINES_SEED.map((l) => ({ ...l }));
+  if (input === undefined || input === null)
+    return ENGINEERING_COST_LINES_SEED.map((l) => ({ ...l }));
   const bad = (msg: string) => badConfig('engineering_cost_lines', msg);
   if (!Array.isArray(input) || input.length === 0 || input.length > 40) {
     throw bad('must be a list of 1 to 40 lines');
@@ -117,7 +118,8 @@ export function parseEngineeringCostLines(input: unknown): CostLineDef[] {
   const prefills = new Set<string>();
   return input.map((raw, i): CostLineDef => {
     const at = `line ${i + 1}`;
-    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw bad(`${at} must be an object`);
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
+      throw bad(`${at} must be an object`);
     const v = raw as Record<string, unknown>;
     if (typeof v.key !== 'string' || !KEY.test(v.key)) {
       throw bad(`${at}: "key" must be lower-case letters, digits or "_" (up to 40)`);
@@ -140,7 +142,8 @@ export function parseEngineeringCostLines(input: unknown): CostLineDef[] {
     ) {
       processes = (v.processes as string[]).map((p) => p.trim());
     } else throw bad(`${at}: "processes" must be "all" or a list of process-type codes`);
-    if (typeof v.customerFunded !== 'boolean') throw bad(`${at}: "customerFunded" must be true or false`);
+    if (typeof v.customerFunded !== 'boolean')
+      throw bad(`${at}: "customerFunded" must be true or false`);
     if (v.needsDescription !== undefined && typeof v.needsDescription !== 'boolean') {
       throw bad(`${at}: "needsDescription" must be true or false`);
     }
@@ -201,7 +204,9 @@ export function parseEngineeringCostDefaults(input: unknown): EngineeringCostDef
   }
   const v = input as Record<string, unknown>;
   const out = {} as EngineeringCostDefaults;
-  for (const k of Object.keys(ENGINEERING_COST_DEFAULTS_SEED) as (keyof EngineeringCostDefaults)[]) {
+  for (const k of Object.keys(
+    ENGINEERING_COST_DEFAULTS_SEED,
+  ) as (keyof EngineeringCostDefaults)[]) {
     if (!isUsdAmount(v[k])) {
       throw badConfig('engineering_cost_defaults', `"${k}" must be a USD amount from 0, in cents`);
     }
@@ -227,7 +232,10 @@ export function isMarkupPct(n: unknown): n is number {
 export function parseToolingMarkupDefaultPct(input: unknown): number {
   if (input === undefined || input === null) return TOOLING_MARKUP_DEFAULT_PCT_SEED;
   if (!isMarkupPct(input)) {
-    throw badConfig('tooling_markup_default_pct', 'must be a percentage from 0 to 100 (two decimals)');
+    throw badConfig(
+      'tooling_markup_default_pct',
+      'must be a percentage from 0 to 100 (two decimals)',
+    );
   }
   return input;
 }
@@ -252,7 +260,8 @@ export function costLinesForItem(
   return defs
     .filter((d) => d.group === group)
     .flatMap((d) => {
-      const usual = d.processes === 'all' || processType === null || d.processes.includes(processType);
+      const usual =
+        d.processes === 'all' || processType === null || d.processes.includes(processType);
       return usual || storedKeys.has(d.key) ? [{ ...d, usual }] : [];
     });
 }
@@ -353,8 +362,9 @@ export type CostTotalsSum = Omit<CostTotals, 'markupPct' | 'markupNoted'>;
 export function sumCostTotals(items: readonly (CostTotalsSum | null)[]): CostTotalsSum | null {
   const present = items.filter((t): t is CostTotalsSum => t !== null);
   if (present.length === 0) return null;
-  const sum = (k: 'projectTotalUsd' | 'customerFundedUsd' | 'netCostUsd' | 'customerToolingPriceUsd') =>
-    fromCents(present.reduce((s, t) => s + toCents(t[k]), 0));
+  const sum = (
+    k: 'projectTotalUsd' | 'customerFundedUsd' | 'netCostUsd' | 'customerToolingPriceUsd',
+  ) => fromCents(present.reduce((s, t) => s + toCents(t[k]), 0));
   return {
     projectTotalUsd: sum('projectTotalUsd'),
     customerFundedUsd: sum('customerFundedUsd'),
@@ -412,7 +422,9 @@ export function validateCostLines(
     const at = (k: string) => `costLines/${i}/${k}`;
     const def = defs.find((d) => d.key === l.lineKey);
     if (!def) {
-      errors.push(new DomainError('INVALID_VALUE', `"${l.lineKey}" is not a cost line`, at('lineKey')));
+      errors.push(
+        new DomainError('INVALID_VALUE', `"${l.lineKey}" is not a cost line`, at('lineKey')),
+      );
       return;
     }
     if (seen.has(l.lineKey)) {
@@ -431,7 +443,11 @@ export function validateCostLines(
     }
     if (def.needsDescription && !l.description) {
       errors.push(
-        new DomainError('MISSING_FIELD', `${def.label}: say what the cost is for`, at('description')),
+        new DomainError(
+          'MISSING_FIELD',
+          `${def.label}: say what the cost is for`,
+          at('description'),
+        ),
       );
     }
     if ((l.description?.length ?? 0) > COST_LINE_DESCRIPTION_MAX_LENGTH) {
@@ -574,7 +590,10 @@ export const COST_ESTIMATE_TEXT_LIMITS = {
   packContainerDescription: [PACK_CONTAINER_DESCRIPTION_MAX_LENGTH, 'the description'],
   palletBuildHeight: [PALLET_BUILD_HEIGHT_MAX_LENGTH, 'the pallet build height'],
   specialPackagingNote: [SPECIAL_PACKAGING_NOTE_MAX_LENGTH, 'the special-packaging note'],
-  returnableDunnageDescription: [RETURNABLE_DUNNAGE_DESCRIPTION_MAX_LENGTH, 'the dunnage description'],
+  returnableDunnageDescription: [
+    RETURNABLE_DUNNAGE_DESCRIPTION_MAX_LENGTH,
+    'the dunnage description',
+  ],
 } as const satisfies Partial<Record<keyof CostEstimateFields, readonly [number, string]>>;
 
 const WHOLE_LIMITS = {
@@ -586,7 +605,9 @@ const WHOLE_LIMITS = {
 /** Trim the text fields (blank = empty). Pure. */
 export function normalizeCostEstimate<T extends CostEstimateFields>(values: T): T {
   const out = { ...values };
-  for (const k of Object.keys(COST_ESTIMATE_TEXT_LIMITS) as (keyof typeof COST_ESTIMATE_TEXT_LIMITS)[]) {
+  for (const k of Object.keys(
+    COST_ESTIMATE_TEXT_LIMITS,
+  ) as (keyof typeof COST_ESTIMATE_TEXT_LIMITS)[]) {
     const t = out[k]?.trim();
     out[k] = (t ? t : null) as T[typeof k];
   }

@@ -221,7 +221,10 @@ export function costEstimateView(
     costLines,
     costTotals: totals,
     packOut,
-    laborTotalPerLine: laborTotalPerLine(eng?.packersPerLine ?? null, eng?.operatorsPerLine ?? null),
+    laborTotalPerLine: laborTotalPerLine(
+      eng?.packersPerLine ?? null,
+      eng?.operatorsPerLine ?? null,
+    ),
   };
 }
 

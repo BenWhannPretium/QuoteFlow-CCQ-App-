@@ -59,7 +59,9 @@ describe('FB-23 engineering_cost_lines config', () => {
   });
 
   it('accepts a valid list and copies the seed (no shared objects)', () => {
-    const parsed = parseEngineeringCostLines(JSON.parse(JSON.stringify(ENGINEERING_COST_LINES_SEED)));
+    const parsed = parseEngineeringCostLines(
+      JSON.parse(JSON.stringify(ENGINEERING_COST_LINES_SEED)),
+    );
     expect(parsed).toEqual(defs);
     expect(parseEngineeringCostLines(null)[0]).not.toBe(ENGINEERING_COST_LINES_SEED[0]);
   });
@@ -77,9 +79,15 @@ describe('FB-23 engineering_cost_lines config', () => {
     ],
     ['no label', [{ key: 'a', label: ' ', group: 'tooling', customerFunded: true }]],
     ['bad group', [{ key: 'a', label: 'A', group: 'x', customerFunded: true }]],
-    ['bad processes', [{ key: 'a', label: 'A', group: 'tooling', processes: [], customerFunded: true }]],
+    [
+      'bad processes',
+      [{ key: 'a', label: 'A', group: 'tooling', processes: [], customerFunded: true }],
+    ],
     ['no customerFunded', [{ key: 'a', label: 'A', group: 'tooling' }]],
-    ['bad prefill', [{ key: 'a', label: 'A', group: 'tooling', customerFunded: true, prefill: 'x' }]],
+    [
+      'bad prefill',
+      [{ key: 'a', label: 'A', group: 'tooling', customerFunded: true, prefill: 'x' }],
+    ],
     [
       'two freight prefills',
       [
@@ -101,10 +109,18 @@ describe('FB-23 defaults and markup settings', () => {
     });
   });
   it('refuses a negative, missing or fractional-cent default', () => {
-    expect(() => parseEngineeringCostDefaults({ ...ENGINEERING_COST_DEFAULTS_SEED, freightCompleteMoldUsd: -1 })).toThrow();
+    expect(() =>
+      parseEngineeringCostDefaults({
+        ...ENGINEERING_COST_DEFAULTS_SEED,
+        freightCompleteMoldUsd: -1,
+      }),
+    ).toThrow();
     expect(() => parseEngineeringCostDefaults({ freightCompleteMoldUsd: 1 })).toThrow();
     expect(() =>
-      parseEngineeringCostDefaults({ ...ENGINEERING_COST_DEFAULTS_SEED, startUpAssistanceUsd: 1.001 }),
+      parseEngineeringCostDefaults({
+        ...ENGINEERING_COST_DEFAULTS_SEED,
+        startUpAssistanceUsd: 1.001,
+      }),
     ).toThrow();
     expect(() => parseEngineeringCostDefaults([])).toThrow();
   });
@@ -203,8 +219,12 @@ describe('FB-23 cost totals (exact cents, D5 markup)', () => {
 
   it('uses the default markup when none is noted, and a noted 0 overrides it', () => {
     const lines = [{ lineKey: 'molds', amountUsd: 100 }];
-    expect(costTotals(lines, defs, { notedPct: null, defaultPct: 10 })!.customerToolingPriceUsd).toBe(110);
-    expect(costTotals(lines, defs, { notedPct: 0, defaultPct: 10 })!.customerToolingPriceUsd).toBe(100);
+    expect(
+      costTotals(lines, defs, { notedPct: null, defaultPct: 10 })!.customerToolingPriceUsd,
+    ).toBe(110);
+    expect(costTotals(lines, defs, { notedPct: 0, defaultPct: 10 })!.customerToolingPriceUsd).toBe(
+      100,
+    );
   });
 
   it('rounds the markup half up to the cent, with no float drift', () => {
@@ -213,7 +233,16 @@ describe('FB-23 cost totals (exact cents, D5 markup)', () => {
     expect(applyMarkup(10, 0.01)).toBe(10); // 10.001 → 10
     expect(applyMarkup(99_999_999_999, 100)).toBe(199_999_999_998);
     // 0.1 + 0.2 in cents
-    expect(costTotals([{ lineKey: 'molds', amountUsd: 0.1 }, { lineKey: 'freight', amountUsd: 0.2 }], defs, noMarkup)!.customerFundedUsd).toBe(0.3);
+    expect(
+      costTotals(
+        [
+          { lineKey: 'molds', amountUsd: 0.1 },
+          { lineKey: 'freight', amountUsd: 0.2 },
+        ],
+        defs,
+        noMarkup,
+      )!.customerFundedUsd,
+    ).toBe(0.3);
   });
 
   it('counts a line no longer in the config in the project total, never as customer funded', () => {
@@ -222,7 +251,10 @@ describe('FB-23 cost totals (exact cents, D5 markup)', () => {
   });
 
   it('sums the items for the quote', () => {
-    const a = costTotals([{ lineKey: 'molds', amountUsd: 100.1 }], defs, { notedPct: 15, defaultPct: 0 });
+    const a = costTotals([{ lineKey: 'molds', amountUsd: 100.1 }], defs, {
+      notedPct: 15,
+      defaultPct: 0,
+    });
     const b = costTotals([{ lineKey: 'unit_mold', amountUsd: 0.2 }], defs, noMarkup);
     expect(sumCostTotals([a, null, b])).toEqual({
       projectTotalUsd: 100.3,
@@ -344,17 +376,24 @@ describe('FB-23 pack-out calculation (Jim’s examples)', () => {
   });
 
   it('floor loaded or bulk: pieces per trailer from the typed pieces per pallet', () => {
-    expect(packOutFigures({ ...base, unitsPerPallet: 5_000, palletsPerTrailer: 26 })).toMatchObject({
-      containersPerPallet: null,
-      piecesPerPallet: 5_000,
-      piecesPerPalletCalculated: false,
-      piecesPerTrailer: 130_000,
-    });
+    expect(packOutFigures({ ...base, unitsPerPallet: 5_000, palletsPerTrailer: 26 })).toMatchObject(
+      {
+        containersPerPallet: null,
+        piecesPerPallet: 5_000,
+        piecesPerPalletCalculated: false,
+        piecesPerTrailer: 130_000,
+      },
+    );
   });
 
   it('a missing input leaves its figures blank, never 0', () => {
     expect(
-      packOutFigures({ ...base, countField: 'unitsPerBag', containersPerLayer: 2, layersPerPallet: 22 }),
+      packOutFigures({
+        ...base,
+        countField: 'unitsPerBag',
+        containersPerLayer: 2,
+        layersPerPallet: 22,
+      }),
     ).toMatchObject({
       piecesPerContainer: null,
       containersPerPallet: 44,
@@ -363,7 +402,12 @@ describe('FB-23 pack-out calculation (Jim’s examples)', () => {
       piecesPerTrailer: null,
     });
     expect(
-      packOutFigures({ ...base, countField: 'unitsPerBag', unitsPerBag: 84, containersPerLayer: 2 }),
+      packOutFigures({
+        ...base,
+        countField: 'unitsPerBag',
+        unitsPerBag: 84,
+        containersPerLayer: 2,
+      }),
     ).toMatchObject({ containersPerPallet: null, piecesPerPallet: null, piecesPerTrailer: null });
     expect(packOutFigures(base)).toEqual({
       piecesPerContainer: null,
@@ -422,7 +466,9 @@ describe('FB-23 labor and field checks', () => {
   };
 
   it('trims text and accepts an empty estimate', () => {
-    expect(normalizeCostEstimate({ ...empty, moldLeadTime: '  16-18 weeks ', palletBuildHeight: ' ' })).toMatchObject({
+    expect(
+      normalizeCostEstimate({ ...empty, moldLeadTime: '  16-18 weeks ', palletBuildHeight: ' ' }),
+    ).toMatchObject({
       moldLeadTime: '16-18 weeks',
       palletBuildHeight: null,
     });
