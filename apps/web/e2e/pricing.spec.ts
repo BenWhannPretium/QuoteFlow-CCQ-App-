@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 import { seriousViolations } from './axe';
-import { SYNTHETIC_XLSX, uploadBom, uploadModel } from './models';
+import { SYNTHETIC_XLSX, uploadBom } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
@@ -159,7 +159,8 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   // ── FB-07 (D-001) step 1: the pricer uploads the costing model before attesting costing ──
   const steps = tab.getByTestId('quoting-steps');
   await expect(steps.getByTestId('step-costing')).toHaveAttribute('data-status', 'waiting');
-  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'blocked');
+  // FB-21 (N17-21): a payback model only when someone asks Finance for one.
+  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'not_requested');
   await steps.getByTestId('upload-cost_model').setInputFiles({
     name: 'Costing model.synthetic.xlsx',
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -228,44 +229,44 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
   // No price figure can be typed anywhere on the tab.
   await expect(tab.locator('input[type="number"]')).toHaveCount(0);
 
-  // ── Capital: still pending, with a justification (D-11: warned, not blocked) ──
+  // ── FB-21 (N17-19, N17-20): capital starts on pending (Engineering said capital is needed) and
+  // pending never blocks; a note is optional. "Not required" is not offered. ──
   const capital = tab.getByTestId('capital-form');
   await expect(capital.getByLabel('Status')).toHaveValue('pending');
-  await capital.getByLabel('Pending-capital justification').fill('CER goes to the board Nov 10');
+  await expect(capital.getByTestId('capital-readiness-intro')).toContainText(
+    'Pending is normal before award',
+  );
+  await expect(capital).toContainText('Engineering said capital is needed');
+  await expect(capital.getByLabel('Status').locator('option[value="not_required"]')).toBeDisabled();
+  await capital
+    .getByLabel('Note on pending capital (optional)')
+    .fill('CER goes to the board after award');
   // F-064: no CER reference is needed to quote, and none can be typed here.
   await expect(capital.getByLabel('CER reference')).toHaveCount(0);
   await expect(capital).toContainText('You do not need a CER reference to quote');
   await capital.getByRole('button', { name: 'Save capital readiness' }).click();
   await expect(pricing.getByText('Capital readiness saved')).toBeVisible();
   await expect(tab.getByTestId('quoting-warnings')).toContainText(
-    'Capital is still pending: CER goes to the board Nov 10',
+    'Capital is pending (normal before award): CER goes to the board after award',
   );
   expect(await seriousViolations(pricing)).toEqual([]);
 
-  // ── FB-17 (W13-22): the G2 Advance flagged the quote capital likely (its capital figure is above
-  // $0), so capital has to be confirmed before the price goes to the lead (B-26). "Not required" is
-  // not offered, and the pricer cannot submit while capital is pending. ──
-  await expect(capital).toContainText('Engineering said capital is needed');
-  await expect(capital.getByLabel('Status').locator('option[value="not_required"]')).toBeDisabled();
-  await expect(tab.getByRole('button', { name: 'Submit to pricing lead' })).toHaveCount(0);
-  await capital.getByLabel('Status').selectOption('pre_approved');
-  const confirmed = pricing.waitForResponse(
-    (r) => r.url().endsWith('/capital-readiness') && r.request().method() === 'PUT',
-  );
-  await capital.getByRole('button', { name: 'Save capital readiness' }).click();
-  expect((await confirmed).status()).toBe(200);
-
   // ── Lead review (2026-10-30): the pricer submits to the pricing lead; only the lead decides G3 ──
   await expect(tab.getByTestId('decide-gate')).toHaveCount(0);
-  await tab.getByRole('button', { name: 'Submit to pricing lead' }).click();
+  // FB-21 Part C (N17-23): the same submit is offered at the top of the tab and at the bottom.
+  const top = tab.getByTestId('pricer-submit-top');
+  await expect(top).toHaveAttribute('data-ready', 'true');
+  await expect(top).toContainText('Your part is done?');
+  await expect(tab.getByRole('button', { name: 'Submit to pricing lead' })).toHaveCount(2);
+  await top.getByTestId('pricer-submit-top-button').click();
   await expect(tab.getByTestId('lead-review-submitted')).toContainText(
     'Submitted to the pricing lead',
   );
   await expect(tab.getByTestId('capital-form')).toHaveCount(0); // locked for the pricer
+  await expect(tab.getByTestId('pricer-submit-top')).toHaveCount(0);
 
-  // FB-07 step 2: capital is needed, so Finance uploads the ROI model (its own spec drives the UI).
-  await request.get('/api/v1/me', { headers: as('finance') });
-  await uploadModel(request, quoteNumber, 'roi_model', 'finance');
+  // FB-21 (N17-21): nobody asked Finance for a payback model, so the lead decides without one
+  // (quoting-steps.spec.ts drives a request).
 
   const lead = await open('pricing-lead');
   await lead.goto('/queue/pricing');
@@ -297,8 +298,9 @@ test('Pricing records the approval and submits to Final Review; the KAM reads th
     'ERF26-211',
     'Legacy CER reference',
     'CER-4410',
-    // FB-17: capital was confirmed before G3 (the pending justification above went with it).
-    'Capital pre-approved (budgetary)',
+    // FB-21: capital stayed pending (normal before award), with the pricer's optional note.
+    'Capital pending (budgetary)',
+    'CER goes to the board after award',
   ]) {
     await expect(kam.getByTestId('quote-detail')).toContainText(figure);
   }

@@ -1,6 +1,6 @@
 # UAT script: Final Review approver
 
-> Checked against the build on 2026-11-17 (pre-release audit): the Command Center block is **Waiting for Final Review**, the queue card says **Engineering decision**, a blocked release switches **Record decision** off and names what is missing, and a multi-item quote lists its items under **The request**. Steps 2, 4, 14, 25 and 29 are changed; step 34a is new. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
+> Checked against the build on 2026-11-17 (pre-release audit): the Command Center block is **Waiting for Final Review**, the queue card says **Engineering decision**, a blocked release switches **Record decision** off and names what is missing, and a multi-item quote lists its items under **The request**. Steps 2, 4, 14, 25 and 29 are changed; step 34a is new. Updated 2026-11-18 for FB-21: step 23a is new. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 | | |
 |---|---|
@@ -28,6 +28,8 @@
 Labels for stages, outcomes and reasons are provisional configuration. Note a wrong meaning, not a different wording.
 
 **Changed 2026-11-15 (FB-18, walkthrough of Nov 13).** Home is now the **Command Center** (the phone tab says **Command**), with two views at the top: **My work** and **Analytics**. **Analytics** is no longer a tab. A quote on hold shows an orange **On hold** chip on the Command Center. Steps 2, 14 and 22 are changed.
+
+**Changed 2026-11-18 (FB-21, feedback of Nov 17: N17-19 to N17-22).** Capital pending is normal before award (no CER is raised until the customer awards the business): a quote can now reach Final Review with capital readiness **Capital pending (budgetary)**, and you see it as a warning, never a block. A quote whose capital is **Capital not approved** cannot reach you: the pricing lead must stop it or change it. A payback model is on file only when the pricer or the pricing lead asked Finance for one. Step 23a is new.
 
 ## Part A: The queue on a phone
 
@@ -73,6 +75,7 @@ Steps 7 to 9 assume the capital terms on `<CCQ-FR-2>` are already confirmed (see
 | # | Action | Expected result | Pass/Fail | Notes |
 |---|---|---|---|---|
 | 23 | Open a quote in Final Review that needs capital (FB-17: Engineering's capital estimate is above $0; before that it was decided **Advance – capital required**). Read **Open warnings**, then find the engineering section of the review. | The warnings include "Capital is needed: preliminary capital $<amount>" (an older quote reads "Engineering flagged capital as required"). The equipment BOM (file, version, uploader, date, download), the two-step details and the pack-out are shown, read-only. A quote created before FB-06 may also show **Legacy notes** (the old downstream-equipment and BOM text), read-only. | | |
+| 23a | FB-21. Open `<CCQ-GD-2>` once the pricing lead has approved its price with capital pending (pricing.md step 48) → **Review & decide**. Read **Open warnings**, **Capital readiness** and the payback step. Tap **Advance (release the offer)** and look at **Record decision** (confirm the capital terms first if the release asks for them, Part E; then **Cancel** unless Bailey says to release it). | **Capital readiness** reads **Capital pending (budgetary)**. **Open warnings** lists "Capital is pending (normal before award): <the pricer's note>" (with no note: "Capital is pending (normal before award: the CER is raised after the customer awards the business)"). It is a warning only: pending is never listed under "The offer cannot be released yet. This blocks it:", and **Record decision** is not switched off for it. The payback step reads **Not requested** when nobody asked Finance, or shows the payback model when someone did. | | |
 
 ## Part E: Capital terms and payment-terms exceptions (FB-08)
 

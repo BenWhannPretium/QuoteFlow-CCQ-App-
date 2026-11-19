@@ -40,7 +40,7 @@ export const OUTCOME_HELP: Record<string, string> = {
     'Not feasible, or not worth pursuing. It closes as Declined, with the reason recorded.',
   // G3 Price approved (the pricing lead). FB-07 (D-001, D-031): costing, then ROI, then price confirmation.
   'G3/submit':
-    'The pricing lead confirms the price. The costing model is on file and costing is attested; when capital is required ($0 CER included) the payback model is on file too. Optionally upload an updated price table; otherwise the price in the models stands. Capital readiness is recorded separately. The quote goes to Final Review.',
+    'The pricing lead confirms the price. The costing model is on file and costing is attested; when someone asked Finance for a payback model, it is on file too. Optionally upload an updated price table; otherwise the price in the models stands. Capital readiness is recorded separately. The quote goes to Final Review.',
   'G3/hold': HOLD_HELP,
   'G3/recost':
     'Rework the cost: the quote stays in Quoting and the cost sheet is redone (the costing attestation is cleared).',

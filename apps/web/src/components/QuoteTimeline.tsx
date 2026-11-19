@@ -120,6 +120,18 @@ export function describeEvent(
         ),
         kind: 'gate',
       };
+    // FB-21 (N17-21): "Payback requested from Finance by <name>", "Payback request withdrawn: <reason>".
+    case 'payback_requested':
+      return {
+        title: `Payback requested from Finance${str(p.byName) ? ` by ${str(p.byName)}` : ''}`,
+        detail: note(str(p.note)),
+        kind: 'gate',
+      };
+    case 'payback_request_withdrawn':
+      return {
+        title: `Payback request withdrawn${str(p.reason) ? `: ${str(p.reason)}` : ''}`,
+        kind: 'gate',
+      };
     case 'version_bumped':
       return { title: `New version: v${String(p.from)} → v${String(p.to)}`, kind: 'system' };
     case 'proposal_released':

@@ -271,16 +271,32 @@ const COPY: Record<string, Copy> = {
     cta: 'Open Final Review',
   },
   // FB-07 (D-001): costing, then ROI, then price approved. `version` is the model's version number.
+  // FB-21 (N17-21): sent when the pricer or the pricing lead asks Finance for the payback model.
   'quote.ready_for_roi': {
-    phrase: 'is ready for its payback model',
+    phrase: 'needs a payback model',
     context: 'Quoting',
-    heading: 'A costing model is ready for the payback model',
+    heading: 'A payback model is asked for',
     action: (p) =>
       sentence(
         p.actor
-          ? `${p.actor} uploaded the costing model${p.version ? ` (version ${p.version})` : ''}.`
-          : 'Pricing uploaded the costing model.',
-        'Capital is required on this quote: build the payback model from it and upload it on the Quoting tab.',
+          ? `${p.actor} asked Finance for a payback model.`
+          : 'Pricing asked Finance for a payback model.',
+        p.note ? `Their note: ${p.note}` : '',
+        'Build it from the costing model and upload it on the Quoting tab.',
+      ),
+    cta: 'Open Quoting',
+  },
+  'quote.payback_request_withdrawn': {
+    phrase: 'no longer needs a payback model',
+    context: 'Quoting',
+    heading: 'A payback request is withdrawn',
+    action: (p) =>
+      sentence(
+        p.actor
+          ? `${p.actor} withdrew the request for a payback model.`
+          : 'The request for a payback model was withdrawn.',
+        p.reason ? `Reason: ${p.reason}` : '',
+        'You can stop work on it.',
       ),
     cta: 'Open Quoting',
   },

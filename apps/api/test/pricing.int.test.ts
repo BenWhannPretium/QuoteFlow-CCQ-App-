@@ -17,7 +17,7 @@ import type { Role } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { prepareBom, prepareModels, uploadModel } from './model-helpers';
+import { prepareBom, prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -381,7 +381,12 @@ describe('the pricing queue', () => {
   it('arrival: the version gets a pricing record and the Pricing team is told', async () => {
     const qn = await inQuoting();
     const [row] = await records(qn);
-    expect(row).toMatchObject({ quoteVersion: 1, priceApprovedBy: null, capitalReadiness: null });
+    // FB-21 (N17-19): $0 preliminary capital, so capital readiness starts on "not required".
+    expect(row).toMatchObject({
+      quoteVersion: 1,
+      priceApprovedBy: null,
+      capitalReadiness: 'not_required',
+    });
     const notes = await db.db
       .select()
       .from(schema.notification)
@@ -645,8 +650,8 @@ describe('G3 Submit to Final Review', () => {
     expect(errorPaths(empty)).toEqual([
       // FB-07 (F-032): the costing model is on file (no ROI is needed: capital is not required).
       '/cost_model_on_file,pricing_record.cost_model_requirement',
-      '/pricing_record.capital_readiness',
-      '/pricing_record.capital_readiness,pricing_record.capital_pending_justification',
+      // FB-21 (N17-19): capital readiness is filled on arrival (not required: $0 capital), and pending
+      // would need no note.
       '/pricing_record.costing_completed',
       '/pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible',
     ]);
@@ -654,7 +659,7 @@ describe('G3 Submit to Final Review', () => {
     const missing = (await detail(qn, 'PricingLead')).dto.availableActions.find(
       (a) => a.gateKey === 'G3' && a.outcomeKey === 'submit',
     )!.missing;
-    expect(missing).toHaveLength(5);
+    expect(missing).toHaveLength(3);
     await prepareModels(app, qn);
 
     // Cost before price: the approval alone is not enough. Uploading the costing model ticked
@@ -727,29 +732,23 @@ describe('G3 Submit to Final Review', () => {
     expect((await putRecord(qn, { pricingBasisNote: 'late' })).statusCode).toBe(409);
   });
 
-  it('FB-17: capital needed at G2 must be confirmed before G3, not pending', async () => {
+  it('FB-21 (N17-19, N17-20): capital needed at G2 starts pending and advances G3 with no note', async () => {
     const qn = await inQuoting('capital_needed');
-    await approve(qn);
-    await putCapital(qn, {
+    expect((await records(qn))[0]).toMatchObject({
       capitalReadiness: 'pending',
-      capitalPendingJustification: SECRETS.justification,
+      capitalPendingJustification: null,
     });
-    // The Advance flagged the quote capital likely, so B-26's rule applies: readiness must be confirmed.
-    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
-      '/capital_likely,pricing_record.capital_readiness',
-    ]);
-    await putCapital(qn, { capitalReadiness: 'pre_approved' });
-    expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(201);
+    await approve(qn);
+    // Ben, 2026-11-18: pending is the normal state before award and never blocks.
+    const ok = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
+    expect(ok.statusCode, ok.body).toBe(201);
   });
 
-  it('"Capital required" (decided before FB-17): pending capital needs a justification, then submits with a warning', async () => {
+  it('"Capital required" (decided before FB-17): starts pending and submits with a warning, an optional note kept', async () => {
     const qn = await inQuoting('capital_required');
     await approve(qn);
-    const blocked = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
-    expect(blocked.statusCode).toBe(422);
-    expect(errorPaths(blocked)).toEqual([
-      '/pricing_record.capital_readiness,pricing_record.capital_pending_justification',
-    ]);
+    expect((await records(qn))[0]!.capitalReadiness).toBe('pending');
+    // FB-21: the note is optional; the pricer may still add one and the approver sees it.
     await putCapital(qn, {
       capitalReadiness: 'pending',
       capitalPendingJustification: SECRETS.justification,
@@ -802,24 +801,15 @@ describe('G3 Submit to Final Review', () => {
     }
   });
 
-  it('B-26: a "capital likely" quote needs capital readiness confirmed, not pending', async () => {
+  it('FB-21: a "capital likely" quote advances on pending (B-26 asked for pre-approved; Ben, 2026-11-18)', async () => {
     const qn = await inQuoting();
     await approve(qn);
-    await putCapital(qn, {
-      capitalReadiness: 'pending',
-      capitalPendingJustification: SECRETS.justification,
-    });
+    await putCapital(qn, { capitalReadiness: 'pending' });
     const flag = await as('EngLead').put(`/api/v1/quotes/${qn}/capital-flag`, {
       capitalLikely: true,
     });
     expect(flag.statusCode, flag.body).toBe(200);
-    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
-      '/capital_likely,pricing_record.capital_readiness',
-      // FB-07 (roi_required_when): capital likely now needs Finance's ROI model too.
-      '/roi_required,roi_model_on_file',
-    ]);
-    expect((await uploadModel(app, qn, 'roi_model', 'Finance')).statusCode).toBe(201);
-    await putCapital(qn, { capitalReadiness: 'pre_approved' });
+    // Pending is fine, and (FB-21 Part B) capital likely only suggests a payback model.
     expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(201);
   });
 
@@ -962,7 +952,8 @@ describe('G3 Submit to Final Review', () => {
     expect(rows[1]).toMatchObject({
       priceApprovedBy: null,
       approvedRangeNote: null,
-      capitalReadiness: null,
+      // FB-21 (N17-19): the new version starts on the default again ($0 capital: not required).
+      capitalReadiness: 'not_required',
       cerReference: 'CER-5',
       pricingRefs: { erf: [SECRETS.erf] },
     });

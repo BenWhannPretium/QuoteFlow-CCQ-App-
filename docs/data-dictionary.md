@@ -791,8 +791,14 @@ Price approval and capital readiness record (CR-25/26), one row per quote versio
 | `capital_notes` | text | yes |  |  | Capital notes. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
 | `capital_pending_justification` | text | yes |  |  | Why G3 is submitted with capital still pending (D-11 open: a warning, not a block). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
 | `cost_model_requirement` | text | no | "required" |  | FB-07 (F-032): required \| grandfathered. The costing attestation and G3 need a current cost_model attachment unless grandfathered: quotes in Quoting with costing attested and no model when FB-07 shipped (migration 0031). Every new version starts required. | CCQ (system) |
+| `payback_requested_by` | uuid | yes |  | app_user.id | FB-21: who asked Finance for a payback model on this version (the assigned pricer or a pricing lead). A new request replaces a withdrawn or fulfilled one; the history is on the timeline and in audit_event. | Pricing |
+| `payback_requested_at` | timestamp with time zone | yes |  |  | FB-21: when Finance was asked. G3 needs a payback model uploaded at or after this time while the request is not withdrawn. | Pricing |
+| `payback_request_note` | text | yes |  |  | FB-21: optional note to Finance (500 characters at most). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Pricing |
+| `payback_request_withdrawn_at` | timestamp with time zone | yes |  |  | FB-21: when the open request was withdrawn (Finance is told to stop). | Pricing |
+| `payback_request_withdrawn_by` | uuid | yes |  | app_user.id | FB-21: who withdrew the request. | Pricing |
+| `payback_request_withdraw_reason` | text | yes |  |  | FB-21: why the request was withdrawn (200 characters at most). | Pricing |
 
-**Checks:** `pricing_record_capital_readiness_check`, `pricing_record_cost_model_requirement_check`
+**Checks:** `pricing_record_payback_request_check`, `pricing_record_capital_readiness_check`, `pricing_record_cost_model_requirement_check`
 
 **Indexes:** `pricing_record_quote_version_uniq`
 

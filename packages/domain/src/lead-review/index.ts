@@ -56,7 +56,13 @@ export const LEAD_REVIEW: Record<LeadReviewKind, LeadReviewSpec> = {
     advanceOutcomeKey: 'submit',
     leadPermission: 'gate.G3.submit',
     workPermission: 'quoting.edit',
-    leadOnlyFields: ['roi_required', 'roi_model_on_file'],
+    // FB-21: "capital not approved" is the pricer's recommendation to stop; the lead decides on it.
+    leadOnlyFields: [
+      'roi_required',
+      'roi_model_on_file',
+      'payback_received',
+      'capital_not_approved',
+    ],
     noun: { assignee: 'pricer', lead: 'pricing lead' },
   },
 };

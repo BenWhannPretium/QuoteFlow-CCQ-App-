@@ -344,6 +344,20 @@
       "when": 1794865966183,
       "tag": "0048_fb20_offer_letter",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1795044536369,
+      "tag": "0049_fb21_capital_readiness",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1795046505094,
+      "tag": "0050_fb21_payback_request",
+      "breakpoints": true
     }
   ]
 }

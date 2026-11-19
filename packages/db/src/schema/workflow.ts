@@ -1581,9 +1581,42 @@ export const pricingRecord = documented(
         'FB-07 (F-032): required | grandfathered. The costing attestation and G3 need a current cost_model attachment unless grandfathered: quotes in Quoting with costing attested and no model when FB-07 shipped (migration 0031). Every new version starts required.',
         SYSTEM,
       ),
+      // FB-21 (N17-21, N17-22; Ben, 2026-11-18): a payback model only when someone asks Finance for one.
+      paybackRequestedBy: c(
+        userRef('payback_requested_by'),
+        'FB-21: who asked Finance for a payback model on this version (the assigned pricer or a pricing lead). A new request replaces a withdrawn or fulfilled one; the history is on the timeline and in audit_event.',
+      ),
+      paybackRequestedAt: c(
+        timestamptz('payback_requested_at'),
+        'FB-21: when Finance was asked. G3 needs a payback model uploaded at or after this time while the request is not withdrawn.',
+      ),
+      paybackRequestNote: c(
+        text('payback_request_note'),
+        'FB-21: optional note to Finance (500 characters at most).' + COMMERCIAL,
+      ),
+      paybackRequestWithdrawnAt: c(
+        timestamptz('payback_request_withdrawn_at'),
+        'FB-21: when the open request was withdrawn (Finance is told to stop).',
+      ),
+      paybackRequestWithdrawnBy: c(
+        userRef('payback_request_withdrawn_by'),
+        'FB-21: who withdrew the request.',
+      ),
+      paybackRequestWithdrawReason: c(
+        text('payback_request_withdraw_reason'),
+        'FB-21: why the request was withdrawn (200 characters at most).',
+      ),
     },
     (t) => [
       uniqueIndex('pricing_record_quote_version_uniq').on(t.quoteId, t.quoteVersion),
+      check(
+        'pricing_record_payback_request_check',
+        sql`(${t.paybackRequestedAt} is null) = (${t.paybackRequestedBy} is null)
+          and (${t.paybackRequestWithdrawnAt} is null) = (${t.paybackRequestWithdrawnBy} is null)
+          and (${t.paybackRequestWithdrawnAt} is null or ${t.paybackRequestedAt} is not null)
+          and (${t.paybackRequestNote} is null or char_length(${t.paybackRequestNote}) <= 500)
+          and (${t.paybackRequestWithdrawReason} is null or char_length(${t.paybackRequestWithdrawReason}) <= 200)`,
+      ),
       check(
         'pricing_record_capital_readiness_check',
         inList(t.capitalReadiness, CAPITAL_READINESS),

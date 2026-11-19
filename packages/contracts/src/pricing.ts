@@ -44,11 +44,29 @@ export const CapitalReadinessBody = z
     /** Capital expenditure request id (Apex), optional. */
     cerReference: z.string().trim().max(40).nullable().optional(),
     capitalNotes: note.optional(),
-    /** Why G3 may be submitted with capital still pending (D-11 open: a warning, not a block). */
+    /** FB-21: an optional note on pending capital (pending is normal before award; never required). */
     capitalPendingJustification: note.optional(),
   })
   .strict();
 export type CapitalReadinessBody = z.infer<typeof CapitalReadinessBody>;
+
+/** FB-21 (N17-21): POST /api/v1/quotes/:quoteNumber/quoting/payback-request. */
+export const PaybackRequestBody = z
+  .object({
+    /** Optional, shown to Finance. */
+    note: z.string().trim().max(500).nullable().optional(),
+  })
+  .strict();
+export type PaybackRequestBody = z.infer<typeof PaybackRequestBody>;
+
+/** FB-21: POST /api/v1/quotes/:quoteNumber/quoting/payback-request/withdraw. */
+export const PaybackWithdrawBody = z
+  .object({
+    /** Required: why Finance can stop. */
+    reason: z.string().trim().min(1).max(200),
+  })
+  .strict();
+export type PaybackWithdrawBody = z.infer<typeof PaybackWithdrawBody>;
 
 export const QuotingWarning = z.object({ code: z.string(), message: z.string() });
 export type QuotingWarning = z.infer<typeof QuotingWarning>;
@@ -113,7 +131,8 @@ export const ModelFileView = z.object({
 export type ModelFileView = z.infer<typeof ModelFileView>;
 
 /** done · waiting (this step is next) · blocked (an earlier step first) · not_required (ROI only). */
-export const QuotingStepStatus = z.enum(['done', 'waiting', 'blocked', 'not_required']);
+/** FB-21: `not_requested` = nobody asked Finance for a payback model (payback step only). */
+export const QuotingStepStatus = z.enum(['done', 'waiting', 'blocked', 'not_requested']);
 export type QuotingStepStatus = z.infer<typeof QuotingStepStatus>;
 
 export const QuotingStepsView = z.object({
@@ -132,11 +151,30 @@ export const QuotingStepsView = z.object({
   }),
   roi: z.object({
     status: QuotingStepStatus,
+    /** FB-21: G3 needs a payback model (someone asked Finance and did not withdraw). */
     required: z.boolean(),
-    /** Why an ROI is needed, in words ("Engineering (G2): Advance – capital required"). */
+    /** FB-21: why `roi_required_when` suggests one, in words (a hint, not a requirement). */
     reasons: z.array(z.string()),
-    /** Why not, when not required. */
+    /** FB-21: "Finance's payback model may be useful here: …", or null. */
+    hint: z.string().nullable(),
+    /** FB-21: the step's words while nobody has asked ("Not requested. …"), else null. */
     notRequiredText: z.string().nullable(),
+    /** FB-21 (N17-21): the request on this version. */
+    request: z.object({
+      status: z.enum(['none', 'open', 'received', 'withdrawn']),
+      requestedByName: z.string().nullable(),
+      requestedAt: z.string().nullable(),
+      note: z.string().nullable(),
+      withdrawnByName: z.string().nullable(),
+      withdrawnAt: z.string().nullable(),
+      withdrawReason: z.string().nullable(),
+    }),
+    /** The caller may ask Finance now (`payback.request`, costing model on file, none open). */
+    canRequest: z.boolean(),
+    /** The caller may withdraw the open request. */
+    canWithdraw: z.boolean(),
+    /** How many active users hold the Finance role (0: a request reaches nobody). */
+    financeUsers: z.number().int(),
     model: ModelFileView.nullable(),
     /** The ROI was uploaded before the current costing model (Finance may need to rebuild it). */
     olderThanCostModel: z.boolean(),

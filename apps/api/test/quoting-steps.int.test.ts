@@ -248,10 +248,11 @@ describe('F-083: the Finance role', () => {
     const qn = await inQuoting('capital_needed');
     ok(await uploadModel(app, qn, 'cost_model', 'Pricing'));
     const d = await detail(qn, 'Finance');
-    // The upload completes the costing step (Bailey Schmitt, 2026-11-12), so the payback step is next.
+    // FB-21 (N17-21): nobody asked Finance for a payback model, so the step says so; Finance may
+    // still upload one.
     expect(d.quoting.steps.roi).toMatchObject({
-      required: true,
-      status: 'waiting',
+      required: false,
+      status: 'not_requested',
       canUpload: true,
     });
     expect(d.quoting.commercialRedacted).toBe(false);
@@ -280,15 +281,18 @@ describe('F-083: the Finance role', () => {
 });
 
 describe('D-001: costing, then ROI, then price approved (capital needed)', () => {
-  it('a quote decided "Advance – capital required" before FB-17 still needs the payback model', async () => {
+  it('FB-21: a quote decided "Advance – capital required" before FB-17 gets the hint, not a requirement', async () => {
     const s = await steps(await inQuoting('capital_required'));
-    expect(s.roi.required).toBe(true);
-    // The switched-off outcome keeps its label in the reason.
+    expect(s.roi.required).toBe(false);
+    // The switched-off outcome keeps its label in the hint.
     expect(s.roi.reasons).toEqual(['Engineering’s decision: Advance – capital required']);
+    expect(s.roi.hint).toBe(
+      'Finance’s payback model may be useful here: Engineering’s decision: Advance – capital required',
+    );
     expect([s.current, s.costing.status, s.roi.status, s.price.status]).toEqual([
       'costing',
       'waiting',
-      'blocked',
+      'not_requested',
       'blocked',
     ]);
   });
@@ -298,10 +302,11 @@ describe('D-001: costing, then ROI, then price approved (capital needed)', () =>
     let s = await steps(qn);
     expect(s.current).toBe('costing');
     // FB-17 (W13-22): the G2 Advance with preliminary capital above $0 flagged the quote capital likely.
+    // FB-21: that is a hint; the payback step waits only once someone asks Finance.
     expect(s.roi.reasons).toEqual(['Capital is flagged likely']);
     expect([s.costing.status, s.roi.status, s.price.status]).toEqual([
       'waiting',
-      'blocked',
+      'not_requested',
       'blocked',
     ]);
 
@@ -328,13 +333,8 @@ describe('D-001: costing, then ROI, then price approved (capital needed)', () =>
       version: 1,
       current: true,
     });
-    const finance = await usersWithRole('Finance');
-    expect(
-      (await notified(qn, 'quote.ready_for_roi'))
-        .filter((n) => n.channel === 'in_app')
-        .map((n) => n.userId)
-        .sort(),
-    ).toEqual(finance);
+    // FB-21 (N17-22): a costing upload no longer pages Finance; asking for the payback model does.
+    expect(await notified(qn, 'quote.ready_for_roi')).toEqual([]);
     tick();
     const v2 = await uploadModel(app, qn, 'cost_model', 'Pricing', 'Costing model.xlsx');
     ok(v2);
@@ -355,12 +355,33 @@ describe('D-001: costing, then ROI, then price approved (capital needed)', () =>
       fileName: 'Costing model.xlsx',
     });
     expect(s.costing.attestedByName).toBeTruthy();
+    expect([s.current, s.roi.status, s.price.status]).toEqual([
+      'price',
+      'not_requested',
+      'waiting',
+    ]);
+
+    // FB-21: the pricing lead asks Finance for the payback model; Finance is told.
+    ok(
+      await as('PricingLead').post(`/api/v1/quotes/${qn}/quoting/payback-request`, {
+        note: 'Board pack (synthetic)',
+      }),
+      200,
+    );
+    const finance = await usersWithRole('Finance');
+    expect(
+      (await notified(qn, 'quote.ready_for_roi'))
+        .filter((n) => n.channel === 'in_app')
+        .map((n) => n.userId)
+        .sort(),
+    ).toEqual(finance);
+    s = await steps(qn);
     expect([s.current, s.roi.status, s.price.status]).toEqual(['roi', 'waiting', 'blocked']);
 
-    // The lead cannot approve the price yet: the ROI model is missing.
+    // The lead cannot approve the price yet: the payback model asked for is missing.
     const noRoi = await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead');
     expect(noRoi.statusCode).toBe(422);
-    expect(noRoi.body).toContain('roi_required,roi_model_on_file');
+    expect(noRoi.body).toContain('roi_required,payback_received');
 
     // Step 2: ROI. Pricing cannot upload it (no roi.upload); Finance can, and the lead is told.
     expect((await uploadModel(app, qn, 'roi_model', 'Pricing')).statusCode).toBe(403);
@@ -477,24 +498,29 @@ describe('D-001: costing, then ROI, then price approved (capital needed)', () =>
   });
 });
 
-describe('ROI not required (no capital)', () => {
-  it('shows "not required" and why, refuses an ROI upload and lets the lead approve without it', async () => {
+describe('payback not requested (FB-21)', () => {
+  it('shows "not requested", accepts an unasked payback upload (leads told) and lets the lead approve', async () => {
     const qn = await inQuoting('proceed');
     const s0 = await steps(qn);
-    expect(s0.roi).toMatchObject({ required: false, status: 'not_required', canUpload: false });
-    expect(s0.roi.notRequiredText).toMatch(/^Not required/);
+    expect(s0.roi).toMatchObject({ required: false, status: 'not_requested' });
+    expect(s0.roi.notRequiredText).toMatch(/^Not requested/);
     ok(await uploadModel(app, qn, 'cost_model', 'Pricing'));
-    // Finance is not paged when no ROI is needed.
+    // Finance is not paged on a costing upload.
     expect(await notified(qn, 'quote.ready_for_roi')).toEqual([]);
-    const roi = await uploadModel(app, qn, 'roi_model', 'Finance');
-    expect(roi.statusCode).toBe(409);
-    expect(roi.body).toContain('does not need a payback model');
+    // Finance may upload without a request; only the pricing leads are told.
+    ok(await uploadModel(app, qn, 'roi_model', 'Finance'));
+    expect(
+      (await notified(qn, 'quote.roi_uploaded'))
+        .filter((n) => n.channel === 'in_app')
+        .map((n) => n.userId)
+        .sort(),
+    ).toEqual(await usersWithRole('PricingLead'));
     await pricingRecorded(qn);
     expect((await steps(qn)).current).toBe('price');
     ok(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'));
   });
 
-  it('a $0 CER funding model or the capital-likely flag requires the ROI (roi_required_when)', async () => {
+  it('a $0 CER funding model or the capital-likely flag suggests a payback model (roi_required_when hint)', async () => {
     const qn = await inQuoting('proceed');
     const id = await quoteId(qn);
     await db.db.execute(sql`update quote set tooling_funding_model = 'ZERO_CER' where id = ${id}`);

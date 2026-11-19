@@ -22,7 +22,7 @@ import { freshSfDatabase } from '../sf-helpers';
  *   as `/quotes/mine/...` vs `/quotes/:quoteNumber/...`, would test the wrong gate).
  *
  * Not covered here, by design: qualified grants (KAM "own", Engineer "assigned", ProductionScheduler
- * "assigned as scheduler", EngLead override "fields", PostAward "stages") and data scope. They pass the route gate and are enforced per
+ * "assigned as scheduler", Pricing "assigned as pricer", EngLead override "fields", PostAward "stages") and data scope. They pass the route gate and are enforced per
  * resource by `assertCan` in the services and by Postgres RLS; the per-feature integration tests
  * (outcome, engineering, overrides, pipeline, ...) prove them with owner/non-owner quotes. Neither is
  * PostAward: it is P2 and has no dev persona yet (its single grant is `quote.read` on AWARDED quotes).

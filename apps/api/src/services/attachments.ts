@@ -45,6 +45,7 @@ import {
 import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_SNIFF_BYTES,
+  asUserId,
   attachmentRemoval,
   can,
   canUploadAttachment,
@@ -58,7 +59,8 @@ import {
   isQuotingModelKind,
   isVersionedKind,
   planEquipmentBomUpload,
-  planCostModelUploaded,
+  paybackFromFields,
+  paybackNeeded,
   planModelUpload,
   planRoiUploaded,
   parseAttachmentSettings,
@@ -121,14 +123,22 @@ const unknownItem = () =>
     errors: [{ path: '/itemKey', message: 'Pick one of the items', code: 'INVALID_VALUE' }],
   });
 
-/** FB-07: the costing / ROI step facts a model upload is checked against. */
-async function modelContext(db: DbOrTx, state: QuoteState): Promise<ModelUploadContext> {
+/**
+ * FB-07: the costing / ROI step facts a model upload is checked against. FB-21: and who asked Finance for
+ * the payback model (a request not withdrawn), who is told when Finance uploads it.
+ */
+async function modelContext(
+  db: DbOrTx,
+  state: QuoteState,
+): Promise<ModelUploadContext & { paybackRequesterId: string | null }> {
   const settings = await loadCommercialSettings(db);
   const record = state.fields.pricing_record as Record<string, unknown> | null | undefined;
+  const payback = paybackFromFields(state.fields);
   return {
     costModelOnFile: state.fields.cost_model_on_file === true,
     costModelGrandfathered: record?.cost_model_requirement === 'grandfathered',
     roiRequired: derivedDecisionFields(state.fields, settings.derived).roi_required,
+    paybackRequesterId: paybackNeeded(payback.status) ? payback.request.requestedBy : null,
   };
 }
 
@@ -141,7 +151,7 @@ async function authorizeModel(
   actor: Actor,
   kind: QuotingModelKind,
   state: QuoteState,
-): Promise<ModelUploadContext> {
+): Promise<Awaited<ReturnType<typeof modelContext>>> {
   await assertSectionUnlocked(db, 'pricing', state);
   const ctx = await modelContext(db, state);
   const plan = planModelUpload(kind, actor, state, ctx);
@@ -588,7 +598,7 @@ export class AttachmentService {
         const settings = where.settings;
         let quoteId: string | null = null;
         let quoteNumber: string | null = null;
-        let modelCtx: ModelUploadContext | null = null;
+        let modelCtx: Awaited<ReturnType<typeof modelContext>> | null = null;
         let drawingStatus: AttachmentUploadResponse['drawingStatus'] = null;
         const hasDrawing = await AttachmentService.hasDrawingCodes(tx);
         // FB-19: a drawing belongs to one item (the draft item's key, or the quote item's id).
@@ -830,24 +840,24 @@ export class AttachmentService {
   }
 
   /**
-   * FB-07 (D-001): the next person in the sequence is told through FB-05's resolver. Costing model →
-   * Finance, when the quote needs an ROI; ROI model → the pricing lead. The updated price table is the
-   * lead's own step: nobody is paged. In-app body and email name the uploader and the version only.
+   * FB-07 (D-001): the next person in the sequence is told through FB-05's resolver. FB-21 (N17-21):
+   * Finance is told when someone asks for the payback model (`PricingService.requestPayback`), not on a
+   * costing upload any more. Payback model → the pricing lead(s) and whoever made the request (once).
+   * The updated price table is the lead's own step: nobody is paged. In-app body and email name the
+   * uploader and the version only.
    */
   private async announceModel(
     tx: Tx,
     actor: Actor,
     kind: QuotingModelKind,
     version: number,
-    ctx: ModelUploadContext,
+    ctx: Awaited<ReturnType<typeof modelContext>>,
     quote: { id: string; quoteNumber: string },
   ) {
     const entries: PlannedHandoff[] =
-      kind === 'cost_model'
-        ? planCostModelUploaded(ctx.roiRequired)
-        : kind === 'roi_model'
-          ? planRoiUploaded()
-          : [];
+      kind === 'roi_model'
+        ? planRoiUploaded(ctx.paybackRequesterId ? asUserId(ctx.paybackRequesterId) : null)
+        : [];
     if (entries.length === 0) return;
     const [me] = await listUsersByIds(tx, [actor.userId]);
     const who = me?.displayName ?? null;
@@ -856,18 +866,11 @@ export class AttachmentService {
       tx,
       entries,
       actor.userId,
-      () =>
-        kind === 'cost_model'
-          ? {
-              title: `${quote.quoteNumber} is ready for its payback model`,
-              body: `${who ?? 'Pricing'} uploaded the ${label} (version ${version}). Capital is required on this quote: build the payback model from it and upload it on the Quoting tab.`,
-              payload: { version: String(version), ...(who ? { actor: who } : {}) },
-            }
-          : {
-              title: `${quote.quoteNumber}: the payback model is uploaded`,
-              body: `${who ?? 'Finance'} uploaded the ${label} (version ${version}). Review it, then approve the price or send the quote back.`,
-              payload: { version: String(version), ...(who ? { actor: who } : {}) },
-            },
+      () => ({
+        title: `${quote.quoteNumber}: the payback model is uploaded`,
+        body: `${who ?? 'Finance'} uploaded the ${label} (version ${version}). Review it, then approve the price or send the quote back.`,
+        payload: { version: String(version), ...(who ? { actor: who } : {}) },
+      }),
       quote.id,
       { log: this.opts.log },
     );

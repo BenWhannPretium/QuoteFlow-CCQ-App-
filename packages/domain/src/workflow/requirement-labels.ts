@@ -62,12 +62,20 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
   'pricing_record.costing_completed': 'Costing attested as complete (before the price)',
   'cost_model_on_file,pricing_record.cost_model_requirement':
     'The costing model, uploaded by Pricing on the Quoting tab',
+  // Kept for G3 rules stored before FB-21.
   'roi_required,roi_model_on_file': 'The payback model, uploaded by Finance (this quote needs one)',
+  // FB-21 (N17-21): only while someone has asked Finance for it.
+  'roi_required,payback_received':
+    'The payback model from Finance (it was asked for: Finance uploads it, or the request is withdrawn)',
   'pricing_record.capital_readiness': 'Capital readiness',
+  // Kept for G3 rules stored before FB-21 (an environment whose rule an Admin edited keeps them).
   'pricing_record.capital_readiness,pricing_record.capital_pending_justification':
     'Capital readiness confirmed, or a justification for going ahead while it is pending',
   'capital_likely,pricing_record.capital_readiness':
     'Capital is flagged likely: confirm capital readiness (not required or pre-approved)',
+  // FB-21 (N17-20): "not approved" is a recommendation to stop.
+  capital_not_approved:
+    'Capital is marked not approved: stop the quote, or change capital readiness',
   // G4 Final Review
   terms_checked_at: 'The terms check (tooling commitment, MOQ, payment terms)',
   'g4_terms_check_required,terms_checked_at':

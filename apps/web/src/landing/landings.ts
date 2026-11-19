@@ -124,7 +124,7 @@ export const LANDINGS: Record<LandingRole, LandingDefinition> = {
       {
         title: 'When a quote needs you',
         description:
-          'You get a notification here and an email when Pricing uploads a costing model on a quote that needs a payback model (capital is required, $0 CER included). The notification opens the Quoting tab, where you take action.',
+          'You get a notification here and an email when the pricer or the pricing lead asks you for a payback model on a quote, with their note if they wrote one. If they withdraw the request, you are told so you can stop. The notification opens the Quoting tab, where you take action.',
       },
       {
         title: 'What you do',

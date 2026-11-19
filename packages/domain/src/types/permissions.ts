@@ -14,6 +14,8 @@ export const PERMISSIONS = [
   'gate.G3.submit',
   // FB-07 (F-083): upload or replace the ROI model in Quoting.
   'roi.upload',
+  // FB-21 (N17-21; Ben, 2026-11-18): ask Finance for a payback model, or withdraw the request.
+  'payback.request',
   'finalReview.read',
   'gate.G4.decide',
   // FB-08 (F-082, off until A-035): an extra Final Review sign-off (g4_additional_approvals).

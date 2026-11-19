@@ -3,6 +3,8 @@ import {
   type BulkReassignBody,
   type BulkReassignResponse,
   type CapitalReadinessBody,
+  type PaybackRequestBody,
+  type PaybackWithdrawBody,
   type PricerAssignmentResponse,
   type PricingQueueFilters,
   type PricingQueueItem,
@@ -23,6 +25,7 @@ import {
   listUsersByIds,
   loadQuoteState,
   loadWorkflowConfigInput,
+  setPaybackRequest,
   updateQuote,
   upsertPricingRecord,
   type PricingQueueRow,
@@ -40,8 +43,13 @@ import {
   canEditQuoting,
   computeTimeInStage,
   filterPricingQueue,
+  paybackFromFields,
   parseWorkflowConfig,
   planCapitalReadiness,
+  planPaybackRequest,
+  planPaybackRequested,
+  planPaybackWithdraw,
+  planPaybackWithdrawn,
   planPricerAssignment,
   planPricingRecord,
   priceApprovalStatus,
@@ -52,6 +60,7 @@ import {
   type DomainError,
   type PricingQueueEntry,
   type PricingRecordPlan,
+  type PaybackRequest,
   type PricingRecordValues,
   type QuoteState,
   type Role,
@@ -60,6 +69,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 
 import { loadCapitalNeededAboveUsd } from './engineering-view';
+import { deliverPlanned } from './handoff-notifications';
 import { returnToAssignee, submitToLead, type LeadReviewDeps } from './lead-review';
 import { assertSectionUnlocked } from './locks';
 import { persistNotifications } from './notificationService';
@@ -93,6 +103,9 @@ const CONFLICT_CODES = new Set([
   'ALREADY_SUBMITTED',
   'NOT_SUBMITTED',
   'LOCKED_FOR_REVIEW',
+  // FB-21: one open payback request at a time; withdraw only an open one.
+  'REQUEST_OPEN',
+  'NO_OPEN_REQUEST',
 ]);
 
 /** Domain errors → 403 (not permitted), 409 (wrong state) or 422 (bad input, every error listed). */
@@ -700,6 +713,172 @@ export class PricingService {
       if (!plan.ok) fail(plan.errors);
       await this.apply(tx, actor, meta, loaded, plan, now);
       return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /**
+   * FB-21 (N17-21; Ben, 2026-11-18): POST /quotes/:qn/quoting/payback-request. The assigned pricer or a
+   * pricing lead asks Finance for a payback model (optional note). Finance is told (in-app and email),
+   * the timeline says who asked, and G3 then needs a payback model uploaded after the request.
+   */
+  async requestPayback(
+    withTx: PricingWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    body: PaybackRequestBody,
+    meta: AuditMeta,
+  ): Promise<QuotingDetail> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      const loaded = await this.load(tx, quoteNumber);
+      await assertSectionUnlocked(tx, 'pricing', loaded.state);
+      const payback = paybackFromFields(loaded.state.fields);
+      const plan = planPaybackRequest(
+        actor,
+        loaded.state,
+        payback.request,
+        {
+          costingReady:
+            loaded.state.fields.cost_model_on_file === true ||
+            loaded.current.costModelRequirement === 'grandfathered',
+          roiModelUploadedAt: payback.roiModelUploadedAt,
+        },
+        body,
+        now,
+      );
+      if (!plan.ok) fail(plan.errors);
+      const record = await this.recordFor(tx, actor, loaded);
+      await this.savePayback(tx, actor, meta, loaded.q.id, record, payback.request, plan.next, now);
+      const name = await this.nameOf(tx, actor.userId);
+      await insertActivityEvent(tx, {
+        quoteId: loaded.q.id,
+        type: 'payback_requested',
+        actorId: actor.userId,
+        at: now,
+        payload: { byName: name, note: plan.next.note, quoteVersion: loaded.q.version },
+        createdBy: actor.userId,
+      });
+      await deliverPlanned(
+        tx,
+        planPaybackRequested(),
+        actor.userId,
+        () => ({
+          title: `${quoteNumber} needs a payback model`,
+          body: `${name ?? 'Pricing'} asked Finance for a payback model.${plan.next.note ? ` Their note: ${plan.next.note}` : ''} Build it from the costing model and upload it on the Quoting tab.`,
+          payload: {
+            ...(name ? { actor: name } : {}),
+            ...(plan.next.note ? { note: plan.next.note } : {}),
+          },
+        }),
+        loaded.q.id,
+        { ...(this.opts.log ? { log: this.opts.log } : {}), at: now },
+      );
+      return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /** FB-21: POST /quotes/:qn/quoting/payback-request/withdraw. Finance is told, so they stop work. */
+  async withdrawPayback(
+    withTx: PricingWithTx,
+    actor: Actor,
+    quoteNumber: string,
+    body: PaybackWithdrawBody,
+    meta: AuditMeta,
+  ): Promise<QuotingDetail> {
+    const now = this.now();
+    return withTx(async (tx) => {
+      const loaded = await this.load(tx, quoteNumber);
+      await assertSectionUnlocked(tx, 'pricing', loaded.state);
+      const payback = paybackFromFields(loaded.state.fields);
+      const plan = planPaybackWithdraw(
+        actor,
+        loaded.state,
+        payback.request,
+        { roiModelUploadedAt: payback.roiModelUploadedAt },
+        body,
+        now,
+      );
+      if (!plan.ok) fail(plan.errors);
+      const record = await this.recordFor(tx, actor, loaded);
+      await this.savePayback(tx, actor, meta, loaded.q.id, record, payback.request, plan.next, now);
+      const name = await this.nameOf(tx, actor.userId);
+      await insertActivityEvent(tx, {
+        quoteId: loaded.q.id,
+        type: 'payback_request_withdrawn',
+        actorId: actor.userId,
+        at: now,
+        payload: { byName: name, reason: plan.next.withdrawReason, quoteVersion: loaded.q.version },
+        createdBy: actor.userId,
+      });
+      await deliverPlanned(
+        tx,
+        planPaybackWithdrawn(),
+        actor.userId,
+        () => ({
+          title: `${quoteNumber} no longer needs a payback model`,
+          body: `${name ?? 'Pricing'} withdrew the request for a payback model. Reason: ${plan.next.withdrawReason ?? ''} You can stop work on it.`,
+          payload: {
+            ...(name ? { actor: name } : {}),
+            ...(plan.next.withdrawReason ? { reason: plan.next.withdrawReason } : {}),
+          },
+        }),
+        loaded.q.id,
+        { ...(this.opts.log ? { log: this.opts.log } : {}), at: now },
+      );
+      return this.detail(tx, actor, quoteNumber);
+    });
+  }
+
+  /** The current version's record, created (empty) if Quoting has none yet. */
+  private async recordFor(
+    tx: Tx,
+    actor: Actor,
+    loaded: Awaited<ReturnType<PricingService['load']>>,
+  ) {
+    const existing = loaded.row?.quoteVersion === loaded.q.version ? loaded.row : null;
+    return (
+      existing ??
+      (await upsertPricingRecord(tx, {
+        ...recordColumns(loaded.current),
+        quoteId: loaded.q.id,
+        quoteVersion: loaded.q.version,
+        createdBy: actor.userId,
+      }))
+    );
+  }
+
+  private async nameOf(tx: Tx, userId: string): Promise<string | null> {
+    const [me] = await listUsersByIds(tx, [userId]);
+    return me?.displayName ?? null;
+  }
+
+  /** Write the payback columns and the audit row (values; the timeline names only who and why). */
+  private async savePayback(
+    tx: Tx,
+    actor: Actor,
+    meta: AuditMeta,
+    quoteId: string,
+    record: { id: string },
+    before: PaybackRequest,
+    next: PaybackRequest,
+    now: Date,
+  ) {
+    await setPaybackRequest(tx, record.id, {
+      paybackRequestedBy: next.requestedBy,
+      paybackRequestedAt: next.requestedAt,
+      paybackRequestNote: next.note,
+      paybackRequestWithdrawnAt: next.withdrawnAt,
+      paybackRequestWithdrawnBy: next.withdrawnBy,
+      paybackRequestWithdrawReason: next.withdrawReason,
+    });
+    await recordAudit(tx, actor, meta, {
+      action: 'update',
+      entity: 'pricing_record',
+      entityId: record.id,
+      quoteId,
+      before: { paybackRequest: before },
+      after: { paybackRequest: next },
+      at: now,
     });
   }
 }

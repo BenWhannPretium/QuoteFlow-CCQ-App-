@@ -320,6 +320,31 @@ export async function restorePreviousVersion(db: DbOrTx, quoteId: string, kind: 
   );
 }
 
+/**
+ * FB-21 (N17-21): record a payback request, or its withdrawal, on one version's pricing record. Only the
+ * payback columns change; the rest of the record (and `upsertPricingRecord`) never touches them.
+ */
+export async function setPaybackRequest(
+  db: DbOrTx,
+  recordId: string,
+  values: Pick<
+    typeof pricingRecord.$inferInsert,
+    | 'paybackRequestedBy'
+    | 'paybackRequestedAt'
+    | 'paybackRequestNote'
+    | 'paybackRequestWithdrawnAt'
+    | 'paybackRequestWithdrawnBy'
+    | 'paybackRequestWithdrawReason'
+  >,
+) {
+  const [row] = await db
+    .update(pricingRecord)
+    .set({ ...values, updatedAt: new Date() })
+    .where(eq(pricingRecord.id, recordId))
+    .returning();
+  return row!;
+}
+
 /** FB-07: the current version of each versioned kind on these quotes (removed and superseded excluded). */
 export const listCurrentModelVersions = (db: DbOrTx, quoteIds: readonly string[]) =>
   db

@@ -1,12 +1,22 @@
 import type { ModelFileView, QuotingStepsView } from '@ccq/contracts';
 import type { DbOrTx } from '@ccq/db';
-import { listAttachments, listUsersByIds, listValueList } from '@ccq/db/repos';
+import {
+  listActiveUsersWithRoles,
+  listAttachments,
+  listUsersByIds,
+  listValueList,
+} from '@ccq/db/repos';
 import {
   PRICING_QUEUE_STAGE_KEY,
   QUOTING_MODEL_KINDS,
   ROI_NOT_REQUIRED_TEXT,
+  ROI_OWNER_ROLES,
   derivedDecisionFields,
+  paybackFromFields,
+  paybackHintText,
   planModelUpload,
+  planPaybackRequest,
+  planPaybackWithdraw,
   quotingSteps,
   roiReasonText,
   sectionLock,
@@ -84,13 +94,20 @@ export async function quotingStepsView(
   state: QuoteState,
   record: PricingRecordValues | null,
 ): Promise<QuotingStepsView> {
-  const [models, settings, funding] = await Promise.all([
+  const [models, settings, funding, finance] = await Promise.all([
     currentModels(db, q.id),
     loadCommercialSettings(db),
     listValueList(db, 'tooling_funding_model', { activeOnly: false }),
+    listActiveUsersWithRoles(db, [...ROI_OWNER_ROLES]),
   ]);
   const derived = derivedDecisionFields(state.fields, settings.derived);
-  const roi = { required: derived.roi_required, reasons: derived.roi_required_reasons };
+  // FB-21 (N17-21): the payback request on this version, and when the current payback model came in.
+  const payback = paybackFromFields(state.fields);
+  const roi = {
+    required: derived.roi_required,
+    reasons: derived.roi_required_reasons,
+    request: payback.status,
+  };
   const grandfathered = record?.costModelRequirement === 'grandfathered';
   // Price approved = the pricing section's lock: G3 decided with an advancing outcome on this stay.
   const lock = sectionLock('pricing', workflow, state);
@@ -110,13 +127,21 @@ export async function quotingStepsView(
     (
       await listUsersByIds(
         db,
-        [record?.costingAttestedBy, lock.decidedBy].filter((id): id is string => !!id),
+        [
+          record?.costingAttestedBy,
+          lock.decidedBy,
+          payback.request.requestedBy,
+          payback.request.withdrawnBy,
+        ].filter((id): id is string => !!id),
       )
     ).map((u) => [u.id, u.displayName]),
   );
   const name = (id: string | null) => (id ? (people.get(id) ?? null) : null);
 
   const inQuoting = q.stageKey === PRICING_QUEUE_STAGE_KEY && q.status !== 'closed';
+  const g2Label = (key: string) =>
+    workflow.outcomes.find((o) => o.gateKey === 'G2' && o.key === key)?.label ?? key;
+  const fundingLabel = (code: string) => funding.find((v) => v.code === code)?.label ?? code;
   const ctx = {
     costModelOnFile: models.cost_model !== null,
     costModelGrandfathered: grandfathered,
@@ -124,10 +149,23 @@ export async function quotingStepsView(
   };
   const mayUpload = (kind: QuotingModelKind) =>
     inQuoting && !lock.locked && planModelUpload(kind, actor, state, ctx).ok;
-
-  const g2Label = (key: string) =>
-    workflow.outcomes.find((o) => o.gateKey === 'G2' && o.key === key)?.label ?? key;
-  const fundingLabel = (code: string) => funding.find((v) => v.code === code)?.label ?? code;
+  // FB-21: the request buttons follow the same plans the routes run (the G3 lock on top).
+  const paybackCtx = {
+    costingReady: models.cost_model !== null || grandfathered,
+    roiModelUploadedAt: payback.roiModelUploadedAt,
+  };
+  const now = new Date();
+  const canRequest =
+    inQuoting &&
+    !lock.locked &&
+    planPaybackRequest(actor, state, payback.request, paybackCtx, {}, now).ok;
+  const canWithdraw =
+    inQuoting &&
+    !lock.locked &&
+    planPaybackWithdraw(actor, state, payback.request, paybackCtx, { reason: 'x' }, now).ok;
+  const reasons = steps.roi.reasons.map((r) =>
+    roiReasonText(r, { g2Outcome: g2Label, fundingModel: fundingLabel }),
+  );
 
   return {
     current: steps.current,
@@ -143,10 +181,21 @@ export async function quotingStepsView(
     roi: {
       status: steps.roi.status,
       required: steps.roi.required,
-      reasons: steps.roi.reasons.map((r) =>
-        roiReasonText(r, { g2Outcome: g2Label, fundingModel: fundingLabel }),
-      ),
-      notRequiredText: steps.roi.required ? null : ROI_NOT_REQUIRED_TEXT,
+      reasons,
+      hint: paybackHintText(reasons),
+      notRequiredText: steps.roi.status === 'not_requested' ? ROI_NOT_REQUIRED_TEXT : null,
+      request: {
+        status: payback.status,
+        requestedByName: name(payback.request.requestedBy),
+        requestedAt: iso(payback.request.requestedAt),
+        note: payback.request.note,
+        withdrawnByName: name(payback.request.withdrawnBy),
+        withdrawnAt: iso(payback.request.withdrawnAt),
+        withdrawReason: payback.request.withdrawReason,
+      },
+      canRequest,
+      canWithdraw,
+      financeUsers: finance.length,
       model: models.roi_model,
       olderThanCostModel: steps.roi.olderThanCostModel,
       canUpload: mayUpload('roi_model'),

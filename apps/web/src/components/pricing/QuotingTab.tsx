@@ -6,7 +6,12 @@ import type {
   QuotingDetail,
 } from '@ccq/contracts';
 import { BUDGETARY_CAPITAL_LABEL } from '@ccq/contracts';
-import { CAPITAL_READINESS_LABELS, roundPct } from '@ccq/domain';
+import {
+  CAPITAL_READINESS_HELP,
+  CAPITAL_READINESS_INTRO,
+  CAPITAL_READINESS_LABELS,
+  roundPct,
+} from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2Icon, CircleAlertIcon, EyeOffIcon } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -51,6 +56,7 @@ import { timelineQueryKey } from '../Overrides';
 import { SectionLockLine } from '../SectionLockLine';
 import { approvedAtIso } from './approval-time';
 import { PricerAssignDialog, pricingQueueQueryKey } from './PricerAssignDialog';
+import { PRICING_NEXT_STEP_ID, PricerSubmitLine } from './PricerSubmitLine';
 import {
   PricingContextPanel,
   pricingContextQueryKey,
@@ -85,7 +91,11 @@ export function QuotingTab({
       <ApprovalStatus quoting={quoting} passThrough={quote.commercial.passThroughEligible} />
       <PricerAssignment quote={quote} />
       <LeadReviewStatus kind="pricing" review={quoting.leadReview} />
+      {/* FB-21 Part C (N17-23): the pricer's submit at the top too (one action, two places). */}
+      <PricerSubmitTop quote={quote} />
       <SectionLockLine lock={quoting.lock} />
+      {/* FB-21 Part D (N18-15): everything Engineering handed over first, before the costing. */}
+      <FromEngineering quote={quote} />
       {/* FB-11 (D-032): what the KAM told Pricing at intake (payment terms, funding, dunnage, freight, bid reference). */}
       <IntakeCommercialCard quote={quote} />
       {/* FB-19 (W13-32, decision 5): one costing model, payback model and price table cover every item. */}
@@ -97,8 +107,6 @@ export function QuotingTab({
           testId="quoting-items"
         />
       )}
-      {/* FB-06 (F-058, F-024, F-025, T-008): the equipment BOM, two-step process and pack-out from Engineering. */}
-      <EngineeringInputsCard quote={quote} />
       {/* FB-07 (D-001): costing → ROI → price approved, for every reader (Finance uploads here). */}
       <QuotingSteps quoteNumber={quote.quoteNumber} steps={quoting.steps} />
       {quoting.commercialRedacted ? (
@@ -113,7 +121,6 @@ export function QuotingTab({
       ) : (
         <>
           {record && record.warnings.length > 0 && <Warnings record={record} />}
-          <EngineeringSummary quote={quote} />
           <PricingContextForQuote quote={quote} />
           <PricingRecordCard key={`${quote.version}-${record?.updatedAt ?? ''}`} quote={quote} />
           <CapitalCard key={`cap-${quote.version}-${record?.updatedAt ?? ''}`} quote={quote} />
@@ -121,29 +128,111 @@ export function QuotingTab({
         </>
       )}
       {/* The one next step, after the work: the pricer submits to the lead; the lead decides (one button,
-          every outcome in its dialog) or sends the work back. */}
-      <PricingLeadActions
-        quote={quote}
-        decide={
-          g3 && !quoting.commercialRedacted
-            ? {
-                label: decisionLabel('G3', g3.gateLabel),
-                otherLabel: otherDecisionsLabel(quote.status === 'on_hold'),
-                onClick: () => onDecide(),
-                ...forward,
-                onOther:
-                  forward.others.length > 0
-                    ? () =>
-                        onDecide(undefined, {
-                          outcomes: forward.others,
-                          title: otherDecisionsLabel(quote.status === 'on_hold'),
-                        })
-                    : undefined,
-              }
-            : undefined
-        }
-      />
+          every outcome in its dialog) or sends the work back. FB-21: the top line links here. */}
+      <div id={PRICING_NEXT_STEP_ID} className="scroll-mt-4">
+        <PricingLeadActions
+          quote={quote}
+          decide={
+            g3 && !quoting.commercialRedacted
+              ? {
+                  label: decisionLabel('G3', g3.gateLabel),
+                  otherLabel: otherDecisionsLabel(quote.status === 'on_hold'),
+                  onClick: () => onDecide(),
+                  ...forward,
+                  onOther:
+                    forward.others.length > 0
+                      ? () =>
+                          onDecide(undefined, {
+                            outcomes: forward.others,
+                            title: otherDecisionsLabel(quote.status === 'on_hold'),
+                          })
+                      : undefined,
+                }
+              : undefined
+          }
+        />
+      </div>
     </div>
+  );
+}
+
+/** FB-21 Part C (N17-23): the assigned pricer's submit, at the top of the tab. */
+function PricerSubmitTop({ quote }: { quote: QuoteDetail }) {
+  const refresh = useRefresh(quote.quoteNumber);
+  return (
+    <PricerSubmitLine
+      quoteNumber={quote.quoteNumber}
+      review={quote.quoting.leadReview}
+      submit={() => api.submitQuotingToLead(quote.quoteNumber)}
+      onDone={(detail) => refresh(detail)}
+    />
+  );
+}
+
+/**
+ * FB-21 Part D (N18-15, Ben and Bailey Schmitt): everything Engineering handed over, together and first,
+ * so the pricer has it before costing: the decision and solution summary, then the BOM, two-step and
+ * pack-out card (`EngineeringInputsCard`, FB-22's file, used as it is). On a multi-item quote each item's
+ * engineering facts are listed too.
+ */
+function FromEngineering({ quote }: { quote: QuoteDetail }) {
+  return (
+    <section
+      aria-label="What Engineering handed over"
+      className="grid gap-3"
+      data-testid="quoting-engineering-group"
+    >
+      {!quote.quoting.commercialRedacted && <EngineeringSummary quote={quote} />}
+      {quote.items.length > 1 && <EngineeringPerItem quote={quote} />}
+      <EngineeringInputsCard quote={quote} />
+    </section>
+  );
+}
+
+/** FB-21 Part D: each item's plant, machine, cavitation and budgetary capital (multi-item quotes). */
+function EngineeringPerItem({ quote }: { quote: QuoteDetail }) {
+  return (
+    <Card data-testid="quoting-engineering-items">
+      <CardHeader>
+        <CardTitle>
+          <h3 className="text-base font-semibold">Engineering by item</h3>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {quote.items.map((item) => (
+          <div key={item.id ?? item.itemNo} className="grid gap-1">
+            <p className="text-sm font-medium">{item.name}</p>
+            <KeyValueGrid
+              items={withValues([
+                { label: 'Plant / site', value: item.plantLabel ?? item.plantCode },
+                { label: 'Machine', value: item.machineTypeLabel ?? item.machineType },
+                { label: 'Cavitation', value: item.cavitation?.toString() },
+                {
+                  label: BUDGETARY_CAPITAL_LABEL,
+                  value:
+                    item.prelimCapitalUsd != null
+                      ? `$${item.prelimCapitalUsd.toLocaleString('en-US')}`
+                      : null,
+                },
+              ])}
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * FB-21 Part D: a row only when it has a value, so a field Engineering no longer fills in (FB-22 stops
+ * collecting "Technical concept") disappears for new quotes while an old value still shows.
+ */
+function withValues<T extends { value?: unknown }>(items: T[]): T[] {
+  return items.filter(
+    (i) =>
+      i.value !== null &&
+      i.value !== undefined &&
+      !(typeof i.value === 'string' && !i.value.trim()),
   );
 }
 
@@ -357,7 +446,7 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
       </CardHeader>
       <CardContent className="grid gap-4">
         <KeyValueGrid
-          items={[
+          items={withValues([
             {
               id: 'g2',
               label: 'Engineering decision',
@@ -385,7 +474,7 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
                   : null,
             },
             { id: 'concept', label: 'Technical concept', value: eng.review.technicalConceptNotes },
-          ]}
+          ])}
         />
         {eng.capacityEvidence.length > 0 && (
           <div className="grid gap-1 text-sm">
@@ -740,11 +829,14 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
               { id: 'cap-notes', label: 'Notes', value: record?.capitalNotes },
               {
                 id: 'cap-just',
-                label: 'Pending justification',
+                label: 'Note on pending capital',
                 value: record?.capitalPendingJustification,
               },
             ]}
           />
+          <p className="text-muted-foreground mt-3 text-sm" data-testid="capital-readiness-intro">
+            {CAPITAL_READINESS_INTRO}
+          </p>
         </CardContent>
       </Card>
     );
@@ -797,6 +889,14 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
                 </NativeSelect>
               )}
             </Field>
+            <div className="grid gap-1 text-sm sm:col-span-2" data-testid="capital-readiness-intro">
+              <p className="text-muted-foreground">{CAPITAL_READINESS_INTRO}</p>
+              {form.capitalReadiness && (
+                <p data-testid="capital-readiness-help">
+                  {CAPITAL_READINESS_HELP[form.capitalReadiness as CapitalReadiness]}
+                </p>
+              )}
+            </div>
             {record?.cerReference && (
               <div className="grid gap-1 text-sm" data-testid="legacy-cer-reference">
                 <span className="font-medium">Legacy CER reference</span>
@@ -809,8 +909,8 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
           </div>
           {form.capitalReadiness === 'pending' && (
             <Field
-              label="Pending-capital justification"
-              hint="Required while capital is still pending: say why the quote should go ahead. The approver sees this at Final Review."
+              label="Note on pending capital (optional)"
+              hint="Optional. Anything the pricing lead or the approver should know; the approver sees it at Final Review."
               error={errorFor(errors, 'capitalPendingJustification')}
             >
               {(id) => (

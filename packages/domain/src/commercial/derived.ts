@@ -2,7 +2,13 @@ import { g4CheckFields, type G4Check } from './g4-checks';
 import { passThroughEligible, type PassThroughSetting } from './pass-through';
 import { legalReviewReasons, termsExceptionOpen, type LegalReviewTriggers } from './terms';
 import { CAPITAL_NEEDED_ABOVE_USD_SEED, engCapitalNeeded } from '../engineering/capital-needed';
-import { roiRequirement, type RoiReason, type RoiRequiredWhen } from '../quoting-steps';
+import {
+  paybackFromFields,
+  paybackNeeded,
+  roiRequirement,
+  type RoiReason,
+  type RoiRequiredWhen,
+} from '../quoting-steps';
 import type { QuoteState } from '../types/quote';
 import { quoteItemFacts } from '../workflow/item-rules';
 
@@ -44,7 +50,9 @@ export function derivedDecisionFields(
   terms_exception_open: boolean;
   roi_required: boolean;
   roi_required_reasons: RoiReason[];
+  payback_received: boolean;
   eng_capital_needed: boolean;
+  capital_not_approved: boolean;
 } {
   const reasons = legalReviewReasons(settings.legalReviewTriggers, {
     customerStatus: (fields.customer_status as string | null | undefined) ?? null,
@@ -63,10 +71,16 @@ export function derivedDecisionFields(
     terms_exception_open: termsExceptionOpen(
       fields.terms_exception_status as string | null | undefined,
     ),
-    // FB-07 (D-001): G3 needs the ROI model only when this is true (capital required, $0 CER included).
+    // FB-21 (N17-21; Ben, 2026-11-18): G3 needs the payback model only while someone has asked Finance
+    // for one (`roi_required`), and it is there once Finance uploads one after the request
+    // (`payback_received`). `roi_required_reasons` is the `roi_required_when` hint.
     ...(() => {
-      const roi = roiRequirement(fields, settings.roiRequiredWhen);
-      return { roi_required: roi.required, roi_required_reasons: roi.reasons };
+      const payback = paybackFromFields(fields);
+      return {
+        roi_required: paybackNeeded(payback.status),
+        roi_required_reasons: roiRequirement(fields, settings.roiRequiredWhen).reasons,
+        payback_received: payback.status === 'received',
+      };
     })(),
     // FB-17 (W13-22): the G2 rules ask for the equipment BOM exactly when this is true. FB-19: with
     // items, capital is needed when any item's preliminary capital says so.
@@ -77,6 +91,11 @@ export function derivedDecisionFields(
         ? items.some((i) => engCapitalNeeded(i.prelim_capital_usd, threshold))
         : engCapitalNeeded(fields.prelim_capital_usd, threshold);
     })(),
+    // FB-21 (N17-20; Ben, 2026-11-18): G3 Advance is refused while capital readiness is "not approved"
+    // (a recommendation to stop). Pending never blocks.
+    capital_not_approved:
+      (fields.pricing_record as { capital_readiness?: unknown } | null | undefined)
+        ?.capital_readiness === 'not_approved',
   };
 }
 

@@ -105,7 +105,7 @@ const ENG_FEASIBLE: RequiredRule[] = [
 /**
  * G3 Advance to Final Review (B-11, DEC-19/20, CR-26; B-26). Pricing records the approval as a decision,
  * not the pricing math (DEC-23): who approved and when, and a capital readiness status. Pending capital is
- * allowed with a justification (D-11 open, so it is a warning on the decision, not a block).
+ * allowed and needs no note (FB-21: it is the normal state before award); a warning, never a block.
  *
  * B-26 (demo 10/20 and the future-state deck, slides 9/12/17):
  * - no pricing-app reference (ERF / BPR) is required any more: BPR is outside CCQ and ERF is a
@@ -113,15 +113,14 @@ const ENG_FEASIBLE: RequiredRule[] = [
  * - cost before price: the cost sheet must be attested (`costing_completed`) before the price advances;
  * - the price approval is not needed below the pass-through threshold (`pass_through_eligible`, derived
  *   by the server from app_setting `pricing_pass_through`, off until Pricing sets the amount, D-24);
- * - a quote flagged "capital likely" at Stage 1 needs capital readiness confirmed (pre-approved, or
- *   not required after all), not pending.
+ * - FB-21 removed "a quote flagged capital likely needs pre-approved or not required": only "not
+ *   approved" refuses Advance now (`capital_not_approved`, derived by the server).
  * Provisional; confirm at R3 with Gemma Cebolla.
  */
 /**
  * FB-07 (D-001, F-032): costing, then ROI, then price confirmation. The pricing lead cannot confirm the
- * price (G3 Advance) until the current costing model is on file and, when the quote needs an ROI
- * (`roi_required`, derived from app_setting `roi_required_when`: capital required, $0 CER included), the
- * current ROI model too. `cost_model_on_file` / `roi_model_on_file` come from the quote's current
+ * price (G3 Advance) until the current costing model is on file and, FB-21, when someone asked Finance
+ * for a payback model (`roi_required`), until Finance uploads one after the request (`payback_received`). `cost_model_on_file` / `roi_model_on_file` come from the quote's current
  * attachments; a missing field fails closed. Quotes already in Quoting with costing attested before
  * FB-07 are grandfathered by migration 0031 (`pricing_record.cost_model_requirement`).
  */
@@ -132,10 +131,12 @@ const QUOTING_MODELS_ON_FILE: RequiredRule[] = [
       { field: 'pricing_record.cost_model_requirement', op: 'equals', value: 'grandfathered' },
     ],
   },
+  // FB-21 (N17-21; Ben, 2026-11-18): the payback model only while someone has asked Finance for one,
+  // satisfied once Finance uploads one after the request. Migration 0050 updates the stored rule.
   {
     anyOf: [
       { field: 'roi_required', op: 'equals', value: false },
-      { field: 'roi_model_on_file', op: 'equals', value: true },
+      { field: 'payback_received', op: 'equals', value: true },
     ],
   },
 ];
@@ -153,27 +154,11 @@ const PRICE_APPROVED: RequiredRule[] = [
     ],
   },
   { field: 'pricing_record.costing_completed', op: 'equals', value: true },
+  // FB-21 (N17-19, N17-20; Ben, 2026-11-18): readiness is always filled (a quote entering Quoting starts
+  // on app_setting `capital_readiness_default`); "pending" is normal before award and needs no note; only
+  // "not approved" (a recommendation to stop) refuses Advance. Migration 0049 updates the stored rule.
   present('pricing_record.capital_readiness'),
-  {
-    anyOf: [
-      {
-        field: 'pricing_record.capital_readiness',
-        op: 'oneOf',
-        value: ['not_required', 'pre_approved', 'not_approved'],
-      },
-      present('pricing_record.capital_pending_justification'),
-    ],
-  },
-  {
-    anyOf: [
-      { field: 'capital_likely', op: 'equals', value: false },
-      {
-        field: 'pricing_record.capital_readiness',
-        op: 'oneOf',
-        value: ['not_required', 'pre_approved'],
-      },
-    ],
-  },
+  { field: 'capital_not_approved', op: 'equals', value: false },
   ...QUOTING_MODELS_ON_FILE,
 ];
 

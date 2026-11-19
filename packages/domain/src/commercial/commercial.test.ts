@@ -117,9 +117,24 @@ describe('derived decision fields', () => {
       terms_exception_open: false,
       roi_required: false,
       roi_required_reasons: [],
+      payback_received: false,
       // FB-17 (W13-22): no preliminary capital figure yet, so capital is not ruled out (fail closed).
       eng_capital_needed: true,
+      // FB-21 (N17-20): no pricing record, so capital is not marked "not approved".
+      capital_not_approved: false,
     });
+    // FB-21: only "not approved" sets it; pending never does.
+    for (const [readiness, expected] of [
+      ['not_approved', true],
+      ['pending', false],
+      ['pre_approved', false],
+      ['not_required', false],
+    ] as const) {
+      expect(
+        derivedDecisionFields({ pricing_record: { capital_readiness: readiness } }, settings)
+          .capital_not_approved,
+      ).toBe(expected);
+    }
     // FB-08 (T-007): a pending or rejected exception is open.
     expect(
       derivedDecisionFields({ terms_exception_status: 'rejected' }, settings).terms_exception_open,
@@ -147,22 +162,49 @@ describe('derived decision fields', () => {
     expect(needed(null, 50_000)).toBe(true);
   });
 
-  it('FB-07: derives roi_required from roi_required_when (capital required, $0 CER included)', () => {
+  it('FB-21: roi_required follows a payback request; roi_required_when is only a hint', () => {
     const roi = (fields: Record<string, unknown>) => {
       const d = derivedDecisionFields(fields, settings);
-      return [d.roi_required, d.roi_required_reasons.map((r) => r.code)];
+      return [d.roi_required, d.payback_received, d.roi_required_reasons.map((r) => r.code)];
     };
-    expect(roi({ g2_outcome: 'capital_required' })).toEqual([true, ['g2_outcome']]);
+    // No request: nothing is needed, whatever the hint says.
+    expect(roi({ g2_outcome: 'capital_required' })).toEqual([false, false, ['g2_outcome']]);
     expect(roi({ g2_outcome: 'proceed', capital_likely: true })).toEqual([
-      true,
+      false,
+      false,
       ['capital_likely'],
     ]);
-    expect(roi({ tooling_funding_model: 'ZERO_CER' })).toEqual([true, ['funding_model']]);
-    expect(roi({ tooling_funding_model: 'CUSTOMER_FUNDED' })).toEqual([true, ['funding_model']]);
+    expect(roi({ tooling_funding_model: 'ZERO_CER' })).toEqual([false, false, ['funding_model']]);
     expect(roi({ tooling_funding_model: 'COMPANY_FUNDED', g2_outcome: 'proceed' })).toEqual([
+      false,
       false,
       [],
     ]);
+    const asked = new Date('2026-11-18T15:00:00Z');
+    const request = {
+      payback_requested_by: 'pricer',
+      payback_requested_at: asked,
+    };
+    // Open request: needed until a payback model is uploaded at or after the request.
+    expect(roi({ pricing_record: request })).toEqual([true, false, []]);
+    expect(
+      roi({ pricing_record: request, roi_model_uploaded_at: new Date(asked.getTime() - 1) }),
+    ).toEqual([true, false, []]);
+    expect(roi({ pricing_record: request, roi_model_uploaded_at: asked })).toEqual([
+      true,
+      true,
+      [],
+    ]);
+    // Withdrawn: not needed.
+    expect(
+      roi({
+        pricing_record: {
+          ...request,
+          payback_request_withdrawn_at: new Date(asked.getTime() + 1),
+          payback_request_withdrawn_by: 'pricer',
+        },
+      }),
+    ).toEqual([false, false, []]);
   });
 
   it('G4 Advance needs the terms check, and the Legal review only when triggered (both checks on)', () => {

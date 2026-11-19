@@ -639,7 +639,7 @@ export class GateService {
         await onPricingArrival(
           tx,
           { id: row.quote.id, quoteNumber, version: effects.nextVersion },
-          actor.userId,
+          { actor, meta, at: now },
         );
       }
       // FB-05 (F-079): the declared `notify` targets, the next owner and the KAM are told, once each,
@@ -701,21 +701,36 @@ export class GateService {
       }
       // B-10: e.g. G2 "Capital required" starts Pricing's capital readiness on pending (config). FB-17:
       // that outcome is switched off; the lookup stays so it behaves as before wherever it is still on.
+      // FB-21 (N17-19): every other entry into Quoting starts on `capital_readiness_default`
+      // (`onPricingArrival`, above). Audited when it changes the readiness.
       const readinessByOutcome =
         (await getSetting<Record<string, string>>(tx, 'capital_readiness_on_outcome')) ?? {};
-      const readiness =
-        readinessByOutcome[`${gateKey}:${body.outcomeKey}`] ??
-        (capitalNeededNow ? 'pending' : null);
+      const readiness = readinessByOutcome[`${gateKey}:${body.outcomeKey}`] ?? null;
       if (readiness) {
         const pricing = await getPricingRecord(tx, row.quote.id);
         const current = recordValues(pricing);
-        await upsertPricingRecord(tx, {
-          ...(current ? recordColumns(current) : {}),
-          quoteId: row.quote.id,
-          quoteVersion: effects.nextVersion,
-          capitalReadiness: readiness,
-          createdBy: pricing?.createdBy ?? actor.userId,
-        });
+        if (current?.capitalReadiness !== readiness) {
+          const saved = await upsertPricingRecord(tx, {
+            ...(current ? recordColumns(current) : {}),
+            quoteId: row.quote.id,
+            quoteVersion: effects.nextVersion,
+            capitalReadiness: readiness,
+            createdBy: pricing?.createdBy ?? actor.userId,
+          });
+          await recordAudit(tx, actor, meta, {
+            action: 'update',
+            entity: 'pricing_record',
+            entityId: saved.id,
+            quoteId: row.quote.id,
+            before: { capitalReadiness: current?.capitalReadiness ?? null },
+            after: {
+              capitalReadiness: readiness,
+              source: `capital_readiness_on_outcome:${gateKey}:${body.outcomeKey}`,
+              quoteVersion: effects.nextVersion,
+            },
+            at: now,
+          });
+        }
       }
       if (effects.nextStatus !== 'closed') {
         await this.opts.scoring.recalculate(tx, row.quote.id, actor.userId, now, `gate:${gateKey}`);

@@ -259,6 +259,18 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
 | 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
 
+**Provisional values FB-21 seeded (built 2026-11-18; all `provisional: true`, changed by config, not code; migrations 0049 and 0050). Decided by Ben on 2026-11-18: pending capital never blocks; payback only on request; a pricing lead may approve their own work.**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.capital_readiness_default` | `{"whenNeeded":"pending","whenNotNeeded":"not_required"}`: pending when any item's budgetary capital is above `capital_needed_above_usd` (0) or blank; not required when every figure is entered and at or below it | Confirmation that the default is right for every capital quote | Bailey Schmitt |
+| G3 Advance rule (`gate_outcome_definition` G3 `submit`) | Capital readiness present; **not approved refuses Advance** (`capital_not_approved = false`); pending needs no note; payback only while a request is open (`roi_required = false OR payback_received = true`) | — (Ben decided 2026-11-18) | Bailey Schmitt; Gemma Cebolla |
+| Capital readiness wording | "Pending is normal before award…"; one help line per status (code: `CAPITAL_READINESS_INTRO`, `CAPITAL_READINESS_HELP`) | Wording review | Bailey Schmitt |
+| `payback.request` (`role_permission`) | PricingLead on any quote; Pricing only on a quote assigned to them as pricer | Whether a pricer should ask without being assigned | Gemma Cebolla |
+| `app_setting.roi_required_when` | Value unchanged (`capital_required`, capital likely, `CUSTOMER_FUNDED` / `ZERO_CER`); now **a hint only** ("Finance's payback model may be useful here") | Whether Finance wants the hint on these quotes | Stacy Slocum; Gemma Cebolla |
+| Payback request limits | Note ≤ 500 characters (optional); withdraw reason required, ≤ 200 characters; one open request per quote version | — | Gemma Cebolla |
+| `roi.upload` | Unchanged: Finance, PricingLead (fallback), Admin. Finance may upload without a request (the leads are told) | Who holds the Finance role in production (question to Bailey) | Bailey Schmitt |
+
 **Provisional values FB-20 seeded (built 2026-11-16; all `provisional: true`, changed by config, not code; migration 0048):**
 
 | Value | Seed | Waits on | Who signs off |

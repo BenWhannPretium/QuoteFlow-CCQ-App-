@@ -73,7 +73,8 @@ export class EmailContentBuilder {
       type === 'quote.pricing_assigned' ||
       type === 'quote.ready_for_quoting' ||
       type === 'quote.ready_for_roi' ||
-      type === 'quote.roi_uploaded'
+      type === 'quote.roi_uploaded' ||
+      type === 'quote.payback_request_withdrawn'
     ) {
       return this.url(`/quotes/${n}?tab=quoting`);
     }

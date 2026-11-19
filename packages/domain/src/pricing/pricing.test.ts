@@ -13,12 +13,17 @@ import {
   type PricingQueueEntry,
 } from './queue';
 import {
+  CAPITAL_READINESS_DEFAULT_SEED,
+  CAPITAL_READINESS_HELP,
   CAPITAL_READINESS_LABELS,
+  CAPITAL_READINESS_VALUES,
   EMPTY_PRICING_RECORD,
   MAX_PRICING_REFS,
   PRICING_REF_FORMATS_SEED,
   canEditQuoting,
   carryForwardPricingRecord,
+  defaultCapitalReadiness,
+  parseCapitalReadinessDefault,
   parsePricingRefFormats,
   planCapitalReadiness,
   planPricingRecord,
@@ -26,11 +31,12 @@ import {
   quotingWarnings,
   type PricingRecordValues,
 } from './record';
-import { capitalNeed } from '../engineering/capital-needed';
+import { capitalNeed, capitalNeededForReadiness } from '../engineering/capital-needed';
 import { redact } from '../policy/redact';
 import { KAM_ID, NOW, OTHER_ID, makeActor, makeQuote, validCase } from '../test-utils';
 import { asUserId } from '../types/ids';
 import { evaluateTransition } from '../workflow/evaluate';
+import { fieldsReferenced } from '../workflow/rules';
 import { hybridConfig } from '../workflow/seeds/hybrid';
 
 const PRICER = asUserId('user-pricer');
@@ -347,6 +353,14 @@ describe('what other roles see', () => {
         capitalPendingJustification: 'board date',
       })[0]!.message,
     ).toContain('board date');
+    // FB-21: pending is a warning that says it is normal, never a request for a justification.
+    const pendingMessage = quotingWarnings({
+      ...EMPTY_PRICING_RECORD,
+      costingCompleted: true,
+      capitalReadiness: 'pending',
+    })[0]!.message;
+    expect(pendingMessage).toContain('normal before award');
+    expect(pendingMessage).not.toMatch(/justification/i);
     expect(codes({ capitalReadiness: 'not_approved' })).toEqual(['CAPITAL_NOT_APPROVED']);
     expect(codes({ costingCompleted: false })).toEqual(['COSTING_NOT_ATTESTED']);
     expect(codes({ erfRefs: [] })).toEqual([]);
@@ -565,10 +579,12 @@ describe('G3 (hybrid seed)', () => {
     evaluateTransition(
       hybridConfig,
       makeQuote('QUOTING', {
-        // FB-07: the models are on file and no ROI is needed unless a test says otherwise.
+        // FB-07: the models are on file and no ROI is needed unless a test says otherwise. FB-21:
+        // `capital_not_approved` is derived by the server from the record, as here.
         fields: {
           cost_model_on_file: true,
           roi_required: false,
+          capital_not_approved: record.capital_readiness === 'not_approved',
           pricing_record: record,
           ...fields,
         },
@@ -580,19 +596,27 @@ describe('G3 (hybrid seed)', () => {
   const missing = (r: ReturnType<typeof submit>) =>
     r.ok ? [] : r.errors.map((e) => e.field ?? e.code);
 
-  it('FB-07 (D-001, F-032): the costing model, then the ROI model when one is needed', () => {
+  it('FB-07 / FB-21: the costing model, then the payback model only while one is asked for', () => {
     const noModels = { cost_model_on_file: false, roi_model_on_file: false };
     expect(missing(submit(approved, lead, noModels))).toEqual([
       'cost_model_on_file,pricing_record.cost_model_requirement',
     ]);
+    // FB-21: an open request (roi_required) needs a payback model uploaded after it (payback_received).
     expect(missing(submit(approved, lead, { ...noModels, roi_required: true }))).toEqual([
       'cost_model_on_file,pricing_record.cost_model_requirement',
-      'roi_required,roi_model_on_file',
+      'roi_required,payback_received',
     ]);
+    // A payback model on file from before the request does not count.
     expect(
-      missing(submit(approved, lead, { roi_required: true, roi_model_on_file: false })),
-    ).toEqual(['roi_required,roi_model_on_file']);
-    expect(submit(approved, lead, { roi_required: true, roi_model_on_file: true }).ok).toBe(true);
+      missing(
+        submit(approved, lead, {
+          roi_required: true,
+          roi_model_on_file: true,
+          payback_received: false,
+        }),
+      ),
+    ).toEqual(['roi_required,payback_received']);
+    expect(submit(approved, lead, { roi_required: true, payback_received: true }).ok).toBe(true);
     // Grandfathered (in Quoting with costing attested before FB-07): no costing model needed.
     expect(
       submit({ ...approved, cost_model_requirement: 'grandfathered' }, lead, noModels).ok,
@@ -609,8 +633,9 @@ describe('G3 (hybrid seed)', () => {
         ),
       ),
     ).toEqual([
+      'capital_not_approved',
       'cost_model_on_file,pricing_record.cost_model_requirement',
-      'roi_required,roi_model_on_file',
+      'roi_required,payback_received',
     ]);
   });
 
@@ -619,8 +644,6 @@ describe('G3 (hybrid seed)', () => {
       'pricing_record.price_approved_by,pricing_record.price_approved_at,pass_through_eligible',
       'pricing_record.costing_completed',
       'pricing_record.capital_readiness',
-      'pricing_record.capital_readiness,pricing_record.capital_pending_justification',
-      'capital_likely,pricing_record.capital_readiness',
     ]);
     expect(submit(approved).ok).toBe(true);
     expect(submit({ ...approved, pricing_refs: { erf: ['ERF25-367'] } }).ok).toBe(true);
@@ -638,33 +661,39 @@ describe('G3 (hybrid seed)', () => {
     expect(submit(noApproval, lead, { pass_through_eligible: true }).ok).toBe(true);
   });
 
-  it('B-26: a "capital likely" quote needs capital readiness confirmed, not pending', () => {
-    const pending = {
-      ...approved,
-      capital_readiness: 'pending',
-      capital_pending_justification: 'board Nov 10',
-    };
+  it('FB-21 (N17-19, N17-20): pending needs no note and never blocks, capital likely or not', () => {
+    const pending = { ...approved, capital_readiness: 'pending' };
     expect(submit(pending, lead, { capital_likely: false }).ok).toBe(true);
-    expect(missing(submit(pending, lead, { capital_likely: true }))).toEqual([
-      'capital_likely,pricing_record.capital_readiness',
-    ]);
+    expect(submit(pending, lead, { capital_likely: true }).ok).toBe(true);
+    // The note is optional and still accepted.
     expect(
-      submit({ ...approved, capital_readiness: 'pre_approved' }, lead, { capital_likely: true }).ok,
-    ).toBe(true);
-  });
-
-  it('pending capital needs a justification (D-11: warned, not blocked)', () => {
-    const base = { ...approved, capital_readiness: 'pending' };
-    expect(missing(submit(base, lead, { capital_likely: false }))).toEqual([
-      'pricing_record.capital_readiness,pricing_record.capital_pending_justification',
-    ]);
-    expect(
-      submit({ ...base, capital_pending_justification: 'board Nov 10' }, lead, {
-        capital_likely: false,
+      submit({ ...pending, capital_pending_justification: 'board Nov 10' }, lead, {
+        capital_likely: true,
       }).ok,
     ).toBe(true);
+    for (const readiness of ['pre_approved', 'not_required']) {
+      expect(
+        submit({ ...approved, capital_readiness: readiness }, lead, { capital_likely: true }).ok,
+      ).toBe(true);
+    }
+  });
+
+  it('FB-21 (N17-20): "not approved" refuses Advance with plain words; Stop is still open', () => {
+    const notApproved = { ...approved, capital_readiness: 'not_approved' };
+    const r = submit(notApproved, lead, { capital_likely: true });
+    expect(missing(r)).toEqual(['capital_not_approved']);
+    expect(!r.ok && r.errors[0]!.message).toBe(
+      'Capital is marked not approved: stop the quote, or change capital readiness',
+    );
+    const stop = validCase(hybridConfig, 'G3', 'stop');
     expect(
-      submit({ ...base, capital_readiness: 'not_approved' }, lead, { capital_likely: false }).ok,
+      evaluateTransition(
+        hybridConfig,
+        makeQuote('QUOTING', { fields: { pricing_record: notApproved } }),
+        lead,
+        stop.request,
+        NOW,
+      ).ok,
     ).toBe(true);
   });
 
@@ -820,5 +849,85 @@ describe('B-26: Quoting assignment (the pricing lead triages)', () => {
     expect(filterPricingQueue(all, { pricerId: 'unassigned' }).map((x) => x.quoteNumber)).toEqual([
       'B',
     ]);
+  });
+});
+
+describe('FB-21 (N17-19): the capital readiness a quote starts on in Quoting', () => {
+  const needed = (fields: Record<string, unknown>, above = 0) =>
+    capitalNeededForReadiness(fields, above);
+
+  it('$0 is not needed; above the threshold or blank is needed', () => {
+    expect(needed({ prelim_capital_usd: 0 })).toBe(false);
+    expect(needed({ prelim_capital_usd: '0.00' })).toBe(false);
+    expect(needed({ prelim_capital_usd: 20_000 })).toBe(true);
+    expect(needed({ prelim_capital_usd: null })).toBe(true);
+    expect(needed({})).toBe(true);
+    // The threshold is config (capital_needed_above_usd): at or below it is not needed.
+    expect(needed({ prelim_capital_usd: 50_000 }, 50_000)).toBe(false);
+    expect(needed({ prelim_capital_usd: 50_001 }, 50_000)).toBe(true);
+  });
+
+  it('multi-item: needed when any item is above the threshold or blank; not needed when all are $0', () => {
+    expect(needed({ items: [{ prelim_capital_usd: 0 }, { prelim_capital_usd: 0 }] })).toBe(false);
+    expect(needed({ items: [{ prelim_capital_usd: 0 }, { prelim_capital_usd: 5_000 }] })).toBe(
+      true,
+    );
+    expect(needed({ items: [{ prelim_capital_usd: 0 }, { prelim_capital_usd: null }] })).toBe(true);
+    // The items win over a quote-level figure.
+    expect(needed({ prelim_capital_usd: 0, items: [{ prelim_capital_usd: 1 }] })).toBe(true);
+  });
+
+  it('the retired "Advance – capital required" outcome is needed whatever the figure', () => {
+    expect(needed({ prelim_capital_usd: 0, g2_outcome: 'capital_required' })).toBe(true);
+  });
+
+  it('maps through capital_readiness_default (seed: pending / not required)', () => {
+    expect(CAPITAL_READINESS_DEFAULT_SEED).toEqual({
+      whenNeeded: 'pending',
+      whenNotNeeded: 'not_required',
+    });
+    expect(defaultCapitalReadiness(true)).toBe('pending');
+    expect(defaultCapitalReadiness(false)).toBe('not_required');
+    const custom = { whenNeeded: 'pre_approved', whenNotNeeded: 'pending' } as const;
+    expect(defaultCapitalReadiness(true, custom)).toBe('pre_approved');
+    expect(defaultCapitalReadiness(false, custom)).toBe('pending');
+  });
+
+  it('the setting refuses "not required" when capital is needed, and anything malformed', () => {
+    expect(parseCapitalReadinessDefault(null)).toEqual(CAPITAL_READINESS_DEFAULT_SEED);
+    expect(parseCapitalReadinessDefault(CAPITAL_READINESS_DEFAULT_SEED)).toEqual(
+      CAPITAL_READINESS_DEFAULT_SEED,
+    );
+    for (const bad of [
+      { whenNeeded: 'not_required', whenNotNeeded: 'not_required' },
+      { whenNeeded: 'pending' },
+      { whenNeeded: 'pending', whenNotNeeded: 'maybe' },
+      { whenNeeded: 'pending', whenNotNeeded: 'not_required', extra: 1 },
+      'pending',
+    ]) {
+      expect(() => parseCapitalReadinessDefault(bad)).toThrow(/capital_readiness_default/);
+    }
+  });
+
+  it('every status has help words; none asks for a justification', () => {
+    for (const v of CAPITAL_READINESS_VALUES) {
+      expect(CAPITAL_READINESS_HELP[v].length).toBeGreaterThan(0);
+      expect(CAPITAL_READINESS_HELP[v]).not.toMatch(/justif/i);
+    }
+  });
+});
+
+describe('FB-21 (Ben, 2026-11-18): nothing after G3 blocks on pending capital', () => {
+  it('no G4, G5 or G6 rule reads capital readiness', () => {
+    const later = hybridConfig.outcomes.filter((o) => ['G4', 'G5', 'G6'].includes(o.gateKey));
+    expect(later.length).toBeGreaterThan(0);
+    for (const o of later) {
+      const read = o.requiredFields.flatMap(fieldsReferenced);
+      expect(read, `${o.gateKey} ${o.key}`).not.toContain('pricing_record.capital_readiness');
+      expect(read, `${o.gateKey} ${o.key}`).not.toContain('capital_not_approved');
+      expect(read, `${o.gateKey} ${o.key}`).not.toContain(
+        'pricing_record.capital_pending_justification',
+      );
+    }
   });
 });

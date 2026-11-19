@@ -21,6 +21,13 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 >
 > Labels in the scripts come from the app's code as built; Ben re-checks them against the test site before Nov 9.
 
+> **Updated 2026-11-18 for FB-21 (feedback of Nov 17 and 18: capital readiness, payback on request, the pricer's hand-off).** Changes testers will notice:
+> - **Capital readiness is filled in** when a quote reaches Quoting: pending when Engineering's budgetary capital is above $0 (or blank), not required at $0. **Pending is normal before award** and never stops the price approval; the pending note is optional. **Not approved** means stop: the pricing lead cannot advance it (pricing steps 10, 12, 14, 15, 47, 48, 58, 64 and 65; engineering steps 92 and 94; approver step 23a).
+> - **Payback only on request.** **2. Payback** reads **Not requested** until the assigned pricer or the pricing lead clicks **Ask Finance for a payback model**. Finance is told then (not on a costing upload); the price waits for Finance's upload only while the request is open; **Withdraw request** needs a reason (pricing steps 8b, 20a, 21, 59 to 61 and 63; finance Part A; security-access step 21c, the new permission `payback.request`).
+> - **Submit at the top.** The assigned pricer also has **Submit to pricing lead** at the top of the Quoting tab, or a line saying what is still missing; a pricing lead may price a quote assigned to themselves and approve it (pricing steps 58, 62 and 66).
+> - **Quoting tab order.** Engineering's hand-over comes first, and each model upload says "Excel workbook (.xlsx), up to 100 MB" (pricing steps 7, 8a and 59; finance step 4).
+> - This replaces two lines of the FB-17 block below: a payback model is no longer needed for every quote with capital, and capital no longer has to be pre-approved before the price is approved.
+
 > **Updated 2026-11-17 (pre-release audit, FB-15 to FB-20 as built).** Changes testers will notice:
 > - **Button names.** One name per decision: **Qualify quote**, **Decide feasibility**, **Decide price approval**, **Record customer decision**, **Commit and hand off**. Engineers click **Start review**; the row menus read **Assign engineer** and **Assign pricer**. The gate names (for example "Feasible solution?") still show in the timeline.
 > - **Nothing moves forward half-done.** **Submit to engineering lead** / **Submit to pricing lead** and the lead's decision button appear only when nothing is missing; until then the bottom of the tab lists what is. A decision that is still blocked switches **Record decision** off and says what is missing.
@@ -28,12 +35,12 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 > - **Several items in one quote (FB-19):** KAM Part K, engineering Part J, approver step 34a, tie-out step 29.
 > - **Offer letter (FB-20):** KAM Part L (who may generate, when it is ready, the download; nothing is sent from QuoteFlow).
 > - **Production scheduler (FB-16, provisional):** no script of its own. It is tested in `scripts/engineering.md` **Part H** (steps 76 to 88) and `scripts/security-access.md` steps 14a and 21b; its quick-start is `quickstart/production-scheduler.md`.
-> - **Finance:** `scripts/finance.md` (uploads the payback model, nothing else) and `scripts/security-access.md` steps 14a and 21a; its quick-start is `quickstart/finance.md`.
+> - **Finance:** `scripts/finance.md` (uploads the payback model, nothing else; since FB-21, when asked) and `scripts/security-access.md` steps 14a and 21a; its quick-start is `quickstart/finance.md`.
 > - The Finance and Production scheduler roles have no **Report an issue** button: they tell Ben or Bailey.
 
 > **Updated 2026-11-15 for FB-17 (walkthrough of Nov 13).** Changes testers will notice:
 > - **Four choices.** Every decision dialog (except the customer's decision) offers **Advance**, **Send back to…**, **Hold** and **Stop**. **Send back to…** asks where the quote goes and always needs a reason and a note. "Rework" and "Redirect" are gone as names; at qualification "Redirect (not CCQ work)" is **Stop: not CCQ work (send elsewhere)** (sales-leader steps 9 to 15, engineering steps 36 to 40 and Part I, pricing steps 22 to 26 and Part H, approver steps 12 to 14).
-> - **Capital.** **Advance – capital required** is gone. Engineering enters the capital estimate on every quote ($0 when none); above $0 the quote needs the equipment BOM, is flagged capital likely and needs the payback model, and capital must be pre-approved before the price is approved (engineering steps 36 and 91 to 94, pricing steps 46 to 48, finance step 2, approver step 23).
+> - **Capital.** **Advance – capital required** is gone. Engineering enters the capital estimate on every quote ($0 when none); above $0 the quote needs the equipment BOM, is flagged capital likely and needs the payback model, and capital must be pre-approved before the price is approved (FB-21 changed both: see the 2026-11-18 block above) (engineering steps 36 and 91 to 94, pricing steps 46 to 48, finance step 2, approver step 23).
 > - **Holds.** The hold owner starts on the person working the stage and is told; the header and the timeline say why, who owns it and the review date (engineering steps 37 and 97, pricing step 26).
 > - **Stop** asks for no closure owner, and the **Why?** score explanation stays on a laptop screen (engineering step 98).
 

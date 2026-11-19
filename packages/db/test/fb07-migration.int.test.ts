@@ -4,6 +4,7 @@ import { ROI_REQUIRED_WHEN_SEED, hybridConfig } from '@ccq/domain';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
+import { G3_HELP_0042, G3_RULES_0031 } from './g3-rules-history';
 import { asPersona, raw, testDb } from './helpers';
 import type { Tx } from '../src/client';
 import { FB07, fb07DryRun, renderFb07DryRun } from '../src/fb07DryRun';
@@ -155,12 +156,10 @@ describe('0031 FB-07 data migration', () => {
       expect(o!.label).toBe(seeded.label);
       // 0031 writes the FB-07 wording; FB-14's 0042 then says "payback model" (fb14-migration test).
       expect(o!.help_text).toBe(
-        (seeded.helpText ?? '').replace(
-          'the payback model is on file too.',
-          'the ROI model is on file too.',
-        ),
+        G3_HELP_0042.replace('the payback model is on file too.', 'the ROI model is on file too.'),
       );
-      expect(o!.required_fields).toEqual(seeded.requiredFields);
+      // 0031 writes the FB-07 rule; FB-21's 0049 then changes its capital rules (fb21-migration test).
+      expect(o!.required_fields).toEqual(G3_RULES_0031);
       const [setting] = await raw<{ value: unknown; provisional: boolean }>(
         tx,
         sql`select value, provisional from app_setting where key = 'roi_required_when'`,
