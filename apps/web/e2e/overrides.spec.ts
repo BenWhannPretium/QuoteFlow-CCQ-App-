@@ -24,7 +24,9 @@ test('tier override: only a SalesLeader overrides (self-applied, with a justific
 
   // SalesLeader: override the tier; the justification needs 15+ characters and applies at once.
   await signInAs(page, 'sales-leader');
-  await page.goto(`/quotes/${quoteNumber}`);
+  // FB-25 (N18-18): a sales leader opens a quote at Intake on Commercial terms; the priority card is on
+  // the Overview.
+  await page.goto(`/quotes/${quoteNumber}?tab=overview`);
   await page
     .getByTestId('quote-priority')
     .getByRole('button', { name: 'Override priority tier' })

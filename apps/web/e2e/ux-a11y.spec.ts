@@ -854,6 +854,9 @@ test('a hidden tab panel is out of the tab order, and a hidden file input shows 
   await page.getByRole('tab', { name: 'Engineering' }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Quoting' })).toBeFocused();
+  // FB-25 (N18-18): Commercial terms sits between Quoting and Attachments.
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Commercial terms' })).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Attachments' })).toBeFocused();
   await expect(page.getByTestId('drop-zone')).toBeVisible();
