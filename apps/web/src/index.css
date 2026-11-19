@@ -87,6 +87,43 @@
   * {
     @apply border-border;
   }
+  /*
+   * FB-27 (N18-16): the hand over everything that can be clicked. Tailwind 4's preflight leaves buttons
+   * with the arrow, so the link that downloads the equipment BOM (a button) looked inert. Enabled controls
+   * get the pointer; disabled ones say "not now". A component that sets its own cursor class still wins
+   * (utilities sit above this layer).
+   */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  [role='menuitemradio']:not([aria-disabled='true']),
+  [role='menuitemcheckbox']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='switch']:not([aria-disabled='true']),
+  a[href],
+  summary,
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='file']:not(:disabled),
+  input[type='file']:not(:disabled)::file-selector-button,
+  label:has(> input[type='file']:not(:disabled)),
+  label:has(> input[type='checkbox']:not(:disabled)),
+  label:has(> input[type='radio']:not(:disabled)) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role='button'][aria-disabled='true'],
+  [role='tab'][aria-disabled='true'],
+  [role='menuitem'][aria-disabled='true'],
+  select:disabled,
+  input[type='checkbox']:disabled,
+  input[type='radio']:disabled,
+  input[type='file']:disabled,
+  input[type='file']:disabled::file-selector-button {
+    cursor: not-allowed;
+  }
   html {
     -webkit-text-size-adjust: 100%;
     /*
