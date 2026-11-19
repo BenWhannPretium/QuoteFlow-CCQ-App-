@@ -124,6 +124,8 @@ describe('derived decision fields', () => {
       eng_capital_needed: true,
       // FB-21 (N17-20): no pricing record, so capital is not marked "not approved".
       capital_not_approved: false,
+      // FB-26 (N17-32): handoff_cer_proof_required is off by default.
+      cer_proof_ok: true,
     });
     // FB-21: only "not approved" sets it; pending never does.
     for (const [readiness, expected] of [

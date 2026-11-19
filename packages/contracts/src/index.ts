@@ -27,5 +27,6 @@ export * from './pricing-queue';
 export * from './problem';
 export * from './proposals';
 export * from './quotes';
+export * from './requote';
 export * from './salesforce';
 export * from './timeline';

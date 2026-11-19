@@ -227,6 +227,8 @@ const COMMITTED: RequiredRule[] = [
     value: ['approved', 'not_required'],
   },
   present('handoff_record.completed_at'),
+  // FB-26 (N17-32): a CER proof file when the CER is Approved, only while handoff_cer_proof_required is on.
+  { field: 'cer_proof_ok', op: 'equals', value: true },
 ];
 
 /** B-26 (deck slide 16): every hold names a reason, an owner and a review date. */

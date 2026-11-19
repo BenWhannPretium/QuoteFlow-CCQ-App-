@@ -131,6 +131,8 @@ export const ATTACHMENT_KINDS_BY_PLACE = {
     'competitor_drawing',
     'other',
   ],
+  // FB-26 (N17-32): the hand-off card's files.
+  handoff: ['cer_proof'],
 };
 export const INTAKE_REDIRECT_MESSAGE =
   'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
@@ -290,6 +292,37 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: VALIDITY_WARNING_DAYS_SEED,
     description:
       'The proposal validity countdown turns amber at this many days left or fewer (red once expired). The daily expiry job flags lapsed quotes and tells the KAM; nothing auto-closes (D-12 open).',
+  },
+  // ── FB-26 (N17-30 to N17-32). All provisional; existing environments get them from the FB-26 migration.
+  {
+    key: 'linked_requote_allowed_from',
+    value: ['closed_expired', 'open_lapsed'],
+    description:
+      'FB-26 (N17-30, Bailey Schmitt, Ben Whann): where a linked re-quote (a new quote linked to the old one, pre-filled from its intake, reviewed again by Engineering, Pricing and Final Review) may start. closed_expired: a quote closed as "No response / Expired". open_lapsed: a quote still open at Customer Decision whose validity date has passed (the same action first records G5 "No response / Expired"). Empty: switched off. The KAM (own quotes) or a SalesLeader starts it (quote.requote). Provisional; whether a Lost quote may also be re-quoted waits on Bailey.',
+  },
+  {
+    key: 'validity_notice_recipients',
+    value: ['kam', 'g1_decider'],
+    description:
+      "FB-26 (N17-31, Bailey Schmitt): who the daily job tells that a proposal validity is running out (validity_warning_days) or has passed. kam: the quote's KAM. g1_decider: the sales leader who qualified it (the latest G1 Advance, by a person; no one when G1 was skipped). Provisional: which sales leader when several exist waits on Bailey.",
+  },
+  {
+    key: 'cer_tool_url',
+    value: '',
+    description:
+      'FB-26 (N17-32): the CER tool (Apex) link on the hand-off card ("Open the CER tool"). Empty or an https URL. Empty: Admins see "Set the CER links in Admin → Settings", others see nothing. Waits on Oleg Yarovinski.',
+  },
+  {
+    key: 'cer_template_url',
+    value: '',
+    description:
+      'FB-26 (N17-32): the CER template link on the hand-off card ("CER template"). Empty or an https URL. Waits on Oleg Yarovinski.',
+  },
+  {
+    key: 'handoff_cer_proof_required',
+    value: false,
+    description:
+      'FB-26 (N17-32, Bailey Schmitt): when true, a CER marked Approved needs a CER proof file (a screenshot or PDF of the CER tool, uploaded on the hand-off card) before Commit & Hand Off can advance (G6). The CER ID stays required for Approved either way. Seeded false (proof optional). Provisional.',
   },
   // ── FB-04 (F-076): the Salesforce link and the reminder after a G5 outcome. Provisional.
   {

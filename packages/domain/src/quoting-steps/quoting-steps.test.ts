@@ -119,9 +119,13 @@ describe('roi_required_when (FB-07, D-001; provisional)', () => {
 });
 
 describe('model kinds', () => {
-  it('the three Quoting models are versioned, and so is the FB-06 equipment BOM', () => {
+  it('the three Quoting models are versioned, and so are the FB-06 equipment BOM and the FB-26 CER proof', () => {
     expect([...QUOTING_MODEL_KINDS]).toEqual(['cost_model', 'roi_model', 'price_table']);
-    expect([...VERSIONED_ATTACHMENT_KINDS]).toEqual([...QUOTING_MODEL_KINDS, 'equipment_bom']);
+    expect([...VERSIONED_ATTACHMENT_KINDS]).toEqual([
+      ...QUOTING_MODEL_KINDS,
+      'equipment_bom',
+      'cer_proof',
+    ]);
     // The BOM is Engineering's file, not a Quoting step.
     expect(isQuotingModelKind('equipment_bom')).toBe(false);
     expect(isVersionedKind('cost_model')).toBe(true);

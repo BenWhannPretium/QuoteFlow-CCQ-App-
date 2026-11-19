@@ -1,17 +1,17 @@
 # QuoteFlow quick-start: Sales leader
 
-> Checked against the build on 2026-11-17 (pre-release audit): the Command Center block reads **To qualify** and the override button reads **Override**. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
+> Updated 2026-11-19 for FB-26 (**Expiring soon**, expiry notices, linked re-quote). Checked against the build on 2026-11-17 (pre-release audit): the Command Center block reads **To qualify** and the override button reads **Override**. Updated 2026-11-17 for the approved UX changes (docs/audit/03-ux-proposals.md).
 
 **What QuoteFlow is for you.** You decide which new opportunities are worth engineering time (gate G1, **Qualify & prioritize**). You approve priority changes and see your team's pipeline and outcomes.
 
-**Your Command Center: Sales pipeline.** It shows **To qualify**, **Pending override requests** (only requests raised before the change), **Team pipeline by stage** and **Proposals with no outcome past validity**. A quote on hold carries an orange **On hold** chip. At the top are two views: **My work** and **Analytics**. Your menu: **Command Center**, **New intake**, **My proposals**, **To qualify**, **Pipeline**, **Approvals**.
+**Your Command Center: Sales pipeline.** It shows **To qualify**, **Expiring soon** (proposals you qualified whose validity ends within 7 days or has passed, soonest first), **Pending override requests** (only requests raised before the change), **Team pipeline by stage** and **Proposals with no outcome past validity**. A quote on hold carries an orange **On hold** chip. At the top are two views: **My work** and **Analytics**. Your menu: **Command Center**, **New intake**, **My proposals**, **To qualify**, **Pipeline**, **Approvals**.
 
 ## What you'll do
 
 1. **Qualify new intakes.** Click **To qualify** (a “waiting to qualify” notice opens it on that quote’s card). The list is highest priority first. **Show details** on a card (or **Expand all**) shows what the KAM entered. Click **Decide** and choose **Advance**, **Send back to…** (the KAM fixes the intake; give a reason and a note), **Hold** (a pause, not a fix) or **Stop**. For a stock item or a price inquiry use **Stop: not CCQ work (send elsewhere)**. Click **Record decision**. The ⓘ next to a choice explains it. A quote that is already on hold is not offered **Hold** again: any other decision ends the hold. A quote you sent back has nothing to decide until the KAM resubmits it; the line under its stage tracker says so.
 2. **Override a priority tier.** You are the only role that can. On the quote click **Override** next to the priority, pick the tier and give a reason of 15 or more characters. It applies at once and Engineering sees your reason on its queue. To undo it, open the quote's **Timeline** and click **Revert**.
 3. **Watch your team's pipeline.** Use **Pipeline** (List, Prioritization, Board) and the **Analytics** view of your Command Center. Each chart has an ⓘ with its definition.
-4. **Chase missing outcomes.** **Proposals with no outcome past validity** on your Command Center. You can record an outcome for your team.
+4. **Chase missing outcomes.** **Proposals with no outcome past validity** on your Command Center. You can record an outcome for your team. You are also told (in-app and by email) when a quote you qualified is about to expire and when it has expired. If the customer says yes after it expired, open the quote and click **Start a linked re-quote** (the new quote stays the KAM's).
 
 ## What changed from the ERF
 

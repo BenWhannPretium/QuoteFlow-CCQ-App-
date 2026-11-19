@@ -5,7 +5,7 @@
 > `routeMatrix.test.ts` fails if this file is stale, and `test/permissions/matrix.int.test.ts` sends
 > every route below as every role (allowed: not 401/403; denied: 403 problem+json) and anonymously (401).
 
-132 routes: 3 public, 6 for any signed-in role, 123 gated by a matrix permission.
+134 routes: 3 public, 6 for any signed-in role, 125 gated by a matrix permission.
 
 Qualified grants (own, assigned, fields, stages) pass the route gate; the service then checks the
 quote with `assertCan`, and Postgres RLS enforces the data scope as the second layer.
@@ -121,6 +121,8 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | POST | `/api/v1/quotes/:quoteNumber/quoting/payback-request/withdraw` | `payback.request` | PricingLead, Pricing (assigned as pricer) |  |
 | POST | `/api/v1/quotes/:quoteNumber/quoting/send-back` | `gate.G3.submit` | PricingLead |  |
 | POST | `/api/v1/quotes/:quoteNumber/quoting/submit` | `quoting.edit` | Pricing, PricingLead |  |
+| POST | `/api/v1/quotes/:quoteNumber/requote` | `quote.requote` | KAM (own), SalesLeader |  |
+| GET | `/api/v1/quotes/:quoteNumber/requote-source` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, ProductionScheduler, PostAward (AWARDED) |  |
 | GET | `/api/v1/quotes/:quoteNumber/review-summary` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, ProductionScheduler, PostAward (AWARDED) |  |
 | POST | `/api/v1/quotes/:quoteNumber/rework` | `quote.create` | KAM, SalesLeader, Admin |  |
 | POST | `/api/v1/quotes/:quoteNumber/roi-model` | `roi.upload` | Finance, PricingLead, Admin |  |

@@ -27,6 +27,9 @@ export const ATTACHMENT_KINDS = [
   // FB-20 (F-070): the customer offer letter QuoteFlow generates after Final Review. Never uploaded:
   // the upload route refuses the kind; `POST /quotes/:qn/offer-letter` stores it.
   'offer_letter',
+  // FB-26 (N17-32, Bailey Schmitt): proof of the CER (a screenshot of the CER tool, or a PDF), uploaded on
+  // the hand-off card by whoever edits the hand-off. Versioned like the models.
+  'cer_proof',
 ] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
@@ -41,6 +44,8 @@ export const VERSIONED_ATTACHMENT_KINDS: readonly AttachmentKind[] = [
   'price_table',
   // FB-06 (F-058): the equipment BOM is versioned the same way (Pricing and Final Review see the latest).
   'equipment_bom',
+  // FB-26 (N17-32): one current CER proof per quote; earlier versions stay downloadable.
+  'cer_proof',
 ];
 
 export const isVersionedKind = (kind: string): boolean =>
@@ -63,6 +68,8 @@ export const KIND_FORMATS: Partial<Readonly<Record<AttachmentKind, readonly File
   roi_model: ['xlsx'],
   price_table: ['xlsx'],
   offer_letter: ['docx'],
+  // FB-26 (N17-32): a screenshot or a PDF.
+  cer_proof: ['pdf', 'png', 'jpeg', 'heic'],
 };
 
 /** FB-20: kinds QuoteFlow generates itself; no one uploads them. */
@@ -80,6 +87,13 @@ export const isQuotingModelKind = (kind: string): kind is QuotingModelKind =>
  */
 export const ENGINEERING_ATTACHMENT_KINDS = ['equipment_bom'] as const;
 export type EngineeringAttachmentKind = (typeof ENGINEERING_ATTACHMENT_KINDS)[number];
+
+/** FB-26 (N17-32): files uploaded on the hand-off card (Commit & Hand Off), by `handoff.edit` holders. */
+export const HANDOFF_ATTACHMENT_KINDS = ['cer_proof'] as const;
+export type HandoffAttachmentKind = (typeof HANDOFF_ATTACHMENT_KINDS)[number];
+
+export const isHandoffKind = (kind: string): kind is HandoffAttachmentKind =>
+  (HANDOFF_ATTACHMENT_KINDS as readonly string[]).includes(kind);
 
 export const isEngineeringKind = (kind: string): kind is EngineeringAttachmentKind =>
   (ENGINEERING_ATTACHMENT_KINDS as readonly string[]).includes(kind);

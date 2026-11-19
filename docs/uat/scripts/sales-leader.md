@@ -121,6 +121,17 @@ Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`). 
 | 44 | On the card from step 42 click **Decide**, choose **Advance** and **Record decision**. | The card leaves the list; the quote goes to Engineering & Capacity. | | |
 | 45 | Open a quote that waits at G1 (not from the notice). | It opens on the **Commercial terms** tab. The tabs read **Overview · Engineering · Quoting · Commercial terms · Attachments**; the tab bar stays under the page header when you scroll. **Overview** is a read-only summary ("At a glance": Intake, Engineering, Pricing, Commercial terms, Why this priority?, Gate decisions, the timeline). | | |
 
+## Part G: FB-26 checks (expiring quotes)
+
+Added 2026-11-19 (FB-26, N17-31, N17-30). Bailey prepares `<CCQ-EXPIRING-1>`: a quote you qualified (G1) that is waiting for the customer and whose validity ends within 7 days.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 46 | Open the **Command Center** (**My work**). Read **Expiring soon**. | The quotes you qualified whose validity ends within 7 days or has passed, soonest first (lapsed ones first), each with its countdown chip (amber "N days left", red "Expired N days ago"), the customer and the KAM. `<CCQ-EXPIRING-1>` is listed. A sales leader who has never qualified a quote sees every such quote. | | |
+| 47 | Open **Notifications** the morning after `<CCQ-EXPIRING-1>` entered its last 7 days, and again the day after it expired. | "…: the proposal validity is running out" and later "…: the proposal validity has passed", once each, in-app and by email; the KAM gets the same. | | |
+| 48 | On an expired quote of your team, click **Start a linked re-quote**, give the reason and the note. | A re-quote draft opens for you. When you submit it, the new quote's KAM is still the old quote's KAM (not you). | | |
+| 49 | When several sales leaders cover one account, who should hear about its expiring quotes? | Write the answer in Notes for Bailey. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

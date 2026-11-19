@@ -27,6 +27,8 @@ export async function quoteInCustomerDecision(
   request: APIRequestContext,
   engineerId: string,
   pricingId: string,
+  /** FB-26: released this many days ago (the actual send date), so the validity can already be over. */
+  opts: { issuedDaysAgo?: number } = {},
 ): Promise<string> {
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
   const post = (path: string, persona: string, data: unknown) =>
@@ -81,6 +83,11 @@ export async function quoteInCustomerDecision(
     termsAgreementInPlace: false,
     finalized: true,
   });
-  await post('gates/G4/decisions', 'approver', { outcomeKey: 'approve' });
+  await post('gates/G4/decisions', 'approver', {
+    outcomeKey: 'approve',
+    ...(opts.issuedDaysAgo
+      ? { proposalIssuedAt: new Date(Date.now() - opts.issuedDaysAgo * 86_400_000).toISOString() }
+      : {}),
+  });
   return quoteNumber;
 }

@@ -30,3 +30,4 @@ export * from './transitions';
 export * from './users';
 export * from './feedback';
 export * from './terms';
+export * from './requote';

@@ -964,10 +964,11 @@ The CCQ quote: the workflow record CCQ owns.
 | `closed_at` | timestamp with time zone | yes |  |  | When the quote closed. | CCQ (system) |
 | `sf_status_flag` | text | yes |  |  | closed_won \| closed_lost \| deleted when the linked SF opportunity was closed or deleted in SF; null while open. | CCQ (system) |
 | `sf_status_flagged_at` | timestamp with time zone | yes |  |  | When the SF sync set sf_status_flag. | CCQ (system) |
+| `requoted_from_quote_id` | uuid | yes |  | quote.id | FB-26 (N17-30): set on a linked re-quote: the expired quote it re-quotes (a new quote with its own record, pre-filled from the old intake, reviewed again). Set when the new quote is created (intake submit). Unique: one linked re-quote per quote. The old quote keeps what was quoted. | CCQ (system) |
 
 **Checks:** `quote_status_check`, `quote_quote_number_format_check`, `quote_version_check`, `quote_priority_score_check`, `quote_dimensions_positive_check`, `quote_rfp_link_https_check`, `quote_terms_exception_status_check`, `quote_terms_months_check`, `quote_terms_finalized_consistency_check`, `quote_decoration_print_colors_check`, `quote_stock_hold_weeks_check`, `quote_need_by_order_check`, `quote_closed_consistency_check`, `quote_closure_complete_check`, `quote_sf_status_flag_check`, `quote_rework_resume_at_check`
 
-**Indexes:** `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_assigned_engineer_id_idx`, `quote_assigned_scheduler_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
+**Indexes:** `quote_requoted_from_quote_id_uidx`, `quote_stage_priority_idx`, `quote_kam_user_id_idx`, `quote_sf_opportunity_id_idx`, `quote_assigned_engineer_id_idx`, `quote_assigned_scheduler_id_idx`, `quote_region_idx`, `quote_quote_number_trgm_idx`, `quote_description_trgm_idx`, `quote_updated_at_idx`
 
 ### quote_draft
 
@@ -988,10 +989,11 @@ Intake drafts (B-07). Visible to the creator and Admin only; becomes a quote on 
 | `submitted_quote_id` | uuid | yes |  | quote.id | Quote created from this draft; set on submit, after which the draft is read-only. | CCQ (system) |
 | `submitted_at` | timestamp with time zone | yes |  |  | When the draft was submitted. | CCQ (system) |
 | `rework_of_quote_id` | uuid | yes |  | quote.id | Set when the draft reworks a quote returned to the KAM (G1/G2 Rework, B-08): submit updates that quote instead of creating one. | CCQ (system) |
+| `requote_of_quote_id` | uuid | yes |  | quote.id | FB-26 (N17-30): set when the draft is a linked re-quote of an expired quote: submit creates a NEW quote with requoted_from_quote_id = this id. One open re-quote draft per quote. | CCQ (system) |
 
-**Checks:** `quote_draft_step_check`, `quote_draft_submitted_consistency_check`
+**Checks:** `quote_draft_rework_or_requote_check`, `quote_draft_step_check`, `quote_draft_submitted_consistency_check`
 
-**Indexes:** `quote_draft_owner_idx`, `quote_draft_one_open_rework_uidx`
+**Indexes:** `quote_draft_owner_idx`, `quote_draft_one_open_rework_uidx`, `quote_draft_one_open_requote_uidx`
 
 ### quote_hold
 

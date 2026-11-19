@@ -32,6 +32,7 @@ import {
   HandoffCard,
 } from '@/components/outcome/CustomerDecision';
 import { OfferLetterCard } from '@/components/outcome/OfferLetterCard';
+import { RequoteLinks, RequoteSourcePanel } from '@/components/outcome/Requote';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
 import {
   EngineeringGlance,
@@ -354,6 +355,8 @@ function QuotePage() {
         </div>
         <GateRail stageKey={q.stageKey} />
         <QuoteNextStepLine quote={q} nothingToDecide={nothingToDecide?.missing ?? null} />
+        {/* FB-26 (N17-30): "Re-quote of CCQ-…" / "Re-quoted as CCQ-… on <date>". */}
+        <RequoteLinks quote={q} />
       </section>
 
       <SfUpdateReminder quote={q} />
@@ -457,6 +460,8 @@ function QuotePage() {
           </Card>
         </Tabs.Content>
         <Tabs.Content value="engineering" {...kept('engineering')}>
+          {/* FB-26 (N17-30): on a linked re-quote, the expired quote's solution (read only). */}
+          <RequoteSourcePanel quote={q} className="mb-4" />
           <EngineeringTab
             quote={q}
             onDecide={(outcome, scope) =>
@@ -480,6 +485,7 @@ function QuotePage() {
           </Card>
         </Tabs.Content>
         <Tabs.Content value="quoting" {...kept('quoting')}>
+          <RequoteSourcePanel quote={q} className="mb-4" />
           <QuotingTab
             quote={q}
             onDecide={(outcome, scope) =>
