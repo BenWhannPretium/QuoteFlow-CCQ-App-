@@ -26,7 +26,8 @@
     "db:demo": "pnpm --filter @ccq/db db:reset --demo",
     "db:dictionary": "pnpm --filter @ccq/db db:dictionary",
     "db:sf-fixture": "pnpm --filter @ccq/db db:sf-fixture",
-    "uat:defects": "pnpm --filter @ccq/db uat:defects"
+    "uat:defects": "pnpm --filter @ccq/db uat:defects",
+    "release:upgrade-check": "pnpm --filter @ccq/db release:upgrade-check"
   },
   "prettier": "@ccq/config/prettier",
   "devDependencies": {
