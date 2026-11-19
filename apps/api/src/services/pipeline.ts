@@ -74,6 +74,8 @@ interface Scope {
   ctx: QuoteViewContext;
   workflow: WorkflowConfig;
   terminal: string[];
+  /** FB-27: plant code → label (retired plants included). */
+  plantLabels: Map<string, string>;
 }
 
 /**
@@ -93,12 +95,18 @@ export class PipelineService {
   }
 
   private async scope(tx: Tx, actor: Actor, now: Date): Promise<Scope> {
-    const [ctx, workflowInput] = await Promise.all([
+    const [ctx, workflowInput, plants] = await Promise.all([
       this.opts.quotes.context(tx, actor, now),
       loadWorkflowConfigInput(tx),
+      listValueList(tx, 'plant', { activeOnly: false }),
     ]);
     const workflow = parseWorkflowConfig(workflowInput);
-    return { ctx, workflow, terminal: workflow.stages.filter((s) => s.terminal).map((s) => s.key) };
+    return {
+      ctx,
+      workflow,
+      terminal: workflow.stages.filter((s) => s.terminal).map((s) => s.key),
+      plantLabels: new Map(plants.map((p) => [p.code, p.label])),
+    };
   }
 
   /** The URL filters as SQL filters: `me`, `unassigned`, ids checked, aging as an instant. */
@@ -124,6 +132,7 @@ export class PipelineService {
       productFamilies: f.productFamily,
       markets: f.market,
       resins: f.resin,
+      plants: f.plant,
       status: f.status,
       enteredStageBefore:
         f.agedOverDays !== undefined
@@ -229,6 +238,7 @@ export class PipelineService {
       toolingCommitment: q.termsToolingCommitment,
       stockHoldRequested: q.stockHoldRequested,
       stockHoldWeeks: q.stockHoldRequested === true ? q.stockHoldWeeks : null,
+      plants: row.plantCodes.map((code) => s.plantLabels.get(code) ?? code),
       validityExpired: q.status !== 'closed' && isValidityLapsed(q.validityUntil, ctx.now),
       updatedAt: q.updatedAt.toISOString(),
       commercial: canSeeCommercialFields(ctx.actor)
@@ -553,6 +563,8 @@ function exportValue(
       return item.priority.tierLabel;
     case 'score':
       return item.priority.score;
+    case 'plant':
+      return item.plants.join(' · ');
     case 'warnings':
       return item.warnings.map((w) => w.message).join('; ');
     case 'prelimCapitalUsd':

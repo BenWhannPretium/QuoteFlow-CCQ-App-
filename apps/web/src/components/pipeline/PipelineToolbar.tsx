@@ -39,6 +39,8 @@ export function PipelineToolbar({
   defaultSort,
   savedViewsKey,
   children,
+  columns,
+  onApplyColumns,
 }: {
   search: PipelineSearch;
   onChange: (next: PipelineSearch) => void;
@@ -50,6 +52,10 @@ export function PipelineToolbar({
   savedViewsKey: string;
   /** View-specific actions (columns, export). */
   children?: ReactNode;
+  /** FB-27: the list's visible columns, in order; saved views keep them. Omit for views without columns. */
+  columns?: readonly string[] | undefined;
+  /** FB-27: a saved view with columns was applied. */
+  onApplyColumns?: ((columns: string[]) => void) | undefined;
 }) {
   const { data: config } = usePublicConfig();
   const ids = { search: useId(), sort: useId(), aged: useId(), from: useId(), to: useId() };
@@ -118,6 +124,8 @@ export function PipelineToolbar({
     { key: 'productFamily', label: 'Product family', options: fromList('product_family') },
     { key: 'market', label: 'Market', options: fromList('market') },
     { key: 'resin', label: 'Resin', options: fromList('resin') },
+    // FB-27 (N17-17): a plant sees what is lined up for it (any item of the quote at that plant).
+    { key: 'plant', label: 'Plant', options: fromList('plant') },
     {
       key: 'hasWarnings',
       label: 'Qualification warnings (pick one)',
@@ -274,7 +282,11 @@ export function PipelineToolbar({
       <SavedViewsMenu
         view={savedViewsKey}
         search={search as Record<string, unknown>}
-        onApply={(s) => onChange(s)}
+        columns={columns}
+        onApply={(s, cols) => {
+          onChange(s);
+          if (cols) onApplyColumns?.(cols);
+        }}
       />
       {count > 0 && (
         <button

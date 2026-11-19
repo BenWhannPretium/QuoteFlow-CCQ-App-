@@ -1,12 +1,15 @@
 /**
  * B-14 saved views: named filter sets, per user and per view, in `localStorage`. A per-user convenience
- * only: nothing depends on them, they never leave the browser, and every read/write is wrapped so a
- * private window or blocked storage just means "no saved views".
+ * only: nothing depends on them, they never leave the browser (they do not follow the person to
+ * another device), and every read/write is wrapped so a private window or blocked storage just means
+ * "no saved views". FB-27 (N17-17): a view of the list also keeps its columns and their order.
  */
 export interface SavedView {
   name: string;
   /** The view's URL search, as the router serializes it (`?stage=…&sort=…`). */
   search: Record<string, unknown>;
+  /** FB-27: the list's columns, in order. Absent on views saved before FB-27 (they keep the current columns). */
+  columns?: string[];
   savedAt: string;
 }
 
@@ -18,13 +21,22 @@ function read(userId: string, view: string): SavedView[] {
     const raw = window.localStorage.getItem(key(userId, view));
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
-      ? parsed.filter(
-          (v): v is SavedView =>
-            !!v &&
-            typeof v === 'object' &&
-            typeof (v as SavedView).name === 'string' &&
-            typeof (v as SavedView).search === 'object',
-        )
+      ? parsed
+          .filter(
+            (v): v is SavedView =>
+              !!v &&
+              typeof v === 'object' &&
+              typeof (v as SavedView).name === 'string' &&
+              typeof (v as SavedView).search === 'object',
+          )
+          .map((v) => {
+            const { columns, ...rest } = v;
+            return Array.isArray(columns) &&
+              columns.length > 0 &&
+              columns.every((c) => typeof c === 'string')
+              ? { ...rest, columns }
+              : rest;
+          })
       : [];
   } catch {
     return [];
@@ -48,12 +60,14 @@ export function saveView(
   view: string,
   name: string,
   search: Record<string, unknown>,
-  now = new Date(),
+  options: { columns?: readonly string[] | undefined; now?: Date } = {},
 ): boolean {
   const trimmed = name.trim();
   if (!trimmed) return false;
   const rest = read(userId, view).filter((v) => v.name !== trimmed);
-  return write(userId, view, [{ name: trimmed, search, savedAt: now.toISOString() }, ...rest]);
+  const columns = options.columns?.length ? { columns: [...options.columns] } : {};
+  const savedAt = (options.now ?? new Date()).toISOString();
+  return write(userId, view, [{ name: trimmed, search, ...columns, savedAt }, ...rest]);
 }
 
 export function deleteView(userId: string, view: string, name: string): boolean {
