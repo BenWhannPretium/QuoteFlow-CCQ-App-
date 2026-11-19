@@ -209,6 +209,35 @@ export function proposalsEndingBy(db: DbOrTx, asOf: Date, withinDays: number, ka
 
 // ── Sales leader ───────────────────────────────────────────────────────────────────────────────
 
+/**
+ * FB-26 (N17-31): "Expiring soon" for a sales leader. Proposals in Customer Decision (not closed) whose
+ * validity ends within `withinDays` or has passed, soonest first: the quotes whose latest G1 Advance this
+ * sales leader made, or every such quote when `qualifiedBy` is null (a sales leader who never decided G1).
+ */
+export function proposalsEndingByQualifier(
+  db: DbOrTx,
+  asOf: Date,
+  withinDays: number,
+  qualifiedBy: string | null,
+) {
+  return quoteRows(
+    db,
+    sql`q.stage_key = 'CUSTOMER_DECISION' and q.status <> 'closed'
+      and q.validity_until is not null
+      and q.validity_until <= ${todayChicago(asOf)} + ${withinDays}::int
+      ${
+        qualifiedBy
+          ? sql`and (
+            select g.decided_by from gate_decision g
+            where g.quote_id = q.id and g.gate_key = 'G1' and g.outcome_key = 'advance'
+            order by g.decided_at desc limit 1
+          ) = ${qualifiedBy}`
+          : sql``
+      }`,
+    sql`q.validity_until, q.quote_number`,
+  );
+}
+
 /** Submitted intakes waiting for the G1 decision, oldest first. */
 export function awaitingG1(db: DbOrTx) {
   return quoteRows(

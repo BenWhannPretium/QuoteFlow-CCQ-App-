@@ -54,7 +54,7 @@ import { appSetting, scoringModel, sfStageMap } from '../../src/schema/index';
 
 const present = (field: string) => ({ field, op: 'present' });
 
-/** FB-23: the four settings' descriptions (migration 0054 inserts the same text). */
+/** FB-23: the four settings' descriptions (migration 0055 inserts the same text). */
 export const FB23_SETTING_DESCRIPTIONS = {
   engineering_cost_lines:
     'FB-23 (N18-04, N18-06, N18-07, D4): the engineering cost estimate lines (Jim Zweifel\'s ECE Summary), in order. Each: key (stored on eng_cost_line), label, group (tooling: Engineering; new_line: new-line capital equipment, Operations), processes (process-type codes that show the line, or "all"), customerFunded (counted in "customer funded"), needsDescription (Other), prefill (freight or start_up, from engineering_cost_defaults). Seed: Molds, Unit mold, Perso parts (RHB), Head tooling (EBM), Freight, Start-up assistance (3 days), Tariffs / duties (D4), Other; Blow molders, Resin handling, Packaging & inspection, Support, Misc. equipment. Customer funded: Molds, Freight, Start-up (as the sheet) and Tariffs / duties (D4). A line that holds a value always shows. Provisional until Jim confirms the process mapping and Operations the new-line split.',
@@ -147,6 +147,8 @@ export const ATTACHMENT_KINDS_BY_PLACE = {
     'competitor_drawing',
     'other',
   ],
+  // FB-26 (N17-32): the hand-off card's files.
+  handoff: ['cer_proof'],
 };
 export const INTAKE_REDIRECT_MESSAGE =
   'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
@@ -306,6 +308,37 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: VALIDITY_WARNING_DAYS_SEED,
     description:
       'The proposal validity countdown turns amber at this many days left or fewer (red once expired). The daily expiry job flags lapsed quotes and tells the KAM; nothing auto-closes (D-12 open).',
+  },
+  // ── FB-26 (N17-30 to N17-32). All provisional; existing environments get them from the FB-26 migration.
+  {
+    key: 'linked_requote_allowed_from',
+    value: ['closed_expired', 'open_lapsed'],
+    description:
+      'FB-26 (N17-30, Bailey Schmitt, Ben Whann): where a linked re-quote (a new quote linked to the old one, pre-filled from its intake, reviewed again by Engineering, Pricing and Final Review) may start. closed_expired: a quote closed as "No response / Expired". open_lapsed: a quote still open at Customer Decision whose validity date has passed (the same action first records G5 "No response / Expired"). Empty: switched off. The KAM (own quotes) or a SalesLeader starts it (quote.requote). Provisional; whether a Lost quote may also be re-quoted waits on Bailey.',
+  },
+  {
+    key: 'validity_notice_recipients',
+    value: ['kam', 'g1_decider'],
+    description:
+      "FB-26 (N17-31, Bailey Schmitt): who the daily job tells that a proposal validity is running out (validity_warning_days) or has passed. kam: the quote's KAM. g1_decider: the sales leader who qualified it (the latest G1 Advance, by a person; no one when G1 was skipped). Provisional: which sales leader when several exist waits on Bailey.",
+  },
+  {
+    key: 'cer_tool_url',
+    value: '',
+    description:
+      'FB-26 (N17-32): the CER tool (Apex) link on the hand-off card ("Open the CER tool"). Empty or an https URL. Empty: Admins see "Set the CER links in Admin → Settings", others see nothing. Waits on Oleg Yarovinski.',
+  },
+  {
+    key: 'cer_template_url',
+    value: '',
+    description:
+      'FB-26 (N17-32): the CER template link on the hand-off card ("CER template"). Empty or an https URL. Waits on Oleg Yarovinski.',
+  },
+  {
+    key: 'handoff_cer_proof_required',
+    value: false,
+    description:
+      'FB-26 (N17-32, Bailey Schmitt): when true, a CER marked Approved needs a CER proof file (a screenshot or PDF of the CER tool, uploaded on the hand-off card) before Commit & Hand Off can advance (G6). The CER ID stays required for Approved either way. Seeded false (proof optional). Provisional.',
   },
   // ── FB-04 (F-076): the Salesforce link and the reminder after a G5 outcome. Provisional.
   {
@@ -588,7 +621,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     description: ENG_LEAD_NOTIFY_WHEN_DESCRIPTION,
   },
   // ── FB-23 (N18-04 to N18-07, N18-14, D4, D5): the engineering cost estimate. Provisional. Existing
-  // environments get the same rows from migration 0054.
+  // environments get the same rows from migration 0055.
   {
     key: 'engineering_cost_lines',
     value: ENGINEERING_COST_LINES_SEED,

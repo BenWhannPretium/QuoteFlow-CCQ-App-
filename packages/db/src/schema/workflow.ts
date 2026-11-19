@@ -912,8 +912,18 @@ export const quote = documented(
         'When the SF sync set sf_status_flag.',
         SYSTEM,
       ),
+      // FB-26 (N17-30): the linked re-quote.
+      requotedFromQuoteId: c(
+        uuid('requoted_from_quote_id').references((): AnyPgColumn => quote.id, {
+          onDelete: 'restrict',
+        }),
+        'FB-26 (N17-30): set on a linked re-quote: the expired quote it re-quotes (a new quote with its own record, pre-filled from the old intake, reviewed again). Set when the new quote is created (intake submit). Unique: one linked re-quote per quote. The old quote keeps what was quoted.',
+        SYSTEM,
+      ),
     },
     (t) => [
+      // FB-26 (N17-30): one linked re-quote per quote.
+      uniqueIndex('quote_requoted_from_quote_id_uidx').on(t.requotedFromQuoteId),
       check('quote_status_check', inList(t.status, QUOTE_STATUSES)),
       check('quote_quote_number_format_check', sql`${t.quoteNumber} ~ '^CCQ-[0-9]{4}-[0-9]{5}$'`),
       check('quote_version_check', sql`${t.version} >= 1`),
@@ -1219,12 +1229,25 @@ export const quoteDraft = documented(
         'Set when the draft reworks a quote returned to the KAM (G1/G2 Rework, B-08): submit updates that quote instead of creating one.',
         SYSTEM,
       ),
+      requoteOfQuoteId: c(
+        uuid('requote_of_quote_id').references(() => quote.id, { onDelete: 'restrict' }),
+        'FB-26 (N17-30): set when the draft is a linked re-quote of an expired quote: submit creates a NEW quote with requoted_from_quote_id = this id. One open re-quote draft per quote.',
+        SYSTEM,
+      ),
     },
     (t) => [
       index('quote_draft_owner_idx').on(t.ownerUserId, t.updatedAt),
       uniqueIndex('quote_draft_one_open_rework_uidx')
         .on(t.reworkOfQuoteId)
         .where(sql`${t.reworkOfQuoteId} is not null and ${t.submittedQuoteId} is null`),
+      // FB-26 (N17-30): one open linked re-quote draft per quote.
+      uniqueIndex('quote_draft_one_open_requote_uidx')
+        .on(t.requoteOfQuoteId)
+        .where(sql`${t.requoteOfQuoteId} is not null and ${t.submittedQuoteId} is null`),
+      check(
+        'quote_draft_rework_or_requote_check',
+        sql`${t.reworkOfQuoteId} is null or ${t.requoteOfQuoteId} is null`,
+      ),
       check('quote_draft_step_check', sql`${t.step} between 1 and 4`),
       check(
         'quote_draft_submitted_consistency_check',

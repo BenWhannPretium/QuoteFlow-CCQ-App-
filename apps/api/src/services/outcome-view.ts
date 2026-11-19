@@ -10,6 +10,7 @@ import type { DbOrTx } from '@ccq/db';
 import {
   getHandoffRecord,
   getSetting,
+  listCurrentModelVersions,
   listSfStageMap,
   listUsersByIds,
   type HandoffRecordRow,
@@ -29,6 +30,7 @@ import {
   parseSfOutcomeStageNames,
   SF_OUTCOME_STAGE_NAMES_SEED,
   customerOutcomeKeys,
+  parseCerLinkUrl,
   parseReceivingRoles,
   parseValidityWarningDays,
   validityStatus,
@@ -58,16 +60,32 @@ export interface OutcomeSettings {
   /** FB-04 (F-076): the Lightning base URL ('' = not set) and outcome key → Salesforce stage name. */
   salesforceInstanceUrl: string;
   sfOutcomeStageNames: Record<string, string>;
+  /** FB-26 (N17-32): the CER links ('' = not set) and whether an Approved CER needs a proof file. */
+  cerToolUrl: string;
+  cerTemplateUrl: string;
+  cerProofRequired: boolean;
 }
 
 export async function loadOutcomeSettings(db: DbOrTx): Promise<OutcomeSettings> {
-  const [days, roles, map, instanceUrl, outcomeStages] = await Promise.all([
-    getSetting(db, 'validity_warning_days'),
-    getSetting(db, 'handoff_receiving_roles'),
-    listSfStageMap(db),
-    getSetting(db, 'salesforce_instance_url'),
-    getSetting(db, 'sf_outcome_stage_names'),
-  ]);
+  const [days, roles, map, instanceUrl, outcomeStages, cerTool, cerTemplate, cerProof] =
+    await Promise.all([
+      getSetting(db, 'validity_warning_days'),
+      getSetting(db, 'handoff_receiving_roles'),
+      listSfStageMap(db),
+      getSetting(db, 'salesforce_instance_url'),
+      getSetting(db, 'sf_outcome_stage_names'),
+      getSetting(db, 'cer_tool_url'),
+      getSetting(db, 'cer_template_url'),
+      getSetting(db, 'handoff_cer_proof_required'),
+    ]);
+  // FB-26 (N17-32): display only: a malformed link is hidden rather than breaking the quote page.
+  const cerLink = (v: unknown, key: string) => {
+    try {
+      return parseCerLinkUrl(v, key);
+    } catch {
+      return '';
+    }
+  };
   // Display only: a malformed value hides the link / reminder stage rather than breaking the quote page.
   let salesforceInstanceUrl = '';
   try {
@@ -101,6 +119,9 @@ export async function loadOutcomeSettings(db: DbOrTx): Promise<OutcomeSettings> 
     sfStageMap: map.map((m) => ({ sfStage: m.sfStage, ccqStageHint: m.ccqStageHint })),
     salesforceInstanceUrl,
     sfOutcomeStageNames,
+    cerToolUrl: cerLink(cerTool, 'cer_tool_url'),
+    cerTemplateUrl: cerLink(cerTemplate, 'cer_template_url'),
+    cerProofRequired: cerProof === true,
   };
 }
 
@@ -286,7 +307,13 @@ export async function customerDecisionView(
       handoff?.createdBy,
     ].filter((id): id is string => !!id),
   );
+  // FB-26 (N17-32): the current CER proof (versioned), once the hand-off exists.
+  const proof = handoffStage
+    ? (await listCurrentModelVersions(db, [q.id])).find((f) => f.kind === 'cer_proof')
+    : undefined;
+  const proofBy = proof ? (await listUsersByIds(db, [proof.uploadedBy]))[0] : undefined;
   const names = new Map(people.map((p) => [p.id, p.displayName]));
+  const canEditHandoff = handoffStage && can(actor, 'handoff.edit', state);
   return {
     proposalIssuedAt: iso(q.proposalIssuedAt),
     validity: validityDto(q.validityUntil, now, settings),
@@ -299,7 +326,7 @@ export async function customerDecisionView(
       q.closureOwnerId ? (names.get(q.closureOwnerId) ?? null) : null,
     ),
     handoff: handoff ? handoffDto(handoff, settings, workflow, names) : null,
-    canEditHandoff: handoffStage && can(actor, 'handoff.edit', state),
+    canEditHandoff,
     inNegotiation:
       q.stageKey === CUSTOMER_DECISION_STAGE_KEY &&
       q.status !== 'closed' &&
@@ -308,5 +335,22 @@ export async function customerDecisionView(
     receivingRoles: settings.receivingRoles,
     sfStageByOutcome: settings.sfOutcomeStageNames,
     acceptanceEvidenceOptions: acceptanceEvidenceOptions(workflow),
+    cer: {
+      toolUrl: settings.cerToolUrl || null,
+      templateUrl: settings.cerTemplateUrl || null,
+      setLinksHint:
+        actor.roles.includes('Admin') && (!settings.cerToolUrl || !settings.cerTemplateUrl),
+      proof: proof
+        ? {
+            id: proof.id,
+            fileName: proof.fileName,
+            version: proof.version,
+            uploadedAt: proof.createdAt.toISOString(),
+            uploadedByName: proofBy?.displayName ?? null,
+          }
+        : null,
+      proofRequired: settings.cerProofRequired,
+      canUploadProof: canEditHandoff,
+    },
   };
 }

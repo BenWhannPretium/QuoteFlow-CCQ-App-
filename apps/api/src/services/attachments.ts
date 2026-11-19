@@ -57,6 +57,8 @@ import {
   DRAWING_ATTACHMENT_KINDS,
   drawingStatusAfterUpload,
   isEngineeringKind,
+  isHandoffKind,
+  HANDOFF_STAGE_KEYS,
   isGeneratedKind,
   isQuotingModelKind,
   isVersionedKind,
@@ -182,6 +184,28 @@ async function authorizeEngineeringFile(db: DbOrTx, actor: Actor, state: QuoteSt
     throw new ServiceProblem(409, P.conflict, first!.message, {
       errors: problemErrors(plan.errors),
     });
+  }
+}
+
+/**
+ * FB-26 (N17-32): the CER proof is uploaded on the hand-off card, by whoever edits the hand-off
+ * (`handoff.edit`: the KAM on their own quotes, a SalesLeader, an Admin), while the hand-off is editable
+ * (Commit & Hand Off, or Closed – Won).
+ */
+function authorizeHandoffFile(actor: Actor, state: QuoteState) {
+  if (!can(actor, 'handoff.edit', state)) {
+    throw new ServiceProblem(
+      403,
+      'forbidden',
+      'Only someone who edits the hand-off can add the CER proof',
+    );
+  }
+  if (!HANDOFF_STAGE_KEYS.includes(state.stageKey)) {
+    throw new ServiceProblem(
+      409,
+      P.conflict,
+      'The CER proof is added at hand-off, once the customer has awarded the quote',
+    );
   }
 }
 
@@ -516,6 +540,8 @@ export class AttachmentService {
           await authorizeModel(tx, actor, kind, state);
         } else if (isEngineeringKind(kind)) {
           await authorizeEngineeringFile(tx, actor, state);
+        } else if (isHandoffKind(kind)) {
+          authorizeHandoffFile(actor, state);
         } else if (!canUploadAttachment(actor, state)) {
           throw new ServiceProblem(403, 'forbidden', 'You cannot add files to this quote');
         }
@@ -632,6 +658,7 @@ export class AttachmentService {
           // Checked again here: the quote may have moved on while the bytes streamed.
           if (isQuotingModelKind(kind)) modelCtx = await authorizeModel(tx, actor, kind, state);
           else if (isEngineeringKind(kind)) await authorizeEngineeringFile(tx, actor, state);
+          else if (isHandoffKind(kind)) authorizeHandoffFile(actor, state);
           if (drawingKind) {
             const items = await listQuoteItems(tx, quote.id);
             const item = fields.data.itemKey

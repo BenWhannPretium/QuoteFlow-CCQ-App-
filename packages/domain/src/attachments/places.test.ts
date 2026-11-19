@@ -13,7 +13,12 @@ describe('attachment_kinds_by_place (FB-24, N17-06/07)', () => {
       intake: ['other', 'bottle_drawing'],
       quote: ['sample_photo'],
     });
-    expect(parsed).toEqual({ intake: ['other', 'bottle_drawing'], quote: ['sample_photo'] });
+    // FB-26: a setting without the hand-off place reads its seed list (the CER proof).
+    expect(parsed).toEqual({
+      intake: ['other', 'bottle_drawing'],
+      quote: ['sample_photo'],
+      handoff: ['cer_proof'],
+    });
   });
 
   it('falls back to the seed when missing or malformed, and drops unknown kinds and repeats', () => {
@@ -58,10 +63,16 @@ describe('attachment_kinds_by_place (FB-24, N17-06/07)', () => {
 
   it('the Admin editor saves only both places, known kinds, once each, without the offer letter', () => {
     const spec = settingSpec('attachment_kinds_by_place');
+    // FB-26: a value saved before the hand-off place existed gets its seed list.
     expect(spec.parse({ intake: ['bottle_drawing'], quote: ['other'] })).toEqual({
       intake: ['bottle_drawing'],
       quote: ['other'],
+      handoff: ['cer_proof'],
     });
+    expect(
+      spec.parse({ intake: ['bottle_drawing'], quote: ['other'], handoff: ['cer_proof', 'other'] }),
+    ).toEqual({ intake: ['bottle_drawing'], quote: ['other'], handoff: ['cer_proof', 'other'] });
+    expect(() => spec.parse({ intake: ['other'], quote: ['other'], handoff: [] })).toThrow();
     expect(() => spec.parse({ intake: ['bottle_drawing'] })).toThrow();
     expect(() => spec.parse({ intake: [], quote: ['other'] })).toThrow();
     expect(() => spec.parse({ intake: ['nope'], quote: ['other'] })).toThrow();

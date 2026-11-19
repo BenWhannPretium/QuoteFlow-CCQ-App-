@@ -559,6 +559,22 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     sampleBody: { notes: 'x' },
   },
   { method: 'GET', route: '/api/v1/admin/reports/outcomes', permission: 'analytics.read' },
+  // FB-26 (N17-30): the linked re-quote. Starting one is quote.requote (KAM own, SalesLeader; the
+  // service checks the quote again, requote.int.test.ts); the "From the expired quote" panel is
+  // quote.read. Allowed roles get 404 on the sample quote.
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/requote',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/requote`,
+    permission: 'quote.requote',
+    sampleBody: { note: 'The customer said yes after the validity date' },
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/quotes/:quoteNumber/requote-source',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/requote-source`,
+    permission: 'quote.read',
+  },
   // FB-20 (F-070): the offer letter. Reading is offer.read (every role that reads a quote; PostAward on
   // Awarded quotes); generating is offer.generate (KAM own, SalesLeader, Pricing, PricingLead, Admin).
   // The service checks the quote again, so allowed roles get 404 on the sample quote.

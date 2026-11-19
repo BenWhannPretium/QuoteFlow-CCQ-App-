@@ -67,6 +67,8 @@ const EXPECTED: Record<string, Role[]> = {
   // FB-08 (F-082, off until A-035)
   'finalReview.signoff': ['SalesLeader', 'Leadership'],
   'outcome.record': ['SalesLeader'],
+  // FB-26 (N17-30): KAM own (qualified) and SalesLeader.
+  'quote.requote': ['SalesLeader'],
   'outcome.assignOwner': ['SalesLeader'],
   'handoff.edit': ['SalesLeader', 'Admin'],
   // FB-20 (F-070, provisional): every quote reader sees the offer letters (PostAward on Awarded
@@ -166,6 +168,23 @@ describe('permission matrix', () => {
 });
 
 describe('qualified grants', () => {
+  it('quote.requote (FB-26): KAM only on their own quote, any SalesLeader, no one else', () => {
+    const kam = makeActor('KAM', { userId: KAM_ID });
+    expect(can(kam, 'quote.requote', makeQuote('EXPIRED'))).toBe(true);
+    expect(can(makeActor('KAM'), 'quote.requote', makeQuote('EXPIRED'))).toBe(false);
+    expect(can(makeActor('SalesLeader'), 'quote.requote', makeQuote('EXPIRED'))).toBe(true);
+    for (const role of [
+      'EngLead',
+      'Pricing',
+      'PricingLead',
+      'Approver',
+      'Leadership',
+      'Admin',
+    ] as const) {
+      expect(can(makeActor(role), 'quote.requote', makeQuote('EXPIRED'))).toBe(false);
+    }
+  });
+
   it('outcome.record: KAM only on their own quote', () => {
     const kam = makeActor('KAM', { userId: KAM_ID });
     expect(can(kam, 'outcome.record', makeQuote('CUSTOMER_DECISION'))).toBe(true);

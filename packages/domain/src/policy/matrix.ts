@@ -118,6 +118,9 @@ export const PERMISSION_MATRIX: Readonly<
   // is seeded off; the setting names which of these roles signs which step. Provisional.
   'finalReview.signoff': { SalesLeader: true, Leadership: true },
   'outcome.record': { KAM: own, SalesLeader: true },
+  // FB-26 (N17-30): a linked re-quote of an expired quote: the KAM on their own quotes, a sales leader on
+  // any they read (the same people who record the customer outcome). Provisional.
+  'quote.requote': { KAM: own, SalesLeader: true },
   // B-13 (CR-39, D-15): the closure owner defaults to the quote's KAM; a sales leader, who is
   // accountable for closure, may name someone else (themselves, or another KAM).
   'outcome.assignOwner': { SalesLeader: true },

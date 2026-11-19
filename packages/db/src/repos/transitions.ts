@@ -170,6 +170,8 @@ export async function loadQuoteStates(
       price_table_on_file: modelKinds.get(row.id)?.has('price_table') ?? false,
       // FB-06 (F-058): the current equipment BOM, which G2 "Capital required" reads.
       equipment_bom_on_file: modelKinds.get(row.id)?.has('equipment_bom') ?? false,
+      // FB-26 (N17-32): the current CER proof (hand-off), which G6 Advance reads when the setting is on.
+      cer_proof_on_file: modelKinds.get(row.id)?.has('cer_proof') ?? false,
       // FB-19: each item's own engineering facts (its review row and its capacity rows).
       ...(itemsBy.has(row.id)
         ? {

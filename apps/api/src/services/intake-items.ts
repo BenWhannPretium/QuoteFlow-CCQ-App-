@@ -71,7 +71,8 @@ export interface ItemsProblem {
  */
 export async function drawingCheck(
   db: DbOrTx,
-  draft: Pick<QuoteDraftRow, 'id' | 'reworkOfQuoteId'>,
+  draft: Pick<QuoteDraftRow, 'id' | 'reworkOfQuoteId'> &
+    Partial<Pick<QuoteDraftRow, 'requoteOfQuoteId'>>,
 ): Promise<{
   has: (item: IntakeItemData, index: number) => boolean;
   ids: Set<string>;
@@ -81,6 +82,8 @@ export async function drawingCheck(
   const all = [
     ...(await listDraftAttachments(db, draft.id)),
     ...(draft.reworkOfQuoteId ? await listAttachments(db, draft.reworkOfQuoteId) : []),
+    // FB-26 (N17-30): a linked re-quote links to the old quote's drawings (and its render counts).
+    ...(draft.requoteOfQuoteId ? await listAttachments(db, draft.requoteOfQuoteId) : []),
   ];
   const files = all.filter((f) => isDrawing(f.kind));
   const ids = new Set(files.map((f) => f.id));
@@ -414,6 +417,11 @@ export async function syncQuoteItems(
     items: readonly IntakeItemData[];
     rows: readonly StoredItem[];
     now: Date;
+    /**
+     * FB-26 (N17-30): a linked re-quote's old quote. Its drawings may be linked too (the new items use
+     * the drawings the old ones held, FB-19's way; nothing is copied).
+     */
+    linkedFromQuoteId?: string | null;
   },
 ): Promise<Map<string, string>> {
   const { quoteId, draftId, items, rows, now } = input;
@@ -510,7 +518,11 @@ export async function syncQuoteItems(
   }
 
   // 4. Drawing links (Duplicate): only to live drawings on this quote that the item does not hold.
-  const drawings = (await listAttachments(tx, quoteId)).filter((f) => isDrawing(f.kind));
+  // FB-26: or, on a linked re-quote, to the old quote's live drawings.
+  const drawings = [
+    ...(await listAttachments(tx, quoteId)),
+    ...(input.linkedFromQuoteId ? await listAttachments(tx, input.linkedFromQuoteId) : []),
+  ].filter((f) => isDrawing(f.kind));
   for (const item of items) {
     const id = keyToId.get(item.key)!;
     const linked = (item.linkedDrawingIds ?? []).filter((a) =>

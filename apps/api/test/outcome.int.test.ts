@@ -1011,18 +1011,20 @@ describe('the daily validity expiry job', () => {
     expect(await events(qn, 'validity_expired')).toMatchObject([
       { payload: { validityUntil: until } },
     ]);
-    const [n] = await notifications(qn, 'quote.validity_expired');
-    expect(n).toMatchObject({ userId: ids.kam });
+    // FB-26 (N17-31): the KAM and the sales leader who qualified it (validity_notice_recipients).
+    const sent = await notifications(qn, 'quote.validity_expired');
+    expect(sent.map((x) => x.userId).sort()).toEqual([ids.kam, ids['sales-leader']].sort());
+    const n = sent.find((x) => x.userId === ids.kam);
     expect(n!.body).toContain('Revalidate or record the outcome');
     expect((await detail(qn)).customerDecision).toMatchObject({
       validity: { state: 'expired' },
       validityExpiredFlaggedAt: clock.toISOString(),
     });
 
-    // Once per validity date.
+    // Once per validity date (each person once).
     run = await app.validityExpiry!.runNow();
     expect(run.quoteNumbers).not.toContain(qn);
-    expect(await notifications(qn, 'quote.validity_expired')).toHaveLength(1);
+    expect(await notifications(qn, 'quote.validity_expired')).toHaveLength(2);
     clock = saved;
   });
 

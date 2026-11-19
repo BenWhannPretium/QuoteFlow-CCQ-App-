@@ -226,7 +226,7 @@ export const OFFER_LETTER_BLOCK_IF_COSTING_CHANGED_SEED = true;
  */
 export const OFFER_LETTER_TEMPLATE_SEED: OfferLetterTemplate = {
   // FB-24: the concept sentence added (migration 0051 makes the same change where FB-20's seed is unedited).
-  // FB-23: the "Equipment / tool lead time" Specifications row (migration 0054, same guard).
+  // FB-23: the "Equipment / tool lead time" Specifications row (migration 0055, same guard).
   templateVersion: 'fb23-2026-11-19',
   provisional: true,
   legalApproved: false,

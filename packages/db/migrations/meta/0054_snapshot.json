@@ -1,5 +1,5 @@
 {
-  "id": "7188fc4c-b73d-4f34-848f-1867c5f8d3b1",
+  "id": "bbd90be7-cf86-4880-ac44-f7ecd1de2661",
   "prevId": "1681dcf0-dc37-43ff-9cf4-32476eca2c66",
   "version": "7",
   "dialect": "postgresql",
@@ -247,7 +247,7 @@
         },
         "role_permission_permission_check": {
           "name": "role_permission_permission_check",
-          "value": "\"role_permission\".\"permission\" in ('quote.create', 'quote.read', 'quote.read.commercialFields', 'gate.G1.decide', 'engQueue.read', 'queue.assign', 'engReview.edit', 'gate.G2.decide', 'pricingQueue.read', 'pricingQueue.assign', 'quoting.edit', 'gate.G3.submit', 'roi.upload', 'payback.request', 'finalReview.read', 'gate.G4.decide', 'finalReview.signoff', 'outcome.record', 'outcome.assignOwner', 'handoff.edit', 'offer.read', 'offer.generate', 'gate.G6.decide', 'terms.edit', 'terms.engineering.edit', 'terms.finalize', 'terms.exception.decide', 'capitalFlag.edit', 'capacity.edit', 'capacity.signoff', 'quote.escalate', 'override.request', 'override.approve', 'override.revert', 'overrideLog.read', 'audit.read', 'attachment.upload', 'attachment.removeAny', 'export.csv', 'analytics.read', 'config.read', 'config.manage', 'feedback.submit', 'feedback.triage')"
+          "value": "\"role_permission\".\"permission\" in ('quote.create', 'quote.read', 'quote.read.commercialFields', 'gate.G1.decide', 'engQueue.read', 'queue.assign', 'engReview.edit', 'gate.G2.decide', 'pricingQueue.read', 'pricingQueue.assign', 'quoting.edit', 'gate.G3.submit', 'roi.upload', 'payback.request', 'finalReview.read', 'gate.G4.decide', 'finalReview.signoff', 'outcome.record', 'quote.requote', 'outcome.assignOwner', 'handoff.edit', 'offer.read', 'offer.generate', 'gate.G6.decide', 'terms.edit', 'terms.engineering.edit', 'terms.finalize', 'terms.exception.decide', 'capitalFlag.edit', 'capacity.edit', 'capacity.signoff', 'quote.escalate', 'override.request', 'override.approve', 'override.revert', 'overrideLog.read', 'audit.read', 'attachment.upload', 'attachment.removeAny', 'export.csv', 'analytics.read', 'config.read', 'config.manage', 'feedback.submit', 'feedback.triage')"
         }
       },
       "isRLSEnabled": false
@@ -838,7 +838,7 @@
       "checkConstraints": {
         "gate_definition_decider_permission_check": {
           "name": "gate_definition_decider_permission_check",
-          "value": "\"gate_definition\".\"decider_permission\" in ('quote.create', 'quote.read', 'quote.read.commercialFields', 'gate.G1.decide', 'engQueue.read', 'queue.assign', 'engReview.edit', 'gate.G2.decide', 'pricingQueue.read', 'pricingQueue.assign', 'quoting.edit', 'gate.G3.submit', 'roi.upload', 'payback.request', 'finalReview.read', 'gate.G4.decide', 'finalReview.signoff', 'outcome.record', 'outcome.assignOwner', 'handoff.edit', 'offer.read', 'offer.generate', 'gate.G6.decide', 'terms.edit', 'terms.engineering.edit', 'terms.finalize', 'terms.exception.decide', 'capitalFlag.edit', 'capacity.edit', 'capacity.signoff', 'quote.escalate', 'override.request', 'override.approve', 'override.revert', 'overrideLog.read', 'audit.read', 'attachment.upload', 'attachment.removeAny', 'export.csv', 'analytics.read', 'config.read', 'config.manage', 'feedback.submit', 'feedback.triage')"
+          "value": "\"gate_definition\".\"decider_permission\" in ('quote.create', 'quote.read', 'quote.read.commercialFields', 'gate.G1.decide', 'engQueue.read', 'queue.assign', 'engReview.edit', 'gate.G2.decide', 'pricingQueue.read', 'pricingQueue.assign', 'quoting.edit', 'gate.G3.submit', 'roi.upload', 'payback.request', 'finalReview.read', 'gate.G4.decide', 'finalReview.signoff', 'outcome.record', 'quote.requote', 'outcome.assignOwner', 'handoff.edit', 'offer.read', 'offer.generate', 'gate.G6.decide', 'terms.edit', 'terms.engineering.edit', 'terms.finalize', 'terms.exception.decide', 'capitalFlag.edit', 'capacity.edit', 'capacity.signoff', 'quote.escalate', 'override.request', 'override.approve', 'override.revert', 'overrideLog.read', 'audit.read', 'attachment.upload', 'attachment.removeAny', 'export.csv', 'analytics.read', 'config.read', 'config.manage', 'feedback.submit', 'feedback.triage')"
         }
       },
       "isRLSEnabled": false
@@ -2067,7 +2067,7 @@
       "checkConstraints": {
         "value_list_list_key_check": {
           "name": "value_list_list_key_check",
-          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'sub_market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'additive', 'labels_purchased_by', 'decoration_type', 'requested_payment_terms', 'price_basis', 'freight_type', 'tooling_payment_terms', 'mold_ownership', 'pack_method', 'pallet_type')"
+          "value": "\"value_list\".\"list_key\" in ('product_family', 'market', 'sub_market', 'resin', 'component', 'process_type', 'machine_type', 'plant', 'request_class', 'drawing_status', 'neck_finish', 'packaging_type', 'tooling_funding_model', 'neck_diameter', 'neck_finish_type', 'neck_special_feature', 'pcr_level', 'color_type', 'additive', 'labels_purchased_by', 'decoration_type', 'requested_payment_terms', 'price_basis', 'freight_type', 'tooling_payment_terms', 'mold_ownership')"
         }
       },
       "isRLSEnabled": false
@@ -2403,11 +2403,11 @@
       "checkConstraints": {
         "attachment_kind_check": {
           "name": "attachment_kind_check",
-          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'capacity_analysis', 'other', 'bid_file', 'project_brief', 'competitor_drawing', 'cost_model', 'roi_model', 'price_table', 'equipment_bom', 'offer_letter')"
+          "value": "\"attachment\".\"kind\" in ('bottle_drawing', 'spec', 'sample_photo', 'capacity_analysis', 'other', 'bid_file', 'project_brief', 'competitor_drawing', 'cost_model', 'roi_model', 'price_table', 'equipment_bom', 'offer_letter', 'cer_proof')"
         },
         "attachment_version_check": {
           "name": "attachment_version_check",
-          "value": "(\"attachment\".\"version\" is null) = (\"attachment\".\"kind\" not in ('cost_model', 'roi_model', 'price_table', 'equipment_bom')) and (\"attachment\".\"version\" is null or \"attachment\".\"version\" >= 1)"
+          "value": "(\"attachment\".\"version\" is null) = (\"attachment\".\"kind\" not in ('cost_model', 'roi_model', 'price_table', 'equipment_bom', 'cer_proof')) and (\"attachment\".\"version\" is null or \"attachment\".\"version\" >= 1)"
         },
         "attachment_superseded_consistency_check": {
           "name": "attachment_superseded_consistency_check",
@@ -2931,190 +2931,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.eng_cost_line": {
-      "name": "eng_cost_line",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "quote_id": {
-          "name": "quote_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quote_item_id": {
-          "name": "quote_item_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "line_key": {
-          "name": "line_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount_usd": {
-          "name": "amount_usd",
-          "type": "numeric(18, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "eng_cost_line_item_key_uq": {
-          "name": "eng_cost_line_item_key_uq",
-          "columns": [
-            {
-              "expression": "quote_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "line_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "eng_cost_line_quote_idx": {
-          "name": "eng_cost_line_quote_idx",
-          "columns": [
-            {
-              "expression": "quote_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "eng_cost_line_created_by_app_user_id_fk": {
-          "name": "eng_cost_line_created_by_app_user_id_fk",
-          "tableFrom": "eng_cost_line",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "eng_cost_line_quote_id_quote_id_fk": {
-          "name": "eng_cost_line_quote_id_quote_id_fk",
-          "tableFrom": "eng_cost_line",
-          "tableTo": "quote",
-          "columnsFrom": [
-            "quote_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "eng_cost_line_quote_item_id_quote_item_id_fk": {
-          "name": "eng_cost_line_quote_item_id_quote_item_id_fk",
-          "tableFrom": "eng_cost_line",
-          "tableTo": "quote_item",
-          "columnsFrom": [
-            "quote_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "eng_cost_line_updated_by_app_user_id_fk": {
-          "name": "eng_cost_line_updated_by_app_user_id_fk",
-          "tableFrom": "eng_cost_line",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "eng_cost_line_amount_check": {
-          "name": "eng_cost_line_amount_check",
-          "value": "\"eng_cost_line\".\"amount_usd\" between 0 and 999999999.99"
-        },
-        "eng_cost_line_description_check": {
-          "name": "eng_cost_line_description_check",
-          "value": "\"eng_cost_line\".\"description\" is null or char_length(\"eng_cost_line\".\"description\") <= 120"
-        },
-        "eng_cost_line_quantity_check": {
-          "name": "eng_cost_line_quantity_check",
-          "value": "\"eng_cost_line\".\"quantity\" is null or \"eng_cost_line\".\"quantity\" between 1 and 99"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.eng_review": {
       "name": "eng_review",
       "schema": "",
@@ -3331,96 +3147,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
-        },
-        "mold_lead_time": {
-          "name": "mold_lead_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "packers_per_line": {
-          "name": "packers_per_line",
-          "type": "numeric(6, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "operators_per_line": {
-          "name": "operators_per_line",
-          "type": "numeric(6, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pack_method": {
-          "name": "pack_method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pack_container_item_no": {
-          "name": "pack_container_item_no",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pack_container_description": {
-          "name": "pack_container_description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "containers_per_layer": {
-          "name": "containers_per_layer",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "layers_per_pallet": {
-          "name": "layers_per_pallet",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pallet_build_height": {
-          "name": "pallet_build_height",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pallet_type": {
-          "name": "pallet_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pallets_per_trailer": {
-          "name": "pallets_per_trailer",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "special_packaging_note": {
-          "name": "special_packaging_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "returnable_dunnage_description": {
-          "name": "returnable_dunnage_description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "returnable_dunnage_cost_usd": {
-          "name": "returnable_dunnage_cost_usd",
-          "type": "numeric(18, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "tooling_markup_pct": {
-          "name": "tooling_markup_pct",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -3534,14 +3260,6 @@
         "eng_review_capacity_signoff_status_check": {
           "name": "eng_review_capacity_signoff_status_check",
           "value": "\"eng_review\".\"capacity_signoff_status\" is null or \"eng_review\".\"capacity_signoff_status\" in ('approved', 'blocked')"
-        },
-        "eng_review_cost_estimate_check": {
-          "name": "eng_review_cost_estimate_check",
-          "value": "(\"eng_review\".\"mold_lead_time\" is null or char_length(\"eng_review\".\"mold_lead_time\") <= 40) and (\"eng_review\".\"packers_per_line\" is null or \"eng_review\".\"packers_per_line\" between 0 and 99.99) and (\"eng_review\".\"operators_per_line\" is null or \"eng_review\".\"operators_per_line\" between 0 and 99.99) and (\"eng_review\".\"tooling_markup_pct\" is null or \"eng_review\".\"tooling_markup_pct\" between 0 and 100) and (\"eng_review\".\"returnable_dunnage_cost_usd\" is null or \"eng_review\".\"returnable_dunnage_cost_usd\" between 0 and 999999999.99)"
-        },
-        "eng_review_pack_out_detail_check": {
-          "name": "eng_review_pack_out_detail_check",
-          "value": "(\"eng_review\".\"pack_container_item_no\" is null or char_length(\"eng_review\".\"pack_container_item_no\") <= 40) and (\"eng_review\".\"pack_container_description\" is null or char_length(\"eng_review\".\"pack_container_description\") <= 120) and (\"eng_review\".\"containers_per_layer\" is null or \"eng_review\".\"containers_per_layer\" between 1 and 9999) and (\"eng_review\".\"layers_per_pallet\" is null or \"eng_review\".\"layers_per_pallet\" between 1 and 999) and (\"eng_review\".\"pallet_build_height\" is null or char_length(\"eng_review\".\"pallet_build_height\") <= 20) and (\"eng_review\".\"pallets_per_trailer\" is null or \"eng_review\".\"pallets_per_trailer\" between 1 and 999) and (\"eng_review\".\"special_packaging_note\" is null or char_length(\"eng_review\".\"special_packaging_note\") <= 300) and (\"eng_review\".\"returnable_dunnage_description\" is null or char_length(\"eng_review\".\"returnable_dunnage_description\") <= 200)"
         }
       },
       "isRLSEnabled": false
@@ -4834,12 +4552,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "mold_charge_source": {
-          "name": "mold_charge_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "change_parts_charge": {
           "name": "change_parts_charge",
           "type": "numeric(18, 4)",
@@ -4950,10 +4662,6 @@
         "offer_letter_item_part_number_check": {
           "name": "offer_letter_item_part_number_check",
           "value": "\"offer_letter_item\".\"part_number\" is null or char_length(\"offer_letter_item\".\"part_number\") <= 60"
-        },
-        "offer_letter_item_mold_charge_source_check": {
-          "name": "offer_letter_item_mold_charge_source_check",
-          "value": "\"offer_letter_item\".\"mold_charge_source\" is null or \"offer_letter_item\".\"mold_charge_source\" in ('workbook', 'engineering')"
         }
       },
       "isRLSEnabled": false
@@ -6451,9 +6159,30 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "requoted_from_quote_id": {
+          "name": "requoted_from_quote_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
+        "quote_requoted_from_quote_id_uidx": {
+          "name": "quote_requoted_from_quote_id_uidx",
+          "columns": [
+            {
+              "expression": "requoted_from_quote_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "quote_stage_priority_idx": {
           "name": "quote_stage_priority_idx",
           "columns": [
@@ -6858,6 +6587,19 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "quote_requoted_from_quote_id_quote_id_fk": {
+          "name": "quote_requoted_from_quote_id_quote_id_fk",
+          "tableFrom": "quote",
+          "tableTo": "quote",
+          "columnsFrom": [
+            "requoted_from_quote_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -7012,6 +6754,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "requote_of_quote_id": {
+          "name": "requote_of_quote_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -7048,6 +6796,22 @@
           ],
           "isUnique": true,
           "where": "\"quote_draft\".\"rework_of_quote_id\" is not null and \"quote_draft\".\"submitted_quote_id\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "quote_draft_one_open_requote_uidx": {
+          "name": "quote_draft_one_open_requote_uidx",
+          "columns": [
+            {
+              "expression": "requote_of_quote_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"quote_draft\".\"requote_of_quote_id\" is not null and \"quote_draft\".\"submitted_quote_id\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -7105,12 +6869,29 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "quote_draft_requote_of_quote_id_quote_id_fk": {
+          "name": "quote_draft_requote_of_quote_id_quote_id_fk",
+          "tableFrom": "quote_draft",
+          "tableTo": "quote",
+          "columnsFrom": [
+            "requote_of_quote_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "quote_draft_rework_or_requote_check": {
+          "name": "quote_draft_rework_or_requote_check",
+          "value": "\"quote_draft\".\"rework_of_quote_id\" is null or \"quote_draft\".\"requote_of_quote_id\" is null"
+        },
         "quote_draft_step_check": {
           "name": "quote_draft_step_check",
           "value": "\"quote_draft\".\"step\" between 1 and 4"

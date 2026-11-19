@@ -99,7 +99,9 @@ describe('0051 config in a configured environment', () => {
         INTAKE_MIN_SPEC_EXEMPT_CLASSES,
       );
       expect(await setting(tx, 'ship_to_sources')).toEqual(SHIP_TO_SOURCES);
-      expect(await setting(tx, 'attachment_kinds_by_place')).toEqual(ATTACHMENT_KINDS_BY_PLACE);
+      // 0051's lists (FB-26's migration adds the hand-off place after it, so today's seed has one more).
+      const { handoff: _handoff, ...fb24Lists } = ATTACHMENT_KINDS_BY_PLACE;
+      expect(await setting(tx, 'attachment_kinds_by_place')).toEqual(fb24Lists);
       expect(await entry(tx, 'request_class', 'CONCEPT')).toMatchObject({
         label: 'Concept / innovation',
         provisional: true,

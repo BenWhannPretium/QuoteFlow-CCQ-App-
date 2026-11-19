@@ -259,6 +259,19 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
 | 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
 
+**Provisional values FB-26 seeded (built 2026-11-19; all `provisional: true`, changed by config, not code; migration 0054). Not built (prompt): re-pricing an expired quote for a resin-only change (open decision 6), changing `validity_days_default` (open decision 1), auto-closing expired quotes (D-12).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.linked_requote_allowed_from` | `["closed_expired","open_lapsed"]`: a linked re-quote starts from a quote closed "No response / Expired", or one open at Customer Decision past its validity date (G5 "No response / Expired" is recorded first) | Whether a Lost quote may be re-quoted too | Bailey Schmitt |
+| `role_permission` `quote.requote` | KAM (own quotes), SalesLeader | Who starts a re-quote | Bailey Schmitt |
+| What a linked re-quote copies (code: `REQUOTE_COPIED_FIELDS`) | The intake's request fields and every item's product fields, drawings as links; no engineering, pricing, terms, decisions or need-by date; the old solution is shown read only ("From the expired quote") | Whether the old engineering solution should be copied as a starting point | Bailey Schmitt; Jim Zweifel |
+| `app_setting.validity_notice_recipients` | `["kam","g1_decider"]`: the KAM and the person who made the latest G1 Advance | Which sales leader when several exist | Bailey Schmitt |
+| `app_setting.cer_tool_url`, `cer_template_url` | Empty (no links; Admins see where to set them) | The CER tool (Apex) URL and the template's location | Oleg Yarovinski (an Admin sets them) |
+| `app_setting.handoff_cer_proof_required` | `false` (the CER proof is optional) | Whether an Approved CER must have proof before closing Won | Bailey Schmitt |
+| `attachment_kinds_by_place.handoff` | `["cer_proof"]` (PDF, PNG, JPEG or HEIC; versioned) | — | Bailey Schmitt |
+| CER ID label | "CER ID (Apex)" kept | Whether Bailey's "CER request number" is the Apex CER ID | Bailey Schmitt |
+
 **Provisional values FB-25 seeded (built 2026-11-19; all `provisional: true`, changed by config, not code; migration 0053).**
 
 | Value | Seed | Waits on | Who signs off |
@@ -298,7 +311,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Technical concept / Supply chain | No longer asked or accepted; columns kept (deprecated), old values read-only under "Legacy notes"; Charter / Scope text goes in the tooling notes or stays in the workbook | Question 3: where Charter / Scope text goes | Bailey Schmitt; Jim Zweifel |
 | "New" in the engineering queue | New to the assigned engineer until Start review; to the assigned scheduler until a capacity row is saved; "New to me" filter | — | Faron Ipox |
 
-**Provisional values FB-23 seeded (built 2026-11-19; all `provisional: true`, changed by an Admin without a deploy; migration 0054). Decided by Ben on 2026-11-18: D4 (tariffs, special packaging, returnable dunnage placed in Engineering), D5 (no tooling markup unless noted), D6 (container item numbers free text). Provisional until Bailey Schmitt confirms.**
+**Provisional values FB-23 seeded (built 2026-11-19; all `provisional: true`, changed by an Admin without a deploy; migration 0055). Decided by Ben on 2026-11-18: D4 (tariffs, special packaging, returnable dunnage placed in Engineering), D5 (no tooling markup unless noted), D6 (container item numbers free text). Provisional until Bailey Schmitt confirms.**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|

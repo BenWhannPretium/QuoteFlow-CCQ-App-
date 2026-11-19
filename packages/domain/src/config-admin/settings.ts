@@ -55,6 +55,11 @@ import {
   parseOfferLetterWordingApproved,
 } from '../offer-letter';
 import { parseReceivingRoles } from '../outcome/handoff';
+import {
+  parseCerLinkUrl,
+  parseLinkedRequoteAllowedFrom,
+  parseValidityNoticeRecipients,
+} from '../outcome/requote';
 import { parseSalesforceInstanceUrl, parseSfOutcomeStageNames } from '../outcome/sf-stage';
 import { parseValidityWarningDays } from '../outcome/validity';
 import { overridableFieldSchema, parseOverrideSettings } from '../overrides/config';
@@ -219,6 +224,42 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'Hand-off receiving roles',
     'json',
     notNull('handoff_receiving_roles', parseReceivingRoles),
+  ),
+  // FB-26 (N17-30, N17-31, N17-32; all provisional).
+  spec(
+    'linked_requote_allowed_from',
+    'proposal',
+    'A linked re-quote may start from (closed_expired, open_lapsed)',
+    'json',
+    notNull('linked_requote_allowed_from', parseLinkedRequoteAllowedFrom),
+  ),
+  spec(
+    'validity_notice_recipients',
+    'proposal',
+    'Who is told a proposal is expiring or has expired (kam, g1_decider)',
+    'json',
+    notNull('validity_notice_recipients', parseValidityNoticeRecipients),
+  ),
+  spec(
+    'cer_tool_url',
+    'proposal',
+    'CER tool link on the hand-off card (blank = not shown)',
+    'text',
+    (v) => parseCerLinkUrl(v, 'cer_tool_url'),
+  ),
+  spec(
+    'cer_template_url',
+    'proposal',
+    'CER template link on the hand-off card (blank = not shown)',
+    'text',
+    (v) => parseCerLinkUrl(v, 'cer_template_url'),
+  ),
+  spec(
+    'handoff_cer_proof_required',
+    'proposal',
+    'An approved CER needs a CER proof file before Commit & Hand Off can advance',
+    'boolean',
+    z_('handoff_cer_proof_required', z.boolean()),
   ),
   spec(
     'sf_outcome_stage_names',

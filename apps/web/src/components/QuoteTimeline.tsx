@@ -52,7 +52,18 @@ export function describeEvent(
     text ? <p className="whitespace-pre-line">{text}</p> : undefined;
   switch (e.type) {
     case 'quote_created':
-      return { title: 'Quote created from the Salesforce opportunity', kind: 'stage' };
+      // FB-26 (N17-30): a linked re-quote names the expired quote it re-quotes.
+      return {
+        title: str(p.requoteOf)
+          ? `Quote created as a re-quote of ${str(p.requoteOf)}`
+          : 'Quote created from the Salesforce opportunity',
+        kind: 'stage',
+      };
+    // FB-26 (N17-30): on the expired quote, the linked re-quote started and created.
+    case 'requote_started':
+      return { title: 'Linked re-quote started', detail: note(str(p.note)), kind: 'stage' };
+    case 'requoted_as':
+      return { title: `Re-quoted as ${str(p.quoteNumber) ?? 'a new quote'}`, kind: 'stage' };
     case 'quote_resubmitted':
       return { title: 'Resubmitted after rework', kind: 'stage' };
     case 'gate_decided': {

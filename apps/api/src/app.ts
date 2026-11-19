@@ -83,6 +83,7 @@ import { PipelineService } from './services/pipeline';
 import { PricingService } from './services/pricing';
 import { PricingHistoryService } from './services/pricing-history';
 import { QuoteReadService } from './services/quotes';
+import { RequoteService } from './services/requote';
 import { SalesforceService } from './services/salesforce';
 import { ScoringService } from './services/scoring';
 import { TimelineService } from './services/timeline';
@@ -392,7 +393,12 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
 
   // B-08 advisory scoring, quote reads and the generic gate-decision service.
   const scoring = new ScoringService();
-  const quoteReads = new QuoteReadService(scoring);
+  // FB-26 (N17-30): a linked re-quote's other quote is named even when RLS hides it (number and date
+  // only), read on the system pool like FB-19's open-quote lookup.
+  const quoteReads = new QuoteReadService(
+    scoring,
+    deps.db.db ? (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) : undefined,
+  );
   const gateLog = app.log.child({ component: 'gates' });
   // B-18: the notifications a decision plans are written in the decision's own transaction (in-app +
   // the email outbox; see gateService). This after-commit hook only logs what was planned.
@@ -532,6 +538,16 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     log: app.log.child({ component: 'outcome' }),
     ...now,
   });
+  // FB-26 (N17-30): the linked re-quote of an expired quote (a new intake draft linked to the old quote).
+  const requoteService = new RequoteService({
+    gates: gateService,
+    readOpportunity: (withTx, id) => sfService.detail(withTx, id),
+    log: app.log.child({ component: 'requote' }),
+    ...(deps.db.db
+      ? { systemTx: (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) }
+      : {}),
+    ...now,
+  });
   // FB-20 (F-070): the customer offer letter (Word), stored through the same file store.
   const offerLetterService = new OfferLetterService({
     store: fileStore,
@@ -637,6 +653,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     pricingHistoryService,
     finalReviewService,
     outcomeService,
+    requoteService,
     offerLetterService,
     commercialService,
     pipelineService,
