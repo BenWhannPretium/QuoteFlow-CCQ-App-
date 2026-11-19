@@ -216,7 +216,15 @@ export function EquipmentBomCard({ quote }: { quote: QuoteDetail }) {
 
 /** The two free-text fields the equipment BOM upload replaced. Read-only; shown only when there is text. */
 export function LegacyNotes({ review }: { review: EngineeringDetail['review'] }) {
-  if (!review.downstreamEquipmentNotes && !review.equipmentBomNotes) return null;
+  if (
+    !review.downstreamEquipmentNotes &&
+    !review.equipmentBomNotes &&
+    // FB-22 (N17-12): two more retired boxes, shown read-only when they hold an old value.
+    !review.technicalConceptNotes &&
+    !review.supplyChainNotes
+  ) {
+    return null;
+  }
   return (
     <Card data-testid="legacy-notes">
       <CardHeader>
@@ -226,8 +234,9 @@ export function LegacyNotes({ review }: { review: EngineeringDetail['review'] })
       </CardHeader>
       <CardContent className="grid gap-3">
         <p className="text-muted-foreground text-sm">
-          Written before the equipment BOM became an upload. Kept for the record; they can no longer
-          be edited.
+          Written in boxes the form no longer has (the equipment BOM is now an upload; Technical
+          concept and Supply chain are no longer asked). Kept for the record; they can no longer be
+          edited.
         </p>
         <KeyValueGrid
           items={[
@@ -237,6 +246,12 @@ export function LegacyNotes({ review }: { review: EngineeringDetail['review'] })
               value: review.downstreamEquipmentNotes,
             },
             { id: 'legacy-bom', label: 'Equipment BOM', value: review.equipmentBomNotes },
+            {
+              id: 'legacy-concept',
+              label: 'Technical concept',
+              value: review.technicalConceptNotes,
+            },
+            { id: 'legacy-supply-chain', label: 'Supply chain', value: review.supplyChainNotes },
           ]}
         />
       </CardContent>
