@@ -7,7 +7,13 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { MIGRATIONS_DIR, dropAll, ensureDatabase, runMigrations } from '../src/migrate';
+import {
+  MIGRATIONS_DIR,
+  MigrationsNotAppliedError,
+  dropAll,
+  ensureDatabase,
+  runMigrations,
+} from '../src/migrate';
 
 /**
  * 2026-11-19 test outage. 0053 carried a hand-set journal `when` later than 0054 and 0055, so a
@@ -112,5 +118,20 @@ describe('runMigrations after 0054/0055 were moved after 0053', () => {
 
     await runMigrations(url);
     expect(await state()).toEqual(expected);
+  }, 180_000);
+
+  it('refuses, naming the migration, when drizzle would skip one (a `when` not after the newest applied)', async () => {
+    const last = journal.entries.at(-1)!;
+    await migrateWith(migrationsAsShipped((j) => ({ entries: j.entries.slice(0, -1) })));
+
+    // The same build again, but the last migration's `when` is now older than the one before it.
+    const skipped = migrationsAsShipped((j) => ({
+      entries: j.entries.map((e) =>
+        e.tag === last.tag ? { ...e, when: j.entries.at(-2)!.when - 1 } : e,
+      ),
+    }));
+    const err = await runMigrations(url, { migrationsDir: skipped }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(MigrationsNotAppliedError);
+    expect((err as MigrationsNotAppliedError).tags).toEqual([last.tag]);
   }, 180_000);
 });

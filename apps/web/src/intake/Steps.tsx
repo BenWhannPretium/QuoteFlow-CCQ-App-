@@ -7,7 +7,6 @@ import {
 } from '@ccq/contracts';
 import {
   activeFollowUps,
-  COMPONENT_FOLLOW_UP_FIELDS,
   INTAKE_TEXT_LIMITS,
   isDeliveredPrice,
   isNonStandardPaymentTerms,
@@ -43,6 +42,7 @@ import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import {
+  componentTogglePatch,
   draftItemName,
   FIELD_META,
   formatAddress,
@@ -769,15 +769,6 @@ function ColorFields({ data, update, cfg, evaluation }: StepProps) {
     </div>
   );
 }
-
-/** F-013: draft keys of the component follow-up fields. */
-const FOLLOW_UP_KEYS = {
-  liner_spec: 'linerSpec',
-  labels_purchased_by: 'labelsPurchasedBy',
-  // FB-24 (N17-02): several decoration types at once.
-  decoration_types: 'decorationTypes',
-  decoration_print_colors: 'decorationPrintColors',
-} as const satisfies Record<ComponentFollowUpField, keyof IntakeDraftData>;
 
 /** FB-24 (N17-02): the item's decoration types (an older draft's single code reads as one). */
 const decorationTypesOf = (data: IntakeDraftData): string[] => itemDecorationTypes(data);
@@ -1604,24 +1595,9 @@ function ItemFields({
     lastSuggestion.current = suggestion;
   }, [suggestion, data.standardDescription, update]);
 
-  const toggleComponent = (code: string, on: boolean) => {
-    const set = new Set(data.components ?? []);
-    if (on) set.add(code);
-    else set.delete(code);
-    const components = (cfg.lists.component ?? []).map((e) => e.code).filter((c) => set.has(c));
-    // F-013: a deselected component's follow-ups are cleared.
-    const active = activeFollowUps(components, cfg.intake.componentFollowUps);
-    const cleared: Partial<IntakeDraftData> = Object.fromEntries(
-      COMPONENT_FOLLOW_UP_FIELDS.filter((f) => !active.includes(f)).map((f) => [
-        FOLLOW_UP_KEYS[f],
-        null,
-      ]),
-    );
-    // FB-15 (W13-03): an unpicked "Other" (or Decoration) takes its description with it.
-    if (!components.some((c) => isCustom(cfg, 'component', c))) cleared.componentOther = null;
-    if (!active.includes('decoration_types')) cleared.decorationTypeOther = null;
-    update({ components, ...cleared });
-  };
+  // F-013: a deselected component's follow-ups are cleared (see componentTogglePatch).
+  const toggleComponent = (code: string, on: boolean) =>
+    update(componentTogglePatch(data, code, on, cfg));
 
   return (
     <div className="grid gap-4" data-testid="item-fields" data-item={itemNo}>

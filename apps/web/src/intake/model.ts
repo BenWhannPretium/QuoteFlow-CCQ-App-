@@ -12,6 +12,9 @@ import {
   type SfProductSpec,
 } from '@ccq/contracts';
 import {
+  activeFollowUps,
+  COMPONENT_FOLLOW_UP_FIELDS,
+  type ComponentFollowUpField,
   evaluateIntake,
   fieldsReferenced,
   isItemField,
@@ -452,6 +455,44 @@ export const listEntry = (cfg: WizardConfig, listKey: string, code: string | nul
 /** True when `code` is the list's "Custom" value (meta `freeText`): its description is required. */
 export const isCustom = (cfg: WizardConfig, listKey: string, code: string | null | undefined) =>
   listEntry(cfg, listKey, code)?.meta.freeText === true;
+
+/**
+ * F-013: each component follow-up's draft key and its cleared value. The decoration types are a list
+ * since FB-24 (N17-02), so they clear to `[]`. Clearing them to `null` crashed the wizard on any
+ * component click ("decorationTypes is not iterable", shown as "Can't reach QuoteFlow") and made
+ * every autosave fail the draft schema (2026-11-19).
+ */
+const FOLLOW_UP_CLEARED = {
+  liner_spec: { linerSpec: null },
+  labels_purchased_by: { labelsPurchasedBy: null },
+  decoration_types: { decorationTypes: [], decorationType: undefined },
+  decoration_print_colors: { decorationPrintColors: null },
+} as const satisfies Record<ComponentFollowUpField, Partial<IntakeItemData>>;
+
+/**
+ * The patch for ticking or unticking a component: the picked codes in list order, with the follow-ups
+ * of components no longer picked cleared. An unpicked "Other" (or Decoration) takes its description
+ * with it (FB-15, W13-03).
+ */
+export function componentTogglePatch(
+  data: IntakeDraftData,
+  code: string,
+  on: boolean,
+  cfg: WizardConfig,
+): Partial<IntakeDraftData> {
+  const set = new Set(data.components ?? []);
+  if (on) set.add(code);
+  else set.delete(code);
+  const components = (cfg.lists.component ?? []).map((e) => e.code).filter((c) => set.has(c));
+  const active = activeFollowUps(components, cfg.intake.componentFollowUps);
+  const cleared: Partial<IntakeDraftData> = {};
+  for (const f of COMPONENT_FOLLOW_UP_FIELDS) {
+    if (!active.includes(f)) Object.assign(cleared, FOLLOW_UP_CLEARED[f]);
+  }
+  if (!components.some((c) => isCustom(cfg, 'component', c))) cleared.componentOther = null;
+  if (!active.includes('decoration_types')) cleared.decorationTypeOther = null;
+  return { components, ...cleared };
+}
 
 const asListEntries = (cfg: WizardConfig, listKey: string): ListEntry[] =>
   (cfg.lists[listKey] ?? []).map((e) => ({

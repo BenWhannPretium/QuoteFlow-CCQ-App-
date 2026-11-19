@@ -41,6 +41,14 @@ describe('describeStartupError', () => {
     expect(line).not.toContain('Acme');
   });
 
+  it('prints a skipped-migration error in full: it names migration tags only', () => {
+    const err = new Error('0054_fb26_requote_expiry_handoff not applied: drizzle skips …');
+    err.name = 'MigrationsNotAppliedError';
+    expect(describeStartupError(err)).toBe(
+      'MigrationsNotAppliedError: 0054_fb26_requote_expiry_handoff not applied: drizzle skips …',
+    );
+  });
+
   it('falls back to the error name (and a driver code such as ECONNREFUSED)', () => {
     expect(describeStartupError(new TypeError('boom'))).toBe('TypeError');
     expect(describeStartupError(Object.assign(new Error('x'), { code: 'ECONNREFUSED' }))).toBe(
