@@ -351,7 +351,11 @@ export function GateDecisionDialog({
       toast.success({
         title: `${action?.outcomeLabel ?? 'Decision'} recorded`,
         description: `${quoteNumber} is now in ${stageLabel(config, result.quote.stageKey)}.${
-          sfStage ? ` Update the Salesforce opportunity to match: ${sfStage}.` : ''
+          !sfStage
+            ? ''
+            : result.quote.customerDecision.sfWriteback?.on
+              ? ` QuoteFlow updates the Salesforce opportunity: ${sfStage}.`
+              : ` Update the Salesforce opportunity to match: ${sfStage}.`
         }`,
       });
       reset();

@@ -125,6 +125,10 @@ import {
   PublicConfigResponse,
   SfSyncTriggerResponse,
   ModelSummaryListResponse,
+  SfWritebackPreview,
+  SfWritebackRow,
+  SfWritebackSummary,
+  type SfWritebackSwitchBody,
 } from '@ccq/contracts';
 import { z } from 'zod';
 
@@ -649,6 +653,23 @@ export const api = {
       getJson(`/api/v1/admin/config/decision-log${queryString(q)}`, DecisionLogResponse),
     decisionLogExport: (q: Partial<DecisionLogQuery>): Promise<Blob> =>
       getCsv(`/api/v1/admin/config/decision-log/export.csv${queryString(q)}`),
+    // FB-29: Admin → Integrations → Salesforce write-back.
+    sfWriteback: () => getJson('/api/v1/admin/salesforce/writeback', SfWritebackSummary),
+    setSfWriteback: (body: SfWritebackSwitchBody) =>
+      getJson('/api/v1/admin/salesforce/writeback', SfWritebackSummary, { method: 'PUT', body }),
+    retrySfWrite: (id: string) =>
+      getJson(`/api/v1/admin/salesforce/writeback/${encodeURIComponent(id)}/retry`, SfWritebackRow, {
+        method: 'POST',
+      }),
+    skipSfWrite: (id: string) =>
+      getJson(`/api/v1/admin/salesforce/writeback/${encodeURIComponent(id)}/skip`, SfWritebackRow, {
+        method: 'POST',
+      }),
+    previewSfWrite: (quoteNumber: string) =>
+      getJson(
+        `/api/v1/admin/salesforce/writeback/preview${queryString({ quoteNumber })}`,
+        SfWritebackPreview,
+      ),
   },
 };
 

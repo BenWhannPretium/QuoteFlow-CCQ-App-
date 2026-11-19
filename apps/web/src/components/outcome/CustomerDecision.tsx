@@ -638,6 +638,29 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
 
 // ── FB-04 (F-076): the "update the Salesforce opportunity" reminder (stopgap until write-back, F-035) ──
 
+/** FB-29: the latest write's state, in words, for the reminder while the write-back is on. */
+function writebackState(
+  latest: NonNullable<QuoteDetail['customerDecision']['sfWriteback']>['latest'],
+): string {
+  if (!latest) return 'Nothing has been sent yet.';
+  switch (latest.status) {
+    case 'sent':
+      return 'Sent.';
+    case 'pending':
+      return 'Queued: it goes out within a few minutes.';
+    case 'failed':
+      return 'It failed; an Admin has been told. Update the opportunity by hand if it is urgent.';
+    case 'skipped':
+      return latest.skippedReason === 'other_active_quote'
+        ? 'Not written: another quote still needs the opportunity open.'
+        : latest.skippedReason === 'regression'
+          ? 'Not written: Salesforce already shows a later stage.'
+          : 'Not written.';
+    case 'dry_run':
+      return 'Recorded as a dry run only: nothing was sent.';
+  }
+}
+
 /** Shown on the quote after a G5 outcome is saved; dismissible; nothing is written to Salesforce. */
 export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
   const queryClient = useQueryClient();
@@ -653,14 +676,31 @@ export function SfUpdateReminder({ quote }: { quote: QuoteDetail }) {
   });
   if (!outcomeKey) return null;
   const stage = quote.customerDecision.sfStageByOutcome[outcomeKey];
+  // FB-29: while the write-back is on (live), QuoteFlow updates Salesforce itself: say so, with the state.
+  const writeback = quote.customerDecision.sfWriteback;
+  const automatic = writeback?.on === true;
   return (
     <div
       role="status"
       data-testid="sf-update-reminder"
-      className="bg-warning text-warning-foreground rounded-card flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm"
+      className={cn(
+        'rounded-card flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm',
+        automatic ? 'bg-muted text-foreground' : 'bg-warning text-warning-foreground',
+      )}
     >
       <span>
-        {stage ? (
+        {automatic ? (
+          <>
+            QuoteFlow updates the Salesforce opportunity
+            {stage ? (
+              <>
+                {' '}
+                to <strong>{stage}</strong>
+              </>
+            ) : null}
+            . <span data-testid="sf-writeback-state">{writebackState(writeback.latest)}</span>
+          </>
+        ) : stage ? (
           <>
             Update the Salesforce opportunity to match: <strong>{stage}</strong>.
           </>

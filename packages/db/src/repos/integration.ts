@@ -1,3 +1,4 @@
+import { AWARDED_STAGE_KEY } from '@ccq/domain';
 import { and, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 
 import type { DbOrTx } from '../client';
@@ -234,6 +235,11 @@ export interface QuoteSfFlagChange {
  * Set `quote.sf_status_flag` from the linked snapshot: deleted → `deleted`, closed → `closed_won` /
  * `closed_lost`, open → null. Only rows whose flag changes are written. Run inside a context that
  * can see every quote (the sync's system context): RLS applies.
+ *
+ * FB-29: `closed_lost` is not flagged on a quote QuoteFlow itself has closed other than as won (lost,
+ * expired, declined, stopped): Salesforce agrees with it, and once the write-back sends "Closed Lost" the
+ * flag would otherwise appear on every lost or expired quote. This holds while an open re-quote exists on
+ * the opportunity too (the flag is about the closed quote, not the re-quote).
  */
 export async function refreshQuoteSfStatusFlags(
   db: DbOrTx,
@@ -251,6 +257,7 @@ export async function refreshQuoteSfStatusFlags(
         case
           when s.deleted_in_sf_at is not null then 'deleted'
           when s.is_closed and s.is_won then 'closed_won'
+          when s.is_closed and q.status = 'closed' and q.stage_key <> ${AWARDED_STAGE_KEY} then null
           when s.is_closed then 'closed_lost'
         end as flag
       from ${quote} q

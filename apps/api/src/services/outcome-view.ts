@@ -5,6 +5,8 @@ import type {
   HandoffRecord,
   SfStageComparison,
   ValidityStatus,
+  QuoteSfWriteback,
+  SfWritebackStatus,
 } from '@ccq/contracts';
 import type { DbOrTx } from '@ccq/db';
 import {
@@ -41,8 +43,10 @@ import {
   type ReceivingRoleOption,
   type SfStageMapEntry,
   type WorkflowConfig,
+  type SfWritebackSkipReason,
 } from '@ccq/domain';
 
+import { SF_WRITEBACK_SETTING_KEYS, latestStageRowForQuote } from './sfWritebackStore';
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 const message = (err: unknown) => (err as DomainError).message ?? String(err);
 
@@ -334,6 +338,7 @@ export async function customerDecisionView(
     canAssignClosureOwner: can(actor, 'outcome.assignOwner', state),
     receivingRoles: settings.receivingRoles,
     sfStageByOutcome: settings.sfOutcomeStageNames,
+    sfWriteback: await quoteSfWriteback(db, q.id),
     acceptanceEvidenceOptions: acceptanceEvidenceOptions(workflow),
     cer: {
       toolUrl: settings.cerToolUrl || null,
@@ -352,5 +357,29 @@ export async function customerDecisionView(
       proofRequired: settings.cerProofRequired,
       canUploadProof: canEditHandoff,
     },
+  };
+}
+
+/**
+ * FB-29: whether QuoteFlow updates Salesforce for this quote (the write-back switched on and live; live can
+ * only be set where this environment has a write connection) and its latest stage write. The KAM's
+ * reminder keeps asking for a manual update while this is off, in a dry run included.
+ */
+async function quoteSfWriteback(db: DbOrTx, quoteId: string): Promise<QuoteSfWriteback> {
+  const [enabled, mode, latest] = await Promise.all([
+    getSetting(db, SF_WRITEBACK_SETTING_KEYS.enabled),
+    getSetting(db, SF_WRITEBACK_SETTING_KEYS.mode),
+    latestStageRowForQuote(db, quoteId),
+  ]);
+  return {
+    on: enabled === true && mode === 'live',
+    latest: latest
+      ? {
+          status: latest.status as SfWritebackStatus,
+          value: latest.value,
+          at: (latest.sentAt ?? latest.updatedAt).toISOString(),
+          skippedReason: (latest.skippedReason as SfWritebackSkipReason | null) ?? null,
+        }
+      : null,
   };
 }
