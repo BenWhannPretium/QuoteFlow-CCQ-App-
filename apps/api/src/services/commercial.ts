@@ -474,6 +474,7 @@ export async function finalReviewChecks(
     legalReviewedOn: q.legalReviewedOn,
     termsExceptionStatus: q.termsExceptionStatus,
     termsFinalizedAt: q.termsFinalizedAt,
+    termsToolingCommitment: q.termsToolingCommitment,
   }).map((w) => ({ ...w, link: 'commercial' as const }));
   return {
     termsAndLegal: {

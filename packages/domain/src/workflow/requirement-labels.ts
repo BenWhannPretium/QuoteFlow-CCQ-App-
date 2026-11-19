@@ -84,6 +84,9 @@ export const REQUIREMENT_LABELS: Readonly<Record<string, string>> = {
     "The pricing lead's approval of the payment-terms exception (it is waiting or was rejected: see Commercial terms)",
   'g4_terms_finalized_check_required,terms_finalized_at':
     "The approver's confirmation of the capital terms",
+  // FB-25 (N17-26): yes or no, on the Commercial terms tab (the KAM may answer it at intake).
+  'g4_tooling_commitment_check_required,terms_tooling_commitment':
+    'The customer tooling commitment answered (yes or no, on the Commercial terms tab)',
   'legal_review_required,legal_reviewed_on': 'The Legal review (a Legal trigger applies)',
   'legal_review_required,g4_legal_review_check_required,legal_reviewed_on':
     'The Legal review (a Legal trigger applies)',

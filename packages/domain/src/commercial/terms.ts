@@ -346,6 +346,10 @@ const clean = (v: string | null | undefined) => (v === undefined ? undefined : v
 export const isNonStandardTerms = (code: string | null, standard: readonly string[]) =>
   code !== null && !standard.includes(code);
 
+/** FB-25 (N17-28): a payment-terms code in `standard_payment_terms`. A blank one is neither. */
+export const isStandardTerms = (code: string | null, standard: readonly string[]) =>
+  code !== null && standard.includes(code);
+
 const paymentKey = (v: TermsValues) =>
   v.termsPaymentTermsCode === null
     ? null
@@ -448,6 +452,11 @@ export function planTerms(input: {
       invalid('termsNonstandard', 'Non-standard payment terms keep the terms marked non-standard');
     }
     next.termsNonstandard = true;
+  } else if (isStandardTerms(next.termsPaymentTermsCode, lists.standardPaymentTerms)) {
+    // FB-25 (N17-28; Ben Whann, Bailey Schmitt): a standard code (Net 15, Net 30) is never non-standard.
+    // The box is hidden on screen and a tick sent anyway is normalized away, so the Legal trigger for
+    // non-standard terms cannot fire from a standard code.
+    next.termsNonstandard = false;
   } else if (nonstandardBefore && edit.termsNonstandard === undefined) {
     next.termsNonstandard = false;
   }

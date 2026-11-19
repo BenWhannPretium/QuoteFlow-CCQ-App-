@@ -18,17 +18,30 @@ import { DomainError } from '../errors';
  *   pending or rejected one blocks.
  * - `terms_finalized` (F-068, T-031): the approver has confirmed the capital terms. It is the approver's
  *   own field, so it does not repeat the F-069 problem.
+ *
+ * FB-25 adds one (seeded on, provisional):
+ * - `tooling_commitment_answered` (N17-26, N18-02; Bailey Schmitt, 2026-11-17): the customer's tooling
+ *   commitment is answered (yes or no). Optional for the KAM at intake, required to release the offer.
+ *   The KAM's intake answer counts (it is the same column).
  */
 export const G4_CHECKS = [
   'terms_checked',
   'legal_review',
   'terms_exception',
   'terms_finalized',
+  'tooling_commitment_answered',
 ] as const;
 export type G4Check = (typeof G4_CHECKS)[number];
 
-/** Seed (provisional, D-003): the exception and the approver's capital-terms confirmation block. */
-export const G4_REQUIRED_CHECKS_SEED: G4Check[] = ['terms_exception', 'terms_finalized'];
+/**
+ * Seed (provisional, D-003): the exception, the approver's capital-terms confirmation and (FB-25) the
+ * customer tooling commitment answered block.
+ */
+export const G4_REQUIRED_CHECKS_SEED: G4Check[] = [
+  'terms_exception',
+  'terms_finalized',
+  'tooling_commitment_answered',
+];
 
 const schema = z.array(z.enum(G4_CHECKS));
 
@@ -51,12 +64,14 @@ export function g4CheckFields(checks: readonly G4Check[]): {
   g4_legal_review_check_required: boolean;
   g4_terms_exception_check_required: boolean;
   g4_terms_finalized_check_required: boolean;
+  g4_tooling_commitment_check_required: boolean;
 } {
   return {
     g4_terms_check_required: checks.includes('terms_checked'),
     g4_legal_review_check_required: checks.includes('legal_review'),
     g4_terms_exception_check_required: checks.includes('terms_exception'),
     g4_terms_finalized_check_required: checks.includes('terms_finalized'),
+    g4_tooling_commitment_check_required: checks.includes('tooling_commitment_answered'),
   };
 }
 
@@ -65,7 +80,8 @@ export interface G4CheckWarning {
     | 'TERMS_NOT_CHECKED'
     | 'LEGAL_REVIEW_NOT_RECORDED'
     | 'TERMS_EXCEPTION_OPEN'
-    | 'CAPITAL_TERMS_NOT_FINALIZED';
+    | 'CAPITAL_TERMS_NOT_FINALIZED'
+    | 'TOOLING_COMMITMENT_NOT_ANSWERED';
   severity: 'risk';
   message: string;
 }
@@ -79,6 +95,8 @@ export interface G4CheckInput {
   termsExceptionStatus?: string | null;
   /** FB-08: `quote.terms_finalized_at`. */
   termsFinalizedAt?: Date | string | null;
+  /** FB-25: `quote.terms_tooling_commitment` (null = not answered). Omitted = not checked. */
+  termsToolingCommitment?: boolean | null;
 }
 
 /**
@@ -125,6 +143,16 @@ export function g4CheckWarnings(input: G4CheckInput): G4CheckWarning[] {
       code: 'CAPITAL_TERMS_NOT_FINALIZED',
       severity: 'risk',
       message: 'The capital terms have not been confirmed',
+    });
+  }
+  if (
+    input.termsToolingCommitment === null &&
+    !input.checks.includes('tooling_commitment_answered')
+  ) {
+    out.push({
+      code: 'TOOLING_COMMITMENT_NOT_ANSWERED',
+      severity: 'risk',
+      message: 'The customer tooling commitment has not been answered',
     });
   }
   return out;

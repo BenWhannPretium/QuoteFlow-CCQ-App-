@@ -47,6 +47,7 @@ export function derivedDecisionFields(
   g4_legal_review_check_required: boolean;
   g4_terms_exception_check_required: boolean;
   g4_terms_finalized_check_required: boolean;
+  g4_tooling_commitment_check_required: boolean;
   terms_exception_open: boolean;
   roi_required: boolean;
   roi_required_reasons: RoiReason[];
