@@ -119,6 +119,8 @@ test('the scheduler, the engineer and the lead each work their own tab; two bloc
   await expect(recommendation.getByTestId('capacity-recommendation-status')).toContainText(
     'Submitted',
   );
+  // The toast comes after the refresh: let it appear (axe then waits for its fade-in to finish).
+  await expect(sched.getByText('Submitted to the engineering lead')).toBeVisible();
   expect(await seriousViolations(sched)).toEqual([]);
 
   // Two sizes, two themes: axe clean, no sideways scroll, the tab bar still there with its dot.
@@ -165,6 +167,7 @@ test('the scheduler, the engineer and the lead each work their own tab; two bloc
   await expect(engRec.getByTestId('engineering-recommendation-status')).toContainText(
     'Submitted by',
   );
+  await expect(eng.getByText('Submitted to the engineering lead')).toBeVisible();
   expect(await seriousViolations(eng)).toEqual([]);
 
   // ── The lead sees the two recommendations apart, follows the link to the decision and decides ──
