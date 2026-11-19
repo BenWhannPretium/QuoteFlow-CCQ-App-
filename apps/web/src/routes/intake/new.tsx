@@ -561,6 +561,13 @@ function Wizard({
         ['eng-queue'],
         ['pricing-queue'],
         notificationsQueryKey,
+        // FB-26 (N17-30): the expired quote now says "Re-quoted as …".
+        ...(initial.requote
+          ? [
+              quoteQueryKey(initial.requote.quoteNumber),
+              ['timeline', initial.requote.quoteNumber],
+            ]
+          : []),
       ]) {
         void qc.invalidateQueries({ queryKey: key });
       }
