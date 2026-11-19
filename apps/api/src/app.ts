@@ -425,7 +425,9 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
                 clientSecret: config.SF_WRITE_CLIENT_SECRET!,
                 apiVersion: config.SF_API_VERSION,
               }
-            : { mode: config.SF_WRITE_MODE },
+            : config.SF_WRITE_MODE === 'fake'
+              ? { mode: 'fake', failFirstPerOpportunity: config.SF_WRITE_FAKE_FAIL_FIRST > 0 }
+              : { mode: 'off' },
           { logger: sfWriteLogger },
         );
   const sfWriteEnv = sfWriteAvailability(config);

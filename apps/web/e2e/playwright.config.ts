@@ -74,6 +74,8 @@ export default defineConfig({
         // FB-30 (Nov 19 feedback): Engineering and Capacity apart.
         'fb30.spec.ts',
         'fb31.spec.ts',
+        // FB-29: the Salesforce write-back card (fake writer).
+        'fb29.spec.ts',
         // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), one spec per area.
         'ux-tabs.spec.ts',
         'ux-quote-header.spec.ts',
@@ -147,6 +149,11 @@ export default defineConfig({
         // B-16: uploads land in a git-ignored folder at the repo root.
         FILESTORE_MODE: 'local',
         FILESTORE_LOCAL_DIR: e2eFilesDir,
+        // FB-29: the fake Salesforce writer (nothing leaves the process); its first update per
+        // opportunity is refused so fb29.spec.ts can retry a failed write; the worker runs every 2 s.
+        SF_WRITE_MODE: 'fake',
+        SF_WRITE_FAKE_FAIL_FIRST: '1',
+        SF_WRITE_INTERVAL_SECONDS: '2',
       },
     },
     {

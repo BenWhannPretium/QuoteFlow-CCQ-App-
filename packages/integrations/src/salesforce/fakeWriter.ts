@@ -27,6 +27,14 @@ export class FakeSalesforceWriter implements SalesforceWriter {
   readonly stageReads: string[] = [];
   private readonly stages = new Map<string, string | null>();
   private readonly failures: FakeWriteFailure[] = [];
+  private readonly refusedOnce = new Set<string>();
+
+  /**
+   * `failFirstPerOpportunity`: refuse the first update of each opportunity (not retryable, as a Salesforce
+   * validation rule would), so an end-to-end test can see a failed row and retry it
+   * (`SF_WRITE_FAKE_FAIL_FIRST=1`; the fake is refused in production).
+   */
+  constructor(private readonly options: { failFirstPerOpportunity?: boolean } = {}) {}
 
   /** Set the stage the fake opportunity holds (as a sales person would in Salesforce). */
   setStage(sfOpportunityId: string, stage: string | null): void {
@@ -68,6 +76,15 @@ export class FakeSalesforceWriter implements SalesforceWriter {
         retryable: false,
         code: 'FIELD_NOT_ALLOWED',
         message: `not on the write allow-list: ${refused.join(', ') || '(no fields)'}`,
+      });
+    }
+    if (this.options.failFirstPerOpportunity && !this.refusedOnce.has(sfOpportunityId)) {
+      this.refusedOnce.add(sfOpportunityId);
+      return record({
+        ok: false,
+        retryable: false,
+        code: 'FIELD_CUSTOM_VALIDATION_EXCEPTION',
+        message: 'Injected failure (fake writer, SF_WRITE_FAKE_FAIL_FIRST)',
       });
     }
     const failure = this.failures.shift();

@@ -95,6 +95,11 @@ const EnvSchema = z
      * test.salesforce.com, which must never pass for a sandbox here.
      */
     SF_WRITE_LOGIN_URL: z.url({ protocol: /^https$/ }).optional(),
+    /**
+     * End-to-end tests only: the fake writer refuses the first update of each opportunity, so a failed row
+     * can be seen and retried. Only with SF_WRITE_MODE=fake (refused in prod).
+     */
+    SF_WRITE_FAKE_FAIL_FIRST: z.coerce.number().int().min(0).max(1).default(0),
     /** Seconds between write-back worker runs; 0 disables the schedule (tests run it by hand). */
     SF_WRITE_INTERVAL_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
     /** Delta sync interval in minutes; 0 disables the in-process schedule (manual trigger still works). */
@@ -255,6 +260,13 @@ const EnvSchema = z
           });
         }
       }
+    }
+    if (env.SF_WRITE_FAKE_FAIL_FIRST > 0 && env.SF_WRITE_MODE !== 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SF_WRITE_FAKE_FAIL_FIRST'],
+        message: 'SF_WRITE_FAKE_FAIL_FIRST is for the fake writer only (SF_WRITE_MODE=fake).',
+      });
     }
     if (env.SF_WRITE_MODE === 'fake' && env.APP_ENVIRONMENT === 'prod') {
       ctx.addIssue({
