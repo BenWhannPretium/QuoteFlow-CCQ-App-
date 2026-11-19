@@ -283,6 +283,31 @@ export const engineeringRoutes: FastifyPluginAsyncZod<{ service: EngineeringServ
       ),
   );
 
+  // FB-22 (N17-14): the production scheduler submits the capacity part to the engineering lead.
+  app.post(
+    '/quotes/:quoteNumber/eng-review/submit-capacity',
+    {
+      config: { permission: 'capacity.edit' },
+      schema: {
+        tags: ['engineering'],
+        summary:
+          "FB-22: the production scheduler assigned to the quote submits the capacity part to the engineering lead. Checked against the G2 rules that read the capacity rows (less the lead's sign-off); the rows are locked for everyone but the lead until it is sent back. The lead is told per eng_lead_notify_when (seed: once both parts are in); the engineer is told in-app",
+        security,
+        params: QuoteNumberParams,
+        response: { 200: EngineeringDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.submitCapacityToLead(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          auditMeta(req),
+        ),
+      ),
+  );
+
   app.post(
     '/quotes/:quoteNumber/eng-review/send-back',
     {

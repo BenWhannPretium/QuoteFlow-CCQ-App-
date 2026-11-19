@@ -354,6 +354,14 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/eng-review/submit`,
     permission: 'engReview.edit',
   },
+  // FB-22 (N17-14): the production scheduler submits the capacity part. "Only the scheduler assigned to
+  // the quote" is fb22-engineering-tab.int.test.ts.
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/eng-review/submit-capacity',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/eng-review/submit-capacity`,
+    permission: 'capacity.edit',
+  },
   {
     method: 'POST',
     route: '/api/v1/quotes/:quoteNumber/eng-review/send-back',

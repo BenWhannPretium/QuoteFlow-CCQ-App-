@@ -3,6 +3,8 @@ import {
   getLeadReview,
   getQuoteByNumber,
   getQuoteForUpdate,
+  getSetting,
+  getUserWithRoles,
   insertActivityEvent,
   listUsersByIds,
   loadQuoteState,
@@ -16,8 +18,16 @@ import {
   asUserId,
   assigneeOf,
   canReturnToAssignee,
+  canSubmitCapacityToLead,
   canSubmitToLead,
+  engineeringParts,
+  engineeringReviewStatus,
   isForwardOutcome,
+  leadNoticeDue,
+  parseEngLeadNotifyWhen,
+  planPartSubmitted,
+  planSubmitCapacityToLead,
+  rolesWithPermission,
   leadReviewStatus,
   leadReviewStatusInStage,
   packOutRequirementErrors,
@@ -32,7 +42,9 @@ import {
   withDerivedFields,
   type Actor,
   type DomainError,
+  type EngParts,
   type LeadReviewKind,
+  type LeadReviewState,
   type QuoteState,
   type ReturnTarget,
   type WorkflowConfig,
@@ -72,6 +84,43 @@ export interface LeadReviewView {
   returnedToName: string | null;
   /** FB-16 (W13-19): who the lead may send the work back to (the assignee first). Engineering only. */
   returnTargets?: { target: ReturnTarget; name: string | null }[];
+  /** FB-22 (N17-14): Engineering only, the two parts. */
+  parts?: {
+    engineer: EngPartDto;
+    scheduler: EngPartDto | null;
+  };
+  canSubmitCapacity?: boolean;
+}
+
+interface EngPartDto {
+  ownerName: string | null;
+  submittedAt: string | null;
+  submittedByName: string | null;
+  ownerIsLead: boolean;
+  in: boolean;
+}
+
+/**
+ * D2 (Ben, 2026-11-18): the assigned engineer holds a role that leads the stage (decides G2). Their own
+ * part then needs no submit (they have nobody to submit to).
+ */
+export async function engineerIsLead(
+  tx: DbOrTx,
+  state: Pick<QuoteState, 'assignedEngineerId'>,
+): Promise<boolean> {
+  if (!state.assignedEngineerId) return false;
+  const user = await getUserWithRoles(tx, state.assignedEngineerId);
+  const leads = rolesWithPermission(LEAD_REVIEW.engineering.leadPermission) as string[];
+  return !!user && user.roles.some((r) => leads.includes(r));
+}
+
+/** FB-22: the engineering parts as they stand (reads the engineer's roles for D2). */
+export async function loadEngineeringParts(
+  tx: DbOrTx,
+  state: QuoteState,
+  review: LeadReviewState,
+): Promise<EngParts> {
+  return engineeringParts(state, review, await engineerIsLead(tx, state));
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -85,19 +134,31 @@ export async function leadReviewView(
 ): Promise<LeadReviewView> {
   const review = await getLeadReview(tx, q.id, kind);
   const targets = kind === 'engineering' ? returnTargets(kind, state) : [];
+  const parts = kind === 'engineering' ? await loadEngineeringParts(tx, state, review) : null;
   const people = await listUsersByIds(
     tx,
     [
       review.submittedBy,
       review.returnedBy,
       review.returnedTo,
+      review.capacitySubmittedBy,
+      state.assignedEngineerId ?? null,
       ...targets.map((t) => t.userId),
     ].filter((id): id is string => !!id),
   );
   const name = (id: string | null) => (id && people.find((p) => p.id === id)?.displayName) || null;
+  const partDto = (p: EngParts['engineer']): EngPartDto => ({
+    ownerName: name(p.ownerId),
+    submittedAt: iso(p.submittedAt),
+    submittedByName: name(p.submittedBy),
+    ownerIsLead: p.ownerIsLead,
+    in: p.in,
+  });
+  // FB-22: in Engineering "submitted" means every part is in (ready for the lead).
+  const status = parts ? engineeringReviewStatus(state, review, parts) : leadReviewStatus(review);
   return {
     // DR-pricing-finance-03: after the gate is decided the "Submitted to the lead" banner is gone.
-    status: leadReviewStatusInStage(kind, state, leadReviewStatus(review)),
+    status: leadReviewStatusInStage(kind, state, status),
     submittedAt: iso(review.submittedAt),
     submittedByName: name(review.submittedBy),
     returnedAt: iso(review.returnedAt),
@@ -108,7 +169,14 @@ export async function leadReviewView(
     submitBlockedReason: submitBlockedReason(kind, actor, state, review),
     returnedToName: name(review.returnedTo),
     ...(kind === 'engineering'
-      ? { returnTargets: targets.map((t) => ({ target: t.target, name: name(t.userId) })) }
+      ? {
+          returnTargets: targets.map((t) => ({ target: t.target, name: name(t.userId) })),
+          parts: {
+            engineer: partDto(parts!.engineer),
+            scheduler: parts!.scheduler ? partDto(parts!.scheduler) : null,
+          },
+          canSubmitCapacity: canSubmitCapacityToLead(actor, state, review),
+        }
       : {}),
   };
 }
@@ -173,7 +241,7 @@ export async function submitToLead(
     type: 'lead_review_submitted',
     actorId: actor.userId,
     at: now,
-    payload: { kind, byName: actorName },
+    payload: { kind, byName: actorName, ...(kind === 'engineering' ? { part: 'engineer' } : {}) },
     createdBy: actor.userId,
   });
   await recordAudit(tx, actor, meta, {
@@ -185,6 +253,16 @@ export async function submitToLead(
     after: { [`${kind}SubmittedAt`]: now.toISOString(), [`${kind}SubmittedBy`]: actor.userId },
     at: now,
   });
+  if (kind === 'engineering') {
+    // FB-22 (N17-14): two parts; the lead is told per the setting, the scheduler hears the engineer's is in.
+    const after = await loadEngineeringParts(tx, state, {
+      ...review,
+      submittedAt: now,
+      submittedBy: actor.userId,
+    });
+    await announceEngineeringPart(tx, deps, actor, q, state, 'engineer', after, actorName, now);
+    return;
+  }
   const spec = LEAD_REVIEW[kind];
   // The lead is told (in-app and email). FB-05 (F-079): the KAM sees the quote reach the lead, in-app only.
   await deliverPlanned(
@@ -206,6 +284,136 @@ export async function submitToLead(
     q.id,
     { log: deps.log },
   );
+}
+
+const PART_NAME: Record<'engineer' | 'scheduler', string> = {
+  engineer: 'the engineering part',
+  scheduler: 'capacity',
+};
+
+/**
+ * FB-22 (N17-14): after one part of an engineering review is submitted. The engineering lead is told
+ * (`quote.submitted_to_lead`, in-app and email) per `app_setting.eng_lead_notify_when` (seed both_parts:
+ * only once every part is in); the KAM sees it reach the lead (in-app) only then. The person who owns the
+ * other part is told in-app (`quote.part_submitted`), unless they are a lead being told anyway.
+ */
+async function announceEngineeringPart(
+  tx: Tx,
+  deps: LeadReviewDeps,
+  actor: Actor,
+  q: Quote,
+  state: QuoteState,
+  part: 'engineer' | 'scheduler',
+  after: EngParts,
+  actorName: string | null,
+  now: Date,
+): Promise<void> {
+  const n = q.quoteNumber;
+  const who = actorName ?? (part === 'engineer' ? 'The engineer' : 'The production scheduler');
+  const setting = parseEngLeadNotifyWhen(await getSetting(tx, 'eng_lead_notify_when'));
+  const toLead = leadNoticeDue(setting, after);
+  const other = part === 'engineer' ? after.scheduler : after.engineer;
+  // A lead who owns the other part is told as the lead; no second notice.
+  const otherId = other?.ownerId && !(toLead && other.ownerIsLead) ? asUserId(other.ownerId) : null;
+  const leadEntries = toLead
+    ? planLeadSubmitted('engineering', state).filter(
+        (e) => after.ready || e.type === 'quote.submitted_to_lead',
+      )
+    : [];
+  const missing =
+    part === 'engineer'
+      ? after.scheduler && !after.scheduler.in
+        ? ' Capacity is not in yet.'
+        : ''
+      : !after.engineer.in
+        ? ' The engineering part is not in yet.'
+        : '';
+  await deliverPlanned(
+    tx,
+    [...leadEntries, ...planPartSubmitted(otherId)],
+    actor.userId,
+    (d) =>
+      d.type === 'quote.submitted_to_lead'
+        ? {
+            title: after.ready ? `${n} is ready for your review` : `${n}: ${PART_NAME[part]} is in`,
+            body: after.ready
+              ? `${who} submitted ${PART_NAME[part]}. Every part is in: review it, then decide G2 or send it back.`
+              : `${who} submitted ${PART_NAME[part]}.${missing}`,
+            payload: {
+              kind: 'engineering',
+              part,
+              ready: after.ready ? 'yes' : 'no',
+              ...(actorName ? { actor: actorName } : {}),
+            },
+          }
+        : d.type === 'quote.part_submitted'
+          ? {
+              title: `${who} submitted ${PART_NAME[part]} for ${n}`,
+              body: after.ready
+                ? 'Every part is in. The engineering lead reviews it next.'
+                : `It is with the engineering lead.${part === 'scheduler' && !after.engineer.in ? ' Submit your part when it is finished.' : part === 'engineer' && after.scheduler && !after.scheduler.in ? ' Submit capacity when it is finished.' : ''}`,
+              payload: { kind: 'engineering', part, ...(actorName ? { actor: actorName } : {}) },
+            }
+          : {
+              title: `${n}: the engineering review is with the engineering lead`,
+              body: `${who} submitted ${PART_NAME[part]}; every part is now with the engineering lead for review.`,
+              payload: { kind: 'engineering', ...(actorName ? { actor: actorName } : {}) },
+            },
+    q.id,
+    { log: deps.log, at: now },
+  );
+}
+
+/**
+ * FB-22 (N17-14): POST …/eng-review/submit-capacity. The production scheduler assigned to the quote hands
+ * the capacity part to the engineering lead. Checked against the G2 rules that read the capacity rows (less
+ * the lead's sign-off); the rows are then locked for everyone but the lead until it is sent back.
+ */
+export async function submitCapacityToLead(
+  tx: Tx,
+  deps: LeadReviewDeps,
+  actor: Actor,
+  quoteNumber: string,
+  meta: AuditMeta,
+  now: Date,
+): Promise<void> {
+  const { q, state } = await load(tx, deps, quoteNumber);
+  const ctx = await deps.quotes.context(tx, actor, now);
+  const fields = withDerivedFields(state, ctx.commercial.derived).fields;
+  const workflow = parseWorkflowConfig(await loadWorkflowConfigInput(tx));
+  const review = await getLeadReview(tx, q.id, 'engineering');
+  const plan = planSubmitCapacityToLead(actor, state, review, workflow, fields);
+  if (!plan.ok) deps.fail(plan.errors);
+
+  await setLeadReview(tx, q.id, 'engineering', {
+    capacitySubmittedAt: now,
+    capacitySubmittedBy: actor.userId,
+  });
+  const [me] = await listUsersByIds(tx, [actor.userId]);
+  const actorName = me?.displayName ?? null;
+  await insertActivityEvent(tx, {
+    quoteId: q.id,
+    type: 'lead_review_submitted',
+    actorId: actor.userId,
+    at: now,
+    payload: { kind: 'engineering', part: 'capacity', byName: actorName },
+    createdBy: actor.userId,
+  });
+  await recordAudit(tx, actor, meta, {
+    action: 'update',
+    entity: 'quote',
+    entityId: q.id,
+    quoteId: q.id,
+    before: { capacitySubmittedAt: null },
+    after: { capacitySubmittedAt: now.toISOString(), capacitySubmittedBy: actor.userId },
+    at: now,
+  });
+  const after = await loadEngineeringParts(tx, state, {
+    ...review,
+    capacitySubmittedAt: now,
+    capacitySubmittedBy: actor.userId,
+  });
+  await announceEngineeringPart(tx, deps, actor, q, state, 'scheduler', after, actorName, now);
 }
 
 /**
@@ -232,9 +440,16 @@ export async function returnToAssignee(
   const trimmed = note.trim();
   // Who it goes to: the chosen person, or the assignee when the quote has nobody in that part.
   const assignee = returnTargetUser(kind, state, target) ?? assigneeOf(kind, state);
+  // FB-22 (N17-14): a send-back clears only the chosen person's part: the scheduler's capacity, or the
+  // engineer's (assignee's) part. The other part stays with the lead.
+  const toSchedulerPart =
+    kind === 'engineering' &&
+    target === 'scheduler' &&
+    returnTargetUser(kind, state, target) !== null;
   await setLeadReview(tx, q.id, kind, {
-    submittedAt: null,
-    submittedBy: null,
+    ...(toSchedulerPart
+      ? { capacitySubmittedAt: null, capacitySubmittedBy: null }
+      : { submittedAt: null, submittedBy: null }),
     returnedAt: now,
     returnedBy: actor.userId,
     returnNote: trimmed,
@@ -265,12 +480,17 @@ export async function returnToAssignee(
     entity: 'quote',
     entityId: q.id,
     quoteId: q.id,
-    before: {
-      [`${kind}SubmittedAt`]: iso(review.submittedAt),
-      [`${kind}SubmittedBy`]: review.submittedBy,
-    },
+    before: toSchedulerPart
+      ? {
+          capacitySubmittedAt: iso(review.capacitySubmittedAt),
+          capacitySubmittedBy: review.capacitySubmittedBy,
+        }
+      : {
+          [`${kind}SubmittedAt`]: iso(review.submittedAt),
+          [`${kind}SubmittedBy`]: review.submittedBy,
+        },
     after: {
-      [`${kind}SubmittedAt`]: null,
+      ...(toSchedulerPart ? { capacitySubmittedAt: null } : { [`${kind}SubmittedAt`]: null }),
       [`${kind}ReturnedAt`]: now.toISOString(),
       [`${kind}ReturnNote`]: trimmed,
       [`${kind}ReturnedTo`]: assignee,

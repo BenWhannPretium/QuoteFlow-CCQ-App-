@@ -31,6 +31,8 @@ import {
   redactScore,
   salesforceOpportunityUrl,
   submissionRules,
+  assigneeExclusions,
+  capacitySubmissionRules,
   withCapacityApproved,
   withDerivedFields,
   type Actor,
@@ -208,23 +210,36 @@ function withSubmitMissing<T extends { leadReview: LeadReviewView }>(
   state: QuoteState,
   ctx: QuoteViewContext,
 ): T {
-  const rules = submissionRules(kind, workflow);
+  // FB-22 (N17-14): with a production scheduler assigned, the capacity rows are the scheduler's part.
+  const rules = submissionRules(kind, workflow, assigneeExclusions(kind, state));
   // Every field those rules name, so the tab can mark them "(required)" for anyone who edits it.
   const requiredFields = [...new Set(rules.flatMap(fieldsReferenced))];
+  const toProblems = (errors: readonly { field?: string | undefined; message: string }[]) =>
+    errors.map((e) => ({ field: e.field ?? '', message: e.message }));
+  const fields = () => withDerivedFields(state, ctx.commercial.derived).fields;
+  // FB-22: what the scheduler's capacity part still needs, for the scheduler who may submit it.
+  const capacity =
+    kind === 'engineering' && view.leadReview.canSubmitCapacity
+      ? {
+          capacitySubmitMissing: toProblems(
+            evaluateQuoteRules(capacitySubmissionRules(workflow), fields()),
+          ),
+        }
+      : {};
   if (!view.leadReview.canSubmit) {
-    return { ...view, leadReview: { ...view.leadReview, requiredFields } };
+    return { ...view, leadReview: { ...view.leadReview, requiredFields, ...capacity } };
   }
-  const fields = withDerivedFields(state, ctx.commercial.derived).fields;
-  const submitMissing = [
+  const all = fields();
+  const submitMissing = toProblems([
     // FB-19: a rule that reads an item's engineering facts is checked for every item.
-    ...evaluateQuoteRules(rules, fields),
+    ...evaluateQuoteRules(rules, all),
     // FB-16 (W13-14): one pack-out count, while `pack_out_rule.requireOneOf` is on (off in the seed).
-    ...engineeringSubmissionExtras(kind, workflow, fields, ctx.packOutRule),
-  ].map((e) => ({
-    field: e.field ?? '',
-    message: e.message,
-  }));
-  return { ...view, leadReview: { ...view.leadReview, requiredFields, submitMissing } };
+    ...engineeringSubmissionExtras(kind, workflow, all, ctx.packOutRule),
+  ]);
+  return {
+    ...view,
+    leadReview: { ...view.leadReview, requiredFields, submitMissing, ...capacity },
+  };
 }
 
 /** The domain's available actions, plus what the decision dialog needs to guide the user. */
