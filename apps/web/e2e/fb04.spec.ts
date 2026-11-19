@@ -27,32 +27,29 @@ async function setInstanceUrl(request: APIRequestContext, value: string) {
   );
 }
 
-test('the funding options: $0 CER is explained and Shared is offered', async ({
-  page,
-  request,
-}) => {
+// FB-31 (N19-08) changed this: the four plain choices, each explained; $0 CER and Shared are no longer
+// offered (an Admin can reactivate them). It checked "$0 CER is explained and Shared is offered".
+test('the funding options: four plain choices, each explained', async ({ page, request }) => {
   const quoteNumber = await submitQuote(request, await freeOpportunities(request, 1));
   // FB-08 (F-021): on the quote, tooling funding is Engineering's (the KAM answers it at intake).
   await signInAs(page, 'eng-lead');
   // FB-25 (N18-18): the terms have their own tab.
   await page.goto(`/quotes/${quoteNumber}?tab=commercial`);
   const select = page.getByLabel('Tooling funding model');
-  await expect(
-    select.locator('option', { hasText: '$0 CER (customer-reimbursed capital)' }),
-  ).toHaveCount(1);
-  await expect(select.locator('option', { hasText: 'Shared (company and customer)' })).toHaveCount(
-    1,
-  );
+  await expect(select.locator('option')).toHaveText([
+    'Not set',
+    'Customer funded (amortized)',
+    'Customer funded (lump sum)',
+    'Pretium funded',
+    'To be determined',
+  ]);
   await page.getByTestId('funding-help').click();
   const help = page.getByRole('dialog');
-  await expect(help).toContainText(
-    'reimbursed by the customer as a lump sum or through amortization',
-  );
-  await expect(help).toContainText('the customer invoice or contract goes with the mold PO');
-  // FB-15 (W13-09): Shared now asks for the customer's share instead of a note in the terms.
-  await expect(help).toContainText("Enter the customer's share; Pretium covers the rest");
-  // Bailey Schmitt (2026-11-12): Amortized is explained too.
-  await expect(help).toContainText('The customer pays for the tooling over time');
+  await expect(help).toContainText('The customer pays the tooling cost as a lump sum.');
+  await expect(help).toContainText('finance reviews it before the offer goes out');
+  await expect(help).toContainText('Pretium pays for the tooling and carries the cost.');
+  await expect(help).toContainText('This must be answered before Final Review.');
+  await expect(help).not.toContainText('$0 CER');
   expect(await seriousViolations(page)).toEqual([]);
 });
 

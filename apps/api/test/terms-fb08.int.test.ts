@@ -244,11 +244,15 @@ describe('seeded config (provisional)', () => {
       value: ['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
       provisional: true,
     });
+    // FB-31 (N19-08): the amortized finance review is seeded on; the Nov 9 proposal stays off.
     expect(
-      (by.g4_additional_approvals!.value as { rules: { active: boolean }[] }).rules.map(
-        (r) => r.active,
-      ),
-    ).toEqual([false]);
+      (
+        by.g4_additional_approvals!.value as { rules: { key: string; active: boolean }[] }
+      ).rules.map((r) => [r.key, r.active]),
+    ).toEqual([
+      ['customer_funded_capital', false],
+      ['amortized_finance_review', true],
+    ]);
     expect(by.default_payment_terms!.value).toBe('NET_30');
     expect(rows.every((r) => r.provisional)).toBe(true);
   });
@@ -277,12 +281,12 @@ describe('F-021: who edits which terms', () => {
     );
     const res = await as('Engineer').put(`/api/v1/quotes/${qn}/terms/engineering`, {
       termsMoq: '10k / release',
-      toolingFundingModel: 'ZERO_CER',
+      toolingFundingModel: 'CUSTOMER_FUNDED',
     });
     ok(res);
     expect(detail(res).commercial.terms).toMatchObject({
       termsMoq: '10k / release',
-      toolingFundingModel: 'ZERO_CER',
+      toolingFundingModel: 'CUSTOMER_FUNDED',
     });
     ok(await as('EngLead').put(`/api/v1/quotes/${qn}/terms/engineering`, { termsMoq: '12k' }));
     const audit = await db.db
@@ -416,12 +420,15 @@ describe('T-007: a non-standard payment term needs the pricing lead’s exceptio
 });
 
 describe('F-068 / T-031: the approver confirms the capital terms; required and locked at G4', () => {
-  it('a $0 CER quote: the KAM pre-fills, the approver finalizes, G4 waits for it and the exception, then locks', async () => {
+  // FB-31 (N19-08): $0 CER is retired for new choices; the funding is customer-funded.
+  it('a customer-funded quote: the KAM pre-fills, the approver finalizes, G4 waits for it and the exception, then locks', async () => {
     const qn = await inFinalReview();
     // The KAM pre-fills the capital terms (not the funding: Engineering's / the approver's).
+    // FB-31 (N19-07): Net 60 now goes to Leadership with a document (terms-fb31.int.test.ts); the
+    // pricing lead's path is Net 45.
     ok(
       await as('KAM').put(`/api/v1/quotes/${qn}/terms`, {
-        termsPaymentTermsCode: 'NET_60',
+        termsPaymentTermsCode: 'NET_45',
         termsMoldOwnership: 'CUSTOMER',
         termsAmortized: true,
         termsAmortizationMonths: 36,
@@ -451,7 +458,7 @@ describe('F-068 / T-031: the approver confirms the capital terms; required and l
     );
     expect(review.termsAndLegal).toMatchObject({
       requiredChecks: ['terms_exception', 'terms_finalized', 'tooling_commitment_answered'],
-      termsPaymentTermsLabel: 'Net 60',
+      termsPaymentTermsLabel: 'Net 45',
       capital: { moldOwnership: 'CUSTOMER', amortizationMonths: 36, canFinalize: true },
       exception: { status: 'pending' },
       additionalApprovals: [],
@@ -467,7 +474,7 @@ describe('F-068 / T-031: the approver confirms the capital terms; required and l
     await answerToolingCommitment(app, qn);
 
     const confirmed = await as('Approver').put(`/api/v1/quotes/${qn}/terms/capital`, {
-      toolingFundingModel: 'ZERO_CER',
+      toolingFundingModel: 'CUSTOMER_FUNDED',
       termsMinSupply: 'Shortfall below 80% of forecast is invoiced',
       termsAgreementInPlace: true,
       termsAgreementMonths: 60,
@@ -475,13 +482,13 @@ describe('F-068 / T-031: the approver confirms the capital terms; required and l
     });
     ok(confirmed);
     const capital = detail(confirmed).commercial.terms.capital;
-    expect(capital).toMatchObject({ toolingFundingModel: 'ZERO_CER', agreementMonths: 60 });
+    expect(capital).toMatchObject({ toolingFundingModel: 'CUSTOMER_FUNDED', agreementMonths: 60 });
     expect(capital.finalizedByName).toBeTruthy();
     // A rejected exception still blocks.
     ok(
       await as('PricingLead').post(`/api/v1/quotes/${qn}/terms/exception/decision`, {
         decision: 'reject',
-        rationale: 'Net 60 is too long for this volume.',
+        rationale: 'Net 45 is too long for this volume.',
       }),
     );
     const rejected = await decide(qn, 'G4', { outcomeKey: 'approve' }, 'Approver');
@@ -627,7 +634,7 @@ describe('DR-approver-leadership-admin-01: capital-terms segregation', () => {
   const idOf = async (key: string) =>
     MeResponse.parse((await byKey(key).get('/api/v1/me')).json()).user.id;
   const capital = {
-    toolingFundingModel: 'ZERO_CER',
+    toolingFundingModel: 'CUSTOMER_FUNDED',
     termsMoldOwnership: 'CUSTOMER',
     termsAmortized: false,
     termsMinSupply: 'Shortfall below 80% of forecast is invoiced',

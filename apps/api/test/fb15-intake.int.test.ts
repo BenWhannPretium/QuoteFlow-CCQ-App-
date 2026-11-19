@@ -278,6 +278,11 @@ describe('W13-03: "Other" asks what it is', () => {
 
 describe('W13-09: customer share of Shared funding', () => {
   it('stored for Shared, refused out of range, cleared for other funding', async () => {
+    // FB-31 (N19-08): Shared is retired for new choices; an Admin can reactivate it, and then the share
+    // works as before.
+    await db.db.execute(
+      sql`update value_list set active = true where list_key = 'tooling_funding_model' and code = 'SHARED'`,
+    );
     const shared = await submitQuote({ toolingFundingModel: 'SHARED', customerSharePct: 37.5 });
     expect(shared.quote.customerSharePct).toBe(37.5);
     const detail = QuoteDetail.parse(
@@ -295,6 +300,9 @@ describe('W13-09: customer share of Shared funding', () => {
 
     const other = await submitQuote({ toolingFundingModel: 'NOT_DISCUSSED', customerSharePct: 40 });
     expect(other.quote.customerSharePct).toBeNull();
+    await db.db.execute(
+      sql`update value_list set active = false where list_key = 'tooling_funding_model' and code = 'SHARED'`,
+    );
   });
 });
 

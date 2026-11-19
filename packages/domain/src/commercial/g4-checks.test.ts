@@ -152,6 +152,19 @@ describe('FB-08: the payment-terms exception and the capital-terms confirmation 
       'CAPITAL_TERMS_NOT_FINALIZED',
     ]);
     expect(g4CheckWarnings({ ...open, checks: G4_REQUIRED_CHECKS_SEED })).toEqual([]);
+    // FB-31 (N19-07): the warning names who decides, from the request's tier.
+    expect(
+      g4CheckWarnings({ ...open, checks: [], termsExceptionApproverLabel: 'Leadership' })[0]!
+        .message,
+    ).toBe('Leadership rejected the non-standard payment terms');
+    expect(
+      g4CheckWarnings({
+        ...open,
+        termsExceptionStatus: 'pending',
+        checks: [],
+        termsExceptionApproverLabel: 'the pricing lead',
+      })[0]!.message,
+    ).toBe('The non-standard payment terms are waiting for the pricing lead');
     expect(
       g4CheckWarnings({
         ...base,

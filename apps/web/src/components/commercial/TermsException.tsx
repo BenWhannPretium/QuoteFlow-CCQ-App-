@@ -1,26 +1,33 @@
 import type { AdditionalApprovalView, QuoteDetail, TermsExceptionView } from '@ccq/contracts';
-import { useMutation } from '@tanstack/react-query';
-import { useId, useState } from 'react';
+import { ATTACHMENT_MAX_BYTES, acceptedFormats, termsExceptionWaitingText } from '@ccq/domain';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { UploadIcon } from 'lucide-react';
+import { useId, useRef, useState } from 'react';
 
+import { AttachmentDownloadLink, attachmentsQueryKey } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { useValueList } from '@/config/public-config';
-import { api } from '@/lib/api';
+import { api, isApiError, uploadAttachment } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
 import { FormErrors, errorFor, problemErrors, type ServerError } from '../forms';
+import { quoteQueryKey } from '../GateDecisionDialog';
+import { timelineQueryKey } from '../Overrides';
 
 /**
- * FB-08 (F-021, T-007): non-standard payment terms open an exception request. The pricing lead (or the
- * designee holding the role) approves or rejects it with a rationale; a pending or rejected one keeps
- * Final Review from releasing the offer (`g4_required_checks` terms_exception, provisional).
+ * FB-08 (F-021, T-007): non-standard payment terms open an exception request, approved or rejected with
+ * a rationale; a pending or rejected one keeps Final Review from releasing the offer
+ * (`g4_required_checks` terms_exception, provisional). FB-31 (N19-07): who decides is the request's tier
+ * of `terms_exception_routes` (the pricing lead for Net 45, Leadership for Net 60 and above in the
+ * provisional seed), and a tier may need a supporting document (Payment-terms approval) as well.
  */
-const STATUS: Record<'pending' | 'approved' | 'rejected', { text: string; tone: string }> = {
-  pending: { text: 'Waiting for the pricing lead', tone: 'bg-warning text-warning-foreground' },
+const STATUS: Record<'approved' | 'rejected', { text: string; tone: string }> = {
   approved: { text: 'Approved', tone: 'bg-success text-success-foreground' },
   rejected: { text: 'Rejected', tone: 'bg-destructive text-destructive-foreground' },
 };
+const PENDING_TONE = 'bg-warning text-warning-foreground';
 
 export function TermsExceptionCard({
   quoteNumber,
@@ -54,7 +61,11 @@ export function TermsExceptionCard({
     exception.paymentTermsDetail ??
     terms.find((t) => t.code === exception.paymentTermsCode)?.label ??
     exception.paymentTermsCode;
-  const status = STATUS[exception.status];
+  const status =
+    exception.status === 'pending'
+      ? { text: termsExceptionWaitingText(exception), tone: PENDING_TONE }
+      : STATUS[exception.status];
+  const missingDocument = exception.documentRequired && !exception.document;
   return (
     <section
       aria-label="Payment-terms exception"
@@ -73,12 +84,44 @@ export function TermsExceptionCard({
       <p className="text-muted-foreground text-xs">
         Requested by {exception.requestedByName ?? 'someone'} on{' '}
         {absoluteTime(exception.requestedAt)}.
+        {exception.status === 'pending' && ` Decided by ${exception.approverLabel}.`}
         {exception.decidedAt &&
-          ` Decided by ${exception.decidedByName ?? 'the pricing lead'} on ${absoluteTime(exception.decidedAt)}.`}
+          ` Decided by ${exception.decidedByName ?? exception.approverLabel} on ${absoluteTime(exception.decidedAt)}.`}
       </p>
+      {(exception.documentRequired || exception.document) && (
+        <div className="grid gap-1" data-testid="terms-exception-document">
+          <span className="font-medium">
+            Supporting document (Payment-terms approval)
+            {exception.documentRequired && (
+              <span className="text-muted-foreground ml-2 text-xs font-normal">
+                Needed before it can be approved
+              </span>
+            )}
+          </span>
+          {exception.document ? (
+            <span data-testid="terms-exception-document-file">
+              {exception.document.version !== null && <>v{exception.document.version} · </>}
+              <AttachmentDownloadLink
+                id={exception.document.id}
+                fileName={exception.document.fileName}
+              />{' '}
+              · {exception.document.uploadedByName ?? 'Someone'} ·{' '}
+              {absoluteTime(exception.document.uploadedAt)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">No document attached yet.</span>
+          )}
+          {exception.canUploadDocument && <TermsDocumentUpload quoteNumber={quoteNumber} />}
+        </div>
+      )}
       {exception.rationale && (
         <p data-testid="terms-exception-rationale">
           <span className="font-medium">Rationale:</span> {exception.rationale}
+        </p>
+      )}
+      {exception.decideNote && (
+        <p className="text-muted-foreground text-xs" data-testid="terms-exception-decide-note">
+          {exception.decideNote}
         </p>
       )}
       {exception.canDecide && (
@@ -97,7 +140,7 @@ export function TermsExceptionCard({
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              disabled={decide.isPending || !rationale.trim()}
+              disabled={decide.isPending || !rationale.trim() || missingDocument}
               onClick={() => decide.mutate('approve')}
               data-testid="approve-terms-exception"
             >
@@ -116,6 +159,86 @@ export function TermsExceptionCard({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * FB-31 (N19-07): the formal documentation behind the exception, uploaded here as a versioned
+ * `payment_terms_approval` file (a memo, a signed form or the approval e-mail).
+ */
+function TermsDocumentUpload({ quoteNumber }: { quoteNumber: string }) {
+  const id = useId();
+  const hintId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+  const [progress, setProgress] = useState<number | null>(null);
+  const formats = acceptedFormats('payment_terms_approval');
+  const pick = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > ATTACHMENT_MAX_BYTES) {
+      toast.error({
+        title: 'The file is too large',
+        description: `The limit is ${formats.maxMb} MB.`,
+      });
+      return;
+    }
+    setProgress(0);
+    uploadAttachment({ quoteNumber }, file, { kind: 'payment_terms_approval' }, setProgress)
+      .promise.then((res) => {
+        toast.success({
+          title: `Supporting document uploaded (version ${res.item.version ?? 1})`,
+          description: res.item.fileName,
+        });
+        return Promise.all([
+          qc.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) }),
+          qc.invalidateQueries({ queryKey: attachmentsQueryKey({ quoteNumber }) }),
+          qc.invalidateQueries({ queryKey: timelineQueryKey(quoteNumber) }),
+        ]);
+      })
+      .catch((err: unknown) =>
+        toast.error({
+          title: 'The upload was not accepted',
+          description: (isApiError(err) && err.problem.detail) || 'Please try again.',
+        }),
+      )
+      .finally(() => {
+        setProgress(null);
+        if (input.current) input.current.value = '';
+      });
+  };
+  return (
+    <div className="grid gap-1">
+      <input
+        ref={input}
+        id={id}
+        type="file"
+        accept={formats.accept}
+        className="sr-only"
+        aria-label="Upload the supporting document"
+        aria-describedby={hintId}
+        tabIndex={-1}
+        data-testid="upload-payment_terms_approval"
+        onChange={(e) => pick(e.target.files?.[0])}
+      />
+      <div>
+        <Button
+          size="sm"
+          variant="outline"
+          type="button"
+          disabled={progress !== null}
+          aria-describedby={hintId}
+          onClick={() => input.current?.click()}
+        >
+          <UploadIcon aria-hidden="true" />
+          {progress !== null
+            ? `Uploading… ${Math.round(progress * 100)}%`
+            : 'Upload the supporting document'}
+        </Button>
+      </div>
+      <span id={hintId} className="text-muted-foreground text-xs">
+        The approval memo, signed form or e-mail. {formats.text}.
+      </span>
+    </div>
   );
 }
 

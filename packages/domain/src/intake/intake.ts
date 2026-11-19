@@ -135,7 +135,7 @@ export const intakeConfigSchema = z
     minSpecFields: z.array(z.enum(MIN_SPEC_KEYS)).default([...MIN_SPEC_KEYS]),
     /**
      * FB-11 (F-080): payment terms that are standard (app_setting `standard_payment_terms`, seeded
-     * ["NET_15","NET_30"], provisional; A-012). Anything else is flagged "Non-standard: Pricing will review".
+     * ["NET_15","NET_30"], provisional; A-012). Anything else is flagged non-standard, with who must approve it (FB-31: terms_exception_routes).
      */
     standardPaymentTerms: z.array(z.string().min(1)).default([]),
     /** FB-11 (F-080): `price_basis` codes whose meta says `delivered`; the freight fields apply to them. */

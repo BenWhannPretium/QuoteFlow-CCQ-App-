@@ -273,8 +273,9 @@ export const QUOTE_LIST_COLUMNS = {
   returnableDunnage: 'Returnable dunnage',
   // FB-24 (N18-02, D4): optional columns, not in the default set.
   toolingCommitment: 'Customer tooling commitment',
-  stockHoldRequested: 'Hold stock for customer',
-  stockHoldWeeks: 'Stock held (weeks)',
+  // FB-31 (N19-10): the contract's words. The keys (and saved views, which store keys) are unchanged.
+  stockHoldRequested: 'Inventory / safety stock requirements',
+  stockHoldWeeks: 'Inventory / safety stock (weeks)',
 } as const;
 export type QuoteListColumnKey = keyof typeof QUOTE_LIST_COLUMNS;
 export const QUOTE_LIST_COLUMN_KEYS = Object.keys(QUOTE_LIST_COLUMNS) as QuoteListColumnKey[];

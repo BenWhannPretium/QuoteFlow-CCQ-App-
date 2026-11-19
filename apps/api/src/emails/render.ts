@@ -45,6 +45,9 @@ interface Copy {
 const sentence = (...parts: (string | false | undefined)[]) =>
   parts.filter((p): p is string => Boolean(p)).join(' ');
 
+/** FB-31: "the pricing lead" at the start of a sentence. */
+const capitalFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 const RETURNED: Record<string, string> = {
   final_review: 'Final Review returned it for another look.',
   customer_requote: 'The customer asked for a re-quote.',
@@ -313,7 +316,8 @@ const COPY: Record<string, Copy> = {
       ),
     cta: 'Open Quoting',
   },
-  // FB-08 (T-007): non-standard payment terms and the pricing lead's decision. `terms` is the label.
+  // FB-08 (T-007): non-standard payment terms and the approver's decision. `terms` is the label. FB-31
+  // (N19-07): `approver` is who decides (the request's tier); `documentRequired` asks for a document too.
   'quote.terms_exception_requested': {
     phrase: 'has non-standard payment terms',
     context: 'Payment-terms exception',
@@ -323,7 +327,7 @@ const COPY: Record<string, Copy> = {
         p.actor
           ? `${p.actor} entered ${p.terms ?? 'non-standard payment terms'}.`
           : `The quote has ${p.terms ?? 'non-standard payment terms'}.`,
-        'Approve or reject the exception on the Commercial panel, with a rationale. Final Review waits for it.',
+        `${p.approver ? `It is waiting for ${p.approver}: approve` : 'Approve'} or reject the exception on the Commercial terms tab, with a rationale${p.documentRequired ? ' and a supporting document (Payment-terms approval)' : ''}. Final Review waits for it.`,
       ),
     cta: 'Open the quote',
   },
@@ -333,7 +337,7 @@ const COPY: Record<string, Copy> = {
     heading: 'The payment-terms exception is decided',
     action: (p) =>
       sentence(
-        `${p.actor ?? 'The pricing lead'} ${p.decision ?? 'decided'} ${p.terms ?? 'the non-standard payment terms'}.`,
+        `${p.actor ?? capitalFirst(p.approver ?? 'the approver')} ${p.decision ?? 'decided'} ${p.terms ?? 'the non-standard payment terms'}.`,
         'Open the quote to read the rationale.',
       ),
     cta: 'Open the quote',

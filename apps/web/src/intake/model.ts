@@ -110,9 +110,10 @@ export const FIELD_META: Record<string, { label: string; step: StepNumber }> = {
   returnable_dunnage: { label: 'Returnable (multi-trip) dunnage', step: 3 },
   // FB-24 (N18-02, D4).
   tooling_commitment: { label: 'Will the customer commit to the tooling?', step: 3 },
-  stock_hold_requested: { label: 'Hold stock for the customer', step: 3 },
-  stock_hold_weeks: { label: 'Weeks of stock held', step: 3 },
-  stock_hold_note: { label: 'Stocking note', step: 3 },
+  // FB-31 (N19-10, Sarah Brennan): the contract's words. The field keys are unchanged.
+  stock_hold_requested: { label: 'Inventory or safety stock requirements', step: 3 },
+  stock_hold_weeks: { label: 'Inventory / safety stock (weeks)', step: 3 },
+  stock_hold_note: { label: 'Inventory / safety stock note', step: 3 },
   price_basis: { label: 'Delivered or FOB', step: 3 },
   freight_type: { label: 'Freight type', step: 3 },
   freight_special_arrangements: { label: 'Special freight arrangements', step: 3 },

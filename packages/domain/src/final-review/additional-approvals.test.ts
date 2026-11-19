@@ -4,6 +4,7 @@ import {
   G4_ADDITIONAL_APPROVALS_SEED,
   additionalApprovalErrors,
   canSign,
+  fundingRequiresFinanceReview,
   parseAdditionalApprovals,
   planSignoff,
   signoffStatuses,
@@ -25,9 +26,69 @@ const signed = (signoffKey: string): RecordedSignoff => ({
   signedAt: NOW,
 });
 
+describe('the amortized finance review (FB-31, N19-08)', () => {
+  const seed = parseAdditionalApprovals(null);
+  const amortized = { tooling_funding_model: 'AMORTIZED' };
+
+  it('an amortized quote needs the finance review by Leadership before release', () => {
+    expect(signoffStatuses(seed, amortized, []).map((s) => [s.ruleKey, s.signoffKey])).toEqual([
+      ['amortized_finance_review', 'finance_review'],
+    ]);
+    expect(
+      additionalApprovalErrors(seed, amortized, [], 'G4', 'approve').map((e) => e.message),
+    ).toEqual(['Final Review also needs: Finance review (Leadership)']);
+    const given: RecordedSignoff = {
+      ruleKey: 'amortized_finance_review',
+      signoffKey: 'finance_review',
+      signedBy: 'someone',
+      signedAt: NOW,
+    };
+    expect(additionalApprovalErrors(seed, amortized, [given], 'G4', 'approve')).toEqual([]);
+  });
+
+  it('Leadership signs it; the sales leader and Finance cannot', () => {
+    const plan = (role: 'Leadership' | 'SalesLeader' | 'Finance') =>
+      planSignoff({
+        setting: seed,
+        fields: amortized,
+        recorded: [],
+        stageKey: 'FINAL_REVIEW',
+        closed: false,
+        actor: makeActor(role),
+        ruleKey: 'amortized_finance_review',
+        signoffKey: 'finance_review',
+        note: null,
+      });
+    expect(plan('Leadership').ok).toBe(true);
+    expect(plan('SalesLeader').ok).toBe(false);
+    expect(plan('Finance').ok).toBe(false);
+  });
+
+  it('no other funding model (lump sum, Pretium, to be determined, retired codes) needs it', () => {
+    for (const code of [
+      'CUSTOMER_FUNDED',
+      'COMPANY_FUNDED',
+      'NOT_DISCUSSED',
+      'ZERO_CER',
+      'SHARED',
+    ]) {
+      expect(signoffStatuses(seed, { tooling_funding_model: code }, []), code).toEqual([]);
+    }
+  });
+
+  it('the list flag drives the help line', () => {
+    expect(fundingRequiresFinanceReview({ requiresFinanceReview: true })).toBe(true);
+    expect(fundingRequiresFinanceReview({ helpText: 'x' })).toBe(false);
+    expect(fundingRequiresFinanceReview(null)).toBe(false);
+  });
+});
+
 describe('g4_additional_approvals (F-082)', () => {
   it('seeds the Nov 9 proposal switched off: nothing is required', () => {
-    expect(G4_ADDITIONAL_APPROVALS_SEED.rules.every((r) => !r.active)).toBe(true);
+    // FB-31 (N19-08): the amortized finance review is the one seeded rule that is on.
+    expect(G4_ADDITIONAL_APPROVALS_SEED.rules.filter((r) => r.active).map((r) => r.key)).toEqual([
+      'amortized_finance_review',
+    ]);
     expect(parseAdditionalApprovals(null)).toEqual(G4_ADDITIONAL_APPROVALS_SEED);
     expect(signoffStatuses(parseAdditionalApprovals(null), customerFunded, [])).toEqual([]);
     expect(

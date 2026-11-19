@@ -80,7 +80,7 @@ const REQUIRED_CHECKS: readonly {
   {
     check: 'terms_exception',
     key: 'g4_terms_exception_check_required,terms_exception_open',
-    fallback: 'The pricing lead’s approval of the payment-terms exception',
+    fallback: 'The approval of the payment-terms exception',
     open: (t) => termsExceptionOpen(t.exception?.status),
   },
   {
@@ -157,10 +157,13 @@ export function releaseBlockers(
   if (!s.inFinalReview) return [];
   const release = s.availableActions.find((a) => a.releasesProposal);
   if (release) {
-    return withCapitalTerms(
-      uniqueRequirements(release.missing).map((m) => blocker(m.field, m.message)),
+    return withSignoffs(
+      withCapitalTerms(
+        uniqueRequirements(release.missing).map((m) => blocker(m.field, m.message)),
+        s.termsAndLegal,
+        fundingNotAnswered,
+      ),
       s.termsAndLegal,
-      fundingNotAnswered,
     );
   }
   const out: ReleaseBlocker[] = [];
@@ -177,7 +180,24 @@ export function releaseBlockers(
       out.push(blocker(c.key, c.fallback));
     }
   }
-  return withCapitalTerms(out, t, fundingNotAnswered);
+  return withSignoffs(withCapitalTerms(out, t, fundingNotAnswered), t);
+}
+
+/**
+ * FB-31 (N19-08): the extra Final Review sign-offs still missing (`g4_additional_approvals`, e.g. the
+ * finance review of amortized tooling), in the server's words ("Final Review also needs: …"). They are
+ * given on the review screen's Terms and Legal section; G4 Approve is refused until they are.
+ */
+function withSignoffs(list: ReleaseBlocker[], t: Terms): ReleaseBlocker[] {
+  const missing = (t.additionalApprovals ?? []).filter((a) => !a.signedAt);
+  return [
+    ...list,
+    ...missing.map((a): ReleaseBlocker => ({
+      key: `signoff:${a.ruleKey}:${a.signoffKey}`,
+      message: `Final Review also needs: ${a.signoffLabel}`,
+      fixAt: 'terms-legal',
+    })),
+  ];
 }
 
 /**

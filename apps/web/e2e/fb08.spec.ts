@@ -6,9 +6,11 @@ import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 // FB-08 (F-021, F-068; T-007, T-031) happy path through the UI:
-// the KAM agrees Net 60 on the Commercial panel (non-standard: an exception goes to the pricing lead),
-// the pricing lead approves it with a rationale, and the approver confirms the capital terms of a $0 CER
-// quote on the Final Review screen and releases the offer. The terms then lock.
+// the KAM agrees Net 45 on the Commercial panel (non-standard: an exception goes to the pricing lead),
+// the pricing lead approves it with a rationale, and the approver confirms the capital terms of a
+// customer-funded quote on the Final Review screen and releases the offer. The terms then lock.
+// FB-31 (N19-07, N19-08): Net 60 now goes to Leadership with a document (fb31.spec.ts), so this path
+// uses Net 45; $0 CER is no longer offered, so the approver picks "Customer funded (lump sum)".
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
 
@@ -77,7 +79,7 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   test.setTimeout(150_000);
   const qn = await inFinalReview(request);
 
-  // 1. The KAM agrees Net 60: flagged non-standard, and an exception goes to the pricing lead (T-007).
+  // 1. The KAM agrees Net 45: flagged non-standard, and an exception goes to the pricing lead (T-007).
   const kamContext = await browser.newContext();
   const kam = await kamContext.newPage();
   await signInAs(kam, 'kam');
@@ -88,8 +90,8 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   await panel.getByLabel('Mold ownership').selectOption({ label: 'Customer' });
   await panel.getByRole('button', { name: 'Save capital terms' }).click();
   await expect(panel.getByRole('button', { name: 'Save capital terms' })).toBeDisabled();
-  // ... and agrees Net 60.
-  await panel.getByLabel('Payment terms', { exact: true }).selectOption({ label: 'Net 60' });
+  // ... and agrees Net 45.
+  await panel.getByLabel('Payment terms', { exact: true }).selectOption({ label: 'Net 45' });
   await expect(panel.getByTestId('payment-terms-nonstandard').first()).toBeVisible();
   // FB-25 (N17-26): the customer tooling commitment is answered (Final Review needs it).
   await panel.getByLabel('Customer tooling commitment').selectOption('no');
@@ -118,7 +120,7 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   );
   await leadContext.close();
 
-  // 3. The approver confirms the capital terms of a $0 CER quote and releases the offer (T-031).
+  // 3. The approver confirms the capital terms of a customer-funded quote and releases the offer (T-031).
   const approverContext = await browser.newContext();
   const page = await approverContext.newPage();
   await signInAs(page, 'approver');
@@ -127,9 +129,7 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
   await expect(terms.getByTestId('terms-exception-status')).toHaveText('Approved');
   const capital = terms.getByTestId('capital-terms');
   await expect(capital.getByLabel('Mold ownership')).toHaveValue('CUSTOMER');
-  await capital
-    .getByLabel('Funding model')
-    .selectOption({ label: '$0 CER (customer-reimbursed capital)' });
+  await capital.getByLabel('Funding model').selectOption({ label: 'Customer funded (lump sum)' });
   // FB-25 (N17-26): the required capital terms carry the required marker ("(required)" for readers).
   await capital
     .getByRole('combobox', { name: 'Amortized (required)', exact: true })
@@ -168,7 +168,7 @@ test('FB-08: non-standard terms are approved by the pricing lead; the approver c
     commercial: { terms: { capital: { toolingFundingModel: string; finalizedAt: string } } };
   };
   expect(quote.stageKey).toBe('CUSTOMER_DECISION');
-  expect(quote.commercial.terms.capital).toMatchObject({ toolingFundingModel: 'ZERO_CER' });
+  expect(quote.commercial.terms.capital).toMatchObject({ toolingFundingModel: 'CUSTOMER_FUNDED' });
 });
 
 // DR-approver-leadership-admin-01: an approver who is the quote's KAM (multi-role: SalesLeader + Approver)

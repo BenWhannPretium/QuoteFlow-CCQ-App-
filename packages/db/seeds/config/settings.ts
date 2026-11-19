@@ -15,6 +15,7 @@ import {
   HOLD_OWNER_DEFAULT_SEED,
   G4_ADDITIONAL_APPROVALS_SEED,
   CAPITAL_TERMS_REQUIRED_SEED,
+  TERMS_EXCEPTION_ROUTES_SEED,
   LEGAL_REVIEW_TRIGGERS_SEED,
   MARKET_DEV_NOTICE_SEED,
   PASS_THROUGH_SEED,
@@ -184,6 +185,24 @@ export const G4_ADDITIONAL_APPROVALS_DESCRIPTION =
 export const DEFAULT_PAYMENT_TERMS_DESCRIPTION =
   'FB-08 (F-021, D-003 provisional): the payment terms the Commercial panel pre-selects when the customer requested none at intake (a requested_payment_terms code; the customer request wins when there is one). Nothing is saved until someone saves the terms.';
 
+/**
+ * FB-31 (N19-07, N19-08, N19-10): the texts FB-31 changes. The constants above keep the earlier text,
+ * which migration 0056 replaces only where it is still unedited (older migration tests read them).
+ */
+export const STANDARD_PAYMENT_TERMS_DESCRIPTION_FB31 =
+  'FB-11 (F-080, D-032, A-012 decided Nov 9): the requested_payment_terms codes that count as standard. Any other request is flagged non-standard on the intake and the quote, with who must approve it (terms_exception_routes, FB-31). Net 15 and Net 30 are both standard (Gemma Cebolla, Nov 9); still marked provisional until an Admin approves it.';
+export const G4_REQUIRED_CHECKS_DESCRIPTION_FB31 = G4_REQUIRED_CHECKS_DESCRIPTION.replace(
+  'terms_exception: non-standard payment terms need the pricing lead to approve the exception',
+  'terms_exception: non-standard payment terms need the approver their tier of terms_exception_routes names (FB-31) to approve the exception',
+);
+export const G4_ADDITIONAL_APPROVALS_DESCRIPTION_FB31 =
+  'FB-08 (F-082, D-002, A-035 open): extra Final Review sign-offs before the approver may release the offer, by funding model, in order. Seeded with the Nov 9 proposal (customer-funded or $0 CER: the sales leader, then leadership) switched OFF (active: false); set it active only once Oleg and Sarah confirm it (A-035). FB-31 (N19-08, provisional): amortized tooling ("Customer funded (amortized)") needs a finance review, switched ON: Leadership signs off, standing in until Finance holds an approval permission. Signers need finalReview.signoff (SalesLeader, Leadership).';
+export const TERMS_EXCEPTION_ROUTES_DESCRIPTION =
+  'FB-31 (N19-07): who approves non-standard payment terms. An ordered list of tiers: codes (requested_payment_terms codes), approverPermission (terms.exception.decide: the pricing lead; terms.exception.decide.senior: Leadership, standing in for the CFO until a CFO role exists), approverLabel (what the screens call them) and documentRequired (approving also needs a Payment-terms approval document on the quote). A non-standard code no tier lists goes to the first tier. A request keeps the tier it opened with. PROVISIONAL GUESS, NOT POLICY: Sarah Brennan and Oleg Yarovinski have not set the thresholds or approvers yet; this seed (Net 45: the pricing lead; Net 60, Net 90, Net 120 and Other: Leadership with a document) exists so the mechanism can be shown.';
+/** FB-24's help text for stock_hold_requested (0051); FB-31 replaces it where unedited. */
+export const STOCK_HOLD_HELP_FB24 =
+  'Holding bottles for a customer for a long time costs Pretium money, so Pricing needs to know. Say for how long if you know.';
+
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
 export const INTAKE_FIELD_HELP: Record<string, string> = {
   sf_opportunity_id:
@@ -205,8 +224,9 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   tooling_commitment:
     'Whether the customer will commit to paying for the tooling. Final Review sees your answer. Yes asks for a Legal review before the offer goes out.',
   // FB-24 (Ben's decision D4, Faron Ipox): holding stock is an extra cost Pricing needs to know.
+  // FB-31 (N19-10, Sarah Brennan): in the contract's words, inventory and safety stock requirements.
   stock_hold_requested:
-    'Holding bottles for a customer for a long time costs Pretium money, so Pricing needs to know. Say for how long if you know.',
+    'Inventory and safety stock requirements in the customer’s contract cost Pretium money to hold, so Pricing needs to know. Say for how long if you know.',
   product_family: 'Tells Engineering which product line and tooling family to look at.',
   // FB-15 (W13-03): what an "Other" product family, component or decoration is.
   product_family_other: 'Required when the product family is Other: say what the product is.',
@@ -514,8 +534,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
   {
     key: 'standard_payment_terms',
     value: STANDARD_PAYMENT_TERMS,
-    description:
-      'FB-11 (F-080, D-032, A-012 decided Nov 9): the requested_payment_terms codes that count as standard. Any other request is flagged "Non-standard: Pricing will review" on the intake and the quote. Net 15 and Net 30 are both standard (Gemma Cebolla, Nov 9); still marked provisional until an Admin approves it.',
+    description: STANDARD_PAYMENT_TERMS_DESCRIPTION_FB31,
   },
   {
     // FB-08 (F-021): the default the Commercial panel pre-selects (the customer's request wins).
@@ -673,7 +692,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     // FB-01 (F-069): the approver is no longer blocked by fields other roles own.
     key: 'g4_required_checks',
     value: G4_REQUIRED_CHECKS_SEED,
-    description: G4_REQUIRED_CHECKS_DESCRIPTION,
+    description: G4_REQUIRED_CHECKS_DESCRIPTION_FB31,
   },
   {
     // FB-08 (F-068, T-031): what the approver must fill before confirming the capital terms.
@@ -685,7 +704,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     // FB-08 (F-082, D-002, A-035 open): the extra sign-off proposal, switched off.
     key: 'g4_additional_approvals',
     value: G4_ADDITIONAL_APPROVALS_SEED,
-    description: G4_ADDITIONAL_APPROVALS_DESCRIPTION,
+    description: G4_ADDITIONAL_APPROVALS_DESCRIPTION_FB31,
   },
   {
     // FB-07 (D-001): Quoting's ROI step (Finance) applies when capital is required, $0 CER included.
@@ -793,6 +812,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: OPPORTUNITY_ACTIVE_QUOTE_MESSAGE_SEED,
     description:
       'FB-19 (W13-33): the warning a KAM sees when starting an intake on an opportunity that already has an active quote ({quoteNumber} and {kamName} are filled in; several open quotes are listed). Provisional wording.',
+  },
+  // ── FB-31 (N19-07): who approves non-standard payment terms. Provisional guess; migration 0056.
+  {
+    key: 'terms_exception_routes',
+    value: TERMS_EXCEPTION_ROUTES_SEED,
+    description: TERMS_EXCEPTION_ROUTES_DESCRIPTION,
   },
 ];
 

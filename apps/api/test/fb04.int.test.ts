@@ -146,28 +146,24 @@ describe('F-073: strategic fit is shown as provisional while its map is empty', 
 });
 
 describe('F-022 / V-055: the funding options', () => {
-  it('serves $0 CER with its definition and the provisional Shared option', async () => {
+  // FB-31 (N19-08) changed this: four plain choices; $0 CER and Shared are no longer offered but keep
+  // their labels for old quotes. It checked "$0 CER with its definition and the provisional Shared".
+  it('serves the four plain choices, and $0 CER and Shared as retired labels', async () => {
     const cfg = PublicConfigResponse.parse((await as('KAM').get('/api/v1/config/public')).json());
     const list = cfg.valueLists.tooling_funding_model!;
-    // FB-24 (N17-08): offered A to Z ("$0 CER" first). FB-11 (D-032): the intake default "Not discussed".
-    expect(list.map((v) => v.code)).toEqual([
-      'ZERO_CER',
-      'AMORTIZED',
-      'COMPANY_FUNDED',
-      'CUSTOMER_FUNDED',
-      'NOT_DISCUSSED',
-      'SHARED',
+    // FB-24 (N17-08): offered A to Z. FB-11 (D-032): the intake default, now "To be determined".
+    expect(list.map((v) => [v.code, v.label])).toEqual([
+      ['AMORTIZED', 'Customer funded (amortized)'],
+      ['CUSTOMER_FUNDED', 'Customer funded (lump sum)'],
+      ['COMPANY_FUNDED', 'Pretium funded'],
+      ['NOT_DISCUSSED', 'To be determined'],
     ]);
-    const zero = list.find((v) => v.code === 'ZERO_CER')!;
-    expect(zero.label).toBe('$0 CER (customer-reimbursed capital)');
-    expect(zero.meta.helpText).toMatch(
-      /reimbursed by the customer as a lump sum or through amortization/,
-    );
-    expect(zero.meta.helpText).toMatch(/mold PO/);
-    const shared = list.find((v) => v.code === 'SHARED')!;
-    expect(shared.label).toBe('Shared (company and customer)');
-    // 0043 (Bailey Schmitt, 2026-11-12): plain wording, and every option is explained.
-    expect(shared.meta.helpText).toMatch(/each pay part/);
-    expect(list.find((v) => v.code === 'AMORTIZED')!.meta.helpText).toMatch(/over time/);
+    // Every option is explained (Bailey Schmitt, 2026-11-12); amortized needs a finance review.
+    expect(list.every((v) => typeof v.meta.helpText === 'string')).toBe(true);
+    expect(list.find((v) => v.code === 'AMORTIZED')!.meta.requiresFinanceReview).toBe(true);
+    expect(cfg.retiredValues?.tooling_funding_model).toMatchObject({
+      ZERO_CER: '$0 CER (customer-reimbursed capital)',
+      SHARED: 'Shared (company and customer)',
+    });
   });
 });

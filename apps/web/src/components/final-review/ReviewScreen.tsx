@@ -507,7 +507,10 @@ function TermsLegalSection({ s, quoteNumber }: { s: ReviewSummary; quoteNumber: 
             value: payment ? (
               <>
                 {payment}
-                <NonStandardTermsBadge show={!!t.exception || t.termsNonstandard} />
+                <NonStandardTermsBadge
+                  show={!!t.exception || t.termsNonstandard}
+                  code={t.termsPaymentTermsCode}
+                />
               </>
             ) : null,
           },

@@ -91,6 +91,19 @@ Added 2026-11-17 for the approved UX changes (`docs/audit/03-ux-proposals.md`).
 |---|---|---|---|---|
 | 32 | **Command Center** → **Analytics** → the outcomes report. | The tile that was "Awarded, commitment pending" reads **Awarded, hand-off not done**: "The customer awarded it; the CER and hand-off are still open. Counted as won." The number is unchanged. Is it clear? (Note your answer.) | | |
 
+## FB-31: payment-terms exceptions and the amortized finance review (2026-11-19)
+
+Added for the Nov 19 feedback (N19-07, N19-08). **Provisional:** Leadership stands in for the CFO (there is no CFO role) and for Finance (which approves nothing today). The thresholds are a guess until Sarah Brennan and Oleg Yarovinski set them.
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 33 | After the KAM's step 136, open the bell. Click the notice "<quote>: non-standard payment terms (Net 60)". | It opens the quote's **Commercial terms** tab. The card says **Waiting for Leadership** and shows the supporting document; you can download it. | | |
+| 34 | Write a **Rationale** and click **Approve the exception**. | The card says **Approved**, with your name, the time and the rationale. The KAM is told. The timeline reads "Payment-terms exception approved (Net 60) by Leadership". | | |
+| 35 | On another Net 60 quote with **no** document, write a rationale. | **Approve the exception** stays off and the card says to attach the supporting document first. **Reject** still works. | | |
+| 36 | On a Net 45 quote waiting for the pricing lead, open **Commercial terms**. | You can read the card ("Waiting for the pricing lead") but there is no **Approve** or **Reject** for you. | | |
+| 37 | **Approvals** → **Final Review** → a quote whose tooling is **Customer funded (amortized)**. | "Final Review also needs: Finance review (Leadership)" is listed. **Sign off** is yours; the approver cannot release the offer until you do. | | |
+| 38 | Should the CFO, not Leadership, approve Net 60 and above? Should Finance give the amortization review? Is a rationale plus an attached document the "formal documentation" Sarah meant? | Write the answers in Notes. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

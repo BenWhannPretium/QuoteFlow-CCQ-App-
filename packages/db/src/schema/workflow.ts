@@ -33,6 +33,7 @@ import {
   QUOTE_TERMS_EXCEPTION_STATUSES,
   RESUME_AT,
   SF_STATUS_FLAGS,
+  TERMS_EXCEPTION_APPROVER_PERMISSIONS,
   TERMS_EXCEPTION_STATUSES,
   VERSIONED_ATTACHMENT_KINDS,
   MODEL_SUMMARY_FIELD_STATES,
@@ -2474,16 +2475,33 @@ export const termsExceptionRequest = documented(
         'Who entered the non-standard terms (told of the decision).',
       ),
       requestedAt: c(timestamptz('requested_at').notNull(), 'When it was requested.'),
-      decidedBy: c(userRef('decided_by'), 'The pricing lead (terms.exception.decide) who decided.'),
+      decidedBy: c(
+        userRef('decided_by'),
+        'Who decided: a holder of approver_permission (before FB-31, the pricing lead).',
+      ),
       decidedAt: c(timestamptz('decided_at'), 'When it was decided.'),
       rationale: c(text('rationale'), 'The decision rationale (required, ≤ 1000).'),
       closedAt: c(
         timestamptz('closed_at'),
         'When it was withdrawn or superseded without a decision.',
       ),
+      // FB-31 (N19-07): the tier of app_setting terms_exception_routes the request was routed to, recorded
+      // when it opens so a later config change does not reroute it silently.
+      approverPermission: c(
+        text('approver_permission'),
+        'FB-31: the permission whose holders decide it (terms.exception.decide | terms.exception.decide.senior), from terms_exception_routes when it opened. Null = opened before FB-31 (the pricing lead).',
+      ),
+      documentRequired: c(
+        boolean('document_required'),
+        'FB-31: approving needs a current payment_terms_approval document on the quote (the tier said so when it opened). Null = before FB-31 (no).',
+      ),
     },
     (t) => [
       index('terms_exception_request_quote_idx').on(t.quoteId, t.requestedAt),
+      check(
+        'terms_exception_request_approver_permission_check',
+        sql`${t.approverPermission} is null or ${inList(t.approverPermission, TERMS_EXCEPTION_APPROVER_PERMISSIONS)}`,
+      ),
       check('terms_exception_request_status_check', inList(t.status, TERMS_EXCEPTION_STATUSES)),
       check(
         'terms_exception_request_decision_check',
@@ -2495,7 +2513,7 @@ export const termsExceptionRequest = documented(
     area: 'workflow',
     owner: PRICING,
     description:
-      'FB-08 (T-007): payment-terms exception requests: non-standard terms need the pricing lead to approve or reject them with a rationale.',
+      'FB-08 (T-007): payment-terms exception requests: non-standard terms need approving or rejecting with a rationale. FB-31 (N19-07): by the tier of terms_exception_routes recorded on the request (the pricing lead, or Leadership for the senior tier).',
   },
 );
 

@@ -147,6 +147,7 @@ describe('PostAward (P2: no dev persona, so not in the integration matrix)', () 
         "POST /api/v1/quotes/:quoteNumber/assignment",
         "POST /api/v1/quotes/:quoteNumber/comments",
         "POST /api/v1/quotes/:quoteNumber/gates/:gateKey/decisions",
+        "POST /api/v1/quotes/:quoteNumber/terms/exception/decision",
       ]
     `);
   });

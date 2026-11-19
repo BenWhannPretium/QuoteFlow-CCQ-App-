@@ -623,12 +623,14 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'terms.finalize',
     sampleBody: { termsMinSupply: 'none' },
   },
-  // FB-08 (T-007): the pricing lead's exception decision.
+  // FB-08 (T-007), FB-31 (N19-07): the exception decision. Who decides depends on the request's tier
+  // (terms.exception.decide or .senior), so the route is the quote.read floor (every role gets 404 on the
+  // sample); the service enforces the tier, allowed and denied for every role: terms-fb31.int.test.ts.
   {
     method: 'POST',
     route: '/api/v1/quotes/:quoteNumber/terms/exception/decision',
     url: `/api/v1/quotes/${SAMPLE_QUOTE}/terms/exception/decision`,
-    permission: 'terms.exception.decide',
+    permission: 'quote.read',
     sampleBody: { decision: 'approve', rationale: 'x' },
   },
   // FB-08 (F-082, off until A-035): an extra Final Review sign-off.

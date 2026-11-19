@@ -19,6 +19,11 @@ export const SERVICE_CHECKED_PERMISSIONS: Partial<Record<Permission, string>> = 
     'G5 decision closureOwnerId other than the KAM (floor quote.read): outcome.int.test.ts',
   'override.revert': 'POST /overrides/:id/revert (floor quote.read): overrides.int.test.ts',
   'attachment.removeAny': 'DELETE /attachments/:id (floor quote.read): attachments.int.test.ts',
+  // FB-31 (N19-07): who decides depends on the request's tier of terms_exception_routes.
+  'terms.exception.decide':
+    'POST /quotes/:quoteNumber/terms/exception/decision, a request in its tier (floor quote.read): terms-fb31.int.test.ts',
+  'terms.exception.decide.senior':
+    'POST /quotes/:quoteNumber/terms/exception/decision, a request in its tier (floor quote.read): terms-fb31.int.test.ts',
 };
 
 const describeGrant = (role: Role, grant: Grant): string => {

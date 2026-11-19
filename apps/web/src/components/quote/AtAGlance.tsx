@@ -354,7 +354,7 @@ export function TermsGlance({ quote }: { quote: QuoteDetail }) {
       value: payment ? (
         <>
           {payment}
-          <NonStandardTermsBadge show={t.paymentTermsNonstandard} />
+          <NonStandardTermsBadge show={t.paymentTermsNonstandard} code={t.termsPaymentTermsCode} />
         </>
       ) : null,
     },

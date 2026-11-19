@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { DomainError } from '../errors';
+import { requesterBarApplies, type TermsExceptionRouting } from './terms-routes';
 import { pastDateErrors } from '../outcome/handoff';
 
 /**
@@ -16,7 +17,8 @@ import { pastDateErrors } from '../outcome/handoff';
  * The triggers are config (`legal_review_triggers`, D-25): provisional.
  *
  * FB-08 (F-021, F-068, D-003 and D-029 provisional): payment terms are a value list and anything not
- * in `standard_payment_terms` is non-standard and opens an exception request for the PricingLead; MOQ
+ * in `standard_payment_terms` is non-standard and opens an exception request (FB-31: for the approver
+ * its tier of `terms_exception_routes` names, `terms-routes.ts`); MOQ
  * and tooling funding are Engineering's; the tooling payment follows a milestone option; and the
  * capital terms (funding, mold ownership, amortization, minimum supply, agreement) are confirmed by
  * the approver at Final Review.
@@ -601,15 +603,51 @@ export type TermsExceptionDecisionPlan =
   | { ok: true; status: 'approved' | 'rejected'; rationale: string }
   | { ok: false; errors: DomainError[] };
 
-/** The PricingLead's decision on the pending request: approve or reject, always with a rationale. */
+/**
+ * The decision on the pending request: approve or reject, always with a rationale. FB-31 (N19-07): only
+ * holders of the permission the request was routed to decide it (`terms_exception_routes`); the requester
+ * may not decide their own where the bar applies (`requesterBarApplies`); and approving a request whose
+ * tier needs a document needs a current `payment_terms_approval` file on the quote (rejecting does not).
+ */
 export function planTermsExceptionDecision(input: {
   status: string | null;
   decision: 'approve' | 'reject';
   rationale: string;
   closed: boolean;
+  /** FB-31: the routing recorded on the request (`termsExceptionRouting`). */
+  routing: TermsExceptionRouting;
+  /** FB-31: the actor holds `routing.approverPermission` on this quote. */
+  holdsApprover: boolean;
+  /** FB-31: the actor entered the terms that opened the request. */
+  isRequester: boolean;
+  /** FB-31: a current `payment_terms_approval` document is on the quote. */
+  documentOnFile: boolean;
 }): TermsExceptionDecisionPlan {
   if (input.closed) {
     return { ok: false, errors: [new DomainError('QUOTE_CLOSED', 'The quote is closed')] };
+  }
+  const { routing } = input;
+  if (!input.holdsApprover) {
+    return {
+      ok: false,
+      errors: [
+        new DomainError(
+          'NOT_PERMITTED',
+          `This payment-terms exception is decided by ${routing.approverLabel}`,
+        ),
+      ],
+    };
+  }
+  if (input.isRequester && requesterBarApplies(routing.approverPermission)) {
+    return {
+      ok: false,
+      errors: [
+        new DomainError(
+          'NOT_PERMITTED',
+          `You entered these payment terms, so someone else (${routing.approverLabel}) decides the exception`,
+        ),
+      ],
+    };
   }
   const errors: DomainError[] = [];
   if (input.status !== 'pending') {
@@ -631,6 +669,9 @@ export function planTermsExceptionDecision(input: {
       ),
     );
   }
+  if (input.decision === 'approve' && routing.documentRequired && !input.documentOnFile) {
+    errors.push(new DomainError('MISSING_FIELD', TERMS_DOCUMENT_MISSING_TEXT, 'document'));
+  }
   if (errors.length > 0) return { ok: false, errors };
   return {
     ok: true,
@@ -638,3 +679,7 @@ export function planTermsExceptionDecision(input: {
     rationale,
   };
 }
+
+/** FB-31: why an approval waits for its document. */
+export const TERMS_DOCUMENT_MISSING_TEXT =
+  'Attach the supporting document (Payment-terms approval) on the Commercial terms tab before approving';

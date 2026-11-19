@@ -26,6 +26,12 @@ import { ROLES, type Role } from '../types/roles';
  * }
  * A sign-off belongs to the quote version it was given on (a rework asks again). The person signing
  * needs `finalReview.signoff` and one of the sign-off's roles (or to be one of its users).
+ *
+ * FB-31 (N19-08; Sarah Brennan, Oleg Yarovinski, 2026-11-19): amortization is an accommodation that needs
+ * finance review. A second rule, seeded **active** (provisional): a quote whose tooling funding is
+ * "Customer funded (amortized)" (`AMORTIZED`) needs a finance-review sign-off at Final Review before the
+ * offer is released. Finance holds no approval permission today, so Leadership gives it (making Finance
+ * the approver is one matrix line plus this config: a question for Ben). No new gate.
  */
 const signoffSchema = z
   .object({
@@ -63,7 +69,10 @@ export type AdditionalApprovalRule = z.infer<typeof ruleSchema>;
 export type AdditionalApprovalSignoff = z.infer<typeof signoffSchema>;
 export type AdditionalApprovals = z.infer<typeof additionalApprovalsSchema>;
 
-/** Seed: the Nov 9 proposal, switched off (provisional until A-035 and D-002). */
+/**
+ * Seed: the Nov 9 proposal, switched off (provisional until A-035 and D-002), and FB-31's amortized
+ * finance review, switched on (provisional).
+ */
 export const G4_ADDITIONAL_APPROVALS_SEED: AdditionalApprovals = {
   rules: [
     {
@@ -76,8 +85,40 @@ export const G4_ADDITIONAL_APPROVALS_SEED: AdditionalApprovals = {
         { key: 'leadership', label: 'Leadership', roles: ['Leadership'], userIds: [] },
       ],
     },
+    // FB-31 (N19-08, provisional): amortized tooling needs a finance review (Leadership stands in).
+    {
+      key: 'amortized_finance_review',
+      label: 'Customer funded (amortized): finance review',
+      active: true,
+      when: { fundingModels: ['AMORTIZED'] },
+      signoffs: [
+        {
+          key: 'finance_review',
+          label: 'Finance review (Leadership)',
+          roles: ['Leadership'],
+          userIds: [],
+        },
+      ],
+    },
   ],
 };
+
+/** The seed as FB-08 wrote it (migration 0056 replaces only this exact value). */
+export const G4_ADDITIONAL_APPROVALS_SEED_FB08: AdditionalApprovals = {
+  rules: [G4_ADDITIONAL_APPROVALS_SEED.rules[0]!],
+};
+
+/**
+ * FB-31 (N19-08): a tooling funding option whose list entry says it needs a finance review
+ * (`meta.requiresFinanceReview`, seeded on "Customer funded (amortized)").
+ */
+export const fundingRequiresFinanceReview = (
+  meta: Readonly<Record<string, unknown>> | null | undefined,
+): boolean => meta?.requiresFinanceReview === true;
+
+/** The help line where the funding model is chosen. */
+export const FINANCE_REVIEW_HELP_TEXT =
+  'Needs a finance review: an extra sign-off at Final Review before the offer goes out.';
 
 /** `app_setting.g4_additional_approvals`. Unset = the seed (off); malformed = INVALID_CONFIG. */
 export function parseAdditionalApprovals(input: unknown): AdditionalApprovals {

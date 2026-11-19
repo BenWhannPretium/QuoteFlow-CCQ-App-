@@ -57,6 +57,10 @@ async function toPreFb11State(tx: Tx) {
   await tx.execute(
     sql`update value_list set meta = meta - 'taxHint' where list_key = 'tooling_funding_model'`,
   );
+  // FB-31 (N19-08) retired $0 CER and Shared in the seed; before FB-11 every funding option was offered.
+  await tx.execute(
+    sql`update value_list set active = true where list_key = 'tooling_funding_model'`,
+  );
   await tx.execute(sql`delete from app_setting where key = 'standard_payment_terms'`);
   for (const key of NEW_HELP_KEYS) {
     await tx.execute(
