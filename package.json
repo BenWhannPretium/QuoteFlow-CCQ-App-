@@ -14,7 +14,8 @@
     "lint": "turbo run lint && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "test": "turbo run test && pnpm test:scripts",
+    "test:scripts": "vitest run --config scripts/vitest.config.ts",
     "test:integration": "turbo run test:integration",
     "e2e": "turbo run e2e --filter=@ccq/web",
     "load": "k6 run tests/load/read-paths.js",
@@ -26,7 +27,8 @@
     "db:demo": "pnpm --filter @ccq/db db:reset --demo",
     "db:dictionary": "pnpm --filter @ccq/db db:dictionary",
     "db:sf-fixture": "pnpm --filter @ccq/db db:sf-fixture",
-    "uat:defects": "pnpm --filter @ccq/db uat:defects"
+    "uat:defects": "pnpm --filter @ccq/db uat:defects",
+    "release:upgrade-check": "pnpm --filter @ccq/db release:upgrade-check"
   },
   "prettier": "@ccq/config/prettier",
   "devDependencies": {

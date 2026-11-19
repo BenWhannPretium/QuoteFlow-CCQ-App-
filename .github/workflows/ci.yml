@@ -87,6 +87,56 @@ jobs:
           path: apps/web/e2e/playwright-report
           retention-days: 7
 
+  # FB-28 (BR-18): CI's verify job migrates an empty database, which applies the whole journal in order
+  # and so cannot see a migration that an existing database would skip (the 2026-11-19 outage). This
+  # job applies the PR base's migrations first (the database the test site has), then the PR's, and
+  # starts the API as the App Service does. Pull requests only: on main the base is the commit itself.
+  upgrade:
+    name: Migration upgrade check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ccq
+          POSTGRES_PASSWORD: ccq
+          POSTGRES_DB: ccq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ccq -d ccq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The base branch and its history: the largest journal `when` ever merged there.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # The API only (and the packages it bundles): NODE_ENV=test does not serve the web app.
+      - name: Build the API
+        run: pnpm turbo run build --filter=@ccq/api
+
+      - name: Upgrade check (base migrations, then this PR's, then API start-up)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: pnpm release:upgrade-check --base "origin/$BASE_REF"
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
