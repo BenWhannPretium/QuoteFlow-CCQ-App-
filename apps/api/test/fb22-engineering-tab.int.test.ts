@@ -530,6 +530,6 @@ describe('FB-22 E (D2): an engineering lead decides G2 on their own work', () =>
     const rules = await db.db
       .select({ key: schema.segregationRule.ruleKey, gates: schema.segregationRule.gateKeys })
       .from(schema.segregationRule);
-    expect(rules.filter((r) => (r.gates as string[]).includes('G2'))).toEqual([]);
+    expect(rules.filter((r) => (r.gates).includes('G2'))).toEqual([]);
   });
 });
