@@ -130,7 +130,7 @@ quote with `assertCan`, and Postgres RLS enforces the data scope as the second l
 | PUT | `/api/v1/quotes/:quoteNumber/terms` | `terms.edit` | KAM (own), SalesLeader, Pricing, PricingLead |  |
 | PUT | `/api/v1/quotes/:quoteNumber/terms/capital` | `terms.finalize` | Approver (FINAL_REVIEW) |  |
 | PUT | `/api/v1/quotes/:quoteNumber/terms/engineering` | `terms.engineering.edit` | EngLead, Engineer (assigned) |  |
-| POST | `/api/v1/quotes/:quoteNumber/terms/exception/decision` | `terms.exception.decide` | PricingLead |  |
+| POST | `/api/v1/quotes/:quoteNumber/terms/exception/decision` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, ProductionScheduler, PostAward (AWARDED) |  |
 | GET | `/api/v1/quotes/:quoteNumber/timeline` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, ProductionScheduler, PostAward (AWARDED) |  |
 | GET | `/api/v1/quotes/board` | `quote.read` | KAM, SalesLeader, EngLead, Engineer, Pricing, PricingLead, Approver, Leadership, Admin, Finance, ProductionScheduler, PostAward (AWARDED) |  |
 | GET | `/api/v1/quotes/drafts` | `quote.create` | KAM, SalesLeader, Admin |  |
@@ -159,3 +159,5 @@ These matrix permissions are not a route gate; the service checks them against t
 | `outcome.assignOwner` | SalesLeader | G5 decision closureOwnerId other than the KAM (floor quote.read): outcome.int.test.ts |
 | `override.revert` | SalesLeader, EngLead, Admin | POST /overrides/:id/revert (floor quote.read): overrides.int.test.ts |
 | `attachment.removeAny` | Admin | DELETE /attachments/:id (floor quote.read): attachments.int.test.ts |
+| `terms.exception.decide` | PricingLead | POST /quotes/:quoteNumber/terms/exception/decision, a request in its tier (floor quote.read): terms-fb31.int.test.ts |
+| `terms.exception.decide.senior` | Leadership | POST /quotes/:quoteNumber/terms/exception/decision, a request in its tier (floor quote.read): terms-fb31.int.test.ts |

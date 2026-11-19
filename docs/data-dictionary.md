@@ -1214,7 +1214,7 @@ One row per stay in a stage. Powers time-in-stage (CR-55).
 
 ### terms_exception_request
 
-FB-08 (T-007): payment-terms exception requests: non-standard terms need the pricing lead to approve or reject them with a rationale.
+FB-08 (T-007): payment-terms exception requests: non-standard terms need approving or rejecting with a rationale. FB-31 (N19-07): by the tier of terms_exception_routes recorded on the request (the pricing lead, or Leadership for the senior tier).
 
 **Owner:** Pricing
 
@@ -1231,12 +1231,14 @@ FB-08 (T-007): payment-terms exception requests: non-standard terms need the pri
 | `status` | text | no | "pending" |  | pending \| approved \| rejected \| withdrawn (back to standard) \| superseded (the terms changed again). | Pricing |
 | `requested_by` | uuid | no |  | app_user.id | Who entered the non-standard terms (told of the decision). | Pricing |
 | `requested_at` | timestamp with time zone | no |  |  | When it was requested. | Pricing |
-| `decided_by` | uuid | yes |  | app_user.id | The pricing lead (terms.exception.decide) who decided. | Pricing |
+| `decided_by` | uuid | yes |  | app_user.id | Who decided: a holder of approver_permission (before FB-31, the pricing lead). | Pricing |
 | `decided_at` | timestamp with time zone | yes |  |  | When it was decided. | Pricing |
 | `rationale` | text | yes |  |  | The decision rationale (required, ≤ 1000). | Pricing |
 | `closed_at` | timestamp with time zone | yes |  |  | When it was withdrawn or superseded without a decision. | Pricing |
+| `approver_permission` | text | yes |  |  | FB-31: the permission whose holders decide it (terms.exception.decide \| terms.exception.decide.senior), from terms_exception_routes when it opened. Null = opened before FB-31 (the pricing lead). | Pricing |
+| `document_required` | boolean | yes |  |  | FB-31: approving needs a current payment_terms_approval document on the quote (the tier said so when it opened). Null = before FB-31 (no). | Pricing |
 
-**Checks:** `terms_exception_request_status_check`, `terms_exception_request_decision_check`
+**Checks:** `terms_exception_request_approver_permission_check`, `terms_exception_request_status_check`, `terms_exception_request_decision_check`
 
 **Indexes:** `terms_exception_request_quote_idx`
 

@@ -21,6 +21,11 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 >
 > Labels in the scripts come from the app's code as built; Ben re-checks them against the test site before Nov 9.
 
+> **Updated 2026-11-19 for FB-31 (Nov 19 feedback: commercial terms governance).** Changes testers will notice:
+> - **Who approves payment terms (N19-07, provisional guess):** Net 45 still goes to the pricing lead; Net 60, Net 90, Net 120 and Other go to **Leadership** (standing in for the CFO), who can approve only once a **supporting document** (Payment-terms approval) is attached on the Commercial terms tab. The intake and the tab say who must approve. Open Net 60+ requests now wait for Leadership (kam steps 132–136, leadership steps 33–36).
+> - **Tooling funding (N19-08):** four choices: **Customer funded (lump sum)**, **Customer funded (amortized)**, **Pretium funded**, **To be determined**. **$0 CER** and **Shared** are no longer offered (old quotes keep them, marked "(no longer offered)"). Amortized needs a **finance review** sign-off by Leadership in Final Review before release (kam steps 133–134, leadership step 37).
+> - **Stock wording (N19-10):** "Does the customer have inventory or safety stock requirements?" (kam steps 109, 135).
+
 > **Updated 2026-11-18 for FB-21 (feedback of Nov 17 and 18: capital readiness, payback on request, the pricer's hand-off).** Changes testers will notice:
 > - **Capital readiness is filled in** when a quote reaches Quoting: pending when Engineering's budgetary capital is above $0 (or blank), not required at $0. **Pending is normal before award** and never stops the price approval; the pending note is optional. **Not approved** means stop: the pricing lead cannot advance it (pricing steps 10, 12, 14, 15, 47, 48, 58, 64 and 65; engineering steps 92 and 94; approver step 23a).
 > - **Payback only on request.** **2. Payback** reads **Not requested** until the assigned pricer or the pricing lead clicks **Ask Finance for a payback model**. Finance is told then (not on a costing upload); the price waits for Finance's upload only while the request is open; **Withdraw request** needs a reason (pricing steps 8b, 20a, 21, 59 to 61 and 63; finance Part A; security-access step 21c, the new permission `payback.request`).
