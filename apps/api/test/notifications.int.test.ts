@@ -281,6 +281,28 @@ describe('quote assigned or reassigned', () => {
     expect(m!.text).toContain('You have a new engineering review.');
     expect(m!.html).toContain(`/quotes/${qn}?tab=engineering`);
   });
+
+  it('FB-30 (N19-28): the production scheduler’s email opens the Capacity tab', async () => {
+    await drain();
+    const qn = await inQueue();
+    const engineer = await userId('Engineer');
+    const scheduler = await userId('ProductionScheduler');
+    const res = await as('EngLead').post(`/api/v1/quotes/${qn}/assignment`, {
+      engineerId: engineer,
+      schedulerId: scheduler,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+
+    await dispatch();
+    const [m] = sentTo(await emailOf(scheduler), qn);
+    expect(m, 'the scheduler’s email').toBeDefined();
+    expect(m!.html).toContain(`/quotes/${qn}?tab=capacity`);
+    expect(m!.text).toContain(`/quotes/${qn}?tab=capacity`);
+    expect(m!.html).not.toContain(`/quotes/${qn}?tab=engineering`);
+    // The engineer's own email still opens the Engineering tab.
+    const [e] = sentTo(await emailOf(engineer), `${qn} is assigned to you`);
+    expect(e!.html).toContain(`/quotes/${qn}?tab=engineering`);
+  });
 });
 
 describe('returned to the KAM (G1 and G2 rework)', () => {

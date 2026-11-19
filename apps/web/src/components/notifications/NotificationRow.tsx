@@ -66,11 +66,12 @@ export function NotificationRow({
         >
           {content}
         </Link>
-      ) : kind === 'engineering' ? (
+      ) : kind === 'engineering' || kind === 'capacity' ? (
+        // FB-30: the Capacity tab for the production scheduler's notices.
         <Link
           to="/quotes/$quoteNumber"
           params={params}
-          search={{ tab: 'engineering' }}
+          search={{ tab: kind }}
           onClick={open}
           className={rowClass}
         >

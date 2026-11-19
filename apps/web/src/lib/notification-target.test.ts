@@ -23,14 +23,14 @@ describe('notificationTarget', () => {
     expect(notificationTarget('quote.reworked')).toBe('rework');
   });
 
-  it('FB-16: the capacity notices open the Engineering tab', () => {
-    for (const type of [
-      'quote.capacity_assigned',
-      'quote.capacity_ready',
-      'quote.capacity_blocked',
-    ]) {
-      expect(notificationTarget(type), type).toBe('engineering');
-    }
+  it('FB-30: the scheduler’s capacity notices open the Capacity tab', () => {
+    expect(notificationTarget('quote.capacity_assigned')).toBe('capacity');
+    expect(notificationTarget('quote.capacity_ready')).toBe('capacity');
+  });
+
+  it('FB-30: a capacity block (to the engineer) and a part submitted open the Engineering tab', () => {
+    expect(notificationTarget('quote.capacity_blocked')).toBe('engineering');
+    expect(notificationTarget('quote.part_submitted')).toBe('engineering');
   });
 
   it('opens a payment-terms exception on the Commercial panel (UX-012)', () => {

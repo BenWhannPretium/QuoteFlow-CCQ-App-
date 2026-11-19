@@ -37,13 +37,15 @@ export interface EmailContentDeps {
 const ENGINEERING_TYPES = new Set([
   'quote.ready_for_eng_review',
   'quote.assigned',
-  // FB-16 (W13-15, W13-17): the production scheduler's notices and a capacity block.
-  'quote.capacity_assigned',
-  'quote.capacity_ready',
+  // FB-16 (W13-17): a capacity block goes to the engineer, who reworks the solution.
   'quote.capacity_blocked',
-  // FB-22 (N17-14): the other part of an engineering review was submitted.
-  'quote.part_submitted',
 ]);
+
+/**
+ * FB-30 (N19-28): the production scheduler's notices (FB-16, W13-15) open the Capacity tab, where
+ * capacity is worked. Links sent before FB-30 (`?tab=engineering`) still open the Engineering tab.
+ */
+const CAPACITY_TYPES = new Set(['quote.capacity_assigned', 'quote.capacity_ready']);
 
 const stringsOnly = (value: unknown): Record<string, string> =>
   Object.fromEntries(
@@ -94,6 +96,13 @@ export class EmailContentBuilder {
     }
     // FB-25 (N18-17): a quote to qualify opens To qualify with its card expanded.
     if (type === 'quote.to_qualify') return this.url(toQualifyPath(quoteNumber));
+    if (CAPACITY_TYPES.has(type)) return this.url(`/quotes/${n}?tab=capacity`);
+    // FB-22 (N17-14), FB-30: the other part of an engineering review was submitted: the tab of that part.
+    if (type === 'quote.part_submitted') {
+      return this.url(
+        `/quotes/${n}?tab=${payload.part === 'scheduler' ? 'capacity' : 'engineering'}`,
+      );
+    }
     return ENGINEERING_TYPES.has(type)
       ? this.url(`/quotes/${n}?tab=engineering`)
       : this.url(`/quotes/${n}`);

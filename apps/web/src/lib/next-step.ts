@@ -27,8 +27,8 @@ const PARTY: Record<QuoteNextStep['waitingOn'], string> = {
 export type NextStepAction =
   /** The KAM opens the rework draft (the intake wizard). */
   | { kind: 'rework'; label: string }
-  /** A work tab of the quote page. */
-  | { kind: 'tab'; tab: 'engineering' | 'quoting'; label: string };
+  /** A work tab of the quote page (FB-30: the production scheduler's is Capacity). */
+  | { kind: 'tab'; tab: 'engineering' | 'capacity' | 'quoting'; label: string };
 
 export interface NextStepLine {
   text: string;
@@ -79,7 +79,10 @@ function actionFor(step: QuoteNextStep): NextStepAction | null {
     case 'intake':
       return { kind: 'rework', label: 'Fix and resubmit' };
     case 'engineering':
-      return { kind: 'tab', tab: 'engineering', label: 'Open the Engineering tab' };
+      // FB-30 (N19-28): the production scheduler's part is worked on the Capacity tab.
+      return step.part === 'capacity'
+        ? { kind: 'tab', tab: 'capacity', label: 'Open the Capacity tab' }
+        : { kind: 'tab', tab: 'engineering', label: 'Open the Engineering tab' };
     case 'quoting':
       return { kind: 'tab', tab: 'quoting', label: 'Open the Quoting tab' };
     // A gate decided in its own dialog or screen: the button is in the page header.
