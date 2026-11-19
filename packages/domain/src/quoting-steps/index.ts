@@ -3,12 +3,15 @@ import { z } from 'zod';
 import type { QuotingModelKind } from '../attachments/file-types';
 import { DomainError } from '../errors';
 import { lockedFor } from '../lead-review';
+import type { PaybackRequestStatus } from './payback-request';
 import { can } from '../policy/can';
 import { PRICING_QUEUE_STAGE_KEY } from '../pricing/queue';
 import type { Actor } from '../types/actor';
 import type { Permission } from '../types/permissions';
 import type { QuoteState } from '../types/quote';
 import type { Role } from '../types/roles';
+
+export * from './payback-request';
 
 /**
  * FB-07 (D-001, decided Nov 9 by Bailey Schmitt, Gemma Cebolla and Stacy Slocum with Oleg Yarovinski
@@ -17,8 +20,9 @@ import type { Role } from '../types/roles';
  *
  *   1. Costing: Pricing uploads the costing model (one workbook: costs and the initial price
  *      assumptions) and attests costing is complete.
- *   2. ROI: Finance builds the ROI from it and uploads the ROI model, only when capital is required
- *      ($0 CER included; `roi_required_when`, provisional). Finance is an input, not an approver.
+ *   2. ROI: Finance builds the ROI from it and uploads the ROI model. FB-21 (N17-21, Ben 2026-11-18):
+ *      only when the pricer or the pricing lead asks Finance for it (`payback-request.ts`);
+ *      `roi_required_when` is a hint now. Finance is an input, not an approver.
  *   3. Price approved: the pricing lead confirms the price (G3), optionally uploading an updated price
  *      table when the price changed; otherwise the price in the models stands.
  *
@@ -31,9 +35,10 @@ import type { Role } from '../types/roles';
 // ── When an ROI is required (config) ─────────────────────────────────────────────────────────────
 
 /**
- * `app_setting.roi_required_when`. The ROI step applies when ANY of these holds: Engineering's latest G2
+ * `app_setting.roi_required_when`. FB-21: a HINT only. When ANY of these holds the payback step says
+ * "Finance's payback model may be useful here: …" beside the request button: Engineering's latest G2
  * outcome is one of `g2Outcomes`, the quote is flagged capital likely (when `capitalLikely`), or the
- * tooling funding model is one of `fundingModels`.
+ * tooling funding model is one of `fundingModels`. G3 needs a payback model only while a request is open.
  */
 export interface RoiRequiredWhen {
   g2Outcomes: string[];
@@ -95,7 +100,10 @@ export interface RoiRequirement {
   reasons: RoiReason[];
 }
 
-/** Whether the quote needs an ROI, and why. `fields` are the quote's decision fields. */
+/**
+ * Whether `roi_required_when` suggests a payback model, and why (FB-21: a hint, not a requirement).
+ * `fields` are the quote's decision fields.
+ */
 export function roiRequirement(
   fields: QuoteState['fields'],
   setting: RoiRequiredWhen,
@@ -132,9 +140,9 @@ export function roiReasonText(reason: RoiReason, labels: RoiReasonLabels = {}): 
   }
 }
 
-/** Why no ROI is needed, in words (shown on the ROI step instead of an upload). */
+/** FB-21: the payback step while nobody has asked Finance for a payback model. */
 export const ROI_NOT_REQUIRED_TEXT =
-  'Not required: a payback model is needed only when capital is required ($0 CER included). Engineering did not say capital is required, capital is not flagged likely, and the funding model does not call for one.';
+  'Not requested. A payback model is needed only when the pricer or the pricing lead asks Finance for one.';
 
 // ── Who uploads which model ──────────────────────────────────────────────────────────────────────
 
@@ -168,6 +176,7 @@ export interface ModelUploadContext {
   costModelOnFile: boolean;
   /** The quote was in Quoting with costing attested before FB-07 (migration 0031): no model needed. */
   costModelGrandfathered: boolean;
+  /** FB-21: a payback request is open (asked, not withdrawn). Informational: Finance may upload anyway. */
   roiRequired: boolean;
 }
 
@@ -227,15 +236,10 @@ export function planModelUpload(
       ),
     );
   }
+  // FB-21: Finance may upload a payback model without a request (the pricing leads are told); it is
+  // needed for G3 only while a request is open.
   if (kind === 'roi_model') {
-    if (!ctx.roiRequired) {
-      errors.push(
-        new DomainError(
-          'ROI_NOT_REQUIRED',
-          'This quote does not need a payback model (capital is not required), so there is nothing to upload',
-        ),
-      );
-    } else if (!ctx.costModelOnFile && !ctx.costModelGrandfathered) {
+    if (!ctx.costModelOnFile && !ctx.costModelGrandfathered) {
       errors.push(
         new DomainError(
           'COSTING_FIRST',
@@ -264,8 +268,8 @@ export type StepStatus =
   | 'waiting'
   /** An earlier step has to finish first. */
   | 'blocked'
-  /** ROI only: capital is not required. */
-  | 'not_required';
+  /** Payback only (FB-21): nobody has asked Finance for a payback model. */
+  | 'not_requested';
 
 export interface QuotingStepsInput {
   costModel: ModelFileRef | null;
@@ -275,7 +279,11 @@ export interface QuotingStepsInput {
   costingAttestedBy: string | null;
   costingAttestedAt: Date | null;
   costModelGrandfathered: boolean;
-  roi: RoiRequirement;
+  /**
+   * FB-21: `required` = a payback request is open or received (`paybackNeeded`); `reasons` = the
+   * `roi_required_when` hint; `request` = the request's status on this version.
+   */
+  roi: RoiRequirement & { request: PaybackRequestStatus };
   /** G3 decided with an advancing outcome on this stay (the pricing section's lock), or null. */
   priceConfirmed: { by: string | null; at: Date | null } | null;
 }
@@ -294,6 +302,7 @@ export interface QuotingSteps {
     status: StepStatus;
     required: boolean;
     reasons: RoiReason[];
+    request: PaybackRequestStatus;
     model: ModelFileRef | null;
     /** The ROI was uploaded before the current costing model: Finance may need to rebuild it. */
     olderThanCostModel: boolean;
@@ -312,17 +321,22 @@ export interface QuotingSteps {
 export function quotingSteps(input: QuotingStepsInput): QuotingSteps {
   const modelOk = input.costModel !== null || input.costModelGrandfathered;
   const costingDone = modelOk && input.costingCompleted;
-  const roiDone = !input.roi.required || input.roiModel !== null;
+  // FB-21: the payback step waits only while a request is open; the price never waits otherwise.
+  const request = input.roi.request;
+  const roiDone = request !== 'open';
   const priceDone = input.priceConfirmed !== null;
 
   const costingStatus: StepStatus = costingDone || priceDone ? 'done' : 'waiting';
-  const roiStatus: StepStatus = !input.roi.required
-    ? 'not_required'
-    : input.roiModel
+  const roiStatus: StepStatus =
+    request === 'received'
       ? 'done'
-      : costingDone
-        ? 'waiting'
-        : 'blocked';
+      : request === 'open'
+        ? costingDone
+          ? 'waiting'
+          : 'blocked'
+        : input.roiModel
+          ? 'done'
+          : 'not_requested';
   const priceStatus: StepStatus = priceDone
     ? 'done'
     : costingDone && roiDone
@@ -342,6 +356,7 @@ export function quotingSteps(input: QuotingStepsInput): QuotingSteps {
       status: roiStatus,
       required: input.roi.required,
       reasons: input.roi.reasons,
+      request,
       model: input.roiModel,
       olderThanCostModel:
         input.roiModel !== null &&

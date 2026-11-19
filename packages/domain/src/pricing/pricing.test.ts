@@ -596,19 +596,27 @@ describe('G3 (hybrid seed)', () => {
   const missing = (r: ReturnType<typeof submit>) =>
     r.ok ? [] : r.errors.map((e) => e.field ?? e.code);
 
-  it('FB-07 (D-001, F-032): the costing model, then the ROI model when one is needed', () => {
+  it('FB-07 / FB-21: the costing model, then the payback model only while one is asked for', () => {
     const noModels = { cost_model_on_file: false, roi_model_on_file: false };
     expect(missing(submit(approved, lead, noModels))).toEqual([
       'cost_model_on_file,pricing_record.cost_model_requirement',
     ]);
+    // FB-21: an open request (roi_required) needs a payback model uploaded after it (payback_received).
     expect(missing(submit(approved, lead, { ...noModels, roi_required: true }))).toEqual([
       'cost_model_on_file,pricing_record.cost_model_requirement',
-      'roi_required,roi_model_on_file',
+      'roi_required,payback_received',
     ]);
+    // A payback model on file from before the request does not count.
     expect(
-      missing(submit(approved, lead, { roi_required: true, roi_model_on_file: false })),
-    ).toEqual(['roi_required,roi_model_on_file']);
-    expect(submit(approved, lead, { roi_required: true, roi_model_on_file: true }).ok).toBe(true);
+      missing(
+        submit(approved, lead, {
+          roi_required: true,
+          roi_model_on_file: true,
+          payback_received: false,
+        }),
+      ),
+    ).toEqual(['roi_required,payback_received']);
+    expect(submit(approved, lead, { roi_required: true, payback_received: true }).ok).toBe(true);
     // Grandfathered (in Quoting with costing attested before FB-07): no costing model needed.
     expect(
       submit({ ...approved, cost_model_requirement: 'grandfathered' }, lead, noModels).ok,
@@ -627,7 +635,7 @@ describe('G3 (hybrid seed)', () => {
     ).toEqual([
       'capital_not_approved',
       'cost_model_on_file,pricing_record.cost_model_requirement',
-      'roi_required,roi_model_on_file',
+      'roi_required,payback_received',
     ]);
   });
 

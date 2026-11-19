@@ -70,6 +70,10 @@ export const INTAKE_REQUIRED_FIELDS = [
   present('sub_market'),
 ];
 
+/** FB-21 (N17-21): `roi_required_when` is a hint now; migration 0050 rewrites the description. */
+export const ROI_REQUIRED_WHEN_DESCRIPTION =
+  'FB-21 (N17-21, N17-22): a hint only. A payback model is needed for G3 only while the pricer or the pricing lead has asked Finance for one. When any of these holds, the payback step says "Finance\'s payback model may be useful here" beside the request button: Engineering\'s latest G2 outcome is in g2Outcomes, the quote is flagged capital likely (capitalLikely), or the tooling funding model is in fundingModels. Seed: capital required, $0 CER included. Provisional.';
+
 /** FB-21 (N17-19): migration 0049 inserts the same description. */
 export const CAPITAL_READINESS_DEFAULT_DESCRIPTION =
   'FB-21 (N17-19): the capital readiness a quote starts on when it enters Quoting with none. whenNeeded: Engineering says capital is needed (a preliminary capital figure is above capital_needed_above_usd or blank). whenNotNeeded: every figure is entered and none is above it. whenNeeded cannot be not_required. The pricer can change it. Seed: pending / not_required. Provisional.';
@@ -531,8 +535,7 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     // FB-07 (D-001): Quoting's ROI step (Finance) applies when capital is required, $0 CER included.
     key: 'roi_required_when',
     value: ROI_REQUIRED_WHEN_SEED,
-    description:
-      'FB-07 (D-001): when a quote needs Finance\'s payback model (roi_model; "Payback" since FB-14) before the pricing lead approves the price (G3). Any of: Engineering\'s latest G2 outcome is in g2Outcomes, the quote is flagged capital likely (capitalLikely), or the tooling funding model is in fundingModels. Seed: capital required, $0 CER included. Provisional.',
+    description: ROI_REQUIRED_WHEN_DESCRIPTION,
   },
   // ── FB-14 (F-031 summary half, D-013, A-031 partly received): the model summary. Provisional.
   {

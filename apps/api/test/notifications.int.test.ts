@@ -720,6 +720,8 @@ describe('email preferences', () => {
         'quote.escalated',
         'quote.market_dev',
         'quote.on_hold',
+        // FB-21 (N17-21): a payback request withdrawn (Finance stops).
+        'quote.payback_request_withdrawn',
         'quote.pricing_assigned',
         'quote.progress',
         'quote.ready_for_eng_review',

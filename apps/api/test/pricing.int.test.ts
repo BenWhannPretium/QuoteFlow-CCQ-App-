@@ -17,7 +17,7 @@ import type { Role } from '@ccq/domain';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { prepareBom, prepareModels, uploadModel } from './model-helpers';
+import { prepareBom, prepareModels } from './model-helpers';
 import { asRole } from './permissions/asRole';
 import { freshSfDatabase } from './sf-helpers';
 import { buildApp } from '../src/app';
@@ -809,11 +809,7 @@ describe('G3 Submit to Final Review', () => {
       capitalLikely: true,
     });
     expect(flag.statusCode, flag.body).toBe(200);
-    expect(errorPaths(await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead'))).toEqual([
-      // FB-07 (roi_required_when): capital likely needs Finance's payback model; pending is fine.
-      '/roi_required,roi_model_on_file',
-    ]);
-    expect((await uploadModel(app, qn, 'roi_model', 'Finance')).statusCode).toBe(201);
+    // Pending is fine, and (FB-21 Part B) capital likely only suggests a payback model.
     expect((await decide(qn, 'G3', { outcomeKey: 'submit' }, 'PricingLead')).statusCode).toBe(201);
   });
 

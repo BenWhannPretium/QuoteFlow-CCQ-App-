@@ -461,6 +461,22 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'pricingQueue.assign',
     sampleBody: { fromUserId: SAMPLE_CONFIG_ID, toUserId: SAMPLE_OVERRIDE },
   },
+  // FB-21 (N17-21): ask Finance for a payback model, or withdraw the request. Pricing passes the gate
+  // (its grant is "assigned as pricer"); the service checks the quote (fb21-capital-payback test).
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/quoting/payback-request',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/quoting/payback-request`,
+    permission: 'payback.request',
+    sampleBody: { note: 'Board pack' },
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/quotes/:quoteNumber/quoting/payback-request/withdraw',
+    url: `/api/v1/quotes/${SAMPLE_QUOTE}/quoting/payback-request/withdraw`,
+    permission: 'payback.request',
+    sampleBody: { reason: 'Not needed after all' },
+  },
   // Lead review (2026-10-30)
   {
     method: 'POST',

@@ -147,16 +147,23 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
   // FB-07 (D-001, F-032): costing, then ROI, then price confirmation inside Quoting.
   {
     type: 'quote.ready_for_roi',
-    label: 'A quote is ready for its payback model',
+    label: 'A payback model is asked for',
     description:
-      'Finance: Pricing uploaded the costing model (or a new version of it) on a quote that needs a payback model (capital is required, $0 CER included). Build the payback model from it and upload it.',
+      'Finance: the pricer or the pricing lead asked for a payback model on a quote (FB-21). Build it from the costing model and upload it on the Quoting tab.',
     email: 'immediate',
   },
   {
     type: 'quote.roi_uploaded',
     label: 'A payback model is uploaded',
     description:
-      'Pricing leads: Finance uploaded the payback model (or a new version), so the price can be confirmed.',
+      'Pricing leads, and whoever asked Finance for it: Finance uploaded the payback model (or a new version), so the price can be confirmed.',
+    email: 'immediate',
+  },
+  {
+    type: 'quote.payback_request_withdrawn',
+    label: 'A payback request is withdrawn',
+    description:
+      'Finance: the pricer or the pricing lead withdrew their request for a payback model, so you can stop work on it.',
     email: 'immediate',
   },
   // FB-05 (F-079): hand-offs, holds and closures reach the next owner and the KAM.

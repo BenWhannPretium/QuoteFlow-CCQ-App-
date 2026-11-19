@@ -2,14 +2,14 @@ import { buildPaybackWorkbook } from '@ccq/integrations/test/synthetic-workbooks
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 import { seriousViolations } from './axe';
-import { SYNTHETIC_XLSX, uploadBom } from './models';
+import { SYNTHETIC_XLSX, uploadBom, uploadModel } from './models';
 import { signInAs } from './personas';
 import { DEV_USER_HEADER, freeOpportunities, submitQuote } from './quotes';
 
 // FB-07 (D-001, decided Nov 9; F-031, F-032, F-074, F-081, F-083; T-034): costing, then payback, then price
 // approved, as steps inside Quoting. The pricer uploads the costing model (two versions), Finance uploads
 // the payback model, the pricing lead approves the price ("Advance – price approved") and the Approver sees
-// the models at Final Review. A second quote with no capital shows the Payback step as "Not required".
+// the models at Final Review. A second quote with no payback request shows the Payback step as "Not requested" (FB-21).
 // The quotes are qualified and engineered through the API (those stages have their own specs).
 
 const as = (persona: string) => ({ [DEV_USER_HEADER]: persona });
@@ -107,6 +107,12 @@ test('costing → payback → price approved → Final Review, with versions and
   const engineerId = await id('engineer');
   const pricingId = await id('pricing');
   const qn = await inQuoting(request, engineerId, 'needed');
+  // FB-21 (N17-21): the pricing lead assigns the quote, so the pricer may ask Finance for payback.
+  const assigned = await request.post(`/api/v1/quotes/${qn}/pricing-assignment`, {
+    headers: as('pricing-lead'),
+    data: { pricerId: pricingId },
+  });
+  expect(assigned.status(), await assigned.text()).toBe(200);
 
   const open = async (persona: string) => {
     const context = await browser.newContext();
@@ -121,9 +127,14 @@ test('costing → payback → price approved → Final Review, with versions and
   const pricer = await open('pricing');
   const steps = pricer.getByTestId('quoting-steps');
   await expect(steps).toHaveAttribute('data-current', 'costing');
-  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'blocked');
-  // FB-17 (W13-22): the G2 Advance with preliminary capital above $0 flagged the quote capital likely.
-  await expect(steps.getByTestId('roi-reasons')).toContainText('Capital is flagged likely');
+  // FB-21: nobody has asked Finance yet. FB-17 (W13-22): capital likely is only a hint now.
+  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'not_requested');
+  await expect(steps.getByTestId('payback-hint')).toContainText('Capital is flagged likely');
+  // FB-21 Part E (N17-24): each model upload says what it takes.
+  await expect(steps.getByTestId('formats-cost_model')).toHaveText(
+    'Excel workbook (.xlsx), up to 100 MB',
+  );
+  await expect(steps.getByTestId('upload-cost_model')).toHaveAttribute('accept', '.xlsx');
   await steps.getByTestId('upload-cost_model').setInputFiles(file('Costing model.synthetic.xlsx'));
   await expect(steps.getByTestId('model-cost_model')).toContainText('v1 · current');
   await steps.getByTestId('upload-cost_model').setInputFiles(file('Costing model.synthetic.xlsx'));
@@ -139,7 +150,17 @@ test('costing → payback → price approved → Final Review, with versions and
   await pricingRecorded(request, qn, pricingId);
   await pricer.goto(`/quotes/${qn}?tab=quoting`);
   await expect(pricer.getByTestId('step-costing')).toHaveAttribute('data-status', 'done');
+  // FB-21: without a request the price is next; the pricer asks Finance for the payback model.
+  await expect(pricer.getByTestId('quoting-steps')).toHaveAttribute('data-current', 'price');
+  const payback = pricer.getByTestId('payback-request');
+  await payback.getByTestId('payback-ask').click();
+  await payback.getByLabel('Note to Finance (optional)').fill('Board pack on Friday (synthetic)');
+  await payback.getByRole('button', { name: 'Ask Finance' }).click();
+  await expect(pricer.getByText('Finance has been asked for a payback model')).toBeVisible();
+  await expect(payback).toHaveAttribute('data-status', 'open');
+  await expect(pricer.getByTestId('payback-requested')).toContainText('Waiting on Finance');
   await expect(pricer.getByTestId('quoting-steps')).toHaveAttribute('data-current', 'roi');
+  await expect(payback.getByTestId('payback-withdraw')).toBeVisible();
   expect(await seriousViolations(pricer)).toEqual([]);
 
   // ── Step 2, Finance: reads the quote, uploads the ROI model, can do nothing else ──
@@ -180,6 +201,13 @@ test('costing → payback → price approved → Final Review, with versions and
   await expect(fSteps).toHaveAttribute('data-current', 'price');
   expect(await seriousViolations(finance)).toEqual([]);
 
+  // FB-21 (N17-22): the pricer who asked is told that Finance uploaded it.
+  await pricer.goto('/');
+  await pricer.getByTestId('notification-bell').click();
+  await expect(pricer.getByTestId('notification-list')).toContainText(
+    `${qn}: the payback model is uploaded`,
+  );
+
   // ── Step 3, the pricing lead: an updated price table (optional), then "Price approved" ──
   const lead = await open('pricing-lead');
   const lSteps = lead.getByTestId('quoting-steps');
@@ -218,7 +246,7 @@ test('costing → payback → price approved → Final Review, with versions and
   expect(await seriousViolations(approver)).toEqual([]);
 });
 
-test('no capital: the Payback step says "Not required" and the lead approves without it', async ({
+test('no request: the Payback step says "Not requested" and the lead approves without it', async ({
   page,
   request,
 }) => {
@@ -237,8 +265,8 @@ test('no capital: the Payback step says "Not required" and the lead approves wit
   await signInAs(page, 'pricing-lead');
   await page.goto(`/quotes/${qn}?tab=quoting`);
   const steps = page.getByTestId('quoting-steps');
-  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'not_required');
-  await expect(steps.getByTestId('roi-not-required')).toContainText('Not required');
+  await expect(steps.getByTestId('step-roi')).toHaveAttribute('data-status', 'not_requested');
+  await expect(steps.getByTestId('roi-not-required')).toContainText('Not requested');
   await steps.getByTestId('upload-cost_model').setInputFiles(file('Costing model.synthetic.xlsx'));
   await expect(steps.getByTestId('model-cost_model')).toContainText('v1 · current');
   await pricingRecorded(request, qn, await id('pricing'));
@@ -253,4 +281,59 @@ test('no capital: the Payback step says "Not required" and the lead approves wit
   await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
   await g3.getByRole('button', { name: 'Record decision' }).click();
   await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'FINAL_REVIEW');
+});
+
+// FB-21 Part C (Ben, 2026-11-18): a pricing lead may approve their own work. Part D (N18-15): what
+// Engineering handed over comes first on the Quoting tab. Part A: capital starts on pending and the
+// lead advances with no note.
+test('a pricing lead assigned to themselves prices the quote and approves it; Engineering first', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  for (const p of ['kam', 'sales-leader', 'eng-lead', 'pricing-lead']) {
+    await request.get('/api/v1/me', { headers: as(p) });
+  }
+  const id = async (persona: string) =>
+    (
+      (await (await request.get('/api/v1/me', { headers: as(persona) })).json()) as {
+        user: { id: string };
+      }
+    ).user.id;
+  const qn = await inQuoting(request, await id('engineer'), 'needed');
+  const leadId = await id('pricing-lead');
+  await ok(
+    request.post(`/api/v1/quotes/${qn}/pricing-assignment`, {
+      headers: as('pricing-lead'),
+      data: { pricerId: leadId },
+    }),
+  );
+  await uploadModel(request, qn, 'cost_model', 'pricing-lead');
+  await ok(
+    request.put(`/api/v1/quotes/${qn}/pricing-record`, {
+      headers: as('pricing-lead'),
+      data: { approvedBy: leadId, costingCompleted: true },
+    }),
+  );
+
+  await signInAs(page, 'pricing-lead');
+  await page.goto(`/quotes/${qn}?tab=quoting`);
+  const tab = page.getByTestId('quoting-tab');
+  // Part D: Engineering's facts sit above the costing steps.
+  await expect(tab.getByTestId('quoting-engineering-group')).toBeVisible();
+  await expect(
+    tab.locator('[data-testid="quoting-engineering-group"] ~ [data-testid="quoting-steps"]'),
+  ).toHaveCount(1);
+  // Part A: capital readiness started on pending (capital is needed) and needs no note.
+  await expect(tab.getByTestId('capital-form').getByLabel('Status')).toHaveValue('pending');
+  // A lead has nobody to submit to: no submit line, the decision instead.
+  await expect(tab.getByTestId('pricer-submit-top')).toHaveCount(0);
+  await page.getByTestId('decide-gate').click();
+  const g3 = page.getByRole('dialog');
+  await g3.getByRole('radio', { name: 'Advance – price approved' }).check();
+  await expect(g3.getByTestId('completeness')).toContainText('Nothing missing for this decision');
+  await g3.getByRole('button', { name: 'Record decision' }).click();
+  await expect(g3).toHaveCount(0);
+  await expect(page.getByTestId('quote-detail')).toHaveAttribute('data-stage', 'FINAL_REVIEW');
+  expect(await seriousViolations(page)).toEqual([]);
 });

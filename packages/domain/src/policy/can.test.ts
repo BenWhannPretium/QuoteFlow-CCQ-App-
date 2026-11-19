@@ -60,6 +60,8 @@ const EXPECTED: Record<string, Role[]> = {
   'gate.G3.submit': ['PricingLead'],
   // FB-07 (F-083): Finance owns the ROI; the pricing lead is the provisional fallback (A-032).
   'roi.upload': ['PricingLead', 'Finance', 'Admin'],
+  // FB-21 (N17-21): Pricing holds it only on a quote assigned to them (qualified, see below).
+  'payback.request': ['PricingLead'],
   'finalReview.read': ['Approver', 'Leadership', 'Admin'],
   'gate.G4.decide': ['Approver'],
   // FB-08 (F-082, off until A-035)
@@ -172,6 +174,21 @@ describe('qualified grants', () => {
     expect(can(makeActor('SalesLeader'), 'outcome.record', makeQuote('CUSTOMER_DECISION'))).toBe(
       true,
     );
+  });
+
+  it('FB-21: a pricer asks Finance for payback only on a quote assigned to them; the lead on any', () => {
+    const pricer = makeActor('Pricing');
+    const mine = makeQuote('QUOTING', { assignedPricerId: pricer.userId });
+    const theirs = makeQuote('QUOTING', { assignedPricerId: KAM_ID });
+    const nobody = makeQuote('QUOTING', { assignedPricerId: null });
+    expect(can(pricer, 'payback.request', mine)).toBe(true);
+    expect(can(pricer, 'payback.request', theirs)).toBe(false);
+    expect(can(pricer, 'payback.request', nobody)).toBe(false);
+    expect(can(pricer, 'payback.request')).toBe(false);
+    expect(can(makeActor('PricingLead'), 'payback.request', theirs)).toBe(true);
+    for (const role of ['Finance', 'KAM', 'Engineer', 'Approver', 'Admin'] as const) {
+      expect(can(makeActor(role), 'payback.request', mine), role).toBe(false);
+    }
   });
 
   it('B-26: G6, terms and escalation follow the KAM own / Engineer assigned qualifiers', () => {

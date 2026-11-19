@@ -4,13 +4,21 @@ import type {
   QuotingStepStatus,
   QuotingStepsView,
 } from '@ccq/contracts';
-import { ATTACHMENT_EXTENSIONS, ATTACHMENT_MAX_BYTES } from '@ccq/domain';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2Icon, CircleDashedIcon, CircleDotIcon, UploadIcon } from 'lucide-react';
+import { ATTACHMENT_MAX_BYTES, acceptedFormats } from '@ccq/domain';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  CheckCircle2Icon,
+  CircleDashedIcon,
+  CircleDotIcon,
+  SendIcon,
+  UndoIcon,
+  UploadIcon,
+} from 'lucide-react';
 import { useId, useRef, useState, type ReactNode } from 'react';
 
 import { AttachmentDownloadLink, attachmentsQueryKey } from '@/components/attachments/Attachments';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
 import { api, isApiError, uploadAttachment } from '@/lib/api';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
@@ -23,8 +31,8 @@ import { ModelSummaryPanel } from './ModelSummary';
 /**
  * FB-07 (D-001, decided Nov 9): costing, then payback, then price approved, as steps inside Quoting.
  * 1. Costing: Pricing uploads the costing model (costs and the initial price assumptions) and attests it.
- * 2. Payback (`roi_model`; "Payback" since FB-14, Stacy Slocum): Finance builds the payback model from
- *    it and uploads it, only when capital is required.
+ * 2. Payback (`roi_model`; "Payback" since FB-14, Stacy Slocum): FB-21 (N17-21, Ben 2026-11-18), only
+ *    when the pricer or the pricing lead asks Finance for one; Finance builds it from the costing model.
  * 3. Price approved: the pricing lead approves the price (G3), with an updated price table if it changed.
  * Each step shows who did it and when. QuoteFlow keeps the files and their versions, and (FB-14) shows
  * a read-only summary of figures read from the workbook; it never edits or recomputes a figure
@@ -61,7 +69,7 @@ export function QuotingSteps({
           Costing, payback and price approval
         </h2>
         <p className="text-muted-foreground text-sm">
-          In order: Pricing’s costing model, then Finance’s payback model when capital is required,
+          In order: Pricing’s costing model, then Finance’s payback model if someone asks for one,
           then the pricing lead approves the price.
         </p>
       </div>
@@ -108,42 +116,36 @@ export function QuotingSteps({
           status={steps.roi.status}
           testId="step-roi"
           body={
-            steps.roi.required ? (
-              <>
-                <p className="text-sm">
-                  Needed: <span data-testid="roi-reasons">{steps.roi.reasons.join('; ')}</span>
-                </p>
+            <>
+              <PaybackRequestPanel quoteNumber={quoteNumber} roi={steps.roi} compact={compact} />
+              {(steps.roi.required || steps.roi.model) && (
                 <ModelLine model={steps.roi.model} label="Payback model" />
-                {steps.roi.model && (
-                  <ModelSummaryPanel
-                    quoteNumber={quoteNumber}
-                    kind="roi_model"
-                    label="Payback model"
-                  />
-                )}
-                {steps.roi.olderThanCostModel && (
-                  <p
-                    className="bg-warning text-warning-foreground rounded-md px-2 py-1 text-xs"
-                    data-testid="roi-older"
-                  >
-                    The payback model was uploaded before the current costing model: check it still
-                    holds.
-                  </p>
-                )}
-                {!compact && <History items={history('roi_model')} />}
-                {!compact && steps.roi.canUpload && (
-                  <ModelUpload
-                    quoteNumber={quoteNumber}
-                    kind="roi_model"
-                    label={steps.roi.model ? 'Upload a new version' : 'Upload the payback model'}
-                  />
-                )}
-              </>
-            ) : (
-              <p className="text-muted-foreground text-sm" data-testid="roi-not-required">
-                {steps.roi.notRequiredText}
-              </p>
-            )
+              )}
+              {steps.roi.model && (
+                <ModelSummaryPanel
+                  quoteNumber={quoteNumber}
+                  kind="roi_model"
+                  label="Payback model"
+                />
+              )}
+              {steps.roi.olderThanCostModel && (
+                <p
+                  className="bg-warning text-warning-foreground rounded-md px-2 py-1 text-xs"
+                  data-testid="roi-older"
+                >
+                  The payback model was uploaded before the current costing model: check it still
+                  holds.
+                </p>
+              )}
+              {!compact && <History items={history('roi_model')} />}
+              {!compact && steps.roi.canUpload && (
+                <ModelUpload
+                  quoteNumber={quoteNumber}
+                  kind="roi_model"
+                  label={steps.roi.model ? 'Upload a new version' : 'Upload the payback model'}
+                />
+              )}
+            </>
           }
         />
         <Step
@@ -156,7 +158,7 @@ export function QuotingSteps({
               <p className="text-sm" data-testid="price-confirmed">
                 {steps.price.status === 'done'
                   ? `Approved${steps.price.confirmedByName ? ` by ${steps.price.confirmedByName}` : ''}${steps.price.confirmedAt ? ` on ${absoluteTime(steps.price.confirmedAt)}` : ''}`
-                  : 'The pricing lead approves the price once the costing model and, if needed, the payback model are uploaded.'}
+                  : 'The pricing lead approves the price once the costing model is uploaded and, if someone asked Finance for one, the payback model.'}
               </p>
               {steps.price.priceTable ? (
                 <ModelLine model={steps.price.priceTable} label="Updated price table" />
@@ -189,8 +191,210 @@ const STATUS_TEXT: Record<QuotingStepStatus, string> = {
   done: 'Done',
   waiting: 'Next',
   blocked: 'Waiting on an earlier step',
-  not_required: 'Not required',
+  not_requested: 'Not requested',
 };
+
+/**
+ * FB-21 (N17-21, N17-22; Ben, 2026-11-18): who asked Finance for a payback model and whether it is in;
+ * "Ask Finance for a payback model" (optional note) and "Withdraw request" (a short reason) for the
+ * assigned pricer and the pricing lead. The server decides who may (`canRequest`, `canWithdraw`).
+ */
+function PaybackRequestPanel({
+  quoteNumber,
+  roi,
+  compact,
+}: {
+  quoteNumber: string;
+  roi: QuotingStepsView['roi'];
+  compact: boolean;
+}) {
+  const qc = useQueryClient();
+  const noteId = useId();
+  const reasonId = useId();
+  const [asking, setAsking] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [note, setNote] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const done = async (title: string) => {
+    toast.success({ title });
+    setAsking(false);
+    setWithdrawing(false);
+    setNote('');
+    setReason('');
+    setError(null);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: quoteQueryKey(quoteNumber) }),
+      qc.invalidateQueries({ queryKey: timelineQueryKey(quoteNumber) }),
+    ]);
+  };
+  const fail = (err: unknown) =>
+    setError((isApiError(err) && err.problem.detail) || 'Please try again.');
+  const ask = useMutation({
+    mutationFn: () => api.requestPayback(quoteNumber, note.trim() || null),
+    onSuccess: () => done('Finance has been asked for a payback model'),
+    onError: fail,
+  });
+  const withdraw = useMutation({
+    mutationFn: () => api.withdrawPayback(quoteNumber, reason.trim()),
+    onSuccess: () => done('Payback request withdrawn'),
+    onError: fail,
+  });
+  const r = roi.request;
+  const noFinance = roi.financeUsers === 0;
+  return (
+    <div className="grid gap-2 text-sm" data-testid="payback-request" data-status={r.status}>
+      {r.status === 'none' && (
+        <p className="text-muted-foreground" data-testid="roi-not-required">
+          {roi.notRequiredText}
+        </p>
+      )}
+      {(r.status === 'open' || r.status === 'received') && (
+        <p data-testid="payback-requested">
+          Requested from Finance{r.requestedByName ? ` by ${r.requestedByName}` : ''}
+          {r.requestedAt ? ` on ${absoluteTime(r.requestedAt)}` : ''}.{' '}
+          {r.status === 'received'
+            ? 'Finance has uploaded the payback model.'
+            : 'Waiting on Finance to upload it.'}
+        </p>
+      )}
+      {r.note && r.status !== 'withdrawn' && (
+        <p className="text-muted-foreground whitespace-pre-wrap">Note to Finance: {r.note}</p>
+      )}
+      {r.status === 'withdrawn' && (
+        <p className="text-muted-foreground" data-testid="payback-withdrawn">
+          {roi.notRequiredText} The last request was withdrawn
+          {r.withdrawnByName ? ` by ${r.withdrawnByName}` : ''}
+          {r.withdrawnAt ? ` on ${absoluteTime(r.withdrawnAt)}` : ''}
+          {r.withdrawReason ? `: ${r.withdrawReason}` : '.'}
+        </p>
+      )}
+      {r.status === 'open' && noFinance && (
+        <p
+          className="bg-warning text-warning-foreground rounded-md px-2 py-1 text-xs"
+          data-testid="payback-no-finance"
+        >
+          No one holds the Finance role, so no one was told. Ask an Admin to give someone the
+          Finance role.
+        </p>
+      )}
+      {roi.hint && r.status !== 'open' && r.status !== 'received' && (
+        <p className="text-xs" data-testid="payback-hint">
+          {roi.hint}
+        </p>
+      )}
+      {!compact && roi.canRequest && !asking && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="justify-self-start"
+          onClick={() => setAsking(true)}
+          data-testid="payback-ask"
+        >
+          <SendIcon aria-hidden="true" />
+          Ask Finance for a payback model
+        </Button>
+      )}
+      {!compact && asking && (
+        <form
+          className="grid gap-2"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask.mutate();
+          }}
+        >
+          <label htmlFor={noteId} className="font-medium">
+            Note to Finance (optional)
+          </label>
+          <Textarea
+            id={noteId}
+            value={note}
+            maxLength={500}
+            rows={3}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          {noFinance && (
+            <p className="text-xs" data-testid="payback-no-finance-before">
+              No one holds the Finance role yet, so no one will be told.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={ask.isPending}>
+              {ask.isPending ? 'Sending…' : 'Ask Finance'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setAsking(false)}
+              disabled={ask.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+      {!compact && roi.canWithdraw && !withdrawing && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="justify-self-start"
+          onClick={() => setWithdrawing(true)}
+          data-testid="payback-withdraw"
+        >
+          <UndoIcon aria-hidden="true" />
+          Withdraw request
+        </Button>
+      )}
+      {!compact && withdrawing && (
+        <form
+          className="grid gap-2"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!reason.trim()) {
+              setError('Say why Finance can stop.');
+              return;
+            }
+            withdraw.mutate();
+          }}
+        >
+          <label htmlFor={reasonId} className="font-medium">
+            Why withdraw it?
+          </label>
+          <Textarea
+            id={reasonId}
+            value={reason}
+            maxLength={200}
+            rows={2}
+            aria-invalid={!!error}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={withdraw.isPending}>
+              {withdraw.isPending ? 'Withdrawing…' : 'Withdraw request'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setWithdrawing(false)}
+              disabled={withdraw.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+      {error && (
+        <p role="alert" className="text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function Step({
   n,
@@ -285,8 +489,6 @@ function History({ items }: { items: Attachment[] }) {
   );
 }
 
-const ACCEPT = ATTACHMENT_EXTENSIONS.map((e) => `.${e}`).join(',');
-
 function ModelUpload({
   quoteNumber,
   kind,
@@ -297,13 +499,19 @@ function ModelUpload({
   label: string;
 }) {
   const id = useId();
+  const hintId = useId();
   const input = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const [progress, setProgress] = useState<number | null>(null);
+  // FB-21 Part E (N17-24): the formats and size limit the server checks, said beside the button.
+  const formats = acceptedFormats(kind);
   const pick = (file: File | undefined) => {
     if (!file) return;
     if (file.size > ATTACHMENT_MAX_BYTES) {
-      toast.error({ title: 'The file is too large', description: 'The limit is 100 MB.' });
+      toast.error({
+        title: 'The file is too large',
+        description: `The limit is ${formats.maxMb} MB.`,
+      });
       return;
     }
     setProgress(0);
@@ -336,9 +544,10 @@ function ModelUpload({
         ref={input}
         id={id}
         type="file"
-        accept={ACCEPT}
+        accept={formats.accept}
         className="sr-only"
         aria-label={label}
+        aria-describedby={hintId}
         tabIndex={-1}
         data-testid={`upload-${kind}`}
         onChange={(e) => pick(e.target.files?.[0])}
@@ -347,11 +556,15 @@ function ModelUpload({
         size="sm"
         variant="outline"
         disabled={progress !== null}
+        aria-describedby={hintId}
         onClick={() => input.current?.click()}
       >
         <UploadIcon />
         {progress !== null ? `Uploading… ${Math.round(progress * 100)}%` : label}
       </Button>
+      <p id={hintId} className="text-muted-foreground text-xs" data-testid={`formats-${kind}`}>
+        {formats.text}
+      </p>
     </div>
   );
 }

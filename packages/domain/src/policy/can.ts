@@ -14,6 +14,8 @@ export interface PolicyResource {
   assignedEngineerId?: UserId | null;
   /** FB-16: the production scheduler assigned to the quote's capacity part. */
   assignedSchedulerId?: UserId | null;
+  /** FB-21: the pricer the pricing lead assigned (`payback.request` for Pricing). */
+  assignedPricerId?: string | null;
   region?: string;
   accountId?: string;
   stageKey?: string;
@@ -23,7 +25,13 @@ export interface PolicyResource {
 
 export type ResourceFromQuote = Pick<
   QuoteState,
-  'kamUserId' | 'assignedEngineerId' | 'assignedSchedulerId' | 'region' | 'accountId' | 'stageKey'
+  | 'kamUserId'
+  | 'assignedEngineerId'
+  | 'assignedSchedulerId'
+  | 'assignedPricerId'
+  | 'region'
+  | 'accountId'
+  | 'stageKey'
 >;
 
 function grantApplies(grant: Grant, actor: Actor, resource: PolicyResource | undefined): boolean {
@@ -37,6 +45,8 @@ function grantApplies(grant: Grant, actor: Actor, resource: PolicyResource | und
       return resource.assignedEngineerId === actor.userId;
     case 'assignedScheduler':
       return resource.assignedSchedulerId != null && resource.assignedSchedulerId === actor.userId;
+    case 'assignedPricer':
+      return resource.assignedPricerId != null && resource.assignedPricerId === actor.userId;
     case 'fields':
       return resource.overrideField !== undefined && grant.fields.includes(resource.overrideField);
     case 'stages':

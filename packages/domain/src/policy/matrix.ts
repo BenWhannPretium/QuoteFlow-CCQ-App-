@@ -6,6 +6,7 @@ import type { Role } from '../types/roles';
  * - own: the resource's kamUserId must be the actor
  * - assigned: the resource's assignedEngineerId must be the actor
  * - assignedScheduler: the resource's assignedSchedulerId must be the actor (FB-16)
+ * - assignedPricer: the resource's assignedPricerId must be the actor (FB-21)
  * - fields: the resource's overrideField must be one of the listed fields
  * - stages: the resource's stageKey must be one of the listed stages
  */
@@ -13,6 +14,7 @@ export type Qualifier =
   | { kind: 'own' }
   | { kind: 'assigned' }
   | { kind: 'assignedScheduler' }
+  | { kind: 'assignedPricer' }
   | { kind: 'fields'; fields: readonly string[] }
   | { kind: 'stages'; stageKeys: readonly string[] };
 
@@ -21,6 +23,7 @@ export type Grant = true | Qualifier;
 const own: Qualifier = { kind: 'own' };
 const assigned: Qualifier = { kind: 'assigned' };
 const assignedScheduler: Qualifier = { kind: 'assignedScheduler' };
+const assignedPricer: Qualifier = { kind: 'assignedPricer' };
 
 /**
  * Architecture §3.4 as data. Seeded into `role_permission` (B-03), but route checks read this file, so
@@ -103,6 +106,9 @@ export const PERMISSION_MATRIX: Readonly<
   // Provisional (recorded in 04 §2a): remove the PricingLead line once Finance is provisioned, if
   // Pricing and Finance agree. Pricing and the pricing lead read the ROI like every quote reader.
   'roi.upload': { Finance: true, PricingLead: true, Admin: true },
+  // FB-21 (N17-21; Ben, 2026-11-18): a payback model only when someone asks Finance for one. The pricing
+  // lead may ask on any quote; a pricer only on a quote assigned to them. Provisional.
+  'payback.request': { PricingLead: true, Pricing: assignedPricer },
   // B-12: the Final Review queue (Approvals → Final Review). The Approver works it, Leadership reads
   // it, Admin reads it like the other queues. Everyone on it holds quote.read.commercialFields.
   'finalReview.read': { Approver: true, Leadership: true, Admin: true },

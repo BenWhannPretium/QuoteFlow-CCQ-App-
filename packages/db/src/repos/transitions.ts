@@ -128,11 +128,14 @@ export async function loadQuoteStates(
   const customerStatusBy = new Map(customers.map((c) => [c.id, c.status]));
   const handoffBy = new Map(handoffs.map((h) => [h.quoteId, h]));
   const modelKinds = new Map<string, Set<string>>();
+  // FB-21: when the current payback model was uploaded (a request is met by one uploaded after it).
+  const roiUploadedAt = new Map<string, Date>();
   for (const m of models) {
     if (!m.quoteId) continue;
     const kinds = modelKinds.get(m.quoteId) ?? new Set<string>();
     kinds.add(m.kind);
     modelKinds.set(m.quoteId, kinds);
+    if (m.kind === 'roi_model') roiUploadedAt.set(m.quoteId, m.createdAt);
   }
 
   for (const row of rows) {
@@ -163,6 +166,7 @@ export async function loadQuoteStates(
       // FB-07 (D-001): a current costing / ROI model / price table is on file (G3 reads the first two).
       cost_model_on_file: modelKinds.get(row.id)?.has('cost_model') ?? false,
       roi_model_on_file: modelKinds.get(row.id)?.has('roi_model') ?? false,
+      roi_model_uploaded_at: roiUploadedAt.get(row.id) ?? null,
       price_table_on_file: modelKinds.get(row.id)?.has('price_table') ?? false,
       // FB-06 (F-058): the current equipment BOM, which G2 "Capital required" reads.
       equipment_bom_on_file: modelKinds.get(row.id)?.has('equipment_bom') ?? false,

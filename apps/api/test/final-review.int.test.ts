@@ -571,17 +571,14 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
       expect.arrayContaining(['G2_CAPITAL_REQUIRED', 'CAPITAL_PENDING']),
     );
     // FB-06 (F-058): the equipment BOM Engineering uploaded for "Capital required" is on the review too.
-    expect(dto.attachments.map((a) => a.kind).sort()).toEqual([
-      'cost_model',
-      'equipment_bom',
-      'roi_model',
-    ]);
+    // FB-21 (N17-21): nobody asked Finance for a payback model, so there is none.
+    expect(dto.attachments.map((a) => a.kind).sort()).toEqual(['cost_model', 'equipment_bom']);
     expect(dto.engineering.equipmentBom.current).toMatchObject({ version: 1 });
     // FB-07 (F-031): the steps, with who and when, at Final Review.
     expect(dto.quoting.steps).toMatchObject({
       current: 'done',
       costing: { status: 'done', model: { version: 1 } },
-      roi: { status: 'done', required: true, model: { version: 1 } },
+      roi: { status: 'not_requested', required: false, model: null },
       price: { status: 'done' },
     });
     expect(dto.decisions.map((d) => `${d.gateKey}:${d.outcomeKey}`)).toEqual([
@@ -629,11 +626,11 @@ describe('the review summary (GET /quotes/:qn/review-summary)', () => {
         message: 'Capital is needed: preliminary capital $600,000',
       },
     ]);
-    // The Advance needed the BOM, flagged the quote capital likely and so asked for the payback model.
-    expect(dto.attachments.map((a) => a.kind)).toEqual(
-      expect.arrayContaining(['equipment_bom', 'roi_model']),
-    );
-    expect(dto.quoting.steps.roi).toMatchObject({ status: 'done', required: true });
+    // The Advance needed the BOM and flagged the quote capital likely. FB-21: that only suggests a
+    // payback model; nobody asked for one, so none is needed.
+    expect(dto.attachments.map((a) => a.kind)).toEqual(expect.arrayContaining(['equipment_bom']));
+    expect(dto.quoting.steps.roi).toMatchObject({ status: 'not_requested', required: false });
+    expect(dto.quoting.steps.roi.hint).toContain('Capital is flagged likely');
     // A quote with a $0 capital figure carries no capital warning.
     const plain = (await summary(await inFinalReview())).dto;
     expect(plain.quoting.capitalNeeded).toBe(false);

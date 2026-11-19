@@ -2,6 +2,8 @@ import {
   BulkReassignBody,
   BulkReassignResponse,
   CapitalReadinessBody,
+  PaybackRequestBody,
+  PaybackWithdrawBody,
   PricerAssignmentBody,
   PricerAssignmentResponse,
   PricingQueueQuery,
@@ -141,6 +143,59 @@ export const pricingRoutes: FastifyPluginAsyncZod<{ service: PricingService }> =
     async (req, reply) =>
       handleProblems(req, reply, () =>
         service.updateCapital(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  // FB-21 (N17-21; Ben, 2026-11-18): a payback model only when the pricer or the pricing lead asks.
+  app.post(
+    '/quotes/:quoteNumber/quoting/payback-request',
+    {
+      config: { permission: 'payback.request' },
+      schema: {
+        tags: ['pricing'],
+        summary:
+          'Ask Finance for a payback model (optional note). The pricing lead on any quote; a pricer on a quote assigned to them. Needs the costing model on file; one open request at a time. Finance is told; G3 then needs a payback model uploaded after the request',
+        security,
+        params: QuoteNumberParams,
+        body: PaybackRequestBody,
+        response: { 200: QuotingDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.requestPayback(
+          withTx(req),
+          requireActor(req),
+          req.params.quoteNumber,
+          req.body,
+          auditMeta(req),
+        ),
+      ),
+  );
+
+  app.post(
+    '/quotes/:quoteNumber/quoting/payback-request/withdraw',
+    {
+      config: { permission: 'payback.request' },
+      schema: {
+        tags: ['pricing'],
+        summary:
+          'Withdraw the open payback request with a short reason. Finance is told, and G3 no longer needs the payback model',
+        security,
+        params: QuoteNumberParams,
+        body: PaybackWithdrawBody,
+        response: { 200: QuotingDetail },
+      },
+    },
+    async (req, reply) =>
+      handleProblems(req, reply, () =>
+        service.withdrawPayback(
           withTx(req),
           requireActor(req),
           req.params.quoteNumber,

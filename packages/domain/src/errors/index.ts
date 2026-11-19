@@ -48,6 +48,9 @@ export const DOMAIN_ERROR_CODES = [
   'COST_MODEL_REQUIRED',
   'COSTING_FIRST',
   'ROI_NOT_REQUIRED',
+  // FB-21 (N17-21): one open payback request at a time; only an open one is withdrawn.
+  'REQUEST_OPEN',
+  'NO_OPEN_REQUEST',
   // FB-08 (T-007): the PricingLead decides only a pending payment-terms exception.
   'NO_PENDING_EXCEPTION',
   // FB-08 (F-082, off): extra Final Review sign-offs, given in order, once per quote version.

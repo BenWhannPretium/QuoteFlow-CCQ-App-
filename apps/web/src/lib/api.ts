@@ -423,6 +423,17 @@ export const api = {
     getJson(`${quotePath(quoteNumber)}/pricing-record`, QuotingDetail, { method: 'PUT', body }),
   updateCapitalReadiness: (quoteNumber: string, body: CapitalReadinessBody) =>
     getJson(`${quotePath(quoteNumber)}/capital-readiness`, QuotingDetail, { method: 'PUT', body }),
+  // FB-21 (N17-21): ask Finance for a payback model, or withdraw the request.
+  requestPayback: (quoteNumber: string, note: string | null) =>
+    getJson(`${quotePath(quoteNumber)}/quoting/payback-request`, QuotingDetail, {
+      method: 'POST',
+      body: { note },
+    }),
+  withdrawPayback: (quoteNumber: string, reason: string) =>
+    getJson(`${quotePath(quoteNumber)}/quoting/payback-request/withdraw`, QuotingDetail, {
+      method: 'POST',
+      body: { reason },
+    }),
   // B-15 pricing-app context (read-only; commercial roles only, 403 otherwise)
   pricingContext: (quoteNumber: string) =>
     getJson(`${quotePath(quoteNumber)}/pricing-context`, PricingContext),

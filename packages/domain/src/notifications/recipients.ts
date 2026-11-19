@@ -104,6 +104,8 @@ export const HANDOFF_TYPES = {
   returnedByLead: 'quote.returned_by_lead',
   readyForRoi: 'quote.ready_for_roi',
   roiUploaded: 'quote.roi_uploaded',
+  // FB-21 (N17-21): a payback request was withdrawn, so Finance stops work.
+  paybackWithdrawn: 'quote.payback_request_withdrawn',
   termsExceptionRequested: 'quote.terms_exception_requested',
   termsExceptionDecided: 'quote.terms_exception_decided',
   // FB-16 (W13-15, W13-17)
@@ -473,11 +475,10 @@ export function planCapacityBlocked(quote: HandoffQuote): PlannedHandoff[] {
 // ── Quoting steps (FB-07, D-001) ───────────────────────────────────────────────────────────────
 
 /**
- * Pricing uploaded the costing model (step 1): when the quote needs an ROI, Finance (the ROI owner) is
- * told it can build it. No ROI needed: nobody is paged; the pricing lead confirms the price next.
+ * FB-21 (N17-21; Ben, 2026-11-18): the pricer or the pricing lead asked Finance for a payback model:
+ * Finance (the payback owner) is told. A costing upload no longer pages Finance.
  */
-export function planCostModelUploaded(roiRequired: boolean): PlannedHandoff[] {
-  if (!roiRequired) return [];
+export function planPaybackRequested(): PlannedHandoff[] {
   return ROI_OWNER_ROLES.map((r): PlannedHandoff => ({
     type: HANDOFF_TYPES.readyForRoi,
     recipient: role(r),
@@ -485,13 +486,36 @@ export function planCostModelUploaded(roiRequired: boolean): PlannedHandoff[] {
   }));
 }
 
-/** Finance uploaded the ROI model (step 2): the pricing lead, who confirms the price next, is told. */
-export function planRoiUploaded(): PlannedHandoff[] {
-  return rolesWithPermission(LEAD_REVIEW.pricing.leadPermission).map((r): PlannedHandoff => ({
-    type: HANDOFF_TYPES.roiUploaded,
+/** FB-21: the request was withdrawn: Finance is told, so they stop work. */
+export function planPaybackWithdrawn(): PlannedHandoff[] {
+  return ROI_OWNER_ROLES.map((r): PlannedHandoff => ({
+    type: HANDOFF_TYPES.paybackWithdrawn,
     recipient: role(r),
     reason: 'next_owner',
   }));
+}
+
+/**
+ * Finance uploaded the payback model (step 2): the pricing lead(s), who confirm the price next, are told.
+ * FB-21: and whoever made the open request (once, even when they are a pricing lead too).
+ */
+export function planRoiUploaded(requesterId: UserId | null = null): PlannedHandoff[] {
+  return [
+    ...rolesWithPermission(LEAD_REVIEW.pricing.leadPermission).map((r): PlannedHandoff => ({
+      type: HANDOFF_TYPES.roiUploaded,
+      recipient: role(r),
+      reason: 'next_owner',
+    })),
+    ...(requesterId
+      ? [
+          {
+            type: HANDOFF_TYPES.roiUploaded,
+            recipient: user(requesterId),
+            reason: 'declared' as const,
+          },
+        ]
+      : []),
+  ];
 }
 
 // ── Payment-terms exceptions (FB-08, T-007) ────────────────────────────────────────────────────────

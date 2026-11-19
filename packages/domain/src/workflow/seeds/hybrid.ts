@@ -119,9 +119,8 @@ const ENG_FEASIBLE: RequiredRule[] = [
  */
 /**
  * FB-07 (D-001, F-032): costing, then ROI, then price confirmation. The pricing lead cannot confirm the
- * price (G3 Advance) until the current costing model is on file and, when the quote needs an ROI
- * (`roi_required`, derived from app_setting `roi_required_when`: capital required, $0 CER included), the
- * current ROI model too. `cost_model_on_file` / `roi_model_on_file` come from the quote's current
+ * price (G3 Advance) until the current costing model is on file and, FB-21, when someone asked Finance
+ * for a payback model (`roi_required`), until Finance uploads one after the request (`payback_received`). `cost_model_on_file` / `roi_model_on_file` come from the quote's current
  * attachments; a missing field fails closed. Quotes already in Quoting with costing attested before
  * FB-07 are grandfathered by migration 0031 (`pricing_record.cost_model_requirement`).
  */
@@ -132,10 +131,12 @@ const QUOTING_MODELS_ON_FILE: RequiredRule[] = [
       { field: 'pricing_record.cost_model_requirement', op: 'equals', value: 'grandfathered' },
     ],
   },
+  // FB-21 (N17-21; Ben, 2026-11-18): the payback model only while someone has asked Finance for one,
+  // satisfied once Finance uploads one after the request. Migration 0050 updates the stored rule.
   {
     anyOf: [
       { field: 'roi_required', op: 'equals', value: false },
-      { field: 'roi_model_on_file', op: 'equals', value: true },
+      { field: 'payback_received', op: 'equals', value: true },
     ],
   },
 ];

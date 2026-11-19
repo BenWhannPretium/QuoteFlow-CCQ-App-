@@ -22,7 +22,13 @@ import {
 } from '../attachments/file-types';
 import { submissionRules } from '../lead-review';
 import { notificationEvent } from '../notifications/events';
-import { HANDOFF_TYPES, planCostModelUploaded, planRoiUploaded } from '../notifications/recipients';
+import {
+  HANDOFF_TYPES,
+  planPaybackRequested,
+  planPaybackWithdrawn,
+  planRoiUploaded,
+  resolveDeliveries,
+} from '../notifications/recipients';
 import { permissionsForRoles } from '../policy/can';
 import { rolesWithPermission } from '../policy/matrix';
 import { NOW, makeActor, makeQuote } from '../test-utils';
@@ -107,7 +113,8 @@ describe('roi_required_when (FB-07, D-001; provisional)', () => {
     expect(roiReasonText({ code: 'funding_model', value: 'ZERO_CER' })).toBe(
       'Tooling funding: ZERO_CER',
     );
-    expect(ROI_NOT_REQUIRED_TEXT).toMatch(/^Not required/);
+    // FB-21: the step says nobody asked, not that capital decides it.
+    expect(ROI_NOT_REQUIRED_TEXT).toMatch(/^Not requested/);
   });
 });
 
@@ -205,11 +212,10 @@ describe('planModelUpload: who uploads which model, allowed and denied for every
         costModelGrandfathered: true,
       }).ok,
     ).toBe(true);
-    const notNeeded = planModelUpload('roi_model', finance, quoting, {
-      ...ready,
-      roiRequired: false,
-    });
-    expect(!notNeeded.ok && notNeeded.errors[0]!.code).toBe('ROI_NOT_REQUIRED');
+    // FB-21: Finance may upload without an open request (only the pricing leads are told then).
+    expect(
+      planModelUpload('roi_model', finance, quoting, { ...ready, roiRequired: false }).ok,
+    ).toBe(true);
   });
 
   it('a Finance user with no data scope over the quote is denied', () => {
@@ -229,7 +235,12 @@ describe('quotingSteps: costing → ROI → price approved', () => {
     costingAttestedBy: null,
     costingAttestedAt: null,
     costModelGrandfathered: false,
-    roi: { required: true, reasons: [{ code: 'g2_outcome', value: 'capital_required' }] },
+    // FB-21: someone asked Finance for the payback model (open), unless a test says otherwise.
+    roi: {
+      required: true,
+      reasons: [{ code: 'g2_outcome', value: 'capital_required' }],
+      request: 'open',
+    },
     priceConfirmed: null,
   };
 
@@ -262,6 +273,7 @@ describe('quotingSteps: costing → ROI → price approved', () => {
   it('with the ROI on file the price is next; a confirmed price finishes', () => {
     const roiIn = {
       ...base,
+      roi: { ...base.roi, request: 'received' as const },
       costModel: file('c1', 1, t(0)),
       costingCompleted: true,
       roiModel: file('r1', 1, t(2)),
@@ -281,14 +293,30 @@ describe('quotingSteps: costing → ROI → price approved', () => {
     expect(done.price.priceTable?.id).toBe('p1');
   });
 
-  it('ROI not required: the step says so and the price is next after costing', () => {
-    const s = quotingSteps({
-      ...base,
-      roi: { required: false, reasons: [] },
-      costModel: file('c1', 1, t(0)),
-      costingCompleted: true,
+  it('FB-21: nobody asked Finance: "not requested", and the price is next after costing', () => {
+    const notAsked = { ...base, costModel: file('c1', 1, t(0)), costingCompleted: true };
+    for (const request of ['none', 'withdrawn'] as const) {
+      const s = quotingSteps({ ...notAsked, roi: { required: false, reasons: [], request } });
+      expect([s.current, s.roi.status, s.price.status], request).toEqual([
+        'price',
+        'not_requested',
+        'waiting',
+      ]);
+    }
+    // A payback model uploaded without a request shows as done; the price does not wait for it.
+    const unasked = quotingSteps({
+      ...notAsked,
+      roi: { required: false, reasons: [], request: 'none' },
+      roiModel: file('r1', 1, t(2)),
     });
-    expect([s.current, s.roi.status, s.price.status]).toEqual(['price', 'not_required', 'waiting']);
+    expect([unasked.roi.status, unasked.price.status]).toEqual(['done', 'waiting']);
+    // An open request holds the price until Finance uploads after it.
+    const open = quotingSteps({ ...notAsked, roi: { ...base.roi, request: 'open' } });
+    expect([open.current, open.roi.status, open.price.status]).toEqual([
+      'roi',
+      'waiting',
+      'blocked',
+    ]);
   });
 
   it('grandfathered: "no model on file", costing done with the attestation alone', () => {
@@ -334,18 +362,24 @@ describe('versions (F-074, T-034)', () => {
 });
 
 describe('notifications (FB-05 resolver)', () => {
-  it('costing uploaded on a quote that needs an ROI tells Finance; otherwise nobody', () => {
-    expect(planCostModelUploaded(true)).toEqual([
+  it('FB-21: a payback request tells Finance; a withdrawal tells Finance to stop', () => {
+    expect(planPaybackRequested()).toEqual([
       {
         type: HANDOFF_TYPES.readyForRoi,
         recipient: { kind: 'role', role: 'Finance' },
         reason: 'next_owner',
       },
     ]);
-    expect(planCostModelUploaded(false)).toEqual([]);
+    expect(planPaybackWithdrawn()).toEqual([
+      {
+        type: HANDOFF_TYPES.paybackWithdrawn,
+        recipient: { kind: 'role', role: 'Finance' },
+        reason: 'next_owner',
+      },
+    ]);
   });
 
-  it('ROI uploaded tells the pricing lead', () => {
+  it('ROI uploaded tells the pricing lead, and (FB-21) whoever asked for it', () => {
     expect(planRoiUploaded()).toEqual([
       {
         type: HANDOFF_TYPES.roiUploaded,
@@ -353,10 +387,34 @@ describe('notifications (FB-05 resolver)', () => {
         reason: 'next_owner',
       },
     ]);
+    expect(planRoiUploaded(asUserId('pricer-1'))).toEqual([
+      {
+        type: HANDOFF_TYPES.roiUploaded,
+        recipient: { kind: 'role', role: 'PricingLead' },
+        reason: 'next_owner',
+      },
+      {
+        type: HANDOFF_TYPES.roiUploaded,
+        recipient: { kind: 'user', userId: 'pricer-1' },
+        reason: 'declared',
+      },
+    ]);
+    // Once each: a requester who is also a pricing lead gets one notice.
+    const lead = asUserId('lead-1');
+    const deliveries = resolveDeliveries(
+      planRoiUploaded(lead),
+      (role) => (role === 'PricingLead' ? [lead, asUserId('lead-2')] : []),
+      asUserId('finance-1'),
+    );
+    expect(deliveries.map((d) => d.userId)).toEqual([lead, 'lead-2']);
   });
 
   it('both types are in the catalogue and emailed', () => {
-    for (const type of [HANDOFF_TYPES.readyForRoi, HANDOFF_TYPES.roiUploaded]) {
+    for (const type of [
+      HANDOFF_TYPES.readyForRoi,
+      HANDOFF_TYPES.roiUploaded,
+      HANDOFF_TYPES.paybackWithdrawn,
+    ]) {
       expect(notificationEvent(type)?.email).toBe('immediate');
     }
   });

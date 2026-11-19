@@ -27,6 +27,9 @@ export const TIMELINE_CATEGORY_TYPES: Readonly<
     // FB-08: the pricing lead's payment-terms exception decision; an extra Final Review sign-off.
     'terms_exception_decided',
     'final_review_signoff',
+    // FB-21 (N17-21): a payback model asked of Finance, or the request withdrawn.
+    'payback_requested',
+    'payback_request_withdrawn',
   ],
   override: [
     'override_requested',
