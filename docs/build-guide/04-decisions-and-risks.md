@@ -298,6 +298,22 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | Technical concept / Supply chain | No longer asked or accepted; columns kept (deprecated), old values read-only under "Legacy notes"; Charter / Scope text goes in the tooling notes or stays in the workbook | Question 3: where Charter / Scope text goes | Bailey Schmitt; Jim Zweifel |
 | "New" in the engineering queue | New to the assigned engineer until Start review; to the assigned scheduler until a capacity row is saved; "New to me" filter | — | Faron Ipox |
 
+**Provisional values FB-23 seeded (built 2026-11-19; all `provisional: true`, changed by an Admin without a deploy; migration 0053). Decided by Ben on 2026-11-18: D4 (tariffs, special packaging, returnable dunnage placed in Engineering), D5 (no tooling markup unless noted), D6 (container item numbers free text). Provisional until Bailey Schmitt confirms.**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.engineering_cost_lines` | 13 lines: tooling Molds, Unit mold, Perso parts (RHB), Head tooling (EBM), Freight, Start-up assistance (3 days), Tariffs / duties (D4), Other (needs a description); new line Blow molders, Resin handling, Packaging & inspection, Support, Misc. equipment. Customer funded: Molds, Freight, Start-up, Tariffs / duties | Which processes use unit mold, perso parts and head tooling; what "Perso parts" stands for; the new-line split | Jim Zweifel; Paul Slomkowski / Kal Kaliszewski |
+| `app_setting.engineering_cost_defaults` | Freight $1,500 per complete mold, $750 per lower blow mold; start-up $5,500 (3 days) | — | Jim Zweifel |
+| `app_setting.tooling_markup_default_pct` | 0 (D5: no markup unless noted); the per-item `tooling_markup_pct` is noted by Engineering with the tooling lines | Markup scope (whole customer-funded total?) and who notes it | Gemma Cebolla; Bailey Schmitt |
+| `app_setting.offer_mold_charge_source` | `workbook_then_engineering`: the workbook's mold charge, else the item's customer tooling price | Whether the letter's Molds line may come from Engineering (CLAUDE.md rule 5: derived, never typed) | Gemma Cebolla |
+| Value list `pack_method` | Bagged (bag), Carton (case), Tray (tray), Bulk, Other; `meta.countField` names the count | The "Pack-out" heading and wording | Jim Zweifel; Ben Whann |
+| Value list `pallet_type` | 40×48 pallet, Floor loaded (no pallet), Other | — | Jim Zweifel |
+| Offer letter row "Equipment / tool lead time" | Specifications row from `mold_lead_time`, omitted when empty (template `fb23-2026-11-19`) | Legal approval of the letter wording | Legal; Gemma Cebolla |
+| Budgetary capital estimate | Unchanged by the cost lines; "Use the project total" fills it | Open decision 18: project total or net cost to Pretium | Bailey Schmitt |
+| Estimated dunnage cost | Labelled "Estimated dunnage cost (USD)"; one figure per item | Per trip or one-time | Gemma Cebolla |
+| Pallet build height | Free text with its unit ("96 in") | The worksheet's unit | Jim Zweifel |
+| New-line equipment editors | EngLead and the assigned Engineer (Operations has no role) | Who enters them; a role? | Paul Slomkowski / Kal Kaliszewski |
+
 **Provisional values FB-21 seeded (built 2026-11-18; all `provisional: true`, changed by config, not code; migrations 0049 and 0050). Decided by Ben on 2026-11-18: pending capital never blocks; payback only on request; a pricing lead may approve their own work.**
 
 | Value | Seed | Waits on | Who signs off |

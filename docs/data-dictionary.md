@@ -11,7 +11,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 
 - **Identity and access (`schema/identity.ts`):** [`app_user`](#app_user), [`role_permission`](#role_permission), [`user_preference`](#user_preference), [`user_role`](#user_role), [`user_scope`](#user_scope)
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
-- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`offer_letter`](#offer_letter), [`offer_letter_item`](#offer_letter_item), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_item`](#quote_item), [`quote_item_drawing`](#quote_item_drawing), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
+- **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_cost_line`](#eng_cost_line), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`offer_letter`](#offer_letter), [`offer_letter_item`](#offer_letter_item), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_item`](#quote_item), [`quote_item_drawing`](#quote_item_drawing), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`feedback`](#feedback), [`notification`](#notification)
 - **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
 
@@ -482,6 +482,30 @@ Customer an opportunity is for. Existing (SF account) or not yet established.
 
 **Indexes:** `customer_name_idx`, `customer_name_trgm_idx`
 
+### eng_cost_line
+
+FB-23: engineering cost estimate lines per quote item (tooling, start-up, new-line equipment). Totals (project total, customer funded, net cost to Pretium, customer tooling price) are calculated, not stored.
+
+**Owner:** Engineering (EngLead / Engineer)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `quote_id` | uuid | no |  | quote.id | Quote (for row-level security). | Engineering (EngLead / Engineer) |
+| `quote_item_id` | uuid | no |  | quote_item.id | The item the line is for (one column per size on the ECE Summary). | Engineering (EngLead / Engineer) |
+| `line_key` | text | no |  |  | The line (a key in app_setting.engineering_cost_lines: molds, unit_mold, perso_parts, head_tooling, freight, start_up, tariffs, other, blow_molders, resin_handling, packaging_inspection, support_equipment, misc_equipment in the seed). | Engineering (EngLead / Engineer) |
+| `amount_usd` | numeric(18, 2) | no |  |  | The amount (USD, 0 to 999,999,999.99). $0 = not used. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `description` | text | yes |  |  | What the cost is for, up to 120 (required for a line with needsDescription, "Other"). | Engineering (EngLead / Engineer) |
+| `quantity` | smallint | yes |  |  | Freight only: the number of lower blow molds the freight was pre-filled for (1 to 99); null = a complete mold or typed. | Engineering (EngLead / Engineer) |
+| `updated_by` | uuid | yes |  | app_user.id | Who last changed the line. | Engineering (EngLead / Engineer) |
+
+**Checks:** `eng_cost_line_amount_check`, `eng_cost_line_description_check`, `eng_cost_line_quantity_check`
+
+**Indexes:** `eng_cost_line_item_key_uq`, `eng_cost_line_quote_idx`
+
 ### eng_review
 
 Engineering Review fields (stage 2).
@@ -524,9 +548,24 @@ Engineering Review fields (stage 2).
 | `units_per_bag` | integer | yes |  |  | FB-06 (F-025): units per bag (whole number, optional). Entered by Engineering, shown to Pricing. | Engineering (EngLead / Engineer) |
 | `units_per_tray` | integer | yes |  |  | FB-06 (F-025): units per tray (whole number, optional). | Engineering (EngLead / Engineer) |
 | `units_per_case` | integer | yes |  |  | FB-06 (F-025): units per case (whole number, optional). | Engineering (EngLead / Engineer) |
-| `units_per_pallet` | integer | yes |  |  | FB-06 (F-025): units per pallet (whole number, optional). | Engineering (EngLead / Engineer) |
+| `units_per_pallet` | integer | yes |  |  | FB-06 (F-025): units per pallet (whole number, optional). FB-23: pieces per pallet; written by the server from the pack-out calculation (pieces per container × per layer × layers) when per layer and layers are both given, otherwise as typed. | Engineering (EngLead / Engineer) |
+| `mold_lead_time` | text | yes |  |  | FB-23 (N18-03): estimated mold lead time, free text up to 40 ("16-18 weeks"). Printed on the offer letter as Equipment / tool lead time. | Engineering (EngLead / Engineer) |
+| `packers_per_line` | numeric(6, 2) | yes |  |  | FB-23 (N18-09): direct labor, packers per line (0 to 99.99; fractional: 0.68 means one packer covers more than one line). | Engineering (EngLead / Engineer) |
+| `operators_per_line` | numeric(6, 2) | yes |  |  | FB-23 (N18-09): direct labor, operators per line (0 to 99.99). | Engineering (EngLead / Engineer) |
+| `pack_method` | text | yes |  |  | FB-23 (N18-10): value_list pack_method code (Bagged, Carton, Tray, Bulk, Other). Its meta.countField names the count it uses: Bagged units_per_bag, Carton units_per_case, Tray units_per_tray; the others none. | Engineering (EngLead / Engineer) |
+| `pack_container_item_no` | text | yes |  |  | FB-23 (N18-10, D6): item number of what the parts are packed in or on (bag, carton, tray, slip sheet), free text up to 40. | Engineering (EngLead / Engineer) |
+| `pack_container_description` | text | yes |  |  | FB-23 (N18-10): description of what the parts are packed in or on, up to 120 (a carton has a liner). | Engineering (EngLead / Engineer) |
+| `containers_per_layer` | integer | yes |  |  | FB-23 (N18-10): bags, cartons or trays per layer (1 to 9,999). | Engineering (EngLead / Engineer) |
+| `layers_per_pallet` | integer | yes |  |  | FB-23 (N18-10): layers per pallet (1 to 999). | Engineering (EngLead / Engineer) |
+| `pallet_build_height` | text | yes |  |  | FB-23 (N18-10): pallet build height as typed, with its unit ("96 in"), up to 20. The worksheet's unit is unconfirmed. | Engineering (EngLead / Engineer) |
+| `pallet_type` | text | yes |  |  | FB-23 (N18-10): value_list pallet_type code (40×48 pallet, Floor loaded (no pallet), Other). Floor loaded = no pallet cost. | Engineering (EngLead / Engineer) |
+| `pallets_per_trailer` | integer | yes |  |  | FB-23 (N18-10): pallets per 53-ft trailer (1 to 999). | Engineering (EngLead / Engineer) |
+| `special_packaging_note` | text | yes |  |  | FB-23 (D4): special packaging (for example needing floor loading), up to 300. | Engineering (EngLead / Engineer) |
+| `returnable_dunnage_description` | text | yes |  |  | FB-23 (D4): the returnable dunnage, up to 200. Asked when the KAM ticked returnable dunnage at intake. | Engineering (EngLead / Engineer) |
+| `returnable_dunnage_cost_usd` | numeric(18, 2) | yes |  |  | FB-23 (D4): estimated dunnage cost (USD). Whether it is per trip or one-time is unconfirmed (Gemma Cebolla). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
+| `tooling_markup_pct` | numeric(5, 2) | yes |  |  | FB-23 (N18-14, D5): markup on customer-funded tooling noted for this item, 0 to 100 %. Blank = tooling_markup_default_pct (0: no markup unless noted). Customer tooling price = customer funded × (1 + markup / 100). Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Engineering (EngLead / Engineer) |
 
-**Checks:** `eng_review_pack_out_check`, `eng_review_cavitation_check`, `eng_review_machine_platform_check`, `eng_review_capacity_signoff_status_check`
+**Checks:** `eng_review_pack_out_check`, `eng_review_cavitation_check`, `eng_review_machine_platform_check`, `eng_review_capacity_signoff_status_check`, `eng_review_cost_estimate_check`, `eng_review_pack_out_detail_check`
 
 **Indexes:** `eng_review_quote_idx`
 
@@ -726,9 +765,10 @@ FB-20: the item lines of an offer letter, with the prices snapshotted from the c
 | `annual_volume` | integer | yes |  |  | Estimated annual volume as printed. | CCQ (system) |
 | `piece_price_per_1000` | numeric(18, 4) | yes |  |  | Piece price per 1,000 pcs (USD), snapshotted from the costing summary. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Costing workbook |
 | `mold_charge` | numeric(18, 4) | yes |  |  | Molds (USD), snapshotted; null when not on the letter. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Costing workbook |
+| `mold_charge_source` | text | yes |  |  | FB-23: where mold_charge came from: workbook (the costing workbook's mold charge) or engineering (the item's customer tooling price from Engineering's cost lines: customer funded × (1 + noted markup)). Null when no Molds row. | CCQ (system) |
 | `change_parts_charge` | numeric(18, 4) | yes |  |  | Change parts (USD), snapshotted; null when not on the letter. Commercial tag: stripped for roles without quote.read.commercialFields (every role holds it since 2026-10-30). | Costing workbook |
 
-**Checks:** `offer_letter_item_item_no_check`, `offer_letter_item_part_number_check`
+**Checks:** `offer_letter_item_item_no_check`, `offer_letter_item_part_number_check`, `offer_letter_item_mold_charge_source_check`
 
 **Indexes:** `offer_letter_item_letter_item_no_uidx`, `offer_letter_item_quote_idx`
 
