@@ -1,7 +1,6 @@
 import type { AttachmentKindValue } from '@ccq/contracts';
 import { acceptedFormats } from '@ccq/domain';
 
-
 /**
  * FB-27 (N17-24): the formats and size limit an upload takes, in words beside its button. They come from
  * the lists the server checks (`acceptedFormats`), so the words, the file picker's `accept` and the rule
