@@ -26,3 +26,7 @@ export const G3_HELP_0042 =
   'The pricing lead confirms the price. The costing model is on file and costing is attested; when capital is required ($0 CER included) the payback model is on file too. Optionally upload an updated price table; otherwise the price in the models stands. Capital readiness is recorded separately. The quote goes to Final Review.';
 export const G3_HELP_0050 =
   'The pricing lead confirms the price. The costing model is on file and costing is attested; when someone asked Finance for a payback model, it is on file too. Optionally upload an updated price table; otherwise the price in the models stands. Capital readiness is recorded separately. The quote goes to Final Review.';
+
+/** The roi_required_when description as 0042 (FB-14) left it, before 0050 (FB-21). */
+export const ROI_DESCRIPTION_0042 =
+  'FB-07 (D-001): when a quote needs Finance\'s payback model (roi_model; "Payback" since FB-14) before the pricing lead approves the price (G3). Any of: Engineering\'s latest G2 outcome is in g2Outcomes, the quote is flagged capital likely (capitalLikely), or the tooling funding model is in fundingModels. Seed: capital required, $0 CER included. Provisional.';

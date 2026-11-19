@@ -4,7 +4,13 @@ import { hybridConfig } from '@ccq/domain';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { G3_HELP_0042, G3_HELP_0050, G3_RULES_0049, G3_RULES_0050 } from './g3-rules-history';
+import {
+  G3_HELP_0042,
+  G3_HELP_0050,
+  G3_RULES_0049,
+  G3_RULES_0050,
+  ROI_DESCRIPTION_0042,
+} from './g3-rules-history';
 import { raw, testDb } from './helpers';
 import { ROI_REQUIRED_WHEN_DESCRIPTION } from '../seeds/config/settings';
 import type { Tx } from '../src/client';
@@ -42,8 +48,7 @@ const runMigration = async (tx: Tx) => {
   for (const s of statements) await tx.execute(sql.raw(s));
 };
 
-const OLD_DESCRIPTION =
-  'FB-07 (D-001): when a quote needs Finance\'s payback model (roi_model; "Payback" since FB-14) before the pricing lead approves the price (G3). Any of: Engineering\'s latest G2 outcome is in g2Outcomes, the quote is flagged capital likely (capitalLikely), or the tooling funding model is in fundingModels. Seed: capital required, $0 CER included. Provisional.';
+const OLD_DESCRIPTION = ROI_DESCRIPTION_0042;
 
 async function g3(tx: Tx) {
   const [row] = await raw<{ required_fields: unknown; help_text: string }>(

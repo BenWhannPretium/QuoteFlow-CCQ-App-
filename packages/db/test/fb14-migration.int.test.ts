@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 
-import { MODEL_SUMMARY_LIMITS_SEED, MODEL_SUMMARY_TEMPLATES_SEED, hybridConfig } from '@ccq/domain';
+import { MODEL_SUMMARY_LIMITS_SEED, MODEL_SUMMARY_TEMPLATES_SEED } from '@ccq/domain';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
+import { G3_HELP_0042, ROI_DESCRIPTION_0042 } from './g3-rules-history';
 import { raw, testDb } from './helpers';
 import type { Tx } from '../src/client';
 
@@ -39,9 +40,8 @@ const runMigration = async (tx: Tx) => {
   for (const s of statements) await tx.execute(sql.raw(s));
 };
 
-const G3_HELP = hybridConfig.outcomes.find(
-  (x) => x.gateKey === 'G3' && x.key === 'submit',
-)!.helpText!;
+// What 0042 writes; FB-21's 0050 later rewrites it (fb21-payback-migration test).
+const G3_HELP = G3_HELP_0042;
 const OLD_HELP = G3_HELP.replace(
   'the payback model is on file too.',
   'the ROI model is on file too.',
@@ -56,7 +56,7 @@ async function toPreFb14State(tx: Tx) {
         where gate_key = 'G3' and key = 'submit'`,
   );
   await tx.execute(
-    sql`update app_setting set description = replace(description, ${`needs Finance's payback model (roi_model; "Payback" since FB-14) before`}, ${`needs Finance's ROI model before`}), version = 1, approved_at = null
+    sql`update app_setting set description = ${ROI_DESCRIPTION_0042.replace(`needs Finance's payback model (roi_model; "Payback" since FB-14) before`, `needs Finance's ROI model before`)}, version = 1, approved_at = null
         where key = 'roi_required_when'`,
   );
 }
