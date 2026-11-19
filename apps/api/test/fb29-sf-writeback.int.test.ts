@@ -836,7 +836,8 @@ describe('Admin → Integrations', () => {
         ),
       );
     // The switch on, then live (the mode was already dry_run: no change, no row).
-    expect(changes.map((c) => (c.after as { key: string }).key)).toEqual([
+    // Same request, same clock: compare as a set (the rows' order is not defined).
+    expect(changes.map((c) => (c.after as { key: string }).key).sort()).toEqual([
       'sf_writeback_enabled',
       'sf_writeback_mode',
     ]);
