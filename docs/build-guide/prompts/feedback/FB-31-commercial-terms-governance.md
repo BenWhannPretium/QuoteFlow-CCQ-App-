@@ -1,7 +1,7 @@
 # FB-31 · Commercial terms governance: payment-terms approval routes, simpler tooling funding, amortization as an exception, inventory and safety-stock wording
 
 **Run with:** Claude Code · **Opus 5.5** · **high** effort · **Wave 1** · one draft PR · branch `claude/fb-31-commercial-terms-governance`
-**Ports:** Postgres `5444` · `E2E_PORT=3140` `E2E_DEV_API_PORT=3141` `E2E_WEB_PORT=4184` · **Migration:** `0057_fb31_commercial_terms_governance.sql`, journal `when` **1795150000004** (the first migration PR to merge keeps its number and each later one renumbers; recompute per the ground rules and the orchestrator's message)
+**Ports:** Postgres `5444` · `E2E_PORT=3140` `E2E_DEV_API_PORT=3141` `E2E_WEB_PORT=4184` · **Migration:** `0057_fb31_commercial_terms_governance.sql`, journal `when` **1795150000004** (whichever migration PR merges first takes the next free number after `origin/main`'s last entry, and each later one renumbers; recompute per the ground rules and the orchestrator's message)
 **Feedback items:** N19-07, N19-08, N19-10 (`docs/build-guide/feedback/inputs/feedback-2026-11-19.md`) · **Tracker rows it follows:** FB-08 (commercial terms and Final Review), FB-11 (payment terms), FB-04 and D-029 (tooling funding), FB-15 and FB-24 (intake commercial inputs and the stocking agreement), FB-25 (Commercial terms tab, non-standard checkbox)
 
 ---
