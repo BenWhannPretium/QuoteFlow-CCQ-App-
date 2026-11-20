@@ -462,21 +462,25 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
               </Field>
               <div className="grid content-start gap-1.5 text-sm" data-slot="field">
                 <span className="font-medium">Accepted by the customer</span>
-                <span>
-                  {h?.acceptanceDate ?? '–'}
-                  {h?.acceptanceDocumentUrl && (
-                    <>
-                      {' · '}
-                      <a
-                        href={h.acceptanceDocumentUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="underline underline-offset-4"
-                      >
-                        Document
-                      </a>
-                    </>
-                  )}
+                {/* As tall as the select beside it, so the date sits on its text line. The inner span keeps
+                    the spaces around "·" (a flex container would trim them). */}
+                <span className="flex min-h-11 items-center sm:min-h-10">
+                  <span>
+                    {h?.acceptanceDate ?? '–'}
+                    {h?.acceptanceDocumentUrl && (
+                      <>
+                        {' · '}
+                        <a
+                          href={h.acceptanceDocumentUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="underline underline-offset-4"
+                        >
+                          Document
+                        </a>
+                      </>
+                    )}
+                  </span>
                 </span>
               </div>
               <Field
