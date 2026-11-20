@@ -259,16 +259,16 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design â€º Quote Flow â€
 | 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
 | 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
 
-**Provisional values FB-33 seeded (built 2026-11-20; PR [#124](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/124)).**
+**Provisional values FB-33 seeded (built 2026-11-19; PR [#124](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/124)).**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|
 | `value_list` request_class CCQ label | Commercial Capital Quote (CCQ): new business that needs engineering or capital | Whether the long form belongs in the label (question 2) | Darren Miller, Sarah Brennan |
 | `intake_redirect_message` | Stock and stock-plus requests are handled in Salesforce. Price inquiries and pack-out evaluations stay in the pricing application for now. Submit each one where it is handled. | Where price inquiries and pack-out evaluations are handled (question 1; D-030) | Darren Miller, Bailey Schmitt |
-| `intake_field_help.request_class`, `sf_opportunity_id`, `quote_variants_note` | as in the table above | the same | Bailey Schmitt |
+| `intake_field_help.request_class`, `sf_opportunity_id`, `quote_variants_note` | as in the "What changed on screen" table under FB-33 in `03-build-steps.md` | the same | Bailey Schmitt |
 | G1 "not CCQ work" outcome help | names Salesforce for stock and stock-plus | Darren's confirmation that G1 should say it | Darren Miller |
 
-**Provisional values FB-32 seeded (built 2026-11-20; PR [#125](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125)).**
+**Provisional values FB-32 seeded (built 2026-11-19; PR [#125](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125)).**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|
@@ -287,7 +287,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design â€º Quote Flow â€
 | `g4_additional_approvals` rule `amortized_finance_review` | Active; Leadership signs "Finance review (Leadership)" | Whether Finance should approve (one matrix line) | Ben Whann, Sarah Brennan |
 | `intake_field_help.stock_hold_requested` | "Inventory and safety stock requirements in the customer's contract cost Pretium money to hold, so Pricing needs to know. Say for how long if you know." | Wording | Sarah Brennan |
 
-**Provisional values FB-30 seeded (built 2026-11-20; PR [#121](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/121)).**
+**Provisional values FB-30 seeded (built 2026-11-19; PR [#121](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/121)).**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|
@@ -295,7 +295,7 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design â€º Quote Flow â€
 
 The words on screen ("Engineering recommendation", "Capacity recommendation", "Capacity is signed off", "Capacity is blocked") are screen text, from the meeting; question 3 asks whether they fit.
 
-**Provisional values FB-29 seeded (built 2026-11-20; PR [#123](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123)).**
+**Provisional values FB-29 seeded (built 2026-11-19; PR [#123](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123)).**
 
 | Value | Seed | Waits on | Who signs off |
 |---|---|---|---|

@@ -1869,7 +1869,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Found while building (recorded in `09` §3):** the 2026-11-19 outage was ended by **re-running** bf115d0's own Deploy (test) run (run 44463571762, attempt 3, 13:29:50 to 13:43:16 UTC), not by a new dispatch; that attempt's Deploy step ended red (Azure's start poll ran out) though the site was back about 13:34. The GitHub environment `test` has no protection rules and no branch policy, so **Run workflow** can deploy any branch to test without approval.
   - **Verified locally** (Windows, Node 22, Postgres 16 on port 5441): the upgrade check passes on this branch (49 s) and fails by name on the two reproductions in the PR; `wait-for-deploy.sh` exit 0 against `ae869d0` and exit 11 against the outage merge `9d92c86`; `pnpm lint`, `pnpm typecheck` pass; `pnpm test` passes except the known local-only flake `exportReader.test.ts` and `apps/api/src/logger.test.ts` (one test timed out at 8.5 s under load; 9/9 when run alone); `pnpm build` passes; `pnpm test:integration`: db 277/278 (`azure-admin.int.test.ts` hit its 30 s timeout under load and passes alone), api 2489/2490 (the one failure is the known local-only pricing-history flake "refuses a file that is not the export"). **CI on PR #120 (run 44605047748): all four checks pass**: Lint, typecheck, test, build, e2e (36 min 32 s, including the 38 new tests), **Migration upgrade check** (1 min 2 s, three `ok` lines against `origin/main` ae869d0), dependency audit, secret scan.
 
-### FB-29: Salesforce write-back · **Built 2026-11-20 (in PR [#123](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123))** · Ben (Opus 5.5 · high)
+### FB-29: Salesforce write-back · **Built 2026-11-19 (in PR [#123](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123))** · Ben (Opus 5.5 · high)
 - **Why:** write-back is P0 from 2026-11-19 so KAMs do not re-enter in Salesforce and stage, time in stage and outcome are not kept in two places (N19-01, N19-02). Waiting on IT's permission and the Salesforce owner's mapping, so the live write is off.
 - **Done when:**
   - [x] a write interface with a fake and a real implementation, off by default; the guards refuse a live write from the test site; the narrowed read-only guards still protect everything else
@@ -1903,7 +1903,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **New tests:** domain `salesforce-writeback/writeback.test.ts` (18); `jsforceWriter.test.ts` (7) and `writeGuard.test.ts` (3); `config.test.ts` write-back block (5); `services/sfWriteback.test.ts` (2); `apps/api/test/fb29-sf-writeback.int.test.ts` (24, real Postgres, fake writer); `packages/db/test/fb29-migration.int.test.ts` (4); permission matrix (5 routes × 12 roles); Playwright `fb29.spec.ts` (3: the flow at 1366 × 768, and the card at 1366 × 768 and 390 px in light and dark, axe clean).
   - **Verified locally** (Windows, Postgres 16 on 5442): the unit and integration tests above, the route matrix, the Playwright specs `fb29`, `fb04`, `outcome` and `admin-integrations` (its pricing-history import test is the known local flake), the upgrade path (`origin/main`'s 56 migrations with drizzle `migrate()`, then this branch's `pnpm db:migrate`, then `azureStart.js`: health `"status":"ok"`, `"db":"up"`, the six settings seeded), and the full suite: lint (ESLint and Prettier), typecheck, unit (domain 66, api 18, web 52, contracts 4, db 10 files), integration (api 54 of 55, db 37 of 37) and build pass; the only failures are the two known local-only pricing-history `.xlsx` flakes (`exportReader.test.ts`, `pricing-history.int.test.ts` "refuses a file that is not the export"). **CI** is the arbiter. CI's secret scan (gitleaks) fails on this PR because of FB-31's commit `5e339cf` (four findings in `0057_fb31_…sql` and `fb31-migration.int.test.ts`), which the scan reads because it fetches every branch; none is in this branch.
 
-### FB-30: Engineering and Capacity apart · **Built 2026-11-20 (in PR [#121](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/121))** · Ben (Opus 5.5 · high)
+### FB-30: Engineering and Capacity apart · **Built 2026-11-19 (in PR [#121](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/121))** · Ben (Opus 5.5 · high)
 - **Why:** Sarah wants "the engineering recommendation" and "the capacity recommendation" shown apart, before launch (N19-28).
 - **Done when:**
   - [x] a Capacity tab with its own recommendation, evidence, glance, sign-off and submit; Engineering keeps the solution, assignment, lead actions and decision
@@ -1974,7 +1974,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Secret scan (gitleaks):** the generic API-key rule matched four lines of this step where a config setting's key name is compared in SQL (in the migration and in its test); they are false positives. This branch adds no `.gitleaks.toml` entry: FB-28's scoped allowlist for data migrations and their tests covers them. Docs describe these lines in words rather than quoting them, so no commit outside migrations and migration tests matches the rule.
   - **Local note:** this worktree's long name pushed pnpm's store paths past Windows' 260-character limit (vitest failed to start); reinstalling with `npm_config_virtual_store_dir_max_length=40` fixed it. Local only; CI is unaffected.
 
-### FB-32: Less double entry · **Built 2026-11-20 (in PR [#125](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125))** · Ben (Sonnet 5.5 · high)
+### FB-32: Less double entry · **Built 2026-11-19 (in PR [#125](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125))** · Ben (Sonnet 5.5 · high)
 - **Why:** Sarah and Zachary: inherit what Salesforce already holds (N19-04). Most of it is waiting on field names.
 - **Done when:**
   - [x] a prefill map drives the existing prefill with identical output, and a new confirmed field is a one-line change
@@ -1998,7 +1998,7 @@ If Power Query isn't wanted, paste the CSV rows into the tab instead. The CSV an
   - **Settings plumbing:** the setting is in `PUBLIC_SETTING_KEYS` (the wizard reads it), the Admin console spec (a boolean) and the seed.
   - **Verified:** see the PR body for the local commands and results.
 
-### FB-33: Words on screen · **Built 2026-11-20 (in PR [#124](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/124))** · Ben (Sonnet 5.5 · high)
+### FB-33: Words on screen · **Built 2026-11-19 (in PR [#124](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/124))** · Ben (Sonnet 5.5 · high)
 - **Why:** The Nov 19 meeting agreed to keep the name CCQ and spell it out (N19-20), to say Salesforce, not "the pricing app", for Stock and Stock-Plus (N19-21), to not imply QuoteFlow does the credit check (N19-22), and, as an example of a wider point, not to have the KAM's note suggest a "near site vs ideal site" scenario (N19-13).
 - **Done when:**
   - [x] Commercial Capital Quote spelled out under one stated rule, quote numbers and group names untouched

@@ -9,10 +9,10 @@ Sources read: section 5 of the six close-out files (now deleted).
 Build Backlog:
 
 ```
-F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Release and deploy	Release guard: migration upgrade check on every PR, wait-for-deploy script	Build change	CI job "Migration upgrade check" applies main's migrations then the PR's to a fresh database, checks each new migration's idx, tag and when (above the largest ever merged), and starts the API; scripts/wait-for-deploy.sh reports whether a merge reached the test site healthy (exit codes 0/10/11/12/13/2); 09-release-guards.md has the guard limits, the when rule and a rollback playbook	Ben Whann	In Progress	FB-28, PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/120 (draft); needs the check made required on main
+F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Release and deploy	Release guard: migration upgrade check on every PR, wait-for-deploy script	Build change	CI job "Migration upgrade check" applies main's migrations then the PR's to a fresh database, checks each new migration's idx, tag and when (above the largest ever merged), and starts the API; scripts/wait-for-deploy.sh reports whether a merge reached the test site healthy (exit codes 0/10/11/12/13/2); 09-release-guards.md has the guard limits, the when rule and a rollback playbook	Ben Whann	In Progress	FB-28, PR https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/120; needs the check made required on main
 ```
 
-## FB-29: Salesforce write-back (PR [#123](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123), built 2026-11-20)
+## FB-29: Salesforce write-back (PR [#123](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123), built 2026-11-19)
 
 Build Backlog:
 
@@ -21,7 +21,7 @@ F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Integration	Salesforce write-back
 F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Integration	QuoteFlow stays complete without Salesforce (one source of truth for stage and outcome)	Build change	No decision waits for or fails on Salesforce; closing writes skipped while another quote or re-quote needs the opportunity; no backwards stage moves; no "closed lost" flag on quotes QuoteFlow closed.	Sarah Brennan, Oleg Yarovinski, Bailey Schmitt	In Progress	FB-29 https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123
 ```
 
-## FB-30: Engineering and Capacity apart (PR [#121](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/121), built 2026-11-20)
+## FB-30: Engineering and Capacity apart (PR [#121](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/121), built 2026-11-19)
 
 Build Backlog:
 
@@ -39,7 +39,7 @@ F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Commercial terms	Four tooling fun
 F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Intake	Inventory and safety stock requirements wording	Build change	The stock question and its labels use the contract's words: inventory and safety stock requirements. Fields unchanged.	Sarah Brennan	In Progress	FB-31, https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/122
 ```
 
-## FB-32: Less double entry (PR [#125](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125), built 2026-11-20)
+## FB-32: Less double entry (PR [#125](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125), built 2026-11-19)
 
 Build Backlog:
 
@@ -49,7 +49,7 @@ F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Intake / Salesforce	"Salesforce s
 F-___	CCQ MVP Demo and Open Decisions (Nov 19)	Intake / Salesforce	Candidates list for Zachary Cairns	Documentation	Every intake question with its Salesforce source or candidate field, and three standing questions (market and sub-market, container and neck on the product record; finished-good type and Product Type; where the KAM-to-sales-leader line is kept).	Sarah Brennan	In Progress	FB-32, salesforce-prefill-candidates.md, https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125
 ```
 
-## FB-33: Words on screen (PR [#124](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/124), built 2026-11-20)
+## FB-33: Words on screen (PR [#124](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/124), built 2026-11-19)
 
 Build Backlog:
 
