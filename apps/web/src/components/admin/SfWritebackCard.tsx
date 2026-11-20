@@ -88,7 +88,7 @@ function Preview() {
   return (
     <div className="grid gap-2" data-testid="sf-writeback-preview">
       <form className="flex flex-wrap items-end gap-2" onSubmit={submit}>
-        <label htmlFor={inputId} className="grid gap-1 text-sm">
+        <label htmlFor={inputId} className="grid content-start gap-1 text-sm">
           <span className="font-medium">Preview for a quote number</span>
           <Input
             id={inputId}
@@ -351,7 +351,7 @@ export function SfWritebackCard() {
                 />
                 Write back to Salesforce
               </label>
-              <label htmlFor={modeId} className="grid gap-1 text-sm">
+              <label htmlFor={modeId} className="grid content-start gap-1 text-sm">
                 <span className="font-medium">Mode</span>
                 <NativeSelect
                   id={modeId}

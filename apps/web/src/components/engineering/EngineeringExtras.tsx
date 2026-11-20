@@ -482,7 +482,7 @@ export function PricingInputsCard({
             Two-step process (a preform made first, then blown)
           </label>
           {form.twoStep && (
-            <div className="grid gap-4 sm:grid-cols-2" data-testid="two-step-details">
+            <div className="field-row grid gap-4 sm:grid-cols-2" data-testid="two-step-details">
               <Field
                 label="Preform plant"
                 hint={

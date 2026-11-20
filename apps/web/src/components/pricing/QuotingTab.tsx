@@ -726,7 +726,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
                 tick “Costing completed”.
               </p>
             )}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="field-row grid gap-4 sm:grid-cols-2">
               <Field label="Approved by" error={errorFor(errors, 'approvedBy')}>
                 {(id) => (
                   <NativeSelect
@@ -926,7 +926,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
               )}
             </div>
             {record?.cerReference && (
-              <div className="grid gap-1 text-sm" data-testid="legacy-cer-reference">
+              <div className="grid content-start gap-1 text-sm" data-testid="legacy-cer-reference">
                 <span className="font-medium">Legacy CER reference</span>
                 <span>{record.cerReference}</span>
                 <span className="text-muted-foreground text-xs">

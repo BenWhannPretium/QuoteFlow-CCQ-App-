@@ -201,7 +201,7 @@ export function ColumnChooser({
         align="end"
         aria-label="Columns"
       >
-        <fieldset className="grid gap-1">
+        <fieldset className="grid content-start gap-1">
           <legend className="mb-1 text-sm font-semibold">Shown, in order</legend>
           <ol className="grid gap-1" data-testid="columns-shown">
             {shown.map((k, i) => (

@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * Copper (`action`) is the call to action; green (`primary`) is for brand emphasis and selected
- * states. Default size is 44 px tall on mobile (tap target) and 40 px from `sm` up.
+ * states. Default size is 44 px tall on mobile (tap target) and 40 px from `sm` up;
+ * `sm` is 36 px from `sm` up, the height of a compact toolbar's inputs, selects and chips.
  */
 const buttonVariants = cva(
   'inline-flex shrink-0 items-center justify-center gap-2 rounded-pill text-sm font-medium tracking-[0.01em] whitespace-nowrap transition-[background-color,color,border-color,transform] duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
@@ -24,7 +25,7 @@ const buttonVariants = cva(
       },
       size: {
         default: 'min-h-11 px-5 sm:min-h-10',
-        sm: 'min-h-11 min-w-11 px-3 text-sm sm:min-h-8 sm:min-w-0',
+        sm: 'min-h-11 min-w-11 px-3 text-sm sm:min-h-9 sm:min-w-0',
         lg: 'min-h-12 px-6 text-base',
         icon: 'size-11 sm:size-10',
       },

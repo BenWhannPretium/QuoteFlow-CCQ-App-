@@ -269,7 +269,7 @@ export function CustomerStep({ data, update, cfg, evaluation }: StepProps) {
           Not yet a Pretium customer (no ERP account)
         </label>
         {cfg.help.customer && (
-          <p id={`${fid('customer')}-help`} className="text-muted-foreground text-xs">
+          <p id={`${fid('customer')}-help`} className="text-muted-foreground pl-8 text-xs">
             {cfg.help.customer}
           </p>
         )}
@@ -599,7 +599,7 @@ function ResinFields({
       {cfg.help.resin_customer_specified && (
         <p
           id={`${fid('resin_customer_specified')}-help`}
-          className="text-muted-foreground -mt-3 text-xs"
+          className="text-muted-foreground -mt-3 pl-8 text-xs"
         >
           {cfg.help.resin_customer_specified}
         </p>
@@ -1099,7 +1099,7 @@ function BidReferenceField({ data, update, cfg, evaluation }: StepProps) {
 /** F-063 (dunnage only): returnable (multi-trip) dunnage; unticked means single-trip. */
 function DunnageField({ data, update, cfg }: StepProps) {
   return (
-    <div className="grid gap-1.5">
+    <div className="grid content-start gap-1.5">
       <label className="flex min-h-11 w-fit items-center gap-3 text-sm">
         <input
           id={fid('returnable_dunnage')}
@@ -1113,7 +1113,10 @@ function DunnageField({ data, update, cfg }: StepProps) {
         Customer wants returnable (multi-trip) dunnage
       </label>
       {cfg.help.returnable_dunnage && (
-        <p id={`${fid('returnable_dunnage')}-help`} className="text-muted-foreground -mt-1 text-xs">
+        <p
+          id={`${fid('returnable_dunnage')}-help`}
+          className="text-muted-foreground -mt-1 pl-8 text-xs"
+        >
           {cfg.help.returnable_dunnage}
         </p>
       )}
@@ -1332,7 +1335,7 @@ function MoldFields({ data, update, cfg, evaluation }: StepProps) {
       {cfg.help.modify_existing_mold && (
         <p
           id={`${fid('modify_existing_mold')}-help`}
-          className="text-muted-foreground -mt-3 text-xs"
+          className="text-muted-foreground -mt-3 pl-8 text-xs"
         >
           {cfg.help.modify_existing_mold}
         </p>
@@ -1739,7 +1742,7 @@ function ItemFields({
             )}
           </Field>
         </div>
-        <fieldset className="grid gap-1.5" data-field={fid('components')}>
+        <fieldset className="grid content-start gap-1.5" data-field={fid('components')}>
           <legend className="mb-1.5 text-sm font-medium">{FIELD_META.components!.label}</legend>
           <div className="flex flex-wrap gap-2">
             {(cfg.lists.component ?? []).map((e) => {
@@ -2600,7 +2603,7 @@ export function ReviewStep({
       <Section title="Drawing and files">
         {/* FB-19 (W13-32): drawings belong to an item; the minimum spec is checked per item. */}
         {many && (
-          <div className="grid gap-1.5" data-testid="drawing-item-picker">
+          <div className="grid content-start gap-1.5" data-testid="drawing-item-picker">
             <label htmlFor={pickerId} className="text-sm font-medium">
               Drawings for
             </label>

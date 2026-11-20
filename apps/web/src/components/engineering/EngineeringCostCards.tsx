@@ -246,9 +246,11 @@ function CostLineInputs({
       className="grid gap-2 sm:grid-cols-[1fr_12rem] sm:items-start"
       data-testid={`cost-line-${def.key}`}
     >
-      <div className="grid gap-2">
+      {/* The name sits on the same line as the amount's label, so the controls under it (freight
+          buttons, "what the cost is for") start level with the amount box. */}
+      <div className="grid content-start gap-1.5">
         {def.prefill === 'start_up' ? (
-          <label className="flex min-h-9 items-center gap-2 text-sm font-medium">
+          <label className="flex min-h-11 items-center gap-2 text-sm font-medium sm:min-h-5">
             <input
               type="checkbox"
               className="size-5"
@@ -265,7 +267,7 @@ function CostLineInputs({
             {label}
           </label>
         ) : (
-          <span className="flex min-h-9 items-center text-sm font-medium">{label}</span>
+          <span className="flex min-h-5 items-center text-sm font-medium">{label}</span>
         )}
         {def.prefill === 'freight' && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -273,6 +275,7 @@ function CostLineInputs({
               type="button"
               variant="outline"
               size="sm"
+              className="sm:min-h-10"
               disabled={disabled}
               onClick={() =>
                 onChange({
@@ -300,6 +303,7 @@ function CostLineInputs({
               type="button"
               variant="outline"
               size="sm"
+              className="sm:min-h-10"
               disabled={disabled}
               onClick={() => {
                 const n = Math.min(99, Math.max(1, Math.trunc(Number(lower) || 1)));
@@ -473,7 +477,7 @@ export function CostLinesCard({
       }}
     >
       {tooling && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="field-row grid gap-4 sm:grid-cols-2">
           <Field
             label="Estimated mold lead time"
             hint='Free text, for example "16-18 weeks"'
@@ -668,7 +672,7 @@ export function LaborCard({
           save.mutate(body);
         }}
       >
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="field-row grid gap-4 sm:grid-cols-3">
           <Field
             label="Packers per line"
             hint="Can be a fraction, for example 0.68"
@@ -701,9 +705,9 @@ export function LaborCard({
               />
             )}
           </Field>
-          <div className="grid content-start gap-1.5" data-testid="labor-total">
+          <div className="grid content-start gap-1.5" data-slot="field" data-testid="labor-total">
             <span className="text-sm font-medium">Total per line</span>
-            <span className="flex min-h-9 items-center text-sm">
+            <span className="flex min-h-11 items-center text-sm sm:min-h-10">
               {total === null ? '–' : total}
             </span>
           </div>
@@ -960,7 +964,7 @@ export function PackOutCard({
           Pricing reads these when it costs the quote. All optional
           {packOutRule.requireOneOf ? ', except one count per pack' : ''}.
         </p>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="field-row grid gap-4 sm:grid-cols-3">
           {select('packMethod', 'Pack method', methods)}
           <Field
             label="Item number"
@@ -997,19 +1001,23 @@ export function PackOutCard({
               Units per pack (fill in one: bag, tray or case)
               {packOutRule.requireOneOf ? ' (required)' : ''}
             </legend>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="field-row grid gap-4 sm:grid-cols-3">
               {PACK_OUT_UNIT_FIELDS.map((f) => countInput(f, PACK_OUT_LABELS[f]))}
             </div>
           </fieldset>
         ) : null}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="field-row grid gap-4 sm:grid-cols-3">
           {countField && countInput(countField, labels.perContainer)}
           {whole('containersPerLayer', labels.perLayer)}
           {whole('layersPerPallet', 'Layers per pallet')}
           {figures.piecesPerPalletCalculated ? (
-            <div className="grid content-start gap-1.5" data-testid="pieces-per-pallet-calculated">
+            <div
+              className="grid content-start gap-1.5"
+              data-slot="field"
+              data-testid="pieces-per-pallet-calculated"
+            >
               <span className="text-sm font-medium">Pieces per pallet</span>
-              <span className="flex min-h-9 items-center text-sm">
+              <span className="flex min-h-11 items-center text-sm sm:min-h-10">
                 {count(figures.piecesPerPallet) ??
                   `Fill in the ${labels.perContainer.toLowerCase()}`}
               </span>
@@ -1080,7 +1088,7 @@ export function PackOutCard({
             <legend className="px-1 text-sm font-medium">
               Returnable dunnage (the KAM ticked it at intake)
             </legend>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="field-row grid gap-4 sm:grid-cols-2">
               <Field label="Dunnage description" error={err('returnableDunnageDescription')}>
                 {(id) => (
                   <Input

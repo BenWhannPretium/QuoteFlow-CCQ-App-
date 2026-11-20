@@ -583,7 +583,7 @@ export function GateDecisionDialog({
                 </fieldset>
 
                 {needsCapacity && (
-                  <div className="grid gap-1" data-testid="capacity-approval">
+                  <div className="grid content-start gap-1" data-testid="capacity-approval">
                     <label
                       htmlFor={ids.capacity}
                       className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-1 text-sm font-medium"
@@ -607,7 +607,7 @@ export function GateDecisionDialog({
                 )}
 
                 {showReason && (
-                  <div className="grid gap-1.5">
+                  <div className="grid content-start gap-1.5">
                     <label htmlFor={ids.reason} className="text-sm font-medium">
                       {needsAcceptance ? 'Acceptance evidence' : 'Reason'}{' '}
                       {needsReason ? '(required)' : '(optional)'}
@@ -631,7 +631,7 @@ export function GateDecisionDialog({
                 )}
 
                 {needsDate && (
-                  <div className="grid gap-1.5">
+                  <div className="grid content-start gap-1.5">
                     <label htmlFor={ids.date} className="text-sm font-medium">
                       Review date (required)
                     </label>
@@ -657,7 +657,7 @@ export function GateDecisionDialog({
                 )}
 
                 {needsTarget && !sendingBack && (
-                  <div className="grid gap-1.5">
+                  <div className="grid content-start gap-1.5">
                     <label htmlFor={ids.target} className="text-sm font-medium">
                       Send back to (required)
                     </label>
@@ -704,7 +704,7 @@ export function GateDecisionDialog({
 
                 {needsAcceptance && (
                   <div className="grid gap-4 sm:grid-cols-2" data-testid="acceptance-fields">
-                    <div className="grid gap-1.5">
+                    <div className="grid content-start gap-1.5">
                       <label htmlFor={ids.accepted} className="text-sm font-medium">
                         Customer accepted on (required)
                       </label>
@@ -717,7 +717,7 @@ export function GateDecisionDialog({
                         aria-invalid={submitted && (!acceptedAt || acceptedInFuture)}
                       />
                     </div>
-                    <div className="grid gap-1.5">
+                    <div className="grid content-start gap-1.5">
                       <label htmlFor={ids.doc} className="text-sm font-medium">
                         Document link (optional)
                       </label>
@@ -739,7 +739,7 @@ export function GateDecisionDialog({
                 )}
 
                 {action?.closesAs === LOST_OUTCOME && (
-                  <div className="grid gap-1.5">
+                  <div className="grid content-start gap-1.5">
                     <label htmlFor={ids.competitor} className="text-sm font-medium">
                       Competitor (optional)
                     </label>
@@ -761,7 +761,7 @@ export function GateDecisionDialog({
                 )}
 
                 {canPickOwner && (
-                  <div className="grid gap-1.5">
+                  <div className="grid content-start gap-1.5">
                     <label htmlFor={ids.owner} className="text-sm font-medium">
                       Closure owner
                     </label>
@@ -778,7 +778,7 @@ export function GateDecisionDialog({
                   </div>
                 )}
 
-                <div className="grid gap-1.5">
+                <div className="grid content-start gap-1.5">
                   <label htmlFor={ids.note} className="text-sm font-medium">
                     {action?.requiresExceptionNote && !action.requiresNote
                       ? 'Strategic exception note (required)'
@@ -907,7 +907,7 @@ function SendBackChoice({
         )}
       </label>
       {picked && (
-        <div className="grid gap-1.5 pl-7" data-testid="send-to">
+        <div className="grid content-start gap-1.5 pl-7" data-testid="send-to">
           <label htmlFor={id} className="text-sm font-medium">
             Send to (required)
           </label>
@@ -990,7 +990,7 @@ function HoldOwnerPicker({
     ? choices
     : [...choices, { id: value.id, displayName: value.displayName, label: value.displayName }];
   return (
-    <fieldset className="grid gap-1.5" data-testid="hold-owner">
+    <fieldset className="grid content-start gap-1.5" data-testid="hold-owner">
       <legend className="text-sm font-medium">Hold owner (required)</legend>
       <p className="text-muted-foreground text-xs">
         The person who will clear the hold and get the quote moving again by the review date. They

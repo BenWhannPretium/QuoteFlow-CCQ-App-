@@ -158,7 +158,7 @@ function FeedbackPage() {
         description="Reports from the “Report an issue” button. Sev-1 and Sev-2 must be fixed by Thu Nov 12; Sev-3 and Sev-4 go to the P1 backlog unless trivial. Admin only."
       />
       <div className="mb-4 flex flex-wrap items-end gap-4">
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={statusId} className="text-xs font-medium">
             Status
           </label>
@@ -294,7 +294,7 @@ function TriageDialog({ item, onClose }: { item: FeedbackItem; onClose: () => vo
             });
           }}
         >
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="field-row grid gap-4 sm:grid-cols-3">
             <Field label="Status">
               {(id) => (
                 <NativeSelect

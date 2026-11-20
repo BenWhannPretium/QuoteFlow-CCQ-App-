@@ -81,7 +81,7 @@ export function ListEditor(props: ListEditorProps) {
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={ids.group} className="text-sm font-medium">
             {groupLabel}
           </label>
@@ -229,7 +229,7 @@ export function ListEditor(props: ListEditorProps) {
           )
         }
       >
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={ids.label} className="text-sm font-medium">
             Label
           </label>
@@ -283,7 +283,7 @@ export function ListEditor(props: ListEditorProps) {
           )
         }
       >
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={ids.code} className="text-sm font-medium">
             Code
           </label>
@@ -298,7 +298,7 @@ export function ListEditor(props: ListEditorProps) {
             Stored on quotes; letters, digits and _ - . + / only. It cannot be changed later.
           </span>
         </div>
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={`${ids.label}-new`} className="text-sm font-medium">
             Label
           </label>

@@ -93,7 +93,7 @@ function UsageReportPage() {
           setRange(draft);
         }}
       >
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.from} className="text-xs font-medium">
             From
           </label>
@@ -104,7 +104,7 @@ function UsageReportPage() {
             onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value || undefined }))}
           />
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.to} className="text-xs font-medium">
             To
           </label>

@@ -50,7 +50,7 @@ export function HandoffCer({ quote }: { quote: QuoteDetail }) {
           Set the CER links in Admin → Settings.
         </p>
       )}
-      <div className="grid gap-1 text-sm">
+      <div className="grid content-start gap-1 text-sm">
         <span className="font-medium">
           CER proof
           <span className="text-muted-foreground ml-2 text-xs font-normal">

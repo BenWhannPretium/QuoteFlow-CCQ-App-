@@ -173,7 +173,7 @@ export function PipelineToolbar({
         onClear={() => onChange(clearPipelineFilters(search))}
         extra={
           <div className="grid gap-3">
-            <div className="grid gap-1">
+            <div className="grid content-start gap-1">
               <label htmlFor={ids.aged} className="text-sm font-semibold">
                 In current stage for more than
               </label>
@@ -196,10 +196,10 @@ export function PipelineToolbar({
                 ))}
               </NativeSelect>
             </div>
-            <fieldset className="grid gap-1">
+            <fieldset className="grid content-start gap-1">
               <legend className="mb-1 text-sm font-semibold">Salesforce close date</legend>
               <div className="grid grid-cols-2 gap-2">
-                <label htmlFor={ids.from} className="grid gap-1 text-xs">
+                <label htmlFor={ids.from} className="grid content-start gap-1 text-xs">
                   From
                   <Input
                     id={ids.from}
@@ -214,7 +214,7 @@ export function PipelineToolbar({
                     }
                   />
                 </label>
-                <label htmlFor={ids.to} className="grid gap-1 text-xs">
+                <label htmlFor={ids.to} className="grid content-start gap-1 text-xs">
                   To
                   <Input
                     id={ids.to}

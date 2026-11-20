@@ -122,7 +122,7 @@ function InboxItem({ override: o }: { override: OverrideDto }) {
         <span className="font-semibold">{value(o.requestedValue)}</span>
       </p>
       <p className="text-foreground-2 text-sm whitespace-pre-line">{o.justification}</p>
-      <div className="grid gap-1.5">
+      <div className="grid content-start gap-1.5">
         <label htmlFor={noteId} className="text-xs font-medium">
           Note (required to approve or reject)
         </label>

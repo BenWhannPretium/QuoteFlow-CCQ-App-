@@ -89,7 +89,7 @@ export function TermsExceptionCard({
           ` Decided by ${exception.decidedByName ?? exception.approverLabel} on ${absoluteTime(exception.decidedAt)}.`}
       </p>
       {(exception.documentRequired || exception.document) && (
-        <div className="grid gap-1" data-testid="terms-exception-document">
+        <div className="grid content-start gap-1" data-testid="terms-exception-document">
           <span className="font-medium">
             Supporting document (Payment-terms approval)
             {exception.documentRequired && (

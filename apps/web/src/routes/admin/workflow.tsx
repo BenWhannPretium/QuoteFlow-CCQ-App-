@@ -329,7 +329,7 @@ function WorkflowPage() {
           });
         }}
       >
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={ids.label} className="text-sm font-medium">
             Label
           </label>
@@ -340,7 +340,7 @@ function WorkflowPage() {
             onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
           />
         </div>
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={ids.help} className="text-sm font-medium">
             Help text
           </label>
@@ -354,7 +354,7 @@ function WorkflowPage() {
           />
         </div>
         {editing?.kind === 'outcome' && (
-          <div className="grid gap-1">
+          <div className="grid content-start gap-1">
             <label htmlFor={ids.active} className="flex min-h-11 items-center gap-2 text-sm">
               <input
                 id={ids.active}

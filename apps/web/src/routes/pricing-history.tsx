@@ -96,7 +96,7 @@ function PricingHistoryPage() {
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-          <label className="grid gap-1 text-sm">
+          <label className="grid content-start gap-1 text-sm">
             <span className="font-medium">Customer</span>
             <Input
               value={customer}
@@ -104,7 +104,7 @@ function PricingHistoryPage() {
               placeholder="Customer name contains…"
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className="grid content-start gap-1 text-sm">
             <span className="font-medium">Number, product or item</span>
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. ERF25-123" />
           </label>

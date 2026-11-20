@@ -231,7 +231,7 @@ export function AttachmentsPanel({
       {canUpload && (
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto_minmax(0,1fr)] sm:items-end">
-            <label className="grid gap-1 text-sm font-medium" htmlFor={`${ids}-kind`}>
+            <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`${ids}-kind`}>
               File type
               <NativeSelect
                 id={`${ids}-kind`}
@@ -268,7 +268,7 @@ export function AttachmentsPanel({
                 }}
               />
             </label>
-            <label className="grid gap-1 text-sm font-medium" htmlFor={`${ids}-note`}>
+            <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`${ids}-note`}>
               Note (optional)
               <Input
                 id={`${ids}-note`}
