@@ -658,7 +658,7 @@ export class IntakeService {
         throw new IntakeError(
           409,
           INTAKE_PROBLEM_CODES.activeQuoteExists,
-          'This Salesforce opportunity already has an active CCQ quote',
+          'This Salesforce opportunity already has an active Commercial Capital Quote',
         );
       }
       throw err;
@@ -824,7 +824,7 @@ export class IntakeService {
           409,
           INTAKE_PROBLEM_CODES.activeQuoteExists,
           decision.reason === 'one'
-            ? `This Salesforce opportunity already has an active CCQ quote (${open[0]!.quoteNumber})`
+            ? `This Salesforce opportunity already has an active Commercial Capital Quote (${open[0]!.quoteNumber})`
             : activeQuoteWarning(settings.template, open)!,
           {
             quoteNumber: open[0]!.quoteNumber,
@@ -1296,7 +1296,10 @@ function incompleteError(evaluation: IntakeEvaluation): IntakeError {
   const has = (code: string) => evaluation.blocking.some((b) => b.code === code);
   const only = (code: string) => evaluation.blocking.every((b) => b.code === code);
   const [code, title] = has('REQUEST_CLASS_NOT_ALLOWED')
-    ? [INTAKE_PROBLEM_CODES.requestClassNotAllowed, 'This request class is not submitted to CCQ']
+    ? [
+        INTAKE_PROBLEM_CODES.requestClassNotAllowed,
+        'This request class is not submitted as a Commercial Capital Quote (CCQ)',
+      ]
     : only('DRAWING_OR_MIN_SPEC_REQUIRED')
       ? [
           INTAKE_PROBLEM_CODES.drawingOrMinSpecRequired,

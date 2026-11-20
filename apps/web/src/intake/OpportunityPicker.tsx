@@ -105,8 +105,9 @@ export function OpportunityPicker({
           title="Create the opportunity in Salesforce first"
           description={
             <>
-              Every CCQ quote starts from a Salesforce opportunity, so pipeline, priority and
-              outcomes stay linked to the deal. {mine && 'Not yours? Try “All”. '}
+              Every Commercial Capital Quote (CCQ) starts from a Salesforce opportunity, so
+              pipeline, priority and outcomes stay linked to the deal.{' '}
+              {mine && 'Not yours? Try “All”. '}
               Once it exists in Salesforce, search for it here.
             </>
           }

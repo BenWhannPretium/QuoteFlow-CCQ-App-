@@ -455,6 +455,10 @@ describe('W13-33: more than one active quote on an opportunity is a setting', ()
       const res = await submit(second.id);
       expect(res.statusCode).toBe(409);
       expect(res.json()).toMatchObject({ code: 'active_quote_exists', mode: 'one' });
+      // FB-33 (N19-20): the name is spelled out where a KAM is told what blocks the submit.
+      expect(JSON.stringify(res.json())).toContain(
+        'already has an active Commercial Capital Quote',
+      );
     } finally {
       await patchSetting('opportunity_active_quotes', 'warn');
     }

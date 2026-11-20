@@ -171,7 +171,8 @@ export const VALUE_LISTS: Record<ValueListKey, Entry[]> = {
     ['OTHER', 'Other', { freeText: true }],
   ],
   request_class: [
-    ['CCQ', 'CCQ (new business + capital/engineering)'],
+    // FB-33 (N19-20): spelled out. Migration 0059 renames it only where it is unedited.
+    ['CCQ', 'Commercial Capital Quote (CCQ): new business that needs engineering or capital'],
     // FB-24 (N17-03, Bailey Schmitt, Jordan): CCQ work that starts from a render, not a drawing. Provisional.
     ['CONCEPT', 'Concept / innovation'],
     ['STOCK', 'Stock / stock-plus'],

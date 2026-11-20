@@ -21,6 +21,11 @@ This folder is what testers use in UAT week (Mon Nov 9 to Fri Nov 13). Bailey Sc
 >
 > Labels in the scripts come from the app's code as built; Ben re-checks them against the test site before Nov 9.
 
+> **Updated 2026-11-19 for FB-33 (Nov 19 feedback: words on screen).** Changes testers will notice:
+> - **Commercial Capital Quote (N19-20):** the name is spelled out where a KAM is told what it is: the **Request class** list, its help, the "already has an active quote" message and the first line of the opportunity search. The button still reads **Submit to CCQ**; quote numbers (`CCQ-…`) and group names (`SG-CCQ-…`) are unchanged (kam steps 9 and 29).
+> - **Stock and stock-plus (N19-21):** the message for a **Stock / stock-plus** request says they are handled in **Salesforce**. Price inquiries and pack-out evaluations still say "pricing application" until Bailey and Darren confirm where they go.
+> - **Quote variants example (N19-13):** the example under **Quote variants requested** is about PCR levels only; it no longer mentions site choices.
+
 > **Updated 2026-11-19 for FB-31 (Nov 19 feedback: commercial terms governance).** Changes testers will notice:
 > - **Who approves payment terms (N19-07, provisional guess):** Net 45 still goes to the pricing lead; Net 60, Net 90, Net 120 and Other go to **Leadership** (standing in for the CFO), who can approve only once a **supporting document** (Payment-terms approval) is attached on the Commercial terms tab. The intake and the tab say who must approve. Open Net 60+ requests now wait for Leadership (kam steps 132–136, leadership steps 33–36).
 > - **Tooling funding (N19-08):** four choices: **Customer funded (lump sum)**, **Customer funded (amortized)**, **Pretium funded**, **To be determined**. **$0 CER** and **Shared** are no longer offered (old quotes keep them, marked "(no longer offered)"). Amortized needs a **finance review** sign-off by Leadership in Final Review before release (kam steps 133–134, leadership step 37).

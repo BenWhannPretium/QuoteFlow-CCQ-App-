@@ -270,7 +270,7 @@ const draftDataOf = (kinds: FieldKinds) =>
     subMarket: text(60),
     /**
      * FB-02 (F-075, interim answer to D-017 option B): the variants the customer wants priced, e.g.
-     * "0/25/50% PCR; near-site vs ideal-site". The limit is the provisional setting
+     * "0, 25 and 50% PCR". The limit is the provisional setting
      * `intake_variants_note_max_length` (300), checked by the domain. FB-19: a variant can also be an item.
      */
     quoteVariantsNote: text(2000),

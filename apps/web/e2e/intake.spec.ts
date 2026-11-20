@@ -369,7 +369,7 @@ test.describe('KAM intake', () => {
       await expect(page.getByTestId('fact-resin-grade')).toHaveText('Eastman Tritan TX1001');
   });
 
-  test('a request class other than CCQ points to the pricing application (F-067)', async ({
+  test('a request class other than CCQ points to where it is handled (F-067)', async ({
     page,
     request,
   }) => {
@@ -379,7 +379,7 @@ test.describe('KAM intake', () => {
     await page.getByRole('button', { name: /^Next/ }).click();
     await page.locator('#intake-request-class').selectOption({ label: 'Stock / stock-plus' });
     await expect(page.getByTestId('request-class-redirect')).toContainText(
-      'stay in the pricing application',
+      'Stock and stock-plus requests are handled in Salesforce',
     );
     await page.getByRole('button', { name: /^Next/ }).click();
     await expect(page.getByRole('button', { name: 'Submit to CCQ' })).toBeDisabled();

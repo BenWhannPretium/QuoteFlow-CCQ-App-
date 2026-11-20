@@ -123,7 +123,7 @@ describe('product facts (FB-02 §3–4: F-010, F-011, F-055, F-023, F-075, F-013
       colorType: 'CUSTOM',
       colorDescription: 'Pantone 286 C',
       additives: 'UV inhibitor',
-      quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
+      quoteVariantsNote: 'Price at 0, 25 and 50% PCR',
       components: ['CONTAINER', 'LINER', 'DECORATION'],
       linerSpec: 'Induction seal',
       // FB-24 (N17-02): an older client's single code is still read, as a one-code list.
@@ -149,7 +149,7 @@ describe('product facts (FB-02 §3–4: F-010, F-011, F-055, F-023, F-075, F-013
       colorType: 'CUSTOM',
       colorDescription: 'Pantone 286 C',
       additives: 'UV inhibitor',
-      quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
+      quoteVariantsNote: 'Price at 0, 25 and 50% PCR',
       linerSpec: 'Induction seal',
       labelsPurchasedBy: null,
       // FB-24 (N17-02): stored as decoration_types; the deprecated single column is no longer written.
@@ -165,7 +165,7 @@ describe('product facts (FB-02 §3–4: F-010, F-011, F-055, F-023, F-075, F-013
         resinGrade: 'LyondellBasell Pro-fax 6331',
         colorDescription: 'Pantone 286 C',
         additives: 'UV inhibitor',
-        quoteVariantsNote: 'Price at 0/25/50% PCR; near-site vs ideal-site',
+        quoteVariantsNote: 'Price at 0, 25 and 50% PCR',
       });
     }
   });

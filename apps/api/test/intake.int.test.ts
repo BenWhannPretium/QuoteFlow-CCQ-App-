@@ -430,7 +430,7 @@ describe('customer and ship-to', () => {
         code: 'REQUEST_CLASS_NOT_ALLOWED',
         field: 'request_class',
         message:
-          'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.',
+          'Stock and stock-plus requests are handled in Salesforce. Price inquiries and pack-out evaluations stay in the pricing application for now. Submit each one where it is handled.',
       },
     ]);
     const res = await submit(draft.id);

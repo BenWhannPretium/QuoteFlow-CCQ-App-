@@ -160,6 +160,9 @@ export const ATTACHMENT_KINDS_BY_PLACE = {
   handoff: ['cer_proof'],
 };
 export const INTAKE_REDIRECT_MESSAGE =
+  'Stock and stock-plus requests are handled in Salesforce. Price inquiries and pack-out evaluations stay in the pricing application for now. Submit each one where it is handled.';
+/** The text before FB-33 (N19-21); migration 0059 replaces it only where it is still this. */
+export const INTAKE_REDIRECT_MESSAGE_FB02 =
   'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
 
 /**
@@ -214,7 +217,7 @@ export const STOCK_HOLD_HELP_FB24 =
 /** "Why we ask", one line per intake field (keys are the snake_case intake field names). */
 export const INTAKE_FIELD_HELP: Record<string, string> = {
   sf_opportunity_id:
-    'Every CCQ quote starts from a Salesforce opportunity, so pipeline and outcomes stay linked.',
+    'Every Commercial Capital Quote (CCQ) starts from a Salesforce opportunity, so pipeline and outcomes stay linked.',
   customer:
     'The customer is the Salesforce Account on the opportunity. Tick "Not yet a Pretium customer" when it has no ERP account yet.',
   ship_to:
@@ -222,7 +225,7 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
   ship_to_override_reason:
     'A ship-to that differs from the account default changes the quote, so we record why.',
   request_class:
-    'CCQ is new business that needs engineering or capital. Concept / innovation is CCQ work that starts from a render or a photo instead of a drawing. Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application.',
+    'Commercial Capital Quote (CCQ) is new business that needs engineering or capital. Concept / innovation is CCQ work that starts from a render or a photo instead of a drawing. Stock and stock-plus are handled in Salesforce. Price inquiries and pack-out evaluations stay in the pricing application.',
   // FB-24 (N17-03): the concept's assumptions (provisional wording).
   concept_assumptions:
     'What the quote assumes about a product that is not designed yet (size, weight, resin, decoration). Engineering, Pricing and Final Review see it, and the offer letter states it.',
@@ -266,8 +269,7 @@ export const INTAKE_FIELD_HELP: Record<string, string> = {
     'Color and additives drive material cost. Describe a custom color. A stock color is the colorant Pretium uses for its stock items at that plant.',
   additives:
     'Optional note on additives. Required, as the customer-specified additive, when the additive is Other.',
-  quote_variants_note:
-    'Variants the customer wants priced, e.g. "0/25/50% PCR; near-site vs ideal-site". Optional.',
+  quote_variants_note: 'Variants the customer wants priced, e.g. "0, 25 and 50% PCR". Optional.',
   packaging_type: 'How it ships (bulk, bagged, trayed) changes pack-out, labour and freight.',
   packaging_notes: 'Pallet, case and labelling rules are a common reason quotes come back.',
   est_annual_volume:
