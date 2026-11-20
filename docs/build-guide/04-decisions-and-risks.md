@@ -259,6 +259,62 @@ These come from the **QuoteFlow Feedback Tracker** (`3. Design › Quote Flow �
 | 3 | One letter per quote, a pricing row per item (FB-19) | FB-20: one table row per item; each generation is a new letter number |
 | 4 | The wording is not approved: it is provisional config, and every letter carries "DRAFT: wording not yet approved by Legal" in its header until an Admin records Legal's approval | FB-20: `offer_letter_template`, `offer_letter_wording_approved` (false) |
 
+**Provisional values FB-33 seeded (built 2026-11-19; PR [#124](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/124)).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `value_list` request_class CCQ label | Commercial Capital Quote (CCQ): new business that needs engineering or capital | Whether the long form belongs in the label (question 2) | Darren Miller, Sarah Brennan |
+| `intake_redirect_message` | Stock and stock-plus requests are handled in Salesforce. Price inquiries and pack-out evaluations stay in the pricing application for now. Submit each one where it is handled. | Where price inquiries and pack-out evaluations are handled (question 1; D-030) | Darren Miller, Bailey Schmitt |
+| `intake_field_help.request_class`, `sf_opportunity_id`, `quote_variants_note` | as in the "What changed on screen" table under FB-33 in `03-build-steps.md` | the same | Bailey Schmitt |
+| G1 "not CCQ work" outcome help | names Salesforce for stock and stock-plus | Darren's confirmation that G1 should say it | Darren Miller |
+
+**Provisional values FB-32 seeded (built 2026-11-19; PR [#125](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/125)).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `app_setting.intake_sf_suggestions_enabled` | `false` (off) | Confirmation that Salesforce's `Color__c` is the product's colour | Zachary Cairns (Salesforce), then Ben Whann |
+| `PREFILL_MAP` `suggest` entry: `Color__c` → Color, exact match | in code (`packages/domain/src/intake/sf-prefill.ts`) | the same | Zachary Cairns |
+
+**Provisional values FB-31 seeded (built 2026-11-19; PR [#122](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/122)).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `terms_exception_routes` | Net 45: the pricing lead, no document; Net 60, Net 90, Net 120, Other: Leadership with a supporting document. **A guess from one sentence of the meeting, not policy** | Sarah and Oleg's exposure map and thresholds with Fede Barreto and James | Sarah Brennan, Oleg Yarovinski |
+| `terms.exception.decide.senior` (role_permission) | Leadership, a stand-in for the CFO | A CFO role (Entra group) or another decision | Ben Whann (with IT) |
+| `tooling_funding_model` labels and help | Customer funded (lump sum), Customer funded (amortized), Pretium funded, To be determined; one-sentence meanings (builder's draft) | Wording review | Bailey Schmitt, Sarah Brennan |
+| `tooling_funding_model` `ZERO_CER`, `SHARED` inactive | Retired for new choices (a guess from "unnecessarily complicated" and Darren Miller's four-item list) | Confirmation no real case needs them | Bailey Schmitt |
+| `AMORTIZED` `meta.requiresFinanceReview` | true | Finance review rule | Sarah Brennan, Oleg Yarovinski |
+| `g4_additional_approvals` rule `amortized_finance_review` | Active; Leadership signs "Finance review (Leadership)" | Whether Finance should approve (one matrix line) | Ben Whann, Sarah Brennan |
+| `intake_field_help.stock_hold_requested` | "Inventory and safety stock requirements in the customer's contract cost Pretium money to hold, so Pricing needs to know. Say for how long if you know." | Wording | Sarah Brennan |
+
+**Provisional values FB-30 seeded (built 2026-11-19; PR [#121](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/121)).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| (none) | FB-30 seeds no config, setting or list | | |
+
+The words on screen ("Engineering recommendation", "Capacity recommendation", "Capacity is signed off", "Capacity is blocked") are screen text, from the meeting; question 3 asks whether they fit.
+
+**Provisional values FB-29 seeded (built 2026-11-19; PR [#123](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/123)).**
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| `sf_writeback_enabled` | `false` | IT's write identity and permission review; the owner's mapping approval | Ben (with Rachel, IT) |
+| `sf_writeback_mode` | `dry_run` | A dry run in each environment, then a sandbox test | Ben |
+| `sf_writeback_map` entries | `outcome_recorded` on (`StageName`, closing for lost and expired); `requote_started` on (reopen to `requote`); `stage_changed` off (empty `stageMap`); `quote_link` off (no field) | Which events and fields QuoteFlow may write | Salesforce owner (Zachary Cairns?) and Ben |
+| `sf_writeback_map.stageRank` | The org's stages ranked 10 to 100; Closed Lost 90, Closed Won 100 | The real stage order | Salesforce owner |
+| `sf_outcome_stage_names` (FB-04, now also what is written) | awarded Verbal Award, negotiating Negotiating, lost and expired Closed Lost, requote Quoting | Which stages QuoteFlow may set | KAMs and the Salesforce owner |
+| `sf_writeback_stage_regression` | `skip` | Whether QuoteFlow may ever move a stage backwards | Salesforce owner |
+| `sf_writeback_max_attempts` | 5 | Operations preference | Ben |
+| `sf_writeback_retry_minutes` | 1, 5, 30, 120, 360 | Operations preference | Ben |
+| Write allow-list (`writeMap.ts`, code) | `Opportunity.StageName` | Custom field API names (quote number, link, QuoteFlow stage) | Salesforce owner, then a developer |
+
+**Provisional values FB-28 seeded (built 2026-11-19; PR [#120](https://github.com/BenWhannPretium/QuoteFlow-CCQ-App-/pull/120)): none.** FB-28 changes no product behaviour, config or seed.
+
+| Value | Seed | Waits on | Who signs off |
+|---|---|---|---|
+| (none) | | | |
+
 **Provisional values FB-26 seeded (built 2026-11-19; all `provisional: true`, changed by config, not code; migration 0054). Not built (prompt): re-pricing an expired quote for a resin-only change (open decision 6), changing `validity_days_default` (open decision 1), auto-closing expired quotes (D-12).**
 
 | Value | Seed | Waits on | Who signs off |
