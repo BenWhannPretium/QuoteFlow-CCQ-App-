@@ -2178,7 +2178,7 @@ export function ProductStep({
             id={fid('quote_variants_note')}
             aria-describedby={`${fid('quote_variants_note')}-help ${fid('quote_variants_note')}-count`}
             maxLength={variantsMax}
-            placeholder="e.g. price at 0/25/50% PCR; near-site vs ideal-site"
+            placeholder="e.g. price at 0, 25 and 50% PCR"
             value={data.quoteVariantsNote ?? ''}
             onChange={(e) => update({ quoteVariantsNote: nullIfBlank(e.target.value) })}
             className="min-h-16"

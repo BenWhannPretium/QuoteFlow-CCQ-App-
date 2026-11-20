@@ -29,6 +29,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { FlagKey } from '@/components/ui/flag-key';
 import { publicConfigQueryKey, stageLabel, usePublicConfig } from '@/config/public-config';
+import { oneQuotePerOpportunityMessage } from '@/intake/activeQuoteMessage';
 import {
   draftItemName,
   duplicateItem,
@@ -746,7 +747,7 @@ function Wizard({
         >
           <p>
             {draft.openQuotes.mode === 'one'
-              ? `This opportunity already has an active CCQ quote (${draft.openQuotes.quotes.map((q) => q.quoteNumber).join(', ')}). There is one quote per opportunity.`
+              ? oneQuotePerOpportunityMessage(draft.openQuotes.quotes.map((q) => q.quoteNumber))
               : draft.openQuotes.warning}{' '}
             {draft.activeQuote && (
               <Link

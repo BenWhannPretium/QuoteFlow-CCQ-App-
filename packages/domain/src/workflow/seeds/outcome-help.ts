@@ -21,7 +21,7 @@ export const OUTCOME_HELP: Record<string, string> = {
   'G1/rework':
     'Send it back to the KAM to fix the intake. Say exactly what is missing; the KAM resubmits it.',
   'G1/redirect':
-    'Not CCQ work (stock, stock-plus, a price inquiry, capital not tied to a quote). It closes as Redirected so it can take its own path.',
+    'Not CCQ work (stock or stock-plus, which are handled in Salesforce; a price inquiry; capital not tied to a quote). It closes as Redirected so it can take its own path.',
   'G1/stop': 'Do not pursue. It closes as Declined, with the reason recorded.',
   'SUBMIT/submit': 'Send the intake to the engineering queue.',
   // G2 Feasible solution? (upfront Engineering lead; the capacity owner signs off)

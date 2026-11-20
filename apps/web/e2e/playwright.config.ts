@@ -78,6 +78,8 @@ export default defineConfig({
         'fb29.spec.ts',
         // FB-32 (Nov 19 feedback): item 1's name from Salesforce; the Color hint.
         'fb32.spec.ts',
+        // FB-33 (Nov 19 feedback): words on screen.
+        'fb33.spec.ts',
         // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), one spec per area.
         'ux-tabs.spec.ts',
         'ux-quote-header.spec.ts',
