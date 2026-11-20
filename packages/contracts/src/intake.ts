@@ -77,6 +77,10 @@ const sfPrefillOf = ({ bounded }: FieldKinds) =>
     neckFinishTypeCustom: text(120),
     estAnnualVolume: bounded(MAX_VOLUME),
     containerSize: text(60),
+    /** FB-32: the item name Salesforce supplied (the specification's name, else its capacity). */
+    label: text(120),
+    /** FB-32: the color the KAM took from the "Salesforce says" hint (`intake_sf_suggestions_enabled`). */
+    colorType: text(60),
   });
 export const IntakeSfPrefill = sfPrefillOf(SENT);
 export type IntakeSfPrefill = z.infer<typeof IntakeSfPrefill>;

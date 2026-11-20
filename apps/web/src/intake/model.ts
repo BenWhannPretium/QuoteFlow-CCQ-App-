@@ -26,9 +26,15 @@ import {
   parseShipToSources,
   pickShipTo,
   renderDescriptionTemplate,
+  sfFillsFor,
+  sfPrefillOf,
+  sfSuggestionsFor,
+  type SfFills,
+  type SfSuggestion,
   type IntakeConfig,
   type IntakeEvaluation,
   type ListEntry,
+  type PrefillLists,
   type ShipToSourceKey,
 } from '@ccq/domain';
 
@@ -159,6 +165,8 @@ export interface WizardConfig {
   retired: Record<string, Record<string, string>>;
   /** FB-24 (N17-01): where the ship-to is pre-filled from, in order (`ship_to_sources`, provisional). */
   shipToSources: ShipToSourceKey[];
+  /** FB-32 (N19-04): show the "Salesforce says X, Use this" hints (`intake_sf_suggestions_enabled`, provisional, off). */
+  sfSuggestionsEnabled: boolean;
 }
 
 /**
@@ -191,6 +199,7 @@ export function wizardConfig(config: PublicConfigResponse | undefined): WizardCo
       lists,
       retired: config.retiredValues ?? {},
       shipToSources: parseShipToSources(s.ship_to_sources),
+      sfSuggestionsEnabled: s.intake_sf_suggestions_enabled === true,
     };
   } catch {
     return null;
@@ -547,12 +556,44 @@ export function suggestedDescription(data: IntakeDraftData, cfg: WizardConfig): 
   });
 }
 
-/** Value-list code matching SF text by code or label, ignoring case and punctuation. */
-function matchCode(cfg: WizardConfig, listKey: string, text: string | null | undefined) {
-  if (!text) return null;
-  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const t = norm(text);
-  return cfg.lists[listKey]?.find((e) => norm(e.code) === t || norm(e.label) === t)?.code ?? null;
+/** The value lists as the prefill map reads them (FB-32). */
+const listsOf =
+  (cfg: WizardConfig): PrefillLists =>
+  (listKey) =>
+    asListEntries(cfg, listKey);
+
+/** What the prefill map's `fill` entries read from one product specification (FB-32). */
+const sfFillsOf = (spec: SfProductSpec | undefined, cfg: WizardConfig): SfFills =>
+  sfFillsFor(spec, listsOf(cfg), { labelMaxLength: ITEM_LABEL_MAX });
+
+const fillText = (fills: SfFills, key: string): string | null => {
+  const v = fills[key];
+  return typeof v === 'string' ? v : null;
+};
+const fillNumber = (fills: SfFills, key: string): number | null => {
+  const v = fills[key];
+  return typeof v === 'number' ? v : null;
+};
+/** The three neck keys of the fills (all present when Salesforce's neck text parsed, none otherwise). */
+const fillNeck = (fills: SfFills) =>
+  'neckDiameter' in fills
+    ? {
+        neckDiameter: fillText(fills, 'neckDiameter'),
+        neckFinishType: fillText(fills, 'neckFinishType'),
+        neckFinishTypeCustom: fillText(fills, 'neckFinishTypeCustom'),
+      }
+    : null;
+
+/**
+ * FB-32 (N19-04): the "Salesforce says X, Use this" hints for one item's product specification, from the
+ * prefill map's `suggest` entries. Nothing while `intake_sf_suggestions_enabled` is off, none for a field
+ * the specification does not have or whose text is not exactly a list entry.
+ */
+export function sfSuggestionsForSpec(
+  spec: SfProductSpec | undefined,
+  cfg: WizardConfig,
+): SfSuggestion[] {
+  return cfg.sfSuggestionsEnabled ? sfSuggestionsFor(spec, listsOf(cfg)) : [];
 }
 
 /**
@@ -583,26 +624,23 @@ export function prefillFromOpportunity(
   const sfAccountId = account?.id ?? o.accountId ?? null;
   // The KAM's "not yet a Pretium customer" answer survives re-picking an opportunity on the same account.
   const sameAccount = current.customer?.sfAccountId === sfAccountId;
-  const sfResin = matchCode(cfg, 'resin', spec?.resin);
-  // F-010: SF's Neck_Finish__c by the same rule as the migration; blank when it can't be parsed.
-  const sfNeck = neckFromSalesforce(cfg, spec?.neckFinish);
-  const sfVolume = spec?.annualVolume ?? null;
-  const sfSize = spec?.capacity?.trim() ? spec.capacity.trim() : null;
-  const sfPrefill: NonNullable<IntakeDraftData['sfPrefill']> = {
-    resin: sfResin,
-    neckDiameter: sfNeck?.neckDiameter ?? null,
-    neckFinishType: sfNeck?.neckFinishType ?? null,
-    neckFinishTypeCustom: sfNeck?.neckFinishTypeCustom ?? null,
-    estAnnualVolume: sfVolume,
-    containerSize: sfSize,
-  };
+  // FB-32: what Salesforce supplies comes from the prefill map (`PREFILL_MAP`), not from code here.
+  const fills = sfFillsOf(spec, cfg);
   // FB-19: the first specification pre-fills item 1 (the others can be added from the Items list).
   const [first, ...others] = draftItems(current);
+  // FB-32 (B1): item 1's name comes from Salesforce only while the KAM has not typed one. A name that is
+  // the one Salesforce supplied last time is not typed: a different opportunity replaces it.
+  const typedLabel =
+    first?.label?.trim() && first.label !== first.sfPrefill?.label ? first.label : null;
+  if (typedLabel) delete fills.label;
+  const sfNeck = fillNeck(fills);
   const item1: IntakeItemData = {
     ...(first ?? newItem()),
     key: first?.key ?? newItemKey(),
     sfProductSpecId: spec?.id ?? first?.sfProductSpecId ?? null,
-    resin: sfResin ?? first?.resin ?? null,
+    label: fillText(fills, 'label') ?? typedLabel,
+    resin: fillText(fills, 'resin') ?? first?.resin ?? null,
+    // F-010: SF's Neck_Finish__c by the same rule as the migration; blank when it can't be parsed.
     ...(sfNeck
       ? sfNeck
       : {
@@ -610,9 +648,9 @@ export function prefillFromOpportunity(
           neckFinishType: first?.neckFinishType ?? null,
           neckFinishTypeCustom: first?.neckFinishTypeCustom ?? null,
         }),
-    estAnnualVolume: sfVolume ?? first?.estAnnualVolume ?? null,
-    containerSize: sfSize ?? first?.containerSize ?? null,
-    sfPrefill,
+    estAnnualVolume: fillNumber(fills, 'estAnnualVolume') ?? first?.estAnnualVolume ?? null,
+    containerSize: fillText(fills, 'containerSize') ?? first?.containerSize ?? null,
+    sfPrefill: sfPrefillOf(fills) as NonNullable<IntakeDraftData['sfPrefill']>,
   };
   const request = Object.fromEntries(
     Object.entries(current).filter(([k]) => !ITEM_KEYS.has(k)),
@@ -645,26 +683,16 @@ export function prefillFromOpportunity(
  * had, pre-filled the way item 1 is (resin, neck, volume and container size), tagged "from Salesforce".
  */
 export function itemFromSpec(spec: SfProductSpec, cfg: WizardConfig): IntakeItemData {
-  const resin = matchCode(cfg, 'resin', spec.resin);
-  const neck = neckFromSalesforce(cfg, spec.neckFinish);
-  const size = spec.capacity?.trim() ? spec.capacity.trim() : null;
-  const volume = spec.annualVolume ?? null;
+  const fills = sfFillsOf(spec, cfg);
   return {
     key: newItemKey(),
-    label: (spec.name?.trim() || size)?.slice(0, ITEM_LABEL_MAX) ?? null,
+    label: fillText(fills, 'label'),
     sfProductSpecId: spec.id,
-    resin,
-    ...(neck ?? {}),
-    estAnnualVolume: volume,
-    containerSize: size,
-    sfPrefill: {
-      resin,
-      neckDiameter: neck?.neckDiameter ?? null,
-      neckFinishType: neck?.neckFinishType ?? null,
-      neckFinishTypeCustom: neck?.neckFinishTypeCustom ?? null,
-      estAnnualVolume: volume,
-      containerSize: size,
-    },
+    resin: fillText(fills, 'resin'),
+    ...(fillNeck(fills) ?? {}),
+    estAnnualVolume: fillNumber(fills, 'estAnnualVolume'),
+    containerSize: fillText(fills, 'containerSize'),
+    sfPrefill: sfPrefillOf(fills) as NonNullable<IntakeDraftData['sfPrefill']>,
   };
 }
 

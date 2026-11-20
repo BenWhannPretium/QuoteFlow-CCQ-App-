@@ -148,4 +148,6 @@ export const PUBLIC_SETTING_KEYS = [
   'intake_min_spec_exempt_classes',
   'ship_to_sources',
   'attachment_kinds_by_place',
+  // FB-32 (N19-04; provisional, off): whether the intake offers "Salesforce says X, Use this" hints.
+  'intake_sf_suggestions_enabled',
 ] as const;
