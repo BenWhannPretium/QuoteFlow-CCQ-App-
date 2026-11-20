@@ -498,7 +498,7 @@ function ModelEditor({
         </fieldset>
         <fieldset className="bg-card rounded-card grid content-start gap-2 border p-3">
           <legend className="px-1 text-sm font-medium">Unknown inputs</legend>
-          <label className="grid gap-1 text-sm">
+          <label className="grid content-start gap-1 text-sm">
             Points when an input is unknown (unless the attribute says otherwise)
             <NumberCell
               label="Unknown score"

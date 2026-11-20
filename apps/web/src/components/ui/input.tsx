@@ -18,7 +18,8 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
       data-slot="input"
       className={cn(
         controlClass,
-        'min-h-11 py-2 sm:min-h-10',
+        // A fixed height (not a minimum) so a compact toolbar's `sm:h-9` takes effect.
+        'h-11 py-2 sm:h-10',
         // DR-pricing-finance-16: a date or time field's parts take focus inside the browser's own
         // control, where :focus-visible does not show; ring the field on :focus instead.
         (type === 'date' || type === 'datetime-local' || type === 'time') &&
@@ -48,7 +49,7 @@ function NativeSelect({ className, ...props }: React.ComponentProps<'select'>) {
   return (
     <select
       data-slot="select"
-      className={cn(controlClass, 'min-h-11 py-2 sm:min-h-10', className)}
+      className={cn(controlClass, 'h-11 py-2 sm:h-10', className)}
       {...props}
     />
   );

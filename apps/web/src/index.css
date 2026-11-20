@@ -236,6 +236,23 @@
 
 @layer components {
   /*
+   * A row of form fields lines up (forms.tsx `Field`): from `sm` up, each field spans three rows of the
+   * grid and shares them (subgrid), so labels, controls and hints sit on common lines across the row.
+   * A label that wraps moves the whole row's controls down together. The field's own gap stays between
+   * its parts; the grid's gap stays between rows of fields. On a phone fields stack, so nothing changes.
+   */
+  @media (min-width: 40.0625rem) {
+    .field-row > [data-slot='field'] {
+      grid-row: span 3;
+      grid-template-rows: subgrid;
+    }
+    /* A one-line label beside a two-line one sits on the control, not up at the top of the row. */
+    .field-row > [data-slot='field'] > :first-child {
+      align-self: end;
+    }
+  }
+
+  /*
    * DR-engineering-08, DR-kam-sales-leader-08, DR-pricing-finance-12, DR-approver-leadership-admin-12,
    * DR-cross-cutting-10: 44 px tap targets on a phone, for every screen at once. Quote-number links in
    * lists, queues and tables were 18-24 px tall; checkboxes 13-20 px. Desktop keeps its density.

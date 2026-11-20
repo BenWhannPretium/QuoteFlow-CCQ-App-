@@ -39,6 +39,10 @@ export function errorFor(errors: ServerError[], field: string): string | undefin
 /**
  * A labelled form field. The control's hint and error are tied to it with `aria-describedby`, and an
  * error sets `aria-invalid` (DR-engineering-01: a screen reader hears the message with the field).
+ *
+ * Fields side by side go in a grid with the `field-row` class (index.css): from `sm` up each field's
+ * label, control and hint share the row's tracks, so a label that wraps to two lines moves the whole
+ * row's controls down with it instead of leaving one control lower than its neighbours.
  */
 export function Field({
   label,
@@ -66,21 +70,29 @@ export function Field({
         ...(error ? { 'aria-invalid': true } : {}),
       })
     : control;
+  // Three parts (label, control, hint and error) so a `field-row` grid can line them up across a row.
   return (
-    <div className={cn('grid content-start gap-1.5', error && 'text-destructive')}>
+    <div
+      data-slot="field"
+      className={cn('grid content-start gap-1.5', error && 'text-destructive')}
+    >
       <label htmlFor={id} className="text-sm font-medium">
         <RequiredLabel required={required}>{label}</RequiredLabel>
       </label>
       {wired}
-      {hint && (
-        <span id={hintId} className="text-muted-foreground text-xs">
-          {hint}
-        </span>
-      )}
-      {error && (
-        <span id={errorId} className="text-destructive text-xs" role="alert">
-          {error}
-        </span>
+      {(hint || error) && (
+        <div className="grid content-start gap-1.5">
+          {hint && (
+            <span id={hintId} className="text-muted-foreground text-xs">
+              {hint}
+            </span>
+          )}
+          {error && (
+            <span id={errorId} className="text-destructive text-xs" role="alert">
+              {error}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

@@ -127,7 +127,7 @@ export function PricingHistoryImport() {
         </p>
       )}
       <div className="flex flex-wrap items-end gap-2">
-        <label htmlFor={inputId} className="grid gap-1 text-sm">
+        <label htmlFor={inputId} className="grid content-start gap-1 text-sm">
           <span className="font-medium">Export file</span>
           <input
             id={inputId}

@@ -230,7 +230,7 @@ export function ChangeDialog({
         >
           {children}
           {approval && (
-            <div className="grid gap-1.5">
+            <div className="grid content-start gap-1.5">
               <label htmlFor={ids.approval} className="text-sm font-medium">
                 Approval
               </label>
@@ -247,7 +247,7 @@ export function ChangeDialog({
               </NativeSelect>
             </div>
           )}
-          <div className="grid gap-1.5">
+          <div className="grid content-start gap-1.5">
             <label htmlFor={ids.reason} className="text-sm font-medium">
               Why are you making this change?
             </label>

@@ -76,7 +76,7 @@ export function FiltersPopover({
       >
         {extra}
         {groups.map((group) => (
-          <fieldset key={group.key} className="grid gap-1">
+          <fieldset key={group.key} className="grid content-start gap-1">
             <legend className="mb-1 text-sm font-semibold">{group.label}</legend>
             {group.options.map((option) => {
               const id = `${baseId}-${group.key}-${option.value}`;

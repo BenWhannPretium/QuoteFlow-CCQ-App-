@@ -230,7 +230,7 @@ export function AssignDialog({
           )}
           {/* FB-16 (W13-15): the second assignee. Shown when someone holds the role (or one is set). */}
           {(schedulers.length > 0 || currentSchedulerId) && (
-            <div className="grid gap-1.5" data-testid="assign-scheduler">
+            <div className="grid content-start gap-1.5" data-testid="assign-scheduler">
               <label htmlFor={schedulerFieldId} className="text-sm font-medium">
                 Production scheduler (optional)
               </label>

@@ -145,7 +145,7 @@ function OverrideLogPage() {
         description="Every override of a governed field, with the original value, the justification and who decided. Leadership and Admin only."
       />
       <div className="mb-4 flex flex-wrap gap-3">
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.status} className="text-xs font-medium">
             Status
           </label>
@@ -162,7 +162,7 @@ function OverrideLogPage() {
             ))}
           </NativeSelect>
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.field} className="text-xs font-medium">
             Field
           </label>

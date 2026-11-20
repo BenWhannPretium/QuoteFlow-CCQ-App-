@@ -866,7 +866,7 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
             if (!invalid) save.mutate();
           }}
         >
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="field-row grid gap-4 sm:grid-cols-3">
             {/* FB-16 (W13-13): the plant comes first; it decides which machine types are offered. */}
             <Field
               label={req('Plant / site', 'plant_code')}
@@ -901,9 +901,14 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
               )}
             </Field>
             {/* The process is derived from the pick (machine_type_process_map); it is shown, not chosen. */}
-            <div className="grid content-start gap-1.5" data-testid="derived-process">
+            <div
+              className="grid content-start gap-1.5"
+              data-slot="field"
+              data-testid="derived-process"
+            >
               <span className="text-sm font-medium">Process</span>
-              <span className="flex min-h-9 items-center text-sm">
+              {/* As tall as the selects beside it, so the value sits on their text line. */}
+              <span className="flex min-h-11 items-center text-sm sm:min-h-10">
                 {processShown ?? (
                   <span className="text-muted-foreground">Set by the process & machine type</span>
                 )}
@@ -1520,7 +1525,7 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
                 data-testid="capacity-row"
               >
                 <legend className="px-1 text-sm font-medium">Row {i + 1}</legend>
-                <div className="grid gap-3 sm:grid-cols-4">
+                <div className="field-row grid gap-3 sm:grid-cols-4">
                   <Field
                     label="Site"
                     hint={
@@ -1662,9 +1667,16 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
                       />
                     )}
                   </Field>
-                  <div className="grid content-start gap-1" data-testid="utilization-after-field">
+                  <div
+                    className="grid content-start gap-1.5"
+                    data-slot="field"
+                    data-testid="utilization-after-field"
+                  >
                     <span className="text-sm font-medium">Utilization after % (calculated)</span>
-                    <output className="text-sm" aria-live="polite">
+                    <output
+                      className="flex min-h-11 items-center text-sm sm:min-h-10"
+                      aria-live="polite"
+                    >
                       <UtilizationAfter pct={afterOf(r)} basis={basis} problem={rowProblem(r)} />
                     </output>
                     <span className="text-muted-foreground text-xs">Read-only. Not typed.</span>

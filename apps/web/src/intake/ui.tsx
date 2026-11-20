@@ -29,7 +29,9 @@ export function Field({
   className?: string;
 }) {
   return (
-    <div className={cn('grid min-w-0 gap-1.5', className)} data-field={id}>
+    // `content-start`: in a row of fields, a taller neighbour (longer help, a Salesforce note) must not
+    // stretch this field's label and control rows, or the controls drift out of line.
+    <div className={cn('grid min-w-0 content-start gap-1.5', className)} data-field={id}>
       <label htmlFor={id} className="text-sm font-medium" data-required={required || undefined}>
         {/* FB-15 (W13-02): a red asterisk before the label, not a grey "(required)" after it. */}
         <RequiredLabel required={Boolean(required)}>{label}</RequiredLabel>
@@ -206,7 +208,7 @@ export function ReadOnlyValue({
   testId?: string;
 }) {
   return (
-    <div className="grid min-w-0 gap-1.5" data-field={id}>
+    <div className="grid min-w-0 content-start gap-1.5" data-field={id}>
       <span id={`${id}-label`} className="flex flex-wrap items-center gap-2 text-sm font-medium">
         {label} <SfTag />
       </span>
@@ -235,7 +237,7 @@ export function ReadOnlyValue({
 export function Reveal({ when, children }: { when: boolean; children: ReactNode }) {
   if (!when) return null;
   return (
-    <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-4 motion-reduce:animate-none">
+    <div className="animate-in fade-in-0 slide-in-from-top-1 grid content-start gap-4 motion-reduce:animate-none">
       {children}
     </div>
   );

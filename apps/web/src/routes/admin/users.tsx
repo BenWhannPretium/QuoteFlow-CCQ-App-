@@ -188,7 +188,7 @@ function UsersPage() {
           })
         }
       >
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={ids.type} className="text-sm font-medium">
             Scope
           </label>
@@ -205,7 +205,7 @@ function UsersPage() {
           </NativeSelect>
         </div>
         {needsValues(scopeType) && (
-          <div className="grid gap-1.5">
+          <div className="grid content-start gap-1.5">
             <label htmlFor={ids.values} className="text-sm font-medium">
               {scopeType === 'region' ? 'Regions' : 'Salesforce account ids'} (one per line)
             </label>

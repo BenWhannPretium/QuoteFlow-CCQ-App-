@@ -161,7 +161,7 @@ function AuditPage() {
           setFilters(Object.fromEntries(Object.entries(draft).filter(([, v]) => v)));
         }}
       >
-        <div className="grid gap-1 lg:col-span-2">
+        <div className="grid content-start gap-1 lg:col-span-2">
           <label htmlFor={ids.user} className="text-xs font-medium">
             User
           </label>
@@ -184,7 +184,7 @@ function AuditPage() {
             ))}
           </datalist>
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.quote} className="text-xs font-medium">
             Quote
           </label>
@@ -201,7 +201,7 @@ function AuditPage() {
             }
           />
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.action} className="text-xs font-medium">
             Action
           </label>
@@ -223,7 +223,7 @@ function AuditPage() {
             ))}
           </NativeSelect>
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.from} className="text-xs font-medium">
             From
           </label>
@@ -234,7 +234,7 @@ function AuditPage() {
             onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value || undefined }))}
           />
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.to} className="text-xs font-medium">
             To
           </label>

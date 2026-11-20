@@ -151,7 +151,7 @@ function RoleChecks({
   onChange: (roles: string[]) => void;
 }) {
   return (
-    <fieldset className="grid gap-1" disabled={disabled}>
+    <fieldset className="grid content-start gap-1" disabled={disabled}>
       <legend className="text-xs font-medium">{legend}</legend>
       <div className="flex flex-wrap gap-x-3">
         {ROLES.filter((r) => r !== 'PostAward').map((role) => (
@@ -246,7 +246,7 @@ export function SettingEditor({
       );
     case 'text':
       return (
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={id} className="text-sm font-medium">
             Value
           </label>
@@ -260,7 +260,7 @@ export function SettingEditor({
       );
     case 'select':
       return (
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={id} className="text-sm font-medium">
             Value
           </label>
@@ -328,7 +328,7 @@ export function SettingEditor({
       return (
         <div className="grid grid-cols-2 gap-3">
           {(['aging', 'old'] as const).map((k) => (
-            <div key={k} className="grid gap-1.5">
+            <div key={k} className="grid content-start gap-1.5">
               <label htmlFor={`${id}-${k}`} className="text-sm font-medium">
                 {k === 'aging' ? 'Aging after (business days)' : 'Old after (business days)'}
               </label>
@@ -411,7 +411,7 @@ export function SettingEditor({
               <legend className="px-1 text-sm font-medium">
                 {f.label} <span className="text-muted-foreground font-mono text-xs">{f.field}</span>
               </legend>
-              <div className="grid gap-1.5">
+              <div className="grid content-start gap-1.5">
                 <label htmlFor={`${id}-${f.field}`} className="text-xs font-medium">
                   Approval
                 </label>
@@ -446,7 +446,7 @@ export function SettingEditor({
     case 'json':
     default:
       return (
-        <div className="grid gap-1.5">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={id} className="text-sm font-medium">
             Value (JSON)
           </label>

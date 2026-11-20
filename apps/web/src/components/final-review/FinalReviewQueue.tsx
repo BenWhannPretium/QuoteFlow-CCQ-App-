@@ -240,7 +240,7 @@ function Toolbar({
           id={searchId}
           type="search"
           placeholder="Quote, customer, KAM, ERF…"
-          className="h-11 w-full pl-8 sm:w-64"
+          className="h-11 w-full pl-8 sm:h-9 sm:w-64"
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />

@@ -233,7 +233,7 @@ function GenerateForm({ quoteNumber, data }: { quoteNumber: string; data: OfferL
         </p>
       )}
 
-      <div className="grid gap-1.5 sm:max-w-md">
+      <div className="grid content-start gap-1.5 sm:max-w-md">
         <label htmlFor="offer-attention" className="text-sm font-medium">
           Attention
         </label>

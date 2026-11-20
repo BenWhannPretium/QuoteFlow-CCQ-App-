@@ -318,7 +318,7 @@ function Toolbar({
           id={ids.search}
           type="search"
           placeholder="Quote, customer, KAM…"
-          className="h-9 w-56 pl-8"
+          className="h-11 w-56 pl-8 sm:h-9"
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />
@@ -328,7 +328,7 @@ function Toolbar({
       </label>
       <NativeSelect
         id={ids.aged}
-        className="h-9 w-auto"
+        className="h-11 w-auto sm:h-9"
         value={agedOver}
         onChange={(e) => onAgedOver(e.target.value)}
       >

@@ -299,7 +299,7 @@ export function OverrideDialog({
           </div>
 
           {field.field === 'priority_tier' && (
-            <div className="grid gap-1.5">
+            <div className="grid content-start gap-1.5">
               <label htmlFor={ids.value} className="text-sm font-medium">
                 New tier
               </label>
@@ -327,7 +327,10 @@ export function OverrideDialog({
               {ADDRESS_PARTS.map(([key, label]) => (
                 <label
                   key={key}
-                  className={cn('grid gap-1 text-xs', key === 'line1' && 'sm:col-span-2')}
+                  className={cn(
+                    'grid content-start gap-1 text-xs',
+                    key === 'line1' && 'sm:col-span-2',
+                  )}
                 >
                   <span className="text-muted-foreground">{label}</span>
                   <Input
@@ -341,7 +344,7 @@ export function OverrideDialog({
           )}
 
           {field.field === 'queue_position' && (
-            <div className="grid gap-1.5">
+            <div className="grid content-start gap-1.5">
               <label htmlFor={ids.value} className="text-sm font-medium">
                 Queue position (1 = top)
               </label>
@@ -355,7 +358,7 @@ export function OverrideDialog({
             </div>
           )}
 
-          <div className="grid gap-1.5">
+          <div className="grid content-start gap-1.5">
             <label htmlFor={ids.why} className="text-sm font-medium">
               Justification (required)
             </label>

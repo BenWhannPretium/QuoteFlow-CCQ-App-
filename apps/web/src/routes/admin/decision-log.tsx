@@ -106,7 +106,7 @@ function DecisionLogPage() {
           setFilters(Object.fromEntries(Object.entries(draft).filter(([, v]) => v)));
         }}
       >
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.entity} className="text-xs font-medium">
             What
           </label>
@@ -122,7 +122,7 @@ function DecisionLogPage() {
             ))}
           </NativeSelect>
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.from} className="text-xs font-medium">
             From
           </label>
@@ -133,7 +133,7 @@ function DecisionLogPage() {
             onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value || undefined }))}
           />
         </div>
-        <div className="grid gap-1">
+        <div className="grid content-start gap-1">
           <label htmlFor={ids.to} className="text-xs font-medium">
             To
           </label>

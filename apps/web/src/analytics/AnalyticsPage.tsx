@@ -119,7 +119,7 @@ function FilterBar({
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <label className="grid gap-1 text-xs font-medium">
+        <label className="grid content-start gap-1 text-xs font-medium">
           From
           <input
             type="date"
@@ -131,7 +131,7 @@ function FilterBar({
             onChange={(e) => set('from', e.target.value)}
           />
         </label>
-        <label className="grid gap-1 text-xs font-medium">
+        <label className="grid content-start gap-1 text-xs font-medium">
           To
           <input
             type="date"
@@ -143,7 +143,7 @@ function FilterBar({
             onChange={(e) => set('to', e.target.value)}
           />
         </label>
-        <label className="grid gap-1 text-xs font-medium">
+        <label className="grid content-start gap-1 text-xs font-medium">
           Market
           <select
             className={selectClass}
@@ -158,7 +158,7 @@ function FilterBar({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs font-medium">
+        <label className="grid content-start gap-1 text-xs font-medium">
           Product family
           <select
             className={selectClass}
@@ -173,7 +173,7 @@ function FilterBar({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs font-medium">
+        <label className="grid content-start gap-1 text-xs font-medium">
           KAM
           <select
             className={selectClass}
@@ -188,7 +188,7 @@ function FilterBar({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs font-medium">
+        <label className="grid content-start gap-1 text-xs font-medium">
           Region
           <select
             className={selectClass}

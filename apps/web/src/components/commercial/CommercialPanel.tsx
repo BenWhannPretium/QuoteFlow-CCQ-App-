@@ -614,7 +614,7 @@ function TermsEditor({ quote }: { quote: QuoteDetail }) {
         )}
 
         {legalBlock}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="field-row grid gap-4 sm:grid-cols-2">
           <Field label="Legal reviewed on" error={errorFor(errors, 'legal/reviewedOn')}>
             {(id) => (
               <Input
@@ -850,7 +850,7 @@ function EscalateSection({ quote }: { quote: QuoteDetail }) {
               if (problems.length === 0) send.mutate();
             }}
           >
-            <div className="grid gap-1.5">
+            <div className="grid content-start gap-1.5">
               <label htmlFor={ids.route} className="text-sm font-medium">
                 What needs a decision? (required)
               </label>
@@ -873,7 +873,7 @@ function EscalateSection({ quote }: { quote: QuoteDetail }) {
                 </p>
               )}
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid content-start gap-1.5">
               <label htmlFor={ids.note} className="text-sm font-medium">
                 Note (required)
               </label>
