@@ -76,6 +76,8 @@ export default defineConfig({
         'fb31.spec.ts',
         // FB-29: the Salesforce write-back card (fake writer).
         'fb29.spec.ts',
+        // FB-32 (Nov 19 feedback): item 1's name from Salesforce; the Color hint.
+        'fb32.spec.ts',
         // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), one spec per area.
         'ux-tabs.spec.ts',
         'ux-quote-header.spec.ts',
