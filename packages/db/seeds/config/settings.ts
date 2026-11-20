@@ -159,11 +159,9 @@ export const ATTACHMENT_KINDS_BY_PLACE = {
   // FB-26 (N17-32): the hand-off card's files.
   handoff: ['cer_proof'],
 };
+/** FB-33 (N19-21): migration 0059 replaces the earlier wording in existing environments only where it is unedited. */
 export const INTAKE_REDIRECT_MESSAGE =
   'Stock and stock-plus requests are handled in Salesforce. Price inquiries and pack-out evaluations stay in the pricing application for now. Submit each one where it is handled.';
-/** The text before FB-33 (N19-21); migration 0059 replaces it only where it is still this. */
-export const INTAKE_REDIRECT_MESSAGE_FB02 =
-  'Stock, stock-plus, price inquiries and pack-out evaluations stay in the pricing application for now. Submit them there.';
 
 /**
  * FB-02 (F-016): the minimum spec without a drawing (D-018 decided; the list is provisional).
