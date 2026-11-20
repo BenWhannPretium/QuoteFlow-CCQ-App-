@@ -97,8 +97,9 @@ test('the engineer and the scheduler each submit; the lead is told and decides f
   await expect(lead.getByTestId('go-to-decision')).toHaveCount(0);
 
   // ── The scheduler adds a row, the New chip goes, and they submit capacity at the end of their part ──
-  await sched.goto(`/quotes/${quoteNumber}?tab=engineering`);
-  const tab = sched.getByTestId('engineering-tab');
+  // FB-30 (N19-28): the scheduler's part is on the Capacity tab.
+  await sched.goto(`/quotes/${quoteNumber}?tab=capacity`);
+  const tab = sched.getByTestId('capacity-tab');
   await expect(tab.getByTestId('capacity-submit-needed')).toBeVisible();
   const capacity = tab.getByTestId('capacity-form');
   await capacity.getByRole('button', { name: 'Add capacity row' }).click();

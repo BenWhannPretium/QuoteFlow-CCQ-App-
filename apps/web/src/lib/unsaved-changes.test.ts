@@ -87,3 +87,20 @@ describe('itemHasUnsaved (switching items on a multi-item quote)', () => {
     expect(itemHasUnsaved(['price-approval'], undefined)).toBe(false);
   });
 });
+
+/**
+ * FB-30 (N19-28): the capacity rows are on their own tab now. Both tabs stay on the page and report to
+ * the same quote, so a capacity row typed on the Capacity tab still asks before the quote is left, and
+ * still holds the item on both tabs (they show the same item).
+ */
+describe('a capacity row typed on the Capacity tab', () => {
+  it('keeps the quote unsaved while the reader looks at another tab', () => {
+    const registry = createUnsavedRegistry();
+    registry.report('CCQ-2026-00001', 'capacity:item-1', true);
+    // Nothing on the Engineering tab is unsaved; the quote still is (leaving it asks first).
+    expect(registry.has('CCQ-2026-00001')).toBe(true);
+    expect(itemHasUnsaved(registry.cards('CCQ-2026-00001'), 'item-1')).toBe(true);
+    registry.report('CCQ-2026-00001', 'capacity:item-1', false);
+    expect(registry.has('CCQ-2026-00001')).toBe(false);
+  });
+});

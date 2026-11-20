@@ -29,6 +29,7 @@ import {
   type CapacityGlance,
 } from '@ccq/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import {
   CheckCircle2Icon,
   DownloadIcon,
@@ -50,12 +51,7 @@ import { decisionLabel, forwardReadiness, otherDecisionsLabel } from '@/lib/deci
 import { useSyncedForm } from '@/lib/synced-form';
 import { absoluteTime, todayCentral } from '@/lib/time';
 import { toast } from '@/lib/toast';
-import {
-  SWITCH_ITEM_UNSAVED_TEXT,
-  itemHasUnsaved,
-  unsavedRegistry,
-  useReportUnsaved,
-} from '@/lib/unsaved-changes';
+import { useReportUnsaved } from '@/lib/unsaved-changes';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import { AssignDialog, engQueueQueryKey } from './AssignDialog';
@@ -66,6 +62,8 @@ import {
   PackOutCard,
 } from './EngineeringCostCards';
 import { EquipmentBomCard, LegacyNotes, PricingInputsCard } from './EngineeringExtras';
+import { useEngineeringItem } from './item-context';
+import { CapacityRecommendation, EngineeringRecommendation } from './Recommendations';
 import { attachmentsQueryKey } from '../attachments/Attachments';
 import {
   Field,
@@ -96,13 +94,39 @@ const DF22_HELP =
   'Enter the effectiveness you are assuming. Past quotes assumed 85%; lines have actually run at about 70%.';
 
 /**
- * The quote's "Engineering" tab (B-10): assignment and acceptance, the Engineering Review solution
- * and the capacity evidence (CR-19). Editable by the EngLead and the assigned engineer while the
- * quote is in Engineering Review; read-only for everyone else. Commercial numbers come back only for
- * roles allowed to see them: for others the inputs are write-only ("leave blank to keep").
+ * FB-19 (W13-32 to W13-34): each item has its own solution, two-step and pack-out, and capacity rows;
+ * the assignment, the lead review and the capacity sign-off cover the quote. FB-30: the item on screen
+ * is shared by the Engineering and Capacity tabs (`useEngineeringItem`), so both show the same item.
+ */
+function useItemView(quote: QuoteDetail) {
+  const eng = quote.engineering;
+  const { index, select } = useEngineeringItem(
+    quote.quoteNumber,
+    eng.items.map((i) => i.id),
+  );
+  const view = eng.items[index];
+  const itemId = view?.id;
+  return {
+    many: eng.items.length > 1,
+    index,
+    // UX-001: showing another item takes this item's cards off both tabs, and what was typed in them.
+    select,
+    itemQuote: view ? withItemView(quote, view) : quote,
+    itemId,
+    itemKey: itemId ?? 'quote',
+  };
+}
+
+/**
+ * The quote's "Engineering" tab (B-10): assignment and acceptance, and the Engineering Review solution.
+ * Editable by the EngLead and the assigned engineer while the quote is in Engineering Review; read-only
+ * for everyone else. Commercial numbers come back only for roles allowed to see them: for others the
+ * inputs are write-only ("leave blank to keep").
  *
- * FB-16 (W13-15): two people work it. The solution is the engineer's part; the capacity rows and the
- * capacity sign-off are the production scheduler's part (when one is assigned). Each card says whose.
+ * FB-16 (W13-15): two people work the stage. The solution is the engineer's part; the capacity rows and
+ * the capacity sign-off are the production scheduler's part (when one is assigned). FB-30 (N19-28): the
+ * capacity part has its own tab (`CapacityTab`); this tab opens with the engineering recommendation and
+ * ends with the lead's decision (one G2 decision, made with the capacity evidence).
  */
 export function EngineeringTab({
   quote,
@@ -115,15 +139,7 @@ export function EngineeringTab({
   const refresh = useRefresh(quote.quoteNumber);
   const g2 = quote.availableActions.find((a) => a.gateKey === 'G2');
   const forward = forwardReadiness(quote.availableActions, 'G2');
-  // FB-19 (W13-32 to W13-34): each item has its own solution, two-step and pack-out, and capacity rows.
-  // The assignment, the lead review and the capacity sign-off cover the quote.
-  const [active, setActive] = useState(0);
-  const many = eng.items.length > 1;
-  const index = Math.min(active, Math.max(0, eng.items.length - 1));
-  const view = eng.items[index];
-  const itemQuote = view ? withItemView(quote, view) : quote;
-  const itemId = view?.id;
-  const itemKey = itemId ?? 'quote';
+  const { many, index, select, itemQuote, itemId, itemKey } = useItemView(quote);
   const otherLabel = otherDecisionsLabel(quote.status === 'on_hold');
   const me = useCurrentUser().user.id;
   // FB-22 (D2): a lead who is the assigned engineer decides on their own work; nothing to submit.
@@ -134,38 +150,28 @@ export function EngineeringTab({
   useEffect(() => {
     if (window.location.hash === '#decision') focusDecision();
   }, []);
-  // UX-001: showing another item takes this item's cards off the screen, and what was typed in them.
-  const selectItem = (next: number) => {
-    if (
-      next !== index &&
-      itemHasUnsaved(unsavedRegistry.cards(quote.quoteNumber), itemId) &&
-      !window.confirm(SWITCH_ITEM_UNSAVED_TEXT)
-    ) {
-      return;
-    }
-    setActive(next);
-  };
-  // The tab reads top to bottom in the order the work is done: who has it, where it stands, the
-  // work itself, then the one next step (submit to the lead, or the lead's decision) at the end.
+  // The tab reads top to bottom in the order the work is done: what is recommended, who has it, where
+  // it stands, the work itself, then the one next step (submit to the lead, or the lead's decision).
   return (
     <div className="grid gap-6" data-testid="engineering-tab">
       {waitingOnMe && <GoToDecision />}
+      {/* FB-30 (N19-28): the engineering recommendation, apart from the capacity one. */}
+      <EngineeringRecommendation quote={quote} />
       {/* FB-02: destination and mold modification from intake. */}
       <IntakeFactsHeader facts={quote.intakeFacts} shipTo={quote.shipTo} />
       {!many && <ProductFactsHeader facts={eng.productFacts} />}
       <AssignmentCard quote={quote} />
       <LeadReviewStatus kind="engineering" review={eng.leadReview} />
-      <EngPartsStatus review={eng.leadReview} />
+      <EngPartsStatus
+        review={eng.leadReview}
+        otherTab={{ quoteNumber: quote.quoteNumber, tab: 'capacity' }}
+      />
       <SectionLockLine lock={eng.lock} />
       {many && (
         <>
           {/* FB-19: the quote-level parts sit above the item switcher. */}
           <EquipmentBomCard quote={quote} />
-          <CapacitySignoffCard
-            key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
-            quote={quote}
-          />
-          <ItemSwitcher items={eng.items} active={index} onSelect={selectItem} />
+          <ItemSwitcher items={eng.items} active={index} onSelect={select} />
           <ProductFactsHeader facts={itemQuote.engineering.productFacts} />
         </>
       )}
@@ -222,29 +228,6 @@ export function EngineeringTab({
         testId="eng-submit"
         neededTestId="lead-review-needed"
       />
-      <CapacityCard
-        key={`${itemKey}:${itemQuote.engineering.capacityEvidence.map((r) => r.id).join()}`}
-        quote={itemQuote}
-        itemId={itemId}
-      />
-      {!many && (
-        <CapacitySignoffCard
-          key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
-          quote={quote}
-        />
-      )}
-      {/* FB-22 (N17-14): the production scheduler's Submit closes the capacity part. */}
-      <PartSubmit
-        quoteNumber={quote.quoteNumber}
-        canSubmit={eng.leadReview.canSubmitCapacity ?? false}
-        missing={eng.leadReview.capacitySubmitMissing}
-        blockedReason={null}
-        label="Submit capacity to engineering lead"
-        submit={() => api.submitCapacityToLead(quote.quoteNumber)}
-        onDone={(detail) => refresh(detail)}
-        testId="capacity-submit"
-        neededTestId="capacity-submit-needed"
-      />
       <LeadReviewActions
         hideSubmit
         selfReview={selfReview}
@@ -274,6 +257,139 @@ export function EngineeringTab({
         }
       />
     </div>
+  );
+}
+
+/**
+ * FB-30 (N19-28; Sarah Brennan, 2026-11-19): the quote's "Capacity" tab. Engineering and capacity are
+ * interdependent but "very different in what they're doing", so the capacity part has its own tab: the
+ * capacity recommendation (the sign-off) at the top, who works it, the capacity evidence with "Capacity
+ * at a glance", the CSV and analysis actions, the sign-off and the production scheduler's Submit. The
+ * lead's decision stays on the Engineering tab (one G2 decision): this tab links to it.
+ *
+ * It reads the same quote as the Engineering tab (one query on the page), so a save on either tab shows
+ * on both, and it shows the same item (`useEngineeringItem`).
+ */
+export function CapacityTab({
+  quote,
+  onGoToDecision,
+}: {
+  quote: QuoteDetail;
+  /** Opens the Engineering tab at the lead's decision (`#decision`). */
+  onGoToDecision: () => void;
+}) {
+  const eng = quote.engineering;
+  const refresh = useRefresh(quote.quoteNumber);
+  const g2 = quote.availableActions.find((a) => a.gateKey === 'G2');
+  const { many, index, select, itemQuote, itemId, itemKey } = useItemView(quote);
+  const signoff = (
+    <CapacitySignoffCard
+      key={`signoff-${eng.capacitySignoff.at ?? ''}-${eng.capacitySignoff.status ?? ''}`}
+      quote={quote}
+    />
+  );
+  return (
+    <div className="grid gap-6" data-testid="capacity-tab">
+      <CapacityRecommendation quote={quote} />
+      <CapacityPeople quote={itemQuote} />
+      <LeadReviewStatus kind="engineering" review={eng.leadReview} />
+      <EngPartsStatus
+        review={eng.leadReview}
+        otherTab={{ quoteNumber: quote.quoteNumber, tab: 'engineering' }}
+      />
+      {g2 && (
+        <p className="text-sm" data-testid="capacity-decision-link">
+          <a
+            href={`?tab=engineering#decision`}
+            className="text-emphasis font-semibold underline underline-offset-4"
+            onClick={(e) => {
+              e.preventDefault();
+              onGoToDecision();
+            }}
+          >
+            Go to the decision on the Engineering tab
+          </a>
+        </p>
+      )}
+      <SectionLockLine lock={eng.lock} />
+      {many && (
+        <>
+          {/* FB-19: the sign-off covers the quote: above the item switcher. */}
+          {signoff}
+          <ItemSwitcher items={eng.items} active={index} onSelect={select} />
+        </>
+      )}
+      <CapacityCard
+        key={`${itemKey}:${itemQuote.engineering.capacityEvidence.map((r) => r.id).join()}`}
+        quote={itemQuote}
+        itemId={itemId}
+      />
+      {!many && signoff}
+      {/* FB-22 (N17-14): the production scheduler's Submit closes the capacity part. */}
+      <PartSubmit
+        quoteNumber={quote.quoteNumber}
+        canSubmit={eng.leadReview.canSubmitCapacity ?? false}
+        missing={eng.leadReview.capacitySubmitMissing}
+        blockedReason={null}
+        label="Submit capacity to engineering lead"
+        submit={() => api.submitCapacityToLead(quote.quoteNumber)}
+        onDone={(detail) => refresh(detail)}
+        testId="capacity-submit"
+        neededTestId="capacity-submit-needed"
+      />
+    </div>
+  );
+}
+
+/**
+ * FB-30: the Capacity tab's own short header: who works capacity (assigned on the Engineering tab, shown
+ * here read-only), and the engineer's solution the capacity rows are calculated with.
+ */
+function CapacityPeople({ quote }: { quote: QuoteDetail }) {
+  const eng = quote.engineering;
+  const r = eng.review;
+  const solution = [
+    eng.selectedLabels.plantCode ?? r.plantCode,
+    eng.selectedLabels.machineType ?? r.machineType,
+    r.cavitation != null ? `cavitation ${r.cavitation}` : null,
+    r.cycleTimeS != null ? `cycle time ${r.cycleTimeS} s` : null,
+  ].filter(Boolean);
+  return (
+    <section
+      aria-label="Who works capacity"
+      className="bg-secondary grid gap-1 rounded-md px-4 py-3 text-sm"
+      data-testid="capacity-people"
+    >
+      <p data-testid="capacity-scheduler">
+        {eng.assignedSchedulerName ? (
+          <>
+            Production scheduler: <span className="font-medium">{eng.assignedSchedulerName}</span>
+          </>
+        ) : (
+          'No scheduler assigned: the engineer covers capacity.'
+        )}
+        {eng.assignedEngineerName && (
+          <span className="text-foreground-2"> · Engineer: {eng.assignedEngineerName}</span>
+        )}
+      </p>
+      <p className="text-muted-foreground text-xs">
+        Assigned on the{' '}
+        <Link
+          to="/quotes/$quoteNumber"
+          params={{ quoteNumber: quote.quoteNumber }}
+          search={{ tab: 'engineering' }}
+          className="text-emphasis underline underline-offset-4"
+        >
+          Engineering tab
+        </Link>
+        .
+      </p>
+      {solution.length > 0 && (
+        <p className="text-foreground-2" data-testid="capacity-solution">
+          Calculated with the engineer’s solution: {solution.join(' · ')}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -1393,8 +1509,8 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
           >
             {cavitation === null && rows.length > 0 && (
               <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="no-cavitation">
-                Enter the cavitation in the Solution section above: utilization after is calculated
-                from it.
+                The engineer’s solution has no cavitation yet (Engineering tab): utilization after
+                is calculated from it.
               </p>
             )}
             {rows.map((r, i) => (

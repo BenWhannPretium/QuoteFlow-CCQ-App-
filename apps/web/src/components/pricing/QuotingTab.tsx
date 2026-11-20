@@ -30,6 +30,7 @@ import { useReportUnsaved } from '@/lib/unsaved-changes';
 import { valueListLabel } from '@/lib/value-label';
 
 import { EngineeringInputsCard } from '../engineering/EngineeringExtras';
+import { CapacitySignoffSummary } from '../engineering/Recommendations';
 import {
   Field,
   FormErrors,
@@ -183,6 +184,8 @@ function FromEngineering({ quote }: { quote: QuoteDetail }) {
       data-testid="quoting-engineering-group"
     >
       {!quote.quoting.commercialRedacted && <EngineeringSummary quote={quote} />}
+      {/* FB-30 (N19-28): the capacity recommendation and evidence, in their own group. */}
+      {!quote.quoting.commercialRedacted && <CapacitySummary quote={quote} />}
       {quote.items.length > 1 && <EngineeringPerItem quote={quote} />}
       <EngineeringInputsCard quote={quote} />
     </section>
@@ -478,6 +481,29 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
             { id: 'concept', label: 'Technical concept', value: eng.review.technicalConceptNotes },
           ])}
         />
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * FB-30 (N19-28): capacity, apart from the engineering summary: the capacity recommendation (the
+ * sign-off, by whom, when, and the note) and the capacity evidence rows.
+ */
+function CapacitySummary({ quote }: { quote: QuoteDetail }) {
+  const { data: config } = usePublicConfig();
+  const eng = quote.engineering;
+  const label = (list: string, code: string | null) => valueListLabel(config, list, code);
+  if (eng.capacityEvidence.length === 0 && !eng.capacitySignoff.status) return null;
+  return (
+    <Card data-testid="quoting-capacity-group">
+      <CardHeader>
+        <CardTitle>
+          <h2 className="text-base font-semibold">Capacity</h2>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <CapacitySignoffSummary signoff={eng.capacitySignoff} />
         {eng.capacityEvidence.length > 0 && (
           <div className="grid gap-1 text-sm">
             <h3 className="font-medium">Capacity evidence</h3>

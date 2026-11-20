@@ -107,10 +107,11 @@ describe('nextStepLine', () => {
     expect(scheduler.text).toBe(
       'Waiting on you. Next: add the capacity evidence, then approve capacity or block it with a note.',
     );
+    // FB-30 (N19-28): the scheduler's part is on the Capacity tab.
     expect(scheduler.action).toEqual({
       kind: 'tab',
-      tab: 'engineering',
-      label: 'Open the Engineering tab',
+      tab: 'capacity',
+      label: 'Open the Capacity tab',
     });
     // A lead working the quote themselves has no one to submit to: the step ends in the decision.
     expect(

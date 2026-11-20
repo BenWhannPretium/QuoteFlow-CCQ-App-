@@ -71,6 +71,8 @@ export default defineConfig({
         'fb25.spec.ts',
         // FB-27: lists, timeline and polish.
         'fb27.spec.ts',
+        // FB-30 (Nov 19 feedback): Engineering and Capacity apart.
+        'fb30.spec.ts',
         'fb31.spec.ts',
         // UX proposals approved 2026-11-17 (docs/audit/03-ux-proposals.md), one spec per area.
         'ux-tabs.spec.ts',

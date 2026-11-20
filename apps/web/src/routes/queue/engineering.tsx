@@ -395,10 +395,11 @@ function MyAssignments({
               data-testid="my-assignment"
               data-quote={q.quoteNumber}
             >
+              {/* FB-30 (N19-28): a capacity request opens the Capacity tab. */}
               <Link
                 to="/quotes/$quoteNumber"
                 params={{ quoteNumber: q.quoteNumber }}
-                search={{ tab: 'engineering' }}
+                search={{ tab: scheduler ? 'capacity' : 'engineering' }}
                 className="text-emphasis font-semibold underline-offset-4 hover:underline"
               >
                 {q.quoteNumber}

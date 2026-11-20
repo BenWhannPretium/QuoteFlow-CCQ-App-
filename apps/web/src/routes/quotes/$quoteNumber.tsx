@@ -23,7 +23,8 @@ import {
 } from '@/components';
 import { AttachmentsPanel } from '@/components/attachments/Attachments';
 import { CommercialPanel } from '@/components/commercial/CommercialPanel';
-import { EngineeringTab } from '@/components/engineering/EngineeringTab';
+import { CapacityTab, EngineeringTab } from '@/components/engineering/EngineeringTab';
+import { EngineeringItemProvider } from '@/components/engineering/item-context';
 import { StageTimeBar } from '@/components/engineering/StageTimeBar';
 import { focusDecision } from '@/components/LeadReviewPanel';
 import {
@@ -36,6 +37,7 @@ import { OfferLetterCard } from '@/components/outcome/OfferLetterCard';
 import { RequoteLinks, RequoteSourcePanel } from '@/components/outcome/Requote';
 import { QuotingTab } from '@/components/pricing/QuotingTab';
 import {
+  CapacityGlance,
   EngineeringGlance,
   IntakeCard,
   PricingGlance,
@@ -61,6 +63,7 @@ import { STALE_QUOTE_TEXT, quoteLoadFailure } from '@/lib/quote-page-error';
 import {
   QUOTE_TABS,
   defaultQuoteTab,
+  engineeringPartFor,
   isQuoteTab,
   tabForHash,
   tabsWithWork,
@@ -77,6 +80,7 @@ import { useDocumentTitle } from '@/shell/useDocumentTitle';
 const TAB_LABELS: Record<QuoteTab, string> = {
   overview: 'Overview',
   engineering: 'Engineering',
+  capacity: 'Capacity',
   quoting: 'Quoting',
   commercial: 'Commercial terms',
   attachments: 'Attachments',
@@ -84,7 +88,8 @@ const TAB_LABELS: Record<QuoteTab, string> = {
 
 interface QuoteSearch {
   /**
-   * `?tab=engineering` opens the Engineering tab (B-10), `?tab=quoting` the Quoting tab (B-11),
+   * `?tab=engineering` opens the Engineering tab (B-10), `?tab=capacity` the Capacity tab (FB-30),
+   * `?tab=quoting` the Quoting tab (B-11),
    * `?tab=attachments` the files (B-16), `?tab=commercial` the commercial terms (FB-25), `?tab=overview`
    * the Overview. A named tab is exact, for every reader. With none, the quote opens on the reader's own
    * work (UX-012, `useQuoteTab`).
@@ -140,6 +145,12 @@ function useQuoteTab(quote: QuoteDetail | undefined): {
         inQuoting: quote.quoting.inQuoting,
         inIntake: quote.stageKey === 'INTAKE' && quote.status !== 'closed',
         termsWork: termsWorkFor(quote),
+        // FB-30: the scheduler's capacity part, or the part submitted to a lead.
+        part: engineeringPartFor({
+          nextStep: quote.nextStep,
+          parts: quote.engineering.leadReview.parts,
+          permissions,
+        }),
         permissions,
       }));
   const wanted = anchored ?? named;
@@ -263,7 +274,12 @@ function QuotePage() {
   const canDecideFinalReview = q.availableActions.some((a) => a.gateKey === 'G4');
   const tierOverride = q.overridableFields.find((f) => f.field === 'priority_tier')?.applied;
   // FB-25 (N17-18): a dot on a tab where the reader has work waiting.
-  const working = tabsWithWork({ nextStep: q.nextStep, termsWork: termsWorkFor(q) });
+  // FB-30: the engineering stage's dot is on Capacity when the reader's work is the capacity part.
+  const working = tabsWithWork({
+    nextStep: q.nextStep,
+    termsWork: termsWorkFor(q),
+    capacityWork: q.engineering.leadReview.canSubmitCapacity === true,
+  });
 
   return (
     <div className="grid gap-6" data-testid="quote-detail" data-stage={q.stageKey}>
@@ -405,7 +421,7 @@ function QuotePage() {
       >
         <UnsavedChangesGuard quoteNumber={q.quoteNumber} />
         {/* FB-25 (N17-18, N18-18): the tab bar is hard to miss. Larger labels, a filled selected tab, and
-            it stays under the page header while the page scrolls (index.css keeps focus clear of it). */}
+          it stays under the page header while the page scrolls (index.css keeps focus clear of it). */}
         <Tabs.List
           aria-label="Quote sections"
           className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-16 z-20 -mx-4 flex gap-1 overflow-x-auto border-b px-4 backdrop-blur sm:mx-0 sm:px-0"
@@ -454,6 +470,8 @@ function QuotePage() {
               <IntakeCard quote={q} />
               <div className="grid content-start gap-6">
                 <EngineeringGlance quote={q} />
+                {/* FB-30 (N19-28): capacity in its own card, apart from engineering. */}
+                <CapacityGlance quote={q} />
                 <PricingGlance quote={q} />
               </div>
             </div>
@@ -490,20 +508,33 @@ function QuotePage() {
             </CardContent>
           </Card>
         </Tabs.Content>
-        <Tabs.Content value="engineering" {...kept('engineering')}>
-          {/* FB-26 (N17-30): on a linked re-quote, the expired quote's solution (read only). */}
-          <RequoteSourcePanel quote={q} className="mb-4" />
-          <EngineeringTab
-            quote={q}
-            onDecide={(outcome, scope) =>
-              setDeciding({
-                gate: 'G2',
-                ...(outcome ? { outcome } : {}),
-                ...(scope ? { scope } : {}),
-              })
-            }
-          />
-        </Tabs.Content>
+        {/* FB-30: the Engineering and Capacity tabs show the same item of a multi-item quote. */}
+        <EngineeringItemProvider key={q.quoteNumber} quoteNumber={q.quoteNumber}>
+          <Tabs.Content value="engineering" {...kept('engineering')}>
+            {/* FB-26 (N17-30): on a linked re-quote, the expired quote's solution (read only). */}
+            <RequoteSourcePanel quote={q} className="mb-4" />
+            <EngineeringTab
+              quote={q}
+              onDecide={(outcome, scope) =>
+                setDeciding({
+                  gate: 'G2',
+                  ...(outcome ? { outcome } : {}),
+                  ...(scope ? { scope } : {}),
+                })
+              }
+            />
+          </Tabs.Content>
+          {/* FB-30 (N19-28): the capacity part, on its own tab; the G2 decision stays on Engineering. */}
+          <Tabs.Content value="capacity" {...kept('capacity')}>
+            <CapacityTab
+              quote={q}
+              onGoToDecision={() => {
+                if (tab !== 'engineering') selectTab('engineering');
+                setGoingToDecision('G2');
+              }}
+            />
+          </Tabs.Content>
+        </EngineeringItemProvider>
         {/* FB-25 (N18-18): the Commercial terms panel, unchanged in behaviour, on its own tab. */}
         <Tabs.Content value="commercial" {...kept('commercial')}>
           <CommercialPanel quote={q} />

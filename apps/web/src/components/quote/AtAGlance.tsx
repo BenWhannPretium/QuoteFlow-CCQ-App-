@@ -1,8 +1,15 @@
-import { BUDGETARY_CAPITAL_LABEL, type QuoteDetail, type QuotingStepStatus } from '@ccq/contracts';
+import type { QuoteDetail, QuotingStepStatus } from '@ccq/contracts';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 import { useCapitalTermItems } from '@/components/commercial/CapitalTerms';
+import {
+  CapacitySignoffSummary,
+  capacityNotesText,
+  solutionItems,
+  solutionViews,
+  useCapacityHeadlines,
+} from '@/components/engineering/Recommendations';
 import { standardTermsFrom, NonStandardTermsBadge } from '@/components/intake/CommercialInputs';
 import { ConceptBadge, conceptClassesFrom } from '@/components/intake/ConceptBadge';
 import { intakeFactItems } from '@/components/intake/IntakeFacts';
@@ -182,65 +189,59 @@ export function IntakeCard({ quote }: { quote: QuoteDetail }) {
   );
 }
 
+/** FB-30: the way from an Overview card to the tab where its work is done. */
+function TabLink({
+  quote,
+  tab,
+  label,
+  testId,
+}: {
+  quote: QuoteDetail;
+  tab: 'engineering' | 'capacity';
+  label: string;
+  testId: string;
+}) {
+  return (
+    <Link
+      to="/quotes/$quoteNumber"
+      params={{ quoteNumber: quote.quoteNumber }}
+      search={{ tab }}
+      className="text-emphasis inline-flex min-h-11 items-center text-sm font-medium underline-offset-4 hover:underline sm:min-h-0"
+      data-testid={testId}
+    >
+      {label}
+    </Link>
+  );
+}
+
 /**
- * Engineering, per item: plant, process and machine, cavitation, cycle time, the budgetary capital, the
- * engineer's notes and the capacity notes, and who decided feasibility (G2). Faron (N17-18) could not
- * find these on a closed quote.
+ * Engineering, per item: plant, process and machine, cavitation, cycle time, the budgetary capital and
+ * the engineer's notes, and who decided feasibility (G2). Faron (N17-18) could not find these on a
+ * closed quote. FB-30 (N19-28): the engineering recommendation only; capacity has its own card
+ * (`CapacityGlance`).
  */
 export function EngineeringGlance({ quote }: { quote: QuoteDetail }) {
   const e = quote.engineering;
   const g2 = quote.quoting.g2;
-  const items =
-    e.items.length > 0
-      ? e.items
-      : [
-          {
-            id: 'quote',
-            name: '',
-            review: e.review,
-            capacityEvidence: e.capacityEvidence,
-            selectedLabels: e.selectedLabels,
-          },
-        ];
+  const items = solutionViews(e);
   const multi = items.length > 1;
-  const rowsFor = (item: (typeof items)[number]): KeyValueItem[] => {
-    const r = item.review;
-    const capacityNotes = item.capacityEvidence
-      .map((row) => row.notes?.trim())
-      .filter(Boolean)
-      .join(' · ');
-    return withValues([
-      { id: 'plant', label: 'Plant', value: item.selectedLabels.plantCode ?? r.plantCode },
-      {
-        id: 'process',
-        label: 'Process and machine',
-        value: [
-          item.selectedLabels.processType ?? r.processType,
-          item.selectedLabels.machineType ?? r.machineType,
-        ]
-          .filter(Boolean)
-          .join(' · '),
-      },
-      { id: 'platform', label: 'Machine platform', value: r.machinePlatform },
-      { id: 'cavitation', label: 'Cavitation', value: r.cavitation },
-      {
-        id: 'cycle',
-        label: 'Cycle time',
-        value: r.cycleTimeS != null ? `${r.cycleTimeS} s` : null,
-      },
-      { id: 'capital', label: BUDGETARY_CAPITAL_LABEL, value: money(r.prelimCapitalUsd) },
-      { id: 'tooling-notes', label: 'Engineer’s notes (tooling)', value: r.toolingNotes },
-      // Kept for older quotes (FB-22 stops collecting it).
-      { id: 'concept', label: 'Technical concept', value: r.technicalConceptNotes },
-      { id: 'capacity-notes', label: 'Capacity notes', value: capacityNotes },
-    ]);
-  };
   const g2Text = g2
     ? `${g2.outcomeLabel}${g2.decidedByName ? ` · ${g2.decidedByName}` : ''} · ${absoluteTime(g2.decidedAt)}`
     : null;
-  const anything = items.some((i) => rowsFor(i).length > 0) || g2 || e.assignedEngineerName;
+  const anything = items.some((i) => solutionItems(i).length > 0) || g2 || e.assignedEngineerName;
   return (
-    <GlanceCard title="Engineering" testId="glance-engineering">
+    <GlanceCard
+      title="Engineering"
+      testId="glance-engineering"
+      aside={
+        <TabLink
+          quote={quote}
+          tab="engineering"
+          label="Open the Engineering tab"
+          testId="glance-engineering-open"
+        />
+      }
+    >
       {!anything ? (
         <Nothing>Engineering has not recorded anything yet.</Nothing>
       ) : (
@@ -248,13 +249,12 @@ export function EngineeringGlance({ quote }: { quote: QuoteDetail }) {
           <KeyValueGrid
             items={withValues([
               { id: 'engineer', label: 'Engineer', value: e.assignedEngineerName },
-              { id: 'scheduler', label: 'Production scheduler', value: e.assignedSchedulerName },
               { id: 'g2', label: 'Feasibility decided', value: g2Text },
             ])}
           />
           {g2?.note && <p className="text-foreground-2 text-sm whitespace-pre-line">{g2.note}</p>}
           {items.map((item) => {
-            const rows = rowsFor(item);
+            const rows = solutionItems(item);
             if (rows.length === 0) return null;
             return (
               <section
@@ -268,6 +268,62 @@ export function EngineeringGlance({ quote }: { quote: QuoteDetail }) {
               </section>
             );
           })}
+        </>
+      )}
+    </GlanceCard>
+  );
+}
+
+/**
+ * FB-30 (N19-28): capacity, apart from engineering. The production scheduler, the capacity
+ * recommendation (the sign-off: approved or blocked, by whom, when, and the note), each capacity row in a
+ * line, and the rows' notes.
+ */
+export function CapacityGlance({ quote }: { quote: QuoteDetail }) {
+  const e = quote.engineering;
+  const items = solutionViews(e);
+  const multi = items.length > 1;
+  const headlines = useCapacityHeadlines(e);
+  const notes = withValues(
+    items.map((item) => ({
+      id: `notes-${item.id}`,
+      label: multi ? `Capacity notes, ${item.name}` : 'Capacity notes',
+      value: capacityNotesText(item.capacityEvidence),
+    })),
+  );
+  const anything =
+    e.assignedSchedulerName || e.capacitySignoff.status || headlines.length > 0 || notes.length > 0;
+  return (
+    <GlanceCard
+      title="Capacity"
+      testId="glance-capacity"
+      aside={
+        <TabLink
+          quote={quote}
+          tab="capacity"
+          label="Open the Capacity tab"
+          testId="glance-capacity-open"
+        />
+      }
+    >
+      {!anything ? (
+        <Nothing>Capacity has not been recorded yet.</Nothing>
+      ) : (
+        <>
+          <KeyValueGrid
+            items={withValues([
+              { id: 'scheduler', label: 'Production scheduler', value: e.assignedSchedulerName },
+            ])}
+          />
+          <CapacitySignoffSummary signoff={e.capacitySignoff} />
+          {headlines.length > 0 && (
+            <ul className="text-foreground-2 grid gap-1 text-sm" data-testid="glance-capacity-rows">
+              {headlines.map((h) => (
+                <li key={h.id}>{h.text}</li>
+              ))}
+            </ul>
+          )}
+          {notes.length > 0 && <KeyValueGrid items={notes} />}
         </>
       )}
     </GlanceCard>

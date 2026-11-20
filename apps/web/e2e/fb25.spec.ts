@@ -129,6 +129,8 @@ test('N18-18: Commercial terms has its own tab; the Overview is a read-only summ
   await expect(tabs.getByRole('tab')).toHaveText([
     'Overview',
     'Engineering',
+    // FB-30 (N19-28): Capacity has its own tab, beside Engineering.
+    'Capacity',
     'Quoting',
     'Commercial terms',
     'Attachments',
@@ -160,9 +162,13 @@ test('N18-18: Commercial terms has its own tab; the Overview is a read-only summ
   await expect(glance.locator('input, select, textarea')).toHaveCount(0);
   const eng = glance.getByTestId('glance-engineering');
   await expect(eng).toContainText('Two-cavity pilot mold first');
-  await expect(eng).toContainText('Line 3 has room after the summer changeover');
   await expect(eng).toContainText('Feasibility decided');
   await expect(eng).not.toContainText('Technical concept');
+  // FB-30 (N19-28): capacity has its own card, with the sign-off; its notes moved there.
+  const cap = glance.getByTestId('glance-capacity');
+  await expect(cap).toContainText('Line 3 has room after the summer changeover');
+  await expect(cap).toContainText('Capacity is signed off');
+  await expect(eng).not.toContainText('Line 3 has room after the summer changeover');
   await expect(glance.getByTestId('glance-pricing')).toContainText('Price approval');
   const terms = glance.getByTestId('glance-terms');
   await expect(terms).toContainText('Net 30');
