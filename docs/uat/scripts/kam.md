@@ -301,6 +301,18 @@ Added for the Nov 19 feedback (N19-07, N19-08, N19-10). Who approves which payme
 | 136 | On a quote of yours in Engineering or later, **Commercial terms** tab: pick **Net 60**, answer the tooling commitment, **Save terms**. Then **Upload the supporting document** (a PDF). | The toast says Leadership has been asked to decide. The **Payment-terms exception** card says **Waiting for Leadership**, "Supporting document (Payment-terms approval): Needed before it can be approved", then shows your file (v1). Leadership is told; the pricing lead is not. | | |
 | 137 | Are "inventory requirements" and "safety stock requirements" the words in the contracts? Are the four funding choices the right ones (is anything lost without $0 CER and Shared)? | Write the answers in Notes. | | |
 
+## FB-32: less double entry (2026-11-19)
+
+Added for the Nov 19 feedback (N19-04, Sarah Brennan). The Color hint is **off** until Zachary Cairns confirms what the Salesforce field means (Admin → Settings → `intake_sf_suggestions_enabled`).
+
+| # | Action | Expected result | Pass/Fail | Notes |
+|---|---|---|---|---|
+| 138 | **New intake**, pick an opportunity that has a Salesforce product, go to step 3. Read **Item name** under **Item**. | It is filled with the Salesforce product's name (else its size) and carries **from Salesforce** and "Change it here if it is wrong. Salesforce is not updated." | | |
+| 139 | Type your own item name. Read the line under it. Click **Use the Salesforce value**. | The line says what Salesforce has and offers the way back; the click puts the Salesforce name back. | | |
+| 140 | Go back to step 1, pick the same opportunity again (or another), return to step 3 with an item name you typed yourself. | Your typed name is still there; Salesforce does not replace it. | | |
+| 141 | (Admin turns the setting on first.) On step 3 under **Color** for an opportunity whose Salesforce **Color** is "Natural". | "Color in Salesforce says "Natural"." and a **Use this** button; nothing is chosen for you. **Use this** picks Natural, tags it **from Salesforce** and offers the way back. With the setting off, or a Salesforce color that is not on the list, there is no hint. | | |
+| 142 | Is anything still typed twice (in Salesforce and here) that a KAM would expect QuoteFlow to know? Which of these should Zachary confirm first (market, sub-market, container size, neck finish, finished-good type)? | Write the answers in Notes; they go to `docs/build-guide/feedback/salesforce-prefill-candidates.md`. | | |
+
 ## Sign-off
 
 | Tester | Role | Date | Overall pass/fail | Comments |

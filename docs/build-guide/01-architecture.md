@@ -428,6 +428,8 @@ The full column list, with each column's meaning and owner, is generated into [`
 | **Fabric** (D&A) | Out (continuous copy) | **Required by L-8** (Oleg Yarovinski + Brennan Paul): all new data QuoteFlow creates is stored in Pretium's Fabric tenant. **Fabric mirroring** of the CCQ Postgres database into a D&A-owned workspace (§6.1, B-27). No app code on the data path; the deploy pipeline stops/starts mirroring around migrations. Certified analytics are built on the mirror by D&A; MVP dashboards stay labelled "operational; not D&A-certified". | Brennan Paul (workspace, capacity, Fabric security); IT (Postgres settings, VNet data gateway) | Data stays in Azure Postgres only; mirroring starts when the workspace is ready (D-FB5) |
 | **Ranger AI** | — | P1. Advisory only, via an API when its contract and PoC conclude. | Bailey / Zac | — |
 
+**Salesforce prefill (FB-32, N19-04).** The intake fills what Salesforce already holds and tags it "from Salesforce" (the KAM can change it; nothing is written back by this path). Which Salesforce product-specification field feeds which question is the data map `PREFILL_MAP` in `packages/domain/src/intake/sf-prefill.ts` (`fill` entries pre-fill; `suggest` entries only offer "Salesforce says X, Use this" for an exact list match, behind the provisional setting `intake_sf_suggestions_enabled`, seeded off); the field names themselves stay only in `fieldMap.ts`. A confirmed field is one entry in each. What is not yet mapped, and what Zachary Cairns must confirm, is in `docs/build-guide/feedback/salesforce-prefill-candidates.md`.
+
 Every integration call writes an `integration_run` row, and failures alert the owners only (PRD).
 
 ### 6.1 Fabric data landing (L-8, B-27)
