@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { QuoteSfWriteback } from './sf-writeback';
+
 // ── B-13: customer decision, closure, validity, hand-off ─────────────────────────────────────────
 
 export const ValidityState = z.enum(['none', 'valid', 'expiring', 'expired']);
@@ -106,6 +108,11 @@ export const CustomerDecisionDetail = z.object({
   receivingRoles: z.array(CodeLabel),
   /** FB-04 (F-076): outcome key → the Salesforce stage named in the "update the opportunity" reminder. */
   sfStageByOutcome: z.record(z.string(), z.string()),
+  /**
+   * FB-29: when the write-back is on (live, with a write connection) the reminder says QuoteFlow updates
+   * Salesforce and shows the latest write's state; otherwise it keeps asking the KAM. Absent = off.
+   */
+  sfWriteback: QuoteSfWriteback.optional(),
   acceptanceEvidenceOptions: z.array(CodeLabel),
   /**
    * FB-26 (N17-32): the CER at hand-off. The links are `cer_tool_url` / `cer_template_url` (null while not

@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 import { PricingHistoryImport } from '@/admin/PricingHistoryImport';
 import { adminKey, BackToAdmin, useCanEditConfig } from '@/admin/shared';
+import { SfWritebackCard } from '@/components/admin/SfWritebackCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable } from '@/components/DataTable';
 import { EmptyState } from '@/components/EmptyState';
@@ -181,7 +182,7 @@ function IntegrationsPage() {
       <PageHeader
         eyebrow="Configuration"
         title="Integrations"
-        description="Salesforce is read every 15 minutes (read-only). Failures alert admins; the app keeps working from the last snapshot. Pricing history is the retired pricing app's export, imported here."
+        description="Salesforce is read every 15 minutes. QuoteFlow writes back to Salesforce only what the write-back card below allows, and only while it is switched on. Failures alert admins; the app keeps working from the last snapshot. Pricing history is the retired pricing app's export, imported here."
         actions={
           canSync && (
             <div className="flex flex-wrap gap-2">
@@ -207,12 +208,13 @@ function IntegrationsPage() {
         open={confirmFull}
         onOpenChange={setConfirmFull}
         title="Re-read every Salesforce opportunity?"
-        description="Use this after a field mapping changes. It re-reads and rewrites every opportunity, not only the ones changed since the last sync, so it takes a few minutes. It's read-only toward Salesforce."
+        description="Use this after a field mapping changes. It re-reads and rewrites every opportunity, not only the ones changed since the last sync, so it takes a few minutes. The re-sync only reads from Salesforce; it changes nothing there."
         confirmLabel="Run full re-sync"
         busy={sync.isPending}
         onConfirm={() => sync.mutate(true)}
       />
       <ConnectorHealthPanel />
+      <SfWritebackCard />
       {canSync && <PricingHistoryImport />}
       {runs.isError ? (
         <ErrorState error={runs.error} onRetry={() => void runs.refetch()} />

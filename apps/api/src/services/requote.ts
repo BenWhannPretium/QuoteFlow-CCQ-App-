@@ -45,6 +45,7 @@ import { pgCode } from './pg-error';
 import { ServiceProblem } from './problem';
 import { quoteItemSummaries } from './quote-items-view';
 import { allowedFrom } from './requote-links';
+import type { SfWritebackService } from './sfWriteback';
 import { recordAudit, type AuditMeta } from '../plugins/audit';
 
 /**
@@ -70,6 +71,8 @@ export interface RequoteServiceOptions {
    */
   systemTx?: SystemTx;
   log?: FastifyBaseLogger;
+  /** FB-29: queues the reopen of an opportunity QuoteFlow closed (in this transaction; never throws). */
+  sfWriteback?: SfWritebackService;
   now?: () => Date;
 }
 
@@ -252,6 +255,15 @@ export class RequoteService {
             items: (data.items ?? []).length,
             liveOpportunity: live !== null,
           },
+          at: now,
+        });
+        // FB-29: a pending closing write is superseded, and a close QuoteFlow wrote is reopened.
+        await this.opts.sfWriteback?.onRequoteStarted(tx, {
+          quote: { id: q.id, quoteNumber, sfOpportunityId: q.sfOpportunityId },
+          draftId: draft.id,
+          recordedExpired,
+          actor,
+          meta,
           at: now,
         });
         return { draftId: draft.id, recordedExpired };

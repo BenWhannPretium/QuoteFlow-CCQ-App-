@@ -267,6 +267,13 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     description: 'Admins (owners) only: an email could not be sent after every retry.',
     email: 'none',
   },
+  {
+    // FB-29: one notice per Admin per failed outbox row (its dedupe key is the row id).
+    type: 'sf_writeback.failed',
+    label: 'A Salesforce write-back failed',
+    description: 'Admins: QuoteFlow could not update a Salesforce opportunity after every retry.',
+    email: 'none',
+  },
 ];
 
 const BY_TYPE = new Map(NOTIFICATION_EVENTS.map((e) => [e.type, e]));

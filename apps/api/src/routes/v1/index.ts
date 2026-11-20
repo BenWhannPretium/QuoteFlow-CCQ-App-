@@ -24,6 +24,7 @@ import { pipelineRoutes } from './pipeline';
 import { pricingRoutes } from './pricing';
 import { pricingHistoryRoutes } from './pricing-history';
 import { salesforceRoutes } from './salesforce';
+import { sfWritebackRoutes } from './sf-writeback';
 import { timelineRoutes } from './timeline';
 import type { AppDeps } from '../../app';
 import type { IdentityService } from '../../auth/directory';
@@ -49,6 +50,7 @@ import type { PricingService } from '../../services/pricing';
 import type { PricingHistoryService } from '../../services/pricing-history';
 import type { RequoteService } from '../../services/requote';
 import type { SalesforceService } from '../../services/salesforce';
+import type { SfWritebackService } from '../../services/sfWriteback';
 import type { TimelineService } from '../../services/timeline';
 
 export interface V1Options {
@@ -80,6 +82,8 @@ export interface V1Options {
   dashboardService: DashboardService;
   fileStore: FileStore;
   localSigner: LocalLinkSigner;
+  /** FB-29: the Salesforce write-back (Admin → Integrations). */
+  sfWritebackService: SfWritebackService;
 }
 
 /**
@@ -117,6 +121,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
     dashboardService,
     fileStore,
     localSigner,
+    sfWritebackService,
   },
 ) => {
   // Pass only our options: forwarding `opts` would re-apply the parent's `prefix`.
@@ -126,6 +131,7 @@ export const v1Routes: FastifyPluginAsync<V1Options> = async (
   await app.register(configRoutes, { cache: configCache, ...(deps.now ? { now: deps.now } : {}) });
   await app.register(salesforceRoutes, { service: sfService });
   await app.register(adminRoutes, { sfSync });
+  await app.register(sfWritebackRoutes, { service: sfWritebackService });
   await app.register(adminConfigRoutes, { service: adminConfig });
   await app.register(intakeRoutes, { service: intakeService });
   await app.register(gateRoutes, { service: gateService });

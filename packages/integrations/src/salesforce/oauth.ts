@@ -3,7 +3,8 @@ import { SF_TIMEOUT_MS } from './retry';
 /**
  * The Salesforce OAuth token request, shared by both server-to-server logins: the JWT bearer flow
  * (jwt.ts) and the client credentials flow (below). This is the only POST in the connector, and it
- * goes to the OAuth endpoint, not the data API.
+ * goes to the OAuth endpoint, not the data API. (The FB-29 writer's update goes through jsforce in
+ * jsforceWriter.ts, the one file exempt from the write guard.)
  */
 
 /** Which login the External Client App is set up for (`SF_AUTH_FLOW`). */
@@ -60,8 +61,9 @@ export interface ClientCredentialsConfig {
 }
 
 /**
- * OAuth 2.0 client credentials flow. The session runs as the app's "Run As" user (the read-only
- * integration user), which Rachel Dew sets on the External Client App.
+ * OAuth 2.0 client credentials flow. The session runs as the app's "Run As" user, which Rachel Dew sets on
+ * the External Client App: the read-only integration user for the reader, and (FB-29) a separate write
+ * user, on its own External Client App, for the writer. The two are never the same.
  * https://help.salesforce.com/s/articleView?id=xcloud.connected_app_client_credentials_setup.htm
  */
 export function clientCredentialsLogin(

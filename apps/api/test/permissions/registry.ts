@@ -773,4 +773,32 @@ export const ROUTE_REGISTRY: RegisteredRoute[] = [
     permission: 'feedback.triage',
     sampleBody: { status: 'triaged' },
   },
+  // FB-29 Salesforce write-back (Admin → Integrations): reads config.read (Leadership + Admin), changes
+  // config.manage (Admin). The sample switch body fails validation (400) and the row ids and quote number
+  // name nothing (404), so the matrix changes no setting and no row.
+  { method: 'GET', route: '/api/v1/admin/salesforce/writeback', permission: 'config.read' },
+  {
+    method: 'PUT',
+    route: '/api/v1/admin/salesforce/writeback',
+    permission: 'config.manage',
+    sampleBody: {},
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/salesforce/writeback/:id/retry',
+    url: `/api/v1/admin/salesforce/writeback/${SAMPLE_CONFIG_ID}/retry`,
+    permission: 'config.manage',
+  },
+  {
+    method: 'POST',
+    route: '/api/v1/admin/salesforce/writeback/:id/skip',
+    url: `/api/v1/admin/salesforce/writeback/${SAMPLE_CONFIG_ID}/skip`,
+    permission: 'config.manage',
+  },
+  {
+    method: 'GET',
+    route: '/api/v1/admin/salesforce/writeback/preview',
+    url: `/api/v1/admin/salesforce/writeback/preview?quoteNumber=${SAMPLE_QUOTE}`,
+    permission: 'config.read',
+  },
 ];

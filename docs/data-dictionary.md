@@ -13,7 +13,7 @@ Columns marked *Commercial* are stripped server-side for roles without `quote.re
 - **Reference and config (`schema/config.ts`):** [`app_setting`](#app_setting), [`gate_definition`](#gate_definition), [`gate_outcome_definition`](#gate_outcome_definition), [`reason_code`](#reason_code), [`scoring_model`](#scoring_model), [`segregation_rule`](#segregation_rule), [`sf_stage_map`](#sf_stage_map), [`stage_definition`](#stage_definition), [`transition_rule`](#transition_rule), [`value_list`](#value_list)
 - **Core workflow (`schema/workflow.ts`):** [`attachment`](#attachment), [`capacity_evidence`](#capacity_evidence), [`comment`](#comment), [`customer`](#customer), [`eng_cost_line`](#eng_cost_line), [`eng_review`](#eng_review), [`g4_signoff`](#g4_signoff), [`gate_decision`](#gate_decision), [`handoff_record`](#handoff_record), [`model_summary`](#model_summary), [`model_summary_field`](#model_summary_field), [`offer_letter`](#offer_letter), [`offer_letter_item`](#offer_letter_item), [`override`](#override), [`pricing_record`](#pricing_record), [`quote`](#quote), [`quote_draft`](#quote_draft), [`quote_hold`](#quote_hold), [`quote_item`](#quote_item), [`quote_item_drawing`](#quote_item_drawing), [`quote_number_counter`](#quote_number_counter), [`sf_opportunity_snapshot`](#sf_opportunity_snapshot), [`stage_history`](#stage_history), [`terms_exception_request`](#terms_exception_request)
 - **Events and audit (`schema/events.ts`):** [`activity_event`](#activity_event), [`audit_event`](#audit_event), [`audit_event_fabric`](#audit_event_fabric), [`feedback`](#feedback), [`notification`](#notification)
-- **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record)
+- **Integration (`schema/integration.ts`):** [`integration_run`](#integration_run), [`pricing_history_record`](#pricing_history_record), [`sf_writeback_outbox`](#sf_writeback_outbox)
 
 ## Identity and access (`schema/identity.ts`)
 
@@ -1436,3 +1436,38 @@ B-15: read-only history from the retired pricing app (ERF, BPR, SPR), imported b
 **Checks:** `pricing_history_record_kind_check`, `pricing_history_record_status_check`
 
 **Indexes:** `pricing_history_record_kind_request_uq`, `pricing_history_record_number_idx`, `pricing_history_record_customer_idx`, `pricing_history_record_customer_trgm_idx`, `pricing_history_record_description_trgm_idx`
+
+### sf_writeback_outbox
+
+FB-29: writes to Salesforce, queued with the change that causes them and sent by a worker (switched off by default).
+
+**Owner:** CCQ (system)
+
+| Column | Type | Null | Default | References | Meaning | Owner |
+|---|---|---|---|---|---|---|
+| `id` | uuid | no | app-generated |  | Primary key. UUID v7, generated in app code. | CCQ (system) |
+| `created_at` | timestamp with time zone | no | now() |  | When the row was created (UTC). | CCQ (system) |
+| `updated_at` | timestamp with time zone | no | now() |  | When the row was last changed (UTC). | CCQ (system) |
+| `created_by` | uuid | yes |  | app_user.id | User who created the row; null for system jobs and seeds. | CCQ (system) |
+| `quote_id` | uuid | no |  | quote.id | The quote whose change caused the write. | Salesforce write-back (FB-29) |
+| `sf_opportunity_id` | text | no |  |  | The Salesforce Opportunity written to (the quote’s). | Salesforce write-back (FB-29) |
+| `event` | text | no |  |  | outcome_recorded \| requote_started \| stage_changed \| quote_link. | Salesforce write-back (FB-29) |
+| `sf_object` | text | no |  |  | Always Opportunity. | Salesforce write-back (FB-29) |
+| `sf_field` | text | no |  |  | The field API name, from sf_writeback_map (on the writer’s allow-list). | Salesforce write-back (FB-29) |
+| `value` | text | no |  |  | The value to write (a stage name, never a figure). | Salesforce write-back (FB-29) |
+| `payload` | text | no |  |  | The JSON that is (or would be) sent, as text. | Salesforce write-back (FB-29) |
+| `dedupe_key` | text | no |  |  | Quote, event, value and the decision or draft id. Local only: Salesforce’s update has no idempotency key. | Salesforce write-back (FB-29) |
+| `status` | text | no | "pending" |  | pending \| sent \| failed \| skipped \| dry_run (recorded, never sent). | Salesforce write-back (FB-29) |
+| `closing` | boolean | no | false |  | The value closes the opportunity (skipped while another quote still needs it). | Salesforce write-back (FB-29) |
+| `reopens` | boolean | no | false |  | A reopen after a linked re-quote: sent only over a close QuoteFlow wrote. | Salesforce write-back (FB-29) |
+| `attempts` | integer | no | 0 |  | Send attempts so far. | Salesforce write-back (FB-29) |
+| `next_attempt_at` | timestamp with time zone | yes |  |  | When a pending row may be tried next. | Salesforce write-back (FB-29) |
+| `sent_at` | timestamp with time zone | yes |  |  | When Salesforce accepted it (or was found already to hold it). | Salesforce write-back (FB-29) |
+| `failed_at` | timestamp with time zone | yes |  |  | When it failed for good (Admins were told). | Salesforce write-back (FB-29) |
+| `last_error` | text | yes |  |  | The last error: a code and a short message, at most 500 characters, never a token. | Salesforce write-back (FB-29) |
+| `skipped_reason` | text | yes |  |  | Why it was not written (superseded, regression, other_active_quote, …); null otherwise. | Salesforce write-back (FB-29) |
+| `response` | text | yes |  |  | What the worker learned, as JSON text: the stage Salesforce held, confirmed_existing. | Salesforce write-back (FB-29) |
+
+**Checks:** `sf_writeback_outbox_event_check`, `sf_writeback_outbox_object_check`, `sf_writeback_outbox_status_check`, `sf_writeback_outbox_skipped_reason_check`, `sf_writeback_outbox_last_error_check`
+
+**Indexes:** `sf_writeback_outbox_dedupe_key_uq`, `sf_writeback_outbox_due_idx`, `sf_writeback_outbox_opportunity_idx`, `sf_writeback_outbox_quote_idx`, `sf_writeback_outbox_created_idx`

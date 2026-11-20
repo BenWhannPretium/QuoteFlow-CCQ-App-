@@ -5,6 +5,8 @@ import type {
   HandoffRecord,
   SfStageComparison,
   ValidityStatus,
+  QuoteSfWriteback,
+  SfWritebackStatus,
 } from '@ccq/contracts';
 import type { DbOrTx } from '@ccq/db';
 import {
@@ -41,8 +43,10 @@ import {
   type ReceivingRoleOption,
   type SfStageMapEntry,
   type WorkflowConfig,
+  type SfWritebackSkipReason,
 } from '@ccq/domain';
 
+import { SF_WRITEBACK_SETTING_KEYS, latestStageRowForQuote } from './sfWritebackStore';
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 const message = (err: unknown) => (err as DomainError).message ?? String(err);
 
@@ -288,6 +292,8 @@ export async function customerDecisionView(
     state: QuoteState;
     sfStage: string | null | undefined;
     decisions: RawDecisions;
+    /** FB-29: a live Salesforce writer is connected (not the fake, not off). */
+    sfWriterLive?: boolean;
   },
 ): Promise<CustomerDecisionDetail> {
   const { actor, workflow, settings, now, quote: q, state } = input;
@@ -334,6 +340,7 @@ export async function customerDecisionView(
     canAssignClosureOwner: can(actor, 'outcome.assignOwner', state),
     receivingRoles: settings.receivingRoles,
     sfStageByOutcome: settings.sfOutcomeStageNames,
+    sfWriteback: await quoteSfWriteback(db, q.id, input.sfWriterLive === true),
     acceptanceEvidenceOptions: acceptanceEvidenceOptions(workflow),
     cer: {
       toolUrl: settings.cerToolUrl || null,
@@ -352,5 +359,34 @@ export async function customerDecisionView(
       proofRequired: settings.cerProofRequired,
       canUploadProof: canEditHandoff,
     },
+  };
+}
+
+/**
+ * FB-29: whether QuoteFlow updates Salesforce for this quote, and its latest stage write. `on` needs all
+ * three: the switch on, the mode live, and a LIVE writer connected (`SF_WRITE_MODE=live`). With the fake
+ * writer, or no writer (the runbook's "remove the connection" path, mode left at live), nothing reaches
+ * Salesforce, so the KAM keeps the manual reminder; a dry run too.
+ */
+async function quoteSfWriteback(
+  db: DbOrTx,
+  quoteId: string,
+  writerLive: boolean,
+): Promise<QuoteSfWriteback> {
+  const [enabled, mode, latest] = await Promise.all([
+    getSetting(db, SF_WRITEBACK_SETTING_KEYS.enabled),
+    getSetting(db, SF_WRITEBACK_SETTING_KEYS.mode),
+    latestStageRowForQuote(db, quoteId),
+  ]);
+  return {
+    on: writerLive && enabled === true && mode === 'live',
+    latest: latest
+      ? {
+          status: latest.status as SfWritebackStatus,
+          value: latest.value,
+          at: (latest.sentAt ?? latest.updatedAt).toISOString(),
+          skippedReason: (latest.skippedReason as SfWritebackSkipReason | null) ?? null,
+        }
+      : null,
   };
 }

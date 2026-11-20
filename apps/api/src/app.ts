@@ -9,7 +9,9 @@ import {
   createGraphCredential,
   createMailTransport,
   createSalesforceReader,
+  createSalesforceWriter,
   GuardedMailTransport,
+  SF_WRITE_ALLOW_LIST,
   type FabricMirrorReader,
   type FileStore,
   type FileStoreConfig,
@@ -19,6 +21,7 @@ import {
   type MailGuardOptions,
   type MailTransport,
   type SalesforceReader,
+  type SalesforceWriter,
   type SfLogger,
 } from '@ccq/integrations';
 import helmet from '@fastify/helmet';
@@ -45,7 +48,7 @@ import {
 } from './auth/directory';
 import { createEntraVerifier } from './auth/entra';
 import { clientIp } from './clientIp';
-import { appEnvironment, type AppConfig, type AppEnvironment } from './config';
+import { appEnvironment, sfWriteAvailability, type AppConfig, type AppEnvironment } from './config';
 import {
   createFabricMirrorCheckScheduler,
   type FabricMirrorCheckScheduler,
@@ -55,6 +58,7 @@ import {
   type NotificationDispatchScheduler,
 } from './jobs/notificationDispatch';
 import { createSfSyncScheduler, type SfSyncScheduler } from './jobs/sfSync';
+import { createSfWritebackScheduler, type SfWritebackScheduler } from './jobs/sfWriteback';
 import { createValidityExpiryScheduler, type ValidityExpiryScheduler } from './jobs/validityExpiry';
 import { loggerOptions } from './logger';
 import { auditPlugin } from './plugins/audit';
@@ -86,6 +90,7 @@ import { QuoteReadService } from './services/quotes';
 import { RequoteService } from './services/requote';
 import { SalesforceService } from './services/salesforce';
 import { ScoringService } from './services/scoring';
+import { SfWritebackService } from './services/sfWriteback';
 import { TimelineService } from './services/timeline';
 
 export interface AppDeps {
@@ -104,6 +109,11 @@ export interface AppDeps {
   };
   /** Test seam: the Salesforce reader (defaults to SF_MODE: the synthetic fake or jsforce). */
   salesforce?: SalesforceReader;
+  /**
+   * Test seam (FB-29): the Salesforce writer (defaults to SF_WRITE_MODE: none, the fake or jsforce). Pass
+   * `null` for "no write connection".
+   */
+  salesforceWriter?: SalesforceWriter | null;
   /** Test seam: the attachment store (defaults to FILESTORE_MODE: SharePoint, Blob or local). */
   fileStore?: FileStore;
   /** Test seam: replaces the Postgres-backed user directory. */
@@ -134,6 +144,8 @@ declare module 'fastify' {
     notificationDispatch: NotificationDispatchScheduler | null;
     /** B-27: the hourly Fabric mirror health check; null without a database or FABRIC_* ids. server.ts starts it. */
     fabricMirrorCheck: FabricMirrorCheckScheduler | null;
+    /** FB-29: the Salesforce write-back worker; null without a database. server.ts starts it (no writer = idle). */
+    sfWriteback: SfWritebackScheduler | null;
     /** B-19: the admin configuration console (tests await `adminConfig.rescore.flush()`). */
     adminConfig: AdminConfigService;
   }
@@ -391,6 +403,61 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       : null;
   app.decorate('sfSync', sfSync);
 
+  // FB-29 (N19-01): the governed Salesforce write-back. Its own identity (SF_WRITE_*), off by default; the
+  // boot guards (config.ts) refuse a live connection this environment may not use. Writes are queued in
+  // the decision's transaction and sent by the worker, only while the write-back is switched on and live.
+  const sfWriteLog = app.log.child({ component: 'salesforce-writeback' });
+  const sfWriteLogger: SfLogger = {
+    info: (obj, msg) => sfWriteLog.info(obj, msg),
+    warn: (obj, msg) => sfWriteLog.warn(obj, msg),
+    error: (obj, msg) => sfWriteLog.error(obj, msg),
+  };
+  const sfWriter =
+    deps.salesforceWriter !== undefined
+      ? deps.salesforceWriter
+      : createSalesforceWriter(
+          config.SF_WRITE_MODE === 'live'
+            ? {
+                mode: 'live',
+                appEnvironment: appEnvironment(config),
+                loginUrl: config.SF_WRITE_LOGIN_URL!,
+                clientId: config.SF_WRITE_CLIENT_ID!,
+                clientSecret: config.SF_WRITE_CLIENT_SECRET!,
+                apiVersion: config.SF_API_VERSION,
+              }
+            : config.SF_WRITE_MODE === 'fake'
+              ? { mode: 'fake', failFirstPerOpportunity: config.SF_WRITE_FAKE_FAIL_FIRST > 0 }
+              : { mode: 'off' },
+          { logger: sfWriteLogger },
+        );
+  const sfWriteEnv = sfWriteAvailability(config);
+  const sfWritebackService = new SfWritebackService({
+    allowList: SF_WRITE_ALLOW_LIST,
+    writerMode: sfWriter ? sfWriter.mode : 'off',
+    liveBlockedReason: sfWriter ? null : (sfWriteEnv.liveBlockedReason ?? 'No write connection'),
+    appBaseUrl: config.APP_BASE_URL,
+    log: sfWriteLog,
+    ...(deps.db.db
+      ? { systemTx: (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) }
+      : {}),
+    ...(deps.now ? { now: deps.now } : {}),
+  });
+  const sfWriteback =
+    deps.db.db && deps.db.sql
+      ? createSfWritebackScheduler(
+          {
+            database: deps.db.db,
+            sql: deps.db.sql,
+            writer: sfWriter,
+            allowList: SF_WRITE_ALLOW_LIST,
+            logger: sfWriteLogger,
+            ...(deps.now ? { now: deps.now } : {}),
+          },
+          config.SF_WRITE_INTERVAL_SECONDS,
+        )
+      : null;
+  app.decorate('sfWriteback', sfWriteback);
+
   // B-08 advisory scoring, quote reads and the generic gate-decision service.
   const scoring = new ScoringService();
   // FB-26 (N17-30): a linked re-quote's other quote is named even when RLS hides it (number and date
@@ -398,6 +465,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
   const quoteReads = new QuoteReadService(
     scoring,
     deps.db.db ? (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) : undefined,
+    // FB-29: the KAM's reminder says QuoteFlow updates Salesforce only with a live writer connected.
+    () => sfWriter?.mode === 'live',
   );
   const gateLog = app.log.child({ component: 'gates' });
   // B-18: the notifications a decision plans are written in the decision's own transaction (in-app +
@@ -414,6 +483,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     scoring,
     quotes: quoteReads,
     notify: deps.notify ?? notify,
+    sfWriteback: sfWritebackService,
     ...(deps.now ? { now: deps.now } : {}),
   });
 
@@ -543,6 +613,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     gates: gateService,
     readOpportunity: (withTx, id) => sfService.detail(withTx, id),
     log: app.log.child({ component: 'requote' }),
+    sfWriteback: sfWritebackService,
     ...(deps.db.db
       ? { systemTx: (fn) => withSystemContext(deps.db.systemDb ?? deps.db.db!, fn) }
       : {}),
@@ -630,6 +701,8 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
       // B-27: 'off' until D&A's mirror exists and its ids are set.
       fabric: fabricReader ? fabricReader.mode : 'off',
     },
+    // FB-29: the settings console cannot switch the write-back to live where it is not allowed either.
+    settingCheck: (key, value) => sfWritebackService.settingProblem(key, value),
     ...now,
   });
   app.decorate('adminConfig', adminConfig);
@@ -664,6 +737,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     dashboardService: new DashboardService(now),
     fileStore,
     localSigner,
+    sfWritebackService,
   });
 
   if (isProd) {
@@ -678,6 +752,7 @@ export async function buildApp(config: AppConfig, deps: AppDeps): Promise<Fastif
     await validityExpiry?.stop();
     await notificationDispatch?.stop();
     await fabricMirrorCheck?.stop();
+    await sfWriteback?.stop();
     await adminConfig.rescore.flush();
     await app.audit.flush();
     await deps.db.close();

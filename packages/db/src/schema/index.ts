@@ -4,3 +4,4 @@ export * from './config';
 export * from './workflow';
 export * from './events';
 export * from './integration';
+export * from './sfWriteback';
