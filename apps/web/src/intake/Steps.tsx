@@ -58,6 +58,7 @@ import {
   marketLabel,
   neckLabel,
   suggestedDescription,
+  sfSuggestionsForSpec,
   valueLabel,
   type WizardConfig,
 } from './model';
@@ -704,6 +705,16 @@ function NeckFields({ data, update, cfg, evaluation }: StepProps) {
 
 /** F-023: color (Custom reveals a description) and an additives note. */
 function ColorFields({ data, update, cfg, evaluation }: StepProps) {
+  const sf = data.sfPrefill ?? {};
+  // FB-32 (N19-04): "Salesforce says X, Use this", only with the setting on and only for an exact list
+  // entry this resin offers. It fills nothing by itself. Once taken it is an ordinary "from Salesforce" value.
+  const specId = (data as { sfProductSpecId?: string | null }).sfProductSpecId;
+  const sfSpec = specId ? data.sfProductSpecs?.find((p) => p.id === specId) : undefined;
+  const hint = sfSuggestionsForSpec(sfSpec, cfg).find(
+    (s) =>
+      s.quoteflowField === 'colorType' &&
+      colorForResin(listEntry(cfg, 'color_type', s.code), data.resin),
+  );
   return (
     <div className="grid gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -722,6 +733,38 @@ function ColorFields({ data, update, cfg, evaluation }: StepProps) {
             }
             cfg={cfg}
           />
+          {hint && !sf.colorType && data.colorType !== hint.code && (
+            <p
+              className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs"
+              data-testid="sf-color-suggestion"
+            >
+              <span>
+                {hint.sfLabel} in Salesforce says “{hint.sfText}”.
+              </span>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto min-h-0 px-0"
+                onClick={() =>
+                  update({
+                    colorType: hint.code,
+                    colorDescription: null,
+                    sfPrefill: { ...sf, colorType: hint.code },
+                  })
+                }
+              >
+                Use this
+              </Button>
+            </p>
+          )}
+          {sf.colorType && (
+            <SfValueNote
+              testId="sf-color"
+              value={valueLabel(cfg, 'color_type', sf.colorType)}
+              changed={data.colorType !== sf.colorType}
+              onReset={() => update({ colorType: sf.colorType ?? null, colorDescription: null })}
+            />
+          )}
         </Field>
         <Field {...meta(cfg, 'additive')}>
           <Select
@@ -1648,6 +1691,15 @@ function ItemFields({
               update({ label: nullIfBlank(e.target.value) } as Partial<IntakeDraftData>)
             }
           />
+          {/* FB-32 (B1): item 1's name from the product specification, while the KAM has not typed one. */}
+          {sf.label && (
+            <SfValueNote
+              testId="sf-label"
+              value={`“${sf.label}”`}
+              changed={label !== sf.label}
+              onReset={() => update({ label: sf.label ?? null } as Partial<IntakeDraftData>)}
+            />
+          )}
         </Field>
         <MoldFields data={data} update={update} cfg={cfg} evaluation={evaluation} />
       </Section>

@@ -412,6 +412,15 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     'json',
     z_('ship_to_sources', shipToSourcesSchema),
   ),
+  // FB-32 (N19-04; provisional, seeded off): the "Salesforce says X, Use this" hints under questions whose
+  // Salesforce field has no confirmed meaning (the Color field of the product specification).
+  spec(
+    'intake_sf_suggestions_enabled',
+    'intake',
+    'Offer "Salesforce says X, Use this" hints for fields whose meaning Zachary Cairns has not confirmed (off = no hints)',
+    'boolean',
+    z_('intake_sf_suggestions_enabled', z.boolean()),
+  ),
   // FB-09 (F-019, D-016 default, provisional): cap for new edits of the packaging note.
   spec(
     'intake_free_text_max_length',
