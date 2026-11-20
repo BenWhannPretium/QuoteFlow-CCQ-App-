@@ -120,6 +120,11 @@ export const INTAKE_ALLOWED_REQUEST_CLASSES = ['CCQ', 'CONCEPT'];
  */
 export const INTAKE_MIN_SPEC_EXEMPT_CLASSES = ['CONCEPT'];
 
+/** FB-32 (N19-04): the Salesforce "Use this" hints, provisional and OFF. Existing environments get the row from migration 0058. */
+export const INTAKE_SF_SUGGESTIONS_ENABLED = false;
+export const INTAKE_SF_SUGGESTIONS_DESCRIPTION =
+  'FB-32 (N19-04, Sarah Brennan): when on, the intake shows a one-line hint, "Salesforce says X" with a Use this button, under a question whose Salesforce field has no confirmed meaning (today the Color field of the opportunity product specification, under Color). The hint appears only when the Salesforce text equals an entry of the question list exactly (ignoring case and spaces); nothing is filled automatically and nothing is written to Salesforce. Provisional, off, until Zachary Cairns confirms what the field means.';
+
 /**
  * FB-24 (N17-01, D-18): where the ship-to is pre-filled from, in order; the first with a city and a state
  * wins. product_spec = Ship_To_City__c / Ship_To_State__c / Shipping_Country__c on the opportunity's first
@@ -533,6 +538,12 @@ export const APP_SETTINGS: { key: string; value: unknown; description: string }[
     value: SHIP_TO_SOURCES,
     description:
       "FB-24 (N17-01, D-18): where the intake pre-fills the ship-to from, in order; the first source with a city and a state wins and the screen says which. product_spec: the opportunity's first product specification (Ship_To_City__c, Ship_To_State__c, Shipping_Country__c); account: the Account's shipping address. The opportunity's free-text Ship_to_Locations__c is shown to the KAM, never parsed. Provisional until Zachary Cairns confirms which wins.",
+  },
+  // ── FB-32 (N19-04). Provisional; existing environments get it from migration 0058.
+  {
+    key: 'intake_sf_suggestions_enabled',
+    value: INTAKE_SF_SUGGESTIONS_ENABLED,
+    description: INTAKE_SF_SUGGESTIONS_DESCRIPTION,
   },
   {
     key: 'attachment_kinds_by_place',
