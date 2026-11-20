@@ -9,7 +9,7 @@ This is the list to take to Zachary. It covers **every question the intake asks*
 - A **read-only describe** (field labels, types and picklist values only; no record was read) of `Opportunity_Product_Specifications__c`, `Opportunity`, `Product2` and `OpportunityLineItem` on 2026-11-19, through the Salesforce connector available to the build session. `Account` and `Quote` were not described. The describe is metadata: this page holds field API names, labels, types and picklist values, no customer, opportunity, price or person.
 - Where a field is named below, its name is real (read from the org); what it **means** is not confirmed unless the status says so.
 - The map of fields QuoteFlow reads lives in code (`packages/integrations/src/salesforce/fieldMap.ts`); the map of which Salesforce value feeds which question is `packages/domain/src/intake/sf-prefill.ts` (`PREFILL_MAP`). Adding a confirmed field is one entry in each (plus the DTO in `packages/contracts/src/sf-product-spec.ts`).
-- `fieldMap.test.ts` forbids mapping any price, cost, margin, revenue or capital field. Several fields below are of that kind (for example `Capital_Estimate__c`, `Resin_Adjusted_Price__c`, `Project_Capital_Requirement__c`); they are **not candidates** and are not listed.
+- `fieldMap.test.ts` forbids mapping any price, cost, margin, revenue or capital field. The org has several (for example `Capital_Estimate__c`, `Resin_Adjusted_Price__c`, `Project_Capital_Requirement__c`). They are **not candidates**: none is listed in the tables as a source to map. The one place a capital field is named, the tooling-funding row, says so.
 
 ## Status words
 
