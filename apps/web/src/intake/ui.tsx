@@ -1,7 +1,9 @@
 import { AlertTriangleIcon, CheckIcon, CircleAlertIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
 
 import { RequiredLabel } from '@/components/forms';
+import { SectionToggle } from '@/components/SectionToggle';
+import { useCollapsible } from '@/lib/collapse';
 import { cn } from '@/lib/utils';
 
 import { STEPS } from './model';
@@ -155,16 +157,34 @@ export function Section({
   children: ReactNode;
   action?: ReactNode;
 }) {
+  const root = useRef<HTMLElement>(null);
+  const bodyId = useId();
+  // Collapsible like every section a user fills in (lib/collapse); the body stays mounted while hidden.
+  const { collapsed, toggle } = useCollapsible(root);
   return (
-    <section className="bg-card rounded-card shadow-card grid gap-4 border p-4 sm:p-5">
+    <section
+      ref={root}
+      data-collapsed={collapsed}
+      className="bg-card rounded-card shadow-card grid gap-4 border p-4 sm:p-5"
+    >
       {/* UX-018: the title and its action share a row only while both fit. At 320 px "Ship / fill
           destination" beside "Change destination" was a pixel-tight fit (2 px too wide on Linux), which
           scrolled the page sideways; the action now drops under the title. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <h2 className="min-w-0 text-base font-semibold">{title}</h2>
-        {action}
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <h2 className="min-w-0 text-base font-semibold">{title}</h2>
+          {!collapsed && action}
+        </div>
+        <SectionToggle
+          collapsed={collapsed}
+          onToggle={toggle}
+          controls={bodyId}
+          headingRoot={root}
+        />
       </div>
-      {children}
+      <div id={bodyId} hidden={collapsed || undefined} className="grid gap-4">
+        {children}
+      </div>
     </section>
   );
 }
@@ -209,22 +229,23 @@ export function ReadOnlyValue({
 }) {
   return (
     <div className="grid min-w-0 content-start gap-1.5" data-field={id}>
-      <span id={`${id}-label`} className="flex flex-wrap items-center gap-2 text-sm font-medium">
-        {label} <SfTag />
+      <span id={`${id}-label`} className="text-sm font-medium">
+        {label}
       </span>
+      {/* As tall as a control and right under the label, so it lines up with an input beside it. The
+          "from Salesforce" tag sits under it, where a pre-filled control has its note. */}
       <p
         id={id}
         aria-labelledby={`${id}-label`}
         data-testid={testId}
-        className="bg-muted/50 min-h-9 rounded-md px-3 py-2 text-sm break-words"
+        className="bg-muted/50 flex min-h-11 items-center rounded-md px-3 py-2 text-sm break-words sm:min-h-10"
       >
         {value}
       </p>
-      {help && (
-        <p id={`${id}-help`} className="text-muted-foreground text-xs">
-          {help}
-        </p>
-      )}
+      <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+        <SfTag />
+        {help && <span id={`${id}-help`}>{help}</span>}
+      </p>
     </div>
   );
 }

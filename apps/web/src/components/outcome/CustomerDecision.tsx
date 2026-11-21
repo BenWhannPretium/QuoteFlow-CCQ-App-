@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { usePublicConfig } from '@/config/public-config';
 import { api } from '@/lib/api';
+import { revealCollapsed } from '@/lib/collapse';
 import { readSfReminder, writeSfReminder } from '@/lib/sf-reminder';
 import { absoluteTime, calendarDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
@@ -169,7 +170,7 @@ export function CustomerDecisionHeader({ quote }: { quote: QuoteDetail }) {
 export function ClosureCard({ closure }: { closure: CustomerDecisionDetail['closure'] }) {
   if (!closure) return null;
   return (
-    <Card data-testid="closure-card">
+    <Card collapsible data-testid="closure-card">
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">
@@ -298,8 +299,12 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
   useEffect(() => {
     if (!autoFocus) return;
     const t = setTimeout(() => {
-      cerRef.current?.focus();
-      cerRef.current?.scrollIntoView({ block: 'center' });
+      // The hand-off card may be collapsed: open it, then focus once it is shown.
+      revealCollapsed(cerRef.current);
+      requestAnimationFrame(() => {
+        cerRef.current?.focus();
+        cerRef.current?.scrollIntoView({ block: 'center' });
+      });
     }, 50);
     return () => clearTimeout(t);
   }, [autoFocus]);
@@ -363,7 +368,7 @@ function HandoffEditor({ quote, autoFocus }: { quote: QuoteDetail; autoFocus: bo
   const dirty = (Object.keys(form) as (keyof HandoffForm)[]).some((k) => form[k] !== stored[k]);
 
   return (
-    <Card data-testid="handoff-card" id="handoff">
+    <Card collapsible data-testid="handoff-card" id="handoff">
       <CardHeader>
         <CardTitle>
           <h2 className="flex items-center gap-2 text-base font-semibold">

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { BLOCKING_BOX, FlagKey } from '@/components/ui/flag-key';
 import { Textarea } from '@/components/ui/input';
+import { revealCollapsed } from '@/lib/collapse';
 import { absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { SAVE_FIRST_TEXT, useHasUnsavedChanges } from '@/lib/unsaved-changes';
@@ -675,6 +676,7 @@ export function GoToDecision() {
 export function focusDecision(): boolean {
   const target = document.getElementById('decision');
   if (!target) return false;
+  revealCollapsed(target);
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   target.focus({ preventScroll: true });

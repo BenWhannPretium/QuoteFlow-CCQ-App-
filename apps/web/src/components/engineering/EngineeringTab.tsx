@@ -566,7 +566,7 @@ function AssignmentCard({ quote }: { quote: QuoteDetail }) {
   });
 
   return (
-    <Card>
+    <Card collapsible>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Assignment</h2>
@@ -802,7 +802,7 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
         ? `${label}${RETIRED_SUFFIX}`
         : label;
     return (
-      <Card>
+      <Card collapsible>
         <CardHeader>
           <CardTitle>
             <h2 className="text-base font-semibold">Solution</h2>
@@ -849,7 +849,7 @@ function SolutionCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   }
 
   return (
-    <Card>
+    <Card collapsible>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Solution</h2>
@@ -1082,7 +1082,7 @@ function CapacitySignoffCard({ quote }: { quote: QuoteDetail }) {
     onError: (err) => setErrors(problemErrors(err)),
   });
   return (
-    <Card data-testid="capacity-signoff">
+    <Card collapsible data-testid="capacity-signoff">
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Capacity sign-off</h2>
@@ -1433,7 +1433,7 @@ function CapacityCard({ quote, itemId }: { quote: QuoteDetail; itemId?: string |
   const volumeText = (n: number | null) => (n === null ? null : n.toLocaleString('en-US'));
 
   return (
-    <Card>
+    <Card collapsible>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Capacity evidence</h2>

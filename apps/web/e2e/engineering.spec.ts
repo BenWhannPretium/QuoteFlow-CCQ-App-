@@ -205,22 +205,32 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   // FB-18 (W13-30): "Progress saved" beside the button (it read "Saved").
   await expect(inputs.getByTestId('save-progress')).toHaveText('Progress saved');
   await expect(inputs.getByLabel('Preform number')).toHaveValue('PF-2210');
-  // FB-23 (N18-10): the pack-out has its own card. With no method chosen, bag, tray and case still read as
-  // one choice (FB-16, W13-14); bag and case are not filled in together.
+  // FB-23 (N18-10): the pack-out has its own card. With no method chosen, bag, tray and case are one choice
+  // (FB-16, W13-14; Ben 2026-11-20): one count, and changing the choice moves it and clears the others.
   const pack = eng.getByTestId('pack-out-form');
   await expect(pack.getByTestId('pack-out-units')).toContainText(
     'Units per pack (fill in one: bag, tray or case)',
   );
   await pack.getByTestId('pack-out-unitsPerBag').fill('50');
-  await pack.getByTestId('pack-out-unitsPerCase').fill('600');
-  await expect(pack.getByTestId('pack-out-units').getByRole('alert')).toContainText(
-    'Fill in units per bag or units per case, not both',
-  );
-  await expect(pack.getByRole('button', { name: 'Save pack-out' })).toBeDisabled();
+  await pack.getByTestId('pack-out-kind-unitsPerCase').check({ force: true });
+  await expect(pack.getByTestId('pack-out-unitsPerCase')).toHaveValue('50');
+  await expect(pack.getByTestId('pack-out-unitsPerBag')).toHaveCount(0);
+  await pack.getByTestId('pack-out-kind-unitsPerBag').check({ force: true });
   await pack.getByTestId('pack-out-unitsPerBag').fill('');
   await pack.getByTestId('pack-out-unitsPerPallet').fill('14400');
   await pack.getByRole('button', { name: 'Save pack-out' }).click();
   await expect(pack.getByTestId('save-progress')).toHaveText('Progress saved');
+
+  // Ben (2026-11-20): a section can be collapsed on its own, or all of them at once; they start expanded.
+  const packCard = eng.getByTestId('pack-out-card');
+  await packCard.getByRole('button', { name: 'Collapse Pack-out' }).click();
+  await expect(pack).toBeHidden();
+  await packCard.getByRole('button', { name: 'Expand Pack-out' }).click();
+  await expect(pack).toBeVisible();
+  await eng.getByTestId('sections-toggle').click();
+  await expect(pack).toBeHidden();
+  await eng.getByTestId('sections-toggle').click();
+  await expect(pack).toBeVisible();
 
   // FB-30 (N19-28): capacity is worked on its own tab.
   await eng.getByRole('tab', { name: 'Capacity', exact: true }).click();
