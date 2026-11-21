@@ -30,7 +30,8 @@ Owner: Ben Whann (automated evidence), Bailey Schmitt (UAT results).
 
 | Job | Steps |
 |---|---|
-| `verify` (Lint, typecheck, test, build, e2e) | install (frozen lockfile) → lint → typecheck → unit tests → integration tests (Postgres 16 service) → build → migrate + config seed (no synthetic data) → install Chromium → Playwright (every spec: the `smoke`, `shell` and `mobile` projects, axe included); the Playwright report is uploaded when the job fails. 45-minute limit (the job runs 25 to 30 minutes) |
+| `verify` (Lint, typecheck, test, build) | install (frozen lockfile) → lint → typecheck → unit tests → integration tests (Postgres 16 service) → build. 45-minute limit (the job runs 25 to 32 minutes) |
+| `e2e` (Playwright e2e) | runs beside `verify`: install → build → migrate + config seed (no synthetic data, its own Postgres 16 service) → install Chromium → Playwright (every spec: the `smoke`, `shell` and `mobile` projects, axe included); the Playwright report is uploaded when the job fails. 35-minute limit. Split out of `verify` on 2026-11-20: together they took up to 45 minutes and the limit cancelled CI on the PR 127 merge, so Deploy (test) skipped |
 | `audit` (Dependency audit) | `pnpm audit --audit-level=high` (two documented exceptions: GHSA-xcx6-jx8p-x3h5, `04` BR-13; GHSA-fc5q-39xc-vjpf, `04` BR-17) |
 | `secrets` (Secret scan) | `gitleaks git --redact --exit-code 1 .` over the full history |
 
