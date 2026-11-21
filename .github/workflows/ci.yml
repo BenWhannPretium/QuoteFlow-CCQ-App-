@@ -20,11 +20,11 @@ env:
 
 jobs:
   verify:
-    name: Lint, typecheck, test, build, e2e
+    name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    # 45, not 30: the job now takes 25 to 30 minutes (integration tests alone take 12 to 19, Playwright 6 to 8), so
-    # the 30-minute cap cancelled the Playwright step on PR 107 with every test up to then passing. It was raised
-    # from 20 to 30 on FB-13 for the same reason. If the job keeps growing, split e2e into its own job instead.
+    # Playwright runs in its own job (`e2e`, below), in parallel. Together they took up to 45 minutes and hit
+    # this limit on the PR 127 merge to main (2026-11-20) with all 250 e2e tests passed, so CI was cancelled and
+    # Deploy (test) skipped. This job now takes about 25 to 32 minutes (integration tests 22 to 27).
     timeout-minutes: 45
 
     services:
@@ -67,6 +67,44 @@ jobs:
       - name: Integration tests (Postgres 16 service)
         run: pnpm test:integration
 
+      - name: Build
+        run: pnpm build
+
+  # Playwright, beside `verify` rather than after it: its own Postgres, build and seed. About 15 to 20 minutes.
+  e2e:
+    name: Playwright e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ccq
+          POSTGRES_PASSWORD: ccq
+          POSTGRES_DB: ccq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ccq -d ccq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # The API's dist and the web build: Playwright starts `api/dist/server.js`, which serves the SPA.
       - name: Build
         run: pnpm build
 
