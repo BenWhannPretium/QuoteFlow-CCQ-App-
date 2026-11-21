@@ -548,7 +548,7 @@ export function CostLinesCard({
           className="text-muted-foreground hidden text-xs font-medium sm:col-span-3 sm:grid sm:grid-cols-subgrid"
         >
           <span>Cost</span>
-          <span>Leave a line blank if it is not used</span>
+          <span>Leave a line blank if it is not used.</span>
           <span>Amount (USD)</span>
         </div>
         {shown.map((d) => {

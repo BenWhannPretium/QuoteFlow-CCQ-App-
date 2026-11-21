@@ -23,7 +23,10 @@ export function SectionToggle({
   const button = useRef<HTMLButtonElement>(null);
   // The name is set on the element: the heading is the section's own markup, read once it is rendered.
   useLayoutEffect(() => {
-    const heading = headingRoot.current?.querySelector('h1, h2, h3, h4, [data-slot="card-title"]');
+    // From the button itself: on the first render the section's own ref is not attached yet (a child's
+    // layout effect runs first), so `headingRoot` is only the fallback.
+    const root = button.current?.closest('[data-collapsed]') ?? headingRoot.current;
+    const heading = root?.querySelector('h1, h2, h3, h4, [data-slot="card-title"]');
     const name = heading?.textContent?.trim() || 'section';
     button.current?.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${name}`);
   }, [headingRoot, collapsed]);
