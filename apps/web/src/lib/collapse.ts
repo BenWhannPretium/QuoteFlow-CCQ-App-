@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
 
 /**
  * Collapsible sections (Ben, 2026-11-20): every section a user fills in can be collapsed on its own, and
@@ -73,7 +74,9 @@ export function useCollapsible(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const open = () => setCollapsed(false);
+    // Rendered at once (outside React's own render), so the caller's scroll or focus finds the body
+    // shown. From inside a React effect it is applied with the next render instead: defer there.
+    const open = () => flushSync(() => setCollapsed(false));
     el.addEventListener(REVEAL, open);
     return () => el.removeEventListener(REVEAL, open);
   }, [ref]);
@@ -81,16 +84,20 @@ export function useCollapsible(ref: RefObject<HTMLElement | null>) {
 }
 
 /**
- * Opens every collapsed section around `el`, so it can be focused or scrolled to. Returns true when one
- * was opened: the caller then focuses on the next frame, once the section is shown.
+ * Opens every collapsed section around `el`, and any inside it (an anchor that wraps a section), so it
+ * can be focused or scrolled to. Returns true when one was opened.
  */
 export function revealCollapsed(el: Element | null | undefined): boolean {
   let opened = false;
-  let node = el?.closest('[data-collapsed="true"]');
-  while (node) {
+  const open = (node: Element) => {
     node.dispatchEvent(new Event(REVEAL));
     opened = true;
+  };
+  let node = el?.closest('[data-collapsed="true"]');
+  while (node) {
+    open(node);
     node = node.parentElement?.closest('[data-collapsed="true"]');
   }
+  el?.querySelectorAll?.('[data-collapsed="true"]').forEach(open);
   return opened;
 }

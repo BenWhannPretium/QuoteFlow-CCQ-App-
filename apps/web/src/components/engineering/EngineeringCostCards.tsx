@@ -873,11 +873,20 @@ export function PackOutCard({
   );
   const set = (k: PackKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   // Ben (2026-11-20): with no pack method, bag, tray or case is one choice and the count is typed once.
-  // A stored count decides the choice; changing it moves the count and clears the other two.
+  // A typed count decides the choice, and the choice stays when the count is cleared to retype it.
+  // Changing the choice moves the count and clears the other two.
   const unitGroupId = useId();
   const unitOf = (f: PackForm) => PACK_OUT_UNIT_FIELDS.find((u) => f[u].trim() !== '');
-  const [pickedUnit, setPickedUnit] = useState<PackOutUnitField>('unitsPerBag');
-  const unit = unitOf(form) ?? pickedUnit;
+  const [pickedUnit, setPickedUnit] = useState<PackOutUnitField>(
+    () => unitOf(initial) ?? 'unitsPerBag',
+  );
+  const typedUnit = unitOf(form);
+  if (typedUnit && typedUnit !== pickedUnit) setPickedUnit(typedUnit);
+  const unit = typedUnit ?? pickedUnit;
+  // The rule forbids only some pairs (bag with case), so an older review can hold two counts. It shows
+  // every count it holds, as before, so none is hidden or overwritten by the choice.
+  const savedUnits = PACK_OUT_UNIT_FIELDS.filter((u) => initial[u].trim() !== '').length;
+  const oneUnit = savedUnits <= 1;
   const pickUnit = (next: PackOutUnitField) => {
     setPickedUnit(next);
     setForm((f) => {
@@ -1051,43 +1060,49 @@ export function PackOutCard({
               Units per pack (fill in one: bag, tray or case)
               {packOutRule.requireOneOf ? ' (required)' : ''}
             </legend>
-            <div className="field-row grid gap-4 sm:grid-cols-3">
-              <div
-                className="grid content-start gap-1.5"
-                data-slot="field"
-                role="radiogroup"
-                aria-labelledby={`${unitGroupId}-label`}
-                data-testid="pack-out-unit-kind"
-              >
-                <span id={`${unitGroupId}-label`} className="text-sm font-medium">
-                  Packed in
-                </span>
-                <div className="flex min-h-11 flex-wrap items-center gap-2 sm:min-h-10">
-                  {PACK_OUT_UNIT_FIELDS.map((u) => (
-                    <label
-                      key={u}
-                      className="border-line-strong has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-ring rounded-pill flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-sm has-[:focus-visible]:ring-2 sm:min-h-10"
-                    >
-                      <input
-                        type="radio"
-                        name={`${unitGroupId}-kind`}
-                        className="sr-only"
-                        data-testid={`pack-out-kind-${u}`}
-                        checked={unit === u}
-                        onChange={() => pickUnit(u)}
-                      />
-                      {UNIT_WORD[u]}
-                    </label>
-                  ))}
-                </div>
-                <span className="text-muted-foreground text-xs">One only</span>
+            {!oneUnit ? (
+              <div className="field-row grid gap-4 sm:grid-cols-3">
+                {PACK_OUT_UNIT_FIELDS.map((f) => countInput(f, PACK_OUT_LABELS[f]))}
               </div>
-              {countInput(
-                unit,
-                PACK_OUT_LABELS[unit],
-                err(unit) ?? PACK_OUT_UNIT_FIELDS.map((u) => err(u)).find(Boolean),
-              )}
-            </div>
+            ) : (
+              <div className="field-row grid gap-4 sm:grid-cols-3">
+                <div
+                  className="grid content-start gap-1.5"
+                  data-slot="field"
+                  role="radiogroup"
+                  aria-labelledby={`${unitGroupId}-label`}
+                  data-testid="pack-out-unit-kind"
+                >
+                  <span id={`${unitGroupId}-label`} className="text-sm font-medium">
+                    Packed in
+                  </span>
+                  <div className="flex min-h-11 flex-wrap items-center gap-2 sm:min-h-10">
+                    {PACK_OUT_UNIT_FIELDS.map((u) => (
+                      <label
+                        key={u}
+                        className="border-line-strong has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-ring rounded-pill flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-sm has-[:focus-visible]:ring-2 sm:min-h-10"
+                      >
+                        <input
+                          type="radio"
+                          name={`${unitGroupId}-kind`}
+                          className="sr-only"
+                          data-testid={`pack-out-kind-${u}`}
+                          checked={unit === u}
+                          onChange={() => pickUnit(u)}
+                        />
+                        {UNIT_WORD[u]}
+                      </label>
+                    ))}
+                  </div>
+                  <span className="text-muted-foreground text-xs">One only</span>
+                </div>
+                {countInput(
+                  unit,
+                  PACK_OUT_LABELS[unit],
+                  err(unit) ?? PACK_OUT_UNIT_FIELDS.map((u) => err(u)).find(Boolean),
+                )}
+              </div>
+            )}
           </fieldset>
         ) : null}
         <div className="field-row grid gap-4 sm:grid-cols-3">

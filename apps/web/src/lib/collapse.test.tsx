@@ -63,4 +63,15 @@ describe('collapsible sections', () => {
     expect(revealCollapsed({ closest: () => null } as unknown as Element)).toBe(false);
     expect(revealCollapsed(null)).toBe(false);
   });
+
+  it('revealCollapsed also opens a collapsed section inside the target (an anchor around a card)', () => {
+    const opened: string[] = [];
+    const card = { dispatchEvent: () => opened.push('card') };
+    const anchor = {
+      closest: () => null,
+      querySelectorAll: () => [card],
+    } as unknown as Element;
+    expect(revealCollapsed(anchor)).toBe(true);
+    expect(opened).toEqual(['card']);
+  });
 });

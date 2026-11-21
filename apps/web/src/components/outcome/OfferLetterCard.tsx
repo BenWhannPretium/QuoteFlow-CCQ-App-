@@ -45,8 +45,12 @@ export function OfferLetterCard({ quote }: { quote: QuoteDetail }) {
   // My proposals links here (#offer-letter): scroll once the card has its content.
   useEffect(() => {
     if (q.data && window.location.hash === `#${OFFER_LETTER_ANCHOR}`) {
-      revealCollapsed(ref.current);
-      ref.current?.scrollIntoView({ block: 'start' });
+      // From an effect the card opens with the next render: scroll once it has.
+      if (revealCollapsed(ref.current)) {
+        requestAnimationFrame(() => ref.current?.scrollIntoView({ block: 'start' }));
+      } else {
+        ref.current?.scrollIntoView({ block: 'start' });
+      }
     }
   }, [q.data]);
 
