@@ -26,6 +26,7 @@ import { ErrorState } from '@/components/ErrorState';
 import { quoteQueryKey } from '@/components/GateDecisionDialog';
 import { notificationsQueryKey } from '@/components/notifications/useNotifications';
 import { PageHeader } from '@/components/PageHeader';
+import { SectionsToggle } from '@/components/SectionToggle';
 import { Button } from '@/components/ui/button';
 import { FlagKey } from '@/components/ui/flag-key';
 import { publicConfigQueryKey, stageLabel, usePublicConfig } from '@/config/public-config';
@@ -702,6 +703,10 @@ function Wizard({
         onSelect={goTo}
         canSelect={(n) => n !== step && Boolean(data.sfOpportunityId)}
       />
+      {/* Ben (2026-11-20): every section can be collapsed; this sets them all at once. */}
+      <div className="-mt-6 -mb-2 flex justify-end">
+        <SectionsToggle />
+      </div>
       {/* FB-24 (N17-09, intake half): what red and yellow mean, only while one is on screen. */}
       <FlagKey scope={wizardRef} />
 

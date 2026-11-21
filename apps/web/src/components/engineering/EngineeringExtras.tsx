@@ -175,7 +175,7 @@ export function EquipmentBomCard({ quote }: { quote: QuoteDetail }) {
   const eng = quote.engineering;
   const bom = eng.equipmentBom;
   return (
-    <Card data-testid="equipment-bom">
+    <Card collapsible data-testid="equipment-bom">
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Equipment BOM</h2>
@@ -218,7 +218,7 @@ export function LegacyNotes({ review }: { review: EngineeringDetail['review'] })
     return null;
   }
   return (
-    <Card data-testid="legacy-notes">
+    <Card collapsible data-testid="legacy-notes">
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Legacy notes</h2>
@@ -447,7 +447,7 @@ export function PricingInputsCard({
   );
   if (!eng.canEdit) {
     return (
-      <Card data-testid="pricing-inputs">
+      <Card collapsible data-testid="pricing-inputs">
         {title}
         <CardContent>
           <PricingInputsReadOnly review={eng.review} />
@@ -456,7 +456,7 @@ export function PricingInputsCard({
     );
   }
   return (
-    <Card data-testid="pricing-inputs">
+    <Card collapsible data-testid="pricing-inputs">
       {title}
       <CardContent>
         <form
@@ -575,7 +575,7 @@ export function EngineeringInputsCard({ quote }: { quote: QuoteDetail }) {
       ? eng.items.map((i) => ({ id: i.id, name: i.name, review: i.review }))
       : [{ id: 'quote', name: null, review: eng.review }];
   return (
-    <Card data-testid="quoting-from-engineering">
+    <Card collapsible data-testid="quoting-from-engineering">
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">From engineering</h2>

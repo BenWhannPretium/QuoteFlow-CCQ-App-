@@ -195,7 +195,7 @@ function FromEngineering({ quote }: { quote: QuoteDetail }) {
 /** FB-21 Part D: each item's plant, machine, cavitation and budgetary capital (multi-item quotes). */
 function EngineeringPerItem({ quote }: { quote: QuoteDetail }) {
   return (
-    <Card data-testid="quoting-engineering-items">
+    <Card collapsible data-testid="quoting-engineering-items">
       <CardHeader>
         <CardTitle>
           <h3 className="text-base font-semibold">Engineering by item</h3>
@@ -441,7 +441,7 @@ function EngineeringSummary({ quote }: { quote: QuoteDetail }) {
   const g2 = quote.quoting.g2;
   const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   return (
-    <Card>
+    <Card collapsible>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Engineering summary</h2>
@@ -496,7 +496,7 @@ function CapacitySummary({ quote }: { quote: QuoteDetail }) {
   const label = (list: string, code: string | null) => valueListLabel(config, list, code);
   if (eng.capacityEvidence.length === 0 && !eng.capacitySignoff.status) return null;
   return (
-    <Card data-testid="quoting-capacity-group">
+    <Card collapsible data-testid="quoting-capacity-group">
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Capacity</h2>
@@ -618,7 +618,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
 
   if (!quoting.canEdit) {
     return (
-      <Card>
+      <Card collapsible>
         <CardHeader>
           <CardTitle>
             <h2 className="text-base font-semibold">Price approval record</h2>
@@ -636,7 +636,7 @@ function PricingRecordCard({ quote }: { quote: QuoteDetail }) {
   }
 
   return (
-    <Card>
+    <Card collapsible>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Price approval record</h2>
@@ -837,7 +837,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
 
   if (!quoting.canEdit) {
     return (
-      <Card>
+      <Card collapsible>
         <CardHeader>
           <CardTitle>
             <h2 className="text-base font-semibold">Capital readiness</h2>
@@ -871,7 +871,7 @@ function CapitalCard({ quote }: { quote: QuoteDetail }) {
   }
 
   return (
-    <Card>
+    <Card collapsible>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Capital readiness</h2>
@@ -1004,7 +1004,7 @@ function RecordView({ record }: { record: PricingRecordView }) {
 function History({ records }: { records: PricingRecordView[] }) {
   if (records.length === 0) return null;
   return (
-    <Card>
+    <Card collapsible>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">Earlier versions</h2>

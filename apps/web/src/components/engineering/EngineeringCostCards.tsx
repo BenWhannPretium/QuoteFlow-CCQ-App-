@@ -34,7 +34,7 @@ import {
   type PackOutUnitField,
 } from '@ccq/domain';
 import { useMutation } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,6 +44,7 @@ import { api } from '@/lib/api';
 import { useSyncedForm } from '@/lib/synced-form';
 import { toast } from '@/lib/toast';
 import { useReportUnsaved } from '@/lib/unsaved-changes';
+import { cn } from '@/lib/utils';
 
 import {
   Field,
@@ -116,7 +117,7 @@ function CardShell({
   note?: string | undefined;
 }) {
   return (
-    <Card data-testid={testId}>
+    <Card collapsible data-testid={testId}>
       <CardHeader>
         <CardTitle>
           <h2 className="text-base font-semibold">{title}</h2>
@@ -239,104 +240,119 @@ function CostLineInputs({
   disabled?: boolean;
 }) {
   const [lower, setLower] = useState(value.quantity || '1');
+  const amountId = useId();
   const amountError = engInputError('costAmountUsd', value.amount) ?? error;
   const label = def.usual ? def.label : `${def.label} (not usual for this process)`;
+  const extra =
+    def.prefill === 'freight' ? (
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="sm:min-h-10"
+          disabled={disabled}
+          onClick={() =>
+            onChange({
+              ...value,
+              amount: String(freightPrefill(defaults, 'complete')),
+              quantity: '',
+            })
+          }
+        >
+          Complete mold ({usd(defaults.freightCompleteMoldUsd)})
+        </Button>
+        <span className="flex flex-wrap items-center gap-2">
+          <span>or lower blow molds ×</span>
+          <Input
+            aria-label="Number of lower blow molds"
+            type="number"
+            min={1}
+            max={99}
+            step={1}
+            className="w-20"
+            disabled={disabled}
+            value={lower}
+            onChange={(e) => setLower(e.target.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="sm:min-h-10"
+            disabled={disabled}
+            onClick={() => {
+              const n = Math.min(99, Math.max(1, Math.trunc(Number(lower) || 1)));
+              onChange({
+                ...value,
+                amount: String(freightPrefill(defaults, 'lower', n)),
+                quantity: String(n),
+              });
+            }}
+          >
+            Fill in ({usd(defaults.freightLowerBlowMoldUsd)} each)
+          </Button>
+        </span>
+      </div>
+    ) : def.needsDescription ? (
+      <Input
+        aria-label={`${def.label}: what the cost is for`}
+        placeholder="What the cost is for"
+        maxLength={COST_LINE_DESCRIPTION_MAX_LENGTH}
+        disabled={disabled}
+        value={value.description}
+        onChange={(e) => onChange({ ...value, description: e.target.value })}
+      />
+    ) : null;
+  // One table row (the parent's three columns, from `sm` up): the cost's name, its extra controls (the
+  // freight pre-fill, "what the cost is for") and the amount, named "<cost> (USD)".
   return (
     <div
-      className="grid gap-2 sm:grid-cols-[1fr_12rem] sm:items-start"
+      className="grid gap-2 sm:col-span-3 sm:grid-cols-subgrid sm:items-start"
       data-testid={`cost-line-${def.key}`}
     >
-      {/* The name sits on the same line as the amount's label, so the controls under it (freight
-          buttons, "what the cost is for") start level with the amount box. */}
-      <div className="grid content-start gap-1.5">
-        {def.prefill === 'start_up' ? (
-          <label className="flex min-h-11 items-center gap-2 text-sm font-medium sm:min-h-5">
-            <input
-              type="checkbox"
-              className="size-5"
-              data-testid="start-up-tick"
-              disabled={disabled}
-              checked={value.amount.trim() !== ''}
-              onChange={(e) =>
-                onChange({
-                  ...value,
-                  amount: e.target.checked ? String(defaults.startUpAssistanceUsd) : '',
-                })
-              }
-            />
-            {label}
-          </label>
-        ) : (
-          <span className="flex min-h-5 items-center text-sm font-medium">{label}</span>
-        )}
-        {def.prefill === 'freight' && (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="sm:min-h-10"
-              disabled={disabled}
-              onClick={() =>
-                onChange({
-                  ...value,
-                  amount: String(freightPrefill(defaults, 'complete')),
-                  quantity: '',
-                })
-              }
-            >
-              Complete mold ({usd(defaults.freightCompleteMoldUsd)})
-            </Button>
-            <span>or lower blow molds ×</span>
-            <Input
-              aria-label="Number of lower blow molds"
-              type="number"
-              min={1}
-              max={99}
-              step={1}
-              className="w-20"
-              disabled={disabled}
-              value={lower}
-              onChange={(e) => setLower(e.target.value)}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="sm:min-h-10"
-              disabled={disabled}
-              onClick={() => {
-                const n = Math.min(99, Math.max(1, Math.trunc(Number(lower) || 1)));
-                onChange({
-                  ...value,
-                  amount: String(freightPrefill(defaults, 'lower', n)),
-                  quantity: String(n),
-                });
-              }}
-            >
-              Fill in ({usd(defaults.freightLowerBlowMoldUsd)} each)
-            </Button>
-          </div>
-        )}
-        {def.needsDescription && (
-          <Input
-            aria-label={`${def.label}: what the cost is for`}
-            placeholder="What the cost is for"
-            maxLength={COST_LINE_DESCRIPTION_MAX_LENGTH}
+      {def.prefill === 'start_up' ? (
+        <label className="flex min-h-11 items-center gap-2 text-sm font-medium sm:min-h-10">
+          <input
+            type="checkbox"
+            className="size-5"
+            data-testid="start-up-tick"
             disabled={disabled}
-            value={value.description}
-            onChange={(e) => onChange({ ...value, description: e.target.value })}
+            checked={value.amount.trim() !== ''}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                amount: e.target.checked ? String(defaults.startUpAssistanceUsd) : '',
+              })
+            }
           />
-        )}
-      </div>
-      <Field label={`${def.label} (USD)`} error={amountError}>
-        {(id) => (
+          {label}
+        </label>
+      ) : (
+        <label htmlFor={amountId} className="flex items-center text-sm font-medium sm:min-h-10">
+          {label}
+          <span className="sr-only"> (USD)</span>
+        </label>
+      )}
+      <div className={cn('min-w-0', !extra && 'max-sm:hidden')}>{extra}</div>
+      <div className="grid content-start gap-1">
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="text-muted-foreground pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm"
+          >
+            $
+          </span>
           <Input
-            id={id}
+            id={amountId}
             type="number"
             min={0}
             step="0.01"
             inputMode="decimal"
+            className="pl-6"
+            {...(def.prefill === 'start_up' ? { 'aria-label': `${def.label} (USD)` } : {})}
+            aria-describedby={amountError ? `${amountId}-error` : undefined}
+            aria-invalid={amountError ? true : undefined}
             data-testid={`cost-amount-${def.key}`}
             disabled={disabled}
             value={value.amount}
@@ -349,8 +365,13 @@ function CostLineInputs({
               })
             }
           />
+        </div>
+        {amountError && (
+          <span id={`${amountId}-error`} role="alert" className="text-destructive text-xs">
+            {amountError}
+          </span>
         )}
-      </Field>
+      </div>
     </div>
   );
 }
@@ -492,10 +513,44 @@ export function CostLinesCard({
               />
             )}
           </Field>
+          <Field
+            label="Markup on customer-funded tooling (%) — leave blank for none"
+            hint={
+              defaultMarkupPct > 0
+                ? `Blank uses the standard ${defaultMarkupPct} %.`
+                : 'Only when a markup is noted for this quote.'
+            }
+            error={markupError}
+          >
+            {(id) => (
+              <Input
+                id={id}
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                inputMode="decimal"
+                data-testid="tooling-markup"
+                value={form.toolingMarkupPct ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, toolingMarkupPct: e.target.value }))}
+              />
+            )}
+          </Field>
         </div>
       )}
-      <p className="text-muted-foreground text-sm">Leave a line blank if it is not used.</p>
-      <div className="grid gap-3">
+      {/* A compact table: the cost, its extra controls and the amount, one line each. */}
+      <div
+        className="grid gap-x-4 gap-y-3 sm:grid-cols-[fit-content(15rem)_minmax(0,1fr)_10rem] sm:gap-y-2"
+        data-testid={`${card}-lines`}
+      >
+        <div
+          aria-hidden="true"
+          className="text-muted-foreground hidden text-xs font-medium sm:col-span-3 sm:grid sm:grid-cols-subgrid"
+        >
+          <span>Cost</span>
+          <span>Leave a line blank if it is not used.</span>
+          <span>Amount (USD)</span>
+        </div>
         {shown.map((d) => {
           const i = changedLines.findIndex((c) => c.key === d.key);
           return (
@@ -517,35 +572,7 @@ export function CostLinesCard({
           );
         })}
       </div>
-      {tooling && (
-        <>
-          <Field
-            label="Markup on customer-funded tooling (%) — leave blank for none"
-            hint={
-              defaultMarkupPct > 0
-                ? `Blank uses the standard ${defaultMarkupPct} %.`
-                : 'Only when a markup is noted for this quote.'
-            }
-            error={markupError}
-          >
-            {(id) => (
-              <Input
-                id={id}
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                inputMode="decimal"
-                className="sm:w-40"
-                data-testid="tooling-markup"
-                value={form.toolingMarkupPct ?? ''}
-                onChange={(e) => setForm((f) => ({ ...f, toolingMarkupPct: e.target.value }))}
-              />
-            )}
-          </Field>
-          <CostTotalsGrid totals={live} />
-        </>
-      )}
+      {tooling && <CostTotalsGrid totals={live} />}
       <FormErrors
         errors={errors.filter((e) => !e.path.match(/^\/\w+$/) && !e.path.startsWith('/costLines'))}
       />
@@ -787,6 +814,13 @@ const packForm = (r: Review): PackForm =>
     }),
   ) as PackForm;
 
+/** The choice's words in the units-per-pack picker (no pack method chosen). */
+const UNIT_WORD: Record<PackOutUnitField, string> = {
+  unitsPerBag: 'Bag',
+  unitsPerTray: 'Tray',
+  unitsPerCase: 'Case',
+};
+
 /** The container word for a method ("bag", "carton", "tray"), from its value-list meta. */
 const containerWord = (meta: unknown) => {
   const c = (meta as { container?: unknown } | null)?.container;
@@ -838,6 +872,31 @@ export function PackOutCard({
     (r) => setForm(packForm(r)),
   );
   const set = (k: PackKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // Ben (2026-11-20): with no pack method, bag, tray or case is one choice and the count is typed once.
+  // A typed count decides the choice, and the choice stays when the count is cleared to retype it.
+  // Changing the choice moves the count and clears the other two.
+  const unitGroupId = useId();
+  const unitOf = (f: PackForm) => PACK_OUT_UNIT_FIELDS.find((u) => f[u].trim() !== '');
+  const [pickedUnit, setPickedUnit] = useState<PackOutUnitField>(
+    () => unitOf(initial) ?? 'unitsPerBag',
+  );
+  const typedUnit = unitOf(form);
+  if (typedUnit && typedUnit !== pickedUnit) setPickedUnit(typedUnit);
+  const unit = typedUnit ?? pickedUnit;
+  // The rule forbids only some pairs (bag with case), so an older review can hold two counts. It shows
+  // every count it holds, as before, so none is hidden or overwritten by the choice.
+  const savedUnits = PACK_OUT_UNIT_FIELDS.filter((u) => initial[u].trim() !== '').length;
+  const oneUnit = savedUnits <= 1;
+  const pickUnit = (next: PackOutUnitField) => {
+    setPickedUnit(next);
+    setForm((f) => {
+      const typed = f[unitOf(f) ?? pickedUnit];
+      return {
+        ...f,
+        ...Object.fromEntries(PACK_OUT_UNIT_FIELDS.map((u) => [u, u === next ? typed : ''])),
+      };
+    });
+  };
   const method = methods.find((m) => m.code === form.packMethod);
   const countField: PackOutUnitField | null = method ? packMethodCountField(method.meta) : null;
   const labels = packLabels(method ? containerWord(method.meta) : null);
@@ -885,8 +944,8 @@ export function PackOutCard({
     );
   }
 
-  const countInput = (f: PackOutUnitField, label: string) => (
-    <Field key={f} label={label} hint="A whole number" error={err(f)}>
+  const countInput = (f: PackOutUnitField, label: string, error = err(f)) => (
+    <Field key={f} label={label} hint="A whole number" error={error}>
       {(id) => (
         <Input
           id={id}
@@ -1001,9 +1060,49 @@ export function PackOutCard({
               Units per pack (fill in one: bag, tray or case)
               {packOutRule.requireOneOf ? ' (required)' : ''}
             </legend>
-            <div className="field-row grid gap-4 sm:grid-cols-3">
-              {PACK_OUT_UNIT_FIELDS.map((f) => countInput(f, PACK_OUT_LABELS[f]))}
-            </div>
+            {!oneUnit ? (
+              <div className="field-row grid gap-4 sm:grid-cols-3">
+                {PACK_OUT_UNIT_FIELDS.map((f) => countInput(f, PACK_OUT_LABELS[f]))}
+              </div>
+            ) : (
+              <div className="field-row grid gap-4 sm:grid-cols-3">
+                <div
+                  className="grid content-start gap-1.5"
+                  data-slot="field"
+                  role="radiogroup"
+                  aria-labelledby={`${unitGroupId}-label`}
+                  data-testid="pack-out-unit-kind"
+                >
+                  <span id={`${unitGroupId}-label`} className="text-sm font-medium">
+                    Packed in
+                  </span>
+                  <div className="flex min-h-11 flex-wrap items-center gap-2 sm:min-h-10">
+                    {PACK_OUT_UNIT_FIELDS.map((u) => (
+                      <label
+                        key={u}
+                        className="border-line-strong has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-ring rounded-pill flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-sm has-[:focus-visible]:ring-2 sm:min-h-10"
+                      >
+                        <input
+                          type="radio"
+                          name={`${unitGroupId}-kind`}
+                          className="sr-only"
+                          data-testid={`pack-out-kind-${u}`}
+                          checked={unit === u}
+                          onChange={() => pickUnit(u)}
+                        />
+                        {UNIT_WORD[u]}
+                      </label>
+                    ))}
+                  </div>
+                  <span className="text-muted-foreground text-xs">One only</span>
+                </div>
+                {countInput(
+                  unit,
+                  PACK_OUT_LABELS[unit],
+                  err(unit) ?? PACK_OUT_UNIT_FIELDS.map((u) => err(u)).find(Boolean),
+                )}
+              </div>
+            )}
           </fieldset>
         ) : null}
         <div className="field-row grid gap-4 sm:grid-cols-3">

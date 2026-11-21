@@ -61,7 +61,7 @@ export function CommercialPanel({ quote }: { quote: QuoteDetail }) {
   const c = quote.commercial;
   return (
     // `id`: the Final Review screen links here for an open terms / Legal check (FB-01, F-069).
-    <Card id="commercial" data-testid="commercial-panel">
+    <Card collapsible id="commercial" data-testid="commercial-panel">
       <CardHeader>
         <CardTitle>
           <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">

@@ -45,11 +45,13 @@ import {
 } from '@/components/quote/AtAGlance';
 import { QuoteNextStepLine } from '@/components/QuoteNextStepLine';
 import { SalesforceLink } from '@/components/SalesforceLink';
+import { SectionsToggle } from '@/components/SectionToggle';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard';
 import { usePublicConfig } from '@/config/public-config';
 import { api, isApiError, type ApiError } from '@/lib/api';
+import { revealCollapsed } from '@/lib/collapse';
 import { decisionLabel, forwardReadiness } from '@/lib/decision-label';
 import { holdSummary } from '@/lib/hold-text';
 import { blockedDecision } from '@/lib/next-step';
@@ -165,9 +167,11 @@ function useQuoteTab(quote: QuoteDetail | undefined): {
   useEffect(() => {
     const id = hash.replace(/^#/, '');
     if (!id || !anchored || tab !== anchored) return;
-    const frame = requestAnimationFrame(() =>
-      document.getElementById(id)?.scrollIntoView({ block: 'start' }),
-    );
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      revealCollapsed(el); // a collapsed section opens when a link goes to it
+      el?.scrollIntoView({ block: 'start' });
+    });
     return () => cancelAnimationFrame(frame);
   }, [hash, anchored, tab, loaded]);
   return {
@@ -451,6 +455,10 @@ function QuotePage() {
         <span id={workNoteId} hidden>
           Work is waiting for you on this tab.
         </span>
+        {/* Ben (2026-11-20): every section can be collapsed; this sets them all at once. */}
+        <div className="-mt-3 -mb-3 flex justify-end">
+          <SectionsToggle />
+        </div>
         <Tabs.Content value="overview" className="grid gap-6" data-testid="overview">
           {/* FB-20 (F-070): the customer offer letter, made once Final Review approves the quote. */}
           {canReadOfferLetter && <OfferLetterCard quote={q} />}

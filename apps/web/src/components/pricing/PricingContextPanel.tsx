@@ -147,7 +147,7 @@ export function PricingContextPanel({
   const use: UseRef = { onUse: onUseReference, pending: pendingReference, formats: refFormats };
 
   return (
-    <Card data-testid="pricing-context">
+    <Card collapsible data-testid="pricing-context">
       <CardHeader>
         <CardTitle>
           <span className="flex flex-wrap items-center justify-between gap-2">

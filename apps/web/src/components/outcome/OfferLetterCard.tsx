@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { api, isApiError } from '@/lib/api';
+import { revealCollapsed } from '@/lib/collapse';
 import { calendarDate, absoluteTime } from '@/lib/time';
 import { toast } from '@/lib/toast';
 import { openFileLink } from '@/lib/unsaved-changes';
@@ -44,7 +45,12 @@ export function OfferLetterCard({ quote }: { quote: QuoteDetail }) {
   // My proposals links here (#offer-letter): scroll once the card has its content.
   useEffect(() => {
     if (q.data && window.location.hash === `#${OFFER_LETTER_ANCHOR}`) {
-      ref.current?.scrollIntoView({ block: 'start' });
+      // From an effect the card opens with the next render: scroll once it has.
+      if (revealCollapsed(ref.current)) {
+        requestAnimationFrame(() => ref.current?.scrollIntoView({ block: 'start' }));
+      } else {
+        ref.current?.scrollIntoView({ block: 'start' });
+      }
     }
   }, [q.data]);
 
@@ -64,7 +70,7 @@ export function OfferLetterCard({ quote }: { quote: QuoteDetail }) {
       // The page's own scroll padding (index.css) already clears the sticky header.
       className="scroll-mt-1"
     >
-      <Card>
+      <Card collapsible>
         <CardHeader>
           <CardTitle>
             <h2 id="offer-letter-title" className="flex items-center gap-2 text-base font-semibold">

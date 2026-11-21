@@ -41,6 +41,7 @@ import {
 import { ConceptBadge } from '@/components/intake/ConceptBadge';
 import { Button } from '@/components/ui/button';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
+import { revealCollapsed } from '@/lib/collapse';
 import { RETIRED_SUFFIX } from '@/lib/value-label';
 
 import {
@@ -93,7 +94,10 @@ export function focusIntakeField(field: string, tries = 20) {
     el && !el.matches('input, select, textarea, button')
       ? (el.querySelector<HTMLElement>('input, select, textarea, button') ?? el)
       : el;
-  if (target) {
+  if (target && tries > 0 && revealCollapsed(target)) {
+    // Its section was collapsed: focus once it is shown.
+    requestAnimationFrame(() => focusIntakeField(field, tries - 1));
+  } else if (target) {
     target.focus();
     target.scrollIntoView({ block: 'center' });
   } else if (tries > 0) {
@@ -391,7 +395,9 @@ function NumberInput({
 }) {
   // While focused, show exactly what was typed; otherwise the value (so outside changes show).
   const [editing, setEditing] = useState<string | null>(null);
-  const text = editing ?? (value == null ? '' : String(value));
+  // Not focused, a figure reads with separators and at most two decimals (Salesforce sends 29465.408).
+  const text =
+    editing ?? (value == null ? '' : value.toLocaleString('en-US', { maximumFractionDigits: 2 }));
   return (
     <Input
       id={id}
@@ -399,7 +405,7 @@ function NumberInput({
       aria-invalid={invalid || undefined}
       inputMode="numeric"
       value={text}
-      onFocus={() => setEditing(text)}
+      onFocus={() => setEditing(value == null ? '' : String(value))}
       onBlur={() => setEditing(null)}
       onChange={(e) => {
         setEditing(e.target.value);
