@@ -215,8 +215,8 @@ test('EngLead assigns â†’ Engineer completes the review with capacity evidence â
   await pack.getByTestId('pack-out-kind-unitsPerCase').check({ force: true });
   await expect(pack.getByTestId('pack-out-unitsPerCase')).toHaveValue('50');
   await expect(pack.getByTestId('pack-out-unitsPerBag')).toHaveCount(0);
-  await pack.getByTestId('pack-out-kind-unitsPerBag').check({ force: true });
-  await pack.getByTestId('pack-out-unitsPerBag').fill('');
+  // The case count is saved (Quoting shows "Units per case" below).
+  await pack.getByTestId('pack-out-unitsPerCase').fill('600');
   await pack.getByTestId('pack-out-unitsPerPallet').fill('14400');
   await pack.getByRole('button', { name: 'Save pack-out' }).click();
   await expect(pack.getByTestId('save-progress')).toHaveText('Progress saved');
@@ -340,7 +340,12 @@ test('the KAM sees the Engineering tab read-only, capital included', async ({ pa
   await expect(tab).not.toContainText('Hidden (commercial)');
   await expect(tab).toContainText('125,000');
   await expect(tab.getByTestId('solution-form')).toHaveCount(0);
-  await expect(tab.getByRole('button', { name: /Assign|Accept|Decide/ })).toHaveCount(0);
+  // The sections' collapse toggles ("Collapse Assignment") are not actions.
+  await expect(
+    tab
+      .getByRole('button', { name: /Assign|Accept|Decide/ })
+      .and(tab.locator(':not([data-testid="section-toggle"])')),
+  ).toHaveCount(0);
   expect(await seriousViolations(page)).toEqual([]);
 });
 
