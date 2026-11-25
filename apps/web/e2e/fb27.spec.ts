@@ -231,6 +231,12 @@ test('Report an issue: says why Send waits, and Cancel, Esc and closing clear th
   await expect(dialog.getByTestId('feedback-send-reason')).toHaveText(
     'Describe the issue in at least 5 characters.',
   );
+  // Pressing the waiting Send says why, in an alert, and puts the cursor in the box.
+  await dialog.getByTestId('feedback-submit').evaluate((el) => (el as HTMLButtonElement).click());
+  await expect(
+    dialog.getByRole('alert').filter({ hasText: 'at least 5 characters' }),
+  ).toBeVisible();
+  await expect(dialog.getByTestId('feedback-description')).toBeFocused();
   await dialog.getByTestId('feedback-description').fill('abcd');
   await expect(dialog.getByTestId('feedback-send-reason')).toBeVisible();
   await dialog.getByTestId('feedback-description').fill('abcde');
