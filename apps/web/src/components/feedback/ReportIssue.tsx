@@ -10,7 +10,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
 import { CameraIcon, ImageIcon, MessageSquareWarningIcon, XIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useCan } from '@/auth/hooks';
 import { Field, FormErrors, problemErrors, type ServerError } from '@/components/forms';
@@ -32,6 +32,7 @@ import {
   sendDisabledReason,
 } from '@/lib/report-issue';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 
 /** The user menu opens the dialog through this event (the menu closes before a dialog can open). */
 export const REPORT_ISSUE_EVENT = 'ccq:report-issue';
@@ -109,6 +110,9 @@ export function ReportIssueDialog() {
   const [screenshot, setScreenshot] = useState<Screenshot | null>(null);
   const [shotError, setShotError] = useState<string | null>(null);
   const [errors, setErrors] = useState<ServerError[]>([]);
+  // Send was pressed while the description was too short: the reason turns into an error.
+  const [tried, setTried] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const onOpen = () => setOpen(true);
@@ -127,6 +131,7 @@ export function ReportIssueDialog() {
     setDescription(BLANK_REPORT.description);
     setShotError(null);
     setErrors([]);
+    setTried(false);
   };
 
   const submit = useMutation({
@@ -188,7 +193,12 @@ export function ReportIssueDialog() {
           className="grid gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (tooShort) return;
+            // Send stays pressable so a click can say why nothing was sent (aria-disabled, not disabled).
+            if (tooShort) {
+              setTried(true);
+              descriptionRef.current?.focus();
+              return;
+            }
             submit.mutate({
               type,
               severity,
@@ -244,20 +254,22 @@ export function ReportIssueDialog() {
             {(id) => (
               <Textarea
                 id={id}
+                ref={descriptionRef}
                 rows={5}
                 maxLength={4000}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 data-testid="feedback-description"
-                required
+                aria-describedby={tooShort ? 'feedback-send-reason' : undefined}
               />
             )}
           </Field>
           {tooShort && (
             <p
-              className="text-muted-foreground -mt-2 text-xs"
+              className={cn('-mt-2 text-xs', tried ? 'text-destructive' : 'text-muted-foreground')}
               data-testid="feedback-send-reason"
               id="feedback-send-reason"
+              role={tried ? 'alert' : undefined}
             >
               {sendDisabledReason(description)}
             </p>
@@ -328,7 +340,10 @@ export function ReportIssueDialog() {
             <Button
               type="submit"
               variant="action"
-              disabled={submit.isPending || tooShort}
+              disabled={submit.isPending}
+              aria-disabled={tooShort || undefined}
+              aria-describedby={tooShort ? 'feedback-send-reason' : undefined}
+              className={cn(tooShort && 'opacity-50')}
               aria-busy={submit.isPending}
               data-testid="feedback-submit"
             >
