@@ -258,8 +258,13 @@ export function ReportIssueDialog() {
                 rows={5}
                 maxLength={4000}
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  // The red alert follows a Send press only, never later edits.
+                  if (!isDescriptionTooShort(e.target.value)) setTried(false);
+                }}
                 data-testid="feedback-description"
+                aria-required="true"
                 aria-describedby={tooShort ? 'feedback-send-reason' : undefined}
               />
             )}
